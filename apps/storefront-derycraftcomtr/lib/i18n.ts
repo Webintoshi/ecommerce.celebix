@@ -11,7 +11,7 @@ export type LocaleRoutingConfig = {
   showLocaleSwitcher: boolean;
 };
 
-export const DEFAULT_LOCALE: StorefrontLocale = "tr";
+export const DEFAULT_LOCALE: StorefrontLocale = "en";
 export const LOCALE_COOKIE_NAME = "NEXT_LOCALE";
 
 export const LOCALE_LANGUAGE_CODES: Record<StorefrontLocale, string> = {
@@ -99,26 +99,26 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
       };
     default:
       return {
-        siteTitle: `${name} | Premium Magaza Deneyimi`,
+        siteTitle: `${name} | Handmade Leather Wallets, Watch Straps & Accessories`,
         siteDescription:
-          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
-        homeTitle: `${name} | Premium Magaza Deneyimi`,
+          "Discover handcrafted leather wallets, cardholders, Apple Watch bands, watch straps, bags and personalized leather accessories by DeryCraft.",
+        homeTitle: `${name} | Handmade Leather Wallets, Watch Straps & Accessories`,
         homeDescription:
-          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
-        productsTitle: `Tum Urunler | ${name}`,
+          "Discover handcrafted leather wallets, cardholders, Apple Watch bands, watch straps, bags and personalized leather accessories by DeryCraft.",
+        productsTitle: `All Products | ${name}`,
         productsDescription:
-          "Yayindaki urunleri, secili koleksiyonlari ve premium vitrin bloklarini tek bir akista kesfedin.",
-        contactTitle: `Iletisim | ${name}`,
+          "Explore DeryCraft leather wallets, cardholders, watch straps, Apple Watch bands, bags and personalized accessories.",
+        contactTitle: `Contact | ${name}`,
         contactDescription:
-          "Destek, toptan satis ve ozel proje talepleriniz icin bizimle iletisime gecin.",
-        corporateTitle: `Kurumsal Urunler | ${name}`,
+          "Contact DeryCraft for support, custom leather requests, wholesale inquiries and store information.",
+        corporateTitle: `Corporate Products | ${name}`,
         corporateDescription:
-          "Markanizi premium urunler, ozel hediye setleri ve admin yonetimli kurumsal vitrinle guclendirin.",
-        missingProductTitle: `Urun Bulunamadi | ${name}`,
-        missingProductDescription: "Aradiginiz urun bulunamadi.",
-        missingCategoryTitle: `Kategori Bulunamadi | ${name}`,
+          "Discover handcrafted leather gifts, branded accessories and custom corporate product options by DeryCraft.",
+        missingProductTitle: `Product Not Found | ${name}`,
+        missingProductDescription: "The product you are looking for could not be found.",
+        missingCategoryTitle: `Collection Not Found | ${name}`,
         missingCategoryDescription:
-          "Istenen koleksiyon henuz hazir degil. Yayinlanan kategoriler otomatik olarak burada listelenecek.",
+          "This collection is not available yet. Published categories will appear here automatically.",
       };
   }
 }
@@ -126,24 +126,24 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
 const BASE_LOCALE_COPY: Record<StorefrontLocale, Omit<LocaleCopy, keyof ReturnType<typeof getRuntimeCopyDefaults>>> = {
   tr: {
     menuLabel: "Menu",
-    searchLabel: "Ara",
-    cartLabel: "Sepeti ac",
-    categoriesHeading: "Kategoriler",
-    aboutHeading: "Bizi Taniyin",
-    policiesHeading: "Politikalar",
-    footerHome: "Ana Sayfa",
-    footerAbout: "Hakkimizda",
-    footerStores: "Magazalarimiz",
-    footerCorporate: "Kurumsal Urunler",
-    footerContact: "Iletisim",
-    footerDistanceSales: "Mesafeli Satis Sozlesmesi",
-    footerReturns: "Teslimat ve Iade Politikasi",
-    footerPrivacy: "Gizlilik Politikasi",
-    footerKvkk: "KVKK",
-    footerRights: "Tum haklari saklidir.",
-    breadcrumbHome: "Ana Sayfa",
-    breadcrumbProducts: "Urunler",
-    faqHeading: "Sikca sorulan sorular",
+    searchLabel: "Search",
+    cartLabel: "Open cart",
+    categoriesHeading: "Categories",
+    aboutHeading: "Discover Us",
+    policiesHeading: "Policies",
+    footerHome: "Home",
+    footerAbout: "About",
+    footerStores: "Stores",
+    footerCorporate: "Corporate Products",
+    footerContact: "Contact",
+    footerDistanceSales: "Distance Sales Agreement",
+    footerReturns: "Delivery and Returns",
+    footerPrivacy: "Privacy Policy",
+    footerKvkk: "Data Privacy",
+    footerRights: "All rights reserved.",
+    breadcrumbHome: "Home",
+    breadcrumbProducts: "Products",
+    faqHeading: "Frequently asked questions",
   },
   en: {
     menuLabel: "Menu",

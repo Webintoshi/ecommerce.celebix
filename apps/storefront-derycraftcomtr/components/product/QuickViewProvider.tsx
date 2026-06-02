@@ -207,12 +207,12 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
               <div className="absolute top-4 left-4 flex flex-col gap-1.5">
                 {product.new && (
                   <span className="px-2.5 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-md shadow-sm">
-                    Yeni
+                    New
                   </span>
                 )}
                 {hasDiscount && (
                   <span className="px-2.5 py-1 bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-md shadow-sm">
-                    %{Math.round(((originalPrice - (selectedVariant?.price || 0)) / originalPrice) * 100)} İndirim
+                    {Math.round(((originalPrice - (selectedVariant?.price || 0)) / originalPrice) * 100)}% Off
                   </span>
                 )}
               </div>
@@ -247,7 +247,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
                 ))}
               </div>
               <span className="text-sm text-gray-500">
-                ({product.reviewCount || 0} değerlendirme)
+                ({product.reviewCount || 0} reviews)
               </span>
             </div>
             
@@ -260,7 +260,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
             {product.variants && product.variants.length > 1 && (
               <div className="mb-5">
                 <p className="text-sm font-semibold text-gray-900 mb-2">
-                  Seçenek: <span className="font-normal text-gray-600">{selectedVariant?.name}</span>
+                  Option: <span className="font-normal text-gray-600">{selectedVariant?.name}</span>
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {product.variants.map((variant) => (
@@ -283,7 +283,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
 
             {/* Quantity Selector */}
             <div className="mb-5">
-              <p className="text-sm font-semibold text-gray-900 mb-2">Adet</p>
+              <p className="text-sm font-semibold text-gray-900 mb-2">Quantity</p>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -315,7 +315,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
               </div>
               {selectedVariant?.stock !== undefined && selectedVariant.stock < 10 && selectedVariant.stock > 0 && (
                 <p className="text-xs text-amber-600 mt-1">
-                  Sadece {selectedVariant.stock} adet kaldı!
+                  Only {selectedVariant.stock} left!
                 </p>
               )}
             </div>
@@ -333,7 +333,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
                 )}
               >
                 <ShoppingCart className="w-5 h-5" />
-                {isOutOfStock ? "Stok Tükendi" : "Sepete Ekle"}
+                {isOutOfStock ? "Sold Out" : "Add to Cart"}
               </button>
 
               <div className="flex gap-3">
@@ -341,7 +341,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
                   href={`/urunler/${product.slug}`}
                   className="flex-1 py-3 bg-gray-100 text-gray-900 text-center font-semibold rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
                 >
-                  Ürünü İncele
+                  View Product
                   <ChevronRight className="w-4 h-4" />
                 </Link>
                 <button

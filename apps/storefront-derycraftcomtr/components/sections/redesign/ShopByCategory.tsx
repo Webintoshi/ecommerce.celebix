@@ -140,7 +140,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
             id="category-heading" 
             className="text-3xl md:text-5xl font-bold text-[#7B1113] mb-4 tracking-tight"
           >
-            Kategoriye Göz At
+            Browse by Category
           </h2>
           
           {/* Subtitle */}
@@ -256,7 +256,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                     ? 'w-8 bg-[#7B1113]' 
                     : 'w-2 bg-[#7B1113]/30 hover:bg-[#7B1113]/50'
                 }`}
-                aria-label={`Kategori ${idx + 1}'e git`}
+                aria-label={`Go to category ${idx + 1}`}
               />
             ))}
           </div>
@@ -268,7 +268,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
             href="/koleksiyon"
             className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-[#7B1113] font-semibold border border-[#7B1113]/20 shadow-lg hover:shadow-xl hover:bg-[#7B1113] hover:text-white hover:border-[#7B1113] transition-all duration-300 group"
           >
-            Tüm Kategorileri Keşfet
+            Explore All Categories
             <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
           </Link>
         </div>

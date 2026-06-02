@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
             <CheckCircle className="w-8 h-8 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            E-posta Gonderildi
+            Email Sent
           </h2>
           <p className="text-gray-600 mb-2">
             Sifre sifirlama linki e-posta adresinize gonderildi.
@@ -101,7 +101,7 @@ export default function ForgotPasswordPage() {
             </h2>
           </div>
           <p className="text-gray-500 mb-6">
-            E-posta adresinizi girin, sifre sifirlama linki gonderelim.
+            Enter your email address and we will send you a password reset link.
           </p>
 
           {error && (
@@ -114,7 +114,7 @@ export default function ForgotPasswordPage() {
             {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                E-posta Adresi
+                Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

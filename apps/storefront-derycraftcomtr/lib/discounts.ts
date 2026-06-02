@@ -63,7 +63,7 @@ export function duplicateDiscount(id: string): Discount {
 
   const duplicate: DiscountFormData = {
     ...original,
-    name: `${original.name} (Kopya)`,
+    name: `${original.name} (Copy)`,
     code: `${original.code}-COPY`,
     status: "draft",
   };
@@ -83,48 +83,48 @@ export function validateDiscount(discount: Partial<DiscountFormData>): string[] 
   const errors: string[] = [];
 
   if (!discount.name?.trim()) {
-    errors.push("İsim gereklidir");
+    errors.push("Name is required");
   }
 
   if (!discount.code?.trim()) {
-    errors.push("İndirim kodu gereklidir");
+    errors.push("Discount code is required");
   } else {
     const existing = getDiscountByCode(discount.code);
     if (existing && discount.id && existing.id !== discount.id) {
-      errors.push("Bu kod zaten kullanılıyor");
+      errors.push("This code is already in use");
     }
   }
 
   if (!discount.value || discount.value <= 0) {
-    errors.push("İndirim değeri 0'dan büyük olmalıdır");
+    errors.push("Discount value must be greater than 0");
   }
 
   if (discount.type === "percentage" && discount.value && discount.value > 100) {
-    errors.push("Yüzde indirim 100% den fazla olamaz");
+    errors.push("Percentage discount cannot exceed 100%");
   }
 
   if (discount.startDate && discount.endDate && discount.startDate >= discount.endDate) {
-    errors.push("Bitiş tarihi başlangıç tarihinden sonra olmalıdır");
+    errors.push("End date must be after the start date");
   }
 
   if (discount.minValue && discount.minValue < 0) {
-    errors.push("Minimum sipariş tutarı geçersiz");
+    errors.push("Minimum order amount is invalid");
   }
 
   if (discount.maxValue && discount.maxValue < 0) {
-    errors.push("Maksimum indirim tutarı geçersiz");
+    errors.push("Maximum discount amount is invalid");
   }
 
   if (discount.minValue && discount.maxValue && discount.minValue >= discount.maxValue) {
-    errors.push("Minimum değer maksimum değerden küçük olmalıdır");
+    errors.push("Minimum value must be less than the maximum value");
   }
 
   if (discount.visibility === "password" && !discount.password?.trim()) {
-    errors.push("Parola korumalı indirimlerde parola gereklidir");
+    errors.push("Password is required for password-protected discounts");
   }
 
   if ((discount.limitType === "once" || discount.limitType === "once_per_customer") && !discount.usageLimit) {
-    errors.push("Kullanım sınırlı olduğunda kullanım limiti gereklidir");
+    errors.push("Usage limit is required when usage is limited");
   }
 
   return errors;

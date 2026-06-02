@@ -195,12 +195,12 @@ export default function AccountPage() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "pending": return "Beklemede";
-      case "confirmed": return "Onaylandı";
-      case "preparing": return "Hazırlanıyor";
-      case "shipped": return "Kargolandı";
+      case "confirmed": return "Confirmed";
+      case "preparing": return "Preparing";
+      case "shipped": return "Shipped";
       case "delivered": return "Teslim Edildi";
-      case "cancelled": return "İptal";
-      case "refunded": return "İade Edildi";
+      case "cancelled": return "Cancelled";
+      case "refunded": return "Refunded";
       default: return status;
     }
   };
@@ -210,7 +210,7 @@ export default function AccountPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <span className="text-gray-600 font-medium">Yükleniyor...</span>
+          <span className="text-gray-600 font-medium">Loading...</span>
         </div>
       </div>
     );
@@ -264,9 +264,9 @@ export default function AccountPage() {
       {/* Header */}
       <div className="bg-primary text-white py-8">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold">Hesabım</h1>
+          <h1 className="text-3xl font-bold">My Account</h1>
           <p className="text-white/80 mt-2">
-            Hoş geldiniz, {displayName}
+            Welcome, {displayName}
           </p>
         </div>
       </div>
@@ -276,9 +276,9 @@ export default function AccountPage() {
           {/* Tabs */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
             {[
-              { id: "overview", label: "Genel Bakış", icon: Package },
-              { id: "orders", label: "Siparişlerim", icon: ShoppingBag },
-              { id: "addresses", label: "Adreslerim", icon: MapPin },
+              { id: "overview", label: "Overview", icon: Package },
+              { id: "orders", label: "My Orders", icon: ShoppingBag },
+              { id: "addresses", label: "My Addresses", icon: MapPin },
               { id: "profile", label: "Profil", icon: User },
             ].map((tab) => (
               <button
@@ -307,7 +307,7 @@ export default function AccountPage() {
                       <ShoppingBag className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Toplam Sipariş</p>
+                      <p className="text-sm text-gray-500">Total Orders</p>
                       <p className="text-2xl font-bold text-gray-900">{customer?.total_orders || 0}</p>
                     </div>
                   </div>
@@ -318,7 +318,7 @@ export default function AccountPage() {
                       <CreditCard className="w-6 h-6 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Toplam Harcama</p>
+                      <p className="text-sm text-gray-500">Total Spend</p>
                       <p className="text-2xl font-bold text-gray-900">{formatPrice(customer?.total_spent || 0)}</p>
                     </div>
                   </div>
@@ -329,7 +329,7 @@ export default function AccountPage() {
                       <Calendar className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Üyelik Tarihi</p>
+                      <p className="text-sm text-gray-500">Member Since</p>
                       <p className="text-lg font-bold text-gray-900">
                         {new Date(user.created_at).toLocaleDateString("tr-TR")}
                       </p>
@@ -341,12 +341,12 @@ export default function AccountPage() {
               {/* Recent Orders */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">Son Siparişler</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Recent Orders</h2>
                   <button
                     onClick={() => setActiveTab("orders")}
                     className="text-primary font-medium hover:underline flex items-center gap-1"
                   >
-                    Tümünü Gör
+                    View All
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -354,13 +354,13 @@ export default function AccountPage() {
                 {orders.length === 0 ? (
                   <div className="text-center py-12">
                     <ShoppingBag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Henüz siparişiniz yok</h3>
-                    <p className="text-gray-600 mb-4">İlk siparişinizi vererek alışverişe başlayın.</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">You do not have any orders yet</h3>
+                    <p className="text-gray-600 mb-4">Start shopping by placing your first order.</p>
                     <Link
                       href="/urunler"
                       className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#7B1113] transition-colors"
                     >
-                      Alışverişe Başla
+                      Start Shopping
                     </Link>
                   </div>
                 ) : (
@@ -400,8 +400,8 @@ export default function AccountPage() {
                       <Package className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">Ürünlere Göz At</h3>
-                      <p className="text-sm text-gray-600">Yeni ürünleri keşfedin</p>
+                      <h3 className="font-semibold text-gray-900">Browse Products</h3>
+                      <p className="text-sm text-gray-600">Discover new products</p>
                     </div>
                   </div>
                 </Link>
@@ -415,7 +415,7 @@ export default function AccountPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">Favorilerim</h3>
-                      <p className="text-sm text-gray-600">Kaydedilmiş ürünler</p>
+                      <p className="text-sm text-gray-600">Saved products</p>
                     </div>
                   </div>
                 </Link>
@@ -428,8 +428,8 @@ export default function AccountPage() {
                       <MapPin className="h-6 w-6 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">Adreslerim</h3>
-                      <p className="text-sm text-gray-600">Teslimat adresleri</p>
+                      <h3 className="font-semibold text-gray-900">My Addresses</h3>
+                      <p className="text-sm text-gray-600">Delivery addresses</p>
                     </div>
                   </div>
                 </button>
@@ -440,18 +440,18 @@ export default function AccountPage() {
           {/* Orders Tab */}
           {activeTab === "orders" && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Tüm Siparişlerim</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">All Orders</h2>
               
               {orders.length === 0 ? (
                 <div className="text-center py-12">
                   <ShoppingBag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Henüz siparişiniz yok</h3>
-                  <p className="text-gray-600 mb-4">İlk siparişinizi vererek alışverişe başlayın.</p>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">You do not have any orders yet</h3>
+                  <p className="text-gray-600 mb-4">Start shopping by placing your first order.</p>
                   <Link
                     href="/urunler"
                     className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#7B1113] transition-colors"
                   >
-                    Alışverişe Başla
+                    Start Shopping
                   </Link>
                 </div>
               ) : (
@@ -485,7 +485,7 @@ export default function AccountPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-2xl font-bold text-gray-900">{formatPrice(order.total)}</p>
-                          <p className="text-sm text-gray-500">{order.items?.length || 0} ürün</p>
+                          <p className="text-sm text-gray-500">{order.items?.length || 0} items</p>
                         </div>
                       </div>
                     </Link>
@@ -500,8 +500,8 @@ export default function AccountPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Adreslerim</h2>
-                  <p className="text-gray-600">Teslimat adreslerinizi yönetin</p>
+                  <h2 className="text-xl font-bold text-gray-900">My Addresses</h2>
+                  <p className="text-gray-600">Manage your delivery addresses</p>
                 </div>
                 <button
                   onClick={() => {
@@ -521,7 +521,7 @@ export default function AccountPage() {
                   className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-red-800 transition-colors"
                 >
                   <MapPin className="w-4 h-4" />
-                  Yeni Adres
+                  New Address
                 </button>
               </div>
 
@@ -535,16 +535,16 @@ export default function AccountPage() {
                     className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
                   >
                     <h3 className="text-lg font-bold text-gray-900 mb-4">
-                      {editingAddress ? "Adres Düzenle" : "Yeni Adres Ekle"}
+                      {editingAddress ? "Edit Address" : "Add New Address"}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Adres Başlığı</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Address Title</label>
                         <input
                           type="text"
                           value={addressForm.title}
                           onChange={(e) => setAddressForm({ ...addressForm, title: e.target.value })}
-                          placeholder="Örn: Ev, İş"
+                          placeholder="Example: Home, Work"
                           className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
                         />
                       </div>
@@ -569,7 +569,7 @@ export default function AccountPage() {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                         <input
                           type="tel"
                           value={addressForm.phone}
@@ -579,7 +579,7 @@ export default function AccountPage() {
                         />
                       </div>
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Adres</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                         <input
                           type="text"
                           value={addressForm.address}
@@ -589,20 +589,20 @@ export default function AccountPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Şehir</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
                         <select
                           value={addressForm.city}
                           onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
                           className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
                         >
-                          <option value="">Seçiniz</option>
+                          <option value="">Select</option>
                           {["Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir", "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı", "Çorum", "Denizli", "Diyarbakır", "Edirne", "Elazığ", "Erzincan", "Erzurum", "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari", "Hatay", "Isparta", "Mersin", "İstanbul", "İzmir", "Kars", "Kastamonu", "Kayseri", "Kırklareli", "Kırşehir", "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa", "Kahramanmaraş", "Mardin", "Muğla", "Muş", "Nevşehir", "Niğde", "Ordu", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas", "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Şanlıurfa", "Uşak", "Van", "Yozgat", "Zonguldak", "Aksaray", "Bayburt", "Karaman", "Kırıkkale", "Batman", "Şırnak", "Bartın", "Ardahan", "Iğdır", "Yalova", "Karabük", "Kilis", "Osmaniye", "Düzce"].map(city => (
                             <option key={city} value={city}>{city}</option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">İlçe</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">District</label>
                         <input
                           type="text"
                           value={addressForm.district}
@@ -676,7 +676,7 @@ export default function AccountPage() {
                         onClick={() => setShowAddressForm(false)}
                         className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
                       >
-                        İptal
+                        Cancel
                       </button>
                     </div>
                   </motion.div>
@@ -688,8 +688,8 @@ export default function AccountPage() {
                 {addresses.length === 0 ? (
                   <div className="md:col-span-2 text-center py-12 bg-gray-50 rounded-xl">
                     <MapPin className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Kayıtlı adresiniz yok</h3>
-                    <p className="text-gray-600">İlk adresinizi ekleyin</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">You do not have a saved address</h3>
+                    <p className="text-gray-600">Add your first address</p>
                   </div>
                 ) : (
                   addresses.map((address) => (
@@ -699,13 +699,13 @@ export default function AccountPage() {
                     >
                       {address.is_default && (
                         <span className="absolute top-3 right-3 text-xs bg-primary/10 text-primary px-2 py-1 rounded-lg font-semibold">
-                          Varsayılan
+                          Default
                         </span>
                       )}
                       <div className="flex items-start gap-3 mb-3">
                         <MapPin className="w-5 h-5 text-primary mt-1 shrink-0" />
                         <div className="flex-1">
-                          <p className="font-bold text-gray-900">{address.title || "Adres"}</p>
+                          <p className="font-bold text-gray-900">{address.title || "Address"}</p>
                           <p className="text-gray-700">
                             {address.first_name} {address.last_name}
                           </p>
@@ -735,7 +735,7 @@ export default function AccountPage() {
                           className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           <Edit2 className="w-3 h-3" />
-                          Düzenle
+                          Edit
                         </button>
                         {!address.is_default && (
                           <button
@@ -767,7 +767,7 @@ export default function AccountPage() {
                 <div className="flex items-start justify-between mb-6">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900 mb-1">Profil Bilgileri</h2>
-                    <p className="text-gray-600">Kişisel bilgilerinizi yönetin</p>
+                    <p className="text-gray-600">Manage your personal information</p>
                   </div>
                   {!isEditing && (
                     <button
@@ -775,7 +775,7 @@ export default function AccountPage() {
                       className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-[#7B1113] transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
-                      Düzenle
+                      Edit
                     </button>
                   )}
                 </div>
@@ -815,7 +815,7 @@ export default function AccountPage() {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                         <div className="relative">
                           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                           <input
@@ -845,7 +845,7 @@ export default function AccountPage() {
                           className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
                         >
                           <X className="w-4 h-4" />
-                          İptal
+                          Cancel
                         </button>
                       </div>
                     </motion.div>
@@ -867,21 +867,21 @@ export default function AccountPage() {
                       <div className="flex items-center gap-3">
                         <Mail className="h-5 w-5 text-gray-400" />
                         <div>
-                          <p className="text-sm text-gray-600">E-posta</p>
+                          <p className="text-sm text-gray-600">Email</p>
                           <p className="font-semibold text-gray-900">{user.email}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Phone className="h-5 w-5 text-gray-400" />
                         <div>
-                          <p className="text-sm text-gray-600">Telefon</p>
-                          <p className="font-semibold text-gray-900">{customer?.phone || "Belirtilmemiş"}</p>
+                          <p className="text-sm text-gray-600">Phone</p>
+                          <p className="font-semibold text-gray-900">{customer?.phone || "Not specified"}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Calendar className="h-5 w-5 text-gray-400" />
                         <div>
-                          <p className="text-sm text-gray-600">Üyelik Tarihi</p>
+                          <p className="text-sm text-gray-600">Member Since</p>
                           <p className="font-semibold text-gray-900">
                             {new Date(user.created_at).toLocaleDateString("tr-TR")}
                           </p>
@@ -894,20 +894,20 @@ export default function AccountPage() {
 
               {/* Security Card */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Güvenlik</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Security</h2>
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                   <div className="flex items-center gap-3">
                     <Lock className="h-5 w-5 text-gray-400" />
                     <div>
-                      <p className="font-semibold text-gray-900">Şifre</p>
-                      <p className="text-sm text-gray-600">Şifrenizi değiştirmek için tıklayın</p>
+                      <p className="font-semibold text-gray-900">Password</p>
+                      <p className="text-sm text-gray-600">Click to change your password</p>
                     </div>
                   </div>
                   <Link
                     href="/sifremi-unuttum"
                     className="px-4 py-2 bg-white border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    Değiştir
+                    Change
                   </Link>
                 </div>
               </div>
@@ -921,7 +921,7 @@ export default function AccountPage() {
               className="flex items-center gap-2 mx-auto text-red-600 hover:text-red-700 font-bold transition-colors px-6 py-3 bg-red-50 rounded-xl hover:bg-red-100"
             >
               <LogOut className="h-5 w-5" />
-              Çıkış Yap
+              Sign Out
             </button>
           </div>
         </div>

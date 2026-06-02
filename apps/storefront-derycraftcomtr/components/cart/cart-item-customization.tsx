@@ -35,7 +35,7 @@ export function CartItemCustomizationDisplay({
         {editable && onEdit && (
           <Button variant="ghost" size="sm" onClick={onEdit}>
             <Edit className="w-3 h-3 mr-1" />
-            Düzenle
+            Edit
           </Button>
         )}
       </div>
@@ -58,7 +58,7 @@ export function CartItemCustomizationDisplay({
       {/* Custom Text */}
       {custom_text_content && (
         <div className="mt-2 p-2 bg-amber-50 rounded text-sm">
-          <span className="text-gray-500">Kişiselleştirme: </span>
+          <span className="text-gray-500">Personalization: </span>
           <span className="font-medium text-gray-900">&ldquo;{custom_text_content}&rdquo;</span>
         </div>
       )}
@@ -66,7 +66,7 @@ export function CartItemCustomizationDisplay({
       {/* Price Adjustment */}
       {price_breakdown && price_breakdown.total_adjustment > 0 && (
         <div className="mt-2 flex items-center justify-between text-sm">
-          <span className="text-gray-500">Kişiselleştirme:</span>
+          <span className="text-gray-500">Personalization:</span>
           <span className="text-green-600 font-medium">
             +{formatPrice(price_breakdown.total_adjustment)}
           </span>

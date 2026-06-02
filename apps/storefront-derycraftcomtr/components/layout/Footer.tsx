@@ -34,105 +34,37 @@ const LOCALE_SWITCH_OPTIONS: Array<{
   label: string;
   flag: string;
 }> = [
-  { locale: "tr", label: "Türkçe", flag: "🇹🇷" },
-  { locale: "en", label: "English", flag: "🇬🇧" },
-  { locale: "de", label: "Deutsch", flag: "🇩🇪" },
-  { locale: "ru", label: "Русский", flag: "🇷🇺" },
-  { locale: "ar", label: "العربية", flag: "🇸🇦" },
-  { locale: "ka", label: "ქართული", flag: "🇬🇪" },
+  { locale: "tr", label: "Turkish", flag: "TR" },
+  { locale: "en", label: "English", flag: "EN" },
+  { locale: "de", label: "Deutsch", flag: "DE" },
+  { locale: "ru", label: "Russian", flag: "RU" },
+  { locale: "ar", label: "Arabic", flag: "AR" },
+  { locale: "ka", label: "Georgian", flag: "KA" },
 ];
 
+const ENGLISH_FOOTER_COPY: FooterLocaleCopy = {
+  languageLabel: "Language",
+  aboutHeading: "Discover Us",
+  categoriesHeading: "Categories",
+  policiesHeading: "Policies",
+  aboutLinks: [
+    { name: "Home", href: "/" },
+    { name: "About", href: "/hakkimizda" },
+    { name: "Stores", href: "/magazalarimiz" },
+    { name: "Corporate Products", href: "/kurumsal-urunler" },
+    { name: "Contact", href: "/iletisim" },
+  ],
+  rights: "All rights reserved.",
+  partnerLabel: "Digital Growth Partner",
+};
+
 const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
-  tr: {
-    languageLabel: "Dil",
-    aboutHeading: "Bizi Tanıyın",
-    categoriesHeading: "Kategoriler",
-    policiesHeading: "Politikalar",
-    aboutLinks: [
-      { name: "Ana Sayfa", href: "/" },
-      { name: "Hakkımızda", href: "/hakkimizda" },
-      { name: "Mağazalarımız", href: "/magazalarimiz" },
-      { name: "Kurumsal Ürünler", href: "/kurumsal-urunler" },
-      { name: "İletişim", href: "/iletisim" },
-    ],
-    rights: "Tüm hakları saklıdır.",
-    partnerLabel: "Dijital Çözüm Ortağı",
-  },
-  en: {
-    languageLabel: "Language",
-    aboutHeading: "Discover Us",
-    categoriesHeading: "Categories",
-    policiesHeading: "Policies",
-    aboutLinks: [
-      { name: "Home", href: "/" },
-      { name: "About", href: "/hakkimizda" },
-      { name: "Stores", href: "/magazalarimiz" },
-      { name: "Corporate Products", href: "/kurumsal-urunler" },
-      { name: "Contact", href: "/iletisim" },
-    ],
-    rights: "All rights reserved.",
-    partnerLabel: "Digital Growth Partner",
-  },
-  de: {
-    languageLabel: "Sprache",
-    aboutHeading: "Über Uns",
-    categoriesHeading: "Kategorien",
-    policiesHeading: "Richtlinien",
-    aboutLinks: [
-      { name: "Startseite", href: "/" },
-      { name: "Über uns", href: "/hakkimizda" },
-      { name: "Geschäfte", href: "/magazalarimiz" },
-      { name: "Firmenprodukte", href: "/kurumsal-urunler" },
-      { name: "Kontakt", href: "/iletisim" },
-    ],
-    rights: "Alle Rechte vorbehalten.",
-    partnerLabel: "Digitaler Lösungspartner",
-  },
-  ru: {
-    languageLabel: "Язык",
-    aboutHeading: "О Нас",
-    categoriesHeading: "Категории",
-    policiesHeading: "Политики",
-    aboutLinks: [
-      { name: "Главная", href: "/" },
-      { name: "О нас", href: "/hakkimizda" },
-      { name: "Магазины", href: "/magazalarimiz" },
-      { name: "Корпоративные товары", href: "/kurumsal-urunler" },
-      { name: "Контакты", href: "/iletisim" },
-    ],
-    rights: "Все права защищены.",
-    partnerLabel: "Цифровой партнер",
-  },
-  ar: {
-    languageLabel: "اللغة",
-    aboutHeading: "اعرفنا",
-    categoriesHeading: "الفئات",
-    policiesHeading: "السياسات",
-    aboutLinks: [
-      { name: "الرئيسية", href: "/" },
-      { name: "من نحن", href: "/hakkimizda" },
-      { name: "متاجرنا", href: "/magazalarimiz" },
-      { name: "المنتجات المؤسسية", href: "/kurumsal-urunler" },
-      { name: "اتصل بنا", href: "/iletisim" },
-    ],
-    rights: "جميع الحقوق محفوظة.",
-    partnerLabel: "شريك النمو الرقمي",
-  },
-  ka: {
-    languageLabel: "ენა",
-    aboutHeading: "ჩვენ შესახებ",
-    categoriesHeading: "კატეგორიები",
-    policiesHeading: "პოლიტიკები",
-    aboutLinks: [
-      { name: "მთავარი", href: "/" },
-      { name: "ჩვენ შესახებ", href: "/hakkimizda" },
-      { name: "მაღაზიები", href: "/magazalarimiz" },
-      { name: "კორპორატიული პროდუქტები", href: "/kurumsal-urunler" },
-      { name: "კონტაქტი", href: "/iletisim" },
-    ],
-    rights: "ყველა უფლება დაცულია.",
-    partnerLabel: "ციფრული პარტნიორი",
-  },
+  tr: ENGLISH_FOOTER_COPY,
+  en: ENGLISH_FOOTER_COPY,
+  de: ENGLISH_FOOTER_COPY,
+  ru: ENGLISH_FOOTER_COPY,
+  ar: ENGLISH_FOOTER_COPY,
+  ka: ENGLISH_FOOTER_COPY,
 };
 
 export function Footer() {
@@ -151,7 +83,7 @@ export function Footer() {
     routing.availableLocales.includes(option.locale),
   );
   const activeLocaleOption =
-    localeSwitchOptions.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
+    localeSwitchOptions.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[1];
 
   const contactEmail = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
@@ -233,12 +165,7 @@ export function Footer() {
                   />
                 </div>
               ) : (
-                <span
-                  className="text-2xl font-light tracking-wide"
-                  style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive" }}
-                >
-                  {logoAlt}
-                </span>
+                <span className="text-2xl font-light tracking-wide">{logoAlt}</span>
               )}
             </Link>
 
@@ -261,7 +188,7 @@ export function Footer() {
                     aria-haspopup="listbox"
                   >
                     <span className="flex items-center gap-2">
-                      <span className="text-base leading-none">{activeLocaleOption.flag}</span>
+                      <span className="text-xs font-bold leading-none">{activeLocaleOption.flag}</span>
                       <span className="text-base font-medium">{activeLocaleOption.label}</span>
                     </span>
                     <ChevronDown
@@ -288,7 +215,7 @@ export function Footer() {
                               }`}
                             >
                               <span className="flex items-center gap-2">
-                                <span className="text-base leading-none">{option.flag}</span>
+                                <span className="text-xs font-bold leading-none">{option.flag}</span>
                                 <span className="text-sm font-medium">{option.label}</span>
                               </span>
                             </Link>
@@ -324,19 +251,13 @@ export function Footer() {
           </div>
 
           <div>
-            <p
-              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
-              style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
-            >
+            <p className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white">
               {copy.aboutHeading}
             </p>
             <ul className="space-y-3">
               {copy.aboutLinks.map((link) => (
                 <li key={link.href}>
-                  <Link
-                    href={buildPath(link.href)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
-                  >
+                  <Link href={buildPath(link.href)} className="text-sm text-gray-400 transition-colors hover:text-white">
                     {link.name}
                   </Link>
                 </li>
@@ -345,20 +266,14 @@ export function Footer() {
           </div>
 
           <div>
-            <p
-              className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
-              style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
-            >
+            <p className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white">
               {copy.categoriesHeading}
             </p>
             <ul className="space-y-3">
               {categoryLinks.map((link) => (
                 <li key={link.id}>
-                  <Link
-                    href={buildPath(`/${link.slug}`)}
-                    className="text-sm text-gray-400 transition-colors hover:text-white"
-                  >
-                    {link.name.toUpperCase()}
+                  <Link href={buildPath(`/${link.slug}`)} className="text-sm text-gray-400 transition-colors hover:text-white">
+                    {link.name}
                   </Link>
                 </li>
               ))}
@@ -367,19 +282,13 @@ export function Footer() {
 
           {policyLinks.length > 0 ? (
             <div>
-              <p
-                className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white"
-                style={{ color: "#FFFFFF", fontFamily: "var(--store-font-body)" }}
-              >
+              <p className="mb-5 text-sm font-semibold uppercase tracking-wider !text-white">
                 {copy.policiesHeading}
               </p>
               <ul className="space-y-3">
                 {policyLinks.map((link) => (
                   <li key={link.slug}>
-                    <Link
-                      href={buildPath(link.href)}
-                      className="text-sm text-gray-400 transition-colors hover:text-white"
-                    >
+                    <Link href={buildPath(link.href)} className="text-sm text-gray-400 transition-colors hover:text-white">
                       {link.label}
                     </Link>
                   </li>

@@ -52,7 +52,7 @@ export default function RegisterPage() {
 
     // Captcha validation
     if (!isCaptchaVerified) {
-      setCaptchaError("Doğrulama gereklidir");
+      setCaptchaError("Verification is required");
       setLoading(false);
       return;
     }
@@ -279,7 +279,7 @@ export default function RegisterPage() {
             {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                E-posta Adresi
+                Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -297,7 +297,7 @@ export default function RegisterPage() {
             {/* Phone */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Telefon <span className="text-gray-400 font-normal">(Opsiyonel)</span>
+                Phone <span className="text-gray-400 font-normal">(Optional)</span>
               </label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -374,13 +374,13 @@ export default function RegisterPage() {
               />
               <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                 <Link href="/kullanim-kosullari" className="text-primary hover:underline font-medium">
-                  Kullanim Kosullari
+                  Terms of Use
                 </Link>
-                {" "}ve{" "}
+                {" "}and{" "}
                 <Link href="/gizlilik" className="text-primary hover:underline font-medium">
-                  Gizlilik Politikasi
+                  Privacy Policy
                 </Link>
-                {" "}ni okudum ve kabul ediyorum.
+                {" "}I have read and accept them.
               </label>
             </div>
 

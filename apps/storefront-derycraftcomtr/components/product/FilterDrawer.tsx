@@ -48,7 +48,7 @@ export function FilterDrawer({
         <div className="sticky top-0 z-10 bg-[#0F1626] px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <SlidersHorizontal className="w-5 h-5 text-[#8A6B37]" />
-            <h2 className="font-serif text-xl text-white">Filtreler</h2>
+            <h2 className="font-serif text-xl text-white">Filters</h2>
             {activeFilterCount > 0 && (
               <span className="px-2 py-0.5 bg-[#8A6B37] text-white text-xs">
                 {activeFilterCount}
@@ -79,7 +79,7 @@ export function FilterDrawer({
             onClick={onClose}
             className="flex-1 bg-[#8A6B37] hover:bg-[#0F1626] text-white uppercase tracking-wider"
           >
-            Sonuçları Göster
+            Show Results
           </Button>
         </div>
       </div>

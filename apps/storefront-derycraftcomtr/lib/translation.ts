@@ -553,16 +553,16 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
   const settings = await getConfiguredTranslationSettings();
   if (!settings.translateUi || !shouldTranslateLocale(settings, locale)) {
     return {
-      categoriesEyebrow: "Koleksiyonlar",
-      categoriesHeading: "Kategoriler",
-      viewAllLabel: "Tümünü Gör",
-      testimonialsHeading: "Müşteri Yorumları",
-      testimonialsCountLabel: "1581 değerlendirmeden",
+      categoriesEyebrow: "Collections",
+      categoriesHeading: "Categories",
+      viewAllLabel: "View All",
+      testimonialsHeading: "Customer Reviews",
+      testimonialsCountLabel: "from 1,581 reviews",
       productGroups: [
-        { title: "Çok Satanlar", subtitle: "Seçili Koleksiyon" },
-        { title: "Apple Watch Kayışları", subtitle: "Öne Çıkanlar" },
-        { title: "Aksesuarlar", subtitle: "Tamamlayıcılar" },
-        { title: "Deri Saat Kayışları", subtitle: "Klasik Seçim" },
+        { title: "Best Sellers", subtitle: "Selected Collection" },
+        { title: "Apple Watch Bands", subtitle: "Featured Picks" },
+        { title: "Accessories", subtitle: "Finishing Touches" },
+        { title: "Leather Watch Straps", subtitle: "Classic Selection" },
       ],
     };
   }
@@ -575,11 +575,11 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
     testimonialsCountLabel,
   ] = await translateTexts(
     [
-      "Koleksiyonlar",
-      "Kategoriler",
-      "Tümünü Gör",
-      "Müşteri Yorumları",
-      "1581 değerlendirmeden",
+      "Collections",
+      "Categories",
+      "View All",
+      "Customer Reviews",
+      "from 1,581 reviews",
     ],
     {
       locale,
@@ -589,14 +589,14 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
 
   const groupRows = await translateTexts(
     [
-      "Çok Satanlar",
-      "Seçili Koleksiyon",
-      "Apple Watch Kayışları",
-      "Öne Çıkanlar",
-      "Aksesuarlar",
-      "Tamamlayıcılar",
-      "Deri Saat Kayışları",
-      "Klasik Seçim",
+      "Best Sellers",
+      "Selected Collection",
+      "Apple Watch Bands",
+      "Featured Picks",
+      "Accessories",
+      "Finishing Touches",
+      "Leather Watch Straps",
+      "Classic Selection",
     ],
     {
       locale,

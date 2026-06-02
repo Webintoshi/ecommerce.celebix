@@ -13,10 +13,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/iade",
-    title: page?.seoTitle || page?.name || "Teslimat ve İade Politikası",
+    title: page?.seoTitle || page?.name || "Delivery and Returns Policy",
     description:
       page?.seoDescription ||
-      "Teslimat, iade ve değişim süreçlerine dair mağazaya özel politika metni.",
+      "Store-specific policy text about delivery, returns and exchange processes.",
   });
 }
 

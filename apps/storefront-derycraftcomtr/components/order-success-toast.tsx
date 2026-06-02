@@ -10,7 +10,7 @@ export default function OrderSuccessToast() {
 
     useEffect(() => {
         if (searchParams.get("new") === "true") {
-            toast.success("Siparişiniz başarıyla oluşturuldu!");
+            toast.success("Your order has been created successfully.");
         }
     }, [searchParams]);
 

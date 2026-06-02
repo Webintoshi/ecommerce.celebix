@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     if (!productId || !reviewerName || !reviewBody || !Number.isInteger(rating) || rating < 1 || rating > 5) {
       return NextResponse.json(
-        { success: false, error: "productId, reviewerName, body ve 1-5 rating zorunludur" },
+        { success: false, error: "productId, reviewerName, body and a 1-5 rating are required" },
         { status: 400 },
       );
     }
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (productError || !product) {
-      return NextResponse.json({ success: false, error: "Urun bulunamadi" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });
     }
 
     const payload = {

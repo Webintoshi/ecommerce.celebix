@@ -32,23 +32,23 @@ export default function SpinForm({
     const newErrors: Record<string, string> = {};
 
     if (!userName.trim() || userName.trim().length < 2) {
-      newErrors.userName = "Lütfen geçerli bir isim giriniz";
+      newErrors.userName = "Please enter a valid name";
     }
 
     if (requireEmail && (!userEmail || !emailRegex.test(userEmail))) {
-      newErrors.userEmail = "Lütfen geçerli bir email adresi giriniz";
+      newErrors.userEmail = "Please enter a valid email address";
     }
 
     if (requirePhone && (!userPhone || !turkishPhoneRegex.test(userPhone.replace(/\s/g, "")))) {
-      newErrors.userPhone = "Lütfen geçerli bir telefon numarası giriniz";
+      newErrors.userPhone = "Please enter a valid phone number";
     }
 
     if (!requireEmail && !requirePhone && !userEmail && !userPhone) {
-      newErrors.contact = "Email veya telefon numarası gereklidir";
+      newErrors.contact = "Email or phone number is required";
     }
 
     if (!agreed) {
-      newErrors.agreed = "Devam etmek için KVKK koşullarını kabul etmelisiniz";
+      newErrors.agreed = "You must accept the privacy terms to continue";
     }
 
     setErrors(newErrors);
@@ -87,13 +87,13 @@ export default function SpinForm({
     <form onSubmit={handleSubmit} className={cn("space-y-4", className)}>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          İsminiz <span className="text-red-500">*</span>
+          Your Name <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           value={userName}
           onChange={(e) => setUserName(e.target.value)}
-          placeholder="Adınız"
+          placeholder="Your name"
           className={cn(
             "w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all",
             errors.userName ? "border-red-300 bg-red-50" : "border-gray-200 bg-white"
@@ -128,7 +128,7 @@ export default function SpinForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Telefon {requirePhone && <span className="text-red-500">*</span>}
+            Phone {requirePhone && <span className="text-red-500">*</span>}
           </label>
           <input
             type="tel"
@@ -162,8 +162,8 @@ export default function SpinForm({
           disabled={isLoading}
         />
         <label htmlFor="agreed" className="text-sm text-gray-600">
-          Kişisel verilerimin işlenmesini ve tarafıma kampanya iletileri gönderilmesini kabul ediyorum.{" "}
-          <a href="/gizlilik" className="text-orange-500 hover:underline">KVKK Aydınlatma Metni</a>
+          I agree to the processing of my personal data and receiving campaign messages.{" "}
+          <a href="/gizlilik" className="text-orange-500 hover:underline">Privacy Notice</a>
         </label>
       </div>
       {errors.agreed && (
@@ -181,10 +181,10 @@ export default function SpinForm({
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            Hazırlanıyor...
+            Preparing...
           </span>
         ) : (
-          "Şans Çarkını Çevir!"
+          "Spin the Wheel!"
         )}
       </button>
     </form>

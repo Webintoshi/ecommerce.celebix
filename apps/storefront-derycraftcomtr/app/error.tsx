@@ -39,11 +39,10 @@ export default function Error({
           !
         </h1>
         <h2 className="text-2xl sm:text-3xl font-medium text-neutral-900 mb-4 tracking-tight">
-          Bir Hata Oluştu
+          Something went wrong
         </h2>
         <p className="text-base text-neutral-500 mb-10 leading-relaxed max-w-md mx-auto">
-          Üzgünüz, bir şeyler ters gitti. Lütfen sayfayı yenilemeyi deneyin veya
-          ana sayfaya dönün.
+          Sorry, something went wrong. Please refresh the page or return to the homepage.
         </p>
         {process.env.NODE_ENV === "development" && (
           <div className="mb-8 p-4 bg-white border border-neutral-200 rounded-xl text-left">
@@ -65,7 +64,7 @@ export default function Error({
             className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-neutral-900 border border-neutral-200 rounded-xl font-medium hover:bg-neutral-50 transition-colors"
           >
             <Home className="w-4 h-4" />
-            Ana Sayfaya Dön
+            Back to Homepage
           </Link>
         </div>
       </div>

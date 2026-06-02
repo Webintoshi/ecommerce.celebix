@@ -23,7 +23,7 @@ import {
     DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
     normalizeStoreCodeIntegrationsSettings,
     type StoreCodeIntegrationsSettings,
-} from "@celebix/platform-config/src/code-integrations";
+} from "@/lib/code-integrations";
 import {
     normalizeFloatingContactSettings,
     type FloatingContactSettings,

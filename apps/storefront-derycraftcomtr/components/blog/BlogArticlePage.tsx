@@ -50,10 +50,10 @@ export function BlogArticlePage({
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4 lg:px-8">
           <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-medium text-[#5F5147] transition-colors hover:text-[#140D08]">
             <ArrowLeft className="h-4 w-4" />
-            Blog'a don
+            Back to blog
           </Link>
           <Link href="/urunler" className="text-sm font-medium text-[#8A6847] transition-colors hover:text-[#140D08]">
-            Urunleri kesfet
+            Discover products
           </Link>
         </div>
       </div>
@@ -118,26 +118,26 @@ export function BlogArticlePage({
 
           <aside className="space-y-5">
             <div className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_70px_-58px_rgba(24,17,11,0.35)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#8A6847]">Editor Notu</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#8A6847]">Editor's Note</p>
               <p className="mt-4 font-serif text-3xl leading-tight tracking-[-0.04em] text-[#140D08]">{profile.name}</p>
               <p className="mt-4 text-sm leading-7 text-[#5F5147]">{profile.tagline}</p>
               <Link href="/iletisim" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#140D08]">
-                Iletisime gec
+                Contact us
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
             <div className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_70px_-58px_rgba(24,17,11,0.35)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#8A6847]">Sonraki adim</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#8A6847]">Next step</p>
               <p className="mt-4 text-sm leading-7 text-[#5F5147]">
-                Yaziyi bitirdikten sonra ilgili urun grubunu veya iletisim sayfasini acarak ziyaretciyi dogru aksiyona tasiyin.
+                After reading, open the related product group or contact page to continue with the right next step.
               </p>
               <div className="mt-6 flex flex-col gap-3">
                 <Link href="/urunler" className="rounded-full bg-[#140D08] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-[#2A1B13]">
-                  Urunleri incele
+                  Explore products
                 </Link>
                 <Link href="/blog" className="rounded-full border border-black/10 bg-white px-4 py-3 text-center text-sm font-semibold text-[#140D08] transition-colors hover:border-[#140D08]">
-                  Diger yazilari gor
+                  View other articles
                 </Link>
               </div>
             </div>
@@ -147,7 +147,7 @@ export function BlogArticlePage({
         {relatedPosts.length > 0 ? (
           <section className="mx-auto mt-20 max-w-6xl">
             <div className="mb-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#8A6847]">Ilgili yazilar</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#8A6847]">Related articles</p>
               <h2 className="mt-3 font-serif text-4xl tracking-[-0.05em] text-[#140D08]">Okumaya devam et</h2>
             </div>
             <div className="grid gap-6 md:grid-cols-3">

@@ -15,30 +15,28 @@ export default function CartPage() {
     subtotal,
     shipping,
     shippingThreshold,
-    freeShippingRemaining,
     total,
     getTotalItems,
   } = useCart();
-  const SHIPPING_THRESHOLD = shippingThreshold ?? SHIPPING_THRESHOLD_FALLBACK;
+  const shippingThresholdValue = shippingThreshold ?? SHIPPING_THRESHOLD_FALLBACK;
 
   if (items.length === 0) {
     return (
       <div className="min-h-screen">
         <div className="container mx-auto px-4 py-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShoppingBag className="w-12 h-12 text-primary" />
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-primary/10">
+              <ShoppingBag className="h-12 w-12 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold text-primary mb-4">Sepetiniz Boş</h1>
-            <p className="text-muted mb-8">
-              Sepetinizde henüz ürün bulunmamaktadır. Alışverişe devam etmek
-              için ürünlerimize göz atın.
+            <h1 className="mb-4 text-3xl font-bold text-primary">Your cart is empty</h1>
+            <p className="mb-8 text-muted">
+              You do not have any products in your cart yet. Continue shopping to explore DeryCraft collections.
             </p>
             <Link
               href="/urunler"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-all"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-4 font-medium text-primary-foreground transition-all hover:bg-primary/90"
             >
-              Alışverişe Başla
+              Start Shopping
             </Link>
           </div>
         </div>
@@ -48,47 +46,41 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="bg-primary text-primary-foreground py-8">
+      <div className="bg-primary py-8 text-primary-foreground">
         <div className="container mx-auto px-4">
-          <h1 className="text-2xl md:text-3xl font-bold">
-            Sepetim ({getTotalItems()} ürün)
+          <h1 className="text-2xl font-bold md:text-3xl">
+            Cart ({getTotalItems()} items)
           </h1>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
             {items.map((item) => (
               <div
                 key={item.id}
-                className="bg-white rounded-xl p-4 md:p-6 shadow-sm border border-primary/10"
+                className="rounded-xl border border-primary/10 bg-white p-4 shadow-sm md:p-6"
               >
                 <div className="flex gap-4">
-                  <div className="w-20 h-20 md:w-24 md:h-24 bg-primary/5 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-4xl">
+                  <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/5 text-4xl md:h-24 md:w-24">
                     {item.product.images && item.product.images.length > 0 ? (
                       <img
                         src={item.product.images[0]}
                         alt={item.product.name}
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
-                    ) : (
-                      <>
-                        {item.product.category === "fistik-ezmesi" && "🥜"}
-                        {item.product.category === "findik-ezmesi" && "🌰"}
-                        {item.product.category === "kuruyemis" && "🥔"}
-                      </>
-                    )}
+                    ) : null}
                   </div>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <Link
                       href={`/urunler/${item.product.slug}`}
-                      className="font-semibold text-primary hover:underline block mb-2"
+                      className="mb-2 block font-semibold text-primary hover:underline"
                     >
                       {item.product.name}
                     </Link>
-                    <p className="text-sm text-muted mb-2">{item.variant.name}</p>
+                    <p className="mb-2 text-sm text-muted">{item.variant.name}</p>
                     <div className="flex items-baseline gap-2">
                       <span className="text-lg font-bold text-primary">
                         {formatPrice(item.unitPrice)}
@@ -100,39 +92,39 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex flex-col items-end gap-3">
-                    <div className="flex items-center border border-primary/20 rounded-lg">
+                    <div className="flex items-center rounded-lg border border-primary/20">
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-primary/5 transition-colors"
-                        aria-label="Azalt"
+                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-primary/5"
+                        aria-label="Decrease quantity"
                       >
-                        <Minus className="w-4 h-4" />
+                        <Minus className="h-4 w-4" />
                       </button>
                       <span className="w-12 text-center font-medium">
                         {item.quantity}
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-primary/5 transition-colors"
-                        aria-label="Arttır"
+                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-primary/5"
+                        aria-label="Increase quantity"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="h-4 w-4" />
                       </button>
                     </div>
 
                     <button
                       onClick={() => removeFromCart(item.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                      aria-label="Sepetten kaldır"
+                      className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                      aria-label="Remove from cart"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <Trash2 className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-primary/10 flex justify-end">
+                <div className="mt-4 flex justify-end border-t border-primary/10 pt-4">
                   <span className="font-semibold text-primary">
-                    Toplam: {formatPrice(item.unitPrice * item.quantity)}
+                    Item total: {formatPrice(item.unitPrice * item.quantity)}
                   </span>
                 </div>
               </div>
@@ -140,20 +132,20 @@ export default function CartPage() {
           </div>
 
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-primary/10 sticky top-24">
-              <h2 className="text-xl font-bold text-primary mb-6">Sipariş Özeti</h2>
+            <div className="sticky top-24 rounded-xl border border-primary/10 bg-white p-6 shadow-sm">
+              <h2 className="mb-6 text-xl font-bold text-primary">Order Summary</h2>
 
-              <div className="space-y-4 mb-6">
+              <div className="mb-6 space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-muted">Ara Toplam</span>
+                  <span className="text-muted">Subtotal</span>
                   <span className="font-medium">{formatPrice(subtotal)}</span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span className="text-muted">Kargo</span>
+                  <span className="text-muted">Shipping</span>
                   <span className="font-medium">
                     {shipping === 0 ? (
-                      <span className="text-primary">Ücretsiz</span>
+                      <span className="text-primary">Free</span>
                     ) : (
                       formatPrice(shipping)
                     )}
@@ -161,14 +153,13 @@ export default function CartPage() {
                 </div>
 
                 {shipping > 0 && shippingThreshold != null && (
-                  <div className="text-xs text-muted bg-primary/5 p-3 rounded-lg">
-                    {formatPrice(SHIPPING_THRESHOLD - subtotal)} daha alırsanız
-                    kargo ücretsiz!
+                  <div className="rounded-lg bg-primary/5 p-3 text-xs text-muted">
+                    Add {formatPrice(shippingThresholdValue - subtotal)} more to unlock free shipping.
                   </div>
                 )}
 
-                <div className="flex justify-between text-lg font-bold pt-4 border-t border-primary/10">
-                  <span>Toplam</span>
+                <div className="flex justify-between border-t border-primary/10 pt-4 text-lg font-bold">
+                  <span>Total</span>
                   <span className="text-primary">{formatPrice(total)}</span>
                 </div>
               </div>
@@ -176,15 +167,15 @@ export default function CartPage() {
               <div className="space-y-3">
                 <Link
                   href="/odeme"
-                  className="block w-full text-center px-6 py-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all"
+                  className="block w-full rounded-lg bg-primary px-6 py-4 text-center font-medium text-primary-foreground transition-all hover:bg-primary/90"
                 >
-                  Siparişi Tamamla
+                  Complete Order
                 </Link>
                 <Link
                   href="/urunler"
-                  className="block w-full text-center px-6 py-4 border border-primary/20 rounded-lg font-medium hover:bg-primary/5 transition-all"
+                  className="block w-full rounded-lg border border-primary/20 px-6 py-4 text-center font-medium transition-all hover:bg-primary/5"
                 >
-                  Alışverişe Devam Et
+                  Continue Shopping
                 </Link>
               </div>
             </div>

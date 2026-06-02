@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "Geçersiz kupon verisi." },
+        { success: false, error: "Invalid coupon data." },
         { status: 422 }
       );
     }
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     if (!coupon) {
       return NextResponse.json(
-        { success: false, error: "Kupon kodu geçersiz veya kullanım dışı." },
+        { success: false, error: "Coupon code is invalid or inactive." },
         { status: 404 }
       );
     }
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Bu kupon için minimum sipariş tutarı ${Number(coupon.min_order || 0)} TL.`,
+          error: `The minimum order amount for this coupon is ${Number(coupon.min_order || 0)} TL.`,
         },
         { status: 422 }
       );
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const discountAmount = applyCoupon(coupon, subtotal);
     if (discountAmount <= 0) {
       return NextResponse.json(
-        { success: false, error: "Kupon bu sepet için uygulanamadı." },
+        { success: false, error: "This coupon could not be applied to this cart." },
         { status: 422 }
       );
     }
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Kupon doğrulama başarısız.",
+        error: error instanceof Error ? error.message : "Coupon validation failed.",
       },
       { status: 500 }
     );

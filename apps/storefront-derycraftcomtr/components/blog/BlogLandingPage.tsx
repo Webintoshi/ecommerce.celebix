@@ -82,13 +82,13 @@ export function BlogLandingPage({
   const supportingPosts = posts.slice(1, 4);
   const archivePosts = posts.slice(4);
 
-  const eyebrow = activeCategory ? `${activeCategory.name} arsivi` : `${profile.name} Journal`;
+  const eyebrow = activeCategory ? `${activeCategory.name} archive` : `${profile.name} Journal`;
   const title = activeCategory
-    ? `${activeCategory.name} yazilari`
-    : "Marka notlari, urun rehberleri ve editor yazilari";
+    ? `${activeCategory.name} articles`
+    : "Brand notes, product guides and editorial stories";
   const description = activeCategory
     ? activeCategory.description
-    : `${profile.name} tarafinda yayinlanan blog yazilari, koleksiyon hikayeleri ve karar surecini kolaylastiran editor notlari burada toplanir.`;
+    : `Blog articles, collection stories and editorial notes published by ${profile.name} are collected here.`;
 
   return (
     <div className="min-h-screen bg-[#F6F1EB] text-[#1A120D]">
@@ -109,15 +109,15 @@ export function BlogLandingPage({
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-[24px] border border-black/5 bg-white/80 px-5 py-4 shadow-[0_24px_60px_-48px_rgba(24,17,11,0.45)] backdrop-blur">
-              <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Yazi Sayisi</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Articles</p>
               <p className="mt-3 font-serif text-4xl text-[#140D08]">{posts.length}</p>
             </div>
             <div className="rounded-[24px] border border-black/5 bg-white/80 px-5 py-4 shadow-[0_24px_60px_-48px_rgba(24,17,11,0.45)] backdrop-blur">
-              <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Kategori</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Categories</p>
               <p className="mt-3 font-serif text-4xl text-[#140D08]">{categorySummaries.length}</p>
             </div>
             <div className="rounded-[24px] border border-black/5 bg-white/80 px-5 py-4 shadow-[0_24px_60px_-48px_rgba(24,17,11,0.45)] backdrop-blur">
-              <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Odak</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-[#8A6847]">Focus</p>
               <p className="mt-3 text-sm leading-7 text-[#5F5147]">{profile.tagline}</p>
             </div>
           </div>
@@ -134,7 +134,7 @@ export function BlogLandingPage({
                 : "border-black/10 bg-white text-[#5F5147] hover:border-[#140D08] hover:text-[#140D08]"
             }`}
           >
-            Tum yazilar
+            All articles
           </Link>
           {categorySummaries.map((category) => (
             <Link
@@ -159,17 +159,17 @@ export function BlogLandingPage({
               <Sparkles className="h-7 w-7" />
             </div>
             <h2 className="mt-6 font-serif text-4xl tracking-[-0.04em] text-[#140D08]">
-              Henuz yayinlanmis yazi yok
+              No published articles yet
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#5F5147]">
-              Blog yazilari admin panelinde yayinlandiginda bu alan otomatik dolar. Ilk yazi yayinlandiginda kategori ve editorial akisi da beraber gelir.
+              This area is populated automatically when blog posts are published in the admin panel. Categories and the editorial flow appear with the first published post.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link href="/urunler" className="rounded-full bg-[#140D08] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2A1B13]">
-                Urunleri incele
+                Browse products
               </Link>
               <Link href="/iletisim" className="rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-[#140D08] transition-colors hover:border-[#140D08]">
-                Iletisime gec
+                Contact us
               </Link>
             </div>
           </div>
@@ -209,7 +209,7 @@ export function BlogLandingPage({
                             <p className="mt-2 text-sm font-semibold text-[#140D08]">{featuredPost.author.name}</p>
                           </div>
                           <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#140D08]">
-                            Yaziyi ac
+                            Read article
                             <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                           </span>
                         </div>

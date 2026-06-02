@@ -69,7 +69,7 @@ async function fetchAssignedSchema(productId: string) {
   const payload = await response.json();
 
   if (!response.ok || !payload?.success) {
-    throw new Error(payload?.error || "Ekstra şeması yüklenemedi");
+    throw new Error(payload?.error || "Personalization options could not be loaded");
   }
 
   return (payload.schema as ResolvedCustomizationSchema | null) || null;
@@ -234,7 +234,7 @@ export function ProductDetailClient({
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-[#F8F8F8]">
         <div className="text-center">
-          <p className="text-neutral-500">Ürün bilgisi yüklenemedi.</p>
+          <p className="text-neutral-500">Product information could not be loaded.</p>
         </div>
       </div>
     );
@@ -289,11 +289,11 @@ export function ProductDetailClient({
   };
 
   const getStockStatus = () => {
-    if (isOutOfStock) return { text: "Tükendi", color: "text-neutral-400" };
+    if (isOutOfStock) return { text: "Sold Out", color: "text-neutral-400" };
     if (variant.stock <= 5) {
-      return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
+      return { text: `Only ${variant.stock} left`, color: "text-amber-600" };
     }
-    return { text: "Stokta var", color: "text-neutral-500" };
+    return { text: "In Stock", color: "text-neutral-500" };
   };
 
   const stockStatus = getStockStatus();
@@ -316,21 +316,21 @@ export function ProductDetailClient({
               className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
+              <span className="hidden sm:inline">Back to All Products</span>
             </Link>
             <div className="ml-auto flex items-center gap-2 text-neutral-400">
               <Link
                   href={buildPath("/")}
                 className="transition-colors hover:text-neutral-600"
               >
-                Ana Sayfa
+                Home
               </Link>
               <ChevronRight className="w-4 h-4" />
               <Link
                   href={buildPath("/urunler")}
                 className="transition-colors hover:text-neutral-600"
               >
-                Ürünler
+                Products
               </Link>
               <ChevronRight className="w-4 h-4" />
               <span className="max-w-[150px] truncate font-medium text-neutral-900">
@@ -360,7 +360,7 @@ export function ProductDetailClient({
                 <span className="h-px w-8 bg-neutral-300" />
                 {product.featured && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
-                    Öne Çıkan
+                    Featured
                   </span>
                 )}
               </div>
@@ -383,7 +383,7 @@ export function ProductDetailClient({
                   ))}
                 </div>
                 <span className="text-sm text-neutral-500">
-                  ({product.reviewCount || 0} değerlendirme)
+                  ({product.reviewCount || 0} reviews)
                 </span>
               </div>
 
@@ -401,12 +401,12 @@ export function ProductDetailClient({
               <div className="flex flex-wrap gap-2">
                 {discountPercent > 0 && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    %{discountPercent} İndirim
+                    {discountPercent}% Off
                   </span>
                 )}
                 {product.new && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    Yeni
+                    New
                   </span>
                 )}
                 {product.vegan && (
@@ -424,7 +424,7 @@ export function ProductDetailClient({
 
               {isSchemaLoading ? (
                 <div className="py-3 text-sm text-neutral-500">
-                  Ekstra seçenekler yükleniyor...
+                  Loading personalization options...
                 </div>
               ) : activeSchema ? (
                 <div
@@ -433,7 +433,7 @@ export function ProductDetailClient({
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                      Kişiselleştirme
+                      Personalization
                     </span>
                     <span className="h-px w-8 bg-neutral-300" />
                   </div>
@@ -467,7 +467,7 @@ export function ProductDetailClient({
                   </div>
                   {activeSchema && customizationState.extraPrice > 0 && (
                     <p className="text-sm text-neutral-500">
-                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
+                      +{formatPrice(customizationState.extraPrice)} personalization
                     </p>
                   )}
                 </div>
@@ -475,7 +475,7 @@ export function ProductDetailClient({
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
-                      Adet
+                      Quantity
                     </span>
                     <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
                       <button
@@ -512,10 +512,10 @@ export function ProductDetailClient({
                   >
                     <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
                     {isSchemaLoading
-                      ? "Yükleniyor"
+                      ? "Loading"
                       : isOutOfStock
-                        ? "Tükendi"
-                        : "Sepete Ekle"}
+                        ? "Sold Out"
+                        : "Add to Cart"}
                   </button>
                   <button
                     onClick={toggleWishlist}
@@ -553,19 +553,19 @@ export function ProductDetailClient({
                 {[
                   {
                     id: "features",
-                    label: "Ürün Detayları",
+                    label: "Product Details",
                     content: <ProductFeatures product={product} />,
                   },
                   {
                     id: "specs",
-                    label: "Özellikler",
+                    label: "Features",
                     content: (
                       <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
                           <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Malzeme
+                              Material
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
                               Premium Full-Grain Deri
@@ -576,10 +576,10 @@ export function ProductDetailClient({
                           <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              İşçilik
+                              Craftsmanship
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
+                              Hand Stitching (Saddle Stitch)
                             </p>
                           </div>
                         </div>
@@ -587,10 +587,10 @@ export function ProductDetailClient({
                           <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Üretim Süresi
+                              Production Time
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              1–3 İş Günü
+                              1-3 Business Days
                             </p>
                           </div>
                         </div>
@@ -598,10 +598,10 @@ export function ProductDetailClient({
                           <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Garanti
+                              Guarantee
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              El Yapımı Zanaatkar Kalitesi
+                              Handmade Craft Quality
                             </p>
                           </div>
                         </div>
@@ -610,57 +610,57 @@ export function ProductDetailClient({
                   },
                   {
                     id: "shipping",
-                    label: "Kargo & İade",
+                    label: "Shipping & Returns",
                     content: (
                       <div className="space-y-5 text-sm text-neutral-600">
                         <div>
                           <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>🚛</span> KARGO & İADE
+                            <span>🚛</span> SHIPPING & RETURNS
                           </h4>
                           <ul className="list-none space-y-1.5">
                             <li>
-                              <strong className="text-neutral-800">Ücretsiz Kargo:</strong> 1500₺ ve üzeri tüm siparişlerde
+                              <strong className="text-neutral-800">Free Shipping:</strong> on orders over 1500 TL
                             </li>
                             <li>
-                              <strong className="text-neutral-800">Teslimat Süresi:</strong> 1–3 iş günü hazırlık + 2–4 iş günü kargo süresi
+                              <strong className="text-neutral-800">Delivery Time:</strong> 1-3 business days preparation + 2-4 business days shipping
                             </li>
                             <li>
-                              <strong className="text-neutral-800">Kargo Partneri:</strong> Teslimat adresine göre değişiklik gösterebilir.
+                              <strong className="text-neutral-800">Shipping Partner:</strong> may vary depending on the delivery address.
                             </li>
                           </ul>
                         </div>
                         <div>
                           <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>💳</span> ÖDEME SEÇENEKLERİ
+                            <span>💳</span> PAYMENT OPTIONS
                           </h4>
                           <ul className="list-none space-y-1.5">
-                            <li>Kredi/Banka Kartı (3D Secure güvenliği ile)</li>
-                            <li>Havale/EFT</li>
+                            <li>Credit/Debit Card with 3D Secure</li>
+                            <li>Bank Transfer</li>
                           </ul>
                         </div>
                         <div>
                           <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>🔄</span> İADE POLİTİKASI
+                            <span>🔄</span> RETURN POLICY
                           </h4>
                           <ul className="list-none space-y-1.5">
                             <li>
-                              <strong className="text-neutral-800">14 Gün İçinde İade Hakkı</strong>
+                              <strong className="text-neutral-800">14-day return right</strong>
                             </li>
                             <li>
-                              <strong className="text-neutral-800">İstisnalar:</strong> Kişiye özel üretimlerde iade yoktur
+                              <strong className="text-neutral-800">Exceptions:</strong> personalized products cannot be returned
                             </li>
                             <li>
-                              <strong className="text-neutral-800">İade Kargo Ücreti:</strong> Alıcıya aittir
+                              <strong className="text-neutral-800">Return Shipping:</strong> paid by the buyer
                             </li>
                           </ul>
                         </div>
                         <div>
                           <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>✨</span> NEDEN BİZ?
+                            <span>✨</span> WHY DERYCRAFT?
                           </h4>
                           <ul className="list-none space-y-1.5">
-                            <li>%100 El Yapımı & Gerçek Deri Ürünler</li>
-                            <li>Güvenli alışveriş (SSL sertifikası ile korunur)</li>
+                            <li>100% handmade genuine leather products</li>
+                            <li>Secure shopping protected by SSL</li>
                           </ul>
                         </div>
                       </div>
@@ -701,7 +701,7 @@ export function ProductDetailClient({
 
               {product.sku && (
                 <p className="text-xs text-neutral-400">
-                  ÜRÜN KODU: <span className="font-mono">{product.sku}</span>
+                  SKU: <span className="font-mono">{product.sku}</span>
                 </p>
               )}
             </div>
@@ -727,17 +727,17 @@ export function ProductDetailClient({
           <div className="mb-10 flex items-center justify-between">
             <div>
               <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Keşfedin
+                Discover
               </span>
               <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
-                Benzer Ürünler
+                Similar Products
               </h2>
             </div>
             <Link
                   href={buildPath("/urunler")}
               className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
             >
-              Tümünü Gör
+              View All
               <ChevronRight className="w-5 h-5" />
             </Link>
           </div>

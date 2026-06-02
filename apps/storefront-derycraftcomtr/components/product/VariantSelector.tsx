@@ -17,7 +17,7 @@ export function VariantSelector({ variants, selectedIndex, onSelect }: VariantSe
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-[#7B1113]">Boyut Seçin</span>
+        <span className="font-medium text-[#7B1113]">Choose Size</span>
         <span className="text-sm text-[#6b4b4c] bg-[#F3E0E1] px-3 py-1 rounded-full">
           {selectedVariant?.weight}g
         </span>
@@ -65,7 +65,7 @@ export function VariantSelector({ variants, selectedIndex, onSelect }: VariantSe
               {/* Out of stock badge */}
               {isOutOfStock && (
                 <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-gray-400 text-white text-[10px] rounded-full whitespace-nowrap">
-                  Tükendi
+                  Sold Out
                 </span>
               )}
             </button>
@@ -75,9 +75,9 @@ export function VariantSelector({ variants, selectedIndex, onSelect }: VariantSe
       
       {/* Variant Info */}
       <p className="text-sm text-[#6b4b4c]">
-        Seçilen: <span className="font-medium text-[#7B1113]">{selectedVariant?.name}</span>
+        Selected: <span className="font-medium text-[#7B1113]">{selectedVariant?.name}</span>
         {selectedVariant?.stock > 0 && selectedVariant?.stock <= 5 && (
-          <span className="text-amber-600 ml-2">(Son {selectedVariant.stock} adet!)</span>
+          <span className="text-amber-600 ml-2">(Only {selectedVariant.stock} left!)</span>
         )}
       </p>
     </div>

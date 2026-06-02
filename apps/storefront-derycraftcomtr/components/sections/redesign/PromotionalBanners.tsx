@@ -25,7 +25,7 @@ interface PromotionalBannersProps {
 }
 
 function getDefaultBadge(order: number): string {
-  const badges = ["Yeni Tema", "Editor Secimi", "Hazir Kampanya"];
+  const badges = ["New Theme", "Editor's Pick", "Campaign Ready"];
   return badges[order - 1] || "Placeholder";
 }
 
@@ -45,12 +45,12 @@ function getDefaultBanners(): PromoBanner[] {
       id: 1,
       image: "/placeholders/promo-banner-1.svg",
       mobileImage: "/placeholders/promo-banner-1.svg",
-      title: "Yeni koleksiyonunu konumlandir",
-      subtitle: "Hazir hero alani",
-      buttonText: "Urunleri gor",
+      title: "Position your new collection",
+      subtitle: "Ready hero area",
+      buttonText: "View products",
       buttonLink: "/urunler",
       order: 1,
-      badge: "Yeni Tema",
+      badge: "New Theme",
       color: "#7B1113",
       discount: "20",
     },
@@ -58,12 +58,12 @@ function getDefaultBanners(): PromoBanner[] {
       id: 2,
       image: "/placeholders/promo-banner-2.svg",
       mobileImage: "/placeholders/promo-banner-2.svg",
-      title: "One cikan urun grubunu sergile",
-      subtitle: "Editor secimi alani",
-      buttonText: "Blog alanini ac",
+      title: "Showcase a featured product group",
+      subtitle: "Editor's pick area",
+      buttonText: "Open blog",
       buttonLink: "/blog",
       order: 2,
-      badge: "Editor Secimi",
+      badge: "Editor's Pick",
       color: "#B85E2D",
       discount: "15",
     },
@@ -71,12 +71,12 @@ function getDefaultBanners(): PromoBanner[] {
       id: 3,
       image: "/placeholders/promo-banner-3.svg",
       mobileImage: "/placeholders/promo-banner-3.svg",
-      title: "Hazir kampanya slotu",
-      subtitle: "Polish icin acik alan",
-      buttonText: "Iletisime gec",
+      title: "Ready campaign slot",
+      subtitle: "Open space for polish",
+      buttonText: "Contact us",
       buttonLink: "/iletisim",
       order: 3,
-      badge: "Hazir Kampanya",
+      badge: "Campaign Ready",
       color: "#2E5A4F",
       discount: "10",
     },

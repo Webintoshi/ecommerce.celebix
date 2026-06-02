@@ -54,7 +54,7 @@ export const validationRulesSchema = z.object({
     }
     return true;
   },
-  { message: 'Min length max length\'den büyük olamaz', path: ['min_length'] }
+  { message: 'Minimum length cannot be greater than maximum length', path: ['min_length'] }
 ).refine(
   (data) => {
     if (data.min_value !== undefined && data.max_value !== undefined) {
@@ -62,7 +62,7 @@ export const validationRulesSchema = z.object({
     }
     return true;
   },
-  { message: 'Min value max value\'den büyük olamaz', path: ['min_value'] }
+  { message: 'Minimum value cannot be greater than maximum value', path: ['min_value'] }
 );
 
 // =====================================================
@@ -83,7 +83,7 @@ export const styleConfigSchema = z.object({
 // =====================================================
 
 export const stepOptionPriceConfigSchema = z.object({
-  value: z.string().min(1, 'Değer gereklidir'),
+  value: z.string().min(1, 'Value is required'),
   price_adjustment: z.number().default(0),
   type: z.enum(['fixed', 'percentage', 'multiplier']).default('fixed'),
 });
@@ -103,13 +103,13 @@ export const customizationOptionSchema = z.object({
   step_id: z.string().uuid().optional(),
   
   label: z.string().min(1, 'Etiket gereklidir').max(255),
-  value: z.string().min(1, 'Değer gereklidir').max(255).regex(
+  value: z.string().min(1, 'Value is required').max(255).regex(
     /^[a-z0-9_]+$/,
-    'Değer sadece küçük harf, rakam ve alt çizgi içerebilir'
+    'Value can only contain lowercase letters, numbers and underscores'
   ),
   description: z.string().max(1000).optional(),
   
-  image_url: z.string().url('Geçerli bir URL giriniz').optional().or(z.literal('')),
+  image_url: z.string().url('Enter a valid URL').optional().or(z.literal('')),
   icon: z.string().optional(),
   color: z.string().optional(),
   
@@ -145,7 +145,7 @@ export const customizationStepSchema = z.object({
     .max(100)
     .regex(
       /^[a-z0-9_]+$/,
-      'Key sadece küçük harf, rakam ve alt çizgi içerebilir'
+      'Key can only contain lowercase letters, numbers and underscores'
     ),
   label: z.string().min(1, 'Etiket gereklidir').max(255),
   placeholder: z.string().max(255).optional(),
@@ -175,7 +175,7 @@ export const customizationStepSchema = z.object({
     }
     return true;
   },
-  { message: 'Bu alan tipi için en az bir seçenek gereklidir', path: ['options'] }
+  { message: 'At least one option is required for this field type', path: ['options'] }
 ).refine(
   (data) => {
     // Check for duplicate option values
@@ -185,7 +185,7 @@ export const customizationStepSchema = z.object({
     }
     return true;
   },
-  { message: 'Seçenek değerleri benzersiz olmalıdır', path: ['options'] }
+  { message: 'Option values must be unique', path: ['options'] }
 );
 
 // =====================================================
@@ -197,22 +197,22 @@ export const customizationSchemaSettingsSchema = z.object({
   show_price_breakdown: z.boolean().default(true),
   allow_multiple: z.boolean().default(false),
   max_selections: z.number().min(1).optional().nullable(),
-  submit_button_text: z.string().max(100).default('Sepete Ekle'),
-  success_message: z.string().max(500).default('Ürün sepete eklendi'),
+  submit_button_text: z.string().max(100).default('Add to Cart'),
+  success_message: z.string().max(500).default('Product added to cart'),
 });
 
 export const customizationSchemaSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string()
-    .min(1, 'İsim gereklidir')
-    .max(255, 'İsim 255 karakterden uzun olamaz'),
+    .min(1, 'Name is required')
+    .max(255, 'Name cannot be longer than 255 characters'),
   description: z.string().max(2000).optional(),
   slug: z.string()
     .min(1, 'Slug gereklidir')
     .max(255)
     .regex(
       /^[a-z0-9-]+$/,
-      'Slug sadece küçük harf, rakam ve tire içerebilir'
+      'Slug can only contain lowercase letters, numbers and hyphens'
     ),
   is_active: z.boolean().default(true),
   sort_order: z.number().default(0),
@@ -220,13 +220,13 @@ export const customizationSchemaSchema = z.object({
   settings: customizationSchemaSettingsSchema.default({}),
   
   steps: z.array(customizationStepSchema)
-    .min(1, 'En az bir adım gereklidir')
+    .min(1, 'At least one step is required')
     .refine(
       (steps) => {
         const keys = steps.map(s => s.key);
         return new Set(keys).size === keys.length;
       },
-      { message: 'Step key\'leri benzersiz olmalıdır' }
+      { message: 'Step keys must be unique' }
     ),
 });
 
@@ -292,7 +292,7 @@ export const applyCustomizationRequestSchema = z.object({
   selections: z.array(z.object({
     step_id: z.string().uuid(),
     value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
-  })).min(1, 'En az bir seçim yapmalısınız'),
+  })).min(1, 'You must make at least one selection'),
   quantity: z.number().min(1).default(1),
 });
 
@@ -318,10 +318,10 @@ export const validateSelectionValue = (
       return 'Bu alan gereklidir';
     }
     if (Array.isArray(value) && value.length === 0) {
-      return 'En az bir seçim yapmalısınız';
+      return 'You must make at least one selection';
     }
     if (typeof value === 'boolean' && !value) {
-      return 'Bu alanı onaylamalısınız';
+      return 'You must confirm this field';
     }
   }
 
@@ -344,7 +344,7 @@ export const validateSelectionValue = (
         return `En fazla ${rules.max_length} karakter girebilirsiniz`;
       }
       if (rules.pattern && !new RegExp(rules.pattern).test(strValue)) {
-        return rules.custom_error_message || 'Geçersiz format';
+        return rules.custom_error_message || 'Invalid format';
       }
       break;
     }
@@ -352,10 +352,10 @@ export const validateSelectionValue = (
     case 'number': {
       const numValue = Number(value);
       if (isNaN(numValue)) {
-        return 'Geçerli bir sayı giriniz';
+        return 'Enter a valid number';
       }
       if (rules.min_value !== undefined && numValue < rules.min_value) {
-        return `En az ${rules.min_value} olmalıdır`;
+        return `Must be at least ${rules.min_value}`;
       }
       if (rules.max_value !== undefined && numValue > rules.max_value) {
         return `En fazla ${rules.max_value} olabilir`;
@@ -366,10 +366,10 @@ export const validateSelectionValue = (
     case 'multi_select': {
       const arrValue = value as string[];
       if (rules.min_selections && arrValue.length < rules.min_selections) {
-        return `En az ${rules.min_selections} seçim yapmalısınız`;
+        return `Select at least ${rules.min_selections} options`;
       }
       if (rules.max_selections && arrValue.length > rules.max_selections) {
-        return `En fazla ${rules.max_selections} seçim yapabilirsiniz`;
+        return `Select up to ${rules.max_selections} options`;
       }
       break;
     }
@@ -380,13 +380,13 @@ export const validateSelectionValue = (
         const oversizedFile = files.find(f => f.file_size > rules.max_file_size);
         if (oversizedFile) {
           const maxSizeMB = Math.round(rules.max_file_size / 1024 / 1024 * 10) / 10;
-          return `Dosya boyutu ${maxSizeMB}MB\'den büyük olamaz`;
+          return `File size cannot be larger than ${maxSizeMB}MB`;
         }
       }
       if (rules.allowed_file_types && rules.allowed_file_types.length > 0) {
         const invalidFile = files.find(f => !rules.allowed_file_types.includes(f.file_type));
         if (invalidFile) {
-          return `Sadece ${rules.allowed_file_types.join(', ')} formatları desteklenir`;
+          return `Only ${rules.allowed_file_types.join(', ')} formats are supported`;
         }
       }
       break;

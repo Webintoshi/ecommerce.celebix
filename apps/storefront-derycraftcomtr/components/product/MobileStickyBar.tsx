@@ -72,7 +72,7 @@ export function MobileStickyBar({
                 }`}
               >
                 <ShoppingCart className="h-5 w-5" />
-                <span>{isOutOfStock ? "Tukendi" : "Sepete Ekle"}</span>
+                <span>{isOutOfStock ? "Sold Out" : "Add to Cart"}</span>
               </button>
             </div>
           </div>

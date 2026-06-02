@@ -66,14 +66,14 @@ export default function LuckyWheelPage() {
       const response = await fetch("/api/lucky-wheel", { cache: "no-store" });
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || "Şans çarkı yüklenemedi.");
+        throw new Error(result?.error || "Lucky wheel could not be loaded.");
       }
 
       setConfig(result.config as PublicConfig);
       setPrizes((result.prizes || []) as PublicPrize[]);
       setCanSpin(Boolean(result.config?.is_active));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Şans çarkı yüklenemedi.");
+      toast.error(error instanceof Error ? error.message : "Lucky wheel could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -92,13 +92,13 @@ export default function LuckyWheelPage() {
     });
     const result = await response.json();
     if (!response.ok || !result.success) {
-      throw new Error(result?.error || "Uygunluk kontrolü başarısız.");
+      throw new Error(result?.error || "Eligibility check failed.");
     }
 
     setCanSpin(Boolean(result.canSpin));
     setRemainingSpins(Number(result.spinsRemaining || 0));
     if (!result.canSpin) {
-      throw new Error(result.reason || "Şu an spin hakkınız bulunmuyor.");
+      throw new Error(result.reason || "You do not have a spin right right now.");
     }
   };
 
@@ -125,28 +125,28 @@ export default function LuckyWheelPage() {
 
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result?.message || result?.error || "Spin işlemi başarısız.");
+        throw new Error(result?.message || result?.error || "Spin failed.");
       }
 
       const spinId = result?.spin?.id as string | undefined;
       const prizeId = result?.prize?.id as string | undefined;
       if (!spinId || !prizeId) {
-        throw new Error("Spin sonucu okunamadı.");
+        throw new Error("Spin result could not be read.");
       }
 
       setRemainingSpins(Number(result.remainingSpins || 0));
       setLatestOutcome({
         spinId,
         prizeId,
-        prizeName: result?.prize?.name || "Ödül",
+        prizeName: result?.prize?.name || "Prize",
         isWinner: Boolean(result?.spin?.is_winner),
         couponCode: result?.couponCode || null,
-        message: result?.message || "Spin tamamlandı.",
+        message: result?.message || "Spin completed.",
       });
       setShowOutcome(false);
       setSpinAnimation({ spinId, prizeId });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Spin hatası.");
+      toast.error(error instanceof Error ? error.message : "Spin error.");
     } finally {
       setSpinLoading(false);
     }
@@ -165,7 +165,7 @@ export default function LuckyWheelPage() {
   const copyCoupon = async () => {
     if (!latestOutcome?.couponCode) return;
     await navigator.clipboard.writeText(latestOutcome.couponCode);
-    toast.success("Kupon kodu kopyalandı.");
+    toast.success("Coupon code copied.");
   };
 
   if (loading) {
@@ -173,7 +173,7 @@ export default function LuckyWheelPage() {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
-          <p className="text-gray-600">Şans çarkı yükleniyor...</p>
+          <p className="text-gray-600">Loading lucky wheel...</p>
         </div>
       </div>
     );
@@ -184,8 +184,8 @@ export default function LuckyWheelPage() {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
         <div className="max-w-md rounded-3xl bg-white p-8 text-center shadow-xl">
           <div className="mb-4 text-6xl">🎡</div>
-          <h1 className="mb-2 text-2xl font-bold text-gray-900">Şans Çarkı</h1>
-          <p className="text-gray-600">Şu anda aktif bir şans çarkı bulunmuyor.</p>
+          <h1 className="mb-2 text-2xl font-bold text-gray-900">Lucky Wheel</h1>
+          <p className="text-gray-600">There is no active lucky wheel right now.</p>
         </div>
       </div>
     );
@@ -196,8 +196,8 @@ export default function LuckyWheelPage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-8 text-center">
           <h1 className="mb-2 text-4xl font-bold text-gray-900">{config.name}</h1>
-          <p className="text-gray-600">Formu doldur, spin at ve anında kuponunu kazan.</p>
-          <p className="mt-2 text-sm text-gray-500">Kalan spin hakkı: {remainingSpins}</p>
+          <p className="text-gray-600">Fill out the form, spin and get your coupon instantly.</p>
+          <p className="mt-2 text-sm text-gray-500">Remaining spins: {remainingSpins}</p>
         </div>
 
         <div className="grid items-start gap-8 md:grid-cols-2">
@@ -206,7 +206,7 @@ export default function LuckyWheelPage() {
           </div>
 
           <div className="rounded-3xl bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-xl font-bold text-gray-900">Katılım Formu</h2>
+            <h2 className="mb-4 text-xl font-bold text-gray-900">Participation Form</h2>
             <SpinForm
               onSubmit={handleSpin}
               requireEmail={config.require_membership}
@@ -214,7 +214,7 @@ export default function LuckyWheelPage() {
               isLoading={spinLoading || !canSpin}
             />
 
-            {!canSpin && <p className="mt-3 text-sm text-red-600">Şu an spin hakkınız bulunmuyor.</p>}
+            {!canSpin && <p className="mt-3 text-sm text-red-600">You do not have a spin right right now.</p>}
 
             {showOutcome && latestOutcome && (
               <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
@@ -236,7 +236,7 @@ export default function LuckyWheelPage() {
 
         {config.start_date && config.end_date && (
           <p className="mt-8 text-center text-sm text-gray-500">
-            Kampanya {new Date(config.start_date).toLocaleDateString("tr-TR")} - {new Date(config.end_date).toLocaleDateString("tr-TR")} tarihleri arasında geçerlidir.
+            Campaign is valid between {new Date(config.start_date).toLocaleDateString("en-US")} and {new Date(config.end_date).toLocaleDateString("en-US")}.
           </p>
         )}
       </div>

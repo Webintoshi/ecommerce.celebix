@@ -16,7 +16,7 @@ export async function generateMetadata() {
     title: page?.seoTitle || page?.name || "KVKK",
     description:
       page?.seoDescription ||
-      "Kişisel verilerin korunmasına dair mağazaya özel politika metni.",
+      "Store-specific policy text about personal data protection.",
   });
 }
 

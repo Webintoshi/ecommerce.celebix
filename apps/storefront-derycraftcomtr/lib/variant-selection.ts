@@ -59,7 +59,7 @@ function getAttributeName(attribute: Record<string, unknown>): string {
     toOptionalString(attribute.attributeName) ||
     toOptionalString(attribute.name) ||
     toOptionalString(nestedAttribute?.name) ||
-    "Seçenek"
+    "Option"
   );
 }
 

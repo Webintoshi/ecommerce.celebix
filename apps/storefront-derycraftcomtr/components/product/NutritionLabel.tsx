@@ -21,19 +21,19 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <p className="text-lg font-medium text-[#7B1113]">Besin Değeri Bilgisi Bulunmuyor</p>
-        <p className="text-[#6b4b4c] mt-2">Bu ürün için besin değeri bilgisi eklenmemiş.</p>
+        <p className="text-lg font-medium text-[#7B1113]">Nutrition information is not available</p>
+        <p className="text-[#6b4b4c] mt-2">No nutrition information has been added for this product.</p>
       </div>
     );
   }
 
   const nutrients = [
-    { label: "Enerji", value: `${nutrition.calories} kcal`, highlight: true, icon: "🔥" },
+    { label: "Energy", value: `${nutrition.calories} kcal`, highlight: true, icon: "🔥" },
     { label: "Protein", value: `${nutrition.protein}g`, icon: "💪" },
-    { label: "Karbonhidrat", value: `${nutrition.carbs}g`, icon: "🌾" },
-    { label: "Yağ", value: `${nutrition.fat}g`, icon: "🥑" },
-    { label: "Lif", value: `${nutrition.fiber}g`, icon: "🌿" },
-    { label: "Şeker", value: nutrition.sugar ? `${nutrition.sugar}g` : "0g", icon: "🍯" },
+    { label: "Carbohydrates", value: `${nutrition.carbs}g`, icon: "🌾" },
+    { label: "Fat", value: `${nutrition.fat}g`, icon: "🥑" },
+    { label: "Fiber", value: `${nutrition.fiber}g`, icon: "🌿" },
+    { label: "Sugar", value: nutrition.sugar ? `${nutrition.sugar}g` : "0g", icon: "🍯" },
   ];
 
   return (
@@ -45,9 +45,9 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
       >
         {/* Header */}
         <div className="bg-[#7B1113] text-white p-6">
-          <h3 className="text-2xl font-bold">Besin Değerleri</h3>
+          <h3 className="text-2xl font-bold">Nutrition Facts</h3>
           <p className="text-white/80 mt-1">
-            {basis === "per_100g" ? "100g" : `${servingSize}g`} başına
+            Per {basis === "per_100g" ? "100g" : `${servingSize}g`}
           </p>
         </div>
 
@@ -90,14 +90,14 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {Object.entries(vitamins).map(([key, value], idx) => {
                   const labelMap: Record<string, string> = {
-                    a: "A Vitamini",
-                    c: "C Vitamini",
-                    d: "D Vitamini",
-                    e: "E Vitamini",
-                    calcium: "Kalsiyum",
-                    iron: "Demir",
-                    magnesium: "Magnezyum",
-                    zinc: "Çinko",
+                    a: "Vitamin A",
+                    c: "Vitamin C",
+                    d: "Vitamin D",
+                    e: "Vitamin E",
+                    calcium: "Calcium",
+                    iron: "Iron",
+                    magnesium: "Magnesium",
+                    zinc: "Zinc",
                   };
                   return (
                     <motion.div
@@ -120,7 +120,7 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
         {/* Footer Note */}
         <div className="bg-[#F3E0E1]/30 p-4 text-center">
           <p className="text-sm text-[#6b4b4c]">
-            Günlük besin değeri ihtiyacının %{Math.round((nutrition.calories / 2000) * 100)}'ini karşılar
+            Covers {Math.round((nutrition.calories / 2000) * 100)}% of daily nutrition needs
           </p>
         </div>
       </motion.div>
@@ -140,9 +140,9 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
               </svg>
             </div>
             <div>
-              <p className="font-semibold text-amber-900 mb-1">Alerjen Uyarısı</p>
+              <p className="font-semibold text-amber-900 mb-1">Allergen Warning</p>
               <p className="text-sm text-amber-700">
-                Bu ürün <span className="font-medium">{product.nutritionSettings.allergens.join(", ")}</span> içerir.
+                This product contains <span className="font-medium">{product.nutritionSettings.allergens.join(", ")}</span>.
               </p>
             </div>
           </div>

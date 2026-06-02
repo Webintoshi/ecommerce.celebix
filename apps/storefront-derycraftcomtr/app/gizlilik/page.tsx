@@ -13,10 +13,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/gizlilik",
-    title: page?.seoTitle || page?.name || "Gizlilik Politikası",
+    title: page?.seoTitle || page?.name || "Privacy Policy",
     description:
       page?.seoDescription ||
-      "Veri işleme ve gizlilik süreçlerine dair mağazaya özel politika metni.",
+      "Store-specific policy text about data processing and privacy practices.",
   });
 }
 

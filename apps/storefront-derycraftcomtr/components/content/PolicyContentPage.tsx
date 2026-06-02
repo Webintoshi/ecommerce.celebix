@@ -36,9 +36,9 @@ export async function PolicyContentPage({ page }: PolicyContentPageProps) {
           />
 
           <div className="mt-10 border-t border-neutral-100 pt-6 text-xs text-neutral-400">
-            <p>Son güncelleme: {formattedDate}</p>
+            <p>Last updated: {formattedDate}</p>
             <p className="mt-1">
-              İletişim: {profile.email}
+              Contact: {profile.email}
             </p>
           </div>
         </article>

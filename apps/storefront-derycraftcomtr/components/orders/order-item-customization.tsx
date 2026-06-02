@@ -23,17 +23,17 @@ const productionStatusConfig = {
     icon: Clock,
   },
   in_progress: {
-    label: "Üretimde",
+    label: "In Production",
     color: "bg-blue-100 text-blue-800",
     icon: Printer,
   },
   completed: {
-    label: "Tamamlandı",
+    label: "Completed",
     color: "bg-green-100 text-green-800",
     icon: CheckCircle,
   },
   cancelled: {
-    label: "İptal",
+    label: "Cancelled",
     color: "bg-red-100 text-red-800",
     icon: Clock,
   },
@@ -63,7 +63,7 @@ export function OrderItemCustomizationDisplay({
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5 text-amber-600" />
             <CardTitle className="text-base">
-              Kişiselleştirme: {schema_snapshot.name}
+              Personalization: {schema_snapshot.name}
             </CardTitle>
           </div>
           {showProductionStatus && (
@@ -96,7 +96,7 @@ export function OrderItemCustomizationDisplay({
           <>
             <Separator />
             <div>
-              <span className="text-sm text-gray-500">Kişiselleştirme Metni:</span>
+              <span className="text-sm text-gray-500">Personalization Text:</span>
               <p className="mt-1 p-3 bg-amber-50 rounded-lg font-medium text-gray-900">
                 &ldquo;{custom_text_content}&rdquo;
               </p>
@@ -109,7 +109,7 @@ export function OrderItemCustomizationDisplay({
           <>
             <Separator />
             <div>
-              <span className="text-sm text-gray-500">Yüklenen Dosyalar:</span>
+              <span className="text-sm text-gray-500">Uploaded Files:</span>
               <div className="mt-2 space-y-2">
                 {uploaded_files.map((file, idx) => (
                   <a
@@ -148,7 +148,7 @@ export function OrderItemCustomizationDisplay({
                 </div>
               ))}
               <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                <span className="font-medium text-gray-900">Kişiselleştirme Toplamı:</span>
+                <span className="font-medium text-gray-900">Personalization Total:</span>
                 <span className="font-bold text-green-600">
                   +{formatPrice(price_breakdown.total_adjustment)}
                 </span>
@@ -162,7 +162,7 @@ export function OrderItemCustomizationDisplay({
           <>
             <Separator />
             <div>
-              <span className="text-sm text-gray-500">Üretim Notları:</span>
+              <span className="text-sm text-gray-500">Production Notes:</span>
               <p className="mt-1 text-sm text-gray-700">{production_notes}</p>
             </div>
           </>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
 import { getHomepageData } from "@/lib/homepage";
 import { getStoreInfo } from "@/lib/db/settings";
-import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin";
@@ -11,24 +11,24 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { translateUiStrings } from "@/lib/translation";
 
 const HOME_UI_COPY = {
-  categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Kategoriler",
-  viewAllLabel: "Tümünü Gör",
-  storesEyebrow: "Mağazalarımız",
-  storesHeading: "Deriye yakından dokunun",
+  categoriesEyebrow: "Collections",
+  categoriesHeading: "Categories",
+  viewAllLabel: "View All",
+  storesEyebrow: "Our Stores",
+  storesHeading: "Experience leather in person",
   storesDescription:
-    "Giresun ve Ordu mağazalarımızda koleksiyonlarımızı yakından inceleyin, dokusunu hissedin ve size en uygun parçayı yerinde seçin.",
-  storesLinkLabel: "Tüm şubeleri gör",
-  testimonialsHeading: "Müşteri Yorumları",
-  testimonialsCountLabel: "1581 değerlendirmeden",
-  groupTitle0: "Çok Satanlar",
-  groupSubtitle0: "Seçili Koleksiyon",
-  groupTitle1: "Apple Watch Kayışları",
-  groupSubtitle1: "Öne Çıkanlar",
-  groupTitle2: "Aksesuarlar",
-  groupSubtitle2: "Tamamlayıcılar",
-  groupTitle3: "Deri Saat Kayışları",
-  groupSubtitle3: "Klasik Seçim",
+    "Visit our Giresun and Ordu stores to explore DeryCraft leather collections up close.",
+  storesLinkLabel: "View all stores",
+  testimonialsHeading: "Customer Reviews",
+  testimonialsCountLabel: "from 1,581 reviews",
+  groupTitle0: "Best Sellers",
+  groupSubtitle0: "Selected Collection",
+  groupTitle1: "Apple Watch Bands",
+  groupSubtitle1: "Featured Picks",
+  groupTitle2: "Accessories",
+  groupSubtitle2: "Finishing Touches",
+  groupTitle3: "Leather Watch Straps",
+  groupSubtitle3: "Classic Selection",
 };
 
 async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLocale>>) {
@@ -59,15 +59,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildStorePageMetadata({
     locale,
     pathname: "/",
+    title: copy.homeTitle,
     description: copy.homeDescription,
     keywords: [
-      "el yapimi deri kordon",
-      "apple watch deri kayis",
-      "hakiki deri kordon",
-      "premium deri aksesuar",
+      "handmade leather wallet",
+      "apple watch leather band",
+      "genuine leather watch strap",
+      "premium leather accessories",
       "handmade leather strap",
-      "deri bileklik",
-      "ozel tasarim kordon",
+      "personalized leather accessories",
+      "DeryCraft leather",
     ],
   });
 }
@@ -128,7 +129,7 @@ export default async function Home() {
               "@type": "ContactPoint",
               telephone: storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone,
               contactType: "customer service",
-              availableLanguage: ["Turkish", "English", "German", "Russian", "Arabic", "Georgian"],
+              availableLanguage: ["English", "Turkish", "German", "Russian", "Arabic", "Georgian"],
             },
             sameAs: [storeInfo?.socialInstagram || STOREFRONT_RUNTIME.socialInstagram].filter(Boolean),
           }),
@@ -142,12 +143,12 @@ export default async function Home() {
             "@context": "https://schema.org",
             "@type": "Store",
             name: siteName,
-            description: "El yapimi deri kordon ve aksesuar magazasi",
+            description: "Handmade leather straps, wallets and accessories store",
             url: requestOrigin,
             telephone: storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone,
             email: storeInfo?.email || STOREFRONT_RUNTIME.supportEmail,
             priceRange: "$$",
-            paymentAccepted: ["Credit Card", "Debit Card", "Cash on Delivery"],
+            paymentAccepted: ["Credit Card", "Debit Card", "Bank Transfer"],
             currenciesAccepted: "TRY",
             openingHoursSpecification: [
               {

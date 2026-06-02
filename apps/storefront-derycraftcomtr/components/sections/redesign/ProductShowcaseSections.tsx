@@ -132,16 +132,16 @@ function buildProductGroups(
 function EmptyShowcaseState() {
   const cards = [
     {
-      title: "Urunleri Yayina Al",
-      text: "Adminde yayinlanan urunler bu alanda kategori bazli bloklara dogrudan tasinir.",
+      title: "Publish Products",
+      text: "Products published in the admin panel flow into these category-based storefront blocks.",
     },
     {
-      title: "Manuel Sirayi Kullan",
-      text: "Admin panelindeki urun sirasi vitrinde ve kategori bloklarinda aynen korunur.",
+      title: "Use Manual Order",
+      text: "The product order set in the admin panel is preserved in storefront merchandising blocks.",
     },
     {
-      title: "Kategori Kurgusunu Tamamla",
-      text: "Aktif kategoriler otomatik section basliklarina ve koleksiyon baglantilarina donusur.",
+      title: "Complete Category Merchandising",
+      text: "Active categories become storefront section titles and collection links automatically.",
     },
   ];
 
@@ -151,14 +151,13 @@ function EmptyShowcaseState() {
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#C7A985] bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
             <Sparkles className="h-3.5 w-3.5" />
-            Vitrin Hazir
+            Storefront Ready
           </span>
           <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
-            Urunler geldikce bu alan Derycraft kalitesinde otomatik dolar
+            This section fills automatically as DeryCraft products are published
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
-            Extra tema eforu gerekmeden, admin panelindeki urun ve kategori girdileri
-            vitrininizin section duzenini doldurur.
+            Products and categories managed in the admin panel connect directly to the storefront layout.
           </p>
         </div>
 
@@ -169,7 +168,7 @@ function EmptyShowcaseState() {
               className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
             >
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                Otomatik
+                Automatic
               </p>
               <h3 className="mt-3 text-xl font-semibold text-[#18110B]">{card.title}</h3>
               <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{card.text}</p>
@@ -186,7 +185,7 @@ export function ProductShowcaseSections({
   allProducts,
   homepageCuration,
   groupCopy,
-  viewAllLabel = "Tumunu Gor",
+  viewAllLabel = "View All",
 }: ProductShowcaseSectionsProps) {
   const { buildPath } = useStorefrontRoute();
 
@@ -201,15 +200,15 @@ export function ProductShowcaseSections({
       : [
           {
             id: "latest",
-            title: "Yeni Gelenler",
-            subtitle: "Canli Secki",
+            title: "New Arrivals",
+            subtitle: "Live Selection",
             link: ROUTES.products,
             products: allProducts.slice(0, 4),
           },
           {
             id: "featured",
-            title: "One Cikanlar",
-            subtitle: "Editor Secimi",
+            title: "Featured",
+            subtitle: "Editor Selection",
             link: ROUTES.products,
             products: allProducts.slice(4, 8),
           },

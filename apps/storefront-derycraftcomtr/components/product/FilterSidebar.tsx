@@ -27,13 +27,13 @@ interface FilterSidebarProps {
 
 const CATEGORIES = [
   { value: "kol-saati-kordonu", label: "Kol Saati Kordonu" },
-  { value: "akilli-saat-kordonu", label: "Akıllı Saat Kordonu" },
+  { value: "akilli-saat-kordonu", label: "Smart Watch Bands" },
   { value: "deri-bileklik", label: "Deri Bileklik" },
-  { value: "anahtarlik", label: "Anahtarlık" },
-  { value: "kartlik", label: "Kartlık" },
-  { value: "cuzdan", label: "Cüzdan" },
+  { value: "anahtarlik", label: "Keychains" },
+  { value: "kartlik", label: "Cardholders" },
+  { value: "cuzdan", label: "Wallets" },
   { value: "kemer", label: "Kemer" },
-  { value: "canta", label: "Çanta" },
+  { value: "canta", label: "Bags" },
 ];
 
 interface FilterSectionProps {
@@ -100,19 +100,19 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
   return (
     <div className={cn("bg-white p-6 border border-[#E5E2DE]", className)}>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="font-serif text-xl text-[#0F1626]">Filtreler</h2>
+        <h2 className="font-serif text-xl text-[#0F1626]">Filters</h2>
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
             className="text-sm text-[#8A6B37] hover:text-[#0F1626] transition-colors"
           >
-            Temizle
+            Clear
           </button>
         )}
       </div>
 
       <div className="space-y-1">
-        <FilterSection title="Kategoriler">
+        <FilterSection title="Categories">
           {CATEGORIES.map((category) => (
             <Checkbox
               key={category.value}
@@ -124,7 +124,7 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
           ))}
         </FilterSection>
 
-        <FilterSection title="Fiyat Aralığı">
+        <FilterSection title="Price Range">
           <RangeSlider
             min={0}
             max={5000}
@@ -134,9 +134,9 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
           />
         </FilterSection>
 
-        <FilterSection title="Özellikler">
+        <FilterSection title="Features">
           <Checkbox
-            label="El Yapımı"
+            label="Handmade"
             checked={filters.vegan}
             onChange={(e) => onFilterChange({ vegan: e.target.checked })}
           />
@@ -151,25 +151,25 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
             onChange={(e) => onFilterChange({ highProtein: e.target.checked })}
           />
           <Checkbox
-            label="Kişiselleştirilebilir"
+            label="Personalizable"
             checked={filters.glutenFree}
             onChange={(e) => onFilterChange({ glutenFree: e.target.checked })}
           />
         </FilterSection>
 
-        <FilterSection title="Stok & İndirim" defaultOpen={false}>
+        <FilterSection title="Stock & Discount" defaultOpen={false}>
           <Checkbox
-            label="Stokta olanlar"
+            label="In stock"
             checked={filters.inStock}
             onChange={(e) => onFilterChange({ inStock: e.target.checked })}
           />
           <Checkbox
-            label="İndirimli ürünler"
+            label="Discounted products"
             checked={filters.onSale}
             onChange={(e) => onFilterChange({ onSale: e.target.checked })}
           />
           <Checkbox
-            label="Yeni ürünler"
+            label="New products"
             checked={filters.isNew}
             onChange={(e) => onFilterChange({ isNew: e.target.checked })}
           />
@@ -186,13 +186,13 @@ interface ActiveFiltersProps {
 
 const CATEGORY_LABELS: Record<string, string> = {
   "kol-saati-kordonu": "Kol Saati Kordonu",
-  "akilli-saat-kordonu": "Akıllı Saat Kordonu",
+  "akilli-saat-kordonu": "Smart Watch Bands",
   "deri-bileklik": "Deri Bileklik",
-  "anahtarlik": "Anahtarlık",
-  "kartlik": "Kartlık",
-  "cuzdan": "Cüzdan",
+  "anahtarlik": "Keychains",
+  "kartlik": "Cardholders",
+  "cuzdan": "Wallets",
   "kemer": "Kemer",
-  "canta": "Çanta",
+  "canta": "Bags",
 };
 
 export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
@@ -217,7 +217,7 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
 
   if (filters.vegan) {
     activeFilters.push({
-      label: "El Yapımı",
+      label: "Handmade",
       onRemove: () => onFilterChange({ vegan: false }),
     });
   }
@@ -238,21 +238,21 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
 
   if (filters.glutenFree) {
     activeFilters.push({
-      label: "Kişiselleştirilebilir",
+      label: "Personalizable",
       onRemove: () => onFilterChange({ glutenFree: false }),
     });
   }
 
   if (filters.inStock) {
     activeFilters.push({
-      label: "Stokta",
+      label: "In Stock",
       onRemove: () => onFilterChange({ inStock: false }),
     });
   }
 
   if (filters.onSale) {
     activeFilters.push({
-      label: "İndirimli",
+      label: "Discounted",
       onRemove: () => onFilterChange({ onSale: false }),
     });
   }

@@ -13,10 +13,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/mesafeli-satis-sozlesmesi",
-    title: page?.seoTitle || page?.name || "Mesafeli Satış Sözleşmesi",
+    title: page?.seoTitle || page?.name || "Distance Sales Agreement",
     description:
       page?.seoDescription ||
-      "Mesafeli satış sürecine ilişkin mağazaya özel politika metni.",
+      "Store-specific policy text for the distance sales process.",
   });
 }
 

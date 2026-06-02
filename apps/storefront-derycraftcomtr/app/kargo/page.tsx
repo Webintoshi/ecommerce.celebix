@@ -12,7 +12,7 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/kargo",
-    title: `Kargo ve Teslimat | ${profile.name}`,
+    title: `Shipping and Delivery | ${profile.name}`,
     description:
       `${profile.name} siparislerinde teslimat akislarinin nasil isledigini, kargo sureclerini ve destek adimlarini inceleyin.`,
   });
@@ -28,8 +28,8 @@ export default async function ShippingPage() {
       icon: PackageCheck,
     },
     {
-      title: "Teslimat",
-      text: "Kargo sureleri sehir, yogunluk ve resmi tatil etkilerine gore degisebilir. Guncel durum siparis akisi ve bildirimlerle desteklenir.",
+      title: "Delivery",
+      text: "Shipping times may vary by city, carrier workload and public holidays. Current status updates are shared through the order flow and notifications.",
       icon: Truck,
     },
     {
@@ -47,7 +47,7 @@ export default async function ShippingPage() {
             Lojistik Akisi
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-            Kargo ve teslimat sureci net, premium ve guvenli
+            Clear, premium and secure shipping process
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
             {profile.name} siparislerinde teslimat akislarini, iletisim noktasini ve operasyon
@@ -82,8 +82,8 @@ export default async function ShippingPage() {
             </p>
             <ul className="mt-4 space-y-4 text-sm leading-7 text-[#5F5147]">
               <li>Siparis onayi alinan urunler operasyon durumuna gore hazirlanir ve sevk edilir.</li>
-              <li>Teslimat hizi; lokasyon, kargo firmasi yogunlugu ve resmi tatil takvimine bagli olarak degisebilir.</li>
-              <li>Adres eksikligi veya teslimat istisnalarinda musteriyle dogrudan baglanti kurulur.</li>
+              <li>Delivery speed may vary depending on location, carrier workload and public holidays.</li>
+              <li>If address details are missing or delivery exceptions occur, the customer is contacted directly.</li>
               <li>Hasarli paketler icin teslim aninda tutanak tutturulmasi tavsiye edilir.</li>
             </ul>
           </article>

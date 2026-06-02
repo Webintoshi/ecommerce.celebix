@@ -69,7 +69,7 @@ export default function GlobalError({
                 marginBottom: "0.75rem",
               }}
             >
-              Bir Hata Oluştu
+              Something went wrong
             </h1>
             <p
               style={{
@@ -78,7 +78,7 @@ export default function GlobalError({
                 lineHeight: 1.6,
               }}
             >
-              Sayfa yüklenirken bir sorun oluştu. Lütfen sayfayı yenileyin.
+              There was a problem loading the page. Please refresh.
             </p>
             <div
               style={{
@@ -100,7 +100,7 @@ export default function GlobalError({
                   cursor: "pointer",
                 }}
               >
-                Sayfayı Yenile
+                Refresh Page
               </button>
               <button
                 onClick={() => reset()}

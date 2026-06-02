@@ -141,14 +141,14 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
 
     return [
       { label: "Ara toplam", value: formatPrice(link.subtotal) },
-      { label: "Kargo", value: formatPrice(link.shipping_cost) },
+      { label: "Shipping", value: formatPrice(link.shipping_cost) },
       { label: "Indirim", value: `-${formatPrice(link.discount)}` },
     ];
   }, [link]);
 
   const handleStartPayment = async () => {
     if (!selectedGatewayId) {
-      toast.error("Lutfen bir odeme yontemi secin.");
+      toast.error("Please select a payment method.");
       return;
     }
 
@@ -202,7 +202,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
             <AlertCircle className="mt-0.5 h-5 w-5" />
             <div>
               <h1 className="text-lg font-semibold">Hizli siparis linki acilamadi</h1>
-              <p className="mt-2 text-sm">{error || "Baglanti kurulurken bir hata olustu."}</p>
+              <p className="mt-2 text-sm">{error || "Something went wrong while opening this link."}</p>
             </div>
           </div>
         </div>
@@ -224,7 +224,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
             </div>
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Guvenli odeme
+              Secure payment
             </div>
           </div>
 
@@ -266,8 +266,8 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 <div className="flex items-start gap-3">
                   <Ban className="mt-0.5 h-5 w-5" />
                   <div>
-                    <p className="font-semibold">Bu link iptal edildi.</p>
-                    <p className="mt-1 text-sm">Yeni odeme linki icin magaza yoneticinizle iletisime gecin.</p>
+                    <p className="font-semibold">This link has been cancelled.</p>
+                    <p className="mt-1 text-sm">Contact the store team for a new payment link.</p>
                   </div>
                 </div>
               </div>
@@ -278,8 +278,8 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 <div className="flex items-start gap-3">
                   <Timer className="mt-0.5 h-5 w-5" />
                   <div>
-                    <p className="font-semibold">Bu linkin suresi doldu.</p>
-                    <p className="mt-1 text-sm">Yenilenmis bir odeme linki istemeniz gerekir.</p>
+                    <p className="font-semibold">This link has expired.</p>
+                    <p className="mt-1 text-sm">Please request a renewed payment link.</p>
                   </div>
                 </div>
               </div>
@@ -310,7 +310,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
                   <MapPin className="h-4 w-4 text-gray-500" />
-                  Teslimat adresi
+                  Delivery address
                 </div>
                 <p className="mt-3 text-sm leading-6 text-gray-600">{formatAddress(link.shipping_address)}</p>
               </div>
@@ -333,9 +333,9 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="mt-8 rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
               <CreditCard className="h-4 w-4 text-gray-500" />
-              Odeme yontemi sec
+              Select payment method
             </div>
-            <p className="mt-2 text-sm text-gray-500">Bu linkte yalnizca yonetici tarafindan izin verilen online odeme yontemleri kullanilabilir.</p>
+            <p className="mt-2 text-sm text-gray-500">Only online payment methods enabled by the store team are available for this link.</p>
 
             <div className="mt-5 space-y-3">
               {gateways.map((gateway) => (
@@ -368,7 +368,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
 
             {!gateways.length && !isPaid && !isBlocked ? (
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Bu link icin kullanilabilir online odeme yontemi bulunamadi.
+                No online payment method is available for this link.
               </div>
             ) : null}
 
@@ -431,7 +431,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-gray-200 pt-3 text-base font-semibold text-gray-950">
-              <span>Toplam</span>
+              <span>Total</span>
               <span>{formatPrice(link.total)}</span>
             </div>
           </div>

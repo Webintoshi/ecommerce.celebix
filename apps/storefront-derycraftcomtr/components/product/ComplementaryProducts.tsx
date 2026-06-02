@@ -44,7 +44,7 @@ export function ComplementaryProducts({ title, products, loading }: Complementar
             href="/urunler"
             className="flex items-center gap-1 text-[#7B1113] font-medium hover:gap-2 transition-all"
           >
-            Tümünü Gör
+            View All
             <ChevronRight className="w-5 h-5" />
           </Link>
         </div>

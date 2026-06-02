@@ -35,7 +35,7 @@ export async function fetchShippingZonesFromSettings(): Promise<ShippingZone[]> 
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok || !payload.success) {
-    throw new Error(payload.error || "Kargo bölgeleri yüklenemedi.");
+    throw new Error(payload.error || "Shipping zones could not be loaded.");
   }
 
   return normalizeShippingZones(payload.shippingOptions);

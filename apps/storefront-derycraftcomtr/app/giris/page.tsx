@@ -44,7 +44,7 @@ export default function LoginPage() {
 
     // Captcha validation
     if (!isCaptchaVerified) {
-      setCaptchaError("Doğrulama gereklidir");
+      setCaptchaError("Verification is required");
       setLoading(false);
       return;
     }
@@ -53,7 +53,7 @@ export default function LoginPage() {
 
     if (authError) {
       if (authError.message.includes("Invalid login credentials")) {
-        setError("E-posta adresi veya sifre hatali");
+        setError("Email address or password is incorrect");
       } else if (authError.message.includes("Email not confirmed")) {
         setError("Hesabiniz aktiflestirilemedi. Lutfen tekrar deneyin.");
       } else {
@@ -160,7 +160,7 @@ export default function LoginPage() {
             {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                E-posta Adresi
+                Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

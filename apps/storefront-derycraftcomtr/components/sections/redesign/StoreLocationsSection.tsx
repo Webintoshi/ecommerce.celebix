@@ -46,17 +46,17 @@ function LocationImage({
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Mağazalarımız",
-  heading = "Deriye yakından dokunun",
-  description = "Giresun ve Ordu mağazalarımızda koleksiyonlarımızı yakından inceleyin, dokusunu hissedin ve size en uygun parçayı yerinde seçin.",
-  linkLabel = "Tüm şubeleri gör",
+  eyebrow = "Our Stores",
+  heading = "Experience leather in person",
+  description = "Visit our Giresun and Ordu stores to explore DeryCraft leather collections up close.",
+  linkLabel = "View all stores",
   storesHref,
 }: StoreLocationsSectionProps) {
   const galleryImages = STORE_LOCATIONS.flatMap((store) =>
     store.images.map((image, index) => ({
       id: `${store.id}-${index}`,
       src: image,
-      alt: `${store.name} görünümü ${index + 1}`,
+      alt: `${store.name} view ${index + 1}`,
       city: store.city,
     })),
   ).slice(0, 4);

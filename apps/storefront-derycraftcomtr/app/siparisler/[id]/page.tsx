@@ -73,23 +73,23 @@ function getPaymentMeta(order: Order, paymentGateways: PaymentGateway[]) {
   const gatewayConfig = paymentGateways.find((gateway) => gateway.id === order.payment_method);
   const fallbackName =
     order.payment_method === "cod"
-      ? "Kapıda Ödeme"
+      ? "Cash on Delivery"
       : order.payment_method === "bank_transfer"
-        ? "Havale / EFT"
-        : "Kredi Kartı / Banka Kartı";
+        ? "Bank Transfer"
+        : "Credit / Debit Card";
 
   const name = gatewayConfig?.name || fallbackName;
   const gateway = gatewayConfig?.gateway || order.payment_method;
 
   if (gateway === "cod") {
-    return { name, description: "Tahsilat teslimatta alınacak.", icon: "truck" as const };
+    return { name, description: "Payment will be collected on delivery.", icon: "truck" as const };
   }
 
   if (gateway === "bank_transfer") {
-    return { name, description: "Ödeme onayı bekleniyor.", icon: "wallet" as const };
+    return { name, description: "Payment confirmation is pending.", icon: "wallet" as const };
   }
 
-  return { name, description: "Ödeme başarıyla alındı.", icon: "card" as const };
+  return { name, description: "Payment has been received successfully.", icon: "card" as const };
 }
 
 function PaymentMethodIcon({ kind }: { kind: "truck" | "wallet" | "card" }) {
@@ -102,25 +102,25 @@ function getPaymentBanner(paymentState?: string) {
   if (paymentState === "failed") {
     return {
       className: "border-red-200 bg-red-50 text-red-700",
-      title: "Ödeme başarısız",
+      title: "Payment failed",
       description:
-        "Kart ödemesi tamamlanamadı. Siparişiniz kaydedildi; ödemeyi yeniden deneyebilir veya bizimle iletişime geçebilirsiniz.",
+        "Card payment could not be completed. Your order was saved; you can try again or contact us.",
     };
   }
 
   if (paymentState === "pending") {
     return {
       className: "border-amber-200 bg-amber-50 text-amber-700",
-      title: "Ödeme sonucu kontrol ediliyor",
-      description: "Sağlayıcıdan dönüş alındı. Ödeme sonucu kısa süre içinde siparişinize yansır.",
+      title: "Payment result is being checked",
+      description: "The provider response was received. The payment result will appear on your order shortly.",
     };
   }
 
   if (paymentState === "success") {
     return {
       className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-      title: "Ödeme tamamlandı",
-      description: "Ödemeniz başarıyla alındı ve siparişiniz onaya girdi.",
+      title: "Payment completed",
+      description: "Your payment has been received successfully and your order is being reviewed.",
     };
   }
 
@@ -214,15 +214,15 @@ export default async function OrderSuccessPage({
   if (!order) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAFAFA] px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Sipariş bulunamadı</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Order not found</h1>
         <p className="mt-2 max-w-md text-sm text-gray-500">
-          Aradığınız sipariş mevcut değil veya bu sipariş için erişim izniniz yok.
+          The order you are looking for does not exist or you do not have access to it.
         </p>
         <Link
           href="/"
           className="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-primary px-8 text-sm font-semibold text-white transition-colors hover:bg-red-800"
         >
-          Ana sayfaya dön
+          Back to homepage
         </Link>
       </div>
     );
@@ -259,18 +259,18 @@ export default async function OrderSuccessPage({
               </div>
 
               <p className="mt-6 text-xs font-semibold uppercase tracking-[0.34em] text-stone-500">
-                Sipariş Onayı
+                Order Confirmation
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-950 sm:text-4xl">
-                Siparişiniz alındı
+                Your order has been received
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-stone-600 sm:text-base">
-                Siparişiniz başarıyla oluşturuldu. Hazırlık ve kargo sürecindeki güncellemeleri bu sayfadan takip edebilirsiniz.
+                Your order has been created successfully. You can follow preparation and shipping updates on this page.
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Sipariş No</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Order No</p>
                   <p className="mt-2 font-mono text-sm font-semibold text-stone-900">#{order.order_number}</p>
                 </div>
                 <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
@@ -284,7 +284,7 @@ export default async function OrderSuccessPage({
                   </p>
                 </div>
                 <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Toplam</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Total</p>
                   <p className="mt-2 text-sm font-semibold text-stone-900">{formatPrice(order.total)}</p>
                 </div>
               </div>
@@ -294,7 +294,7 @@ export default async function OrderSuccessPage({
               <div className="rounded-[28px] border border-stone-200 bg-[#fcfaf6] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Ödeme Yöntemi</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Payment Method</p>
                     <h2 className="mt-2 text-xl font-semibold text-stone-900">{paymentMeta.name}</h2>
                     <p className="mt-1 text-sm text-stone-600">{paymentMeta.description}</p>
                   </div>
@@ -313,7 +313,7 @@ export default async function OrderSuccessPage({
                     <span className="font-medium text-stone-900">{accountingSnapshot?.invoiceNo || "-"}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span>Sağlayıcı</span>
+                    <span>Provider</span>
                     <span className="font-medium text-stone-900">{accountingSnapshot?.provider || "-"}</span>
                   </div>
                 </div>
@@ -325,7 +325,7 @@ export default async function OrderSuccessPage({
                     rel="noreferrer"
                     className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-stone-300 px-5 text-sm font-semibold text-stone-900 transition-colors hover:bg-white"
                   >
-                    Faturayı görüntüle
+                    View invoice
                   </a>
                 )}
               </div>
@@ -340,8 +340,8 @@ export default async function OrderSuccessPage({
                 <ShoppingBag className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Sipariş Detayı</p>
-                <h3 className="mt-1 text-2xl font-semibold text-stone-950">Sipariş içeriği</h3>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Order Detail</p>
+                <h3 className="mt-1 text-2xl font-semibold text-stone-950">Order items</h3>
               </div>
             </div>
 
@@ -391,7 +391,7 @@ export default async function OrderSuccessPage({
                         {item.customizations?.[0] && (
                           <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-3">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">
-                              Kişiselleştirme
+                              Personalization
                             </p>
                             <div className="mt-3 space-y-2 text-sm text-stone-700">
                               {item.customizations[0].selections?.map((selection, index) => (
@@ -431,8 +431,8 @@ export default async function OrderSuccessPage({
                   <MapPin className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Teslimat</p>
-                  <h3 className="mt-1 text-2xl font-semibold text-stone-950">Adres bilgisi</h3>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Delivery</p>
+                  <h3 className="mt-1 text-2xl font-semibold text-stone-950">Address information</h3>
                 </div>
               </div>
 
@@ -452,27 +452,27 @@ export default async function OrderSuccessPage({
             </div>
 
             <div className="rounded-[30px] border border-stone-200 bg-white p-6 shadow-[0_14px_42px_rgba(15,23,42,0.05)] sm:p-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Sipariş Özeti</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Order Summary</p>
               <div className="mt-5 space-y-3 text-sm text-stone-600">
                 <div className="flex items-center justify-between gap-3">
                   <span>Ara toplam</span>
                   <span className="font-semibold text-stone-900">{formatPrice(order.subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>Kargo</span>
+                  <span>Shipping</span>
                   <span className="font-semibold text-stone-900">
-                    {order.shipping_cost === 0 ? "Ücretsiz" : formatPrice(order.shipping_cost)}
+                    {order.shipping_cost === 0 ? "Free" : formatPrice(order.shipping_cost)}
                   </span>
                 </div>
                 {order.discount > 0 && (
                   <div className="flex items-center justify-between gap-3 text-emerald-700">
-                    <span>İndirim</span>
+                    <span>Discount</span>
                     <span className="font-semibold">-{formatPrice(order.discount)}</span>
                   </div>
                 )}
               </div>
               <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-5">
-                <span className="text-base font-semibold text-stone-950">Toplam tutar</span>
+                <span className="text-base font-semibold text-stone-950">Total amount</span>
                 <span className="text-2xl font-semibold text-primary">{formatPrice(order.total)}</span>
               </div>
             </div>
@@ -484,14 +484,14 @@ export default async function OrderSuccessPage({
             href="/urunler"
             className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-8 text-sm font-semibold text-white transition-colors hover:bg-red-800 sm:w-auto"
           >
-            Alışverişe devam et
+            Continue shopping
             <ChevronRight className="h-4 w-4" />
           </Link>
           <Link
             href="/hesap"
             className="inline-flex h-12 w-full items-center justify-center rounded-full border border-stone-300 px-8 text-sm font-semibold text-stone-900 transition-colors hover:bg-white sm:w-auto"
           >
-            Hesabıma git
+            Go to my account
           </Link>
         </div>
       </div>

@@ -17,7 +17,7 @@ const defaultBanners: HeroBanner[] = [
     id: 1,
     desktop: "/Hero_banner_Bir.jpg",
     mobile: "/hero-banner-fistik-ezmeleri-mobile.jpg",
-    alt: "Premium Deri Urunleri",
+    alt: "Premium Leather Goods",
   },
 ];
 

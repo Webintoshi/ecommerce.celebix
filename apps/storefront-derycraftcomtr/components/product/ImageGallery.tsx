@@ -56,7 +56,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           <circle cx="8.5" cy="8.5" r="1.5" strokeWidth="2"/>
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeWidth="2"/>
         </svg>
-        <p className="text-sm font-medium text-gray-500">Henüz görsel eklenmemiş</p>
+        <p className="text-sm font-medium text-gray-500">No images have been added yet</p>
       </div>
     );
   }
@@ -188,7 +188,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
         >
           <button
             type="button"
-            aria-label="Görsel büyütmeyi kapat"
+            aria-label="Close image zoom"
             onClick={(e) => {
               e.stopPropagation();
               setIsLightboxOpen(false);
@@ -202,7 +202,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             <>
               <button
                 type="button"
-                aria-label="Önceki görsel"
+                aria-label="Previous image"
                 onClick={(e) => {
                   e.stopPropagation();
                   handlePrevious();
@@ -213,7 +213,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               </button>
               <button
                 type="button"
-                aria-label="Sonraki görsel"
+                aria-label="Next image"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleNext();
@@ -266,7 +266,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l4.586-4.586a2 2 0 012.828 0L20 14M10 4v4m0 0H4m6 0h6" />
               </svg>
-              <p className="text-sm text-gray-500">Görsel yüklenemedi</p>
+              <p className="text-sm text-gray-500">Image could not be loaded</p>
             </div>
           ) : (
             <img
@@ -394,7 +394,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l4.586-4.586a2 2 0 012.828 0L20 14M10 4v4m0 0H4m6 0h6" />
               </svg>
-              <p className="text-sm text-gray-500">Görsel yüklenemedi</p>
+              <p className="text-sm text-gray-500">Image could not be loaded</p>
             </div>
           )}
 
@@ -403,7 +403,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             ref={mainImageRef}
             key={selectedIndex}
             src={currentImage}
-            alt={`${productName} - Ana Görsel`}
+            alt={`${productName} - Main Image`}
             draggable={false}
             className={`w-full h-full object-contain transition-opacity duration-300 ${
               currentStatus === 'loaded' ? 'opacity-100' : 'opacity-0'

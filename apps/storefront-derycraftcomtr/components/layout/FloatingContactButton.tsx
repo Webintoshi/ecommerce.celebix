@@ -92,10 +92,10 @@ export function FloatingContactButton() {
           onClick={() => setIsOpen((current) => !current)}
           className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:bg-neutral-800"
           aria-expanded={isOpen}
-          aria-label={isOpen ? "Iletisim seceneklerini kapat" : "Iletisim seceneklerini ac"}
+          aria-label={isOpen ? "Close contact options" : "Open contact options"}
         >
           {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
-          <span className="hidden sm:inline">{isOpen ? "Kapat" : "Iletisim"}</span>
+          <span className="hidden sm:inline">{isOpen ? "Close" : "Contact"}</span>
         </button>
       </div>
     </div>

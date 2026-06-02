@@ -12,9 +12,9 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/sartlar",
-    title: `Kullanim Sartlari | ${profile.name}`,
+    title: `Terms of Service | ${profile.name}`,
     description:
-      `${profile.name} storefrontunu kullanirken gecerli olan temel kosullar, iletisim ve operasyon prensipleri.`,
+      `Core terms, contact details and operating principles for using the ${profile.name} storefront.`,
   });
 }
 
@@ -23,23 +23,23 @@ export default async function TermsPage() {
 
   const sections = [
     {
-      title: "Genel Kullanim",
-      text: `${profile.name} storefrontu; yayinlanan urunler, sayfalar ve siparis akislari icin resmi dijital vitrin olarak hizmet verir. Siteyi kullanmak, yayindaki politika ve kosullarin kabul edildigi anlamina gelir.`,
+      title: "General Use",
+      text: `The ${profile.name} storefront is the official digital showcase for published products, pages and order flows. Using the site means accepting the published policies and terms.`,
       icon: ScrollText,
     },
     {
-      title: "Siparis ve Odeme",
-      text: "Siparisler, stok ve odeme dogrulamasi sonrasi onaylanir. Fiyatlar, kampanyalar ve operasyon kosullari guncellenebilir; onay anindaki bilgiler siparis icin esas kabul edilir.",
+      title: "Orders and Payment",
+      text: "Orders are confirmed after stock and payment verification. Prices, campaigns and operating terms may be updated; the information at confirmation time is accepted as the basis for the order.",
       icon: Wallet,
     },
     {
-      title: "Icerik ve Marka Haklari",
-      text: "Site icerigi, gorseller, marka unsurlari ve yayinlanan urun kartlari ilgili magaza markasinin operasyonu icin kullanilir. Yetkisiz kopyalama veya kotu niyetli kullanim kabul edilmez.",
+      title: "Content and Brand Rights",
+      text: "Site content, visuals, brand elements and published product cards are used for the operation of the related store brand. Unauthorized copying or malicious use is not accepted.",
       icon: Shield,
     },
     {
-      title: "Hukuki Cerceve",
-      text: "Uyusmazliklarda ilgili mevzuat, mesafeli satis ve tuketici hukuku esas alinir. Operasyonel iletisim bilgileri bu sayfada ve iletisim bolumunde guncel tutulur.",
+      title: "Legal Framework",
+      text: "Relevant legislation, distance sales rules and consumer law apply to disputes. Operational contact details are kept up to date on this page and in the contact section.",
       icon: Scale,
     },
   ];
@@ -49,14 +49,13 @@ export default async function TermsPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            Hukuki Cerceve
+            Legal Framework
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-            Kullanim sartlari sade, acik ve operasyonla uyumlu
+            Terms of service, clear and aligned with operations
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {profile.name} icin yayinlanan storefront, siparis ve destek akislarinin temel kosullarini
-            bu sayfada toplar.
+            This page collects the core terms for the storefront, order and support flows published for {profile.name}.
           </p>
         </div>
       </section>
@@ -82,7 +81,7 @@ export default async function TermsPage() {
 
         <div className="mt-8 rounded-[32px] bg-[#11192D] px-6 py-8 text-white sm:px-8">
           <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
-            Iletisim ve Bildirim
+            Contact and Notices
           </p>
           <h2 className="mt-3 text-3xl font-semibold">{profile.name}</h2>
           <div className="mt-5 space-y-2 text-sm leading-7 text-white/78">

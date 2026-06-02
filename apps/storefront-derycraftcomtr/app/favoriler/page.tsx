@@ -23,16 +23,16 @@ export default function WishlistPage() {
               <Heart className="w-12 h-12 text-primary" />
             </div>
             <h1 className="text-3xl font-bold text-primary mb-4">
-              Favori Listeniz Boş
+              Your wishlist is empty
             </h1>
             <p className="text-muted mb-8">
-              Beğendiğiniz ürünleri favorilere ekleyerek daha sonra kolayca ulaşabilirsiniz.
+              Add products you like to your wishlist so you can find them later.
             </p>
             <Link
               href="/urunler"
               className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-all"
             >
-              Ürünleri Keşfet
+              Explore Products
             </Link>
           </div>
         </div>
@@ -48,10 +48,10 @@ export default function WishlistPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold">
-                Favorilerim ({getTotalItems()} ürün)
+                Wishlist ({getTotalItems()} items)
               </h1>
               <p className="text-primary-foreground/80 mt-2">
-                Beğendiğiniz ürünler
+                Products you saved
               </p>
             </div>
             {items.length > 0 && (
@@ -59,7 +59,7 @@ export default function WishlistPage() {
                 onClick={clearWishlist}
                 className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg font-medium transition-colors"
               >
-                Tümünü Temizle
+                Clear All
               </button>
             )}
           </div>
@@ -87,7 +87,7 @@ export default function WishlistPage() {
                       removeFromWishlist(product.id);
                     }}
                     className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:bg-red-50 transition-colors"
-                    aria-label="Favorilerden çıkar"
+                    aria-label="Remove from wishlist"
                   >
                     <Trash2 className="w-4 h-4 text-red-600" />
                   </button>
@@ -124,7 +124,7 @@ export default function WishlistPage() {
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
                   >
                     <ShoppingBag className="w-4 h-4" />
-                    Sepete Ekle
+                    Add to Cart
                   </button>
                   <Link
                     href={`/urunler/${product.slug}`}

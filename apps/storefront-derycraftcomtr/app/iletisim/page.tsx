@@ -14,10 +14,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/iletisim",
-    title: managedPage?.seoTitle || `Iletisim | ${profile.name}`,
+    title: managedPage?.seoTitle || `Contact | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `${profile.name} ile destek, teklif, toptan satis ve proje talepleri icin iletisime gecin.`,
+      `Contact ${profile.name} for support, quotes, wholesale and project requests.`,
   });
 }
 
@@ -27,25 +27,25 @@ export default async function ContactPage() {
 
   const cards = [
     {
-      title: "Adres",
+      title: "Address",
       value: profile.address,
       href: profile.mapSearchUrl,
       icon: MapPin,
-      linkLabel: "Haritada Ac",
+      linkLabel: "Open Map",
     },
     {
-      title: "E-posta",
+      title: "Email",
       value: profile.email,
       href: `mailto:${profile.email}`,
       icon: Mail,
-      linkLabel: "Mail Gonder",
+      linkLabel: "Send Email",
     },
     {
-      title: "Telefon",
+      title: "Phone",
       value: profile.phone,
       href: `tel:${profile.phoneLink}`,
       icon: Phone,
-      linkLabel: "Hemen Ara",
+      linkLabel: "Call Now",
     },
   ];
 
@@ -55,14 +55,14 @@ export default async function ContactPage() {
         <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-              Iletisim
+              Contact
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-              {profile.name} ile baglanti kurun
+              Connect with {profile.name}
             </h1>
             <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
               {managedPage?.plainText ||
-                "Iletisim kartlari genel ayarlardan, govde icerigi ise admin panelindeki Iletisim sayfasindan yonetilir."}
+                "Contact cards are managed from general settings, while body content is managed from the Contact page in the admin panel."}
             </p>
           </div>
         </div>

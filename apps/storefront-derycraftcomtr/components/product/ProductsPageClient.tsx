@@ -63,10 +63,10 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
               <Package className="h-8 w-8 text-neutral-400" />
             </div>
             <h3 className="mb-2 text-xl font-medium text-neutral-900">
-              Ürün Bulunamadı
+              No products found
             </h3>
             <p className="mx-auto max-w-lg text-sm leading-7 text-neutral-500">
-              Yakında yeni ürünler eklenecek.
+              New products will be added soon.
             </p>
           </motion.div>
         ) : (
@@ -95,7 +95,7 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
               {hasMore ? (
                 <div className="flex items-center gap-2 text-neutral-500">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">Daha fazla ürün yükleniyor...</span>
+                  <span className="text-sm">Loading more products...</span>
                 </div>
               ) : null}
             </div>

@@ -158,7 +158,7 @@ export function PremiumProductCard({ product }: PremiumProductCardProps) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-neutral-400 bg-neutral-50">
-            <span className="text-sm">Görsel yok</span>
+            <span className="text-sm">No image</span>
           </div>
         )}
       </div>

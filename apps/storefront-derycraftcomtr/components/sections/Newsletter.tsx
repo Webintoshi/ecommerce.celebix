@@ -22,13 +22,13 @@ export function Newsletter() {
     setLoading(false);
     setSubscribed(true);
     setEmail("");
-    toast.success("Bültenimize başarıyla abone oldunuz! %10 indirim kodunuz e-postanıza gönderildi.");
+    toast.success("You have subscribed successfully. Your 10% discount code has been sent to your email.");
   };
 
   const benefits = [
-    { icon: Gift, text: "İlk siparişe %10 indirim" },
-    { icon: Bell, text: "Yeni ürünlerden ilk haberdar ol" },
-    { icon: Sparkles, text: "Özel kampanya ve fırsatlar" },
+    { icon: Gift, text: "10% off your first order" },
+    { icon: Bell, text: "Be first to hear about new products" },
+    { icon: Sparkles, text: "Exclusive campaigns and offers" },
   ];
 
   return (
@@ -50,16 +50,15 @@ export function Newsletter() {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full mb-4">
               <Sparkles className="w-3.5 h-3.5" />
-              Özel Fırsatlar
+              Exclusive Offers
             </div>
             
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-              İlk Siparişine %10 İndirim Kazan
+              Get 10% Off Your First Order
             </h2>
             
             <p className="text-gray-600 mb-6 text-sm md:text-base leading-relaxed">
-              E-bültenimize abone olarak yeni ürünlerden ilk haberdar ol, 
-              özel kampanyaları kaçırma!
+              Subscribe to our newsletter to hear about new products first and never miss exclusive campaigns.
             </p>
 
             {/* Benefits */}
@@ -94,9 +93,9 @@ export function Newsletter() {
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
                   <CheckCircle className="w-8 h-8 text-green-600" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Hoş Geldin!</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Welcome!</h3>
                 <p className="text-gray-600 text-sm">
-                  Bültenimize başarıyla abone oldun. İndirim kodun e-postana gönderildi.
+                  You have subscribed successfully. Your discount code has been sent to your email.
                 </p>
               </div>
             ) : (
@@ -106,8 +105,8 @@ export function Newsletter() {
                     <Mail className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">Hemen Abone Ol</h3>
-                    <p className="text-xs text-gray-500">Spam yok, istediğin zaman çık</p>
+                    <h3 className="font-bold text-gray-900">Subscribe Now</h3>
+                    <p className="text-xs text-gray-500">No spam. Unsubscribe anytime.</p>
                   </div>
                 </div>
 
@@ -117,7 +116,7 @@ export function Newsletter() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="E-posta adresin"
+                      placeholder="Your email address"
                       required
                       className="w-full px-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -132,14 +131,14 @@ export function Newsletter() {
                       <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                     ) : (
                       <>
-                        <span>Abone Ol & İndirim Kazan</span>
+                        <span>Subscribe & Get Discount</span>
                       </>
                     )}
                   </button>
                 </form>
 
                 <p className="text-[11px] text-gray-400 text-center mt-4">
-                  Abone olarak gizlilik politikamızı kabul etmiş olursunuz.
+                  By subscribing, you accept our privacy policy.
                 </p>
               </>
             )}

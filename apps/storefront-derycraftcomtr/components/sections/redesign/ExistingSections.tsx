@@ -80,39 +80,39 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                 {SITE_NAME}
               </h1>
               <p className="mt-5 max-w-xl text-base leading-8 text-[#5F5147] sm:text-lg">
-                Magaza ayarlarinizi, hero bannerlarinizi, kategorilerinizi ve urunlerinizi
-                adminden girdiginizde bu alan otomatik olarak gercek vitrininize donusur.
+                Add your store settings, hero banners, categories and products in the admin panel,
+                and this area automatically turns into your live storefront.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={ROUTES.products}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-[#7B1113] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#651012]"
                 >
-                  Koleksiyonu Incele
+                  Explore Collection
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href={ROUTES.contact}
                   className="inline-flex items-center justify-center rounded-full border border-[#BFA58D] bg-white px-6 py-3.5 text-sm font-semibold text-[#2B211B] transition hover:border-[#8A6847] hover:bg-[#FFF9F2]"
                 >
-                  Iletisim Bilgilerini Tamamla
+                  Complete Contact Details
                 </Link>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               {[
-                { title: "Hero Bannerlar", text: "Adminden eklenen ilk bannerlar burada tam ekran mercek alir." },
-                { title: "Kategori Vitrini", text: "Aktif kategoriler, sira ayarina gore anasayfaya tasinir." },
-                { title: "Urun Gruplari", text: "Yayinlanan urunler kategori bazli bloklarda otomatik sergilenir." },
-                { title: "Musteri Guveni", text: "Onayli yorumlar ve magaza bilgileri sayfaya otomatik baglanir." },
+                { title: "Hero Banners", text: "The first banners added from admin are shown here as a full storefront hero." },
+                { title: "Category Showcase", text: "Active categories are moved to the homepage based on their sort order." },
+                { title: "Product Groups", text: "Published products are automatically displayed in category-based sections." },
+                { title: "Customer Trust", text: "Approved reviews and store details are connected to the page automatically." },
               ].map((item) => (
                 <div
                   key={item.title}
                   className="rounded-[28px] border border-black/5 bg-white/88 p-5 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)] backdrop-blur"
                 >
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                    Hazir
+                    Ready
                   </p>
                   <h2 className="mt-3 text-xl font-semibold text-[#18110B]">{item.title}</h2>
                   <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{item.text}</p>
@@ -213,14 +213,14 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
           <button
             onClick={() => setCurrent((current - 1 + slides.length) % slides.length)}
             className="hidden sm:flex absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-full items-center justify-center text-white hover:bg-white/30 transition-all z-20 touch-manipulation"
-            aria-label="Önceki slide"
+            aria-label="Previous slide"
           >
             <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
           </button>
           <button
             onClick={() => setCurrent((current + 1) % slides.length)}
             className="hidden sm:flex absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white/20 backdrop-blur-sm rounded-full items-center justify-center text-white hover:bg-white/30 transition-all z-20 touch-manipulation"
-            aria-label="Sonraki slide"
+            aria-label="Next slide"
           >
             <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
           </button>
@@ -326,14 +326,14 @@ export function Newsletter() {
               </div>
               
               <h3 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-                Aramıza Hoş Geldiniz! 🎉
+                Welcome aboard!
               </h3>
               <p className="text-white/80 text-base sm:text-lg mb-4">
-                %10 indirim kodunuz e-posta adresinize gönderildi.
+                Your 10% discount code has been sent to your email address.
               </p>
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F3E0E1]/20 text-white text-sm">
                 <Sparkles className="w-4 h-4" />
-                İlk siparişinizde geçerli
+                Valid on your first order
               </div>
             </div>
           ) : (
@@ -341,18 +341,18 @@ export function Newsletter() {
               {/* Badge */}
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-sm font-medium mb-6 opacity-0 animate-[fadeIn_0.4s_ease-out_forwards]" style={{ animationDelay: '0.1s' }}>
                 <Mail className="w-4 h-4" />
-                E-Bülten
+                Newsletter
               </div>
 
               {/* Title */}
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
-                Özel Fırsatları
-                <span className="block mt-1 text-[#F3E0E1]">Kaçırma</span>
+                Private Offers
+                <span className="block mt-1 text-[#F3E0E1]">In Your Inbox</span>
               </h2>
 
               {/* Description */}
               <p className="text-white/80 text-base sm:text-lg mb-8 max-w-lg mx-auto">
-                İlk siparişinde <span className="text-white font-bold bg-white/20 px-2 py-0.5 rounded">%10 indirim</span> kazanmak için e-bültene abone ol
+                Subscribe to the newsletter and get <span className="text-white font-bold bg-white/20 px-2 py-0.5 rounded">10% off</span> your first order.
               </p>
 
               {/* Form */}
@@ -362,7 +362,7 @@ export function Newsletter() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="E-posta adresin"
+                    placeholder="Your email address"
                     required
                     className="w-full px-5 sm:px-6 py-4 bg-white/10 border border-white/30 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-[#F3E0E1]/50 focus:border-[#F3E0E1] transition-all backdrop-blur-sm"
                   />
@@ -376,7 +376,7 @@ export function Newsletter() {
                     <div className="w-5 h-5 border-2 border-[#7B1113] border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      Abone Ol
+                      Subscribe
                       <Send className="w-4 h-4" />
                     </>
                   )}
@@ -386,7 +386,7 @@ export function Newsletter() {
               {/* Trust Note */}
               <p className="text-white/60 text-xs sm:text-sm mt-6 flex items-center justify-center gap-2">
                 <Shield className="w-4 h-4" />
-                Dilediğin zaman abonelikten çıkabilirsin. Spam yok.
+                You can unsubscribe anytime. No spam.
               </p>
 
               {/* Decorative Elements */}

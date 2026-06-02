@@ -149,10 +149,8 @@ async function saveToAbandonedCart(items: CartItem[]) {
     });
     
     const result = await response.json();
-    console.log("Sepet kaydedildi:", result);
-    
     if (!result.success) {
-      console.error("Sepet kaydetme hatası:", result.error);
+      console.error("Cart save error:", result.error);
     }
   } catch (error) {
     console.error("Failed to save abandoned cart:", error);

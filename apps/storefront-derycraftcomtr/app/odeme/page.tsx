@@ -174,7 +174,7 @@ export default function CheckoutPage() {
       } catch (error) {
         setShippingRates([]);
         setSelectedShippingMethod("");
-        toast.error("İşlem sırasında bir hata oluştu.");
+        toast.error("Something went wrong while loading checkout options.");
       } finally {
         setIsLoadingGateways(false);
       }
@@ -185,28 +185,28 @@ export default function CheckoutPage() {
 
   const handleNextStep = () => {
     if (!contactEmail || !contactEmail.includes("@")) {
-      toast.error("Geçerli bir e-posta adresi giriniz.");
+      toast.error("Please enter a valid email address.");
       return;
     }
     if (!shippingInfo.firstName || !shippingInfo.lastName) {
-      toast.error("Ad ve Soyad alanları zorunludur.");
+      toast.error("First name and last name are required.");
       return;
     }
     if (!shippingInfo.phone) {
-      toast.error("Telefon numarası zorunludur.");
+      toast.error("Phone number is required.");
       return;
     }
     if (false) {
-      toast.error("Adres ve Şehir alanları zorunludur.");
+      toast.error("Address and city are required.");
       return;
     }
     if (!shippingInfo.address || !shippingInfo.city || !shippingInfo.district) {
-      toast.error("Adres, şehir ve ilçe alanları zorunludur.");
+      toast.error("Address, city and district are required.");
       return;
     }
 
     if (!selectedShippingMethod || shippingRates.length === 0) {
-      toast.error("Bu teslimat bölgesi için kargo seçeneği bulunamadı.");
+      toast.error("No shipping option is available for this delivery area.");
       return;
     }
 
@@ -217,7 +217,7 @@ export default function CheckoutPage() {
   const handleApplyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
     if (!code) {
-      setCouponError("Lütfen bir kupon kodu girin.");
+      setCouponError("Please enter a coupon code.");
       return;
     }
 
@@ -233,7 +233,7 @@ export default function CheckoutPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || "Kupon doğrulanamadı.");
+        throw new Error(result?.error || "Coupon could not be validated.");
       }
 
       setAppliedCoupon({
@@ -243,9 +243,9 @@ export default function CheckoutPage() {
         discountAmount: Number(result.discountAmount) || 0,
       });
       setCouponInput(result.coupon.code);
-      toast.success("Kupon başarıyla uygulandı.");
+      toast.success("Coupon applied successfully.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Kupon uygulanamadı.";
+      const message = error instanceof Error ? error.message : "Coupon could not be applied.";
       setAppliedCoupon(null);
       setCouponError(message);
     } finally {
@@ -266,18 +266,18 @@ export default function CheckoutPage() {
 
   const handleCompleteOrder = async () => {
     if (!selectedPaymentMethod) {
-      toast.error("Lütfen bir ödeme yöntemi seçiniz.");
+      toast.error("Please select a payment method.");
       return;
     }
 
     // Validate account creation fields if checked
     if (!user && !CUSTOMER_AUTH_DISABLED && createAccount) {
       if (!accountPassword || accountPassword.length < 6) {
-        toast.error("Şifre en az 6 karakter olmalıdır.");
+        toast.error("Password must be at least 6 characters.");
         return;
       }
       if (accountPassword !== accountPasswordConfirm) {
-        toast.error("Şifreler eşleşmiyor.");
+        toast.error("Passwords do not match.");
         return;
       }
     }
@@ -306,11 +306,11 @@ export default function CheckoutPage() {
         const registerResult = await registerResponse.json().catch(() => ({}));
 
         if (!registerResponse.ok) {
-          const message = registerResult.error || "Hesap oluşturulurken bir hata oluştu.";
+          const message = registerResult.error || "Something went wrong while creating your account.";
           if (message.includes("zaten kayıtlı")) {
-            toast.error("Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın.");
+            toast.error("This email address is already registered. Please sign in.");
           } else {
-            toast.error("Hesap oluşturulurken bir hata oluştu: " + message);
+            toast.error("Something went wrong while creating your account: " + message);
           }
           setIsSubmitting(false);
           return;
@@ -372,7 +372,7 @@ export default function CheckoutPage() {
         shippingCost: resolvedShippingCost,
         discount: discountAmount,
         couponCode: appliedCoupon?.code || null,
-        notes: !CUSTOMER_AUTH_DISABLED && createAccount ? "Hesap oluşturuldu" : "",
+        notes: !CUSTOMER_AUTH_DISABLED && createAccount ? "Account created" : "",
         contactEmail,
         receiveUpdates: true,
         createAccount: !CUSTOMER_AUTH_DISABLED && !user && createAccount,
@@ -404,13 +404,13 @@ export default function CheckoutPage() {
       }
 
       toast.success(!CUSTOMER_AUTH_DISABLED && createAccount
-        ? "Siparişiniz alındı! Hesabınız başarıyla oluşturuldu." 
-        : "Siparişiniz başarıyla alındı!"
+        ? "Your order has been received and your account has been created."
+        : "Your order has been received."
       );
       clearCart({ preserveServerCart: true });
       router.push(`/siparisler/${result.order.id}?new=true`);
     } catch (error) {
-      toast.error("Bir bağlantı hatası oluştu.");
+      toast.error("A connection error occurred.");
     } finally {
       setIsSubmitting(false);
     }
@@ -418,7 +418,7 @@ export default function CheckoutPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Kopyalandı!");
+    toast.success("Copied.");
   };
 
   const getGatewayType = (id: string) => {
@@ -433,8 +433,8 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Sepetiniz Boş</h1>
-          <Link href="/urunler" className="text-primary hover:underline underline-offset-4">Alışverişe Devam Et</Link>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Your cart is empty</h1>
+          <Link href="/urunler" className="text-primary hover:underline underline-offset-4">Continue Shopping</Link>
         </div>
       </div>
     );
@@ -458,14 +458,14 @@ export default function CheckoutPage() {
                 <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs", currentStep === 1 ? "bg-primary text-white" : "bg-emerald-100 text-emerald-600")}>
                   {currentStep > 1 ? <Check className="h-4 w-4" /> : "1"}
                 </div>
-                <span className="hidden sm:inline">Teslimat</span>
+                <span className="hidden sm:inline">Delivery</span>
               </div>
               <ChevronRight className="h-4 w-4 text-gray-300" />
               <div className={cn("flex items-center gap-2", currentStep === 2 ? "text-primary font-bold" : "text-gray-400 font-medium")}>
                 <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs", currentStep === 2 ? "bg-primary text-white" : "bg-gray-100 text-gray-400")}>
                   2
                 </div>
-                <span className="hidden sm:inline">Ödeme</span>
+                <span className="hidden sm:inline">Payment</span>
               </div>
             </div>
 
@@ -483,15 +483,15 @@ export default function CheckoutPage() {
                       <Truck className="h-6 w-6" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900">Teslimat Bilgileri</h2>
-                      <p className="text-sm text-gray-500">Siparişinizin gönderileceği adres</p>
+                      <h2 className="text-xl font-bold text-gray-900">Delivery Information</h2>
+                      <p className="text-sm text-gray-500">The address where your order will be shipped</p>
                     </div>
                   </div>
 
                   <div className="space-y-6">
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">Ad</label>
+                        <label className="text-sm font-medium text-gray-600">First Name</label>
                         <input
                           type="text"
                           value={shippingInfo.firstName}
@@ -504,12 +504,12 @@ export default function CheckoutPage() {
                               shippingInfo.phone
                             );
                           }}
-                          placeholder="Adınız"
+                          placeholder="Your first name"
                           className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">Soyad</label>
+                        <label className="text-sm font-medium text-gray-600">Last Name</label>
                         <input
                           type="text"
                           value={shippingInfo.lastName}
@@ -522,14 +522,14 @@ export default function CheckoutPage() {
                               shippingInfo.phone
                             );
                           }}
-                          placeholder="Soyadınız"
+                          placeholder="Your last name"
                           className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">E-posta</label>
+                      <label className="text-sm font-medium text-gray-600">Email</label>
                       <input
                         type="email"
                         value={contactEmail}
@@ -551,7 +551,7 @@ export default function CheckoutPage() {
                     {/* Account Creation - Only for non-logged in users */}
                     {!user && CUSTOMER_AUTH_DISABLED && (
                       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        Musteri hesabi ve siparis gecmisi ozellikleri gecici olarak devre disi. Checkout misafir olarak devam eder.
+                        Customer accounts and order history are temporarily disabled. Checkout continues as guest checkout.
                       </div>
                     )}
 
@@ -567,10 +567,10 @@ export default function CheckoutPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <UserPlus className="w-4 h-4 text-emerald-600" />
-                              <span className="font-semibold text-gray-900">Hesap Oluştur</span>
+                              <span className="font-semibold text-gray-900">Create Account</span>
                             </div>
                             <p className="text-sm text-gray-600 mt-1">
-                              Sonraki alışverişlerinizde hızlı checkout için şifrenizi belirleyin
+                              Set a password for faster checkout on future orders.
                             </p>
                           </div>
                         </label>
@@ -585,14 +585,14 @@ export default function CheckoutPage() {
                               className="space-y-4 overflow-hidden"
                             >
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-600">Şifre Oluştur</label>
+                                <label className="text-sm font-medium text-gray-600">Create Password</label>
                                 <div className="relative">
                                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                   <input
                                     type={showPassword ? "text" : "password"}
                                     value={accountPassword}
                                     onChange={(e) => setAccountPassword(e.target.value)}
-                                    placeholder="En az 6 karakter"
+                                    placeholder="At least 6 characters"
                                     minLength={6}
                                     className="w-full h-12 pl-12 pr-12 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
                                   />
@@ -606,28 +606,28 @@ export default function CheckoutPage() {
                                 </div>
                               </div>
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-600">Şifre Tekrar</label>
+                                <label className="text-sm font-medium text-gray-600">Confirm Password</label>
                                 <div className="relative">
                                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                   <input
                                     type={showPassword ? "text" : "password"}
                                     value={accountPasswordConfirm}
                                     onChange={(e) => setAccountPasswordConfirm(e.target.value)}
-                                    placeholder="Şifrenizi tekrar girin"
+                                    placeholder="Enter your password again"
                                     className="w-full h-12 pl-12 pr-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
                                   />
                                 </div>
                               </div>
                               <p className="text-xs text-gray-500">
-                                Hesap oluşturarak{" "}
+                                By creating an account, you accept the{" "}
                                 <Link href="/kullanim-kosullari" className="text-primary hover:underline" target="_blank">
-                                  Kullanım Koşulları
+                                  Terms of Use
                                 </Link>
-                                {" "}ve{" "}
+                                {" "}and{" "}
                                 <Link href="/gizlilik" className="text-primary hover:underline" target="_blank">
-                                  Gizlilik Politikası
+                                  Privacy Policy
                                 </Link>
-                                {" "}nı kabul etmiş olursunuz.
+                                .
                               </p>
                             </motion.div>
                           )}
@@ -636,7 +636,7 @@ export default function CheckoutPage() {
                     )}
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Telefon</label>
+                      <label className="text-sm font-medium text-gray-600">Phone</label>
                       <input
                         type="tel"
                         value={shippingInfo.phone}
@@ -655,25 +655,25 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Adres</label>
+                      <label className="text-sm font-medium text-gray-600">Address</label>
                       <input
                         type="text"
                         value={shippingInfo.address}
                         onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
-                        placeholder="Sokak, Mahalle, Bina No"
+                        placeholder="Street, neighborhood, building no."
                         className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
                       />
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-6">
                       <div className="space-y-2 relative">
-                        <label className="text-sm font-medium text-gray-600">Şehir</label>
+                        <label className="text-sm font-medium text-gray-600">City</label>
                         <select
                           value={shippingInfo.city}
                           onChange={(e) => setShippingInfo({ ...shippingInfo, city: e.target.value })}
                           className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300 appearance-none cursor-pointer"
                         >
-                          <option value="">Seçiniz</option>
+                          <option value="">Select</option>
                           {TURKISH_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                         <div className="absolute right-4 bottom-3.5 pointer-events-none text-gray-400">
@@ -681,17 +681,17 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">İlçe</label>
+                        <label className="text-sm font-medium text-gray-600">District</label>
                         <input
                           type="text"
                           value={shippingInfo.district}
                           onChange={(e) => setShippingInfo({ ...shippingInfo, district: e.target.value })}
                           className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
-                          placeholder="İlçe"
+                          placeholder="District"
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">Posta Kodu</label>
+                        <label className="text-sm font-medium text-gray-600">Postal Code</label>
                         <input
                           type="text"
                           value={shippingInfo.postalCode}
@@ -705,12 +705,12 @@ export default function CheckoutPage() {
                     <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">Teslimat Yöntemi</p>
-                          <p className="text-xs text-gray-500">Checkout ekranında müşteriye gösterilir.</p>
+                          <p className="text-sm font-semibold text-gray-900">Shipping Method</p>
+                          <p className="text-xs text-gray-500">Shown to the customer during checkout.</p>
                         </div>
                         {selectedShippingRate ? (
                           <span className={cn("text-sm font-semibold", resolvedShippingCost === 0 ? "text-emerald-600" : "text-gray-900")}>
-                            {resolvedShippingCost === 0 ? "Ücretsiz" : formatPrice(resolvedShippingCost)}
+                            {resolvedShippingCost === 0 ? "Free" : formatPrice(resolvedShippingCost)}
                           </span>
                         ) : null}
                       </div>
@@ -743,12 +743,12 @@ export default function CheckoutPage() {
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <span className="text-sm font-semibold text-gray-900">{rate.name}</span>
                                     <span className={cn("text-sm font-semibold", ratePrice === 0 ? "text-emerald-600" : "text-gray-900")}>
-                                      {ratePrice === 0 ? "Ücretsiz" : formatPrice(ratePrice)}
+                                      {ratePrice === 0 ? "Free" : formatPrice(ratePrice)}
                                     </span>
                                   </div>
                                   {(rate.estimatedDays || rate.minOrder) ? (
                                     <p className="mt-1 text-xs text-gray-500">
-                                      {[rate.estimatedDays, rate.minOrder ? `${formatPrice(rate.minOrder)} üzeri ücretsiz` : null]
+                                      {[rate.estimatedDays, rate.minOrder ? `Free over ${formatPrice(rate.minOrder)}` : null]
                                         .filter(Boolean)
                                         .join(" • ")}
                                     </p>
@@ -760,7 +760,7 @@ export default function CheckoutPage() {
                         </div>
                       ) : (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                          Bu adres için tanımlı teslimat seçeneği bulunamadı.
+                          No delivery option is configured for this address.
                         </div>
                       )}
                     </div>
@@ -769,7 +769,7 @@ export default function CheckoutPage() {
                       onClick={handleNextStep}
                       className="w-full bg-primary text-white font-bold h-14 rounded-xl hover:bg-red-800 transition-colors flex items-center justify-center gap-2 mt-4 shadow-lg shadow-primary/20"
                     >
-                      Ödemeye Geç <ChevronRight className="h-4 w-4" />
+                      Continue to Payment <ChevronRight className="h-4 w-4" />
                     </button>
                   </div>
                 </motion.div>
@@ -786,11 +786,11 @@ export default function CheckoutPage() {
                       <CreditCard className="h-6 w-6" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900">Ödeme Bilgileri</h2>
-                      <p className="text-sm text-gray-500">Güvenli ödeme işlemi</p>
+                      <h2 className="text-xl font-bold text-gray-900">Payment Information</h2>
+                      <p className="text-sm text-gray-500">Secure payment process</p>
                     </div>
                     <div className="ml-auto flex items-center gap-1 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1.5 rounded-full">
-                      <Lock className="h-3 w-3" /> SSL Güvenli
+                      <Lock className="h-3 w-3" /> SSL Secured
                     </div>
                   </div>
 
@@ -818,12 +818,12 @@ export default function CheckoutPage() {
                         {/* Bottom Row */}
                         <div className="relative flex justify-between items-end">
                           <div>
-                            <p className="text-[10px] uppercase font-bold tracking-widest opacity-70 mb-1">Kart Sahibi</p>
-                            <p className="font-medium tracking-wide">AD SOYAD</p>
+                            <p className="text-[10px] uppercase font-bold tracking-widest opacity-70 mb-1">Card Holder</p>
+                            <p className="font-medium tracking-wide">FULL NAME</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[10px] uppercase font-bold tracking-widest opacity-70 mb-1">SKT</p>
-                            <p className="font-medium tracking-wide">AA/YY</p>
+                            <p className="text-[10px] uppercase font-bold tracking-widest opacity-70 mb-1">EXP</p>
+                            <p className="font-medium tracking-wide">MM/YY</p>
                           </div>
                         </div>
                       </div>
@@ -860,30 +860,30 @@ export default function CheckoutPage() {
                   {paymentGateways.find(g => g.id === selectedPaymentMethod)?.gateway === 'bank_transfer' && (
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 space-y-4 animate-in fade-in slide-in-from-top-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500 font-medium">Banka</span>
+                        <span className="text-sm text-gray-500 font-medium">Bank</span>
                         <span className="font-bold text-gray-900 text-right">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.bankName}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500 font-medium">Alıcı</span>
+                        <span className="text-sm text-gray-500 font-medium">Account Holder</span>
                         <span className="font-bold text-gray-900 text-right">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.accountHolder}</span>
                       </div>
                       <div className="pt-4 border-t border-gray-200">
                         <p className="text-xs text-gray-500 font-bold uppercase mb-2">IBAN</p>
                         <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
                           <code className="font-mono font-bold text-gray-900 break-all">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.iban}</code>
-                          <button onClick={() => copyToClipboard(paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.iban || "")} className="text-primary text-sm font-bold hover:underline shrink-0 ml-2">Kopyala</button>
+                          <button onClick={() => copyToClipboard(paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.iban || "")} className="text-primary text-sm font-bold hover:underline shrink-0 ml-2">Copy</button>
                         </div>
                       </div>
                       <div className="flex gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-lg">
                         <AlertCircle className="h-4 w-4 shrink-0" />
-                        Sipariş numaranızı açıklama kısmına yazmayı unutmayınız.
+                        Place your order now and complete the payment using the bank details provided after checkout. Please include your order number in the transfer note.
                       </div>
                     </div>
                   )}
 
                   {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && selectedPaymentMethod && (
                     <div className="bg-blue-50 text-blue-700 p-4 rounded-xl text-sm font-medium text-center animate-in fade-in">
-                      Ödeme butonuna tıkladıktan sonra güvenli 3D Secure ekranına yönlendirileceksiniz.
+                      After clicking the payment button, you will be redirected to the secure 3D Secure screen.
                     </div>
                   )}
 
@@ -892,7 +892,7 @@ export default function CheckoutPage() {
                       onClick={() => setCurrentStep(1)}
                       className="flex-1 h-14 rounded-xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-50 transition-colors"
                     >
-                      Geri
+                      Back
                     </button>
                     <button
                       onClick={handleCompleteOrder}
@@ -900,7 +900,7 @@ export default function CheckoutPage() {
                       className="flex-[2] h-14 bg-primary text-white font-bold rounded-xl hover:bg-red-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-primary/20"
                     >
                       {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Lock className="h-4 w-4" />}
-                      {formatPrice(finalTotal)} Öde
+                      Pay {formatPrice(finalTotal)}
                     </button>
                   </div>
                 </motion.div>
@@ -915,7 +915,7 @@ export default function CheckoutPage() {
           <div className="lg:col-span-4 relative">
             <div className="sticky top-8 space-y-6">
 
-              <h2 className="text-lg font-bold text-gray-900">Sipariş Özeti</h2>
+              <h2 className="text-lg font-bold text-gray-900">Order Summary</h2>
 
               <div className="bg-white rounded-[1.5rem] shadow-sm p-6">
                 <div className="space-y-6">
@@ -948,7 +948,7 @@ export default function CheckoutPage() {
                             </div>
                           ) : null}
                           <div className="flex justify-between items-center mt-2">
-                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-bold text-gray-600">Adet: {item.quantity}</span>
+                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-bold text-gray-600">Qty: {item.quantity}</span>
                             <span className="font-bold text-gray-900 text-sm">{formatPrice(item.unitPrice * item.quantity)}</span>
                           </div>
                         </div>
@@ -961,13 +961,13 @@ export default function CheckoutPage() {
                   {/* Totals table */}
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between text-gray-600 font-medium">
-                      <span>Ara Toplam</span>
+                      <span>Subtotal</span>
                       <span className="text-gray-900 font-bold">{formatPrice(subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-gray-600 font-medium">
-                      <span>Kargo</span>
+                      <span>Shipping</span>
                       <span className={resolvedShippingCost === 0 ? "text-emerald-600 font-bold" : "text-gray-900 font-bold"}>
-                        {resolvedShippingCost === 0 ? "0 ₺" : formatPrice(resolvedShippingCost)}
+                        {resolvedShippingCost === 0 ? "Free" : formatPrice(resolvedShippingCost)}
                       </span>
                     </div>
                     {selectedShippingRate ? (
@@ -977,9 +977,9 @@ export default function CheckoutPage() {
                       </div>
                     ) : null}
                     <div className="flex justify-between text-gray-600 font-medium">
-                      <span>İndirim</span>
+                      <span>Discount</span>
                       <span className="text-emerald-600 font-bold">
-                        -{discountAmount > 0 ? formatPrice(discountAmount) : "0 ₺"}
+                        -{discountAmount > 0 ? formatPrice(discountAmount) : formatPrice(0)}
                       </span>
                     </div>
                   </div>
@@ -987,19 +987,19 @@ export default function CheckoutPage() {
                   {/* Dark Total Box - Using Primary Brand Color as base */}
                   {/* Total Box - Nude Theme */}
                   <div className="bg-[#F5E6E0] rounded-xl p-5 flex justify-between items-center text-[#7B1113] shadow-sm">
-                    <span className="font-bold text-lg">Toplam</span>
+                    <span className="font-bold text-lg">Total</span>
                     <span className="font-black text-2xl tracking-tight">{formatPrice(finalTotal)}</span>
                   </div>
 
                   {/* Discount Code */}
                   <div className="pt-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">İndirim Kodu</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Discount Code</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={couponInput}
                         onChange={(event) => setCouponInput(event.target.value.toUpperCase())}
-                        placeholder="Kodu girin"
+                        placeholder="Enter code"
                         disabled={isApplyingCoupon}
                         className="flex-1 h-10 px-3 rounded-lg border border-gray-200 text-sm focus:border-primary focus:ring-primary focus:ring-1 bg-gray-50"
                       />
@@ -1009,7 +1009,7 @@ export default function CheckoutPage() {
                           onClick={removeCoupon}
                           className="px-4 h-10 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50"
                         >
-                          Kaldır
+                          Remove
                         </button>
                       ) : (
                         <button
@@ -1018,20 +1018,20 @@ export default function CheckoutPage() {
                           disabled={isApplyingCoupon}
                           className="px-4 h-10 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                         >
-                          {isApplyingCoupon ? "Kontrol..." : "Uygula"}
+                          {isApplyingCoupon ? "Checking..." : "Apply"}
                         </button>
                       )}
                     </div>
                     {appliedCoupon && (
                       <p className="mt-2 text-xs text-emerald-600 font-medium">
-                        {appliedCoupon.code} uygulandı: -{formatPrice(discountAmount)}
+                        {appliedCoupon.code} applied: -{formatPrice(discountAmount)}
                       </p>
                     )}
                     {!!couponError && <p className="mt-2 text-xs text-rose-600 font-medium">{couponError}</p>}
                   </div>
 
                   <div className="flex items-center gap-2 justify-center text-[10px] text-gray-400 mt-2">
-                    <Lock className="h-3 w-3" /> Ödemeniz güvenli bir şekilde işlenir
+                    <Lock className="h-3 w-3" /> Your payment is processed securely. Prices are listed in Turkish Lira.
                   </div>
 
                 </div>
