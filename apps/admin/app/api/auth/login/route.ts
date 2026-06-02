@@ -3,7 +3,7 @@ import { createClient, type Session } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/permissions";
 import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
 import { getSupabaseAnonKey, getSupabaseCookieOptions, getSupabaseServerUrl } from "@/lib/supabase-shared";
-import { clearAdminRoleCookie, writeAdminRoleCookie } from "@/lib/admin-role-cookie";
+import { writeAdminRoleCookie } from "@/lib/admin-role-cookie";
 import { chunkSessionCookieValue, encodeSessionCookiePayload } from "@/lib/supabase-session-cookie-utils";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 
@@ -161,6 +161,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const adminRole = await readAdminRole(data.user.id);
+    if (!adminRole || !isKnownAdminRole(adminRole)) {
+      return NextResponse.json(
+        { error: "Bu kullanici icin admin paneli yetkisi bulunamadi." },
+        { status: 403 },
+      );
+    }
+
     const response = NextResponse.json(
       {
         session: data.session,
@@ -171,15 +179,10 @@ export async function POST(request: Request) {
     );
 
     applyAdminSessionCookies(response, data.session);
-    const adminRole = await readAdminRole(data.user.id);
-    if (adminRole && isKnownAdminRole(adminRole)) {
-      writeAdminRoleCookie(response, {
-        userId: data.user.id,
-        role: adminRole,
-      });
-    } else {
-      clearAdminRoleCookie(response);
-    }
+    writeAdminRoleCookie(response, {
+      userId: data.user.id,
+      role: adminRole,
+    });
 
     return response;
   } catch (error) {

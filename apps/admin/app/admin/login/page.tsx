@@ -80,6 +80,15 @@ export default function AdminLoginPage() {
         console.warn("Admin browser session sync warning:", sessionError);
       }
 
+      const adminSessionCheckResponse = await fetch("/api/admin/me", {
+        cache: "no-store",
+      });
+      if (!adminSessionCheckResponse.ok) {
+        const adminSessionCheckPayload = await adminSessionCheckResponse.json().catch(() => ({}));
+        toast.error(adminSessionCheckPayload.error || "Admin oturumu dogrulanamadi. Lutfen tekrar deneyin.");
+        return;
+      }
+
       toast.success("Giriş yapıldı.");
       window.location.assign(nextPath);
     } catch (error) {
