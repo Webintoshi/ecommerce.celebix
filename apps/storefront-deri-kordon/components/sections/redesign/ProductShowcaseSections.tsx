@@ -45,10 +45,25 @@ function isHomepageFeatured(product: ShowcaseProduct) {
   return Boolean(product.featured ?? product.is_featured);
 }
 
+const SHOWCASE_CATEGORY_ORDER = [
+  "cuzdan-kartlik",
+  "apple-watch-saat-kayislari",
+  "aksesuar",
+  "saat-kayislari",
+] as const;
+
 function buildProductGroups(categories: HomepageCategory[], products: ShowcaseProduct[]) {
   const usedProductIds = new Set<string>();
+  const orderedCategories = [...categories].sort((left, right) => {
+    const leftPriority = SHOWCASE_CATEGORY_ORDER.indexOf(left.slug as (typeof SHOWCASE_CATEGORY_ORDER)[number]);
+    const rightPriority = SHOWCASE_CATEGORY_ORDER.indexOf(right.slug as (typeof SHOWCASE_CATEGORY_ORDER)[number]);
+    const normalizedLeftPriority = leftPriority === -1 ? Number.MAX_SAFE_INTEGER : leftPriority;
+    const normalizedRightPriority = rightPriority === -1 ? Number.MAX_SAFE_INTEGER : rightPriority;
 
-  return categories.slice(0, 4).map((category, index) => {
+    return normalizedLeftPriority - normalizedRightPriority;
+  });
+
+  return orderedCategories.slice(0, 4).map((category, index) => {
     const categoryKey = normalizeKey(category.slug);
     const categoryProducts = products.filter((product) => {
       const productCategory = normalizeKey(product.category);
