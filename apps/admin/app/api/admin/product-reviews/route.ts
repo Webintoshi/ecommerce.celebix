@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isProductReviewStatus } from "@celebix/platform-config/src/product-reviews";
 import { listAdminProductReviews } from "@/lib/product-reviews";
+import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isAdminProductReviewsDisabled,
+} from "@/lib/light-postgres-readiness";
 import { createServerClient } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
+  if (isAdminProductReviewsDisabled()) {
+    return NextResponse.json({
+      success: true,
+      status: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+      reviews: [],
+      counts: { all: 0, pending: 0, approved: 0, rejected: 0 },
+    });
+  }
+
   try {
     const supabase = createServerClient();
     const { searchParams } = new URL(request.url);
@@ -45,4 +58,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
-

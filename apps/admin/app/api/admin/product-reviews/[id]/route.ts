@@ -6,13 +6,32 @@ import {
 import { cookies } from "next/headers";
 import { recalculateProductReviewMetrics } from "@/lib/product-reviews";
 import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
+import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isAdminProductReviewsDisabled,
+} from "@/lib/light-postgres-readiness";
 import { createServerClient } from "@/lib/supabase";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
 
+function buildDisabledResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      code: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+      error: "Urun yorumlari DeryCraft light_postgres provasinda gecici olarak pasif.",
+    },
+    { status: 503 },
+  );
+}
+
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  if (isAdminProductReviewsDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const { id } = await params;
     const body = (await request.json()) as { status?: string };
@@ -73,6 +92,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  if (isAdminProductReviewsDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const { id } = await params;
     const supabase = createServerClient();
@@ -112,4 +135,3 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
-

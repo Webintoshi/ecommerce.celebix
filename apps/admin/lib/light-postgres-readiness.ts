@@ -16,3 +16,7 @@ export function isAdminQuickOrderDisabled() {
 export function isAdminAbandonedCartDisabled() {
   return shouldUseLightPostgresAdmin();
 }
+
+export function isAdminProductReviewsDisabled() {
+  return shouldUseLightPostgresAdmin();
+}

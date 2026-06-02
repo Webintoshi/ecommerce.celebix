@@ -1,10 +1,12 @@
 import "server-only";
 
+import type { AdminProductReviewRecord } from "@/lib/product-reviews";
 import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import { getLiveAnalyticsSnapshot } from "@/lib/live-analytics";
 import { getDashboardAnalyticsPayload } from "@/lib/dashboard-analytics";
 import { listAdminProductReviews } from "@/lib/product-reviews";
+import { isAdminProductReviewsDisabled } from "@/lib/light-postgres-readiness";
 import type {
   DashboardBootstrapData,
   DashboardCustomerActivity,
@@ -70,6 +72,16 @@ type DashboardBootstrapOptions = {
   includeLiveData?: boolean;
   timeRange?: TimeRange;
 };
+
+function getRecentReviewsPromise(
+  supabase: ReturnType<typeof createServerClient>,
+): Promise<AdminProductReviewRecord[]> {
+  if (isAdminProductReviewsDisabled()) {
+    return Promise.resolve([]);
+  }
+
+  return listAdminProductReviews(supabase, { limit: 5 });
+}
 
 function getEmptyLiveAnalyticsSnapshot(): LiveAnalyticsSnapshot {
   return {
@@ -326,7 +338,7 @@ export async function getAdminDashboardBootstrapData(
         .order("created_at", { ascending: false })
         .limit(5),
       getDashboardAnalyticsPayload(timeRange),
-      listAdminProductReviews(supabase, { limit: 5 }),
+      getRecentReviewsPromise(supabase),
       includeLiveData ? getLiveAnalyticsSnapshot() : Promise.resolve(getEmptyLiveAnalyticsSnapshot()),
     ]);
 
