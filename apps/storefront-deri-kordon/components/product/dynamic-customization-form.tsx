@@ -214,7 +214,7 @@ export function DynamicCustomizationForm({
         const payload = await response.json();
 
         if (!response.ok || !payload?.success) {
-          throw new Error(payload?.error || "Kişiselleştirme şeması yüklenemedi");
+          throw new Error(payload?.error || "Customization schema could not be loaded");
         }
 
         const loadedSchema = payload.schema as
@@ -374,10 +374,10 @@ export function DynamicCustomizationForm({
         <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white/70 px-4 py-3">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">
-              Ekstra Ücret
+              Extra Price
             </p>
             <p className="text-sm text-neutral-500">
-              Seçtiğiniz kişiselleştirme fiyatı ürüne eklenir.
+              Your selected personalization is added to the product price.
             </p>
           </div>
           <span className="text-base font-semibold text-neutral-900">
@@ -388,7 +388,7 @@ export function DynamicCustomizationForm({
 
       {validationNonce > 0 && !allStepsValid && (
         <p className="text-sm text-rose-600">
-          Sepete eklemeden önce zorunlu kişiselleştirme alanlarını tamamlayın.
+          Complete the required personalization fields before adding to cart.
         </p>
       )}
     </div>
@@ -422,7 +422,7 @@ function FormField({
   );
 
   const errorMessage = showError && !isValid && (
-    <p className="mt-1 text-xs text-rose-600">Bu alan gereklidir</p>
+    <p className="mt-1 text-xs text-rose-600">This field is required</p>
   );
 
   const imageAspectRatioClass =
@@ -464,7 +464,7 @@ function FormField({
                 showError && "border-rose-400"
               )}
             >
-              <SelectValue placeholder={step.placeholder || "Seçiniz"} />
+              <SelectValue placeholder={step.placeholder || "Select an option"} />
             </SelectTrigger>
             <SelectContent>
               {step.options?.map((option) => (

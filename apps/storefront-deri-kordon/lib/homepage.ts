@@ -473,26 +473,28 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   );
 
   const translatedHeroBanners = await translateHeroBanners(heroBanners, locale);
+  const hydratedProducts = hydrateHomepageProducts(
+    orderedShowcaseProducts
+      .slice(0, 8)
+      .map((product) => withHomepageFeaturedFlag(product)),
+    attributeRegistry,
+  );
+  const hydratedShowcaseProducts = hydrateHomepageProducts(
+    orderedShowcaseProducts.map((product) => withHomepageFeaturedFlag(product)),
+    attributeRegistry,
+  );
   const translatedProducts = await Promise.all(
-    orderedShowcaseProducts.slice(0, 8).map((product) => translateProductRecord(product, locale)),
+    hydratedProducts.map((product) => translateProductRecord(product, locale)),
   );
   const translatedShowcaseProducts = await Promise.all(
-    orderedShowcaseProducts.map((product) => translateProductRecord(product, locale)),
+    hydratedShowcaseProducts.map((product) => translateProductRecord(product, locale)),
   );
 
   return {
     heroBanners: translatedHeroBanners,
     categories: translatedCategories,
-    products: hydrateHomepageProducts(
-      (translatedProducts || []).map((product) => withHomepageFeaturedFlag(product)),
-      attributeRegistry,
-    ),
+    products: translatedProducts,
     promoBanners: normalizePromoBanners(promoBannersData.data?.value),
-    allProducts: hydrateHomepageProducts(
-      (translatedShowcaseProducts || []).map((product) =>
-        withHomepageFeaturedFlag(product),
-      ),
-      attributeRegistry,
-    ),
+    allProducts: translatedShowcaseProducts,
   };
 }

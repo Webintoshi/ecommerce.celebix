@@ -176,18 +176,16 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
       orderedProducts.map((product) => product.id),
     );
 
-    const translatedProducts = await Promise.all(
-      (orderedProducts.map((product) =>
-        translateProductRecord(product, locale),
-      )),
-    );
-
-    return translatedProducts.map((product) =>
+    const transformedProducts = orderedProducts.map((product) =>
       transformProduct(
-        product as DBProduct,
+        product,
         attributeRegistry,
         discountRulesMap[(product as DBProduct).id] || [],
       ),
+    );
+
+    return Promise.all(
+      transformedProducts.map((product) => translateProductRecord(product, locale)),
     );
   } catch (error) {
     console.error("Failed to fetch products:", error);

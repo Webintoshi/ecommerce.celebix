@@ -6,6 +6,10 @@ import {
   normalizeStoreTranslationSettings,
   type StoreTranslationLocale,
 } from "@celebix/platform-config/src/translation";
+import {
+  applyDerycraftEnglishTextFallback,
+  translateDerycraftProductContent,
+} from "@/lib/derycraft-english-fallback";
 import { createServerClient } from "@/lib/supabase";
 import { getTranslationSettings } from "@/lib/db/settings";
 
@@ -194,7 +198,9 @@ export async function translateTexts(
   const format = options.format || "text";
 
   if (!shouldTranslateLocale(settings, options.locale)) {
-    return values.map((value) => value || "");
+    return values.map((value) =>
+      applyDerycraftEnglishTextFallback(value || "", options.locale),
+    );
   }
 
   const normalizedValues = values.map((value) => sanitizeTranslatableText(value));
@@ -274,7 +280,10 @@ export async function translateTexts(
       return "";
     }
 
-    return cacheMap.get(cacheKey) || sourceText;
+    return applyDerycraftEnglishTextFallback(
+      cacheMap.get(cacheKey) || sourceText,
+      options.locale,
+    );
   });
 }
 
@@ -304,7 +313,7 @@ export async function translateProductRecord<
 
   const settings = await getConfiguredTranslationSettings();
   if (!settings.translateCatalog || !shouldTranslateLocale(settings, locale)) {
-    return product;
+    return translateDerycraftProductContent(product, locale);
   }
 
   const [name, description, shortDescription, seoTitle, seoDescription] = await translateTexts(
@@ -321,7 +330,7 @@ export async function translateProductRecord<
     },
   );
 
-  return {
+  return translateDerycraftProductContent({
     ...product,
     translationSourceName: product.name || "",
     name,
@@ -332,7 +341,7 @@ export async function translateProductRecord<
     seo_title: seoTitle,
     seoDescription,
     seo_description: seoDescription,
-  };
+  }, locale);
 }
 
 export async function translateCategoryRecord<
@@ -349,7 +358,17 @@ export async function translateCategoryRecord<
 
   const settings = await getConfiguredTranslationSettings();
   if (!settings.translateCatalog || !shouldTranslateLocale(settings, locale)) {
-    return category;
+    return {
+      ...category,
+      name: applyDerycraftEnglishTextFallback(category.name, locale) || category.name,
+      description:
+        applyDerycraftEnglishTextFallback(category.description, locale) || category.description,
+      seo_title:
+        applyDerycraftEnglishTextFallback(category.seo_title, locale) || category.seo_title,
+      seo_description:
+        applyDerycraftEnglishTextFallback(category.seo_description, locale) ||
+        category.seo_description,
+    };
   }
 
   const [name, description, seoTitle, seoDescription] = await translateTexts(
@@ -362,10 +381,11 @@ export async function translateCategoryRecord<
 
   return {
     ...category,
-    name,
-    description,
-    seo_title: seoTitle,
-    seo_description: seoDescription,
+    name: applyDerycraftEnglishTextFallback(name, locale) || name,
+    description: applyDerycraftEnglishTextFallback(description, locale) || description,
+    seo_title: applyDerycraftEnglishTextFallback(seoTitle, locale) || seoTitle,
+    seo_description:
+      applyDerycraftEnglishTextFallback(seoDescription, locale) || seoDescription,
   };
 }
 

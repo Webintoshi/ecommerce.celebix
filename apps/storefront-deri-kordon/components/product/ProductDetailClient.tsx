@@ -34,7 +34,7 @@ import {
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { Product } from "@/types/product";
 import { CustomizationSchema, CustomizationStep } from "@/types/product-customization";
-import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
+import { buildLocalizedPath, getLocalizedCategoryLabel, getLocalizedCopy } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 
 const ProductCard = React.lazy(() =>
@@ -56,10 +56,16 @@ function createEmptyCustomizationState(basePrice: number): CustomizationSelectio
   };
 }
 
-async function fetchAssignedSchema(productId: string) {
-  const response = await fetch("/api/customization/schema?productId=" + encodeURIComponent(productId), {
+async function fetchAssignedSchema(productId: string, locale: string) {
+  const response = await fetch(
+    "/api/customization/schema?productId=" +
+      encodeURIComponent(productId) +
+      "&locale=" +
+      encodeURIComponent(locale),
+    {
     cache: "no-store",
-  });
+    },
+  );
   const payload = await response.json();
 
   if (!response.ok || !payload?.success) {
@@ -148,7 +154,7 @@ export function ProductDetailClient({
     const loadActiveSchema = async () => {
       setIsSchemaLoading(true);
       try {
-        const resolvedSchema = await fetchAssignedSchema(product.id);
+        const resolvedSchema = await fetchAssignedSchema(product.id, locale);
         if (mounted) {
           setActiveSchema(resolvedSchema || null);
         }
@@ -164,7 +170,7 @@ export function ProductDetailClient({
     return () => {
       mounted = false;
     };
-  }, [product?.id, product?.category, product?.subcategory]);
+  }, [locale, product?.id, product?.category, product?.subcategory]);
 
   const variants = product?.variants || [];
   const variant = variants[selectedVariant] || variants[0];
@@ -345,7 +351,7 @@ export function ProductDetailClient({
             <div className="space-y-6">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                  {product.category}
+                  {getLocalizedCategoryLabel(product.category, product.category, locale)}
                 </span>
                 <span className="h-px w-8 bg-neutral-300" />
                 {product.featured ? (

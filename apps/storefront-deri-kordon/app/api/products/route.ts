@@ -154,7 +154,7 @@ async function translateListingProducts(
     products: Record<string, unknown>[],
     locale: StorefrontLocale,
 ) {
-    if (products.length === 0 || locale === DEFAULT_LOCALE) {
+    if (products.length === 0) {
         return products;
     }
 
@@ -165,7 +165,7 @@ async function translateListingProduct(
     product: Record<string, unknown> | null,
     locale: StorefrontLocale,
 ) {
-    if (!product || locale === DEFAULT_LOCALE) {
+    if (!product) {
         return product;
     }
 
@@ -223,6 +223,31 @@ export async function GET(request: NextRequest) {
             }
         }
 
+        async function hydrateAndTranslateProducts(productsForResponse: Record<string, unknown>[]) {
+            const rulesMap = await resolveRulesMap(
+                productsForResponse.map((product) => String(product.id)),
+            );
+            const hydratedProducts = safeHydrateProducts(
+                productsForResponse,
+                await attributeRegistryPromise,
+                rulesMap,
+            );
+
+            return translateProductsForLocale(hydratedProducts);
+        }
+
+        async function hydrateAndTranslateProduct(productForResponse: Record<string, unknown> | null) {
+            const productId = typeof productForResponse?.id === "string" ? productForResponse.id : "";
+            const rulesMap = productId ? await resolveRulesMap([productId]) : {};
+            const hydratedProduct = safeHydrateProduct(
+                productForResponse,
+                await attributeRegistryPromise,
+                rulesMap,
+            );
+
+            return translateProductForLocale(hydratedProduct);
+        }
+
         function safeHydrateProducts(
             products: Record<string, unknown>[],
             attributeRegistry: Awaited<ReturnType<typeof getVariantAttributeRegistry>>,
@@ -259,11 +284,9 @@ export async function GET(request: NextRequest) {
                 .eq("id", id)
                 .single();
             if (error) throw error;
-            const translatedProduct = await translateProductForLocale(data);
-            const rulesMap = await resolveRulesMap([id]);
             return NextResponse.json({
                 success: true,
-                product: safeHydrateProduct(translatedProduct, await attributeRegistryPromise, rulesMap),
+                product: await hydrateAndTranslateProduct(data),
             });
         } else if (slug) {
             // Fetch single product by slug from Supabase
@@ -289,11 +312,9 @@ export async function GET(request: NextRequest) {
                     error: error ? getErrorMessage(error) : "Product not found"
                 }, { status: 404 });
             }
-            const translatedProduct = await translateProductForLocale(data[0]);
-            const rulesMap = await resolveRulesMap([String(data[0].id)]);
             return NextResponse.json({
                 success: true,
-                product: safeHydrateProduct(translatedProduct, await attributeRegistryPromise, rulesMap),
+                product: await hydrateAndTranslateProduct(data[0]),
             });
         } else if (featured === "true") {
             const { data, error } = await fetchProductsForListing(supabase, { featured: true });
@@ -319,10 +340,8 @@ export async function GET(request: NextRequest) {
             const paginatedProducts = paginateOrderedProducts(orderedProducts, page, limit);
             return NextResponse.json({
                 success: true,
-                products: safeHydrateProducts(
-                    await translateProductsForLocale(paginatedProducts as Record<string, unknown>[]),
-                    await attributeRegistryPromise,
-                    await resolveRulesMap(paginatedProducts.map((product) => String(product.id))),
+                products: await hydrateAndTranslateProducts(
+                    paginatedProducts as Record<string, unknown>[],
                 ),
                 pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
@@ -344,10 +363,8 @@ export async function GET(request: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                products: safeHydrateProducts(
-                    await translateProductsForLocale(paginatedProducts as Record<string, unknown>[]),
-                    await attributeRegistryPromise,
-                    await resolveRulesMap(paginatedProducts.map((product) => String(product.id))),
+                products: await hydrateAndTranslateProducts(
+                    paginatedProducts as Record<string, unknown>[],
                 ),
                 pagination: buildListingPagination(page, limit, orderedProducts.length),
             });
@@ -355,12 +372,8 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            products: safeHydrateProducts(
-                await translateProductsForLocale((products || []) as Record<string, unknown>[]),
-                await attributeRegistryPromise,
-                await resolveRulesMap(
-                    Array.isArray(products) ? products.map((product) => String(product.id)) : [],
-                ),
+            products: await hydrateAndTranslateProducts(
+                (products || []) as Record<string, unknown>[],
             ),
         });
     } catch (error) {

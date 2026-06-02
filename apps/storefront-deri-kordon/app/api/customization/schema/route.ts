@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { translateDerycraftCustomizationSchema } from "@/lib/derycraft-english-fallback";
+import { DEFAULT_LOCALE, isSupportedLocale, type StorefrontLocale } from "@/lib/i18n";
 import type {
   CustomizationOption,
   CustomizationSchema,
@@ -35,6 +37,16 @@ type SchemaRow = {
 };
 
 type CustomizationSchemaPayload = CustomizationSchema & { steps: CustomizationStep[] };
+
+function resolveRequestedLocale(request: NextRequest): StorefrontLocale {
+  const requestedLocale = request.nextUrl.searchParams.get("locale");
+  if (isSupportedLocale(requestedLocale)) {
+    return requestedLocale;
+  }
+
+  const headerLocale = request.headers.get("x-celebix-locale");
+  return isSupportedLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE;
+}
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Beklenmeyen bir hata oluştu";
@@ -212,6 +224,7 @@ async function resolveAssignedSchemaId(
 
 export async function GET(request: NextRequest) {
   const supabase = createServerClient();
+  const locale = resolveRequestedLocale(request);
 
   try {
     const { searchParams } = new URL(request.url);
@@ -241,7 +254,10 @@ export async function GET(request: NextRequest) {
     }
 
     const schema = await loadSchemaPayload(supabase, resolvedSchemaId);
-    return NextResponse.json({ success: true, schema });
+    return NextResponse.json({
+      success: true,
+      schema: schema ? translateDerycraftCustomizationSchema(schema, locale) : null,
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: getErrorMessage(error) },
