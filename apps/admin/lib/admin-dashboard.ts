@@ -7,6 +7,7 @@ import { getLiveAnalyticsSnapshot } from "@/lib/live-analytics";
 import { getDashboardAnalyticsPayload } from "@/lib/dashboard-analytics";
 import { listAdminProductReviews } from "@/lib/product-reviews";
 import { isAdminProductReviewsDisabled } from "@/lib/light-postgres-readiness";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 import type {
   DashboardBootstrapData,
   DashboardCustomerActivity,
@@ -104,6 +105,65 @@ function getEmptyLiveAnalyticsSnapshot(): LiveAnalyticsSnapshot {
       purchases: 0,
     },
     recentEvents: [],
+  };
+}
+
+function getDashboardPeriodLabels(timeRange: TimeRange) {
+  switch (timeRange) {
+    case "today":
+      return { current: "Bugün", previous: "Dün" };
+    case "week":
+      return { current: "Bu hafta", previous: "Geçen hafta" };
+    case "month":
+      return { current: "Bu ay", previous: "Geçen ay" };
+    case "quarter":
+      return { current: "Son 90 gün", previous: "Önceki 90 gün" };
+    case "year":
+      return { current: "Bu yıl", previous: "Geçen yıl" };
+    default:
+      return { current: "Bu dönem", previous: "Geçen dönem" };
+  }
+}
+
+function buildEmptyDashboardAnalyticsPayload(timeRange: TimeRange, customerCount: number) {
+  const labels = getDashboardPeriodLabels(timeRange);
+
+  return {
+    success: true as const,
+    stats: {
+      revenue: 0,
+      orders: 0,
+      customers: customerCount,
+      conversionRate: 0,
+      avgOrderValue: 0,
+      revenueChange: 0,
+      ordersChange: 0,
+      customersChange: 0,
+      conversionChange: 0,
+    },
+    trendData: [],
+    comparisonTrendData: [],
+    abandonedCartStats: {
+      totalValue: 0,
+      recoveryRate: 0,
+      recoveredCount: 0,
+      totalCount: 0,
+    },
+    analysisSummary: {
+      items: [
+        { key: "visitors" as const, label: "Toplam Ziyaretçi", value: 0, change: 0, tone: "violet" as const },
+        { key: "pageViews" as const, label: "Ürün Görüntüleme", value: 0, change: 0, tone: "sky" as const },
+        { key: "addToCart" as const, label: "Sepete Eklenen", value: 0, change: 0, tone: "amber" as const },
+        { key: "purchases" as const, label: "Satın Alma", value: 0, change: 0, tone: "orange" as const },
+      ],
+    },
+    traffic: {
+      visitors: 0,
+      pageViews: 0,
+      addToCart: 0,
+      purchases: 0,
+    },
+    labels,
   };
 }
 
@@ -288,6 +348,7 @@ export async function getAdminDashboardBootstrapData(
 
   return getOrSetCachedValue(cacheKey, cacheTtlMs, async () => {
     const supabase = createServerClient();
+    const isLightPostgresAdmin = shouldUseLightPostgresAdmin();
 
     const [
       recentOrdersResponse,
@@ -299,6 +360,7 @@ export async function getAdminDashboardBootstrapData(
       lowStockVariantsResponse,
       recentCustomersResponse,
       recentActivityOrdersResponse,
+      totalCustomersResponse,
       analytics,
       recentReviews,
       liveData,
@@ -337,9 +399,14 @@ export async function getAdminDashboardBootstrapData(
         .select("id,order_number,customer_id,shipping_address,created_at")
         .order("created_at", { ascending: false })
         .limit(5),
-      getDashboardAnalyticsPayload(timeRange),
+      supabase.from("customers").select("id", { count: "exact", head: true }),
+      isLightPostgresAdmin
+        ? Promise.resolve(buildEmptyDashboardAnalyticsPayload(timeRange, 0))
+        : getDashboardAnalyticsPayload(timeRange),
       getRecentReviewsPromise(supabase),
-      includeLiveData ? getLiveAnalyticsSnapshot() : Promise.resolve(getEmptyLiveAnalyticsSnapshot()),
+      includeLiveData && !isLightPostgresAdmin
+        ? getLiveAnalyticsSnapshot()
+        : Promise.resolve(getEmptyLiveAnalyticsSnapshot()),
     ]);
 
     if (recentOrdersResponse.error) throw recentOrdersResponse.error;
@@ -351,6 +418,11 @@ export async function getAdminDashboardBootstrapData(
     if (lowStockVariantsResponse.error) throw lowStockVariantsResponse.error;
     if (recentCustomersResponse.error) throw recentCustomersResponse.error;
     if (recentActivityOrdersResponse.error) throw recentActivityOrdersResponse.error;
+    if (totalCustomersResponse.error) throw totalCustomersResponse.error;
+
+    if (isLightPostgresAdmin) {
+      analytics.stats.customers = Number(totalCustomersResponse.count || 0);
+    }
 
     const recentOrdersRows = (recentOrdersResponse.data || []) as OrderRow[];
     const deliveredOrders = (deliveredOrdersResponse.data || []) as OrderTotalRow[];

@@ -22,7 +22,12 @@ type Filter =
   | { type: "neq"; column: string; value: unknown }
   | { type: "in"; column: string; value: unknown[] }
   | { type: "is"; column: string; value: unknown }
+  | { type: "lt"; column: string; value: unknown }
+  | { type: "lte"; column: string; value: unknown }
+  | { type: "gt"; column: string; value: unknown }
+  | { type: "gte"; column: string; value: unknown }
   | { type: "ilike"; column: string; value: string }
+  | { type: "not"; column: string; operator: string; value: unknown }
   | { type: "or"; raw: string };
 
 type SortRule = {
@@ -165,6 +170,36 @@ type PageRow = {
   updated_at: string;
 };
 
+type ProductJoinRow = {
+  id: string;
+  name: string;
+  images: string[];
+};
+
+type OrderItemCustomizationRow = Record<string, unknown> & {
+  order_item_id?: string | null;
+};
+
+type OrderItemRow = Record<string, unknown> & {
+  id: string;
+  order_id: string;
+  customizations?: OrderItemCustomizationRow[];
+};
+
+type OrderRow = Record<string, unknown> & {
+  id: string;
+  customer_id?: string | null;
+};
+
+type CustomerAddressRow = Record<string, unknown> & {
+  id: string;
+  customer_id: string;
+};
+
+type CustomerRow = Record<string, unknown> & {
+  id: string;
+};
+
 type LightPostgresCompatError = Error & {
   code?: string;
   details?: string | null;
@@ -289,6 +324,10 @@ function asStringArray(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === "string");
 }
 
+function resolveCompatTableName(tableName: string): string {
+  return tableName === "addresses" ? "customer_addresses" : tableName;
+}
+
 function asNumericValue(value: unknown, fallback: number | null = 0): number | string | null {
   if (typeof value === "number" || typeof value === "string") {
     return value;
@@ -301,9 +340,30 @@ function isTruthySelectForVariants(selectSpec: string | null): boolean {
   return Boolean(selectSpec && selectSpec.includes("variants:product_variants"));
 }
 
+function shouldAttachVariantProduct(selectSpec: string | null): boolean {
+  return Boolean(selectSpec && selectSpec.includes("product:products"));
+}
+
+function shouldAttachOrderItems(selectSpec: string | null): boolean {
+  return Boolean(selectSpec && selectSpec.includes("items:order_items"));
+}
+
+function shouldAttachOrderItemCustomizations(selectSpec: string | null): boolean {
+  return Boolean(selectSpec && selectSpec.includes("customizations:order_item_customizations"));
+}
+
+function shouldAttachCustomerAddresses(selectSpec: string | null): boolean {
+  return Boolean(selectSpec && selectSpec.includes("addresses("));
+}
+
+function shouldAttachCustomerOrders(selectSpec: string | null): boolean {
+  return Boolean(selectSpec && selectSpec.includes("orders("));
+}
+
 function aliasProductVariantRow(
   row: ProductVariantRow,
   selectSpec: string | null,
+  product: ProductJoinRow | null = null,
 ): Record<string, unknown> {
   const nextRow: Record<string, unknown> = {
     ...row,
@@ -317,6 +377,14 @@ function aliasProductVariantRow(
 
   if (selectSpec?.includes("linked_attributes:product_variant_attributes")) {
     nextRow.linked_attributes = [];
+  }
+
+  if (product && shouldAttachVariantProduct(selectSpec)) {
+    nextRow.product = {
+      id: product.id,
+      name: product.name,
+      images: product.images,
+    };
   }
 
   return nextRow;
@@ -344,6 +412,60 @@ function aliasProductRow(
 
   if (isTruthySelectForVariants(selectSpec)) {
     nextRow.variants = variants.map((variant) => aliasProductVariantRow(variant, selectSpec));
+  }
+
+  return nextRow;
+}
+
+function aliasOrderItemRow(
+  row: OrderItemRow,
+  selectSpec: string | null,
+  customizations: OrderItemCustomizationRow[],
+): Record<string, unknown> {
+  const nextRow: Record<string, unknown> = { ...row };
+
+  if (shouldAttachOrderItemCustomizations(selectSpec)) {
+    nextRow.customizations = customizations;
+  }
+
+  return nextRow;
+}
+
+function aliasOrderRow(
+  row: OrderRow,
+  selectSpec: string | null,
+  items: OrderItemRow[],
+  customizationsByOrderItemId: Map<string, OrderItemCustomizationRow[]>,
+): Record<string, unknown> {
+  const nextRow: Record<string, unknown> = { ...row };
+
+  if (shouldAttachOrderItems(selectSpec)) {
+    nextRow.items = items.map((item) =>
+      aliasOrderItemRow(
+        item,
+        selectSpec,
+        customizationsByOrderItemId.get(item.id) ?? [],
+      ),
+    );
+  }
+
+  return nextRow;
+}
+
+function aliasCustomerRow(
+  row: CustomerRow,
+  selectSpec: string | null,
+  addresses: CustomerAddressRow[],
+  orders: OrderRow[],
+): Record<string, unknown> {
+  const nextRow: Record<string, unknown> = { ...row };
+
+  if (shouldAttachCustomerAddresses(selectSpec)) {
+    nextRow.addresses = addresses;
+  }
+
+  if (shouldAttachCustomerOrders(selectSpec)) {
+    nextRow.orders = orders;
   }
 
   return nextRow;
@@ -386,6 +508,32 @@ function matchesLikePattern(value: unknown, pattern: string): boolean {
   return matcher.test(normalizedValue);
 }
 
+function matchesNotFilter(
+  row: Record<string, unknown>,
+  column: string,
+  operator: string,
+  value: unknown,
+): boolean {
+  if (operator === "is") {
+    const isNull = value === null || value === "null";
+    if (isNull) {
+      return row[column] !== null && row[column] !== undefined;
+    }
+
+    return row[column] !== value;
+  }
+
+  if (operator === "eq") {
+    return row[column] !== value;
+  }
+
+  if (operator === "ilike" && typeof value === "string") {
+    return !matchesLikePattern(row[column], value);
+  }
+
+  return true;
+}
+
 function matchesFilter(row: Record<string, unknown>, filter: Filter): boolean {
   if (filter.type === "eq") {
     return row[filter.column] === filter.value;
@@ -407,8 +555,28 @@ function matchesFilter(row: Record<string, unknown>, filter: Filter): boolean {
     return row[filter.column] === filter.value;
   }
 
+  if (filter.type === "lt") {
+    return compareValues(row[filter.column], filter.value) < 0;
+  }
+
+  if (filter.type === "lte") {
+    return compareValues(row[filter.column], filter.value) <= 0;
+  }
+
+  if (filter.type === "gt") {
+    return compareValues(row[filter.column], filter.value) > 0;
+  }
+
+  if (filter.type === "gte") {
+    return compareValues(row[filter.column], filter.value) >= 0;
+  }
+
   if (filter.type === "ilike") {
     return matchesLikePattern(row[filter.column], filter.value);
+  }
+
+  if (filter.type === "not") {
+    return matchesNotFilter(row, filter.column, filter.operator, filter.value);
   }
 
   const clauses = filter.raw
@@ -504,26 +672,7 @@ async function getSettingsRows(pool: PoolLike): Promise<SettingsRow[]> {
 }
 
 async function getCategoryRows(pool: PoolLike): Promise<CategoryRow[]> {
-  const result = await pool.query(`
-    select
-      id,
-      name,
-      slug,
-      description,
-      image,
-      icon,
-      parent_id,
-      sort_order,
-      is_active,
-      seo_title,
-      seo_description,
-      coalesce(seo_keywords, '[]'::jsonb) as seo_keywords,
-      coalesce(faq, '[]'::jsonb) as faq,
-      geo_data,
-      created_at,
-      updated_at
-    from public.categories
-  `);
+  const result = await pool.query("select * from public.categories");
 
   return result.rows.map((row) => ({
     id: String(row.id),
@@ -546,24 +695,7 @@ async function getCategoryRows(pool: PoolLike): Promise<CategoryRow[]> {
 }
 
 async function getPageRows(pool: PoolLike): Promise<PageRow[]> {
-  const result = await pool.query(`
-    select
-      id,
-      name,
-      slug,
-      schema_type,
-      icon,
-      seo_title,
-      seo_description,
-      coalesce(seo_keywords, '[]'::jsonb) as seo_keywords,
-      coalesce(faq, '[]'::jsonb) as faq,
-      geo_data,
-      is_active,
-      sort_order,
-      created_at,
-      updated_at
-    from public.pages
-  `);
+  const result = await pool.query("select * from public.pages");
 
   return result.rows.map((row) => ({
     id: String(row.id),
@@ -584,37 +716,39 @@ async function getPageRows(pool: PoolLike): Promise<PageRow[]> {
 }
 
 async function getProductVariantRows(pool: PoolLike): Promise<ProductVariantRow[]> {
-  const result = await pool.query(`select ${PRODUCT_VARIANT_COLUMNS} from public.product_variants`);
+  const result = await pool.query("select * from public.product_variants");
 
-    return result.rows.map((row) => ({
-      id: String(row.id),
-      product_id: String(row.product_id),
-      name: String(row.name || "Varsayilan"),
-      sku: typeof row.sku === "string" ? row.sku : null,
-      price: asNumericValue(row.price, 0),
-      original_price: asNumericValue(row.original_price, null),
-      cost: asNumericValue(row.cost, null),
-      stock: asNumericValue(row.stock, 0),
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    product_id: String(row.product_id),
+    name: String(row.name || "Varsayilan"),
+    sku: typeof row.sku === "string" ? row.sku : null,
+    price: asNumericValue(row.price, 0),
+    original_price: asNumericValue(row.original_price, null),
+    cost: asNumericValue(row.cost, null),
+    stock: asNumericValue(row.stock, 0),
     weight: typeof row.weight === "string" ? row.weight : null,
     barcode: typeof row.barcode === "string" ? row.barcode : null,
     group_name: typeof row.group_name === "string" ? row.group_name : null,
-    images: Array.isArray(row.images) ? row.images.filter((entry): entry is string => typeof entry === "string") : [],
+    images: Array.isArray(row.images)
+      ? row.images.filter((entry): entry is string => typeof entry === "string")
+      : [],
     attributes: Array.isArray(row.attributes) ? row.attributes : [],
-      unit: typeof row.unit === "string" ? row.unit : null,
-      max_purchase_quantity:
-        typeof row.max_purchase_quantity === "number"
-          ? row.max_purchase_quantity
-          : null,
+    unit: typeof row.unit === "string" ? row.unit : null,
+    max_purchase_quantity:
+      typeof row.max_purchase_quantity === "number"
+        ? row.max_purchase_quantity
+        : null,
     warehouse_location:
       typeof row.warehouse_location === "string" ? row.warehouse_location : null,
     created_at: String(row.created_at),
-    updated_at: row.updated_at ? String(row.updated_at) : undefined,
+    updated_at: row.updated_at ? String(row.updated_at) : String(row.created_at),
   }));
 }
 
 async function getProductRows(pool: PoolLike): Promise<ProductRow[]> {
   const [productsResult, variants] = await Promise.all([
-    pool.query(`select ${PRODUCT_COLUMNS} from public.products`),
+    pool.query("select * from public.products"),
     getProductVariantRows(pool),
   ]);
 
@@ -692,6 +826,143 @@ async function getProductRows(pool: PoolLike): Promise<ProductRow[]> {
   }));
 }
 
+async function getProductJoinRows(pool: PoolLike): Promise<Map<string, ProductJoinRow>> {
+  const result = await pool.query("select id, name, images from public.products");
+
+  return new Map(
+    result.rows.map((row) => [
+      String(row.id),
+      {
+        id: String(row.id),
+        name: String(row.name || ""),
+        images: asStringArray(row.images),
+      },
+    ]),
+  );
+}
+
+async function getOrderItemCustomizationRows(pool: PoolLike): Promise<OrderItemCustomizationRow[]> {
+  try {
+    const result = await pool.query("select * from public.order_item_customizations");
+    return result.rows.map((row) => ({
+      ...row,
+      order_item_id: typeof row.order_item_id === "string" ? row.order_item_id : null,
+    }));
+  } catch (error) {
+    if (error instanceof Error && /order_item_customizations|does not exist|relation/i.test(error.message)) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+async function getOrderItemRows(
+  pool: PoolLike,
+  selectSpec: string | null,
+): Promise<OrderItemRow[]> {
+  const itemsResult = await pool.query("select * from public.order_items");
+  const customizations = shouldAttachOrderItemCustomizations(selectSpec)
+    ? await getOrderItemCustomizationRows(pool)
+    : [];
+  const customizationsByOrderItemId = new Map<string, OrderItemCustomizationRow[]>();
+
+  for (const customization of customizations) {
+    const orderItemId = customization.order_item_id;
+    if (!orderItemId) {
+      continue;
+    }
+
+    const current = customizationsByOrderItemId.get(orderItemId) ?? [];
+    current.push(customization);
+    customizationsByOrderItemId.set(orderItemId, current);
+  }
+
+  return itemsResult.rows.map((row) =>
+    aliasOrderItemRow(
+      {
+        ...row,
+        id: String(row.id),
+        order_id: String(row.order_id),
+      },
+      selectSpec,
+      customizationsByOrderItemId.get(String(row.id)) ?? [],
+    ) as OrderItemRow,
+  );
+}
+
+async function getOrderRows(pool: PoolLike, selectSpec: string | null): Promise<OrderRow[]> {
+  const ordersResult = await pool.query("select * from public.orders");
+  const items = shouldAttachOrderItems(selectSpec) ? await getOrderItemRows(pool, selectSpec) : [];
+  const itemsByOrderId = new Map<string, OrderItemRow[]>();
+  const customizationsByOrderItemId = new Map<string, OrderItemCustomizationRow[]>();
+
+  for (const item of items) {
+    const current = itemsByOrderId.get(item.order_id) ?? [];
+    current.push(item);
+    itemsByOrderId.set(item.order_id, current);
+    if (Array.isArray(item.customizations)) {
+      customizationsByOrderItemId.set(
+        item.id,
+        item.customizations as OrderItemCustomizationRow[],
+      );
+    }
+  }
+
+  return ordersResult.rows.map((row) =>
+    aliasOrderRow(
+      { ...row, id: String(row.id) },
+      selectSpec,
+      itemsByOrderId.get(String(row.id)) ?? [],
+      customizationsByOrderItemId,
+    ) as OrderRow,
+  );
+}
+
+async function getCustomerAddressRows(pool: PoolLike): Promise<CustomerAddressRow[]> {
+  const result = await pool.query("select * from public.customer_addresses");
+
+  return result.rows.map((row) => ({
+    ...row,
+    id: String(row.id),
+    customer_id: String(row.customer_id),
+  }));
+}
+
+async function getCustomerRows(pool: PoolLike, selectSpec: string | null): Promise<CustomerRow[]> {
+  const customersResult = await pool.query("select * from public.customers");
+  const addresses = shouldAttachCustomerAddresses(selectSpec) ? await getCustomerAddressRows(pool) : [];
+  const orders = shouldAttachCustomerOrders(selectSpec) ? await getOrderRows(pool, null) : [];
+  const addressesByCustomerId = new Map<string, CustomerAddressRow[]>();
+  const ordersByCustomerId = new Map<string, OrderRow[]>();
+
+  for (const address of addresses) {
+    const current = addressesByCustomerId.get(address.customer_id) ?? [];
+    current.push(address);
+    addressesByCustomerId.set(address.customer_id, current);
+  }
+
+  for (const order of orders) {
+    const customerId = typeof order.customer_id === "string" ? order.customer_id : null;
+    if (!customerId) {
+      continue;
+    }
+
+    const current = ordersByCustomerId.get(customerId) ?? [];
+    current.push(order);
+    ordersByCustomerId.set(customerId, current);
+  }
+
+  return customersResult.rows.map((row) =>
+    aliasCustomerRow(
+      { ...row, id: String(row.id) },
+      selectSpec,
+      addressesByCustomerId.get(String(row.id)) ?? [],
+      ordersByCustomerId.get(String(row.id)) ?? [],
+    ) as CustomerRow,
+  );
+}
+
 function buildUpdateAssignments(
   payload: Record<string, unknown>,
   startingIndex = 1,
@@ -718,6 +989,8 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
   private filters: Filter[] = [];
   private orders: SortRule[] = [];
   private limitValue: number | null = null;
+  private rangeStart: number | null = null;
+  private rangeEnd: number | null = null;
   private cardinality: QueryCardinality = "many";
 
   constructor(
@@ -726,10 +999,14 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
   ) {}
 
   select(spec = "*", options?: { count?: "exact"; head?: boolean }) {
-    this.operation = "select";
     this.selectSpec = spec;
     this.countMode = options?.count ?? null;
     this.headOnly = options?.head === true;
+
+    if (this.operation === "select") {
+      this.operation = "select";
+    }
+
     return this;
   }
 
@@ -776,8 +1053,33 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
     return this;
   }
 
+  lt(column: string, value: unknown) {
+    this.filters.push({ type: "lt", column, value });
+    return this;
+  }
+
+  lte(column: string, value: unknown) {
+    this.filters.push({ type: "lte", column, value });
+    return this;
+  }
+
+  gt(column: string, value: unknown) {
+    this.filters.push({ type: "gt", column, value });
+    return this;
+  }
+
+  gte(column: string, value: unknown) {
+    this.filters.push({ type: "gte", column, value });
+    return this;
+  }
+
   ilike(column: string, value: string) {
     this.filters.push({ type: "ilike", column, value });
+    return this;
+  }
+
+  not(column: string, operator: string, value: unknown) {
+    this.filters.push({ type: "not", column, operator, value });
     return this;
   }
 
@@ -796,6 +1098,12 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
 
   limit(value: number) {
     this.limitValue = value;
+    return this;
+  }
+
+  range(from: number, to: number) {
+    this.rangeStart = from;
+    this.rangeEnd = to;
     return this;
   }
 
@@ -822,56 +1130,83 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
 
   private async readRows(): Promise<Record<string, unknown>[] | LightPostgresCompatError> {
     const pool = await this.poolPromise;
+    const tableName = resolveCompatTableName(this.tableName);
 
-    if (this.tableName === "product_discount_rules") {
+    if (tableName === "product_discount_rules") {
       return createCompatError(UNSUPPORTED_PRODUCT_TABLE_ERROR, "42P01");
     }
 
     if (
-      this.tableName === "variant_attributes" ||
-      this.tableName === "variant_attribute_values" ||
-      this.tableName === "product_variant_attributes"
+      tableName === "variant_attributes" ||
+      tableName === "variant_attribute_values" ||
+      tableName === "product_variant_attributes"
     ) {
       return [];
     }
 
-    if (this.tableName === "settings") {
+    if (tableName === "settings") {
       return getSettingsRows(pool);
     }
 
-    if (this.tableName === "categories") {
+    if (tableName === "categories") {
       return getCategoryRows(pool);
     }
 
-    if (this.tableName === "pages") {
+    if (tableName === "pages") {
       return getPageRows(pool);
     }
 
-    if (this.tableName === "products") {
+    if (tableName === "products") {
       const rows = await getProductRows(pool);
       return rows.map((row) => aliasProductRow(row, row.variants ?? [], this.selectSpec));
     }
 
-    if (this.tableName === "product_variants") {
+    if (tableName === "product_variants") {
       const rows = await getProductVariantRows(pool);
-      return rows.map((row) => aliasProductVariantRow(row, this.selectSpec));
+      const productsById = shouldAttachVariantProduct(this.selectSpec)
+        ? await getProductJoinRows(pool)
+        : new Map<string, ProductJoinRow>();
+      return rows.map((row) =>
+        aliasProductVariantRow(
+          row,
+          this.selectSpec,
+          productsById.get(row.product_id) ?? null,
+        ),
+      );
     }
 
     if (
-      this.tableName === "order_items" ||
-      this.tableName === "favorites" ||
-      this.tableName === "product_views" ||
-      this.tableName === "product_reviews" ||
-      this.tableName === "cart_items" ||
-      this.tableName === "wishlist_items" ||
-      this.tableName === "customer_preferred_products" ||
-      this.tableName === "profiles"
+      tableName === "orders"
+    ) {
+      return getOrderRows(pool, this.selectSpec);
+    }
+
+    if (tableName === "order_items") {
+      return getOrderItemRows(pool, this.selectSpec);
+    }
+
+    if (tableName === "customers") {
+      return getCustomerRows(pool, this.selectSpec);
+    }
+
+    if (tableName === "customer_addresses" || tableName === "addresses") {
+      return getCustomerAddressRows(pool);
+    }
+
+    if (
+      tableName === "favorites" ||
+      tableName === "product_views" ||
+      tableName === "product_reviews" ||
+      tableName === "cart_items" ||
+      tableName === "wishlist_items" ||
+      tableName === "customer_preferred_products" ||
+      tableName === "profiles"
     ) {
       return [];
     }
 
     return createCompatError(
-      `light_postgres compatibility table destegi bulunamadi: ${this.tableName}`,
+      `light_postgres compatibility table destegi bulunamadi: ${tableName}`,
       "42P01",
     );
   }
@@ -883,7 +1218,11 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
   private shapeSelectResult<T extends Record<string, unknown>>(rows: T[]): QueryExecutionResult<unknown> {
     const filtered = this.applyFilters(rows);
     const sorted = sortRows(filtered, this.orders);
-    const limited = this.limitValue !== null ? sorted.slice(0, this.limitValue) : sorted;
+    const ranged =
+      this.rangeStart !== null
+        ? sorted.slice(this.rangeStart, (this.rangeEnd ?? this.rangeStart) + 1)
+        : sorted;
+    const limited = this.limitValue !== null ? ranged.slice(0, this.limitValue) : ranged;
     const count = this.countMode === "exact" ? filtered.length : null;
 
     if (this.headOnly) {
@@ -927,18 +1266,19 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
 
   private async insertRows(): Promise<QueryExecutionResult<unknown>> {
     const pool = await this.poolPromise;
+    const tableName = resolveCompatTableName(this.tableName);
 
-    if (this.tableName === "product_discount_rules") {
+    if (tableName === "product_discount_rules") {
       return {
         data: null,
         error: createCompatError(UNSUPPORTED_PRODUCT_TABLE_ERROR, "42P01"),
       };
     }
 
-    if (this.tableName !== "products" && this.tableName !== "product_variants" && this.tableName !== "categories" && this.tableName !== "pages") {
+    if (!["products", "product_variants", "categories", "pages", "customer_addresses", "customers"].includes(tableName)) {
       return {
         data: null,
-        error: createCompatError(`Insert desteklenmiyor: ${this.tableName}`, "42P01"),
+        error: createCompatError(`Insert desteklenmiyor: ${tableName}`, "42P01"),
       };
     }
 
@@ -950,7 +1290,7 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
       const values = columns.map((column) => record[column]);
       const result = await pool.query(
-        `insert into public.${this.tableName} (${columns.map((column) => `"${column}"`).join(", ")}) values (${placeholders}) returning *`,
+        `insert into public.${tableName} (${columns.map((column) => `"${column}"`).join(", ")}) values (${placeholders}) returning *`,
         values,
       );
       inserted.push(...result.rows);
@@ -961,6 +1301,7 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
 
   private async updateRows(): Promise<QueryExecutionResult<unknown>> {
     const pool = await this.poolPromise;
+    const tableName = resolveCompatTableName(this.tableName);
 
     if (!this.payload[0]) {
       return {
@@ -969,10 +1310,10 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    if (!["products", "product_variants", "categories", "pages", "settings"].includes(this.tableName)) {
+    if (!["products", "product_variants", "categories", "pages", "settings", "customer_addresses", "customers", "orders"].includes(tableName)) {
       return {
         data: null,
-        error: createCompatError(`Update desteklenmiyor: ${this.tableName}`, "42P01"),
+        error: createCompatError(`Update desteklenmiyor: ${tableName}`, "42P01"),
       };
     }
 
@@ -984,7 +1325,7 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    if (this.tableName === "settings") {
+    if (tableName === "settings") {
       const keyFilter = this.filters.find(
         (filter): filter is Extract<Filter, { type: "eq"; column: string }> =>
           filter.type === "eq" && filter.column === "key",
@@ -1005,21 +1346,25 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       return this.shapeSelectResult(result.rows);
     }
 
+    const identifierColumns =
+      tableName === "customer_addresses"
+        ? new Set(["id", "slug", "customer_id"])
+        : new Set(["id", "slug"]);
     const identifierFilter = this.filters.find(
       (filter): filter is Extract<Filter, { type: "eq"; column: string }> =>
-        filter.type === "eq" && (filter.column === "id" || filter.column === "slug"),
+        filter.type === "eq" && identifierColumns.has(filter.column),
     );
 
     if (!identifierFilter) {
       return {
         data: null,
-        error: createCompatError("Update icin id veya slug filtresi gerektirir.", "PGRST204"),
+        error: createCompatError("Update icin desteklenen bir eq filtresi gerektirir.", "PGRST204"),
       };
     }
 
     const assignment = buildUpdateAssignments(payload);
     const result = await pool.query(
-      `update public.${this.tableName} set ${assignment.sql} where "${identifierFilter.column}" = $${
+      `update public.${tableName} set ${assignment.sql} where "${identifierFilter.column}" = $${
         assignment.values.length + 1
       } returning *`,
       [...assignment.values, identifierFilter.value],
@@ -1030,27 +1375,32 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
 
   private async deleteRows(): Promise<QueryExecutionResult<unknown>> {
     const pool = await this.poolPromise;
+    const tableName = resolveCompatTableName(this.tableName);
+    const identifierColumns =
+      tableName === "customer_addresses"
+        ? new Set(["id", "key", "customer_id"])
+        : new Set(["id", "key"]);
     const identifierFilter = this.filters.find(
       (filter): filter is Extract<Filter, { type: "eq"; column: string }> =>
-        filter.type === "eq" && (filter.column === "id" || filter.column === "key"),
+        filter.type === "eq" && identifierColumns.has(filter.column),
     );
 
     if (!identifierFilter) {
       return {
         data: null,
-        error: createCompatError("Delete icin id veya key filtresi gerektirir.", "PGRST204"),
+        error: createCompatError("Delete icin desteklenen bir eq filtresi gerektirir.", "PGRST204"),
       };
     }
 
-    if (!["products", "product_variants", "categories", "pages", "settings"].includes(this.tableName)) {
+    if (!["products", "product_variants", "categories", "pages", "settings", "customer_addresses", "customers"].includes(tableName)) {
       return {
         data: null,
-        error: createCompatError(`Delete desteklenmiyor: ${this.tableName}`, "42P01"),
+        error: createCompatError(`Delete desteklenmiyor: ${tableName}`, "42P01"),
       };
     }
 
     const result = await pool.query(
-      `delete from public.${this.tableName} where "${identifierFilter.column}" = $1 returning *`,
+      `delete from public.${tableName} where "${identifierFilter.column}" = $1 returning *`,
       [identifierFilter.value],
     );
 
@@ -1059,11 +1409,12 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
 
   private async upsertRows(): Promise<QueryExecutionResult<unknown>> {
     const pool = await this.poolPromise;
+    const tableName = resolveCompatTableName(this.tableName);
 
-    if (this.tableName !== "settings") {
+    if (tableName !== "settings") {
       return {
         data: null,
-        error: createCompatError(`Upsert desteklenmiyor: ${this.tableName}`, "42P01"),
+        error: createCompatError(`Upsert desteklenmiyor: ${tableName}`, "42P01"),
       };
     }
 

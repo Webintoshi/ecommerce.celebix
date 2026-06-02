@@ -76,86 +76,6 @@ function hasSupabaseAuthEnv(env = process.env) {
 }
 
 // packages/platform-config/src/light-postgres-compat.ts
-var PRODUCT_COLUMNS = `
-  id,
-  name,
-  slug,
-  description,
-  short_description,
-  category,
-  subcategory,
-  images,
-  images_v2,
-  tags,
-  is_featured,
-  is_bestseller,
-  is_active,
-  is_new,
-  vegan,
-  gluten_free,
-  sugar_free,
-  high_protein,
-  rating,
-  review_count,
-  seo_title,
-  seo_description,
-  seo_keywords,
-  seo_focus_keyword,
-  og_image,
-  canonical_url,
-  seo_robots,
-  status,
-  is_draft,
-  published_at,
-  tax_rate,
-  brand,
-  country_of_origin,
-  sku,
-  gtin,
-  dimensions,
-  related_products,
-  complementary_products,
-  track_stock,
-  low_stock_threshold,
-  nutrition_basis,
-  serving_size,
-  serving_per_container,
-  allergens,
-  vitamins,
-  ingredients,
-  storage_conditions,
-  shelf_life_days,
-  calories,
-  protein,
-  carbs,
-  fat,
-  fiber,
-  sugar,
-  saturated_fat,
-  sodium,
-  created_at,
-  updated_at
-`;
-var PRODUCT_VARIANT_COLUMNS = `
-  id,
-  product_id,
-  name,
-  sku,
-  price,
-  original_price,
-  cost,
-  stock,
-  weight,
-  barcode,
-  group_name,
-  images,
-  attributes,
-  unit,
-  max_purchase_quantity,
-  warehouse_location,
-  created_at,
-  updated_at
-`;
 var UNSUPPORTED_PRODUCT_TABLE_ERROR = "light_postgres compatibility does not provision this table by default.";
 function createCompatError(message, code) {
   const error = new Error(message);
@@ -175,6 +95,9 @@ function asStringArray(value) {
   }
   return value.filter((entry) => typeof entry === "string");
 }
+function resolveCompatTableName(tableName) {
+  return tableName === "addresses" ? "customer_addresses" : tableName;
+}
 function asNumericValue(value, fallback = 0) {
   if (typeof value === "number" || typeof value === "string") {
     return value;
@@ -184,7 +107,22 @@ function asNumericValue(value, fallback = 0) {
 function isTruthySelectForVariants(selectSpec) {
   return Boolean(selectSpec && selectSpec.includes("variants:product_variants"));
 }
-function aliasProductVariantRow(row, selectSpec) {
+function shouldAttachVariantProduct(selectSpec) {
+  return Boolean(selectSpec && selectSpec.includes("product:products"));
+}
+function shouldAttachOrderItems(selectSpec) {
+  return Boolean(selectSpec && selectSpec.includes("items:order_items"));
+}
+function shouldAttachOrderItemCustomizations(selectSpec) {
+  return Boolean(selectSpec && selectSpec.includes("customizations:order_item_customizations"));
+}
+function shouldAttachCustomerAddresses(selectSpec) {
+  return Boolean(selectSpec && selectSpec.includes("addresses("));
+}
+function shouldAttachCustomerOrders(selectSpec) {
+  return Boolean(selectSpec && selectSpec.includes("orders("));
+}
+function aliasProductVariantRow(row, selectSpec, product = null) {
   const nextRow = {
     ...row,
     images: Array.isArray(row.images) ? row.images : [],
@@ -195,6 +133,13 @@ function aliasProductVariantRow(row, selectSpec) {
   }
   if (selectSpec?.includes("linked_attributes:product_variant_attributes")) {
     nextRow.linked_attributes = [];
+  }
+  if (product && shouldAttachVariantProduct(selectSpec)) {
+    nextRow.product = {
+      id: product.id,
+      name: product.name,
+      images: product.images
+    };
   }
   return nextRow;
 }
@@ -213,6 +158,36 @@ function aliasProductRow(row, variants, selectSpec) {
   };
   if (isTruthySelectForVariants(selectSpec)) {
     nextRow.variants = variants.map((variant) => aliasProductVariantRow(variant, selectSpec));
+  }
+  return nextRow;
+}
+function aliasOrderItemRow(row, selectSpec, customizations) {
+  const nextRow = { ...row };
+  if (shouldAttachOrderItemCustomizations(selectSpec)) {
+    nextRow.customizations = customizations;
+  }
+  return nextRow;
+}
+function aliasOrderRow(row, selectSpec, items, customizationsByOrderItemId) {
+  const nextRow = { ...row };
+  if (shouldAttachOrderItems(selectSpec)) {
+    nextRow.items = items.map(
+      (item) => aliasOrderItemRow(
+        item,
+        selectSpec,
+        customizationsByOrderItemId.get(item.id) ?? []
+      )
+    );
+  }
+  return nextRow;
+}
+function aliasCustomerRow(row, selectSpec, addresses, orders) {
+  const nextRow = { ...row };
+  if (shouldAttachCustomerAddresses(selectSpec)) {
+    nextRow.addresses = addresses;
+  }
+  if (shouldAttachCustomerOrders(selectSpec)) {
+    nextRow.orders = orders;
   }
   return nextRow;
 }
@@ -242,6 +217,22 @@ function matchesLikePattern(value, pattern) {
   const matcher = new RegExp(`^${normalizedPattern}$`, "i");
   return matcher.test(normalizedValue);
 }
+function matchesNotFilter(row, column, operator, value) {
+  if (operator === "is") {
+    const isNull = value === null || value === "null";
+    if (isNull) {
+      return row[column] !== null && row[column] !== void 0;
+    }
+    return row[column] !== value;
+  }
+  if (operator === "eq") {
+    return row[column] !== value;
+  }
+  if (operator === "ilike" && typeof value === "string") {
+    return !matchesLikePattern(row[column], value);
+  }
+  return true;
+}
 function matchesFilter(row, filter) {
   if (filter.type === "eq") {
     return row[filter.column] === filter.value;
@@ -258,8 +249,23 @@ function matchesFilter(row, filter) {
     }
     return row[filter.column] === filter.value;
   }
+  if (filter.type === "lt") {
+    return compareValues(row[filter.column], filter.value) < 0;
+  }
+  if (filter.type === "lte") {
+    return compareValues(row[filter.column], filter.value) <= 0;
+  }
+  if (filter.type === "gt") {
+    return compareValues(row[filter.column], filter.value) > 0;
+  }
+  if (filter.type === "gte") {
+    return compareValues(row[filter.column], filter.value) >= 0;
+  }
   if (filter.type === "ilike") {
     return matchesLikePattern(row[filter.column], filter.value);
+  }
+  if (filter.type === "not") {
+    return matchesNotFilter(row, filter.column, filter.operator, filter.value);
   }
   const clauses = filter.raw.split(",").map((entry) => entry.trim()).filter(Boolean);
   return clauses.some((clause) => {
@@ -332,26 +338,7 @@ async function getSettingsRows(pool) {
   }));
 }
 async function getCategoryRows(pool) {
-  const result = await pool.query(`
-    select
-      id,
-      name,
-      slug,
-      description,
-      image,
-      icon,
-      parent_id,
-      sort_order,
-      is_active,
-      seo_title,
-      seo_description,
-      coalesce(seo_keywords, '[]'::jsonb) as seo_keywords,
-      coalesce(faq, '[]'::jsonb) as faq,
-      geo_data,
-      created_at,
-      updated_at
-    from public.categories
-  `);
+  const result = await pool.query("select * from public.categories");
   return result.rows.map((row) => ({
     id: String(row.id),
     name: String(row.name),
@@ -372,24 +359,7 @@ async function getCategoryRows(pool) {
   }));
 }
 async function getPageRows(pool) {
-  const result = await pool.query(`
-    select
-      id,
-      name,
-      slug,
-      schema_type,
-      icon,
-      seo_title,
-      seo_description,
-      coalesce(seo_keywords, '[]'::jsonb) as seo_keywords,
-      coalesce(faq, '[]'::jsonb) as faq,
-      geo_data,
-      is_active,
-      sort_order,
-      created_at,
-      updated_at
-    from public.pages
-  `);
+  const result = await pool.query("select * from public.pages");
   return result.rows.map((row) => ({
     id: String(row.id),
     name: String(row.name),
@@ -408,7 +378,7 @@ async function getPageRows(pool) {
   }));
 }
 async function getProductVariantRows(pool) {
-  const result = await pool.query(`select ${PRODUCT_VARIANT_COLUMNS} from public.product_variants`);
+  const result = await pool.query("select * from public.product_variants");
   return result.rows.map((row) => ({
     id: String(row.id),
     product_id: String(row.product_id),
@@ -427,12 +397,12 @@ async function getProductVariantRows(pool) {
     max_purchase_quantity: typeof row.max_purchase_quantity === "number" ? row.max_purchase_quantity : null,
     warehouse_location: typeof row.warehouse_location === "string" ? row.warehouse_location : null,
     created_at: String(row.created_at),
-    updated_at: row.updated_at ? String(row.updated_at) : void 0
+    updated_at: row.updated_at ? String(row.updated_at) : String(row.created_at)
   }));
 }
 async function getProductRows(pool) {
   const [productsResult, variants] = await Promise.all([
-    pool.query(`select ${PRODUCT_COLUMNS} from public.products`),
+    pool.query("select * from public.products"),
     getProductVariantRows(pool)
   ]);
   const variantsByProductId = /* @__PURE__ */ new Map();
@@ -503,6 +473,120 @@ async function getProductRows(pool) {
     variants: variantsByProductId.get(String(row.id)) ?? []
   }));
 }
+async function getProductJoinRows(pool) {
+  const result = await pool.query("select id, name, images from public.products");
+  return new Map(
+    result.rows.map((row) => [
+      String(row.id),
+      {
+        id: String(row.id),
+        name: String(row.name || ""),
+        images: asStringArray(row.images)
+      }
+    ])
+  );
+}
+async function getOrderItemCustomizationRows(pool) {
+  try {
+    const result = await pool.query("select * from public.order_item_customizations");
+    return result.rows.map((row) => ({
+      ...row,
+      order_item_id: typeof row.order_item_id === "string" ? row.order_item_id : null
+    }));
+  } catch (error) {
+    if (error instanceof Error && /order_item_customizations|does not exist|relation/i.test(error.message)) {
+      return [];
+    }
+    throw error;
+  }
+}
+async function getOrderItemRows(pool, selectSpec) {
+  const itemsResult = await pool.query("select * from public.order_items");
+  const customizations = shouldAttachOrderItemCustomizations(selectSpec) ? await getOrderItemCustomizationRows(pool) : [];
+  const customizationsByOrderItemId = /* @__PURE__ */ new Map();
+  for (const customization of customizations) {
+    const orderItemId = customization.order_item_id;
+    if (!orderItemId) {
+      continue;
+    }
+    const current = customizationsByOrderItemId.get(orderItemId) ?? [];
+    current.push(customization);
+    customizationsByOrderItemId.set(orderItemId, current);
+  }
+  return itemsResult.rows.map(
+    (row) => aliasOrderItemRow(
+      {
+        ...row,
+        id: String(row.id),
+        order_id: String(row.order_id)
+      },
+      selectSpec,
+      customizationsByOrderItemId.get(String(row.id)) ?? []
+    )
+  );
+}
+async function getOrderRows(pool, selectSpec) {
+  const ordersResult = await pool.query("select * from public.orders");
+  const items = shouldAttachOrderItems(selectSpec) ? await getOrderItemRows(pool, selectSpec) : [];
+  const itemsByOrderId = /* @__PURE__ */ new Map();
+  const customizationsByOrderItemId = /* @__PURE__ */ new Map();
+  for (const item of items) {
+    const current = itemsByOrderId.get(item.order_id) ?? [];
+    current.push(item);
+    itemsByOrderId.set(item.order_id, current);
+    if (Array.isArray(item.customizations)) {
+      customizationsByOrderItemId.set(
+        item.id,
+        item.customizations
+      );
+    }
+  }
+  return ordersResult.rows.map(
+    (row) => aliasOrderRow(
+      { ...row, id: String(row.id) },
+      selectSpec,
+      itemsByOrderId.get(String(row.id)) ?? [],
+      customizationsByOrderItemId
+    )
+  );
+}
+async function getCustomerAddressRows(pool) {
+  const result = await pool.query("select * from public.customer_addresses");
+  return result.rows.map((row) => ({
+    ...row,
+    id: String(row.id),
+    customer_id: String(row.customer_id)
+  }));
+}
+async function getCustomerRows(pool, selectSpec) {
+  const customersResult = await pool.query("select * from public.customers");
+  const addresses = shouldAttachCustomerAddresses(selectSpec) ? await getCustomerAddressRows(pool) : [];
+  const orders = shouldAttachCustomerOrders(selectSpec) ? await getOrderRows(pool, null) : [];
+  const addressesByCustomerId = /* @__PURE__ */ new Map();
+  const ordersByCustomerId = /* @__PURE__ */ new Map();
+  for (const address of addresses) {
+    const current = addressesByCustomerId.get(address.customer_id) ?? [];
+    current.push(address);
+    addressesByCustomerId.set(address.customer_id, current);
+  }
+  for (const order of orders) {
+    const customerId = typeof order.customer_id === "string" ? order.customer_id : null;
+    if (!customerId) {
+      continue;
+    }
+    const current = ordersByCustomerId.get(customerId) ?? [];
+    current.push(order);
+    ordersByCustomerId.set(customerId, current);
+  }
+  return customersResult.rows.map(
+    (row) => aliasCustomerRow(
+      { ...row, id: String(row.id) },
+      selectSpec,
+      addressesByCustomerId.get(String(row.id)) ?? [],
+      ordersByCustomerId.get(String(row.id)) ?? []
+    )
+  );
+}
 function buildUpdateAssignments(payload, startingIndex = 1) {
   const entries = Object.entries(payload);
   const values = [];
@@ -527,12 +611,16 @@ var LightPostgresCompatQueryBuilder = class {
   filters = [];
   orders = [];
   limitValue = null;
+  rangeStart = null;
+  rangeEnd = null;
   cardinality = "many";
   select(spec = "*", options) {
-    this.operation = "select";
     this.selectSpec = spec;
     this.countMode = options?.count ?? null;
     this.headOnly = options?.head === true;
+    if (this.operation === "select") {
+      this.operation = "select";
+    }
     return this;
   }
   insert(payload) {
@@ -570,8 +658,28 @@ var LightPostgresCompatQueryBuilder = class {
     this.filters.push({ type: "is", column, value });
     return this;
   }
+  lt(column, value) {
+    this.filters.push({ type: "lt", column, value });
+    return this;
+  }
+  lte(column, value) {
+    this.filters.push({ type: "lte", column, value });
+    return this;
+  }
+  gt(column, value) {
+    this.filters.push({ type: "gt", column, value });
+    return this;
+  }
+  gte(column, value) {
+    this.filters.push({ type: "gte", column, value });
+    return this;
+  }
   ilike(column, value) {
     this.filters.push({ type: "ilike", column, value });
+    return this;
+  }
+  not(column, operator, value) {
+    this.filters.push({ type: "not", column, operator, value });
     return this;
   }
   or(raw) {
@@ -589,6 +697,11 @@ var LightPostgresCompatQueryBuilder = class {
     this.limitValue = value;
     return this;
   }
+  range(from, to) {
+    this.rangeStart = from;
+    this.rangeEnd = to;
+    return this;
+  }
   single() {
     this.cardinality = "single";
     return this;
@@ -602,34 +715,54 @@ var LightPostgresCompatQueryBuilder = class {
   }
   async readRows() {
     const pool = await this.poolPromise;
-    if (this.tableName === "product_discount_rules") {
+    const tableName = resolveCompatTableName(this.tableName);
+    if (tableName === "product_discount_rules") {
       return createCompatError(UNSUPPORTED_PRODUCT_TABLE_ERROR, "42P01");
     }
-    if (this.tableName === "variant_attributes" || this.tableName === "variant_attribute_values" || this.tableName === "product_variant_attributes") {
+    if (tableName === "variant_attributes" || tableName === "variant_attribute_values" || tableName === "product_variant_attributes") {
       return [];
     }
-    if (this.tableName === "settings") {
+    if (tableName === "settings") {
       return getSettingsRows(pool);
     }
-    if (this.tableName === "categories") {
+    if (tableName === "categories") {
       return getCategoryRows(pool);
     }
-    if (this.tableName === "pages") {
+    if (tableName === "pages") {
       return getPageRows(pool);
     }
-    if (this.tableName === "products") {
+    if (tableName === "products") {
       const rows = await getProductRows(pool);
       return rows.map((row) => aliasProductRow(row, row.variants ?? [], this.selectSpec));
     }
-    if (this.tableName === "product_variants") {
+    if (tableName === "product_variants") {
       const rows = await getProductVariantRows(pool);
-      return rows.map((row) => aliasProductVariantRow(row, this.selectSpec));
+      const productsById = shouldAttachVariantProduct(this.selectSpec) ? await getProductJoinRows(pool) : /* @__PURE__ */ new Map();
+      return rows.map(
+        (row) => aliasProductVariantRow(
+          row,
+          this.selectSpec,
+          productsById.get(row.product_id) ?? null
+        )
+      );
     }
-    if (this.tableName === "order_items" || this.tableName === "favorites" || this.tableName === "product_views" || this.tableName === "product_reviews" || this.tableName === "cart_items" || this.tableName === "wishlist_items" || this.tableName === "customer_preferred_products" || this.tableName === "profiles") {
+    if (tableName === "orders") {
+      return getOrderRows(pool, this.selectSpec);
+    }
+    if (tableName === "order_items") {
+      return getOrderItemRows(pool, this.selectSpec);
+    }
+    if (tableName === "customers") {
+      return getCustomerRows(pool, this.selectSpec);
+    }
+    if (tableName === "customer_addresses" || tableName === "addresses") {
+      return getCustomerAddressRows(pool);
+    }
+    if (tableName === "favorites" || tableName === "product_views" || tableName === "product_reviews" || tableName === "cart_items" || tableName === "wishlist_items" || tableName === "customer_preferred_products" || tableName === "profiles") {
       return [];
     }
     return createCompatError(
-      `light_postgres compatibility table destegi bulunamadi: ${this.tableName}`,
+      `light_postgres compatibility table destegi bulunamadi: ${tableName}`,
       "42P01"
     );
   }
@@ -639,7 +772,8 @@ var LightPostgresCompatQueryBuilder = class {
   shapeSelectResult(rows) {
     const filtered = this.applyFilters(rows);
     const sorted = sortRows(filtered, this.orders);
-    const limited = this.limitValue !== null ? sorted.slice(0, this.limitValue) : sorted;
+    const ranged = this.rangeStart !== null ? sorted.slice(this.rangeStart, (this.rangeEnd ?? this.rangeStart) + 1) : sorted;
+    const limited = this.limitValue !== null ? ranged.slice(0, this.limitValue) : ranged;
     const count = this.countMode === "exact" ? filtered.length : null;
     if (this.headOnly) {
       return {
@@ -677,16 +811,17 @@ var LightPostgresCompatQueryBuilder = class {
   }
   async insertRows() {
     const pool = await this.poolPromise;
-    if (this.tableName === "product_discount_rules") {
+    const tableName = resolveCompatTableName(this.tableName);
+    if (tableName === "product_discount_rules") {
       return {
         data: null,
         error: createCompatError(UNSUPPORTED_PRODUCT_TABLE_ERROR, "42P01")
       };
     }
-    if (this.tableName !== "products" && this.tableName !== "product_variants" && this.tableName !== "categories" && this.tableName !== "pages") {
+    if (!["products", "product_variants", "categories", "pages", "customer_addresses", "customers"].includes(tableName)) {
       return {
         data: null,
-        error: createCompatError(`Insert desteklenmiyor: ${this.tableName}`, "42P01")
+        error: createCompatError(`Insert desteklenmiyor: ${tableName}`, "42P01")
       };
     }
     const inserted = [];
@@ -696,7 +831,7 @@ var LightPostgresCompatQueryBuilder = class {
       const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
       const values = columns.map((column) => record[column]);
       const result = await pool.query(
-        `insert into public.${this.tableName} (${columns.map((column) => `"${column}"`).join(", ")}) values (${placeholders}) returning *`,
+        `insert into public.${tableName} (${columns.map((column) => `"${column}"`).join(", ")}) values (${placeholders}) returning *`,
         values
       );
       inserted.push(...result.rows);
@@ -705,16 +840,17 @@ var LightPostgresCompatQueryBuilder = class {
   }
   async updateRows() {
     const pool = await this.poolPromise;
+    const tableName = resolveCompatTableName(this.tableName);
     if (!this.payload[0]) {
       return {
         data: null,
         error: createCompatError("Bos update payload", "PGRST204")
       };
     }
-    if (!["products", "product_variants", "categories", "pages", "settings"].includes(this.tableName)) {
+    if (!["products", "product_variants", "categories", "pages", "settings", "customer_addresses", "customers", "orders"].includes(tableName)) {
       return {
         data: null,
-        error: createCompatError(`Update desteklenmiyor: ${this.tableName}`, "42P01")
+        error: createCompatError(`Update desteklenmiyor: ${tableName}`, "42P01")
       };
     }
     const payload = { ...this.payload[0] };
@@ -724,7 +860,7 @@ var LightPostgresCompatQueryBuilder = class {
         error: createCompatError("Bos update payload", "PGRST204")
       };
     }
-    if (this.tableName === "settings") {
+    if (tableName === "settings") {
       const keyFilter = this.filters.find(
         (filter) => filter.type === "eq" && filter.column === "key"
       );
@@ -741,51 +877,55 @@ var LightPostgresCompatQueryBuilder = class {
       );
       return this.shapeSelectResult(result2.rows);
     }
+    const identifierColumns = tableName === "customer_addresses" ? /* @__PURE__ */ new Set(["id", "slug", "customer_id"]) : /* @__PURE__ */ new Set(["id", "slug"]);
     const identifierFilter = this.filters.find(
-      (filter) => filter.type === "eq" && (filter.column === "id" || filter.column === "slug")
+      (filter) => filter.type === "eq" && identifierColumns.has(filter.column)
     );
     if (!identifierFilter) {
       return {
         data: null,
-        error: createCompatError("Update icin id veya slug filtresi gerektirir.", "PGRST204")
+        error: createCompatError("Update icin desteklenen bir eq filtresi gerektirir.", "PGRST204")
       };
     }
     const assignment = buildUpdateAssignments(payload);
     const result = await pool.query(
-      `update public.${this.tableName} set ${assignment.sql} where "${identifierFilter.column}" = $${assignment.values.length + 1} returning *`,
+      `update public.${tableName} set ${assignment.sql} where "${identifierFilter.column}" = $${assignment.values.length + 1} returning *`,
       [...assignment.values, identifierFilter.value]
     );
     return this.shapeSelectResult(result.rows);
   }
   async deleteRows() {
     const pool = await this.poolPromise;
+    const tableName = resolveCompatTableName(this.tableName);
+    const identifierColumns = tableName === "customer_addresses" ? /* @__PURE__ */ new Set(["id", "key", "customer_id"]) : /* @__PURE__ */ new Set(["id", "key"]);
     const identifierFilter = this.filters.find(
-      (filter) => filter.type === "eq" && (filter.column === "id" || filter.column === "key")
+      (filter) => filter.type === "eq" && identifierColumns.has(filter.column)
     );
     if (!identifierFilter) {
       return {
         data: null,
-        error: createCompatError("Delete icin id veya key filtresi gerektirir.", "PGRST204")
+        error: createCompatError("Delete icin desteklenen bir eq filtresi gerektirir.", "PGRST204")
       };
     }
-    if (!["products", "product_variants", "categories", "pages", "settings"].includes(this.tableName)) {
+    if (!["products", "product_variants", "categories", "pages", "settings", "customer_addresses", "customers"].includes(tableName)) {
       return {
         data: null,
-        error: createCompatError(`Delete desteklenmiyor: ${this.tableName}`, "42P01")
+        error: createCompatError(`Delete desteklenmiyor: ${tableName}`, "42P01")
       };
     }
     const result = await pool.query(
-      `delete from public.${this.tableName} where "${identifierFilter.column}" = $1 returning *`,
+      `delete from public.${tableName} where "${identifierFilter.column}" = $1 returning *`,
       [identifierFilter.value]
     );
     return this.shapeSelectResult(result.rows);
   }
   async upsertRows() {
     const pool = await this.poolPromise;
-    if (this.tableName !== "settings") {
+    const tableName = resolveCompatTableName(this.tableName);
+    if (tableName !== "settings") {
       return {
         data: null,
-        error: createCompatError(`Upsert desteklenmiyor: ${this.tableName}`, "42P01")
+        error: createCompatError(`Upsert desteklenmiyor: ${tableName}`, "42P01")
       };
     }
     const upserted = [];
