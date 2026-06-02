@@ -2,6 +2,7 @@ import { maybeGetStorefrontSetting } from "@/lib/db/light-postgres-storefront-re
 import { createServerClient } from "@/lib/supabase";
 import { getPaymentGatewayRuntimeStatus, normalizePaymentGateways } from "@/lib/payment-providers";
 import { PaymentGateway, PaymentGatewayConfig } from "@/types/payment";
+import { shouldUseLightPostgresStorefront } from "./storefront-database-mode";
 
 const DERYCRAFT_SOURCE_PUBLIC_PAYMENTS_URL = "https://derycraft.com/api/public/payments";
 
@@ -62,13 +63,17 @@ async function getOperationalFallbackGateways(localSeeds: PaymentGatewayConfig[]
 }
 
 export async function getStoredPaymentGateways(): Promise<PaymentGatewayConfig[]> {
-    const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
-    const lightPostgresGateways = normalizePaymentGateways(lightPostgresValue || []);
-    if (getReadyActiveGateways(lightPostgresGateways).length > 0) {
-        return lightPostgresGateways;
-    }
+  const lightPostgresValue = await maybeGetStorefrontSetting("payment_gateways");
+  const lightPostgresGateways = normalizePaymentGateways(lightPostgresValue || []);
+  if (getReadyActiveGateways(lightPostgresGateways).length > 0) {
+    return lightPostgresGateways;
+  }
 
-    const serverClient = createServerClient();
+  if (shouldUseLightPostgresStorefront()) {
+    return lightPostgresGateways;
+  }
+
+  const serverClient = createServerClient();
 
     const { data, error } = await serverClient
         .from("settings")

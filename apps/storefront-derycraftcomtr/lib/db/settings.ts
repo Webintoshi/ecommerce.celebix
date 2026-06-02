@@ -35,6 +35,7 @@ import {
     createDefaultShippingIntegrationSettings,
     normalizeShippingIntegrationSettings,
 } from "@/lib/shipping-integrations";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 
 const LIGHT_POSTGRES_PUBLIC_SETTING_KEYS = new Set<string>([
     "announcement_bar",
@@ -47,6 +48,7 @@ const LIGHT_POSTGRES_PUBLIC_SETTING_KEYS = new Set<string>([
     "seo_settings",
     "shipping_options",
     "store_info",
+    "translation_settings",
     "variant_attributes_registry",
 ]);
 
@@ -58,11 +60,17 @@ const LIGHT_POSTGRES_PUBLIC_SETTING_KEYS = new Set<string>([
  * Get setting by key
  */
 export async function getSetting(key: string): Promise<Record<string, unknown> | null> {
-    if (LIGHT_POSTGRES_PUBLIC_SETTING_KEYS.has(key)) {
+    const shouldForceLightPostgres = shouldUseLightPostgresStorefront();
+
+    if (LIGHT_POSTGRES_PUBLIC_SETTING_KEYS.has(key) || shouldForceLightPostgres) {
         const { maybeGetStorefrontSetting } = await import("@/lib/db/light-postgres-storefront-read");
         const lightPostgresValue = await maybeGetStorefrontSetting(key);
         if (lightPostgresValue !== undefined) {
             return (lightPostgresValue as Record<string, unknown> | null) ?? null;
+        }
+
+        if (shouldForceLightPostgres) {
+            return null;
         }
     }
 

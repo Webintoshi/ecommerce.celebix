@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import {
   getHomepageCurationSettings,
   getProductListingOrderPositions,
@@ -261,6 +262,10 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
       .slice(0, 6);
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
   const result = await runCategoriesQuery((includeIsActiveFilter) => {
     let query = supabase
       .from("categories")
@@ -345,6 +350,10 @@ async function fetchHomepageCategoriesWithCuration(
       .filter((category) => category.parent_id === null)
       .sort((left, right) => left.sort_order - right.sort_order)
       .slice(0, 6);
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
   }
 
   const featuredSlugs = featuredCategorySlugs.filter(Boolean).slice(0, 4);
@@ -457,6 +466,10 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
       .slice(0, 8);
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
   const strictQuery = await supabase
     .from("products")
     .select("*, variants:product_variants(*, raw_attributes:attributes)")
@@ -504,6 +517,10 @@ async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createSer
       return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
         (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
     });
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
   }
 
   const strictQuery = await supabase
@@ -560,6 +577,10 @@ async function translateHeroBanners(
 }
 
 async function fetchHomepageTestimonials(supabase: ReturnType<typeof createServerClient>) {
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("product_reviews")
     .select("id, reviewer_name, rating, body, title, image_urls")
@@ -596,6 +617,13 @@ async function fetchHomepageSetting(
   if (lightPostgresValue !== undefined) {
     return {
       data: lightPostgresValue === null ? null : { value: lightPostgresValue },
+      error: null,
+    };
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return {
+      data: null,
       error: null,
     };
   }

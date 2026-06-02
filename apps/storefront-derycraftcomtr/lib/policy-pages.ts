@@ -6,6 +6,7 @@ import {
   type PolicyPageSlug,
 } from "@celebix/platform-config";
 import type { StorefrontLocale } from "@/lib/i18n";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { createServerClient } from "@/lib/supabase";
 import {
   maybeGetStorefrontPageBySlug,
@@ -68,6 +69,10 @@ export async function getPublishedPolicyLinks(
       }));
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
   const supabase = createServerClient();
   const slugs = POLICY_PAGE_DEFINITIONS.map((definition) => definition.slug);
   const { data, error } = await supabase
@@ -117,6 +122,10 @@ export async function getPublishedPolicyPage(
       seoDescription: page.seo_description,
       updatedAt: page.updated_at,
     };
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return null;
   }
 
   const supabase = createServerClient();

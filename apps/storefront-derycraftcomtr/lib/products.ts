@@ -5,6 +5,7 @@ import {
   maybeGetStorefrontProductBySlug,
   maybeListStorefrontProducts,
 } from "@/lib/db/light-postgres-storefront-read";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { runProductsQuery } from "@/lib/products-query-compat";
 
 export type { Product } from "@/types/product";
@@ -694,6 +695,10 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
     return (lightPostgresProduct as unknown as Product) || undefined;
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return undefined;
+  }
+
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
@@ -739,7 +744,7 @@ function resolveProductDisplayImage(product: Record<string, unknown>) {
 export async function getProductGroupsForProduct(
   productId: string,
 ): Promise<ProductGroupDisplayGroup[]> {
-  if (!productId?.trim()) {
+  if (!productId?.trim() || shouldUseLightPostgresStorefront()) {
     return [];
   }
 

@@ -10,6 +10,7 @@ import {
   hydrateProductVariantSnapshots,
 } from "@/lib/variant-attribute-hydration";
 import { getProductListingOrderPositions } from "@/lib/db/settings";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { Product } from "@/types/product";
 import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
@@ -154,6 +155,10 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
     );
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
   try {
     const [{ data: products, error }] = await Promise.all([
       supabase
@@ -205,6 +210,10 @@ async function getCategoryCounts() {
     });
 
     return counts;
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return {};
   }
 
   const supabase = createServerClient();

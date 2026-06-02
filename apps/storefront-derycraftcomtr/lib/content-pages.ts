@@ -7,6 +7,7 @@ import {
   extractPlainTextFromProductDescription,
   normalizeProductDescriptionHtml,
 } from "@celebix/platform-config/src/product-description-rich-text";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { createServerClient } from "@/lib/supabase";
 import { maybeGetStorefrontPageBySlug } from "@/lib/db/light-postgres-storefront-read";
 import type { PageGEO, StaticPage } from "@/types/page";
@@ -72,6 +73,10 @@ export async function getPublishedManagedContentPage(
       seoDescription: page.seo_description,
       updatedAt: page.updated_at,
     };
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return null;
   }
 
   const supabase = createServerClient();

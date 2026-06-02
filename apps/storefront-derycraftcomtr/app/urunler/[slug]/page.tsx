@@ -10,6 +10,7 @@ import {
   maybeGetStorefrontProductBySlug,
   maybeListStorefrontProductVariants,
 } from "@/lib/db/light-postgres-storefront-read";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { createServerClient } from "@/lib/supabase";
 import { parseProductSlug, findVariantIndex } from "@/lib/slug-parser";
 import { findPreferredVariantIndex } from "@/lib/variant-selection";
@@ -23,6 +24,10 @@ import { getStoreInfo } from "@/lib/db/settings";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 import { translateProductCollection, translateProductRecord } from "@/lib/translation";
+import {
+  getVariantAttributeRegistry,
+  hydrateProductVariantSnapshots,
+} from "@/lib/variant-attribute-hydration";
 import { resolveVariantDisplayPricing } from "@celebix/platform-config/src/product-pricing";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
@@ -162,6 +167,7 @@ export default async function ProductDetailPage({
   try {
     const supabase = createServerClient();
     const lightPostgresProduct = await maybeGetStorefrontProductBySlug(baseSlug);
+    const shouldForceLightPostgres = shouldUseLightPostgresStorefront();
 
     let dbProduct: any | null = null;
     let variants: any[] | null = null;
@@ -204,15 +210,23 @@ export default async function ProductDetailPage({
       const discountRulesMap = await getProductDiscountRulesMap(supabase, [dbProduct.id]);
       const productDiscountRules = discountRulesMap[dbProduct.id] || [];
 
-      const { data: allAttributeValues } = await supabase
-        .from("variant_attribute_values")
-        .select(`
-          id,
-          value,
-          color_code,
-          image_url,
-          attribute:variant_attributes(id, name)
-        `);
+      const attributeRegistry = shouldForceLightPostgres
+        ? await getVariantAttributeRegistry()
+        : [];
+      const hydratedVariants = shouldForceLightPostgres
+        ? hydrateProductVariantSnapshots(variants || [], attributeRegistry)
+        : variants || [];
+      const { data: allAttributeValues } = shouldForceLightPostgres
+        ? { data: null }
+        : await supabase
+            .from("variant_attribute_values")
+            .select(`
+              id,
+              value,
+              color_code,
+              image_url,
+              attribute:variant_attributes(id, name)
+            `);
 
       let images: string[] = [];
       if (
@@ -230,7 +244,7 @@ export default async function ProductDetailPage({
       }
 
       const transformedVariants =
-        variants?.map((variant: any) => {
+        hydratedVariants.map((variant: any) => {
           const pricing = resolveVariantDisplayPricing(
             {
               price: Number(variant.price || 0),
@@ -238,18 +252,20 @@ export default async function ProductDetailPage({
             },
             productDiscountRules,
           );
-          let attrs = Array.isArray(variant.linked_attributes)
-            ? variant.linked_attributes.map((attribute: any) => ({
-                ...attribute.attribute_value,
-                attribute: attribute.attribute_value?.attribute,
-              }))
-            : [];
+          let attrs = Array.isArray(variant.attributes)
+            ? variant.attributes
+            : Array.isArray(variant.linked_attributes)
+              ? variant.linked_attributes.map((attribute: any) => ({
+                  ...attribute.attribute_value,
+                  attribute: attribute.attribute_value?.attribute,
+                }))
+              : [];
 
           if (attrs.length === 0 && Array.isArray(variant.raw_attributes)) {
             attrs = variant.raw_attributes;
           }
 
-          if (attrs.length === 0 && allAttributeValues) {
+          if (!shouldForceLightPostgres && attrs.length === 0 && allAttributeValues) {
             const matchedValue = allAttributeValues.find(
               (attributeValue: any) =>
                 attributeValue.value?.toLowerCase() === variant.name?.toLowerCase(),

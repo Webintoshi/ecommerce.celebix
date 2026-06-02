@@ -10,6 +10,7 @@ import {
   maybeListStorefrontCategories,
   maybeListStorefrontProducts,
 } from "@/lib/db/light-postgres-storefront-read";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { createServerClient } from "@/lib/supabase";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy, type StorefrontLocale } from "@/lib/i18n";
@@ -95,6 +96,10 @@ async function getCategoryBySlug(slug: string): Promise<Category | null> {
     return lightPostgresCategory as unknown as Category | null;
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return null;
+  }
+
   const supabase = createServerClient();
 
   try {
@@ -163,6 +168,10 @@ async function getCollectionSlugs(category: Category): Promise<string[]> {
     }
 
     return Array.from(collectedSlugs);
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return [category.slug];
   }
 
   const supabase = createServerClient();
@@ -361,6 +370,10 @@ async function getProductsByCategory(category: Category, locale: StorefrontLocal
     return translatedProducts
       .map((product) => transformProduct(product as DBProduct, attributeRegistry, discountRulesMap[String(product.id)] || []))
       .filter((product) => product.variants.length > 0);
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
   }
 
   try {

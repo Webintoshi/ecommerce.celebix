@@ -6,6 +6,7 @@ import {
   normalizeStoreTranslationSettings,
   type StoreTranslationLocale,
 } from "@celebix/platform-config/src/translation";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { createServerClient } from "@/lib/supabase";
 import { getTranslationSettings } from "@/lib/db/settings";
 
@@ -115,7 +116,7 @@ function shouldTranslateBetweenLocales(
 }
 
 async function readTranslationCache(cacheKeys: string[]) {
-  if (cacheKeys.length === 0) {
+  if (cacheKeys.length === 0 || shouldUseLightPostgresStorefront()) {
     return new Map<string, string>();
   }
 
@@ -146,7 +147,7 @@ async function writeTranslationCache(
     translatedText: string;
   }>,
 ) {
-  if (entries.length === 0) {
+  if (entries.length === 0 || shouldUseLightPostgresStorefront()) {
     return;
   }
 
