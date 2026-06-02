@@ -28,7 +28,7 @@ function getRuntimeRequire(): (id: string) => unknown {
 
 function createLightPostgresServerCompatClient() {
     const compatModule = getRuntimeRequire()(
-        "@celebix/platform-config/src/light-postgres-compat",
+        "@celebix/platform-config/src/light-postgres-compat.cjs",
     ) as LightPostgresCompatModule;
 
     return compatModule.createLightPostgresCompatClient({
