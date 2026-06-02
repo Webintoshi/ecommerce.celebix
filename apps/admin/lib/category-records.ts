@@ -68,7 +68,8 @@ function getMissingCategoryColumn(error: unknown): string | null {
   const message = String(error.message ?? "");
   const match =
     message.match(/Could not find the '([^']+)' column of 'categories'/i) ||
-    message.match(/column categories\.([a-z_]+) does not exist/i);
+    message.match(/column categories\.([a-z_]+) does not exist/i) ||
+    message.match(/column ["']([^"']+)["'] of relation ["']categories["'] does not exist/i);
   return match?.[1] ?? null;
 }
 
@@ -369,6 +370,11 @@ async function updateCategoryRecord(supabase: any, id: string, payload: Record<s
     if (!nextPayload) {
       throw error;
     }
+
+    if (Object.keys(nextPayload).length === 0) {
+      return;
+    }
+
     updatePayload = nextPayload;
   }
 }
