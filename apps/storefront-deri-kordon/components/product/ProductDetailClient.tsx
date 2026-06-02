@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ShoppingCart,
@@ -12,10 +12,12 @@ import {
   ArrowLeft,
   Package,
   Clock,
-  BadgeCheck,
+  ShieldCheck,
   Hammer,
   ChevronRight,
   ChevronDown,
+  Truck,
+  Gift,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
@@ -24,25 +26,22 @@ import { PersonalizationPreview } from "@/components/product/PersonalizationPrev
 import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
+import { MobileStickyBar } from "@/components/product/MobileStickyBar";
 import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
 } from "@/components/product/dynamic-customization-form";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { Product } from "@/types/product";
-import {
-  CustomizationSchema,
-  CustomizationStep,
-} from "@/types/product-customization";
-import { buildLocalizedPath } from "@/lib/i18n";
+import { CustomizationSchema, CustomizationStep } from "@/types/product-customization";
+import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 
 const ProductCard = React.lazy(() =>
   import("@/components/product/ProductCard").then((mod) => ({
     default: mod.ProductCard,
-  }))
+  })),
 );
-import React from "react";
 
 type TabType = "features" | "specs" | "shipping";
 type ResolvedCustomizationSchema = CustomizationSchema & { steps: CustomizationStep[] };
@@ -64,7 +63,7 @@ async function fetchAssignedSchema(productId: string) {
   const payload = await response.json();
 
   if (!response.ok || !payload?.success) {
-    throw new Error(payload?.error || "Ekstra şeması yüklenemedi");
+    throw new Error(payload?.error || "Customization schema could not be loaded");
   }
 
   return (payload.schema as ResolvedCustomizationSchema | null) || null;
@@ -77,7 +76,6 @@ interface ProductDetailClientProps {
   initialVariantIndex?: number;
 }
 
-
 export function ProductDetailClient({
   slug,
   initialProduct,
@@ -86,31 +84,25 @@ export function ProductDetailClient({
 }: ProductDetailClientProps) {
   const [product, setProduct] = useState<Product | null>(initialProduct);
   const [loading, setLoading] = useState(!initialProduct);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>(
-    initialRelatedProducts
-  );
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>(initialRelatedProducts);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
-
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
-  const toggleAccordion = (id: string) => {
-    const next = new Set(openAccordions);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setOpenAccordions(next);
-  };
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set(["features"]));
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] = useState<ResolvedCustomizationSchema | null>(null);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
   const [customizationState, setCustomizationState] = useState<CustomizationSelectionState>(
-    createEmptyCustomizationState(initialProduct?.variants?.[initialVariantIndex]?.price || initialProduct?.variants?.[0]?.price || 0)
+    createEmptyCustomizationState(
+      initialProduct?.variants?.[initialVariantIndex]?.price || initialProduct?.variants?.[0]?.price || 0,
+    ),
   );
   const [customizationValidationNonce, setCustomizationValidationNonce] = useState(0);
   const extrasSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   const { addToCart } = useCart();
   const { locale } = useStorefrontRoute();
+  const copy = getLocalizedCopy(locale);
 
   useEffect(() => {
     setProduct(initialProduct);
@@ -124,10 +116,9 @@ export function ProductDetailClient({
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
     setQuantity(1);
-    setOpenAccordions(new Set());
+    setOpenAccordions(new Set(["features"]));
   }, [initialVariantIndex, initialProduct?.id]);
 
-  // Load wishlist state
   useEffect(() => {
     if (typeof window !== "undefined" && product) {
       const wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
@@ -135,7 +126,6 @@ export function ProductDetailClient({
     }
   }, [product]);
 
-  // Load related products
   useEffect(() => {
     if (product?.category) {
       setIsLoadingRelated(true);
@@ -147,7 +137,7 @@ export function ProductDetailClient({
             setRelatedProducts(filtered.slice(0, 4));
           }
         })
-      .finally(() => setIsLoadingRelated(false));
+        .finally(() => setIsLoadingRelated(false));
     }
   }, [locale, product?.category, slug]);
 
@@ -184,16 +174,12 @@ export function ProductDetailClient({
     setCustomizationValidationNonce(0);
   }, [activeSchema?.id, variant?.id, variant?.price]);
 
-  // Product gallery should only use real product/variant images.
-  // Attribute image_url values are swatches and must not replace the main gallery.
   const displayImages = React.useMemo(() => {
-    const baseImages = product.images || [];
-    
-    // Priority 1: Variant's own gallery images
+    const baseImages = product?.images || [];
+
     if (variant?.images && variant.images.length > 0) {
       const variantImages = variant.images.filter((img: string) => img && img.length > 0);
       if (variantImages.length > 0) {
-        // Combine variant images first, then fall back to base product gallery.
         const combined = [...variantImages];
         baseImages.forEach((img: string) => {
           if (!combined.includes(img)) combined.push(img);
@@ -207,10 +193,10 @@ export function ProductDetailClient({
 
   if (loading || !product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
+      <div className="flex min-h-screen items-center justify-center bg-[#F8F8F8]">
         <div className="animate-pulse text-center">
-          <div className="h-8 w-48 bg-neutral-200 rounded mb-4" />
-          <div className="h-4 w-32 bg-neutral-200 rounded" />
+          <div className="mb-4 h-8 w-48 rounded bg-neutral-200" />
+          <div className="h-4 w-32 rounded bg-neutral-200" />
         </div>
       </div>
     );
@@ -218,9 +204,9 @@ export function ProductDetailClient({
 
   if (!variant) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-[#F8F8F8]">
+      <div className="flex min-h-screen items-center justify-center bg-[#F8F8F8] px-4">
         <div className="text-center">
-          <p className="text-neutral-500">Ürün bilgisi yüklenemedi.</p>
+          <p className="text-neutral-500">Product information could not be loaded.</p>
         </div>
       </div>
     );
@@ -248,9 +234,14 @@ export function ProductDetailClient({
   };
 
   const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) =>
-      Math.max(1, Math.min(variant.stock || 10, prev + delta))
-    );
+    setQuantity((prev) => Math.max(1, Math.min(variant.stock || 10, prev + delta)));
+  };
+
+  const toggleAccordion = (id: string) => {
+    const next = new Set(openAccordions);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setOpenAccordions(next);
   };
 
   const toggleWishlist = () => {
@@ -274,12 +265,12 @@ export function ProductDetailClient({
     }
   };
 
-  // Stock status text
   const getStockStatus = () => {
-    if (isOutOfStock) return { text: "Tükendi", color: "text-neutral-400" };
-    if (variant.stock <= 5)
-      return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
-    return { text: "Stokta var", color: "text-neutral-500" };
+    if (isOutOfStock) return { text: "Sold out", color: "text-neutral-400" };
+    if (variant.stock <= 5) {
+      return { text: `Only ${variant.stock} left`, color: "text-amber-600" };
+    }
+    return { text: "In stock", color: "text-emerald-600" };
   };
 
   const stockStatus = getStockStatus();
@@ -289,66 +280,83 @@ export function ProductDetailClient({
       ? variant.originalPrice + (activeSchema ? customizationState.extraPrice : 0)
       : undefined;
 
+  const purchaseHighlights = [
+    {
+      icon: ShieldCheck,
+      title: "Workshop made",
+      text: "Hand craftsmanship and premium leather selection",
+    },
+    {
+      icon: Truck,
+      title: "Fast shipping",
+      text: "Prepared within 1-3 business days",
+    },
+    {
+      icon: Gift,
+      title: "Gift ready",
+      text: "Premium feel from the moment it is unboxed",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
-      {/* Minimal Breadcrumb */}
+    <div className="min-h-screen bg-[#F8F8F8] pb-24 lg:pb-0">
       <div className="border-b border-neutral-200 bg-[#F8F8F8]">
         <div className="container-premium">
           <div className="flex items-center gap-3 py-4 text-sm">
             <Link
               href={buildLocalizedPath("/urunler", locale)}
-              className="flex items-center gap-2 text-neutral-500 hover:text-neutral-900 transition-colors"
+              className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">{copy.breadcrumbProducts}</span>
             </Link>
-            <div className="flex items-center gap-2 text-neutral-400 ml-auto">
-              <Link href={buildLocalizedPath("/", locale)} className="hover:text-neutral-600 transition-colors">Ana Sayfa</Link>
-              <ChevronRight className="w-4 h-4" />
-              <Link href={buildLocalizedPath("/urunler", locale)} className="hover:text-neutral-600 transition-colors">Ürünler</Link>
-              <ChevronRight className="w-4 h-4" />
-              <span className="text-neutral-900 font-medium truncate max-w-[150px]">
-                {product.name}
-              </span>
+            <div className="ml-auto flex items-center gap-2 text-neutral-400">
+              <Link
+                href={buildLocalizedPath("/", locale)}
+                className="transition-colors hover:text-neutral-600"
+              >
+                {copy.breadcrumbHome}
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+              <Link
+                href={buildLocalizedPath("/urunler", locale)}
+                className="transition-colors hover:text-neutral-600"
+              >
+                {copy.breadcrumbProducts}
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+              <span className="max-w-[150px] truncate font-medium text-neutral-900">{product.name}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Product Section */}
       <section className="py-8 lg:py-12">
         <div className="container-premium">
-          <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-8 lg:gap-12 items-start">
-            {/* Left: Image Gallery (sticky) */}
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
             <div className="lg:sticky lg:top-28 lg:self-start">
-              <ImageGallery 
-                key={`${product.id}-${selectedVariant}`} 
-                images={displayImages} 
-                productName={product.name} 
+              <ImageGallery
+                key={`${product.id}-${selectedVariant}`}
+                images={displayImages}
+                productName={product.name}
               />
             </div>
 
-            {/* Right: Product Info */}
-            <div className="space-y-5">
-              {/* Category Badge */}
+            <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">
+                <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
                   {product.category}
                 </span>
-                <span className="w-8 h-px bg-neutral-300" />
-                {product.featured && (
-                  <span className="px-2.5 py-1 bg-neutral-900 text-white text-[10px] tracking-wider uppercase rounded-full">
-                    Öne Çıkan
+                <span className="h-px w-8 bg-neutral-300" />
+                {product.featured ? (
+                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] tracking-wider text-white">
+                    Featured
                   </span>
-                )}
+                ) : null}
               </div>
 
-              {/* Title */}
-              <h1 className="store-product-title-detail text-neutral-900 tracking-tight">
-                {product.name}
-              </h1>
+              <h1 className="store-product-title-detail text-neutral-900 tracking-tight">{product.name}</h1>
 
-              {/* Rating */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-0.5">
                   {[...Array(5)].map((_, i) => (
@@ -363,42 +371,55 @@ export function ProductDetailClient({
                   ))}
                 </div>
                 <span className="text-sm text-neutral-500">
-                  ({product.reviewCount || 0} değerlendirme)
+                  ({product.reviewCount || 0} reviews)
                 </span>
               </div>
 
-              {/* Price */}
               <div className="flex items-center gap-3">
-                {displayOriginalPrice !== undefined && (
-                  <span className="text-sm lg:text-base text-neutral-400 line-through">
+                {displayOriginalPrice !== undefined ? (
+                  <span className="text-sm text-neutral-400 line-through lg:text-base">
                     {formatPrice(displayOriginalPrice)}
                   </span>
-                )}
-                <span className="text-3xl lg:text-4xl text-neutral-900 tracking-tight">
+                ) : null}
+                <span className="text-3xl tracking-tight text-neutral-900 lg:text-4xl">
                   {formatPrice(displayPrice)}
                 </span>
               </div>
 
-              {/* Badges */}
-              <div className="flex flex-wrap gap-2">
-                {discountPercent > 0 && (
-                  <span className="px-2.5 py-1 bg-neutral-900 text-white text-[10px] font-medium tracking-wider uppercase rounded-full">
-                    %{discountPercent} İndirim
-                  </span>
-                )}
-                {product.new && (
-                  <span className="px-2.5 py-1 bg-neutral-900 text-white text-[10px] font-medium tracking-wider uppercase rounded-full">
-                    Yeni
-                  </span>
-                )}
-                {product.vegan && (
-                  <span className="px-2.5 py-1 bg-white text-neutral-900 text-[10px] font-medium border border-neutral-200 rounded-full">
-                    Vegan
-                  </span>
-                )}
+              <div className="grid gap-3 sm:grid-cols-3">
+                {purchaseHighlights.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div
+                      key={item.title}
+                      className="rounded-[24px] border border-[#E6D9CA] bg-[linear-gradient(180deg,#fffdfa_0%,#ffffff_100%)] p-4 shadow-[0_18px_44px_-38px_rgba(42,28,15,0.35)]"
+                    >
+                      <Icon className="h-5 w-5 text-[#8A6847]" />
+                      <p className="mt-3 text-sm font-medium text-neutral-900">{item.title}</p>
+                      <p className="mt-1 text-sm leading-6 text-neutral-600">{item.text}</p>
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* Variant Selector V2 */}
+              <div className="flex flex-wrap gap-2">
+                {discountPercent > 0 ? (
+                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+                    {discountPercent}% Off
+                  </span>
+                ) : null}
+                {product.new ? (
+                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+                    New
+                  </span>
+                ) : null}
+                {product.vegan ? (
+                  <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[10px] font-medium text-neutral-900">
+                    Vegan
+                  </span>
+                ) : null}
+              </div>
+
               <VariantSelectorV2
                 variants={variants}
                 selectedIndex={selectedVariant}
@@ -406,16 +427,17 @@ export function ProductDetailClient({
               />
 
               {isSchemaLoading ? (
-                <div className="py-3 text-sm text-neutral-500">
-                  Ekstra seçenekler yükleniyor...
-                </div>
+                <div className="py-3 text-sm text-neutral-500">Loading extra options...</div>
               ) : activeSchema ? (
-                <div ref={extrasSectionRef} className="space-y-3 border-b border-neutral-200 pb-5">
+                <div
+                  ref={extrasSectionRef}
+                  className="space-y-3 rounded-[28px] border border-[#E6D9CA] bg-white/70 p-5"
+                >
                   <div className="flex items-center gap-3">
-                    <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase">
-                      Kişiselleştirme
+                    <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
+                      Personalization
                     </span>
-                    <span className="w-8 h-px bg-neutral-300" />
+                    <span className="h-px w-8 bg-neutral-300" />
                   </div>
                   <DynamicCustomizationForm
                     schemaId={activeSchema.id}
@@ -429,78 +451,78 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              {/* Quantity & Actions */}
-              <div className="space-y-5 border-y border-neutral-200 py-5">
-                {/* Stock & Personalization Info */}
+              <div className="space-y-5 rounded-[32px] border border-[#E6D9CA] bg-[linear-gradient(180deg,#fffdfa_0%,#ffffff_100%)] p-5 shadow-[0_26px_70px_-52px_rgba(42,28,15,0.48)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  {/* Stock Status */}
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isOutOfStock ? 'bg-neutral-300' : variant.stock <= 5 ? 'bg-amber-500' : 'bg-green-500'}`} />
-                    <span className={`text-sm ${stockStatus.color}`}>
-                      {stockStatus.text}
-                    </span>
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        isOutOfStock ? "bg-neutral-300" : variant.stock <= 5 ? "bg-amber-500" : "bg-emerald-500"
+                      }`}
+                    />
+                    <span className={`text-sm ${stockStatus.color}`}>{stockStatus.text}</span>
                   </div>
-                  {activeSchema && customizationState.extraPrice > 0 && (
+                  {activeSchema && customizationState.extraPrice > 0 ? (
                     <p className="text-sm text-neutral-500">
-                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
+                      +{formatPrice(customizationState.extraPrice)} personalization
                     </p>
-                  )}
+                  ) : null}
                 </div>
-                
-                {/* Actions */}
+
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium text-neutral-900 uppercase tracking-wide">Adet</span>
-                    <div className="flex items-center rounded-full border border-neutral-200 overflow-hidden bg-[#F8F8F8]">
+                    <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">Qty</span>
+                    <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
                       <button
                         onClick={() => handleQuantityChange(-1)}
                         disabled={quantity <= 1}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
+                        type="button"
                       >
-                        <Minus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
+                        <Minus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
                       </button>
-                      <span className="w-10 text-center font-medium text-neutral-900 text-base">
+                      <span className="w-10 text-center text-base font-medium text-neutral-900">
                         {quantity}
                       </span>
                       <button
                         onClick={() => handleQuantityChange(1)}
                         disabled={quantity >= (variant.stock || 10)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
+                        type="button"
                       >
-                        <Plus className="w-4 h-4 text-neutral-900 stroke-[1.5]" />
+                        <Plus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
                       </button>
                     </div>
                   </div>
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
-                    className={`
-                      min-w-[220px] flex-1 flex items-center justify-center gap-2 py-3.5 font-medium uppercase tracking-wide text-sm
-                      transition-all duration-300 rounded-full
-                      ${isOutOfStock || isSchemaLoading
-                        ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                        : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
-                      }
-                    `}
+                    className={`min-w-[220px] flex-1 rounded-full py-3.5 text-sm font-medium uppercase tracking-wide transition-all duration-300 ${
+                      isOutOfStock || isSchemaLoading
+                        ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
+                        : "bg-[#17110B] text-white shadow-[0_20px_36px_-20px_rgba(23,17,11,0.8)] hover:-translate-y-0.5"
+                    }`}
+                    type="button"
                   >
-                    <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
-                    {isSchemaLoading ? "Yükleniyor" : isOutOfStock ? "Tükendi" : "Sepete Ekle"}
+                    <span className="inline-flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
+                      {isSchemaLoading ? "Loading" : isOutOfStock ? "Sold out" : "Add to Cart"}
+                    </span>
                   </button>
                   <button
                     onClick={toggleWishlist}
-                    className={`
-                      w-10 h-10 flex items-center justify-center text-neutral-900 transition-all
-                      ${isWishlisted
-                        ? "text-[#8A6B37]"
-                        : "hover:text-[#8A6B37]"
-                      }
-                    `}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
+                      isWishlisted
+                        ? "border-[#8A6847] bg-[#8A6847] text-white"
+                        : "border-[#E2D5C6] bg-white text-neutral-900 hover:text-[#8A6847]"
+                    }`}
+                    type="button"
                   >
                     <Heart className={`h-5 w-5 stroke-[1.5] ${isWishlisted ? "fill-current" : ""}`} />
                   </button>
                   <button
                     onClick={handleShare}
-                    className="w-10 h-10 flex items-center justify-center text-neutral-900 hover:text-[#8A6B37] transition-colors"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2D5C6] bg-white text-neutral-900 transition-colors hover:text-[#8A6847]"
+                    type="button"
                   >
                     <Share2 className="h-5 w-5 stroke-[1.5]" />
                   </button>
@@ -513,45 +535,44 @@ export function ProductDetailClient({
                 productName={product.name}
               />
 
-              {/* Accordions — Inline in right column */}
-              <div className="pt-1 border-t border-neutral-200">
+              <div className="rounded-[28px] border border-[#E6D9CA] bg-white/72 px-5">
                 {[
                   {
                     id: "features",
-                    label: "Ürün Detayları",
+                    label: "Product Details",
                     content: <ProductFeatures product={product} />,
                   },
                   {
                     id: "specs",
-                    label: "Özellikler",
+                    label: "Specifications",
                     content: (
-                      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-5">
+                      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Package className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
+                          <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
-                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Malzeme</p>
+                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Material</p>
                             <p className="text-sm font-medium text-neutral-900">Premium Full-Grain Deri</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Hammer className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
+                          <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
-                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">İşçilik</p>
-                            <p className="text-sm font-medium text-neutral-900">El Dikişi (Saddle Stitch)</p>
+                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Craft</p>
+                            <p className="text-sm font-medium text-neutral-900">Hand Stitching (Saddle Stitch)</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Clock className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
+                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
-                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Üretim Süresi</p>
-                            <p className="text-sm font-medium text-neutral-900">1–3 İş Günü</p>
+                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Production Time</p>
+                            <p className="text-sm font-medium text-neutral-900">1-3 Business Days</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <BadgeCheck className="w-5 h-5 text-neutral-500 stroke-[1.5]" />
+                          <ShieldCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
-                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Garanti</p>
-                            <p className="text-sm font-medium text-neutral-900">El Yapımı Zanaatkar Kalitesi</p>
+                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Quality</p>
+                            <p className="text-sm font-medium text-neutral-900">Handmade Artisan Finish</p>
                           </div>
                         </div>
                       </div>
@@ -559,45 +580,42 @@ export function ProductDetailClient({
                   },
                   {
                     id: "shipping",
-                    label: "Kargo & İade",
+                    label: "Shipping and Returns",
                     content: (
                       <div className="space-y-5 text-sm text-neutral-600">
                         <div>
-                          <h4 className="font-semibold text-neutral-900 mb-2 flex items-center gap-2">
-                            <span>🚛</span> KARGO & İADE
-                          </h4>
-                          <ul className="space-y-1.5 list-none">
-                            <li><strong className="text-neutral-800">Ücretsiz Kargo:</strong> 1500₺ ve üzeri tüm siparişlerde</li>
-                            <li><strong className="text-neutral-800">Teslimat Süresi:</strong> 1–3 iş günü hazırlık + 2–4 iş günü kargo süresi</li>
-                            <li><strong className="text-neutral-800">Kargo Partneri:</strong> Teslimat adresine göre değişiklik gösterebilir.</li>
+                          <h4 className="mb-2 font-semibold text-neutral-900">Shipping and Returns</h4>
+                          <ul className="space-y-1.5">
+                            <li>
+                              <strong className="text-neutral-800">Free Shipping:</strong> on orders of 1500 TL and above
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">Delivery:</strong> 1-3 business days preparation + 2-4 business days shipping
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">Shipping Partner:</strong> may vary by delivery address
+                            </li>
                           </ul>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-neutral-900 mb-2 flex items-center gap-2">
-                            <span>💳</span> ÖDEME SEÇENEKLERİ
-                          </h4>
-                          <ul className="space-y-1.5 list-none">
-                            <li>Kredi/Banka Kartı (3D Secure güvenliği ile)</li>
-                            <li>Havale/EFT</li>
+                          <h4 className="mb-2 font-semibold text-neutral-900">Payment Options</h4>
+                          <ul className="space-y-1.5">
+                            <li>Credit/Debit Card (3D Secure)</li>
+                            <li>Bank Transfer</li>
                           </ul>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-neutral-900 mb-2 flex items-center gap-2">
-                            <span>🔄</span> İADE POLİTİKASI
-                          </h4>
-                          <ul className="space-y-1.5 list-none">
-                            <li><strong className="text-neutral-800">14 Gün İçinde İade Hakkı</strong></li>
-                            <li><strong className="text-neutral-800">İstisnalar:</strong> Kişiye özel üretimlerde iade yoktur</li>
-                            <li><strong className="text-neutral-800">İade Kargo Ücreti:</strong> Alıcıya aittir</li>
-                          </ul>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-neutral-900 mb-2 flex items-center gap-2">
-                            <span>✨</span> NEDEN BİZ?
-                          </h4>
-                          <ul className="space-y-1.5 list-none">
-                            <li>%100 El Yapımı & Gerçek Deri Ürünler</li>
-                            <li>Güvenli alışveriş (SSL sertifikası ile korunur)</li>
+                          <h4 className="mb-2 font-semibold text-neutral-900">Return Policy</h4>
+                          <ul className="space-y-1.5">
+                            <li>
+                              <strong className="text-neutral-800">14 Gun Icinde Iade Hakkı</strong>
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">Exceptions:</strong> custom-made items are not eligible for return
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">Return Shipping Cost:</strong> paid by the buyer
+                            </li>
                           </ul>
                         </div>
                       </div>
@@ -606,40 +624,42 @@ export function ProductDetailClient({
                 ].map((item) => {
                   const isOpen = openAccordions.has(item.id);
                   return (
-                    <div key={item.id} className="border-b border-neutral-200">
+                    <div key={item.id} className="border-b border-neutral-200 last:border-b-0">
                       <button
                         onClick={() => toggleAccordion(item.id)}
-                        className="w-full flex items-center justify-between py-4 text-sm font-medium text-neutral-900 uppercase tracking-wide"
+                        className="flex w-full items-center justify-between py-4 text-sm font-medium uppercase tracking-wide text-neutral-900"
+                        type="button"
                       >
                         {item.label}
-                        <ChevronDown className={`w-4 h-4 text-neutral-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown
+                          className={`h-4 w-4 text-neutral-500 transition-transform ${
+                            isOpen ? "rotate-180" : ""
+                          }`}
+                        />
                       </button>
                       <AnimatePresence initial={false}>
-                        {isOpen && (
+                        {isOpen ? (
                           <motion.div
                             initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
+                            animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden"
                           >
-                            <div className="pb-5">
-                              {item.content}
-                            </div>
+                            <div className="pb-5">{item.content}</div>
                           </motion.div>
-                        )}
+                        ) : null}
                       </AnimatePresence>
                     </div>
                   );
                 })}
               </div>
 
-              {/* SKU */}
-              {product.sku && (
+              {product.sku ? (
                 <p className="text-xs text-neutral-400">
-                  ÜRÜN KODU: <span className="font-mono">{product.sku}</span>
+                  SKU: <span className="font-mono">{product.sku}</span>
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -655,39 +675,35 @@ export function ProductDetailClient({
         />
       </div>
 
-      {/* Related Products */}
       <section
         className="border-t border-neutral-200 py-16 lg:py-20"
         style={{ backgroundColor: "#f8f8f8f8" }}
       >
         <div className="container-premium">
-          <div className="flex items-center justify-between mb-10">
+          <div className="mb-10 flex items-center justify-between">
             <div>
-              <span className="text-neutral-500 text-xs font-medium tracking-[0.2em] uppercase block mb-2">Keşfedin</span>
-              <h2 className="text-2xl lg:text-3xl text-neutral-900 tracking-tight">
-                Benzer Ürünler
-              </h2>
+              <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
+                Explore
+              </span>
+              <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">Similar Products</h2>
             </div>
             <Link
               href={buildLocalizedPath("/urunler", locale)}
-              className="hidden sm:flex items-center gap-1 text-neutral-900 font-medium hover:text-neutral-600 transition-colors"
+              className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
             >
-              Tümünü Gör
-              <ChevronRight className="w-5 h-5" />
+              View All
+              <ChevronRight className="h-5 w-5" />
             </Link>
           </div>
-          
+
           {isLoadingRelated ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
               {[...Array(4)].map((_, i) => (
-                <div
-                  key={i}
-                  className="aspect-square bg-neutral-100 rounded-2xl animate-pulse"
-                />
+                <div key={i} className="aspect-square animate-pulse rounded-2xl bg-neutral-100" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
               <Suspense fallback={null}>
                 {relatedProducts.map((p, index) => (
                   <ProductCard key={p.id} product={p} index={index} />
@@ -697,6 +713,16 @@ export function ProductDetailClient({
           )}
         </div>
       </section>
+
+      <MobileStickyBar
+        price={displayPrice}
+        originalPrice={displayOriginalPrice}
+        stockLabel={stockStatus.text}
+        onAddToCart={handleAddToCart}
+        onToggleWishlist={toggleWishlist}
+        isWishlisted={isWishlisted}
+        isOutOfStock={isOutOfStock || isSchemaLoading}
+      />
     </div>
   );
 }

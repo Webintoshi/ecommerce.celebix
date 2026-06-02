@@ -185,7 +185,7 @@ export function Footer() {
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
-  const copy = FOOTER_COPY[locale];
+  const copy = FOOTER_COPY.en;
   const activeLocaleOption =
     LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
 

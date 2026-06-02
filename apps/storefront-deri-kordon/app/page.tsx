@@ -11,20 +11,20 @@ import { mapBlogRows } from "@/lib/blog-content";
 import { getPublishedPosts } from "@/lib/db/blog";
 
 const HOME_SEO_KEYWORDS = [
-  "deri kordon",
-  "apple watch deri kayışı",
-  "el yapımı deri kordon",
-  "hakiki deri kayış",
-  "deri kartlık",
-  "deri cüzdan",
-  "premium deri aksesuar",
+  "leather strap",
+  "apple watch leather band",
+  "handmade leather strap",
+  "genuine leather strap",
+  "leather cardholder",
+  "leather wallet",
+  "premium leather accessory",
 ] as const;
 
 async function getHomepageSeo(locale: Awaited<ReturnType<typeof getRequestLocale>>) {
   const [title, description] = await translateSeoStrings(
     [
-      "DeryCraft | El Yapımı Deri Kordon ve Apple Watch Kayışları",
-      "DeryCraft'ta el yapımı hakiki deri kordon, Apple Watch kayışı, kartlık, cüzdan ve premium deri aksesuarları keşfedin. Atölye üretimi ve hızlı kargo.",
+      "DeryCraft | Handmade Leather Straps and Apple Watch Bands",
+      "Discover handmade genuine leather straps, Apple Watch bands, cardholders, wallets and premium leather accessories at DeryCraft. Workshop-made quality with fast shipping support.",
     ],
     locale,
     "home-seo",
@@ -38,37 +38,37 @@ async function getHomepageSeo(locale: Awaited<ReturnType<typeof getRequestLocale
 }
 
 const HOME_UI_COPY = {
-  heroEyebrow: "Atolye Seckisi",
-  heroHeading: "Hakiki deriyi gunluk ritminize rafine bir bicimde tasiyin",
+  heroEyebrow: "Atelier Selection",
+  heroHeading: "Carry genuine leather into your daily rhythm with refined ease",
   heroDescription:
-    "El yapimi deri kordonlar, cizgisini koruyan aksesuarlar ve omurlu malzeme secimleriyle kurulan daha sessiz, daha premium bir koleksiyon.",
-  heroPrimaryCta: "Koleksiyonu Kesfet",
-  heroSecondaryCta: "Magazalari Gor",
-  heroStatLabel0: "atolye uretimi",
-  heroStatLabel1: "premium deri secimi",
-  heroStatLabel2: "hizli kargo destegi",
-  categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Kategoriler",
+    "Handmade leather straps, lasting accessories and durable material choices in a quieter, more premium collection.",
+  heroPrimaryCta: "Explore Collection",
+  heroSecondaryCta: "View Stores",
+  heroStatLabel0: "workshop production",
+  heroStatLabel1: "premium leather selection",
+  heroStatLabel2: "fast shipping support",
+  categoriesEyebrow: "Collections",
+  categoriesHeading: "Categories",
   categoriesDescription:
-    "Saat kordonlarindan cuzdan ve aksesuarlara uzanan seckiyi, malzeme ve kullanim amacina gore hizlica ayirin.",
-  viewAllLabel: "Tumunu Gor",
+    "Sort the selection from watch straps to wallets and accessories by material and use case.",
+  viewAllLabel: "View All",
   showcaseDescription:
-    "Gunluk kullanimda patina kazanan, hediye olarak da guclu duran atolyeden secilen parcalar.",
-  storesEyebrow: "Magazalarimiz",
-  storesHeading: "Deriye yakindan dokunun",
+    "Workshop-selected pieces that gain patina in daily use and make strong gifts.",
+  storesEyebrow: "Our Stores",
+  storesHeading: "Touch the leather up close",
   storesDescription:
-    "Giresun ve Ordu magazalarimizda deri koleksiyonlarimizi yakindan inceleyin.",
-  storesLinkLabel: "Tum subeleri gor",
-  testimonialsHeading: "Musteri Yorumlari",
-  testimonialsCountLabel: "1581 degerlendirmeden",
-  groupTitle0: "Cok Satanlar",
-  groupSubtitle0: "Secili Koleksiyon",
-  groupTitle1: "Apple Watch Kayislari",
-  groupSubtitle1: "One Cikanlar",
-  groupTitle2: "Aksesuarlar",
-  groupSubtitle2: "Tamamlayicilar",
-  groupTitle3: "Deri Saat Kayislari",
-  groupSubtitle3: "Klasik Secim",
+    "Explore our Giresun and Ordu stores to experience the leather collections in person.",
+  storesLinkLabel: "View all stores",
+  testimonialsHeading: "Customer Reviews",
+  testimonialsCountLabel: "from 1581 reviews",
+  groupTitle0: "Best Sellers",
+  groupSubtitle0: "Selected Collection",
+  groupTitle1: "Apple Watch Bands",
+  groupSubtitle1: "Featured",
+  groupTitle2: "Accessories",
+  groupSubtitle2: "Complements",
+  groupTitle3: "Leather Watch Straps",
+  groupSubtitle3: "Classic Choice",
 };
 
 async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLocale>>) {
@@ -84,7 +84,7 @@ async function getHomepageUiCopy(locale: Awaited<ReturnType<typeof getRequestLoc
       stats: [
         { value: "100%", label: translated.heroStatLabel0 },
         { value: "Full-grain", label: translated.heroStatLabel1 },
-        { value: "1-3 gun", label: translated.heroStatLabel2 },
+        { value: "1-3 days", label: translated.heroStatLabel2 },
       ],
     },
     categoriesEyebrow: translated.categoriesEyebrow,
@@ -186,7 +186,7 @@ export default async function Home() {
               "@type": "ContactPoint",
               telephone: STOREFRONT_RUNTIME.supportPhone,
               contactType: "customer service",
-              availableLanguage: ["Turkish", "English", "German", "Russian", "Arabic", "Georgian"],
+              availableLanguage: ["English", "Turkish", "German", "Russian", "Arabic", "Georgian"],
             },
             sameAs: [STOREFRONT_RUNTIME.socialInstagram],
           }),

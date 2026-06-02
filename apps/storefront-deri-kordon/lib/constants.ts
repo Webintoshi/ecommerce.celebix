@@ -11,7 +11,7 @@ export const CONTACT_INFO = {
   email: STOREFRONT_RUNTIME.supportEmail,
   phone: STOREFRONT_RUNTIME.supportPhone,
   whatsapp: STOREFRONT_RUNTIME.supportPhone,
-  address: "Magaza adresi owner panel veya storefront ayarlariyla guncellenir.",
+  address: "Store address is managed from owner panel or storefront settings.",
 };
 
 export const SOCIAL_LINKS = {
@@ -27,14 +27,14 @@ export const SHIPPING_COST = 29.9;
 export const SHIPPING_METHODS = [
   {
     id: "standard",
-    name: "Standart Kargo",
-    description: "2-4 is gunu icinde teslimat",
+    name: "Standard Shipping",
+    description: "Delivery within 2-4 business days",
     cost: 29.9,
   },
   {
     id: "express",
-    name: "Hizli Kargo",
-    description: "1-2 is gunu icinde teslimat",
+    name: "Express Shipping",
+    description: "Delivery within 1-2 business days",
     cost: 49.9,
   },
 ];
@@ -143,63 +143,63 @@ export const ROUTES = {
 
 export const PRODUCT_BADGES = {
   vegan: { label: "Vegan", color: "bg-primary/10 text-primary" },
-  glutenFree: { label: "Glutensiz", color: "bg-primary/10 text-primary" },
-  sugarFree: { label: "Sekersiz", color: "bg-primary/10 text-primary" },
-  highProtein: { label: "Yuksek Protein", color: "bg-primary/10 text-primary" },
-  new: { label: "Yeni", color: "bg-primary/10 text-primary" },
-  discount: { label: "Indirim", color: "bg-primary/10 text-primary" },
+  glutenFree: { label: "Gluten Free", color: "bg-primary/10 text-primary" },
+  sugarFree: { label: "Sugar Free", color: "bg-primary/10 text-primary" },
+  highProtein: { label: "High Protein", color: "bg-primary/10 text-primary" },
+  new: { label: "New", color: "bg-primary/10 text-primary" },
+  discount: { label: "Discount", color: "bg-primary/10 text-primary" },
 };
 
 export const NAV_LINKS = [
-  { name: "Ana Sayfa", href: ROUTES.home },
-  { name: "Urunler", href: ROUTES.products },
+  { name: "Home", href: ROUTES.home },
+  { name: "Products", href: ROUTES.products },
   { name: "Blog", href: ROUTES.blog },
-  { name: "Iletisim", href: ROUTES.contact },
-  { name: "SSS", href: "/sss" },
+  { name: "Contact", href: ROUTES.contact },
+  { name: "FAQ", href: "/sss" },
 ];
 
 export const FOOTER_LINKS = {
   discover: [
-    { name: "Tum Urunler", href: ROUTES.products },
-    { name: "One Cikanlar", href: `${ROUTES.products}?sort=featured` },
-    { name: "Yeni Gelenler", href: `${ROUTES.products}?sort=newest` },
+    { name: "All Products", href: ROUTES.products },
+    { name: "Featured", href: `${ROUTES.products}?sort=featured` },
+    { name: "New Arrivals", href: `${ROUTES.products}?sort=newest` },
   ],
   company: [
-    { name: "Ana Sayfa", href: ROUTES.home },
+    { name: "Home", href: ROUTES.home },
     { name: "Blog", href: ROUTES.blog },
-    { name: "Iletisim", href: ROUTES.contact },
-    { name: "SSS", href: "/sss" },
+    { name: "Contact", href: ROUTES.contact },
+    { name: "FAQ", href: "/sss" },
   ],
   policies: [
-    { name: "Gizlilik Sozlesmesi", href: "/gizlilik" },
-    { name: "Iade Sozlesmesi", href: "/iade" },
-    { name: "Hizmet Sartlari", href: "/sartlar" },
-    { name: "Kargo Politikasi", href: "/kargo" },
+    { name: "Privacy Policy", href: "/gizlilik" },
+    { name: "Return Policy", href: "/iade" },
+    { name: "Terms of Service", href: "/sartlar" },
+    { name: "Shipping Policy", href: "/kargo" },
   ],
 };
 
 export const TESTIMONIALS = [
   {
     id: "1",
-    name: "Magaza Yorumu",
+    name: "Store Review",
     role: "Placeholder",
-    text: "Bu alan gercek musteri yorumlariyla doldurulmak uzere storefront base icine birakildi.",
+    text: "This area is reserved for real customer reviews in the storefront base.",
     rating: 5,
     image: "/placeholder.svg",
   },
   {
     id: "2",
-    name: "Editor Notu",
+    name: "Editor's Note",
     role: "Placeholder",
-    text: "Yeni magazada urunler, kategori yapisi ve marka dili netlestikce bu yorum bloklari guncellenebilir.",
+    text: "These review blocks can be updated as products, category structure and brand voice become clearer.",
     rating: 5,
     image: "/placeholder.svg",
   },
   {
     id: "3",
-    name: "Polish Alani",
+    name: "Polish Area",
     role: "Placeholder",
-    text: "Agent veya tasarimci sadece bu base ustune marka polish uygulayarak hizli sekilde canli storefront uretebilir.",
+    text: "An agent or designer can quickly turn this base into a live storefront by applying brand polish.",
     rating: 5,
     image: "/placeholder.svg",
   },

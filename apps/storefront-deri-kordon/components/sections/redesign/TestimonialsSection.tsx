@@ -13,7 +13,7 @@ const testimonials = [
     name: "CANER T.",
     verified: true,
     rating: 5,
-    content: "Kesinlikle tavsiye ediyorum. Tutun kesesi aldim, harika kalite.",
+    content: "I absolutely recommend it. The tobacco pouch arrived with excellent quality.",
     image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-31-at-14.43.14.avif",
   },
   {
@@ -21,7 +21,7 @@ const testimonials = [
     name: "ASLI B.",
     verified: true,
     rating: 5,
-    content: "Sahane iscilik ile mukemmel bir urun cikmis. Kullandikca guzellesiyor.",
+    content: "Wonderful craftsmanship and an excellent product. It gets better with use.",
     image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-30-at-21.35.41adasd-scaled.webp",
   },
   {
@@ -29,7 +29,7 @@ const testimonials = [
     name: "MELIS G.",
     verified: true,
     rating: 5,
-    content: "Sade ve sik. Urun dayanikli, kullanisli ve gercekten guzel gorunuyor.",
+    content: "Simple and elegant. The product is durable, useful and genuinely beautiful.",
     image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-30-at-21.35.37.jpg",
   },
   {
@@ -37,7 +37,7 @@ const testimonials = [
     name: "ERTAN Z.",
     verified: true,
     rating: 5,
-    content: "Deri saat kayisim geldi, sanki saatimi yeniden almis gibi oldum.",
+    content: "My leather watch strap arrived and made my watch feel brand new.",
     image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-30-at-21.35.37.jpg",
   },
   {
@@ -45,7 +45,7 @@ const testimonials = [
     name: "NIHAT C.",
     verified: true,
     rating: 5,
-    content: "Iscilikten memnun kaldim. Kalite ve iscilik standartlarin ustunde.",
+    content: "I am very happy with the craftsmanship. Quality and finish are above standard.",
     image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/asdasdasdas.avif",
   },
   {
@@ -53,7 +53,7 @@ const testimonials = [
     name: "SEDA Y.",
     verified: true,
     rating: 5,
-    content: "Bayildim. Deri kalitesi ve isciligi ust duzey hissettiriyor.",
+    content: "I loved it. The leather quality and craftsmanship feel truly premium.",
     image: "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Yorumlar/WhatsApp-Image-2025-01-30-at-21.35.37-1.avif",
   },
 ];
@@ -157,7 +157,7 @@ function VerifiedBadge() {
   return (
     <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
       <Check className="h-3 w-3" />
-      Dogrulanmis Alici
+      Verified Buyer
     </span>
   );
 }
@@ -228,8 +228,8 @@ function MobileTestimonialCard({ review, cardIndex }: { review: Testimonial; car
 }
 
 export function TestimonialsSection({
-  heading = "Musteri Yorumlari",
-  countLabel = "1581 degerlendirmeden",
+  heading = "Customer Reviews",
+  countLabel = "from 1581 reviews",
   blogPosts = [],
   blogViewAllHref = "/blog",
   blogHeading = "BLOG YAZILARI",
@@ -357,7 +357,7 @@ export function TestimonialsSection({
                     ? "h-2.5 w-6 bg-neutral-900"
                     : "h-2.5 w-2.5 bg-neutral-300"
                 )}
-                aria-label={`Yorum ${index + 1}`}
+                aria-label={`Review ${index + 1}`}
                 aria-current={index === mobileActiveIndex ? "true" : undefined}
               />
             ))}
@@ -393,7 +393,7 @@ export function TestimonialsSection({
             type="button"
             onClick={prevSlide}
             className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:-translate-x-6"
-            aria-label="Onceki"
+            aria-label="Previous"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -402,7 +402,7 @@ export function TestimonialsSection({
             type="button"
             onClick={nextSlide}
             className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:translate-x-6"
-            aria-label="Sonraki"
+            aria-label="Next"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -419,7 +419,7 @@ export function TestimonialsSection({
                     ? "h-2 w-6 bg-neutral-900"
                     : "h-2 w-2 bg-neutral-300 hover:bg-neutral-400"
                 )}
-                aria-label={`Sayfa ${index + 1}`}
+                aria-label={`Page ${index + 1}`}
               />
             ))}
           </div>

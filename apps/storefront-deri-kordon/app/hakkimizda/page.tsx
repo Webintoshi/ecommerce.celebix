@@ -13,10 +13,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/hakkimizda",
-    title: managedPage?.seoTitle || `Hakkimizda | ${profile.name}`,
+    title: managedPage?.seoTitle || `About | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `${profile.name} marka hikayesi, magaza bilgileri ve kurumsal detaylari.`,
+      `${profile.name} brand story, store information and corporate details.`,
   });
 }
 
@@ -29,7 +29,7 @@ export default async function AboutPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            Hakkimizda
+            About
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
             {profile.name}

@@ -41,7 +41,7 @@ function formatPrice(price?: number | null) {
   if (typeof price !== "number" || Number.isNaN(price)) {
     return null;
   }
-  return new Intl.NumberFormat("tr-TR", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "TRY",
     maximumFractionDigits: 0,
@@ -116,7 +116,7 @@ export function HeaderSearchOverlay({
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [isOpen, normalizedQuery]);
+  }, [isOpen, normalizedQuery, locale]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -130,7 +130,6 @@ export function HeaderSearchOverlay({
 
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-start justify-center px-4 pb-6 pt-[8vh] sm:pt-[10vh]">
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -139,7 +138,6 @@ export function HeaderSearchOverlay({
         onClick={onClose}
       />
 
-      {/* Modal */}
       <motion.div
         initial={{ opacity: 0, y: -20, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -150,7 +148,6 @@ export function HeaderSearchOverlay({
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#d4b17b] to-transparent" />
 
-        {/* Input Header */}
         <div className="border-b border-[#ebe1d3] px-4 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5">
           <div className="flex items-center gap-2 rounded-2xl border border-[#d8c6a9]/80 bg-white/95 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_30px_-24px_rgba(65,43,14,0.5)]">
             <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#f8f2e8] text-[#8e6a36]">
@@ -161,7 +158,7 @@ export function HeaderSearchOverlay({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ürün ara..."
+              placeholder="Search products..."
               className="h-9 flex-1 bg-transparent text-base text-neutral-900 placeholder:text-neutral-400 outline-none"
             />
             {query ? (
@@ -169,7 +166,7 @@ export function HeaderSearchOverlay({
                 type="button"
                 onClick={() => setQuery("")}
                 className="rounded-full p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                aria-label="Aramayı temizle"
+                aria-label="Clear search"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -181,11 +178,10 @@ export function HeaderSearchOverlay({
             )}
           </div>
           <p className="mt-2 pl-1 text-[11px] font-medium tracking-[0.08em] text-neutral-400">
-            En az 2 karakter yazın
+            Type at least 2 characters
           </p>
         </div>
 
-        {/* Results Area */}
         <div className="search-overlay-scroll max-h-[52vh] overflow-y-auto px-2 py-2 sm:px-3">
           {normalizedQuery.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-center">
@@ -193,7 +189,7 @@ export function HeaderSearchOverlay({
                 <Search className="h-7 w-7 text-[#b69564]" />
               </div>
               <p className="text-sm font-medium text-neutral-500">
-                Bir ürün adı yazarak aramaya başlayın
+                Start by entering a product name
               </p>
             </div>
           ) : isLoading ? (
@@ -202,7 +198,7 @@ export function HeaderSearchOverlay({
             </div>
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-center">
-              <p className="text-sm font-medium text-neutral-500">Sonuç bulunamadı</p>
+              <p className="text-sm font-medium text-neutral-500">No products found</p>
             </div>
           ) : (
             <div className="py-1">
@@ -257,14 +253,13 @@ export function HeaderSearchOverlay({
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between border-t border-[#ebe1d3] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,245,237,0.92))] px-4 py-3 text-xs text-neutral-500 sm:px-6">
           <span className="rounded-full border border-[#e4d6c3] bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-600">
-            {results.length > 0 ? `${Math.min(results.length, MAX_RESULTS)} sonuç` : ""}
+            {results.length > 0 ? `${Math.min(results.length, MAX_RESULTS)} results` : ""}
           </span>
           <span className="flex items-center gap-2">
             <kbd className="rounded-md border border-[#e4d6c3] bg-white px-1.5 py-0.5 font-sans text-[10px] text-neutral-500">ESC</kbd>
-            <span className="text-[11px] font-medium">kapat</span>
+            <span className="text-[11px] font-medium">close</span>
           </span>
         </div>
 

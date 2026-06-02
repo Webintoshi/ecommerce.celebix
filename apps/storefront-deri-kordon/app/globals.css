@@ -407,3 +407,11 @@ button, input, select, textarea {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.safe-area-pb {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+.safe-area-pt {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
+}

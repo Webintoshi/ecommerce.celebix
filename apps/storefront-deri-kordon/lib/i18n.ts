@@ -1,7 +1,7 @@
 export const SUPPORTED_LOCALES = ["tr", "en", "de", "ru", "ar", "ka"] as const;
 export type StorefrontLocale = (typeof SUPPORTED_LOCALES)[number];
 
-export const DEFAULT_LOCALE: StorefrontLocale = "tr";
+export const DEFAULT_LOCALE: StorefrontLocale = "en";
 export const INDEXABLE_LOCALES = [DEFAULT_LOCALE] as const;
 export const LOCALE_COOKIE_NAME = "NEXT_LOCALE";
 
@@ -62,43 +62,43 @@ type LocaleCopy = {
 
 export const LOCALE_COPY: Record<StorefrontLocale, LocaleCopy> = {
   tr: {
-    siteTitle: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
+    siteTitle: "Deri Kordon | Handmade Genuine Leather Straps",
     siteDescription:
-      "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar, Apple Watch kayışları ve premium deri aksesuarlar.",
-    homeTitle: "Deri Kordon | El Yapımı Hakiki Deri Kordonlar",
+      "Handmade genuine leather straps, Apple Watch bands, and premium leather accessories crafted with refined workmanship.",
+    homeTitle: "Deri Kordon | Handmade Genuine Leather Straps",
     homeDescription:
-      "Roarcraft kalitesinde, yüzde yüz el yapımı hakiki deri kordonlar, Apple Watch kayışları ve premium deri aksesuarlar.",
-    productsTitle: "Tüm Ürünler | Deri Kordon",
+      "Handmade genuine leather straps, Apple Watch bands, and premium leather accessories crafted with refined workmanship.",
+    productsTitle: "All Products | Deri Kordon",
     productsDescription:
-      "El yapımı hakiki deri kordonlar, Apple Watch kayışları ve premium deri aksesuarları keşfedin.",
-    contactTitle: "İletişim | Deri Kordon",
+      "Discover handmade genuine leather straps, Apple Watch bands, and premium leather accessories.",
+    contactTitle: "Contact | Deri Kordon",
     contactDescription:
-      "Sorularınız, önerileriniz ve özel sipariş talepleriniz için bizimle iletişime geçin.",
-    corporateTitle: "Kurumsal Ürünler | Deri Kordon",
+      "Get in touch with us for questions, custom requests, and product support.",
+    corporateTitle: "Corporate Products | Deri Kordon",
     corporateDescription:
-      "Şirketinize özel deri ürünler ve kişiselleştirilmiş kurumsal hediyeler. Markanıza prestij katın.",
-    missingProductTitle: "Ürün Bulunamadı | Deri Kordon",
-    missingProductDescription: "Aradığınız ürün bulunamadı.",
-    missingCategoryTitle: "Kategori Bulunamadı | Deri Kordon",
-    menuLabel: "Menü",
-    searchLabel: "Ara",
-    cartLabel: "Sepeti aç",
-    categoriesHeading: "Kategoriler",
-    aboutHeading: "Bizi Tanıyın",
-    policiesHeading: "Politikalar",
-    footerHome: "Ana Sayfa",
-    footerAbout: "Hakkımızda",
-    footerStores: "Mağazalarımız",
-    footerCorporate: "Kurumsal Ürünler",
-    footerContact: "İletişim",
-    footerDistanceSales: "Mesafeli Satış Sözleşmesi",
-    footerReturns: "Teslimat ve İade Politikası",
-    footerPrivacy: "Gizlilik Politikası",
-    footerKvkk: "KVKK",
-    footerRights: "Tüm hakları saklıdır.",
-    breadcrumbHome: "Ana Sayfa",
-    breadcrumbProducts: "Ürünler",
-    faqHeading: "Sıkça sorulan sorular",
+      "Tailored leather products and personalized corporate gifts for your brand.",
+    missingProductTitle: "Product Not Found | Deri Kordon",
+    missingProductDescription: "The product you are looking for could not be found.",
+    missingCategoryTitle: "Category Not Found | Deri Kordon",
+    menuLabel: "Menu",
+    searchLabel: "Search",
+    cartLabel: "Open cart",
+    categoriesHeading: "Categories",
+    aboutHeading: "Discover Us",
+    policiesHeading: "Policies",
+    footerHome: "Home",
+    footerAbout: "About",
+    footerStores: "Stores",
+    footerCorporate: "Corporate Products",
+    footerContact: "Contact",
+    footerDistanceSales: "Distance Sales Agreement",
+    footerReturns: "Delivery and Returns",
+    footerPrivacy: "Privacy Policy",
+    footerKvkk: "Data Privacy",
+    footerRights: "All rights reserved.",
+    breadcrumbHome: "Home",
+    breadcrumbProducts: "Products",
+    faqHeading: "Frequently asked questions",
   },
   en: {
     siteTitle: "Deri Kordon | Handmade Genuine Leather Straps",
