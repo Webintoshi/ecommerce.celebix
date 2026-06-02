@@ -4,11 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
+import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
+import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 import { Mail, ArrowRight, CheckCircle, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function ForgotPasswordPage() {
   const { resetPassword } = useAuth();
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,6 +20,15 @@ export default function ForgotPasswordPage() {
   const showLogoImage =
     typeof SITE_LOGO_PATH === "string" &&
     !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
+
+  if (authMigrationRequired) {
+    return (
+      <CustomerAuthMigrationNotice
+        title="Sifre sifirlama gecici olarak pasif"
+        description="Bu rehearsal fazinda musteri auth migrasyonu tamamlanmadigi icin sifre sifirlama akisi acik tutulmuyor. Siparis vermek icin misafir odemeye devam edebilirsiniz."
+      />
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

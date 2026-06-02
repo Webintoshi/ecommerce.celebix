@@ -7,6 +7,7 @@ import { CartCustomizationPayload } from "@/types/product-customization";
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from "@/lib/constants";
 import { fetchShippingZonesFromSettings, getCartShippingSummary, type ShippingZone } from "@/lib/shipping";
 import { getSessionId } from "@/lib/tracking";
+import { isStorefrontAbandonedCartDisabled } from "@/lib/supabase-disconnect-readiness";
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -99,6 +100,10 @@ function getOrCreateSessionId(): string {
 }
 
 async function deleteStoredAbandonedCart() {
+  if (isStorefrontAbandonedCartDisabled()) {
+    return;
+  }
+
   try {
     const sessionId = getOrCreateSessionId();
     if (!sessionId) return;
@@ -112,6 +117,10 @@ async function deleteStoredAbandonedCart() {
 }
 
 async function saveToAbandonedCart(items: CartItem[]) {
+  if (isStorefrontAbandonedCartDisabled()) {
+    return;
+  }
+
   if (items.length === 0) return;
   
   try {
@@ -149,7 +158,6 @@ async function saveToAbandonedCart(items: CartItem[]) {
     });
     
     const result = await response.json();
-    console.log("Sepet kaydedildi:", result);
     
     if (!result.success) {
       console.error("Sepet kaydetme hatası:", result.error);

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_PRODUCT_REVIEW_IMAGES } from "@celebix/platform-config/src/product-reviews";
 import { createServerClient } from "@/lib/supabase";
+import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isStorefrontProductReviewsDisabled,
+} from "@/lib/supabase-disconnect-readiness";
 
 function normalizeImageUrls(value: unknown) {
   return Array.isArray(value)
@@ -27,6 +31,14 @@ function isMissingProductReviewsTableError(error: unknown) {
 }
 
 export async function GET(request: NextRequest) {
+  if (isStorefrontProductReviewsDisabled()) {
+    return NextResponse.json({
+      success: true,
+      status: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+      reviews: [],
+    });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get("productId");
@@ -73,6 +85,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isStorefrontProductReviewsDisabled()) {
+    return NextResponse.json(
+      {
+        success: false,
+        code: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+        error: "Yorum sistemi bu light_postgres provasinda gecici olarak pasif.",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const body = (await request.json()) as {
       productId?: string;

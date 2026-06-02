@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isStorefrontAbandonedCartDisabled,
+} from "@/lib/supabase-disconnect-readiness";
+import {
   deleteLatestOpenAbandonedCartForSession,
   findAbandonedCartByLookup,
   markAbandonedCartAsRecovered,
@@ -10,6 +14,17 @@ import {
 
 function getDb() {
   return createServerClient();
+}
+
+function buildDisabledResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      code: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+      error: "Abandoned cart rehearsal sirasinda gecici olarak pasif.",
+    },
+    { status: 503 },
+  );
 }
 
 function applyFilters(
@@ -49,6 +64,10 @@ function applyFilters(
 }
 
 export async function GET(request: NextRequest) {
+  if (isStorefrontAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const supabase = getDb();
     const { searchParams } = new URL(request.url);
@@ -101,6 +120,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isStorefrontAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const supabase = getDb();
     const body = await request.json();
@@ -133,6 +156,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  if (isStorefrontAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const supabase = getDb();
     const body = await request.json();
@@ -234,6 +261,10 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (isStorefrontAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const supabase = getDb();
     const { searchParams } = new URL(request.url);

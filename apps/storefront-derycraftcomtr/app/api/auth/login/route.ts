@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createPublicServerClient, createServerClient } from "@/lib/supabase";
+import {
+  DERYCRAFT_AUTH_MIGRATION_CODE,
+  DERYCRAFT_AUTH_MIGRATION_MESSAGE,
+  isStorefrontCustomerAuthMigrationRequired,
+} from "@/lib/supabase-disconnect-readiness";
 
 type LoginBody = {
   email?: string;
@@ -21,6 +26,16 @@ async function findUserByEmail(email: string) {
 }
 
 export async function POST(request: Request) {
+  if (isStorefrontCustomerAuthMigrationRequired()) {
+    return NextResponse.json(
+      {
+        error: DERYCRAFT_AUTH_MIGRATION_MESSAGE,
+        code: DERYCRAFT_AUTH_MIGRATION_CODE,
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const { email, password }: LoginBody = await request.json();
 

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
+import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 import { 
   Mail, Lock, User, Eye, EyeOff, ShoppingBag, Heart, MapPin, 
   LogOut, Package, ChevronRight, Loader2, Edit2, Save, X,
@@ -39,6 +41,7 @@ interface Customer {
 export default function AccountPage() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -71,6 +74,11 @@ export default function AccountPage() {
 
   // Fetch customer data and orders
   useEffect(() => {
+    if (authMigrationRequired) {
+      setLoading(false);
+      return;
+    }
+
     if (!user) {
       if (!authLoading) {
         router.push("/giris");
@@ -132,7 +140,18 @@ export default function AccountPage() {
     };
 
     fetchData();
-  }, [user, authLoading, router]);
+  }, [authMigrationRequired, user, authLoading, router]);
+
+  if (authMigrationRequired) {
+    return (
+      <CustomerAuthMigrationNotice
+        title="Musteri hesabim sayfasi gecici olarak pasif"
+        description="DeryCraft 2 light_postgres provasinda musteri auth ve hesap gecmisi Supabase'e geri donmesin diye bu yuzey kontrollu olarak kapatildi. Mevcut rehearsal kapsami misafir siparis ve light_postgres commerce akisina odaklanir."
+        primaryHref="/"
+        primaryLabel="Magazaya don"
+      />
+    );
+  }
 
   const handleLogout = async () => {
     await signOut();

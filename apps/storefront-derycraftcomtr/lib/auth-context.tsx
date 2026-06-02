@@ -3,6 +3,10 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session, AuthError, AuthResponse } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import {
+  DERYCRAFT_AUTH_MIGRATION_MESSAGE,
+  isStorefrontCustomerAuthMigrationRequired,
+} from "@/lib/supabase-disconnect-readiness";
 
 type AuthResultError = AuthError | Error | null;
 
@@ -21,11 +25,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authMigrationRequired) {
+      setLoading(false);
+      setSession(null);
+      setUser(null);
+      return;
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -49,9 +61,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [authMigrationRequired]);
 
   const signIn = async (email: string, password: string) => {
+    if (authMigrationRequired) {
+      return {
+        error: new Error(DERYCRAFT_AUTH_MIGRATION_MESSAGE),
+      };
+    }
+
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -88,6 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, metadata?: Record<string, unknown>) => {
+    if (authMigrationRequired) {
+      return {
+        error: new Error(DERYCRAFT_AUTH_MIGRATION_MESSAGE),
+        data: null,
+      };
+    }
+
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -125,11 +150,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (authMigrationRequired) {
+      setSession(null);
+      setUser(null);
+      return { error: null };
+    }
+
     const { error } = await supabase.auth.signOut();
     return { error };
   };
 
   const resetPassword = async (email: string) => {
+    if (authMigrationRequired) {
+      return { error: new Error(DERYCRAFT_AUTH_MIGRATION_MESSAGE) };
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/sifre-yenile` : undefined,
     });
@@ -137,6 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword = async (newPassword: string) => {
+    if (authMigrationRequired) {
+      return { error: new Error(DERYCRAFT_AUTH_MIGRATION_MESSAGE) };
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -144,6 +183,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshSession = async () => {
+    if (authMigrationRequired) {
+      setSession(null);
+      setUser(null);
+      return;
+    }
+
     try {
       const { data } = await supabase.auth.refreshSession();
       setSession(data.session);

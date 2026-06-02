@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { applyCoupon, getCouponByCode } from "@/lib/db/coupons";
+import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isStorefrontCouponValidationDisabled,
+} from "@/lib/supabase-disconnect-readiness";
 
 const validateSchema = z.object({
   code: z.string().trim().min(3).max(40),
@@ -8,6 +12,17 @@ const validateSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  if (isStorefrontCouponValidationDisabled()) {
+    return NextResponse.json(
+      {
+        success: false,
+        code: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+        error: "Kupon dogrulama bu light_postgres provasinda gecici olarak pasif.",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const body = await request.json();
     const parsed = validateSchema.safeParse(body);

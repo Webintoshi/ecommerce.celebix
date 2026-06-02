@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import {
+  DERYCRAFT_AUTH_MIGRATION_CODE,
+  DERYCRAFT_AUTH_MIGRATION_MESSAGE,
+  isStorefrontCustomerAuthMigrationRequired,
+} from "@/lib/supabase-disconnect-readiness";
 
 type RegisterBody = {
   email?: string;
@@ -8,6 +13,16 @@ type RegisterBody = {
 };
 
 export async function POST(request: Request) {
+  if (isStorefrontCustomerAuthMigrationRequired()) {
+    return NextResponse.json(
+      {
+        error: DERYCRAFT_AUTH_MIGRATION_MESSAGE,
+        code: DERYCRAFT_AUTH_MIGRATION_CODE,
+      },
+      { status: 503 },
+    );
+  }
+
   try {
     const { email, password, metadata }: RegisterBody = await request.json();
 

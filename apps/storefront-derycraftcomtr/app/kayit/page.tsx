@@ -6,12 +6,15 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { CaptchaProtection } from "@/components/auth/CaptchaProtection";
+import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
+import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, UserPlus, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function RegisterPage() {
   const router = useRouter();
   const { signUp, user } = useAuth();
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   
   const [formData, setFormData] = useState({
     firstName: "",
@@ -35,10 +38,19 @@ export default function RegisterPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
+    if (!authMigrationRequired && user) {
       router.push("/hesap");
     }
-  }, [user, router]);
+  }, [authMigrationRequired, user, router]);
+
+  if (authMigrationRequired) {
+    return (
+      <CustomerAuthMigrationNotice
+        title="Hesap olusturma gecici olarak pasif"
+        description="DeryCraft 2 light_postgres provasinda musteri hesap kaydi Supabase auth'a yazmasin diye kayit akisi kontrollu olarak kapatildi. Siparis vermek icin misafir odeme kullanilabilir."
+      />
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

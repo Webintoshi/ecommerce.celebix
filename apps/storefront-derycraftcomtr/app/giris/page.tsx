@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { CaptchaProtection } from "@/components/auth/CaptchaProtection";
+import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
+import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Shield, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -13,6 +15,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn, user } = useAuth();
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,10 +30,19 @@ export default function LoginPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
+    if (!authMigrationRequired && user) {
       router.push("/hesap");
     }
-  }, [user, router]);
+  }, [authMigrationRequired, user, router]);
+
+  if (authMigrationRequired) {
+    return (
+      <CustomerAuthMigrationNotice
+        title="Musteri girisi gecici olarak pasif"
+        description="DeryCraft 2 light_postgres provasinda musteri auth yuzeyi Supabase'e geri donmesin diye giris akisi kontrollu olarak kapatildi. Siparis akisi misafir odeme ile devam eder."
+      />
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
