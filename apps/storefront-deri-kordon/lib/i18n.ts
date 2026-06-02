@@ -365,10 +365,9 @@ export function stripLocaleFromPathname(pathname: string): string {
   return nextPath.startsWith("/") ? nextPath : `/${nextPath}`;
 }
 
-export function buildLocalizedPath(pathname: string, locale: StorefrontLocale): string {
+export function buildLocalizedPath(pathname: string, _locale: StorefrontLocale): string {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
-  const strippedPath = stripLocaleFromPathname(normalizedPath);
-  return strippedPath === "/" ? `/${locale}` : `/${locale}${strippedPath}`;
+  return stripLocaleFromPathname(normalizedPath);
 }
 
 export function isIndexableLocale(locale: StorefrontLocale) {

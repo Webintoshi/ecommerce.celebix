@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Instagram, Youtube } from "lucide-react";
+import { Instagram, Youtube } from "lucide-react";
 import { SITE_NAME } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
@@ -22,7 +22,6 @@ type FooterCategory = {
 };
 
 type FooterLocaleCopy = {
-  languageLabel: string;
   aboutHeading: string;
   categoriesHeading: string;
   policiesHeading: string;
@@ -32,22 +31,8 @@ type FooterLocaleCopy = {
   partnerLabel: string;
 };
 
-const LOCALE_SWITCH_OPTIONS: Array<{
-  locale: StorefrontLocale;
-  label: string;
-  flag: string;
-}> = [
-  { locale: "tr", label: "Türkçe", flag: "🇹🇷" },
-  { locale: "en", label: "English", flag: "🇬🇧" },
-  { locale: "de", label: "Deutsch", flag: "🇩🇪" },
-  { locale: "ru", label: "Русский", flag: "🇷🇺" },
-  { locale: "ar", label: "العربية", flag: "🇸🇦" },
-  { locale: "ka", label: "ქართული", flag: "🇬🇪" },
-];
-
 const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
   tr: {
-    languageLabel: "Dil",
     aboutHeading: "Bizi Tanıyın",
     categoriesHeading: "Kategoriler",
     policiesHeading: "Politikalar",
@@ -68,7 +53,6 @@ const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
     partnerLabel: "Dijital Çözüm Ortağı",
   },
   en: {
-    languageLabel: "Language",
     aboutHeading: "Discover Us",
     categoriesHeading: "Categories",
     policiesHeading: "Policies",
@@ -89,7 +73,6 @@ const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
     partnerLabel: "Digital Growth Partner",
   },
   de: {
-    languageLabel: "Sprache",
     aboutHeading: "Über Uns",
     categoriesHeading: "Kategorien",
     policiesHeading: "Richtlinien",
@@ -110,7 +93,6 @@ const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
     partnerLabel: "Digitaler Lösungspartner",
   },
   ru: {
-    languageLabel: "Язык",
     aboutHeading: "О Нас",
     categoriesHeading: "Категории",
     policiesHeading: "Политики",
@@ -131,7 +113,6 @@ const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
     partnerLabel: "Цифровой партнер",
   },
   ar: {
-    languageLabel: "اللغة",
     aboutHeading: "اعرفنا",
     categoriesHeading: "الفئات",
     policiesHeading: "السياسات",
@@ -152,7 +133,6 @@ const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
     partnerLabel: "شريك النمو الرقمي",
   },
   ka: {
-    languageLabel: "ენა",
     aboutHeading: "ჩვენ შესახებ",
     categoriesHeading: "კატეგორიები",
     policiesHeading: "პოლიტიკები",
@@ -178,17 +158,12 @@ export function Footer() {
   const { storeInfo } = useStoreInfo();
   const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const [policyLinks, setPolicyLinks] = useState<PolicyFooterLink[]>([]);
-  const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
-  const { locale, internalPathname } = useStorefrontRoute();
-  const localeMenuRef = useRef<HTMLDivElement | null>(null);
+  const { locale } = useStorefrontRoute();
   const currentYear = new Date().getFullYear();
   const logoSrc = resolveStorefrontAssetUrl(storeInfo?.logoUrl || "");
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
   const copy = FOOTER_COPY.en;
-  const activeLocaleOption =
-    LOCALE_SWITCH_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_SWITCH_OPTIONS[0];
-
   useEffect(() => {
     let isMounted = true;
 
@@ -235,17 +210,6 @@ export function Footer() {
     };
   }, [locale]);
 
-  useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!localeMenuRef.current?.contains(event.target as Node)) {
-        setIsLocaleMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, []);
-
   return (
     <footer className="bg-[#0B1120] text-white">
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
@@ -276,57 +240,6 @@ export function Footer() {
             <div className="mb-6 space-y-2">
               <p className="text-sm text-gray-300">+90 (507) 559-7228</p>
               <p className="text-sm text-gray-300">bilgi@derycraft.com</p>
-            </div>
-
-            <div className="mb-6">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#B8C0D9]">
-                {copy.languageLabel}
-              </p>
-              <div ref={localeMenuRef} className="relative w-fit">
-                <button
-                  type="button"
-                  onClick={() => setIsLocaleMenuOpen((current) => !current)}
-                  className="flex min-w-[150px] items-center justify-between gap-3 rounded-sm border border-dashed border-white/70 bg-white px-3 py-3 text-left text-[#0B1120] transition hover:border-white"
-                  aria-expanded={isLocaleMenuOpen}
-                  aria-haspopup="listbox"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-base leading-none">{activeLocaleOption.flag}</span>
-                    <span className="text-base font-medium">{activeLocaleOption.label}</span>
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 text-[#4A4A4A] transition-transform ${isLocaleMenuOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-
-                {isLocaleMenuOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[190px] overflow-hidden rounded-xl border border-white/10 bg-[#11192D] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-                    <div className="space-y-1">
-                      {LOCALE_SWITCH_OPTIONS.map((option) => {
-                        const isActive = option.locale === locale;
-                        return (
-                          <Link
-                            key={option.locale}
-                            href={buildLocalizedPath(internalPathname, option.locale)}
-                            hrefLang={option.locale}
-                            onClick={() => setIsLocaleMenuOpen(false)}
-                            className={`flex items-center justify-between rounded-lg px-3 py-2 transition ${
-                              isActive
-                                ? "bg-white text-[#0B1120]"
-                                : "text-white/88 hover:bg-white/10 hover:text-white"
-                            }`}
-                          >
-                            <span className="flex items-center gap-2">
-                              <span className="text-base leading-none">{option.flag}</span>
-                              <span className="text-sm font-medium">{option.label}</span>
-                            </span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
             </div>
 
             <div className="flex items-center gap-3">

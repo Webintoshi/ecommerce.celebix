@@ -1,7 +1,6 @@
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import {
   DEFAULT_LOCALE,
-  LOCALE_COOKIE_NAME,
   type StorefrontLocale,
   isSupportedLocale,
 } from "@/lib/i18n";
@@ -11,12 +10,6 @@ export async function getRequestLocale(): Promise<StorefrontLocale> {
   const localeHeader = requestHeaders.get("x-celebix-locale");
   if (isSupportedLocale(localeHeader)) {
     return localeHeader;
-  }
-
-  const cookieStore = await cookies();
-  const cookieLocale = cookieStore.get(LOCALE_COOKIE_NAME)?.value;
-  if (isSupportedLocale(cookieLocale)) {
-    return cookieLocale;
   }
 
   return DEFAULT_LOCALE;

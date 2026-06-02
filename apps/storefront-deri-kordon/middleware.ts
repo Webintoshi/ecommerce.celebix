@@ -10,8 +10,6 @@ import { checkRateLimit } from "@/lib/api-rate-limit";
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE_NAME,
-  buildLocalizedPath,
-  detectPreferredLocale,
   getLocaleFromPathname,
   stripLocaleFromPathname,
 } from "@/lib/i18n";
@@ -245,18 +243,16 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (!locale) {
-    const preferredLocale = isBot
-      ? DEFAULT_LOCALE
-      : detectPreferredLocale(
-          request.cookies.get(LOCALE_COOKIE_NAME)?.value,
-          request.headers.get("accept-language"),
-        );
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-celebix-locale", DEFAULT_LOCALE);
+  requestHeaders.set("x-celebix-pathname", internalPathname);
+
+  if (locale) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = buildLocalizedPath(originalPathname, preferredLocale);
+    redirectUrl.pathname = internalPathname;
 
     const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set(LOCALE_COOKIE_NAME, preferredLocale, {
+    response.cookies.set(LOCALE_COOKIE_NAME, DEFAULT_LOCALE, {
       path: "/",
       sameSite: "lax",
       secure: isSecureRequest(request),
@@ -265,20 +261,11 @@ export async function middleware(request: NextRequest) {
     return withSecurity(request, response);
   }
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-celebix-locale", locale);
-  requestHeaders.set("x-celebix-pathname", internalPathname);
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 
-  const response =
-    internalPathname !== originalPathname
-      ? NextResponse.rewrite(new URL(`${internalPathname}${request.nextUrl.search}`, request.url), {
-          request: { headers: requestHeaders },
-        })
-      : NextResponse.next({
-          request: { headers: requestHeaders },
-        });
-
-  response.cookies.set(LOCALE_COOKIE_NAME, locale, {
+  response.cookies.set(LOCALE_COOKIE_NAME, DEFAULT_LOCALE, {
     path: "/",
     sameSite: "lax",
     secure: isSecureRequest(request),
