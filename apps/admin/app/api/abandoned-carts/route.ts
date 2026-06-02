@@ -8,9 +8,24 @@ import {
   upsertAbandonedCart,
 } from "@/lib/db/abandoned-carts";
 import { requireAdminApiAuth } from "@/lib/admin-api-auth";
+import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isAdminAbandonedCartDisabled,
+} from "@/lib/light-postgres-readiness";
 
 function getDb() {
   return createServerClient();
+}
+
+function buildDisabledResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      code: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+      error: "Abandoned cart ozelligi DeryCraft light_postgres provasinda gecici olarak pasif.",
+    },
+    { status: 503 },
+  );
 }
 
 function applyFilters(
@@ -50,6 +65,10 @@ function applyFilters(
 }
 
 export async function GET(request: NextRequest) {
+  if (isAdminAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const { response } = await requireAdminApiAuth();
     if (response) {
@@ -107,6 +126,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isAdminAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const supabase = getDb();
     const body = await request.json();
@@ -139,6 +162,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  if (isAdminAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const { response } = await requireAdminApiAuth();
     if (response) {
@@ -245,6 +272,10 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (isAdminAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const supabase = getDb();
     const { searchParams } = new URL(request.url);

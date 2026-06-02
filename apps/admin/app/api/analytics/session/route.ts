@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue } from "@/lib/cache/memory-cache";
 import { upsertActivePresence } from "@/lib/analytics-presence";
+import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isAdminAnalyticsWriteDisabled,
+} from "@/lib/light-postgres-readiness";
 
 // POST /api/analytics/session - Create or update session
 export async function POST(request: NextRequest) {
+  if (isAdminAnalyticsWriteDisabled()) {
+    return NextResponse.json({ success: true, disabled: true, code: DERYCRAFT_TEMPORARILY_DISABLED_CODE });
+  }
+
   try {
     const body = await request.json();
     const {

@@ -4,14 +4,16 @@ import {
   isLightPostgresRuntime,
   resolveRuntimeAuthSetupStatus,
 } from "@celebix/platform-config/src/light-postgres-runtime";
-import { createServerClient as createAdminServiceClient } from "@/lib/supabase";
 import {
   getOptionalSupabaseAnonKey,
   getOptionalSupabaseUrl,
   getSupabaseAnonKey,
+  getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from "@/lib/supabase-shared";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
+import { writeAdminRoleCookie } from "@/lib/admin-role-cookie";
+import type { UserRole } from "@/lib/permissions";
 
 type LoginBody = {
   email?: string;
@@ -23,6 +25,13 @@ type UserRecord = {
   email?: string | null;
   user_metadata?: Record<string, unknown> | null;
 };
+
+type AdminProfileRecord = {
+  id: string;
+  role: UserRole | string | null;
+};
+
+const ADMIN_ROLES = new Set<UserRole>(["super_admin", "product_manager", "content_creator", "order_manager"]);
 
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -37,8 +46,49 @@ function createAdminLoginClient() {
   });
 }
 
+function createDirectAdminServiceClient() {
+  return createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+function isAdminRole(value: unknown): value is UserRole {
+  return typeof value === "string" && ADMIN_ROLES.has(value as UserRole);
+}
+
+async function getAdminRoleForUser(userId: string, userMetadata?: Record<string, unknown> | null) {
+  try {
+    const serviceClient = createDirectAdminServiceClient();
+    const { data, error } = await serviceClient
+      .from("profiles")
+      .select("id, role")
+      .eq("id", userId)
+      .maybeSingle<AdminProfileRecord>();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (isAdminRole(data?.role)) {
+      return data.role;
+    }
+  } catch (error) {
+    console.warn("Admin profile role lookup failed during login.", error);
+  }
+
+  const metadataRole =
+    userMetadata && typeof userMetadata === "object"
+      ? Reflect.get(userMetadata, "role")
+      : null;
+
+  return isAdminRole(metadataRole) ? metadataRole : null;
+}
+
 async function listAdminUsers(): Promise<UserRecord[]> {
-  const serviceClient = createAdminServiceClient();
+  const serviceClient = createDirectAdminServiceClient();
   const { data, error } = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
 
   if (error) {
@@ -57,7 +107,7 @@ async function repairSelfHostedPassword(email: string, password: string) {
     return { repaired: false as const, reason: "admin_user_missing" as const };
   }
 
-  const serviceClient = createAdminServiceClient();
+  const serviceClient = createDirectAdminServiceClient();
   const { error } = await serviceClient.auth.admin.updateUserById(existingUser.id, {
     password,
     email_confirm: true,
@@ -159,7 +209,15 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(
+    const adminRole = await getAdminRoleForUser(data.user.id, data.user.user_metadata);
+    if (!adminRole) {
+      return NextResponse.json(
+        { error: "Admin yetkisi bulunamadi." },
+        { status: 403 },
+      );
+    }
+
+    const response = NextResponse.json(
       {
         session: data.session,
         user: data.user,
@@ -167,6 +225,13 @@ export async function POST(request: Request) {
       },
       { status: 200 },
     );
+
+    writeAdminRoleCookie(response, {
+      userId: data.user.id,
+      role: adminRole,
+    });
+
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Giris yapilamadi.";
     return NextResponse.json({ error: message }, { status: 500 });

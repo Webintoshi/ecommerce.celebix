@@ -7,6 +7,10 @@ import {
   isAnalyticsBot,
   upsertActivePresence,
 } from "@/lib/analytics-presence";
+import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isAdminAnalyticsWriteDisabled,
+} from "@/lib/light-postgres-readiness";
 
 async function getDatabaseVisitorCount() {
   const supabase = createServerClient();
@@ -25,6 +29,10 @@ async function getDatabaseVisitorCount() {
 }
 
 export async function POST(request: NextRequest) {
+  if (isAdminAnalyticsWriteDisabled()) {
+    return NextResponse.json({ success: true, updated: false, disabled: true, code: DERYCRAFT_TEMPORARILY_DISABLED_CODE });
+  }
+
   try {
     let body = { sessionId: "", path: "", userAgent: "", deviceType: "" };
 
@@ -103,6 +111,15 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  if (isAdminAnalyticsWriteDisabled()) {
+    return NextResponse.json({
+      success: true,
+      visitors: 0,
+      disabled: true,
+      code: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+    });
+  }
+
   try {
     const visitors = await getOrSetCachedValue("analytics:heartbeat:visitors", 3_000, async () => {
       const presenceSnapshot = await getActivePresenceSnapshot();

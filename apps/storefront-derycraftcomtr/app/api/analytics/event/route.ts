@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue } from "@/lib/cache/memory-cache";
 import {
-  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
-  isAdminAnalyticsWriteDisabled,
-} from "@/lib/light-postgres-readiness";
+    DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+    isStorefrontAnalyticsWriteDisabled,
+} from "@/lib/supabase-disconnect-readiness";
 
 // POST /api/analytics/event - Track custom event
 export async function POST(request: NextRequest) {
-    if (isAdminAnalyticsWriteDisabled()) {
+    if (isStorefrontAnalyticsWriteDisabled()) {
         return NextResponse.json({ success: true, disabled: true, code: DERYCRAFT_TEMPORARILY_DISABLED_CODE });
     }
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
             .update({ last_activity_at: new Date().toISOString(), is_active: true })
             .eq("session_id", sessionId);
 
-        deleteCachedValue("analytics:live:v2");
+        deleteCachedValue("analytics:live:v1");
 
         return NextResponse.json({ success: true });
     } catch (error) {

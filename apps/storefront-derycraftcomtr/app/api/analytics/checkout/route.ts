@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import {
     DERYCRAFT_TEMPORARILY_DISABLED_CODE,
-    isAdminAnalyticsWriteDisabled,
-} from "@/lib/light-postgres-readiness";
+    isStorefrontAnalyticsWriteDisabled,
+} from "@/lib/supabase-disconnect-readiness";
 
 // POST /api/analytics/checkout - Track checkout progress
 export async function POST(request: NextRequest) {
-    if (isAdminAnalyticsWriteDisabled()) {
+    if (isStorefrontAnalyticsWriteDisabled()) {
         return NextResponse.json({ success: true, disabled: true, code: DERYCRAFT_TEMPORARILY_DISABLED_CODE });
     }
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/analytics/checkout - Complete checkout
 export async function PUT(request: NextRequest) {
-    if (isAdminAnalyticsWriteDisabled()) {
+    if (isStorefrontAnalyticsWriteDisabled()) {
         return NextResponse.json({ success: true, disabled: true, code: DERYCRAFT_TEMPORARILY_DISABLED_CODE });
     }
 

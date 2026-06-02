@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiAuth } from "@/lib/admin-api-auth";
 import { duplicateQuickOrderLink } from "@/lib/db/quick-order-links";
+import {
+  DERYCRAFT_REQUIRES_LIGHT_POSTGRES_SUPPORT_CODE,
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isAdminQuickOrderDisabled,
+} from "@/lib/light-postgres-readiness";
 
 export const runtime = "nodejs";
+
+function buildDisabledResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      code: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+      reason: DERYCRAFT_REQUIRES_LIGHT_POSTGRES_SUPPORT_CODE,
+      error: "Hizli siparis linkleri DeryCraft light_postgres provasinda gecici olarak pasif.",
+    },
+    { status: 503 },
+  );
+}
 
 export async function POST(
   _request: NextRequest,
@@ -11,6 +28,10 @@ export async function POST(
   const authResult = await requireAdminApiAuth();
   if (authResult.response) {
     return authResult.response;
+  }
+
+  if (isAdminQuickOrderDisabled()) {
+    return buildDisabledResponse();
   }
 
   try {
