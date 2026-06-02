@@ -965,15 +965,15 @@ var LightPostgresCompatQueryBuilder = class {
         return this.shapeSelectResult(rowsOrError);
       }
       if (this.operation === "insert") {
-        return this.insertRows();
+        return await this.insertRows();
       }
       if (this.operation === "update") {
-        return this.updateRows();
+        return await this.updateRows();
       }
       if (this.operation === "delete") {
-        return this.deleteRows();
+        return await this.deleteRows();
       }
-      return this.upsertRows();
+      return await this.upsertRows();
     } catch (error) {
       const nextError = error instanceof Error ? error : createCompatError("light_postgres query basarisiz oldu.");
       return {
