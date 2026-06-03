@@ -1,4 +1,9 @@
 import { createClient, type User } from "@supabase/supabase-js";
+import { isLogtoAdminAuthEnabled } from "@/lib/admin-auth-provider";
+import {
+  isLogtoSessionUser,
+  readLogtoAdminSessionUser,
+} from "@/lib/logto-admin-auth";
 import {
   getOptionalSupabaseAnonKey,
   getOptionalSupabaseAuthStorageKey,
@@ -61,6 +66,11 @@ export function readSupabaseSessionCookie(cookies: CookieValue[]): SessionCookie
 }
 
 export function readSessionUserSnapshotFromCookies(cookies: CookieValue[]): User | null {
+  const logtoUser = readLogtoAdminSessionUser(cookies);
+  if (logtoUser) {
+    return logtoUser;
+  }
+
   const session = readSupabaseSessionCookie(cookies);
   const user = session?.user;
 
@@ -72,6 +82,15 @@ export function readSessionUserSnapshotFromCookies(cookies: CookieValue[]): User
 }
 
 export async function getSessionUserFromCookies(cookies: CookieValue[]): Promise<User | null> {
+  const logtoUser = readLogtoAdminSessionUser(cookies);
+  if (logtoUser) {
+    return logtoUser;
+  }
+
+  if (isLogtoAdminAuthEnabled()) {
+    return null;
+  }
+
   if (isLightPostgresAuthBlockedRuntime()) {
     return null;
   }
@@ -105,5 +124,5 @@ export async function getSessionUserFromCookies(cookies: CookieValue[]): Promise
     return null;
   }
 
-  return user;
+  return isLogtoSessionUser(user) ? null : user;
 }

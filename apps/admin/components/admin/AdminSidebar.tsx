@@ -237,6 +237,7 @@ export function AdminSidebar({
   const siteHeading = /admin/i.test(siteName) ? siteName : `${siteName} Admin`;
   const siteLogo = storeInfo?.logoUrl || ADMIN_BRAND_LOGO_SRC;
   const mobileMenuOpen = isMobile ? isOpen : true;
+  const isLogtoProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto";
 
   useEffect(() => {
     setResolvedProfile(initialProfile);
@@ -422,6 +423,16 @@ export function AdminSidebar({
     }
 
     setIsSigningOut(true);
+
+    if (isLogtoProvider) {
+      if (typeof window !== "undefined") {
+        window.location.assign("/api/auth/logout");
+      } else {
+        router.replace("/admin/login");
+        router.refresh();
+      }
+      return;
+    }
 
     try {
       const supabase = getBrowserSupabaseClient();

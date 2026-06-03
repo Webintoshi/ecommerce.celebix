@@ -9,16 +9,18 @@ import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const authProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
+  const isLogtoProvider = authProvider === "logto";
   const hasBrowserSupabaseAuthEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
   const authBlocked =
     process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE === "light_postgres" &&
     process.env.NEXT_PUBLIC_AUTH_SETUP_STATUS === "blocked_auth_setup";
-  const authUnavailable = authBlocked || !hasBrowserSupabaseAuthEnv;
+  const authUnavailable = authBlocked || (!isLogtoProvider && !hasBrowserSupabaseAuthEnv);
   const supabase = useMemo(
-    () => (authUnavailable ? null : getOptionalBrowserSupabaseClient()),
-    [authUnavailable],
+    () => (authUnavailable || isLogtoProvider ? null : getOptionalBrowserSupabaseClient()),
+    [authUnavailable, isLogtoProvider],
   );
   const [nextPath, setNextPath] = useState("/admin");
   const [email, setEmail] = useState("");
@@ -26,10 +28,6 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (authUnavailable || !supabase) {
-      return;
-    }
-
     let mounted = true;
 
     const redirectIfAuthenticated = async () => {
@@ -41,11 +39,12 @@ export default function AdminLoginPage() {
         setNextPath(next);
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const response = await fetch("/api/admin/me", {
+        credentials: "same-origin",
+        cache: "no-store",
+      }).catch(() => null);
 
-      if (mounted && user) {
+      if (mounted && response?.ok) {
         router.replace(next);
       }
     };
@@ -55,10 +54,17 @@ export default function AdminLoginPage() {
     return () => {
       mounted = false;
     };
-  }, [authUnavailable, router, supabase]);
+  }, [router]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (isLogtoProvider) {
+      if (typeof window !== "undefined") {
+        window.location.assign(`/api/auth/sign-in?next=${encodeURIComponent(nextPath)}`);
+      }
+      return;
+    }
+
     if (authBlocked || !hasBrowserSupabaseAuthEnv || !supabase) {
       toast.error("Bu store icin admin auth kurulumu henuz tamamlanmadi.");
       return;
@@ -150,40 +156,48 @@ export default function AdminLoginPage() {
               </div>
             ) : null}
 
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                E-posta
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="yonetici@magaza.com"
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
-                  required
-                />
+            {isLogtoProvider ? (
+              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-700">
+                Bu panel Celebix merkezi kimlik altyapısı ile giriş yapıyor. Devam ettiğinizde güvenli Logto oturumu başlatılacak.
               </div>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1.5">
+                    E-posta
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="yonetici@magaza.com"
+                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
+                      required
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                Şifre
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
-                  required
-                  minLength={8}
-                />
-              </div>
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1.5">
+                    Şifre
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
+                      required
+                      minLength={8}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <button
               type="submit"
@@ -193,7 +207,7 @@ export default function AdminLoginPage() {
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                "Giriş Yap"
+                isLogtoProvider ? "Celebix Auth ile Devam Et" : "Giriş Yap"
               )}
             </button>
           </form>
