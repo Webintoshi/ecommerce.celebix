@@ -106,36 +106,85 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const provisioning = store.provisioning;
   const subscription = store.management.subscription;
   const subscriptionStatusClass =
-    subscription.status === "active" ? "pill-success" : "pill-accent";
+    subscription.status === "active" ? "pill-success" : "pill-warning";
   const subscriptionProgress = subscription.progressPercent ?? 0;
+  const showSupabaseInfrastructure = store.databaseMode === "full_supabase";
+  const authPending = store.setup.auth.status === "pending_auth_setup";
+  const analyticsPending = store.setup.analytics.status === "pending_analytics_setup";
+  const paymentPending = store.setup.payments.status === "pending_payment_setup";
+  const healthToneClass = store.health.label === "hazir" ? "pill-success" : "pill-warning";
+  const provisioningToneClass =
+    provisioning.state === "ready"
+      ? "pill-success"
+      : provisioning.state === "pending_dns"
+        ? "pill-warning"
+        : "pill-accent";
+  const progressToneClass = subscription.status === "active" ? "is-success" : "is-warning";
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <Link href="/stores" className="eyebrow-link">
-            ← Tum projelere don
-          </Link>
-          <h1>{store.name}</h1>
-          <p>{store.tagline || "Proje detaylari, operasyon sagligi ve yonetim katmani."}</p>
-          <div className="actions stack-top-sm">
-            <span className="pill pill-capitalize">{store.status}</span>
-            <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
-              {store.health.label}
-            </span>
-            <span className={`pill ${provisioning.state === "ready" ? "pill-success" : "pill-accent"}`}>
-              {provisioning.state}
-            </span>
-            <span className="pill">{store.storefrontDomain}</span>
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-content">
+          <div className="hero-stack">
+            <Link href="/stores" className="eyebrow-link">
+              ← Tum projelere don
+            </Link>
+            <span className="hero-overline">Project Control Layer</span>
+            <div>
+              <h1>{store.name}</h1>
+              <p>{store.tagline || "Proje detaylari, operasyon sagligi ve yonetim katmani."}</p>
+            </div>
+            <div className="actions hero-actions">
+              <span className="pill pill-capitalize">{store.status}</span>
+              <span className={`pill ${healthToneClass}`}>{store.health.label}</span>
+              <span className={`pill ${provisioningToneClass}`}>{provisioning.state}</span>
+              <span className="pill">{store.databaseMode}</span>
+              {authPending ? <span className="pill pill-warning">pending_auth</span> : null}
+              {analyticsPending ? <span className="pill pill-warning">pending_analytics</span> : null}
+              {paymentPending ? <span className="pill pill-warning">pending_payment</span> : null}
+              <span className="pill pill-ink">{store.storefrontDomain}</span>
+            </div>
+          </div>
+
+          <div className="actions hero-actions">
+            <Link className="button button-secondary" href={`https://${store.adminDomain}/admin`} target="_blank" rel="noreferrer">
+              Admini ac
+            </Link>
+            {superAdmin ? <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} /> : null}
           </div>
         </div>
-        <div className="actions">
-          <Link className="button button-secondary" href={`https://${store.adminDomain}/admin`} target="_blank">
-            Admini Ac
-          </Link>
-          {superAdmin ? <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} /> : null}
-        </div>
-      </div>
+
+        <aside className="dashboard-hero-panel">
+          <div className="card-title">Sahne ozeti</div>
+          <div className="hero-list">
+            <div className="hero-list-item">
+              <span>Client</span>
+              <strong>{store.management.clientCompanyName || store.name}</strong>
+            </div>
+            <div className="hero-list-item">
+              <span>Paket ritmi</span>
+              <strong>{subscription.cadenceLabel}</strong>
+            </div>
+            <div className="hero-list-item">
+              <span>Hedef yayin</span>
+              <strong>{formatDate(store.management.launchTarget)}</strong>
+            </div>
+            <div className="hero-list-item">
+              <span>Affiliate orani</span>
+              <strong>%{formatPercent(store.totalAffiliateRate)}</strong>
+            </div>
+          </div>
+          <div className={`progress-track ${progressToneClass}`} aria-hidden="true">
+            <span style={{ width: `${subscriptionProgress}%` }} />
+          </div>
+          <div className="hero-chip-row">
+            <span className={`hero-chip ${subscription.status === "active" ? "hero-chip-accent" : "hero-chip-neutral"}`}>
+              {subscription.countdownLabel}
+            </span>
+            <span className="hero-chip hero-chip-neutral">{store.storeAdminCount} store admin</span>
+          </div>
+        </aside>
+      </section>
 
       {/* Metric Boxes */}
       <div className="metric-row metric-row-6">
@@ -198,28 +247,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span>Paket suresi: <strong>{subscription.durationMonths ? `${subscription.durationMonths} ay` : "-"}</strong></span>
             <span>Kalan sure: <strong>{subscription.countdownLabel}</strong></span>
           </div>
-          <div
-            aria-hidden="true"
-            className="stack-top-sm"
-            style={{
-              width: "100%",
-              height: "8px",
-              borderRadius: "999px",
-              background: "var(--surface-3)",
-              overflow: "hidden"
-            }}
-          >
-            <div
-              style={{
-                width: `${subscriptionProgress}%`,
-                height: "100%",
-                borderRadius: "999px",
-                background:
-                  subscription.status === "active"
-                    ? "linear-gradient(90deg, rgba(25,155,99,.85), rgba(25,155,99,.45))"
-                    : "linear-gradient(90deg, rgba(254,97,0,.9), rgba(254,97,0,.42))"
-              }}
-            />
+          <div aria-hidden="true" className={`progress-track ${progressToneClass} stack-top-sm`}>
+            <span style={{ width: `${subscriptionProgress}%` }} />
           </div>
           <p className="card-note">{store.management.nextAction || "Sonraki aksiyon tanimlanmamis."}</p>
         </div>
@@ -227,21 +256,35 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <div className="card">
           <div className="card-title">Altyapi</div>
           <div className="meta-pairs">
-            <span>Supabase: <strong>{store.supabaseProjectRef || "Eksik"}</strong></span>
-            <span>Supabase Host: <strong>{store.supabaseUrl || "Eksik"}</strong></span>
-            <span>
-              Supabase Studio:{" "}
-              {store.supabaseDashboardUrl ? (
-                <strong>
-                  <a href={store.supabaseDashboardUrl} target="_blank" rel="noreferrer">
-                    Studio'yu ac
-                  </a>
-                </strong>
-              ) : (
-                <strong>Eksik</strong>
-              )}
-            </span>
-            <span>Secret Authority: <strong>{store.health.secretAuthorityReady ? "Hazir" : "Drift"}</strong></span>
+            <span>Database Mode: <strong>{store.databaseMode}</strong></span>
+            {showSupabaseInfrastructure ? (
+              <span>Supabase: <strong>{store.supabaseProjectRef || "Eksik"}</strong></span>
+            ) : (
+              <span>Light Postgres DB: <strong>{store.slug}</strong></span>
+            )}
+            {showSupabaseInfrastructure ? (
+              <span>Supabase Host: <strong>{store.supabaseUrl || "Eksik"}</strong></span>
+            ) : (
+              <span>DB Authority: <strong>{store.health.secretAuthorityReady ? "Hazir" : "Bekleniyor"}</strong></span>
+            )}
+            {showSupabaseInfrastructure ? (
+              <span>
+                Supabase Studio:{" "}
+                {store.supabaseDashboardUrl ? (
+                  <strong>
+                    <a href={store.supabaseDashboardUrl} target="_blank" rel="noreferrer">
+                      Studio'yu ac
+                    </a>
+                  </strong>
+                ) : (
+                  <strong>Eksik</strong>
+                )}
+              </span>
+            ) : (
+              <span>Auth: <strong>{store.setup.auth.provider} / {store.setup.auth.status}</strong></span>
+            )}
+            <span>Analytics: <strong>{store.setup.analytics.provider} / {store.setup.analytics.status}</strong></span>
+            <span>Payment: <strong>{store.setup.payments.defaultProvider} / {store.setup.payments.status}</strong></span>
             <span>Legacy Auth: <strong>{store.health.legacyAuthConfigured ? "Var" : "Yok"}</strong></span>
             <span>Admin Runtime: <strong>{store.health.adminDeploymentReady ? (store.health.adminRuntimeConsistent ? "Hazir" : "Drift") : "Kapali"}</strong></span>
             <span>Admin Branch: <strong>{adminDeploymentBranch || "-"}</strong></span>
@@ -258,7 +301,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <p className="card-note">
             {store.health.adminRuntimeMessage
               ? `Admin runtime notu: ${store.health.adminRuntimeMessage}`
-              : "Supabase tarafi musteri domaini kullanmaz; her proje stock-host uzerinden izole calisir."}
+              : showSupabaseInfrastructure
+                ? "Legacy Supabase stack authority bu kartta izlenir."
+                : "Light Postgres store-per-database authority, R2 ve placeholder setup durumlari bu kartta izlenir."}
           </p>
         </div>
       </div>
@@ -363,24 +408,39 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <div className="card">
-          <div className="card-title">Supabase Provisioning</div>
+          <div className="card-title">
+            {showSupabaseInfrastructure ? "Supabase Provisioning" : "Setup Placeholder Durumu"}
+          </div>
           <div className="meta-pairs">
-            <span>Service Name: <strong>{supabaseProjectName || "-"}</strong></span>
-            <span>Resource ID: <strong>{supabaseResourceId || "-"}</strong></span>
-            <span>Provisioning: <strong>{supabaseProvisioning || "-"}</strong></span>
-            <span>Provisioned At: <strong>{provisionedAt}</strong></span>
-            <span>
-              Studio URL:{" "}
-              <strong>
-                {supabaseDashboardUrl ? (
-                  <a href={supabaseDashboardUrl} target="_blank" rel="noreferrer">
-                    {supabaseDashboardUrl}
-                  </a>
-                ) : (
-                  "-"
-                )}
-              </strong>
-            </span>
+            {showSupabaseInfrastructure ? (
+              <>
+                <span>Service Name: <strong>{supabaseProjectName || "-"}</strong></span>
+                <span>Resource ID: <strong>{supabaseResourceId || "-"}</strong></span>
+                <span>Provisioning: <strong>{supabaseProvisioning || "-"}</strong></span>
+                <span>Provisioned At: <strong>{provisionedAt}</strong></span>
+                <span>
+                  Studio URL:{" "}
+                  <strong>
+                    {supabaseDashboardUrl ? (
+                      <a href={supabaseDashboardUrl} target="_blank" rel="noreferrer">
+                        {supabaseDashboardUrl}
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </strong>
+                </span>
+              </>
+            ) : (
+              <>
+                <span>Auth Provider: <strong>{store.setup.auth.provider}</strong></span>
+                <span>Auth Status: <strong>{store.setup.auth.status}</strong></span>
+                <span>Analytics Provider: <strong>{store.setup.analytics.provider}</strong></span>
+                <span>Analytics Status: <strong>{store.setup.analytics.status}</strong></span>
+                <span>Payment Provider: <strong>{store.setup.payments.defaultProvider}</strong></span>
+                <span>Payment Status: <strong>{store.setup.payments.status}</strong></span>
+              </>
+            )}
           </div>
         </div>
 

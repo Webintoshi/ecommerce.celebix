@@ -76,6 +76,7 @@ export async function POST(request: Request) {
       packageDurationMonths?: number | string | null;
     };
     const requestedDatabaseMode = resolveDefaultDatabaseMode(body.databaseMode);
+    const legacyModeSelected = requestedDatabaseMode === "full_supabase";
 
     const predictedSlug = predictStoreSlug(body.name ?? "", body.slug);
 
@@ -142,7 +143,9 @@ export async function POST(request: Request) {
       details: {
         name: created.store.name,
         domain: created.store.domains.storefront,
-        provisioningState: "running",
+        databaseMode: requestedDatabaseMode,
+        legacyModeSelected,
+        provisioningState: "provisioning",
       },
     });
 
@@ -175,7 +178,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ...created,
-        provisioningState: "running",
+        provisioningState: "provisioning",
         steps: [],
         blockers: [],
       },

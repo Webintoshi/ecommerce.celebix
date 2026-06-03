@@ -11,6 +11,9 @@ import {
   updateStoreConfig,
 } from "@celebix/platform-config";
 import {
+  buildDefaultStoreAnalyticsConfig,
+  buildDefaultStoreAuthConfig,
+  buildDefaultStorePaymentsConfig,
   applyStorefrontAuthorityPatchToConfig,
   getExpectedStorefrontAppDir,
   resolveAuthorityRepositoryBranch,
@@ -144,6 +147,12 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
     readOptionalString(storefront.runtimeUrl) ?? `https://${row.storefront_domain}`;
   const adminRuntimeUrl =
     readOptionalString(bootstrap.adminDeploymentRuntimeUrl) ?? `https://${row.admin_domain}`;
+  const auth = asRecord(metadata.auth);
+  const analytics = asRecord(metadata.analytics);
+  const payments = asRecord(metadata.payments);
+  const defaultAuth = buildDefaultStoreAuthConfig(databaseMode);
+  const defaultAnalytics = buildDefaultStoreAnalyticsConfig();
+  const defaultPayments = buildDefaultStorePaymentsConfig();
 
   return {
     name: row.name,
@@ -175,6 +184,16 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
     owner: {
       createdBy: "owner-panel",
       notes: "Owner authority kaydindan geri yuklendi.",
+      legacyModeSelected:
+        typeof asRecord(metadata.owner).legacyModeSelected === "boolean"
+          ? Boolean(asRecord(metadata.owner).legacyModeSelected)
+          : databaseMode === "full_supabase",
+      standardProfile:
+        readOptionalString(asRecord(metadata.owner).standardProfile) === "legacy_supabase"
+          ? "legacy_supabase"
+          : databaseMode === "full_supabase"
+            ? "legacy_supabase"
+            : "celebix_new_standard",
     },
     lightPostgres: {
       cluster: readOptionalString(lightPostgres.cluster) ?? "celebix-light-postgres",
@@ -193,6 +212,51 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
         typeof lightPostgres.umamiReady === "boolean"
           ? Boolean(lightPostgres.umamiReady)
           : true,
+    },
+    auth: {
+      provider:
+        readOptionalString(auth.provider) === "supabase"
+          ? "supabase"
+          : defaultAuth.provider,
+      status:
+        readOptionalString(auth.status) === "configured"
+          ? "configured"
+          : defaultAuth.status,
+      mode:
+        readOptionalString(auth.mode) === "legacy_supabase_auth"
+          ? "legacy_supabase_auth"
+          : defaultAuth.mode,
+      requiredAction:
+        readOptionalString(auth.requiredAction) ?? defaultAuth.requiredAction,
+      blocking:
+        typeof auth.blocking === "boolean" ? Boolean(auth.blocking) : false,
+    },
+    analytics: {
+      provider: defaultAnalytics.provider,
+      status:
+        readOptionalString(analytics.status) === "configured"
+          ? "configured"
+          : defaultAnalytics.status,
+      mode: defaultAnalytics.mode,
+      websiteId: readOptionalString(analytics.websiteId) ?? undefined,
+      requiredAction:
+        readOptionalString(analytics.requiredAction) ?? defaultAnalytics.requiredAction,
+      blocking:
+        typeof analytics.blocking === "boolean" ? Boolean(analytics.blocking) : false,
+    },
+    payments: {
+      status:
+        readOptionalString(payments.status) === "configured"
+          ? "configured"
+          : defaultPayments.status,
+      defaultProvider:
+        readOptionalString(payments.defaultProvider) === "none"
+          ? "none"
+          : defaultPayments.defaultProvider,
+      requiredAction:
+        readOptionalString(payments.requiredAction) ?? defaultPayments.requiredAction,
+      blocking:
+        typeof payments.blocking === "boolean" ? Boolean(payments.blocking) : false,
     },
     supabase: {
       projectRef: row.supabase_project_ref ?? "pending-owner-bootstrap",

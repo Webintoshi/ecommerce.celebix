@@ -86,11 +86,15 @@ const STEP_STORIES: Record<ProvisioningStepKey, StepStory> = {
   },
   analytics_setup: {
     stage: "Olcum katmani",
-    copy: "Analitik baglanti hazirligi magazanin ilk sinyallerini toplamaya ayarlaniyor.",
+    copy: "Analitik katmani placeholder ya da canli authority olarak izleniyor; eksikse error yerine bekleyen kurulum olarak gorunur.",
   },
   auth_setup: {
     stage: "Giris kapisi",
-    copy: "Admin erisim modeli netlesiyor; hazir degilse kontrollu blocked durumuna aliniyor.",
+    copy: "Admin ve musteri auth modeli placeholder ya da canli authority olarak kayit altinda tutuluyor.",
+  },
+  payment_setup: {
+    stage: "Tahsilat hatti",
+    copy: "Odeme kurulumu ayrica tamamlanacaksa bile owner panel bunu broken degil bekleyen operasyon adimi olarak izliyor.",
   },
   storefront_scaffold: {
     stage: "Cephe kurulumu",
@@ -138,13 +142,14 @@ const ACTS: Array<{
     key: "admin_deploy",
     title: "Kontrol",
     caption: "Admin masasi ve arka ofis",
-    keys: ["admin_blueprint", "admin_deploy", "analytics_setup", "auth_setup"],
+    keys: ["admin_blueprint", "admin_deploy", "analytics_setup", "auth_setup", "payment_setup"],
   },
 ];
 
 function getStepStatusRank(status: ProvisioningStepStatus): number {
   switch (status) {
     case "failed":
+    case "blocked":
       return 4;
     case "running":
       return 3;
@@ -166,6 +171,7 @@ function getStatusTone(status: ProvisioningStepStatus): string {
     case "running":
       return "running";
     case "failed":
+    case "blocked":
       return "danger";
     case "skipped":
       return "muted";
@@ -176,6 +182,10 @@ function getStatusTone(status: ProvisioningStepStatus): string {
 }
 
 function summarizeActStatus(statuses: ProvisioningStepStatus[]): ProvisioningStepStatus {
+  if (statuses.some((status) => status === "blocked")) {
+    return "blocked";
+  }
+
   if (statuses.some((status) => status === "failed")) {
     return "failed";
   }
@@ -225,6 +235,43 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
+  if (state === "pending_auth") {
+    return {
+      eyebrow: "Auth beklemede",
+      title: "Altyapi hazir, auth kurulumu bekleniyor",
+      body:
+        "Store DB, deploy ve runtime hazir. Logto-ready auth placeholder tamamlandigi icin owner panel bunu ariza degil bekleyen operasyon adimi olarak gosteriyor.",
+    };
+  }
+
+  if (state === "pending_analytics") {
+    return {
+      eyebrow: "Analytics beklemede",
+      title: "Store ayakta, analitik baglantisi bekleniyor",
+      body:
+        "Generated app kurulumu tamamlandi. Umami-ready placeholder kayitli oldugu icin eksik analytics error yerine bekleyen adim olarak izleniyor.",
+    };
+  }
+
+  if (state === "pending_payment") {
+    return {
+      eyebrow: "Odeme beklemede",
+      title: "Store yayinda, odeme authority sirada",
+      body:
+        "Magaza kurulumu tamamlandi; tahsilat kurulumu ayrica tamamlanacak. Owner panel bunu broken degil operasyon kuyrugundaki sonraki adim olarak gorur.",
+    };
+  }
+
+  if (state === "failed") {
+    return {
+      eyebrow: "Kritik durus",
+      title: "Kurulum fail durumuna gecti",
+      body: currentStepLabel
+        ? `${currentStepLabel} adiminda terminal bir hata goruldu. Owner panel bu durumu bekleyen placeholder'lardan ayri, gercek ariza olarak isaretliyor.`
+        : "Kurulum zincirinde terminal bir hata goruldu. Owner panel bunu bekleyen operasyon adimlarindan ayri olarak gosteriyor.",
+    };
+  }
+
   return {
     eyebrow: "Acilis seremonisi",
     title: currentStepLabel ? `${currentStepLabel} hazirlaniyor` : "Magaza kuruluyor",
@@ -239,6 +286,7 @@ function getStatusLabel(status: ProvisioningStepStatus): string {
     case "running":
       return "suruyor";
     case "failed":
+    case "blocked":
       return "bloklu";
     case "skipped":
       return "atlanmis";
@@ -255,11 +303,17 @@ export function ProvisioningLifecycleCard({
   superAdmin,
 }: ProvisioningLifecycleCardProps) {
   const currentStep =
+    provisioning.steps.find((step) => step.status === "blocked") ??
     provisioning.steps.find((step) => step.status === "failed") ??
     provisioning.steps.find((step) => step.status === "running") ??
     provisioning.steps.find((step) => step.status === "pending") ??
     provisioning.steps.at(-1) ??
     null;
+  const blockerCount = provisioning.steps.filter(
+    (step) => step.status === "failed" || step.status === "blocked",
+  ).length;
+  const showRepairButton =
+    superAdmin && (provisioning.state === "pending_repair" || provisioning.state === "failed");
 
   const completedCount = provisioning.steps.filter(
     (step) => step.status === "completed" || step.status === "skipped",
@@ -310,7 +364,7 @@ export function ProvisioningLifecycleCard({
             </div>
           </div>
           <div className="provisioning-stage-actions">
-            {superAdmin ? <RepairProjectButton slug={slug} /> : null}
+            {showRepairButton ? <RepairProjectButton slug={slug} /> : null}
           </div>
         </div>
 
@@ -323,7 +377,7 @@ export function ProvisioningLifecycleCard({
               Son calisma: <strong>{formatDateTime(provisioning.lastRunAt)}</strong>
             </span>
             <span>
-              Bloklayan: <strong>{provisioning.steps.filter((step) => step.status === "failed").length}</strong>
+              Bloklayan: <strong>{blockerCount}</strong>
             </span>
             <span>
               Sirada: <strong>{provisioning.steps.filter((step) => step.status === "pending").length}</strong>

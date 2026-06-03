@@ -90,13 +90,6 @@ export interface StoreProvisioningWorkflowResult {
   repaired: boolean;
 }
 
-class ProvisioningBlockedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ProvisioningBlockedError";
-  }
-}
-
 export interface ProvisioningEnvironmentReadiness {
   ready: boolean;
   errors: string[];
@@ -157,6 +150,18 @@ function resolveRequestedDatabaseMode(
   input: ProvisioningEnvironmentReadinessInput = {},
 ): DatabaseMode {
   return resolveDefaultDatabaseMode(input.databaseMode);
+}
+
+function isPendingAuthSetup(store: StoreConfig): boolean {
+  return store.auth?.status === "pending_auth_setup" && store.auth.blocking !== true;
+}
+
+function isPendingAnalyticsSetup(store: StoreConfig): boolean {
+  return store.analytics?.status === "pending_analytics_setup" && store.analytics.blocking !== true;
+}
+
+function isPendingPaymentSetup(store: StoreConfig): boolean {
+  return store.payments?.status === "pending_payment_setup" && store.payments.blocking !== true;
 }
 
 export async function validateProvisioningEnvironmentReadiness(
@@ -316,7 +321,7 @@ class ProvisioningTracker {
       status: "running",
       message: null,
       blocking: true,
-      state: "running",
+      state: "provisioning",
       lastError: null,
       lastRunAt: this.lastRunAt,
     });
@@ -327,7 +332,7 @@ class ProvisioningTracker {
       status: "completed",
       message,
       blocking: false,
-      state: "running",
+      state: "provisioning",
       lastError: null,
       lastRunAt: this.lastRunAt,
     });
@@ -407,20 +412,26 @@ class ProvisioningTracker {
 
   async finalize(): Promise<StoreProvisioningWorkflowResult> {
     this.summary = await reconcileProvisioningSummaryWithLiveState(this.slug, this.summary);
+    const store = repairStoreConfig(this.slug);
     const blockers = getProvisioningBlockers(this.summary);
     const derivedIssueMessage =
       this.summary.steps.find((step) => readGeneratedRuntimeIssueCode(step.message))?.message ??
       this.summary.lastError;
     const lastError = blockers[0]?.message ?? derivedIssueMessage ?? this.summary.lastError;
-    const state = deriveProvisioningState(this.summary.steps, lastError);
+    const state = deriveProvisioningState(this.summary.steps, lastError, {
+      authPending: isPendingAuthSetup(store),
+      analyticsPending: isPendingAnalyticsSetup(store),
+      paymentPending: isPendingPaymentSetup(store),
+    });
     this.summary = await persistProvisioningSummary(this.slug, {
       state,
-      lastError: state === "ready" ? null : lastError,
+      lastError:
+        state === "pending_repair" || state === "failed" || state === "pending_dns"
+          ? lastError
+          : null,
       lastRunAt: this.lastRunAt,
       steps: this.summary.steps,
     });
-
-    const store = repairStoreConfig(this.slug);
 
     return {
       store,
@@ -439,12 +450,12 @@ async function initializeTracker(
   const now = new Date().toISOString();
   const existing = mode === "repair"
     ? await persistProvisioningSummary(slug, {
-        state: "running",
+        state: "provisioning",
         lastError: null,
         lastRunAt: now,
       })
     : await persistProvisioningSummary(slug, {
-        state: "running",
+        state: "provisioning",
         lastError: null,
         lastRunAt: now,
         steps: createDefaultProvisioningSteps(),
@@ -490,11 +501,6 @@ async function runWorkflowStep(
     await tracker.complete(key, await action());
     return true;
   } catch (error) {
-    if (error instanceof ProvisioningBlockedError) {
-      await tracker.block(key, error.message);
-      return false;
-    }
-
     await tracker.fail(key, error, options?.blockingOnFailure ?? true);
     return options?.continueOnFailure ?? false;
   }
@@ -1144,12 +1150,14 @@ export async function runStoreProvisioningWorkflow(
 
         if (store.databaseMode === "light_postgres") {
           if (store.lightPostgres?.umamiReady === false) {
-            throw new ProvisioningBlockedError(
-              "light_postgres store icin analytics hazirligi tamamlanmadi.",
-            );
+            throw new Error("light_postgres store icin analytics hazirligi tamamlanmadi.");
           }
 
-          return "Umami-ready analytics authority kaydi hazir.";
+          if (isPendingAnalyticsSetup(store)) {
+            return "Umami-ready analytics placeholder owner authority icinde kayitli.";
+          }
+
+          return "Umami analytics authority hazir.";
         }
 
         return "Legacy analytics setup store runtime icinde ele alinir.";
@@ -1161,12 +1169,26 @@ export async function runStoreProvisioningWorkflow(
         const store = repairStoreConfig(input.slug);
 
         if (store.databaseMode === "light_postgres") {
-          throw new ProvisioningBlockedError(
-            "blocked_auth_setup: light_postgres store icin merkezi admin auth kurulumu ayrica tamamlanmali.",
-          );
+          if (isPendingAuthSetup(store)) {
+            return "Logto-ready auth placeholder owner authority icinde kayitli.";
+          }
+
+          return "Light Postgres auth authority hazir.";
         }
 
         return "Supabase auth store ile birlikte hazir.";
+      },
+    ],
+    [
+      "payment_setup",
+      async () => {
+        const store = repairStoreConfig(input.slug);
+
+        if (isPendingPaymentSetup(store)) {
+          return "Odeme ayari bekleniyor; placeholder owner authority icinde kayitli.";
+        }
+
+        return "Odeme authority hazir.";
       },
     ],
   ];

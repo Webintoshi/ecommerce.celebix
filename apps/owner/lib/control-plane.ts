@@ -11,12 +11,19 @@ import {
   upsertStoreSupabaseSecret
 } from "@/lib/store-secrets";
 import {
+  buildDefaultStoreAnalyticsConfig,
+  buildDefaultStoreAuthConfig,
+  buildDefaultStorePaymentsConfig,
   getRepoRoot,
   getStoreConfig,
   getStores,
   repairTrackedStoreConfigs,
+  resolveLightPostgresDefaultSslMode,
+  type StoreAnalyticsConfig,
+  type StoreAuthConfig,
   type StoreConfig,
   type DatabaseMode,
+  type StorePaymentsConfig,
   type StorefrontStatus
 } from "@celebix/platform-config";
 import type {
@@ -315,11 +322,18 @@ export interface CleanupRunOverview {
   targets: CleanupRunSummary["targets"];
 }
 
+export interface StoreSetupSummary {
+  auth: StoreAuthConfig;
+  analytics: StoreAnalyticsConfig;
+  payments: StorePaymentsConfig;
+}
+
 export interface DashboardStoreSummary {
   id: string;
   slug: string;
   name: string;
   status: OwnerStoreStatus;
+  databaseMode: DatabaseMode;
   themeKey: string;
   themeLabel: string;
   storefrontDomain: string;
@@ -339,6 +353,7 @@ export interface DashboardStoreSummary {
   affiliateCount: number;
   storeAdminCount: number;
   management: StoreManagementProfile;
+  setup: StoreSetupSummary;
   health: StoreHealthSummary;
   consistency: StoreConsistencySummary;
   provisioning: StoreProvisioningSummary;
@@ -679,25 +694,48 @@ async function readStoreConnectionReadiness(store: StoreConfig, ownerStoreId?: s
   const secretRecord = ownerStoreId
     ? await getStoreSupabaseSecretByStoreId(ownerStoreId)
     : await getStoreSupabaseSecret(store.slug);
+  const lightPostgresDatabaseUrl =
+    readOptionalString(envMap.LIGHT_POSTGRES_DATABASE_URL) ?? readOptionalString(envMap.DATABASE_URL);
   const configuredStoreUrl = store.supabase.url !== "configure-in-env" ? store.supabase.url : null;
   const normalizedConfiguredStoreUrl = normalizeComparableUrl(configuredStoreUrl);
   const normalizedSecretStoreUrl = normalizeComparableUrl(secretRecord?.supabase_url ?? null);
   const normalizedEnvStoreUrl = normalizeComparableUrl(envMap.NEXT_PUBLIC_SUPABASE_URL ?? null);
+  const lightPostgresEnvReady = Boolean(
+    lightPostgresDatabaseUrl &&
+      envMap.NEXT_PUBLIC_STORE_DOMAIN?.trim() &&
+      envMap.NEXT_PUBLIC_ADMIN_DOMAIN?.trim(),
+  );
   const envLooksAuthoritative =
-    Boolean(envMap.NEXT_PUBLIC_SUPABASE_URL && envMap.SUPABASE_SERVICE_ROLE_KEY) &&
-    (!normalizedConfiguredStoreUrl || normalizedConfiguredStoreUrl === normalizedEnvStoreUrl) &&
-    (!normalizedSecretStoreUrl || normalizedSecretStoreUrl === normalizedEnvStoreUrl);
-  const secretAuthorityReady = hasExpandedSecretFields(secretRecord);
-  const secretCoverage = Boolean(
-    (secretRecord?.supabase_url || configuredStoreUrl || (envLooksAuthoritative ? envMap.NEXT_PUBLIC_SUPABASE_URL : null)) &&
-      (secretRecord?.supabase_service_role_key || (envLooksAuthoritative ? envMap.SUPABASE_SERVICE_ROLE_KEY : null))
-  );
-  const legacyAuthConfigured = Boolean(
-    hasLegacyAuthFields(secretRecord) ||
-      (envLooksAuthoritative && envMap.SUPABASE_LEGACY_URL && envMap.SUPABASE_LEGACY_ANON_KEY)
-  );
+    store.databaseMode === "full_supabase"
+      ? (
+          Boolean(envMap.NEXT_PUBLIC_SUPABASE_URL && envMap.SUPABASE_SERVICE_ROLE_KEY) &&
+          (!normalizedConfiguredStoreUrl || normalizedConfiguredStoreUrl === normalizedEnvStoreUrl) &&
+          (!normalizedSecretStoreUrl || normalizedSecretStoreUrl === normalizedEnvStoreUrl)
+        )
+      : lightPostgresEnvReady;
+  const secretAuthorityReady =
+    store.databaseMode === "full_supabase"
+      ? hasExpandedSecretFields(secretRecord)
+      : Boolean(lightPostgresDatabaseUrl) && envLooksAuthoritative;
+  const secretCoverage =
+    store.databaseMode === "full_supabase"
+      ? Boolean(
+          (secretRecord?.supabase_url ||
+            configuredStoreUrl ||
+            (envLooksAuthoritative ? envMap.NEXT_PUBLIC_SUPABASE_URL : null)) &&
+            (secretRecord?.supabase_service_role_key ||
+              (envLooksAuthoritative ? envMap.SUPABASE_SERVICE_ROLE_KEY : null))
+        )
+      : Boolean(lightPostgresDatabaseUrl) && envLooksAuthoritative;
+  const legacyAuthConfigured =
+    store.databaseMode === "full_supabase" &&
+    Boolean(
+      hasLegacyAuthFields(secretRecord) ||
+        (envLooksAuthoritative && envMap.SUPABASE_LEGACY_URL && envMap.SUPABASE_LEGACY_ANON_KEY)
+    );
 
   const shouldBackfillExpandedSecret =
+    store.databaseMode === "full_supabase" &&
     envLooksAuthoritative &&
     Boolean(envMap.NEXT_PUBLIC_SUPABASE_URL && envMap.SUPABASE_SERVICE_ROLE_KEY && envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY) &&
     !Boolean(secretRecord?.supabase_anon_key?.trim());
@@ -721,14 +759,32 @@ async function readStoreConnectionReadiness(store: StoreConfig, ownerStoreId?: s
     envAdminUrl: envLooksAuthoritative ? envMap.NEXT_PUBLIC_ADMIN_URL?.trim() || null : null,
     envStoreDomain: envLooksAuthoritative ? envMap.NEXT_PUBLIC_STORE_DOMAIN?.trim() || null : null,
     envStorefrontUrl: envLooksAuthoritative ? envMap.NEXT_PUBLIC_SITE_URL?.trim() || null : null,
-    envSupabaseUrl: envLooksAuthoritative ? envMap.NEXT_PUBLIC_SUPABASE_URL?.trim() || null : null,
-    hasEnvAnonKey: envLooksAuthoritative && Boolean(envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
-    hasEnvServiceRoleKey: envLooksAuthoritative && Boolean(envMap.SUPABASE_SERVICE_ROLE_KEY?.trim()),
-    secretSupabaseUrl: secretRecord?.supabase_url?.trim() || null,
-    hasSecretAnonKey: Boolean(secretRecord?.supabase_anon_key?.trim() || (envLooksAuthoritative ? envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() : null)),
-    hasSecretServiceRoleKey: Boolean(secretRecord?.supabase_service_role_key?.trim()),
-    secretLegacyUrl: secretRecord?.supabase_legacy_url?.trim() || null,
-    hasSecretLegacyAnonKey: Boolean(secretRecord?.supabase_legacy_anon_key?.trim())
+    envSupabaseUrl:
+      store.databaseMode === "full_supabase" && envLooksAuthoritative
+        ? envMap.NEXT_PUBLIC_SUPABASE_URL?.trim() || null
+        : null,
+    hasEnvAnonKey:
+      store.databaseMode === "full_supabase" &&
+      envLooksAuthoritative &&
+      Boolean(envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
+    hasEnvServiceRoleKey:
+      store.databaseMode === "full_supabase" &&
+      envLooksAuthoritative &&
+      Boolean(envMap.SUPABASE_SERVICE_ROLE_KEY?.trim()),
+    secretSupabaseUrl:
+      store.databaseMode === "full_supabase" ? secretRecord?.supabase_url?.trim() || null : null,
+    hasSecretAnonKey:
+      store.databaseMode === "full_supabase" &&
+      Boolean(
+        secretRecord?.supabase_anon_key?.trim() ||
+          (envLooksAuthoritative ? envMap.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() : null)
+      ),
+    hasSecretServiceRoleKey:
+      store.databaseMode === "full_supabase" && Boolean(secretRecord?.supabase_service_role_key?.trim()),
+    secretLegacyUrl:
+      store.databaseMode === "full_supabase" ? secretRecord?.supabase_legacy_url?.trim() || null : null,
+    hasSecretLegacyAnonKey:
+      store.databaseMode === "full_supabase" && Boolean(secretRecord?.supabase_legacy_anon_key?.trim())
   };
 }
 
@@ -927,6 +983,106 @@ function readOptionalString(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function normalizeStoreAuthConfig(
+  databaseMode: DatabaseMode,
+  value: unknown,
+  fallback?: StoreAuthConfig | null,
+): StoreAuthConfig {
+  const record = asRecord(value);
+  const defaults = fallback ?? buildDefaultStoreAuthConfig(databaseMode);
+
+  return {
+    provider:
+      readOptionalString(record.provider) === "supabase"
+        ? "supabase"
+        : defaults.provider,
+    status:
+      readOptionalString(record.status) === "configured"
+        ? "configured"
+        : defaults.status,
+    mode:
+      readOptionalString(record.mode) === "legacy_supabase_auth"
+        ? "legacy_supabase_auth"
+        : defaults.mode,
+    requiredAction: readOptionalString(record.requiredAction) ?? defaults.requiredAction,
+    blocking: typeof record.blocking === "boolean" ? Boolean(record.blocking) : defaults.blocking,
+  };
+}
+
+function normalizeStoreAnalyticsConfig(
+  value: unknown,
+  fallback?: StoreAnalyticsConfig | null,
+): StoreAnalyticsConfig {
+  const record = asRecord(value);
+  const defaults = fallback ?? buildDefaultStoreAnalyticsConfig();
+
+  return {
+    provider: readOptionalString(record.provider) === "umami" ? "umami" : defaults.provider,
+    status:
+      readOptionalString(record.status) === "configured"
+        ? "configured"
+        : defaults.status,
+    mode:
+      readOptionalString(record.mode) === "umami_ready_placeholder"
+        ? "umami_ready_placeholder"
+        : defaults.mode,
+    websiteId: readOptionalString(record.websiteId) ?? fallback?.websiteId,
+    requiredAction: readOptionalString(record.requiredAction) ?? defaults.requiredAction,
+    blocking: typeof record.blocking === "boolean" ? Boolean(record.blocking) : defaults.blocking,
+  };
+}
+
+function normalizeStorePaymentsConfig(
+  value: unknown,
+  fallback?: StorePaymentsConfig | null,
+): StorePaymentsConfig {
+  const record = asRecord(value);
+  const defaults = fallback ?? buildDefaultStorePaymentsConfig();
+
+  return {
+    status:
+      readOptionalString(record.status) === "configured"
+        ? "configured"
+        : defaults.status,
+    defaultProvider:
+      readOptionalString(record.defaultProvider) === "none"
+        ? "none"
+        : readOptionalString(record.defaultProvider) === "bank_transfer"
+          ? "bank_transfer"
+          : defaults.defaultProvider,
+    requiredAction: readOptionalString(record.requiredAction) ?? defaults.requiredAction,
+    blocking: typeof record.blocking === "boolean" ? Boolean(record.blocking) : defaults.blocking,
+  };
+}
+
+function buildStoreSetupSummary(
+  databaseMode: DatabaseMode,
+  metadata: Record<string, unknown> | null | undefined,
+  storeConfig?: StoreConfig | null,
+): StoreSetupSummary {
+  const configAuth = storeConfig?.auth ?? buildDefaultStoreAuthConfig(databaseMode);
+  const configAnalytics = storeConfig?.analytics ?? buildDefaultStoreAnalyticsConfig();
+  const configPayments = storeConfig?.payments ?? buildDefaultStorePaymentsConfig();
+
+  return {
+    auth: normalizeStoreAuthConfig(databaseMode, asRecord(asRecord(metadata).auth), configAuth),
+    analytics: normalizeStoreAnalyticsConfig(asRecord(asRecord(metadata).analytics), configAnalytics),
+    payments: normalizeStorePaymentsConfig(asRecord(asRecord(metadata).payments), configPayments),
+  };
+}
+
+function hasPendingAuthSetup(setup: StoreSetupSummary): boolean {
+  return setup.auth.status === "pending_auth_setup" && setup.auth.blocking !== true;
+}
+
+function hasPendingAnalyticsSetup(setup: StoreSetupSummary): boolean {
+  return setup.analytics.status === "pending_analytics_setup" && setup.analytics.blocking !== true;
+}
+
+function hasPendingPaymentSetup(setup: StoreSetupSummary): boolean {
+  return setup.payments.status === "pending_payment_setup" && setup.payments.blocking !== true;
+}
+
 function buildProvisioningSummary(metadata: Record<string, unknown> | null | undefined): StoreProvisioningSummary {
   const rawProvisioning = readProvisioningSummary(metadata);
   const hasLifecycleHistory =
@@ -970,6 +1126,9 @@ function upsertProvisioningDisplayStep(
 function normalizeProvisioningSummaryForDisplay(
   summary: StoreProvisioningSummary,
   input: {
+    databaseMode: DatabaseMode;
+    setup: StoreSetupSummary;
+    analyticsPlaceholderReady: boolean;
     health: StoreHealthSummary;
     storefrontStatus: StorefrontStatus;
     storefrontAppDir: string | null;
@@ -994,6 +1153,9 @@ function normalizeProvisioningSummaryForDisplay(
     input.metrics.productCount > 0 ||
     input.metrics.orderCount > 0 ||
     input.metrics.customerCount > 0;
+  const authPending = hasPendingAuthSetup(input.setup);
+  const analyticsPending = hasPendingAnalyticsSetup(input.setup);
+  const paymentPending = hasPendingPaymentSetup(input.setup);
   const fullyLiveReady = isStoreFullyReady(input.health);
 
   let nextSteps = summary.steps.length > 0 ? [...summary.steps] : createDefaultProvisioningSteps();
@@ -1056,7 +1218,12 @@ function normalizeProvisioningSummaryForDisplay(
   }
 
   if (input.health.supabaseReady) {
-    markCompleted("supabase_provision", "Supabase authority canli durumda hazir.");
+    markCompleted(
+      "supabase_provision",
+      input.databaseMode === "light_postgres"
+        ? "Light Postgres authority canli durumda hazir."
+        : "Supabase authority canli durumda hazir.",
+    );
   }
 
   if (starterSeedReady) {
@@ -1119,6 +1286,31 @@ function normalizeProvisioningSummaryForDisplay(
     blockRemainingStepsAfter("storefront_deploy", "Storefront deployment tamamlanmadan ilerlenemez.");
   }
 
+  if (input.setup.analytics.status === "configured") {
+    markCompleted("analytics_setup", "Analytics authority hazir.");
+  } else if (analyticsPending && input.analyticsPlaceholderReady) {
+    markCompleted("analytics_setup", "Umami-ready analytics placeholder owner authority icinde kayitli.");
+  } else if (!input.analyticsPlaceholderReady) {
+    markFailed("analytics_setup", "light_postgres store icin analytics hazirligi tamamlanmadi.");
+  }
+
+  if (input.setup.auth.status === "configured") {
+    markCompleted(
+      "auth_setup",
+      input.setup.auth.provider === "supabase"
+        ? "Supabase auth authority hazir."
+        : "Auth authority hazir.",
+    );
+  } else if (authPending) {
+    markCompleted("auth_setup", "Logto-ready auth placeholder owner authority icinde kayitli.");
+  }
+
+  if (input.setup.payments.status === "configured") {
+    markCompleted("payment_setup", "Odeme authority hazir.");
+  } else if (paymentPending) {
+    markCompleted("payment_setup", "Odeme ayari bekleniyor; placeholder owner authority icinde kayitli.");
+  }
+
   const blockers = nextSteps.filter(
     (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
   );
@@ -1132,12 +1324,15 @@ function normalizeProvisioningSummaryForDisplay(
     input.health.storefrontDataMessage ??
     input.health.adminRuntimeMessage ??
     summary.lastError;
-  const nextState = fullyLiveReady
-    ? "ready"
-    : deriveProvisioningState(nextSteps, derivedLastError);
-  const nextLastError = fullyLiveReady
-    ? null
-    : derivedLastError;
+  const nextState = deriveProvisioningState(nextSteps, derivedLastError, {
+    authPending,
+    analyticsPending,
+    paymentPending,
+  });
+  const nextLastError =
+    nextState === "pending_repair" || nextState === "failed" || nextState === "pending_dns"
+      ? derivedLastError
+      : null;
 
   return {
     ...summary,
@@ -1985,6 +2180,9 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
   const bootstrap = asRecord(current.bootstrap);
   const storefront = asRecord(current.storefront);
   const supabase = asRecord(current.supabase);
+  const auth = asRecord(current.auth);
+  const analytics = asRecord(current.analytics);
+  const payments = asRecord(current.payments);
   const mergedAdminDeploymentStatus =
     store.bootstrap?.adminDeploymentStatus === "configured"
       ? "configured"
@@ -2026,7 +2224,32 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
     owner: {
       ...owner,
       createdBy: store.owner?.createdBy ?? owner.createdBy ?? "owner-panel",
-      notes: readOptionalString(owner.notes) ?? store.owner?.notes ?? ""
+      notes: readOptionalString(owner.notes) ?? store.owner?.notes ?? "",
+      legacyModeSelected:
+        typeof store.owner?.legacyModeSelected === "boolean"
+          ? store.owner.legacyModeSelected
+          : typeof owner.legacyModeSelected === "boolean"
+            ? Boolean(owner.legacyModeSelected)
+            : store.databaseMode === "full_supabase",
+      standardProfile:
+        store.owner?.standardProfile ??
+        (readOptionalString(owner.standardProfile) === "legacy_supabase"
+          ? "legacy_supabase"
+          : store.databaseMode === "full_supabase"
+            ? "legacy_supabase"
+            : "celebix_new_standard"),
+    },
+    auth: {
+      ...auth,
+      ...(store.auth ?? {}),
+    },
+    analytics: {
+      ...analytics,
+      ...(store.analytics ?? {}),
+    },
+    payments: {
+      ...payments,
+      ...(store.payments ?? {}),
     }
   };
 }
@@ -2104,6 +2327,44 @@ async function resolveStoreSupabaseAuthority(store: StoreConfig, ownerStoreId?: 
   };
 }
 
+function getLightPostgresRuntimeConnectionString(store: StoreConfig): string | null {
+  const envMap = parseEnvFile(resolveStoreEnvPath(store));
+  return readOptionalString(envMap.LIGHT_POSTGRES_DATABASE_URL) ?? readOptionalString(envMap.DATABASE_URL);
+}
+
+function normalizePostgresSsl(value: string): false | { rejectUnauthorized: false } {
+  return value === "disable" || value === "allow" || value === "prefer"
+    ? false
+    : { rejectUnauthorized: false };
+}
+
+async function queryLightPostgresStore<TRow extends Record<string, unknown>>(
+  store: StoreConfig,
+  sql: string,
+  params: unknown[] = [],
+): Promise<TRow[]> {
+  const connectionString = getLightPostgresRuntimeConnectionString(store);
+
+  if (!connectionString) {
+    throw new Error("Light Postgres runtime authority hazir degil.");
+  }
+
+  const { Client } = await import("pg");
+  const client = new Client({
+    connectionString,
+    ssl: normalizePostgresSsl(resolveLightPostgresDefaultSslMode()),
+  });
+
+  await client.connect();
+
+  try {
+    const result = await client.query(sql, params);
+    return result.rows as TRow[];
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
 async function createStoreServiceClient(store: StoreConfig, ownerStoreId?: string): Promise<SupabaseClient | null> {
   const { url, serviceRoleKey } = await resolveStoreSupabaseAuthority(store, ownerStoreId);
 
@@ -2152,6 +2413,15 @@ async function verifyStoreAdminCredentials(
 }
 
 async function countStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: string): Promise<number> {
+  if (store.databaseMode === "light_postgres") {
+    const rows = await queryLightPostgresStore<{ count: number | string }>(
+      store,
+      "SELECT COUNT(*)::int AS count FROM public.profiles;",
+    );
+
+    return Number(rows[0]?.count ?? 0);
+  }
+
   const client = await createStoreServiceClient(store, ownerStoreId);
 
   if (!client) {
@@ -2162,6 +2432,40 @@ async function countStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: stri
 }
 
 async function listStoreAdminsForConfig(store: StoreConfig, ownerStoreId?: string): Promise<StoreAdminSummary[]> {
+  if (store.databaseMode === "light_postgres") {
+    const rows = await queryLightPostgresStore<{
+      id: string;
+      email: string | null;
+      full_name: string | null;
+      role: StoreAdminRole;
+      task_definition: string | null;
+      created_at: string | null;
+    }>(
+      store,
+      `
+        SELECT
+          p.id::text AS id,
+          u.email::text AS email,
+          p.full_name,
+          p.role::text AS role,
+          p.task_definition,
+          p.created_at
+        FROM public.profiles AS p
+        LEFT JOIN auth.users AS u ON u.id = p.id
+        ORDER BY p.created_at DESC;
+      `,
+    );
+
+    return rows.map((profile) => ({
+      id: profile.id,
+      email: profile.email || "unknown",
+      fullName: profile.full_name,
+      role: profile.role,
+      taskDefinition: profile.task_definition,
+      createdAt: profile.created_at ?? null,
+    }));
+  }
+
   const client = await createStoreServiceClient(store, ownerStoreId);
 
   if (!client) {
@@ -2220,6 +2524,48 @@ async function getExactCount(query: PromiseLike<{ count: number | null; error: {
 }
 
 async function collectStoreMetrics(store: StoreConfig, ownerStoreId?: string): Promise<StoreMetricsSnapshot> {
+  if (store.databaseMode === "light_postgres") {
+    const rows = await queryLightPostgresStore<{
+      product_count: number | string;
+      order_count: number | string;
+      customer_count: number | string;
+      pending_order_count: number | string;
+      total_revenue: number | string | null;
+    }>(
+      store,
+      `
+        SELECT
+          (SELECT COUNT(*)::int FROM public.products) AS product_count,
+          (SELECT COUNT(*)::int FROM public.orders) AS order_count,
+          (SELECT COUNT(*)::int FROM public.customers) AS customer_count,
+          (
+            SELECT COUNT(*)::int
+            FROM public.orders
+            WHERE LOWER(COALESCE(status, '')) IN ('pending', 'processing')
+          ) AS pending_order_count,
+          (
+            SELECT COALESCE(SUM(total), 0)
+            FROM public.orders
+            WHERE LOWER(COALESCE(status, '')) NOT IN ('cancelled', 'canceled', 'failed')
+          ) AS total_revenue;
+      `,
+    );
+
+    const metrics = rows[0];
+    const orderCount = Number(metrics?.order_count ?? 0);
+    const totalRevenue = Number(metrics?.total_revenue ?? 0);
+
+    return {
+      productCount: Number(metrics?.product_count ?? 0),
+      orderCount,
+      customerCount: Number(metrics?.customer_count ?? 0),
+      pendingOrderCount: Number(metrics?.pending_order_count ?? 0),
+      totalRevenue: Number(totalRevenue.toFixed(2)),
+      averageOrderValue: orderCount > 0 ? Number((totalRevenue / orderCount).toFixed(2)) : 0,
+      lastSyncedAt: new Date().toISOString(),
+    };
+  }
+
   const client = await createStoreServiceClient(store, ownerStoreId);
 
   if (!client) {
@@ -3016,6 +3362,8 @@ async function buildDashboardStoreSummaries(
     accessible.stores.map(async (store) => {
       const metric = accessible.metricsMap.get(store.id);
       const storeConfig = await getAuthoritativeStoreConfig(store.slug);
+      const databaseMode = resolveStoreDatabaseMode(store, storeConfig);
+      const setup = buildStoreSetupSummary(databaseMode, store.metadata, storeConfig);
       const summaryMode = mode === "summary";
       const storedBootstrap = asRecord(store.metadata?.bootstrap);
       const storedStorefront = asRecord(store.metadata?.storefront);
@@ -3083,6 +3431,9 @@ async function buildDashboardStoreSummaries(
         storeConfig,
       );
       const provisioning = normalizeProvisioningSummaryForDisplay(buildProvisioningSummary(store.metadata), {
+        databaseMode,
+        setup,
+        analyticsPlaceholderReady: storeConfig?.lightPostgres?.umamiReady !== false,
         health,
         storefrontStatus: store.storefront_status,
         storefrontAppDir: store.storefront_app_dir,
@@ -3121,6 +3472,7 @@ async function buildDashboardStoreSummaries(
         slug: store.slug,
         name: store.name,
         status: normalizedStatus,
+        databaseMode,
         themeKey: store.theme_key,
         themeLabel: store.theme_label ?? store.theme_key,
         storefrontDomain: store.storefront_domain,
@@ -3146,6 +3498,7 @@ async function buildDashboardStoreSummaries(
           storeStatus: normalizedStatus,
           storefrontStatus: resolveOwnerStorefrontStatus(store)
         }),
+        setup,
         provisioning,
         domainMigration,
         health,
@@ -3829,6 +4182,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
 
   const metadata = (storeRow.metadata ?? {}) as Record<string, unknown>;
   const storeConfig = await getAuthoritativeStoreConfig(slug);
+  const databaseMode = resolveStoreDatabaseMode(storeRow, storeConfig);
+  const setup = buildStoreSetupSummary(databaseMode, metadata, storeConfig);
   const metadataBootstrap = asRecord(metadata.bootstrap);
   const configBootstrap = storeConfig?.bootstrap
     ? (storeConfig.bootstrap as unknown as Record<string, unknown>)
@@ -3873,6 +4228,9 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
         )
       : current.health;
   const provisioning = normalizeProvisioningSummaryForDisplay(current.provisioning, {
+    databaseMode,
+    setup,
+    analyticsPlaceholderReady: storeConfig?.lightPostgres?.umamiReady !== false,
     health,
     storefrontStatus: current.storefrontStatus,
     storefrontAppDir: current.storefrontAppDir,
@@ -3911,6 +4269,7 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
   return {
     ...current,
     status: normalizedStatus,
+    databaseMode,
     productCount: resolvedMetrics?.productCount ?? current.productCount,
     orderCount: resolvedMetrics?.orderCount ?? current.orderCount,
     customerCount: resolvedMetrics?.customerCount ?? current.customerCount,
@@ -3919,6 +4278,7 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     averageOrderValue: resolvedMetrics?.averageOrderValue ?? current.averageOrderValue,
     lastSyncedAt: resolvedMetrics?.lastSyncedAt ?? current.lastSyncedAt,
     storeAdminCount: resolvedStoreAdmins.length,
+    setup,
     health,
     consistency,
     supportEmail: storeRow.support_email ?? storeConfig?.branding?.supportEmail ?? null,

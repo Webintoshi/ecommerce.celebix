@@ -16,17 +16,8 @@ interface FormState {
   packageDurationMonths: string;
 }
 
-interface ProvisioningStepSummary {
-  key: string;
-  message: string | null;
-  status: string;
-}
-
 interface CreateStorePayload {
   error?: string;
-  provisioningState?: string;
-  blockers?: ProvisioningStepSummary[];
-  steps?: ProvisioningStepSummary[];
   store?: { slug: string };
 }
 
@@ -85,9 +76,7 @@ export function CreateStoreForm({
   const router = useRouter();
   const [form, setForm] = useState(INITIAL_STATE);
   const [error, setError] = useState<string | null>(null);
-  const [provisioningState, setProvisioningState] = useState<string | null>(null);
-  const [steps, setSteps] = useState<ProvisioningStepSummary[]>([]);
-  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  const [showLegacyOptions, setShowLegacyOptions] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -107,21 +96,9 @@ export function CreateStoreForm({
     updateField("slug", slugify(event.target.value));
   }
 
-  function openCreatedStore() {
-    if (!createdSlug) {
-      return;
-    }
-
-    router.push(`/stores/${createdSlug}`);
-    router.refresh();
-  }
-
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setProvisioningState(null);
-    setSteps([]);
-    setCreatedSlug(null);
 
     startTransition(async () => {
       const response = await fetch("/api/stores", {
@@ -141,9 +118,9 @@ export function CreateStoreForm({
     });
   }
 
-  const pendingSteps = steps.filter((step) => step.status === "failed" || step.status === "pending");
   const branchSlugPreview = form.slug || slugify(form.name) || "store-slug";
   const storefrontBranchPreview = `${storefrontBranchPrefix}/${branchSlugPreview}`;
+  const legacyModeVisible = showLegacyOptions || form.databaseMode === "full_supabase";
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
@@ -168,23 +145,6 @@ export function CreateStoreForm({
         <small className="muted">
           Bu alan storefront ve admin domaini icindir. Demo domain authority icinde ayrica
           <code>&lt;slug&gt;.demo.celebix.co</code> olarak tutulur.
-        </small>
-      </label>
-
-      <label className="field">
-        <span>Veritabani modu</span>
-        <select
-          value={form.databaseMode}
-          onChange={(event) =>
-            updateField("databaseMode", event.target.value as FormState["databaseMode"])
-          }
-        >
-          <option value="light_postgres">Light Postgres (varsayilan)</option>
-          <option value="full_supabase">Full Supabase (legacy)</option>
-        </select>
-        <small className="muted">
-          Yeni standart light Postgres + R2 modelidir. Full Supabase sadece explicit legacy
-          akistir.
         </small>
       </label>
 
@@ -217,6 +177,70 @@ export function CreateStoreForm({
         <p className="card-note">
           Owner ve admin deploy ayni branch'te kalir. Her yeni storefront kendi slug'i icin ayri branch alir.
         </p>
+      </div>
+
+      <div className="card field-full section-tight">
+        <div className="card-title">Varsayilan Standard</div>
+        <p className="card-note">
+          Yeni store create akisi varsayilan olarak light Postgres + R2 + generated admin/storefront
+          standardinda acilir.
+        </p>
+        <div className="actions compact-actions wrap stack-top-sm">
+          <span className="pill pill-success">light_postgres</span>
+          <span className="pill">R2 default</span>
+          <span className="pill">Logto placeholder</span>
+          <span className="pill">Umami placeholder</span>
+        </div>
+        <div className="actions stack-top-sm">
+          <button
+            type="button"
+            className="button button-ghost"
+            onClick={() => {
+              if (legacyModeVisible && form.databaseMode === "full_supabase") {
+                updateField("databaseMode", "light_postgres");
+                setShowLegacyOptions(false);
+                return;
+              }
+
+              setShowLegacyOptions((current) => !current);
+            }}
+          >
+            {legacyModeVisible ? "Advanced / Legacy alani gizle" : "Advanced / Legacy Mode"}
+          </button>
+        </div>
+        {legacyModeVisible ? (
+          <div className="stack-top-sm">
+            <label className="field">
+              <span>Veritabani modu</span>
+              <select
+                value={form.databaseMode}
+                onChange={(event) =>
+                  updateField("databaseMode", event.target.value as FormState["databaseMode"])
+                }
+              >
+                <option value="light_postgres">Light Postgres (yeni standart)</option>
+                <option value="full_supabase">Full Supabase (legacy)</option>
+              </select>
+              <small className="muted">
+                Full Supabase sadece explicit legacy mod icin acilir; default secim light_postgres olarak korunur.
+              </small>
+            </label>
+            {form.databaseMode === "full_supabase" ? (
+              <div className="inline-card" style={{ borderColor: "rgba(254,97,0,.24)" }}>
+                <div>
+                  <strong>Legacy Supabase stack olusturur</strong>
+                  <p>Yeni standart degildir</p>
+                  <p>Sadece ozel/onayli durumlarda kullanilir</p>
+                </div>
+                <span className="pill pill-accent">legacy</span>
+              </div>
+            ) : (
+              <p className="card-note">
+                Legacy paneli acik, ancak yeni standard secimi light_postgres olarak aktif kalir.
+              </p>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <label className="field">
@@ -261,33 +285,6 @@ export function CreateStoreForm({
       </label>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
-
-      {provisioningState && provisioningState !== "ready" && createdSlug ? (
-        <div className="card field-full section-tight" style={{ borderColor: "rgba(254,97,0,.22)" }}>
-          <div className="card-title">Kurulum pending repair durumda</div>
-          <p className="section-copy">
-            Proje kaydi olusturuldu ancak provisioning state hazir degil. Kalan adimlar asagida listeleniyor.
-          </p>
-          <div className="stack-list stack-top-sm">
-            {pendingSteps.map((step) => (
-              <div key={step.key} className="inline-card">
-                <div>
-                  <strong>{step.key}</strong>
-                  <p>{step.message || step.status}</p>
-                </div>
-                <div className="activity-meta">
-                  <span>{step.status}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="actions field-full actions-end stack-top-sm">
-            <button type="button" className="button button-secondary" onClick={openCreatedStore}>
-              Proje detayina git
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <div className="actions field-full actions-end stack-top-sm">
         <button
