@@ -11,6 +11,7 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const authProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
   const isLogtoProvider = authProvider === "logto";
+  const logtoSignInHref = `/api/auth/sign-in?next=${encodeURIComponent(nextPath)}`;
   const hasBrowserSupabaseAuthEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
@@ -199,17 +200,26 @@ export default function AdminLoginPage() {
               </>
             )}
 
-            <button
-              type="submit"
-              disabled={loading || authUnavailable}
-              className="w-full py-3.5 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                isLogtoProvider ? "Celebix Auth ile Devam Et" : "Giriş Yap"
-              )}
-            </button>
+            {isLogtoProvider ? (
+              <a
+                href={logtoSignInHref}
+                className="w-full py-3.5 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
+              >
+                Celebix Auth ile Devam Et
+              </a>
+            ) : (
+              <button
+                type="submit"
+                disabled={loading || authUnavailable}
+                className="w-full py-3.5 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  "Giriş Yap"
+                )}
+              </button>
+            )}
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-100 text-center">
