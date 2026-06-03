@@ -13,13 +13,18 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", isLoading, leftIcon, rightIcon, children, disabled, ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
+    const baseStyles =
+      "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]";
     
     const variants = {
-      primary: "bg-[#EB651E] text-white hover:bg-[#D45616] focus:ring-[#EB651E] border border-[#EB651E]",
-      secondary: "bg-white text-[#2B2B2B] border border-[#E2E8F0] hover:bg-[#F8FAFC] hover:border-[#CBD5E1] focus:ring-[#E2E8F0]",
-      ghost: "bg-transparent text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#2B2B2B] focus:ring-[#E2E8F0]",
-      danger: "bg-white text-red-600 border border-red-200 hover:bg-red-50 focus:ring-red-200"
+      primary:
+        "border border-[var(--brand-primary)] bg-[linear-gradient(135deg,var(--brand-primary),var(--brand-primary-strong))] text-[#FFF8F3] shadow-[0_14px_32px_rgba(254,97,0,0.18)] hover:border-[var(--brand-primary-strong)] hover:shadow-[0_18px_34px_rgba(254,97,0,0.22)] focus:ring-[var(--brand-soft)]",
+      secondary:
+        "border border-[var(--border-default)] bg-[var(--surface)] text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] focus:ring-[var(--brand-soft)]",
+      ghost:
+        "border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:bg-[var(--brand-soft)] hover:text-[var(--text-primary)] focus:ring-[var(--brand-soft)]",
+      danger:
+        "border border-[var(--status-danger-border)] bg-[var(--surface)] text-[var(--status-danger)] hover:bg-[var(--status-danger-soft)] focus:ring-[var(--status-danger-soft)]"
     };
 
     const sizes = {

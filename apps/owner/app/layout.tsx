@@ -61,8 +61,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <div className="app-shell">
               <aside className="sidebar">
                 <div className="sidebar-header">
-                  <Link href="/">
-                    <img src="https://celebix.co/Logo/koyu%20logo.svg" alt="Celebix" className="brand-logo" />
+                  <Link href="/" className="brand-lockup">
+                    <div className="brand-logo-panel">
+                      <img src="https://celebix.net/Logo/koyu%20logo.svg" alt="Celebix" className="brand-logo" />
+                    </div>
+                    <div className="brand-caption">
+                      <span className="brand-kicker">ECP</span>
+                      <strong>Ecommerce Control Panel</strong>
+                      <span>Super admin, affiliate ve proje kurulum operasyonlari tek Celebix sahnesinde.</span>
+                    </div>
                   </Link>
                 </div>
                 <nav className="sidebar-nav">
@@ -76,7 +83,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                     </svg>
                     Dashboard
                   </SidebarNavLink>
-                  <SidebarNavLink href="/stores">
+                  <SidebarNavLink href="/stores" exclude={["/stores/new"]}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 7h18" />
                       <path d="M6 3h12l2 4H4z" />

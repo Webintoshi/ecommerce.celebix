@@ -8,39 +8,101 @@ export default async function OperationsPage() {
   const auth = await requireOwnerAuth("/operations");
   const superAdmin = isSuperAdmin(auth);
   const summary = await getOperationsSummary(auth);
+  const warningCount =
+    summary.totals.missingSupabase +
+    summary.totals.missingR2 +
+    summary.totals.missingAdmins +
+    summary.totals.secretDrift +
+    summary.totals.adminRuntimeIssues +
+    summary.totals.consistencyBlockingStores;
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Operasyon</h1>
-          <p>Supabase, R2, storefront, admin kapsama alani ve aktiviteleri tek panelden izle.</p>
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-content">
+          <div className="hero-stack">
+            <span className="hero-overline">Operations Layer</span>
+            <div>
+              <h1>Operasyon komuta kati</h1>
+              <p>Supabase, R2, storefront, admin kapsama alani ve operasyonel riskleri Celebix renk sistemiyle tek panelden izle.</p>
+            </div>
+          </div>
+
+          <div className="hero-quick-metrics">
+            <div className="hero-kpi">
+              <span>Hazir store</span>
+              <strong>{summary.totals.readyStores}</strong>
+              <small>Canliya yakin operasyon paketi</small>
+            </div>
+            <div className="hero-kpi">
+              <span>Uyari toplami</span>
+              <strong>{warningCount}</strong>
+              <small>Supabase, R2, admin ve consistency sinyalleri</small>
+            </div>
+            <div className="hero-kpi">
+              <span>Cleanup kuyrugu</span>
+              <strong>{summary.totals.orphanedCleanupRuns}</strong>
+              <small>{summary.totals.pendingStorefronts} bekleyen storefront</small>
+            </div>
+          </div>
         </div>
-      </div>
+
+        <aside className="dashboard-hero-panel">
+          <div className="card-title">Operasyon sinyalleri</div>
+          <div className="hero-list">
+            <div className="hero-list-item">
+              <span>Consistency block</span>
+              <strong>{summary.totals.consistencyBlockingStores}</strong>
+            </div>
+            <div className="hero-list-item">
+              <span>Secret drift</span>
+              <strong>{summary.totals.secretDrift}</strong>
+            </div>
+            <div className="hero-list-item">
+              <span>Runtime issue</span>
+              <strong>{summary.totals.adminRuntimeIssues}</strong>
+            </div>
+          </div>
+          <div className="hero-chip-row">
+            <span className="hero-chip hero-chip-accent">{superAdmin ? "Repair controls active" : "Observation mode"}</span>
+            <span className={`hero-chip ${warningCount > 0 ? "hero-chip-neutral" : "hero-chip-accent"}`}>
+              {warningCount > 0 ? "Dikkat isteyen akim var" : "Operasyon temiz"}
+            </span>
+          </div>
+        </aside>
+      </section>
 
       {superAdmin ? (
-        <div className="stack-list stack-top-sm">
-          <div className="card surface-alert">
+        <div className="admin-command-grid">
+          <div className="admin-command-card">
             <div className="section-head">
               <div>
-                <div className="card-title">Deployment Branch Authority</div>
+                <div className="card-title">Deployment branch authority</div>
                 <p className="section-copy">
                   Owner resource yanlislikla `main` uzerinden deploy oluyorsa ya da auto deploy kapanmissa buradan tek tusla `deploy/owner` branch&apos;i ve otomatik deployment ayari onarilir.
                 </p>
               </div>
               <RepairOwnerDeploymentBranchButton />
             </div>
+            <div className="hero-chip-row">
+              <span className="hero-chip hero-chip-accent">Dark command card</span>
+              <span className="hero-chip hero-chip-neutral">Owner deployment rail</span>
+            </div>
           </div>
 
-          <div className="card surface-alert">
+          <div className="admin-command-card">
             <div className="section-head">
               <div>
-                <div className="card-title">Store Deployment Authority</div>
+                <div className="card-title">Store deployment authority</div>
                 <p className="section-copy">
                   Mevcut store resource&apos;lari `deploy/storefront/&lt;slug&gt;` ve `deploy/owner` branch authority&apos;sine alinip auto deploy acik hale getirilir. Yeni store&apos;lar artik varsayilan olarak bu ayarla olusur.
                 </p>
               </div>
               <RepairAllStoreDeploymentAuthoritiesButton />
+            </div>
+            <div className="hero-chip-row">
+              <span className="hero-chip hero-chip-accent">Store rail sync</span>
+              <span className="hero-chip hero-chip-neutral">Auto deploy standard</span>
             </div>
           </div>
         </div>
