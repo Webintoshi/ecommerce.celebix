@@ -103,7 +103,7 @@ export default async function OwnerDashboardPage() {
               {attentionCount > 0 ? `${attentionCount} dikkat gerekiyor` : "Sahne temiz"}
             </span>
             <span className={`pill ${setupQueueCount > 0 ? "pill-warning" : "pill-success"}`}>
-              {setupQueueCount > 0 ? `${setupQueueCount} setup queue` : "Setup queue temiz"}
+              {setupQueueCount > 0 ? `${setupQueueCount} kurulum aksiyonu` : "Kurulum aksiyonu temiz"}
             </span>
           </div>
         </div>
@@ -124,14 +124,14 @@ export default async function OwnerDashboardPage() {
               <strong>{totals.liveStorefronts.toLocaleString("tr-TR")}</strong>
             </div>
             <div className="hero-list-item">
-              <span>Son aktivite akisi</span>
-              <strong>{dashboard?.recentActivity.length ?? 0} kayit</strong>
+              <span>Yeni standart disi magazalar</span>
+              <strong>{legacyStoreCount}</strong>
             </div>
           </div>
           <div className="hero-chip-row">
             <span className="hero-chip hero-chip-accent">{superAdmin ? "Command mode" : "Portfolio mode"}</span>
             <span className="hero-chip hero-chip-neutral">{dashboard?.cleanupRuns.length ?? 0} orphan cleanup</span>
-            <span className="hero-chip hero-chip-neutral">{legacyStoreCount} legacy mode</span>
+            <span className="hero-chip hero-chip-neutral">{legacyStoreCount} yeni standart disi</span>
           </div>
         </aside>
       </section>
@@ -191,7 +191,7 @@ export default async function OwnerDashboardPage() {
           <div>
             <div className="hero-card-label">Kurulum Nabzi</div>
             <div className="insight-stat">{attentionCount}</div>
-            <p>Pending setup queue, pending repair ve operasyonel sinyaller bu blokta toparlanir.</p>
+            <p>Kurulum aksiyonu bekleyenler, pending repair ve operasyonel sinyaller bu blokta toparlanir.</p>
           </div>
           <div className="insight-list">
             <div className="insight-list-row">
@@ -338,7 +338,15 @@ export default async function OwnerDashboardPage() {
               <Link key={store.id} href={`/stores/${store.slug}`} className="status-card">
                 <div className="status-card-top">
                   <strong>{store.name}</strong>
-                  <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-warning"}`}>
+                  <span
+                    className={`pill ${
+                      store.health.label === "hazir"
+                        ? "pill-success"
+                        : store.health.label === "kritik"
+                          ? "pill-danger"
+                          : "pill-warning"
+                    }`}
+                  >
                     {store.health.label}
                   </span>
                 </div>
@@ -420,7 +428,17 @@ export default async function OwnerDashboardPage() {
                       </td>
                       <td>
                         <div className="actions compact-actions wrap">
-                          <span className="pill pill-accent">{store.health.label}</span>
+                          <span
+                            className={`pill ${
+                              store.health.label === "hazir"
+                                ? "pill-success"
+                                : store.health.label === "kritik"
+                                  ? "pill-danger"
+                                  : "pill-warning"
+                            }`}
+                          >
+                            {store.health.label}
+                          </span>
                           <span className={`pill ${getProvisioningToneClass(store.provisioning.state)}`}>
                             {getProvisioningLabel(store.provisioning.state)}
                           </span>

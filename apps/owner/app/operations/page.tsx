@@ -65,7 +65,7 @@ export default async function OperationsPage() {
               <small>Canliya yakin operasyon paketi</small>
             </div>
             <div className="hero-kpi">
-              <span>Setup queue</span>
+              <span>Kurulum aksiyonu bekleyenler</span>
               <strong>{setupQueueCount}</strong>
               <small>Auth, analytics veya payment bekleyenler</small>
             </div>
@@ -89,7 +89,7 @@ export default async function OperationsPage() {
               <strong>{summary.totals.secretDrift}</strong>
             </div>
             <div className="hero-list-item">
-              <span>Legacy mode</span>
+              <span>Yeni standart disi magazalar</span>
               <strong>{legacyStoreCount}</strong>
             </div>
             <div className="hero-list-item">
@@ -154,7 +154,7 @@ export default async function OperationsPage() {
           <div className="metric-box-value status-text-success">{summary.totals.readyStores}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Legacy Supabase</div>
+          <div className="metric-box-label">Yeni standart disi</div>
           <div className={`metric-box-value ${legacyStoreCount > 0 ? "status-text-warning" : ""}`}>
             {legacyStoreCount}
           </div>
@@ -235,7 +235,15 @@ export default async function OperationsPage() {
                       </td>
                       <td>
                         <div className="table-pill-row">
-                          <span className={`pill ${row.health.label === "hazir" ? "pill-success" : "pill-warning"}`}>
+                          <span
+                            className={`pill ${
+                              row.health.label === "hazir"
+                                ? "pill-success"
+                                : row.health.label === "kritik"
+                                  ? "pill-danger"
+                                  : "pill-warning"
+                            }`}
+                          >
                             {row.health.label}
                           </span>
                           <span className={`pill ${getProvisioningToneClass(row.provisioning.state)}`}>

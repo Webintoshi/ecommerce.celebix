@@ -90,3 +90,17 @@ Brand rule:
 | Repair CTA emphasis | `--brand-primary` |
 | Risk surfaces | `--status-danger-soft` + `--status-danger-border` |
 | Progress / orchestration | `--brand-primary-deep` -> `--brand-primary` -> `--brand-accent` |
+
+## Lifecycle color mapping
+
+| State | Token family | Usage | Badge / card / stepper example |
+| --- | --- | --- | --- |
+| `ready` | Success | Fully ready storefront/admin/runtime states | `pill-success`, `provisioning-tone-ready`, `tone-ready` |
+| `pending_auth` | Warning-soft | Non-blocking auth placeholder waiting | `provisioning-tone-pending_auth`, `tone-auth` |
+| `pending_analytics` | Warm calm surface | Non-blocking analytics placeholder waiting | `provisioning-tone-pending_analytics`, `tone-analytics` |
+| `pending_payment` | Primary-soft | Non-blocking payment authority waiting | `provisioning-tone-pending_payment`, `tone-payment` |
+| `pending_dns` | Warning | Runtime healthy but public route still waiting | `provisioning-tone-pending_dns`, `pill-warning` |
+| `provisioning` / `running` | Primary | Active lifecycle motion and in-flight steps | `provisioning-tone-provisioning`, `tone-running` |
+| `pending_repair` | Danger-soft | Action needed but recoverable lifecycle state | `provisioning-tone-pending_repair`, `surface-alert` |
+| `failed` | Danger-strong | Terminal failure that must look distinct from pending | `provisioning-tone-failed`, `tone-danger` |
+| `legacy` | Charcoal + orange outline | Full Supabase exceptional mode, not an error state | `pill-legacy`, `tone-legacy` |

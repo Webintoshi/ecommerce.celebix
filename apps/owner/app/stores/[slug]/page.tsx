@@ -129,7 +129,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       run.targets.filter((target) => target.status === "failed" || target.status === "skipped").length,
     0,
   );
-  const healthToneClass = store.health.label === "hazir" ? "pill-success" : "pill-warning";
+  const healthToneClass =
+    store.health.label === "hazir"
+      ? "pill-success"
+      : store.health.label === "kritik"
+        ? "pill-danger"
+        : "pill-warning";
   const provisioningToneClass = getProvisioningToneClass(provisioning.state);
   const progressToneClass = subscription.status === "active" ? "is-success" : "is-warning";
 
@@ -358,6 +363,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <div className="actions compact-actions wrap stack-top-sm">
             <span className={`pill ${subscriptionStatusClass}`}>{subscription.cadenceLabel}</span>
             <span className={`pill ${subscriptionStatusClass}`}>{subscription.countdownLabel}</span>
+            <span className={getDatabaseModePillClass(store.databaseMode)}>
+              {getDatabaseModeLabel(store.databaseMode)}
+            </span>
+            {showSupabaseInfrastructure ? <span className="pill pill-legacy">legacy mode</span> : null}
+            <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
           </div>
           <div className="meta-pairs">
             <span>Asama: <strong>{store.management.lifecycleStage}</strong></span>
@@ -378,7 +388,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <p className="card-note">{store.management.nextAction || "Sonraki aksiyon tanimlanmamis."}</p>
         </div>
 
-        <div className="card">
+        <div className={`card ${showSupabaseInfrastructure ? "" : "surface-brand"}`}>
           <div className="card-title">Altyapi</div>
           <div className="actions compact-actions wrap stack-top-sm">
             <span className={getDatabaseModePillClass(store.databaseMode)}>
@@ -434,8 +444,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             {store.health.adminRuntimeMessage
               ? `Admin runtime notu: ${store.health.adminRuntimeMessage}`
               : showSupabaseInfrastructure
-                ? "Legacy Supabase stack authority bu kartta izlenir."
-                : "Light Postgres store-per-database authority, R2 ve placeholder setup durumlari bu kartta izlenir."}
+                ? "Legacy Supabase stack authority ve istisnai auth modeli bu kartta ayri izlenir."
+                : "Light Postgres store-per-database authority, R2 zinciri ve bekleyen setup placeholder'lari bu kartta okunur."}
           </p>
         </div>
       </div>
@@ -539,9 +549,20 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           </div>
         </div>
 
-        <div className="card">
+        <div className={`card ${showSupabaseInfrastructure ? "" : "surface-brand"}`}>
           <div className="card-title">
             {showSupabaseInfrastructure ? "Supabase Provisioning" : "Setup Placeholder Durumu"}
+          </div>
+          <div className="actions compact-actions wrap stack-top-sm">
+            {pendingSetupSignals.length > 0 ? (
+              pendingSetupSignals.map((signal) => (
+                <span key={signal.key} className={signal.pillClassName}>
+                  {signal.shortLabel}
+                </span>
+              ))
+            ) : (
+              <span className="pill pill-success">setup sinyali temiz</span>
+            )}
           </div>
           <div className="meta-pairs">
             {showSupabaseInfrastructure ? (

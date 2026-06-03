@@ -835,6 +835,20 @@ code {
   background: linear-gradient(90deg, transparent, rgba(254, 97, 0, 0.28), transparent);
 }
 
+.setup-signal-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.setup-signal-card-head strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
 .setup-signal-kicker {
   font-size: 10px;
   font-weight: 800;
@@ -871,6 +885,18 @@ code {
 }
 
 .setup-signal-footer strong {
+  color: var(--text-primary);
+}
+
+.setup-signal-meta {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.setup-signal-meta strong {
   color: var(--text-primary);
 }
 
@@ -1221,54 +1247,6 @@ tbody td strong {
 .table-stack {
   display: grid;
   gap: 8px;
-}
-
-.setup-signal-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-.setup-signal-card {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--border-default);
-  border-radius: 20px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.setup-signal-card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.setup-signal-card-head strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 16px;
-  color: var(--text-primary);
-}
-
-.setup-signal-note {
-  margin-top: 10px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-
-.setup-signal-meta {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.setup-signal-meta strong {
-  color: var(--text-primary);
 }
 
 .table-cell-right {
