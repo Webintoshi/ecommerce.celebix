@@ -1,20 +1,47 @@
 import { formatDateTime } from "@/lib/formatters";
 import { RepairAllStoreDeploymentAuthoritiesButton } from "@/components/RepairAllStoreDeploymentAuthoritiesButton";
 import { RepairOwnerDeploymentBranchButton } from "@/components/RepairOwnerDeploymentBranchButton";
+import {
+  getDatabaseModeLabel,
+  getDatabaseModePillClass,
+  getProvisioningLabel,
+  getProvisioningToneClass,
+  getSetupSignals,
+  isLegacyDatabaseMode,
+} from "@/lib/lifecycle-ui";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
-import { getOperationsSummary } from "@/lib/control-plane";
+import { getOperationsSummary, listDashboardStores } from "@/lib/control-plane";
 
 export default async function OperationsPage() {
   const auth = await requireOwnerAuth("/operations");
   const superAdmin = isSuperAdmin(auth);
-  const summary = await getOperationsSummary(auth);
+  const [summary, stores] = await Promise.all([getOperationsSummary(auth), listDashboardStores(auth)]);
+  const storeMap = new Map(stores.map((store) => [store.id, store]));
+  const legacyStoreCount = stores.filter((store) => isLegacyDatabaseMode(store.databaseMode)).length;
+  const pendingAuthCount = stores.filter(
+    (store) => store.setup.auth.status === "pending_auth_setup",
+  ).length;
+  const pendingAnalyticsCount = stores.filter(
+    (store) => store.setup.analytics.status === "pending_analytics_setup",
+  ).length;
+  const pendingPaymentCount = stores.filter(
+    (store) => store.setup.payments.status === "pending_payment_setup",
+  ).length;
+  const setupQueueCount = stores.filter((store) =>
+    getSetupSignals(store.setup).some((signal) => signal.pending),
+  ).length;
+  const repairQueueCount = stores.filter(
+    (store) => store.provisioning.state === "pending_repair" || store.provisioning.state === "failed",
+  ).length;
   const warningCount =
-    summary.totals.missingSupabase +
+    setupQueueCount +
+    legacyStoreCount +
     summary.totals.missingR2 +
-    summary.totals.missingAdmins +
     summary.totals.secretDrift +
     summary.totals.adminRuntimeIssues +
-    summary.totals.consistencyBlockingStores;
+    summary.totals.consistencyBlockingStores +
+    summary.totals.orphanedCleanupRuns +
+    repairQueueCount;
 
   return (
     <>
@@ -24,7 +51,10 @@ export default async function OperationsPage() {
             <span className="hero-overline">Operations Layer</span>
             <div>
               <h1>Operasyon komuta kati</h1>
-              <p>Supabase, R2, storefront, admin kapsama alani ve operasyonel riskleri Celebix renk sistemiyle tek panelden izle.</p>
+              <p>
+                Light Postgres standardi, generated app authority, orphan cleanup akislari ve
+                legacy Supabase istisnalari tek panelden izlenir.
+              </p>
             </div>
           </div>
 
@@ -35,14 +65,14 @@ export default async function OperationsPage() {
               <small>Canliya yakin operasyon paketi</small>
             </div>
             <div className="hero-kpi">
-              <span>Uyari toplami</span>
-              <strong>{warningCount}</strong>
-              <small>Supabase, R2, admin ve consistency sinyalleri</small>
+              <span>Setup queue</span>
+              <strong>{setupQueueCount}</strong>
+              <small>Auth, analytics veya payment bekleyenler</small>
             </div>
             <div className="hero-kpi">
               <span>Cleanup kuyrugu</span>
               <strong>{summary.totals.orphanedCleanupRuns}</strong>
-              <small>{summary.totals.pendingStorefronts} bekleyen storefront</small>
+              <small>{repairQueueCount} repair queue / {legacyStoreCount} legacy mode</small>
             </div>
           </div>
         </div>
@@ -59,12 +89,18 @@ export default async function OperationsPage() {
               <strong>{summary.totals.secretDrift}</strong>
             </div>
             <div className="hero-list-item">
-              <span>Runtime issue</span>
-              <strong>{summary.totals.adminRuntimeIssues}</strong>
+              <span>Legacy mode</span>
+              <strong>{legacyStoreCount}</strong>
+            </div>
+            <div className="hero-list-item">
+              <span>Repair queue</span>
+              <strong>{repairQueueCount}</strong>
             </div>
           </div>
           <div className="hero-chip-row">
-            <span className="hero-chip hero-chip-accent">{superAdmin ? "Repair controls active" : "Observation mode"}</span>
+            <span className="hero-chip hero-chip-accent">
+              {superAdmin ? "Repair controls active" : "Observation mode"}
+            </span>
             <span className={`hero-chip ${warningCount > 0 ? "hero-chip-neutral" : "hero-chip-accent"}`}>
               {warningCount > 0 ? "Dikkat isteyen akim var" : "Operasyon temiz"}
             </span>
@@ -79,7 +115,9 @@ export default async function OperationsPage() {
               <div>
                 <div className="card-title">Deployment branch authority</div>
                 <p className="section-copy">
-                  Owner resource yanlislikla `main` uzerinden deploy oluyorsa ya da auto deploy kapanmissa buradan tek tusla `deploy/owner` branch&apos;i ve otomatik deployment ayari onarilir.
+                  Owner resource yanlislikla `main` uzerinden deploy oluyorsa ya da auto deploy
+                  kapanmissa buradan tek tusla `deploy/owner` branch&apos;i ve otomatik deployment
+                  ayari onarilir.
                 </p>
               </div>
               <RepairOwnerDeploymentBranchButton />
@@ -95,7 +133,9 @@ export default async function OperationsPage() {
               <div>
                 <div className="card-title">Store deployment authority</div>
                 <p className="section-copy">
-                  Mevcut store resource&apos;lari `deploy/storefront/&lt;slug&gt;` ve `deploy/owner` branch authority&apos;sine alinip auto deploy acik hale getirilir. Yeni store&apos;lar artik varsayilan olarak bu ayarla olusur.
+                  Mevcut store resource&apos;lari `deploy/storefront/&lt;slug&gt;` ve `deploy/owner`
+                  branch authority&apos;sine alinip auto deploy acik hale getirilir. Yeni store&apos;lar
+                  artik varsayilan olarak bu ayarla olusur.
                 </p>
               </div>
               <RepairAllStoreDeploymentAuthoritiesButton />
@@ -108,30 +148,39 @@ export default async function OperationsPage() {
         </div>
       ) : null}
 
-      {/* Operation Metrics */}
       <div className="metric-row metric-row-6">
         <div className="metric-box">
           <div className="metric-box-label">Hazir Store</div>
-          <div className="metric-box-value status-text-success">
-            {summary.totals.readyStores}
+          <div className="metric-box-value status-text-success">{summary.totals.readyStores}</div>
+        </div>
+        <div className="metric-box">
+          <div className="metric-box-label">Legacy Supabase</div>
+          <div className={`metric-box-value ${legacyStoreCount > 0 ? "status-text-warning" : ""}`}>
+            {legacyStoreCount}
           </div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Supabase Eksik</div>
-          <div className={`metric-box-value ${summary.totals.missingSupabase > 0 ? "status-text-error" : ""}`}>
-            {summary.totals.missingSupabase}
+          <div className="metric-box-label">Auth Bekleyen</div>
+          <div className={`metric-box-value ${pendingAuthCount > 0 ? "status-text-warning" : ""}`}>
+            {pendingAuthCount}
+          </div>
+        </div>
+        <div className="metric-box">
+          <div className="metric-box-label">Analytics Bekleyen</div>
+          <div className={`metric-box-value ${pendingAnalyticsCount > 0 ? "status-text-warning" : ""}`}>
+            {pendingAnalyticsCount}
+          </div>
+        </div>
+        <div className="metric-box">
+          <div className="metric-box-label">Payment Bekleyen</div>
+          <div className={`metric-box-value ${pendingPaymentCount > 0 ? "status-text-warning" : ""}`}>
+            {pendingPaymentCount}
           </div>
         </div>
         <div className="metric-box">
           <div className="metric-box-label">R2 Eksik</div>
           <div className={`metric-box-value ${summary.totals.missingR2 > 0 ? "status-text-error" : ""}`}>
             {summary.totals.missingR2}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Admin Eksik</div>
-          <div className={`metric-box-value ${summary.totals.missingAdmins > 0 ? "status-text-warning" : ""}`}>
-            {summary.totals.missingAdmins}
           </div>
         </div>
         <div className="metric-box">
@@ -147,16 +196,6 @@ export default async function OperationsPage() {
           </div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Consistency Block</div>
-          <div className={`metric-box-value ${summary.totals.consistencyBlockingStores > 0 ? "status-text-error" : ""}`}>
-            {summary.totals.consistencyBlockingStores}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Storefront Bekleyen</div>
-          <div className="metric-box-value">{summary.totals.pendingStorefronts}</div>
-        </div>
-        <div className="metric-box">
           <div className="metric-box-label">Orphan Cleanup</div>
           <div className={`metric-box-value ${summary.totals.orphanedCleanupRuns > 0 ? "status-text-warning" : ""}`}>
             {summary.totals.orphanedCleanupRuns}
@@ -164,7 +203,6 @@ export default async function OperationsPage() {
         </div>
       </div>
 
-      {/* Operations Table & Activity */}
       <div className="split-grid">
         <div className="card">
           <div className="table-wrap">
@@ -172,67 +210,127 @@ export default async function OperationsPage() {
               <thead>
                 <tr>
                   <th>Proje</th>
-                  <th>Saglik</th>
-                  <th>Supabase</th>
-                  <th>Provisioning</th>
+                  <th>Lifecycle</th>
+                  <th>Setup</th>
+                  <th>Data Mode</th>
                   <th>Secrets</th>
                   <th>Admin Runtime</th>
                   <th>Consistency</th>
-                  <th>R2</th>
-                  <th>Storefront</th>
+                  <th>Media</th>
                   <th>Son Sync</th>
                 </tr>
               </thead>
               <tbody>
-                {summary.rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <strong>{row.name}</strong>
-                      <div className="table-inline-meta">{row.storefrontDomain}</div>
-                    </td>
-                    <td>
-                      <span className={`pill ${row.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
-                        {row.health.label}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.supabaseProjectRef ? "status-text-success" : "status-text-error"}`}>
-                        {row.supabaseProjectRef || "Eksik"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.provisioning.state === "ready" ? "status-text-success" : "status-text-warning"}`}>
-                        {row.provisioning.state}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.health.secretAuthorityReady ? "status-text-success" : "status-text-warning"}`}>
-                        {row.health.secretAuthorityReady ? "Hazir" : "Drift"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.health.adminDeploymentReady && row.health.adminRuntimeConsistent ? "status-text-success" : "status-text-error"}`} title={row.health.adminRuntimeMessage || undefined}>
-                        {row.health.adminDeploymentReady
-                          ? row.health.adminRuntimeConsistent
-                            ? "Hazir"
-                            : "Drift"
-                          : "Kapali"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.consistency.blocking ? "status-text-error" : "status-text-success"}`} title={row.consistency.issues.length > 0 ? row.consistency.issues.map((issue) => issue.message).join(" / ") : undefined}>
-                        {row.consistency.blocking ? `${row.consistency.blockingIssueCount} blok` : "Temiz"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.r2BucketName ? "status-text-success" : "status-text-error"}`}>
-                        {row.r2BucketName || "Eksik"}
-                      </span>
-                    </td>
-                    <td>{row.storefrontStatus}</td>
-                    <td>{formatDateTime(row.lastSyncedAt)}</td>
-                  </tr>
-                ))}
+                {summary.rows.map((row) => {
+                  const store = storeMap.get(row.id);
+                  const setupSignals = store ? getSetupSignals(store.setup) : [];
+                  const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
+
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <strong>{row.name}</strong>
+                        <div className="table-inline-meta">{row.storefrontDomain}</div>
+                        <div className="table-inline-meta">{row.adminDomain}</div>
+                      </td>
+                      <td>
+                        <div className="table-pill-row">
+                          <span className={`pill ${row.health.label === "hazir" ? "pill-success" : "pill-warning"}`}>
+                            {row.health.label}
+                          </span>
+                          <span className={`pill ${getProvisioningToneClass(row.provisioning.state)}`}>
+                            {getProvisioningLabel(row.provisioning.state)}
+                          </span>
+                          {row.provisioning.failedStepCount > 0 ? (
+                            <span className="pill pill-danger">{row.provisioning.failedStepCount} fail</span>
+                          ) : null}
+                        </div>
+                        <div className="table-inline-meta">
+                          Pending step: {row.provisioning.pendingStepCount} / Storefront: {row.storefrontStatus}
+                        </div>
+                      </td>
+                      <td>
+                        {setupSignals.length > 0 ? (
+                          <>
+                            <div className="table-pill-row">
+                              {setupSignals.map((signal) => (
+                                <span key={signal.key} className={signal.pillClassName}>
+                                  {signal.shortLabel}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="table-inline-meta">
+                              {pendingSetupSignals.length > 0
+                                ? `${pendingSetupSignals.length} bekleyen setup adimi`
+                                : "Owner setup queue temiz"}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="muted">Setup okunamadi</span>
+                        )}
+                      </td>
+                      <td>
+                        {store ? (
+                          <>
+                            <div className="table-pill-row">
+                              <span className={getDatabaseModePillClass(store.databaseMode)}>
+                                {getDatabaseModeLabel(store.databaseMode)}
+                              </span>
+                              {isLegacyDatabaseMode(store.databaseMode) ? (
+                                <span className="pill pill-legacy">legacy mode</span>
+                              ) : null}
+                            </div>
+                            <div className="table-inline-meta">
+                              {isLegacyDatabaseMode(store.databaseMode)
+                                ? row.supabaseProjectRef || "Legacy authority bekliyor"
+                                : "Light Postgres standard"}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="muted">Data mode okunamadi</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`status-text ${row.health.secretAuthorityReady ? "status-text-success" : "status-text-warning"}`}>
+                          {row.health.secretAuthorityReady ? "Hazir" : "Drift"}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`status-text ${row.health.adminDeploymentReady && row.health.adminRuntimeConsistent ? "status-text-success" : "status-text-error"}`}
+                          title={row.health.adminRuntimeMessage || undefined}
+                        >
+                          {row.health.adminDeploymentReady
+                            ? row.health.adminRuntimeConsistent
+                              ? "Hazir"
+                              : "Drift"
+                            : "Kapali"}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`status-text ${row.consistency.blocking ? "status-text-error" : "status-text-success"}`}
+                          title={
+                            row.consistency.issues.length > 0
+                              ? row.consistency.issues.map((issue) => issue.message).join(" / ")
+                              : undefined
+                          }
+                        >
+                          {row.consistency.blocking ? `${row.consistency.blockingIssueCount} blok` : "Temiz"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="table-stack">
+                          <span className={`status-text ${row.r2BucketName ? "status-text-success" : "status-text-error"}`}>
+                            {row.r2BucketName || "R2 eksik"}
+                          </span>
+                          <span className="table-inline-meta">{row.pendingOrderCount} bekleyen siparis</span>
+                        </div>
+                      </td>
+                      <td>{formatDateTime(row.lastSyncedAt)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -11,8 +11,17 @@ import { ProvisioningLifecycleCard } from "@/components/ProvisioningLifecycleCar
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { repairStoreDeploymentAuthorityOnce } from "@/lib/coolify-store-deployment";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
+import { listCleanupRuns } from "@/lib/store-lifecycle";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
 import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/formatters";
+import {
+  getDatabaseModeLabel,
+  getDatabaseModePillClass,
+  getProvisioningLabel,
+  getProvisioningToneClass,
+  getSetupSignals,
+  isLegacyDatabaseMode,
+} from "@/lib/lifecycle-ui";
 import { requireOwnerAuth, isSuperAdmin } from "@/lib/owner-auth";
 import { getStoreDetail } from "@/lib/control-plane";
 
@@ -70,6 +79,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const deploymentAuthorityRepair = superAdmin
     ? await repairStoreDeploymentAuthorityOnce(store.slug)
     : null;
+  const cleanupRuns = await listCleanupRuns({ unresolvedOnly: true, limit: 3, slug: store.slug }).catch(
+    () => [],
+  );
   const adminDeployment = await getStoreAdminDeploymentBlueprint(store.slug).catch(() => null);
   const storefrontDeployment = await getStorefrontDeploymentBlueprint(store.slug).catch(() => null);
   const storefrontDeploymentAuthority = deploymentAuthorityRepair?.targets.find(
@@ -108,17 +120,17 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const subscriptionStatusClass =
     subscription.status === "active" ? "pill-success" : "pill-warning";
   const subscriptionProgress = subscription.progressPercent ?? 0;
-  const showSupabaseInfrastructure = store.databaseMode === "full_supabase";
-  const authPending = store.setup.auth.status === "pending_auth_setup";
-  const analyticsPending = store.setup.analytics.status === "pending_analytics_setup";
-  const paymentPending = store.setup.payments.status === "pending_payment_setup";
+  const showSupabaseInfrastructure = isLegacyDatabaseMode(store.databaseMode);
+  const setupSignals = getSetupSignals(store.setup);
+  const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
+  const orphanedTargetCount = cleanupRuns.reduce(
+    (total, run) =>
+      total +
+      run.targets.filter((target) => target.status === "failed" || target.status === "skipped").length,
+    0,
+  );
   const healthToneClass = store.health.label === "hazir" ? "pill-success" : "pill-warning";
-  const provisioningToneClass =
-    provisioning.state === "ready"
-      ? "pill-success"
-      : provisioning.state === "pending_dns"
-        ? "pill-warning"
-        : "pill-accent";
+  const provisioningToneClass = getProvisioningToneClass(provisioning.state);
   const progressToneClass = subscription.status === "active" ? "is-success" : "is-warning";
 
   return (
@@ -137,11 +149,16 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <div className="actions hero-actions">
               <span className="pill pill-capitalize">{store.status}</span>
               <span className={`pill ${healthToneClass}`}>{store.health.label}</span>
-              <span className={`pill ${provisioningToneClass}`}>{provisioning.state}</span>
-              <span className="pill">{store.databaseMode}</span>
-              {authPending ? <span className="pill pill-warning">pending_auth</span> : null}
-              {analyticsPending ? <span className="pill pill-warning">pending_analytics</span> : null}
-              {paymentPending ? <span className="pill pill-warning">pending_payment</span> : null}
+              <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
+              <span className={getDatabaseModePillClass(store.databaseMode)}>
+                {getDatabaseModeLabel(store.databaseMode)}
+              </span>
+              {showSupabaseInfrastructure ? <span className="pill pill-legacy">legacy mode</span> : null}
+              {pendingSetupSignals.map((signal) => (
+                <span key={signal.key} className={signal.pillClassName}>
+                  {signal.shortLabel}
+                </span>
+              ))}
               <span className="pill pill-ink">{store.storefrontDomain}</span>
             </div>
           </div>
@@ -173,6 +190,14 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <span>Affiliate orani</span>
               <strong>%{formatPercent(store.totalAffiliateRate)}</strong>
             </div>
+            <div className="hero-list-item">
+              <span>Setup kuyrugu</span>
+              <strong>
+                {pendingSetupSignals.length > 0
+                  ? `${pendingSetupSignals.length} bekleyen adim`
+                  : "owner hazir"}
+              </strong>
+            </div>
           </div>
           <div className={`progress-track ${progressToneClass}`} aria-hidden="true">
             <span style={{ width: `${subscriptionProgress}%` }} />
@@ -182,6 +207,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               {subscription.countdownLabel}
             </span>
             <span className="hero-chip hero-chip-neutral">{store.storeAdminCount} store admin</span>
+            <span className={`hero-chip ${showSupabaseInfrastructure ? "hero-chip-neutral" : "hero-chip-accent"}`}>
+              {showSupabaseInfrastructure ? "Legacy stack" : "Light Postgres standard"}
+            </span>
+            <span className={`hero-chip ${cleanupRuns.length > 0 ? "hero-chip-neutral" : "hero-chip-accent"}`}>
+              {cleanupRuns.length > 0 ? `${cleanupRuns.length} cleanup run` : "Cleanup temiz"}
+            </span>
           </div>
         </aside>
       </section>
@@ -213,6 +244,100 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <div className="metric-box-value">{formatCurrency(store.averageOrderValue)}</div>
         </div>
       </div>
+
+      <div className="setup-signal-grid">
+        {setupSignals.map((signal) => (
+          <div key={signal.key} className={`setup-signal-card ${signal.cardToneClass}`}>
+            <span className="setup-signal-kicker">{signal.title}</span>
+            <div className="actions compact-actions wrap stack-top-sm">
+              <span className={signal.pillClassName}>{signal.shortLabel}</span>
+              <span className="pill pill-ink">{signal.providerLabel}</span>
+            </div>
+            <div className="setup-signal-value">
+              {signal.pending
+                ? "Operasyon sirasinda"
+                : signal.key === "auth" && showSupabaseInfrastructure
+                  ? "Legacy authority"
+                  : "Owner hazir"}
+            </div>
+            <p className="setup-signal-note">{signal.note}</p>
+            <div className="setup-signal-footer">
+              <span>
+                Provider <strong>{signal.providerLabel}</strong>
+              </span>
+              <span>
+                Status <strong>{signal.statusLabel}</strong>
+              </span>
+            </div>
+          </div>
+        ))}
+
+        <div className={`setup-signal-card ${cleanupRuns.length > 0 ? "tone-cleanup" : "tone-neutral"}`}>
+          <span className="setup-signal-kicker">Cleanup</span>
+          <div className="actions compact-actions wrap stack-top-sm">
+            <span className={`pill ${cleanupRuns.length > 0 ? "pill-danger" : "pill-success"}`}>
+              {cleanupRuns.length > 0 ? "orphan cleanup" : "cleanup temiz"}
+            </span>
+            <Link className="button button-ghost" href="/operations">
+              Operasyonu ac
+            </Link>
+          </div>
+          <div className="setup-signal-value">
+            {cleanupRuns.length > 0 ? `${cleanupRuns.length} acik run` : "Acik run yok"}
+          </div>
+          <p className="setup-signal-note">
+            {cleanupRuns.length > 0
+              ? "Bu store icin dis kaynak temizligi tamamlanmamis cleanup kayitlari owner panelde izleniyor."
+              : "Bu store icin unresolved cleanup kaydi gorunmuyor."}
+          </p>
+          <div className="setup-signal-footer">
+            <span>
+              Orphan target <strong>{orphanedTargetCount}</strong>
+            </span>
+            <span>
+              Scope <strong>{store.slug}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {cleanupRuns.length > 0 ? (
+        <div className="card surface-alert section-tight">
+          <div className="section-head">
+            <div>
+              <div className="card-title">Store-level Orphan Cleanup</div>
+              <p className="section-copy">
+                Bu proje icin authority silindikten sonra unresolved kalan cleanup run&apos;lari burada izlenir.
+              </p>
+            </div>
+            <Link href="/operations" className="button button-secondary">
+              Tum cleanup kayitlari
+            </Link>
+          </div>
+          <div className="stack-list stack-top-sm">
+            {cleanupRuns.map((run) => (
+              <div key={run.id} className="inline-card">
+                <div>
+                  <strong>{run.storeName || store.name}</strong>
+                  <p>{run.status}</p>
+                </div>
+                <div className="activity-meta">
+                  <span>{run.targets.length} target</span>
+                  <span>
+                    {
+                      run.targets.filter(
+                        (target) => target.status === "failed" || target.status === "skipped",
+                      ).length
+                    }{" "}
+                    orphan
+                  </span>
+                  <span>{formatDateTime(run.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Info Cards */}
       <div className="info-row info-row-3">
@@ -255,8 +380,15 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
 
         <div className="card">
           <div className="card-title">Altyapi</div>
+          <div className="actions compact-actions wrap stack-top-sm">
+            <span className={getDatabaseModePillClass(store.databaseMode)}>
+              {getDatabaseModeLabel(store.databaseMode)}
+            </span>
+            {showSupabaseInfrastructure ? <span className="pill pill-legacy">legacy full stack</span> : null}
+            <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
+          </div>
           <div className="meta-pairs">
-            <span>Database Mode: <strong>{store.databaseMode}</strong></span>
+            <span>Database Mode: <strong>{getDatabaseModeLabel(store.databaseMode)}</strong></span>
             {showSupabaseInfrastructure ? (
               <span>Supabase: <strong>{store.supabaseProjectRef || "Eksik"}</strong></span>
             ) : (

@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
 import { formatCurrency, formatDateTime } from "@/lib/formatters";
+import {
+  getDatabaseModePillClass,
+  getProvisioningLabel,
+  getProvisioningToneClass,
+  getSetupSignals,
+  isLegacyDatabaseMode,
+} from "@/lib/lifecycle-ui";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { repairOwnerDeploymentBranchOnce } from "@/lib/coolify-owner-deployment";
 import { getOwnerDashboard } from "@/lib/control-plane";
@@ -37,10 +44,24 @@ export default async function OwnerDashboardPage() {
   const portfolioCount = totals.activeStores + totals.draftStores;
   const readinessRate = portfolioCount > 0 ? Math.round((totals.liveStorefronts / portfolioCount) * 100) : 0;
   const attentionCount = dashboard?.attentionStores.length ?? 0;
+  const dashboardStores = dashboard?.stores ?? [];
+  const pendingAuthCount = dashboardStores.filter(
+    (store) => store.setup.auth.status === "pending_auth_setup",
+  ).length;
+  const pendingAnalyticsCount = dashboardStores.filter(
+    (store) => store.setup.analytics.status === "pending_analytics_setup",
+  ).length;
+  const pendingPaymentCount = dashboardStores.filter(
+    (store) => store.setup.payments.status === "pending_payment_setup",
+  ).length;
+  const legacyStoreCount = dashboardStores.filter((store) => isLegacyDatabaseMode(store.databaseMode)).length;
+  const setupQueueCount = dashboardStores.filter((store) =>
+    getSetupSignals(store.setup).some((signal) => signal.pending),
+  ).length;
   const heroTitle = superAdmin ? "Celebix commerce command center" : "Affiliate portfoy kontrol katmani";
   const heroCopy = superAdmin
-    ? "Kurulum hatlarini, gelir akisini, affiliate etkisini ve canli storefront sagligini tek Celebix diliyle yonet."
-    : "Kendi proje portfoyunu, canli kurulum adimlarini ve gelir etkini marka odakli tek panelden izle.";
+    ? "Kurulum queue'larini, orphan cleanup akislarini ve canli storefront sagligini tek Celebix diliyle yonet."
+    : "Kendi proje portfoyunu, bekleyen setup adimlarini ve gelir etkini marka odakli tek panelden izle.";
 
   return (
     <>
@@ -81,6 +102,9 @@ export default async function OwnerDashboardPage() {
             <span className={`pill ${attentionCount > 0 ? "pill-warning" : "pill-success"}`}>
               {attentionCount > 0 ? `${attentionCount} dikkat gerekiyor` : "Sahne temiz"}
             </span>
+            <span className={`pill ${setupQueueCount > 0 ? "pill-warning" : "pill-success"}`}>
+              {setupQueueCount > 0 ? `${setupQueueCount} setup queue` : "Setup queue temiz"}
+            </span>
           </div>
         </div>
 
@@ -107,6 +131,7 @@ export default async function OwnerDashboardPage() {
           <div className="hero-chip-row">
             <span className="hero-chip hero-chip-accent">{superAdmin ? "Command mode" : "Portfolio mode"}</span>
             <span className="hero-chip hero-chip-neutral">{dashboard?.cleanupRuns.length ?? 0} orphan cleanup</span>
+            <span className="hero-chip hero-chip-neutral">{legacyStoreCount} legacy mode</span>
           </div>
         </aside>
       </section>
@@ -166,20 +191,20 @@ export default async function OwnerDashboardPage() {
           <div>
             <div className="hero-card-label">Kurulum Nabzi</div>
             <div className="insight-stat">{attentionCount}</div>
-            <p>Dikkat isteyen sahneler, pending repair ve operasyonel sinyaller bu blokta toparlanir.</p>
+            <p>Pending setup queue, pending repair ve operasyonel sinyaller bu blokta toparlanir.</p>
           </div>
           <div className="insight-list">
             <div className="insight-list-row">
-              <span>Hazir vitrin</span>
-              <strong>{totals.liveStorefronts}</strong>
+              <span>Pending auth</span>
+              <strong>{pendingAuthCount}</strong>
             </div>
             <div className="insight-list-row">
-              <span>Cleanup takibi</span>
-              <strong>{dashboard?.cleanupRuns.length ?? 0}</strong>
+              <span>Pending analytics</span>
+              <strong>{pendingAnalyticsCount}</strong>
             </div>
             <div className="insight-list-row">
-              <span>Son hareket</span>
-              <strong>{dashboard?.recentActivity.length ?? 0}</strong>
+              <span>Pending payment</span>
+              <strong>{pendingPaymentCount}</strong>
             </div>
           </div>
         </div>
@@ -206,6 +231,62 @@ export default async function OwnerDashboardPage() {
           </div>
         </div>
       </div>
+
+      {(setupQueueCount > 0 || legacyStoreCount > 0) && (
+        <div className="setup-signal-grid">
+          <div className={`setup-signal-card ${pendingAuthCount > 0 ? "tone-auth" : "tone-ready"}`}>
+            <span className="setup-signal-kicker">Auth Queue</span>
+            <div className="actions compact-actions wrap stack-top-sm">
+              <span className={`pill ${pendingAuthCount > 0 ? "provisioning-tone-pending_auth" : "pill-success"}`}>
+                {pendingAuthCount > 0 ? "auth bekliyor" : "auth hazir"}
+              </span>
+            </div>
+            <div className="setup-signal-value">{pendingAuthCount}</div>
+            <p className="setup-signal-note">
+              Logto-ready placeholder ile izlenen bekleyen auth authority sayisi.
+            </p>
+          </div>
+
+          <div className={`setup-signal-card ${pendingAnalyticsCount > 0 ? "tone-analytics" : "tone-ready"}`}>
+            <span className="setup-signal-kicker">Analytics Queue</span>
+            <div className="actions compact-actions wrap stack-top-sm">
+              <span className={`pill ${pendingAnalyticsCount > 0 ? "provisioning-tone-pending_analytics" : "pill-success"}`}>
+                {pendingAnalyticsCount > 0 ? "analytics bekliyor" : "analytics hazir"}
+              </span>
+            </div>
+            <div className="setup-signal-value">{pendingAnalyticsCount}</div>
+            <p className="setup-signal-note">
+              Umami-ready placeholder ile operasyon sirasina birakilan store sayisi.
+            </p>
+          </div>
+
+          <div className={`setup-signal-card ${pendingPaymentCount > 0 ? "tone-payment" : "tone-ready"}`}>
+            <span className="setup-signal-kicker">Payment Queue</span>
+            <div className="actions compact-actions wrap stack-top-sm">
+              <span className={`pill ${pendingPaymentCount > 0 ? "provisioning-tone-pending_payment" : "pill-success"}`}>
+                {pendingPaymentCount > 0 ? "odeme bekliyor" : "odeme hazir"}
+              </span>
+            </div>
+            <div className="setup-signal-value">{pendingPaymentCount}</div>
+            <p className="setup-signal-note">
+              Tahsilat authority sonraki operasyon adimi olarak izlenen store sayisi.
+            </p>
+          </div>
+
+          <div className={`setup-signal-card ${legacyStoreCount > 0 ? "tone-legacy" : "tone-neutral"}`}>
+            <span className="setup-signal-kicker">Legacy Mode</span>
+            <div className="actions compact-actions wrap stack-top-sm">
+              <span className={`pill ${legacyStoreCount > 0 ? "pill-legacy" : "pill-ink"}`}>
+                {legacyStoreCount > 0 ? "legacy stack" : "legacy temiz"}
+              </span>
+            </div>
+            <div className="setup-signal-value">{legacyStoreCount}</div>
+            <p className="setup-signal-note">
+              Yeni light_postgres standardi disinda kalan full Supabase istisnalari.
+            </p>
+          </div>
+        </div>
+      )}
 
       {dashboard && dashboard.orphanedCleanupRuns > 0 && (
         <div className="card surface-alert">
@@ -257,7 +338,7 @@ export default async function OwnerDashboardPage() {
               <Link key={store.id} href={`/stores/${store.slug}`} className="status-card">
                 <div className="status-card-top">
                   <strong>{store.name}</strong>
-                  <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
+                  <span className={`pill ${store.health.label === "hazir" ? "pill-success" : "pill-warning"}`}>
                     {store.health.label}
                   </span>
                 </div>
@@ -268,8 +349,23 @@ export default async function OwnerDashboardPage() {
                       ? `Paket takibi gerekiyor: ${store.management.subscription.countdownLabel}`
                       : "Sonraki aksiyon bekleniyor...")}
                 </p>
+                <div className="table-pill-row">
+                  <span className={`pill ${getProvisioningToneClass(store.provisioning.state)}`}>
+                    {getProvisioningLabel(store.provisioning.state)}
+                  </span>
+                  <span className={getDatabaseModePillClass(store.databaseMode)}>
+                    {store.databaseMode}
+                  </span>
+                  {getSetupSignals(store.setup)
+                    .filter((signal) => signal.pending)
+                    .map((signal) => (
+                      <span key={signal.key} className={signal.pillClassName}>
+                        {signal.shortLabel}
+                      </span>
+                    ))}
+                </div>
                 <div className="status-card-meta">
-                  <span>Provisioning: {store.provisioning.state}</span>
+                  <span>Provisioning: {getProvisioningLabel(store.provisioning.state)}</span>
                   <span>
                     Lifecycle: {store.provisioning.failedStepCount} fail / {store.provisioning.pendingStepCount} pending
                   </span>
@@ -325,11 +421,14 @@ export default async function OwnerDashboardPage() {
                       <td>
                         <div className="actions compact-actions wrap">
                           <span className="pill pill-accent">{store.health.label}</span>
-                          <span className={`pill ${store.provisioning.state === "ready" ? "pill-success" : "pill-accent"}`}>
-                            {store.provisioning.state}
+                          <span className={`pill ${getProvisioningToneClass(store.provisioning.state)}`}>
+                            {getProvisioningLabel(store.provisioning.state)}
+                          </span>
+                          <span className={getDatabaseModePillClass(store.databaseMode)}>
+                            {store.databaseMode}
                           </span>
                           {store.provisioning.failedStepCount > 0 ? (
-                            <span className="pill pill-accent">{store.provisioning.failedStepCount} failed</span>
+                            <span className="pill pill-danger">{store.provisioning.failedStepCount} failed</span>
                           ) : null}
                         </div>
                       </td>

@@ -1,5 +1,6 @@
 import { RepairProjectButton } from "@/components/RepairProjectButton";
 import { formatDateTime } from "@/lib/formatters";
+import { getProvisioningLabel, getProvisioningToneClass } from "@/lib/lifecycle-ui";
 import type {
   ProvisioningState,
   ProvisioningStepKey,
@@ -286,6 +287,7 @@ function getStatusLabel(status: ProvisioningStepStatus): string {
     case "running":
       return "suruyor";
     case "failed":
+      return "fail";
     case "blocked":
       return "bloklu";
     case "skipped":
@@ -296,13 +298,58 @@ function getStatusLabel(status: ProvisioningStepStatus): string {
   }
 }
 
+function getFocusedLifecycleStepKey(state: ProvisioningState): ProvisioningStepKey | null {
+  switch (state) {
+    case "pending_auth":
+      return "auth_setup";
+    case "pending_analytics":
+      return "analytics_setup";
+    case "pending_payment":
+      return "payment_setup";
+    default:
+      return null;
+  }
+}
+
+function getDisplayTone(step: ProvisioningSummary["steps"][number], state: ProvisioningState): string {
+  if (state === "pending_auth" && step.key === "auth_setup") {
+    return "auth";
+  }
+
+  if (state === "pending_analytics" && step.key === "analytics_setup") {
+    return "analytics";
+  }
+
+  if (state === "pending_payment" && step.key === "payment_setup") {
+    return "payment";
+  }
+
+  return getStatusTone(step.status);
+}
+
+function getDisplayStatusLabel(step: ProvisioningSummary["steps"][number], state: ProvisioningState): string {
+  if (
+    (state === "pending_auth" && step.key === "auth_setup") ||
+    (state === "pending_analytics" && step.key === "analytics_setup") ||
+    (state === "pending_payment" && step.key === "payment_setup")
+  ) {
+    return "beklemede";
+  }
+
+  return getStatusLabel(step.status);
+}
+
 export function ProvisioningLifecycleCard({
   provisioning,
   storeName,
   slug,
   superAdmin,
 }: ProvisioningLifecycleCardProps) {
+  const focusedLifecycleStepKey = getFocusedLifecycleStepKey(provisioning.state);
   const currentStep =
+    (focusedLifecycleStepKey
+      ? provisioning.steps.find((step) => step.key === focusedLifecycleStepKey)
+      : null) ??
     provisioning.steps.find((step) => step.status === "blocked") ??
     provisioning.steps.find((step) => step.status === "failed") ??
     provisioning.steps.find((step) => step.status === "running") ??
@@ -314,22 +361,32 @@ export function ProvisioningLifecycleCard({
   ).length;
   const showRepairButton =
     superAdmin && (provisioning.state === "pending_repair" || provisioning.state === "failed");
+  const softPendingState =
+    provisioning.state === "pending_auth" ||
+    provisioning.state === "pending_analytics" ||
+    provisioning.state === "pending_payment";
 
   const completedCount = provisioning.steps.filter(
     (step) => step.status === "completed" || step.status === "skipped",
   ).length;
-  const progressPercent =
+  const baseProgressPercent =
     provisioning.steps.length > 0
       ? Math.max(6, Math.round((completedCount / provisioning.steps.length) * 100))
       : 0;
+  const progressPercent = softPendingState ? Math.min(baseProgressPercent, 92) : baseProgressPercent;
+  const pendingCount =
+    provisioning.steps.filter((step) => step.status === "pending").length + (softPendingState ? 1 : 0);
   const heroCopy = getHeroCopy(provisioning.state, storeName, currentStep?.label ?? null);
+  const provisioningToneClass = getProvisioningToneClass(provisioning.state);
+  const provisioningLabel = getProvisioningLabel(provisioning.state);
 
   const actStatuses = ACTS.map((act) => {
     const currentActSteps = provisioning.steps.filter((step) => act.keys.includes(step.key));
+    const summarizedStatus = summarizeActStatus(currentActSteps.map((step) => step.status));
 
     return {
       ...act,
-      status: summarizeActStatus(currentActSteps.map((step) => step.status)),
+      status: softPendingState && act.key === "admin_deploy" ? "pending" : summarizedStatus,
     };
   });
 
@@ -358,9 +415,22 @@ export function ProvisioningLifecycleCard({
             <div className="card-title provisioning-stage-title">{heroCopy.title}</div>
             <p className="provisioning-stage-body">{heroCopy.body}</p>
             <div className="actions compact-actions wrap stack-top-sm">
-              <span className={`pill provisioning-tone-${provisioning.state}`}>{provisioning.state}</span>
-              {currentStep ? <span className="pill pill-accent">{currentStep.label}</span> : null}
+              <span className={`pill ${provisioningToneClass}`}>
+                {provisioningLabel}
+              </span>
+              {currentStep ? (
+                <span
+                  className={
+                    focusedLifecycleStepKey && currentStep.key === focusedLifecycleStepKey
+                      ? `pill ${provisioningToneClass}`
+                      : "pill pill-ink"
+                  }
+                >
+                  {currentStep.label}
+                </span>
+              ) : null}
               <span className="pill">{completedCount}/{provisioning.steps.length} adim tamam</span>
+              {blockerCount > 0 ? <span className="pill pill-danger">{blockerCount} blocker</span> : null}
             </div>
           </div>
           <div className="provisioning-stage-actions">
@@ -380,7 +450,7 @@ export function ProvisioningLifecycleCard({
               Bloklayan: <strong>{blockerCount}</strong>
             </span>
             <span>
-              Sirada: <strong>{provisioning.steps.filter((step) => step.status === "pending").length}</strong>
+              Sirada: <strong>{pendingCount}</strong>
             </span>
           </div>
         </div>
@@ -411,15 +481,17 @@ export function ProvisioningLifecycleCard({
         <div className="provisioning-step-grid">
           {orderedSteps.map((step) => {
             const story = STEP_STORIES[step.key];
+            const displayTone = getDisplayTone(step, provisioning.state);
+            const displayStatusLabel = getDisplayStatusLabel(step, provisioning.state);
 
             return (
-              <div key={step.key} className={`provisioning-step-card tone-${getStatusTone(step.status)}`}>
+              <div key={step.key} className={`provisioning-step-card tone-${displayTone}`}>
                 <div className="provisioning-step-top">
                   <div>
                     <strong>{step.label}</strong>
                     <p>{story.stage}</p>
                   </div>
-                  <span className="pill">{getStatusLabel(step.status)}</span>
+                  <span className="pill">{displayStatusLabel}</span>
                 </div>
                 <p className="provisioning-step-story">{story.copy}</p>
                 <div className="provisioning-step-footer">
