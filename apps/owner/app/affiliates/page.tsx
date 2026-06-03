@@ -1,10 +1,18 @@
 import { CreateAffiliateForm } from "@/components/CreateAffiliateForm";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { listAffiliates, listDashboardStores } from "@/lib/control-plane";
+import {
+  getOwnerPreviewDisabledNotice,
+  getOwnerPreviewFlags,
+  isOwnerActionDisabled,
+} from "@/lib/preview-mode";
 
 export default async function AffiliatesPage() {
   const auth = await requireOwnerAuth("/affiliates");
   const superAdmin = isSuperAdmin(auth);
+  const previewFlags = getOwnerPreviewFlags();
+  const writeDisabled = isOwnerActionDisabled("write", previewFlags);
+  const writeDisabledReason = getOwnerPreviewDisabledNotice("write", previewFlags) ?? undefined;
 
   let affiliates: Awaited<ReturnType<typeof listAffiliates>> = [];
   let stores: Awaited<ReturnType<typeof listDashboardStores>> = [];
@@ -81,7 +89,11 @@ export default async function AffiliatesPage() {
         <div className="card surface-brand">
           <div className="card-title">Yeni Affiliate Ekle</div>
           {superAdmin ? (
-            <CreateAffiliateForm stores={stores.map((store) => ({ slug: store.slug, name: store.name }))} />
+            <CreateAffiliateForm
+              stores={stores.map((store) => ({ slug: store.slug, name: store.name }))}
+              disabled={writeDisabled}
+              disabledReason={writeDisabledReason}
+            />
           ) : (
             <div className="empty-state empty-state-compact">
               <p className="muted">Bu islem icin super admin yetkisi gerekli.</p>

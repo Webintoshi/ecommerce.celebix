@@ -14,9 +14,15 @@ const ROLE_OPTIONS: Array<{ value: StoreAdminRole; label: string }> = [
 
 interface CreateStoreAdminFormProps {
   storeSlug: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function CreateStoreAdminForm({ storeSlug }: CreateStoreAdminFormProps) {
+export function CreateStoreAdminForm({
+  storeSlug,
+  disabled = false,
+  disabledReason,
+}: CreateStoreAdminFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -31,6 +37,11 @@ export function CreateStoreAdminForm({ storeSlug }: CreateStoreAdminFormProps) {
     event.preventDefault();
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch(`/api/stores/${storeSlug}/admins`, {
@@ -66,6 +77,7 @@ export function CreateStoreAdminForm({ storeSlug }: CreateStoreAdminFormProps) {
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
+      <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Ad soyad</span>
         <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Magaza yoneticisi" required />
@@ -108,12 +120,14 @@ export function CreateStoreAdminForm({ storeSlug }: CreateStoreAdminFormProps) {
           rows={4}
         />
       </label>
+      </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {notice ? <p className="form-notice field-full">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice field-full">{disabledReason}</p> : null}
 
       <div className="actions field-full">
-        <button type="submit" className="button button-primary" disabled={isPending}>
+        <button type="submit" className="button button-primary" disabled={disabled || isPending}>
           {isPending ? "Kaydediliyor..." : "Store admin kaydet"}
         </button>
       </div>

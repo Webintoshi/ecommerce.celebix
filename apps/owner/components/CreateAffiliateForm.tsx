@@ -11,9 +11,16 @@ interface StoreOption {
 interface CreateAffiliateFormProps {
   stores: StoreOption[];
   defaultStoreSlug?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliateFormProps) {
+export function CreateAffiliateForm({
+  stores,
+  defaultStoreSlug,
+  disabled = false,
+  disabledReason,
+}: CreateAffiliateFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -28,6 +35,11 @@ export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliat
     event.preventDefault();
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/affiliates", {
@@ -61,6 +73,7 @@ export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliat
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
+      <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Ad soyad</span>
         <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Partner kullanici" />
@@ -99,12 +112,18 @@ export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliat
           required
         />
       </label>
+      </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {notice ? <p className="form-notice field-full">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice field-full">{disabledReason}</p> : null}
 
       <div className="actions field-full">
-        <button type="submit" className="button button-primary" disabled={isPending || stores.length === 0}>
+        <button
+          type="submit"
+          className="button button-primary"
+          disabled={disabled || isPending || stores.length === 0}
+        >
           {isPending ? "Kaydediliyor..." : "Affiliate kaydet"}
         </button>
       </div>

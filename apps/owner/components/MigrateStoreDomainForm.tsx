@@ -44,6 +44,8 @@ interface MigrateStoreDomainFormProps {
   storefrontDomain: string;
   adminDomain: string;
   domainMigration: DomainMigrationStatusSnapshot;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 function normalizeInputDomain(value: string): string {
@@ -75,6 +77,8 @@ export function MigrateStoreDomainForm({
   storefrontDomain,
   adminDomain,
   domainMigration,
+  disabled = false,
+  disabledReason,
 }: MigrateStoreDomainFormProps) {
   const router = useRouter();
   const [domain, setDomain] = useState(storefrontDomain);
@@ -91,6 +95,11 @@ export function MigrateStoreDomainForm({
     setError(null);
     setNotice(null);
     setDetails([]);
+
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
 
     startTransition(() => {
       void (async () => {
@@ -137,6 +146,7 @@ export function MigrateStoreDomainForm({
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
+      <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Mevcut storefront domain</span>
         <input value={storefrontDomain} disabled />
@@ -192,9 +202,11 @@ export function MigrateStoreDomainForm({
           ) : null}
         </div>
       ) : null}
+      </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {notice ? <p className="form-notice field-full">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice field-full">{disabledReason}</p> : null}
       {details.length > 0 ? (
         <div className="stack-list field-full">
           {details.map((detail) => (
@@ -206,7 +218,7 @@ export function MigrateStoreDomainForm({
       ) : null}
 
       <div className="actions field-full">
-        <button type="submit" className="button button-primary" disabled={isPending}>
+        <button type="submit" className="button button-primary" disabled={disabled || isPending}>
           {isPending ? "Domain tasiniyor..." : "Custom domain'e gecir"}
         </button>
       </div>

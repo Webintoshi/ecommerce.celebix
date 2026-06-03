@@ -24,6 +24,11 @@ import {
 } from "@/lib/lifecycle-ui";
 import { requireOwnerAuth, isSuperAdmin } from "@/lib/owner-auth";
 import { getStoreDetail } from "@/lib/control-plane";
+import {
+  getOwnerPreviewDisabledNotice,
+  getOwnerPreviewFlags,
+  isOwnerActionDisabled,
+} from "@/lib/preview-mode";
 
 interface StoreDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -71,12 +76,21 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const { slug } = await params;
   const store = await getStoreDetail(auth, slug);
   const superAdmin = isSuperAdmin(auth);
+  const previewFlags = getOwnerPreviewFlags();
+  const writeDisabled = isOwnerActionDisabled("write", previewFlags);
+  const deployDisabled = isOwnerActionDisabled("deploy", previewFlags);
+  const cleanupDisabled = isOwnerActionDisabled("cleanup", previewFlags);
+  const repairDisabled = isOwnerActionDisabled("repair", previewFlags);
+  const writeDisabledReason = getOwnerPreviewDisabledNotice("write", previewFlags) ?? undefined;
+  const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
+  const cleanupDisabledReason = getOwnerPreviewDisabledNotice("cleanup", previewFlags) ?? undefined;
+  const repairDisabledReason = getOwnerPreviewDisabledNotice("repair", previewFlags) ?? undefined;
 
   if (!store) {
     notFound();
   }
 
-  const deploymentAuthorityRepair = superAdmin
+  const deploymentAuthorityRepair = superAdmin && !repairDisabled
     ? await repairStoreDeploymentAuthorityOnce(store.slug)
     : null;
   const cleanupRuns = await listCleanupRuns({ unresolvedOnly: true, limit: 3, slug: store.slug }).catch(
@@ -172,7 +186,14 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <Link className="button button-secondary" href={`https://${store.adminDomain}/admin`} target="_blank" rel="noreferrer">
               Admini ac
             </Link>
-            {superAdmin ? <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} /> : null}
+            {superAdmin ? (
+              <LaunchStorefrontButton
+                slug={store.slug}
+                currentStatus={store.storefrontStatus}
+                disabled={deployDisabled}
+                disabledReason={deployDisabledReason}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -614,6 +635,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         storeName={store.name}
         provisioning={provisioning}
         superAdmin={superAdmin}
+        repairDisabled={repairDisabled}
+        repairDisabledReason={repairDisabledReason}
       />
 
       <div className="card section-tight">
@@ -621,8 +644,19 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         {storefrontDeployment ? (
           <>
             <div className="actions compact-actions stack-top-sm">
-              <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} />
-              {superAdmin ? <RepairStoreDeploymentAuthorityButton slug={store.slug} /> : null}
+              <LaunchStorefrontButton
+                slug={store.slug}
+                currentStatus={store.storefrontStatus}
+                disabled={deployDisabled}
+                disabledReason={deployDisabledReason}
+              />
+              {superAdmin ? (
+                <RepairStoreDeploymentAuthorityButton
+                  slug={store.slug}
+                  disabled={repairDisabled}
+                  disabledReason={repairDisabledReason}
+                />
+              ) : null}
             </div>
             <div className="meta-pairs">
               <span>Deployment Name: <strong>{storefrontDeploymentName || storefrontDeployment.appName}</strong></span>
@@ -657,7 +691,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         {adminDeployment ? (
           <>
             <div className="actions compact-actions stack-top-sm">
-              <ProvisionAdminDeploymentButton slug={store.slug} currentStatus={adminDeployment.status} />
+              <ProvisionAdminDeploymentButton
+                slug={store.slug}
+                currentStatus={adminDeployment.status}
+                disabled={deployDisabled}
+                disabledReason={deployDisabledReason}
+              />
             </div>
             <div className="meta-pairs">
               <span>App Name: <strong>{adminDeployment.appName}</strong></span>
@@ -725,6 +764,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               storefrontDomain={store.storefrontDomain}
               adminDomain={store.adminDomain}
               domainMigration={store.domainMigration}
+              disabled={deployDisabled}
+              disabledReason={deployDisabledReason}
             />
           </div>
 
@@ -740,12 +781,19 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                 supportPhone: store.supportPhone,
                 management: store.management
               }}
+              disabled={writeDisabled}
+              disabledReason={writeDisabledReason}
             />
           </div>
 
           <div className="card section-tight">
             <div className="card-title">Bu Projeye Affiliate Ata</div>
-            <CreateAffiliateForm stores={[{ slug: store.slug, name: store.name }]} defaultStoreSlug={store.slug} />
+            <CreateAffiliateForm
+              stores={[{ slug: store.slug, name: store.name }]}
+              defaultStoreSlug={store.slug}
+              disabled={writeDisabled}
+              disabledReason={writeDisabledReason}
+            />
           </div>
 
           <div className="card section-tight surface-alert">
@@ -758,7 +806,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               </div>
             </div>
             <div className="actions">
-              <DeleteStoreButton slug={store.slug} name={store.name} />
+              <DeleteStoreButton
+                slug={store.slug}
+                name={store.name}
+                disabled={cleanupDisabled}
+                disabledReason={cleanupDisabledReason}
+              />
             </div>
           </div>
         </>
@@ -767,7 +820,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       <div className="card">
         <div className="card-title">Bu Projeye Store Admin Ata</div>
         <p className="section-copy">Bu magazaya bagli operasyon kullanicilarini yonet.</p>
-        <CreateStoreAdminForm storeSlug={store.slug} />
+        <CreateStoreAdminForm
+          storeSlug={store.slug}
+          disabled={writeDisabled}
+          disabledReason={writeDisabledReason}
+        />
       </div>
     </>
   );

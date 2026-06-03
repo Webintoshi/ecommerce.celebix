@@ -6,6 +6,11 @@ import { SidebarNavLink } from "@/components/SidebarNavLink";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  getOwnerPreviewBannerMessage,
+  getOwnerPreviewBannerTitle,
+  getOwnerPreviewFlags,
+} from "@/lib/preview-mode";
 
 export const metadata: Metadata = {
   title: "Celebix Owner Panel",
@@ -46,6 +51,7 @@ const themeScript = `
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const auth = await getOwnerAuthContext();
+  const previewFlags = getOwnerPreviewFlags();
 
   const userName = auth?.profile.full_name || auth?.user.email || "";
   const roleLabel = auth?.profile.role === "super_admin" ? "Super Admin" : "Affiliate";
@@ -144,11 +150,25 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 <header className="topbar">
                   <ThemeToggle />
                   <div className="topbar-user">
+                    {previewFlags.previewMode || previewFlags.writeActionsDisabled ? (
+                      <span className="pill pill-warning">{getOwnerPreviewBannerTitle()}</span>
+                    ) : null}
                     <span className="pill pill-accent">{roleLabel}</span>
                     <span className="topbar-user-name">{userName}</span>
                   </div>
                 </header>
-                <main className="page-content">{children}</main>
+                <main className="page-content">
+                  {previewFlags.previewMode || previewFlags.writeActionsDisabled ? (
+                    <section className="preview-banner">
+                      <div className="preview-banner-chip">{getOwnerPreviewBannerTitle()}</div>
+                      <div className="preview-banner-copy">
+                        <strong>Read-only owner preview aktif.</strong>
+                        <p>{getOwnerPreviewBannerMessage()}</p>
+                      </div>
+                    </section>
+                  ) : null}
+                  {children}
+                </main>
               </div>
             </div>
           ) : (

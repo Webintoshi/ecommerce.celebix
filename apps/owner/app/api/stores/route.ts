@@ -11,6 +11,7 @@ import {
 } from "@/lib/control-plane";
 import { validateNewStoreDeploymentBranches } from "@/lib/deployment-branch-guard";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { isRedisLockError } from "@/lib/redis";
 import { hasUnresolvedCleanupRun } from "@/lib/store-lifecycle";
 import {
@@ -58,6 +59,12 @@ export async function POST(request: Request) {
 
     if (!isSuperAdmin(auth)) {
       return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+    }
+
+    const previewBlock = blockOwnerActionInPreview("create_store");
+
+    if (previewBlock) {
+      return previewBlock;
     }
 
     const body = (await request.json()) as {

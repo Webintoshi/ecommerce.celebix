@@ -9,6 +9,7 @@ import {
 import { prepareCoolifyEnvValue } from "@/lib/coolify-env";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
 import { getStoreDeploymentBranches } from "@/lib/platform-config-owner";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 
 interface CoolifyProject {
@@ -846,6 +847,10 @@ export async function provisionStorefrontDeploymentForStore(
   slug: string,
   options: StorefrontDeploymentProvisioningOptions = {},
 ): Promise<StorefrontDeploymentProvisioningResult> {
+  if (isOwnerActionDisabled("deploy")) {
+    throw new Error("Preview ortaminda yazma/kurulum islemleri kapalidir.");
+  }
+
   const store = requireStoreConfig(slug);
   const blueprint = await getStorefrontDeploymentBlueprint(slug);
   const shouldWaitForRuntime = options.waitForRuntime ?? true;

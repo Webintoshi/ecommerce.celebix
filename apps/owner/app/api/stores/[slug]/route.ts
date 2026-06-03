@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { getStoreDetail, updateStoreManagementProfile } from "@/lib/control-plane";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import { cleanupStoreResources } from "@/lib/store-cleanup";
@@ -30,6 +31,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("write");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {
@@ -74,6 +81,12 @@ export async function DELETE(request: Request, { params }: RouteContext) {
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("cleanup");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {

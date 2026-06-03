@@ -11,6 +11,7 @@ import { getStoreConfig, removeStoreArtifacts, repairStoreConfig } from "@celebi
 import { recordOwnerAuditLog } from "@/lib/control-plane";
 import { createCleanupRun, type CleanupTargetSummary } from "@/lib/store-lifecycle";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import { deleteStoreRepoArtifactsForStore, isGitHubRepoSyncConfigured } from "@/lib/storefront-repo-sync";
 
 interface OwnerStoreCleanupRow {
@@ -637,6 +638,10 @@ export async function cleanupStoreResources(
   slug: string,
   options: StoreCleanupOptions = {},
 ): Promise<StoreCleanupResult> {
+  if (isOwnerActionDisabled("cleanup")) {
+    throw new Error("Preview ortaminda yazma/kurulum islemleri kapalidir.");
+  }
+
   const serviceClient = createOwnerServiceClient();
   const { data, error } = await serviceClient
     .from("owner_stores")

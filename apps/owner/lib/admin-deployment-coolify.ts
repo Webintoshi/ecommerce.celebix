@@ -10,6 +10,7 @@ import { updateOwnerStoreAdminDeploymentAuthority } from "@/lib/control-plane";
 import { prepareCoolifyEnvValue } from "@/lib/coolify-env";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
 import { getStoreDeploymentBranches } from "@/lib/platform-config-owner";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 
 interface CoolifyProject {
   uuid?: string;
@@ -588,6 +589,10 @@ export async function provisionAdminDeploymentForStore(
   slug: string,
   options: AdminDeploymentProvisioningOptions = {},
 ): Promise<AdminDeploymentProvisioningResult> {
+  if (isOwnerActionDisabled("deploy")) {
+    throw new Error("Preview ortaminda yazma/kurulum islemleri kapalidir.");
+  }
+
   const store = requireStoreConfig(slug);
   const deploymentMarker = `admin-${Date.now()}`;
   let blueprint = await getStoreAdminDeploymentBlueprint(slug, { deploymentMarker });

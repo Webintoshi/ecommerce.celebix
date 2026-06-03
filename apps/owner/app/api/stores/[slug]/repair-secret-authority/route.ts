@@ -3,6 +3,7 @@ import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import { getStoreDetail } from "@/lib/control-plane";
 import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-authority";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 import { getStoreSupabaseSecret, upsertStoreSupabaseSecret } from "@/lib/store-secrets";
 
@@ -15,6 +16,12 @@ export async function POST(_: Request, { params }: RouteContext) {
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("repair");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   const { slug } = await params;

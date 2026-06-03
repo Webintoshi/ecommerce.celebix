@@ -7,6 +7,8 @@ import { Dialog } from "@/components/ui/dialog";
 interface DeleteStoreButtonProps {
   slug: string;
   name: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 interface CleanupTargetResult {
@@ -16,7 +18,12 @@ interface CleanupTargetResult {
   message?: string | null;
 }
 
-export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
+export function DeleteStoreButton({
+  slug,
+  name,
+  disabled = false,
+  disabledReason,
+}: DeleteStoreButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmationValue, setConfirmationValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +58,11 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
   }
 
   function handleDelete() {
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
+
     if (!isConfirmed) {
       setError("Devam etmek icin asagidaki slug ya da proje adini aynen gir veya tek tikla doldur.");
       return;
@@ -116,9 +128,10 @@ export function DeleteStoreButton({ slug, name }: DeleteStoreButtonProps) {
 
   return (
     <>
-      <Button variant="danger" onClick={() => setIsOpen(true)}>
+      <Button variant="danger" onClick={() => setIsOpen(true)} disabled={disabled}>
         Projeyi sil
       </Button>
+      {disabledReason ? <p className="form-notice stack-top-sm">{disabledReason}</p> : null}
 
       <Dialog
         isOpen={isOpen}

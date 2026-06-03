@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertStoreConsistencyForAdminMutation, createOrAssignStoreAdmin } from "@/lib/control-plane";
 import { getOwnerAuthContext } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
@@ -11,6 +12,12 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   if (!auth) {
     return NextResponse.json({ error: "Owner oturumu gerekli." }, { status: 401 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("write");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {

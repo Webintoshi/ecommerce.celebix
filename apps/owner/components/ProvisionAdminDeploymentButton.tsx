@@ -7,11 +7,15 @@ import { normalizeActionError, readActionResponse } from "@/components/action-re
 interface ProvisionAdminDeploymentButtonProps {
   slug: string;
   currentStatus: "pending-owner-env" | "prepared" | "configured" | "failed";
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export function ProvisionAdminDeploymentButton({
   slug,
   currentStatus,
+  disabled = false,
+  disabledReason,
 }: ProvisionAdminDeploymentButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +25,11 @@ export function ProvisionAdminDeploymentButton({
   function handleProvision() {
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
 
     startTransition(() => {
       void (async () => {
@@ -54,7 +63,12 @@ export function ProvisionAdminDeploymentButton({
 
   return (
     <div className="inline-stack">
-      <button type="button" className="button button-secondary" onClick={handleProvision} disabled={isPending}>
+      <button
+        type="button"
+        className="button button-secondary"
+        onClick={handleProvision}
+        disabled={disabled || isPending}
+      >
         {isPending
           ? "Deploy hazirlaniyor..."
           : currentStatus === "configured"
@@ -63,6 +77,7 @@ export function ProvisionAdminDeploymentButton({
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice">{disabledReason}</p> : null}
     </div>
   );
 }

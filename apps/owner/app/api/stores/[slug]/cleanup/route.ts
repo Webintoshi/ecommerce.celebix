@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { cleanupStoreResources } from "@/lib/store-cleanup";
 
 interface RouteContext {
@@ -11,6 +12,12 @@ export async function DELETE(request: Request, { params }: RouteContext) {
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("cleanup");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {

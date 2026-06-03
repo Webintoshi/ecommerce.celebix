@@ -10,6 +10,7 @@ import {
   type SupabaseBootstrapStatus,
   type SupabaseProvisioningResult,
 } from "@/lib/supabase-bootstrap.shared";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 
 export type { SupabaseBootstrapStatus, SupabaseOrganization, SupabaseProvisioningResult } from "@/lib/supabase-bootstrap.shared";
 
@@ -33,6 +34,10 @@ export async function getSupabaseBootstrapStatus(): Promise<SupabaseBootstrapSta
 }
 
 export async function provisionSupabaseForStore(store: StoreConfig): Promise<SupabaseProvisioningResult> {
+  if (isOwnerActionDisabled("provisioning")) {
+    throw new Error("Preview ortaminda yazma/kurulum islemleri kapalidir.");
+  }
+
   if (store.databaseMode !== "full_supabase") {
     throw new Error(
       "Bu magaza full_supabase explicit mode olmadan legacy Supabase provisioning akisina giremez.",

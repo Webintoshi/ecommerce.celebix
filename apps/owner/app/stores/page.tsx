@@ -12,6 +12,11 @@ import {
 } from "@/lib/lifecycle-ui";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { listDashboardStores } from "@/lib/control-plane";
+import {
+  getOwnerPreviewDisabledNotice,
+  getOwnerPreviewFlags,
+  isOwnerActionDisabled,
+} from "@/lib/preview-mode";
 
 function getHealthToneClass(label: string) {
   if (label === "hazir") {
@@ -28,6 +33,10 @@ function getHealthToneClass(label: string) {
 export default async function StoresPage() {
   const auth = await requireOwnerAuth("/stores");
   const superAdmin = isSuperAdmin(auth);
+  const previewFlags = getOwnerPreviewFlags();
+  const createStoreDisabled = isOwnerActionDisabled("create_store", previewFlags);
+  const deployDisabled = isOwnerActionDisabled("deploy", previewFlags);
+  const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
   const stores = await listDashboardStores(auth);
 
   const readyCount = stores.filter((store) => store.provisioning.state === "ready").length;
@@ -72,8 +81,11 @@ export default async function StoresPage() {
 
           <div className="actions hero-actions">
             {superAdmin ? (
-              <Link className="button button-primary" href="/stores/new">
-                + Yeni proje
+              <Link
+                className={`button ${createStoreDisabled ? "button-secondary" : "button-primary"}`}
+                href="/stores/new"
+              >
+                {createStoreDisabled ? "Yeni proje formu" : "+ Yeni proje"}
               </Link>
             ) : null}
             <span className="pill pill-accent">{readyCount} lifecycle hazir</span>
@@ -228,6 +240,8 @@ export default async function StoresPage() {
                             <LaunchStorefrontButton
                               slug={store.slug}
                               currentStatus={store.storefrontStatus}
+                              disabled={deployDisabled}
+                              disabledReason={deployDisabledReason}
                             />
                           ) : null}
                         </div>

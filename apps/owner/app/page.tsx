@@ -11,12 +11,22 @@ import {
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { repairOwnerDeploymentBranchOnce } from "@/lib/coolify-owner-deployment";
 import { getOwnerDashboard } from "@/lib/control-plane";
+import {
+  getOwnerPreviewDisabledNotice,
+  getOwnerPreviewFlags,
+  isOwnerActionDisabled,
+} from "@/lib/preview-mode";
 
 export default async function OwnerDashboardPage() {
   const auth = await requireOwnerAuth("/");
   const superAdmin = isSuperAdmin(auth);
+  const previewFlags = getOwnerPreviewFlags();
+  const createStoreDisabled = isOwnerActionDisabled("create_store", previewFlags);
+  const deployDisabled = isOwnerActionDisabled("deploy", previewFlags);
+  const repairDisabled = isOwnerActionDisabled("repair", previewFlags);
+  const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
 
-  if (superAdmin) {
+  if (superAdmin && !repairDisabled) {
     await repairOwnerDeploymentBranchOnce();
   }
   
@@ -96,7 +106,12 @@ export default async function OwnerDashboardPage() {
           <div className="actions hero-actions">
             <Link href="/stores" className="button button-secondary">Tum projeler</Link>
             {superAdmin ? (
-              <Link href="/stores/new" className="button button-primary">+ Yeni proje</Link>
+              <Link
+                href="/stores/new"
+                className={`button ${createStoreDisabled ? "button-secondary" : "button-primary"}`}
+              >
+                {createStoreDisabled ? "Yeni proje formu" : "+ Yeni proje"}
+              </Link>
             ) : null}
             <span className="pill pill-accent">{totals.liveStorefronts} canli vitrin</span>
             <span className={`pill ${attentionCount > 0 ? "pill-warning" : "pill-success"}`}>
@@ -456,7 +471,12 @@ export default async function OwnerDashboardPage() {
                         <div className="actions no-margin actions-end">
                           <Link href={`/stores/${store.slug}`} className="button button-secondary">Detay</Link>
                           {superAdmin && (
-                            <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} />
+                            <LaunchStorefrontButton
+                              slug={store.slug}
+                              currentStatus={store.storefrontStatus}
+                              disabled={deployDisabled}
+                              disabledReason={deployDisabledReason}
+                            />
                           )}
                         </div>
                       </td>

@@ -7,9 +7,16 @@ import { normalizeActionError, readActionResponse } from "@/components/action-re
 interface LaunchStorefrontButtonProps {
   slug: string;
   currentStatus: "not_started" | "scaffolded" | "active";
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function LaunchStorefrontButton({ slug, currentStatus }: LaunchStorefrontButtonProps) {
+export function LaunchStorefrontButton({
+  slug,
+  currentStatus,
+  disabled = false,
+  disabledReason,
+}: LaunchStorefrontButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -18,6 +25,11 @@ export function LaunchStorefrontButton({ slug, currentStatus }: LaunchStorefront
   function handleLaunch() {
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
 
     startTransition(() => {
       void (async () => {
@@ -52,7 +64,12 @@ export function LaunchStorefrontButton({ slug, currentStatus }: LaunchStorefront
 
   return (
     <div className="inline-stack">
-      <button type="button" className="button button-primary" onClick={handleLaunch} disabled={isPending}>
+      <button
+        type="button"
+        className="button button-primary"
+        onClick={handleLaunch}
+        disabled={disabled || isPending}
+      >
         {isPending
           ? "Storefront deploy ediliyor..."
           : currentStatus === "not_started"
@@ -61,6 +78,7 @@ export function LaunchStorefrontButton({ slug, currentStatus }: LaunchStorefront
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice">{disabledReason}</p> : null}
     </div>
   );
 }

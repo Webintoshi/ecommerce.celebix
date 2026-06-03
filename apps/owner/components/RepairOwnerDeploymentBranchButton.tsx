@@ -3,7 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-export function RepairOwnerDeploymentBranchButton() {
+interface RepairOwnerDeploymentBranchButtonProps {
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
+export function RepairOwnerDeploymentBranchButton({
+  disabled = false,
+  disabledReason,
+}: RepairOwnerDeploymentBranchButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -12,6 +20,11 @@ export function RepairOwnerDeploymentBranchButton() {
   function handleRepair() {
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/operations/repair-owner-deployment-branch", {
@@ -61,12 +74,13 @@ export function RepairOwnerDeploymentBranchButton() {
         type="button"
         className="button button-secondary"
         onClick={handleRepair}
-        disabled={isPending}
+        disabled={disabled || isPending}
       >
         {isPending ? "Owner deploy ayari onariliyor..." : "Owner deploy ayarini onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice">{disabledReason}</p> : null}
     </div>
   );
 }

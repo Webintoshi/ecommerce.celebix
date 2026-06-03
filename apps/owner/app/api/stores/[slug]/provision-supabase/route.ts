@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStoreConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { provisionSupabaseForStore } from "@/lib/supabase-bootstrap";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
@@ -14,6 +15,12 @@ export async function POST(_request: Request, { params }: ProvisionSupabaseRoute
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("provisioning");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {

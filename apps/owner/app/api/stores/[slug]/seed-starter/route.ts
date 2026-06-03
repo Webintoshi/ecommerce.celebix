@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStoreDetail } from "@/lib/control-plane";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
 import { seedStarterStorefrontContent } from "@/lib/starter-storefront-seed";
 
@@ -13,6 +14,12 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("provisioning");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   const { slug } = await params;

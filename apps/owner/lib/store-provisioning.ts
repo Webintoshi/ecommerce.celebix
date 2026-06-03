@@ -31,6 +31,7 @@ import {
   getLightPostgresBootstrapStatus,
   provisionLightPostgresForStore,
 } from "@/lib/light-postgres-provisioning";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import {
@@ -966,6 +967,10 @@ async function reconcileProvisioningSummaryWithLiveState(
 export async function runStoreProvisioningWorkflow(
   input: StoreProvisioningWorkflowInput,
 ): Promise<StoreProvisioningWorkflowResult> {
+  if (isOwnerActionDisabled("provisioning")) {
+    throw new Error("Preview ortaminda yazma/kurulum islemleri kapalidir.");
+  }
+
   const provisioningWindow = await reserveStoreProvisioningWindow({
     slug: input.slug,
     mode: input.mode,

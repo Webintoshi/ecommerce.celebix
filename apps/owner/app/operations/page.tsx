@@ -11,10 +11,18 @@ import {
 } from "@/lib/lifecycle-ui";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import { getOperationsSummary, listDashboardStores } from "@/lib/control-plane";
+import {
+  getOwnerPreviewDisabledNotice,
+  getOwnerPreviewFlags,
+  isOwnerActionDisabled,
+} from "@/lib/preview-mode";
 
 export default async function OperationsPage() {
   const auth = await requireOwnerAuth("/operations");
   const superAdmin = isSuperAdmin(auth);
+  const previewFlags = getOwnerPreviewFlags();
+  const repairDisabled = isOwnerActionDisabled("repair", previewFlags);
+  const repairDisabledReason = getOwnerPreviewDisabledNotice("repair", previewFlags) ?? undefined;
   const [summary, stores] = await Promise.all([getOperationsSummary(auth), listDashboardStores(auth)]);
   const storeMap = new Map(stores.map((store) => [store.id, store]));
   const legacyStoreCount = stores.filter((store) => isLegacyDatabaseMode(store.databaseMode)).length;
@@ -120,7 +128,10 @@ export default async function OperationsPage() {
                   ayari onarilir.
                 </p>
               </div>
-              <RepairOwnerDeploymentBranchButton />
+              <RepairOwnerDeploymentBranchButton
+                disabled={repairDisabled}
+                disabledReason={repairDisabledReason}
+              />
             </div>
             <div className="hero-chip-row">
               <span className="hero-chip hero-chip-accent">Dark command card</span>
@@ -138,7 +149,10 @@ export default async function OperationsPage() {
                   artik varsayilan olarak bu ayarla olusur.
                 </p>
               </div>
-              <RepairAllStoreDeploymentAuthoritiesButton />
+              <RepairAllStoreDeploymentAuthoritiesButton
+                disabled={repairDisabled}
+                disabledReason={repairDisabledReason}
+              />
             </div>
             <div className="hero-chip-row">
               <span className="hero-chip hero-chip-accent">Store rail sync</span>

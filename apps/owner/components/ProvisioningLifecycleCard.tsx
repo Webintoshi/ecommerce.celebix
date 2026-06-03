@@ -13,6 +13,8 @@ interface ProvisioningLifecycleCardProps {
   storeName: string;
   slug: string;
   superAdmin: boolean;
+  repairDisabled?: boolean;
+  repairDisabledReason?: string;
 }
 
 interface StepStory {
@@ -344,6 +346,8 @@ export function ProvisioningLifecycleCard({
   storeName,
   slug,
   superAdmin,
+  repairDisabled = false,
+  repairDisabledReason,
 }: ProvisioningLifecycleCardProps) {
   const focusedLifecycleStepKey = getFocusedLifecycleStepKey(provisioning.state);
   const currentStep =
@@ -434,7 +438,13 @@ export function ProvisioningLifecycleCard({
             </div>
           </div>
           <div className="provisioning-stage-actions">
-            {showRepairButton ? <RepairProjectButton slug={slug} /> : null}
+            {showRepairButton ? (
+              <RepairProjectButton
+                slug={slug}
+                disabled={repairDisabled}
+                disabledReason={repairDisabledReason}
+              />
+            ) : null}
           </div>
         </div>
 

@@ -363,6 +363,45 @@ code {
   backdrop-filter: blur(14px);
 }
 
+.preview-banner {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--status-warning-border);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(254, 97, 0, 0.12), rgba(254, 97, 0, 0.04)),
+    color-mix(in srgb, var(--surface) 90%, white);
+  box-shadow: var(--shadow-sm);
+}
+
+.preview-banner-chip {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  background: var(--status-warning-soft);
+  color: var(--status-warning);
+  border: 1px solid var(--status-warning-border);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.preview-banner-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.preview-banner-copy strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
 .topbar-user {
   display: flex;
   align-items: center;
@@ -1338,6 +1377,13 @@ tbody td strong {
   transform: translateY(-1px);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+  box-shadow: none;
+  transform: none;
+}
+
 .button-primary {
   color: #fff8f3;
   background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-strong));
@@ -1451,6 +1497,20 @@ tbody td strong {
   gap: 8px;
 }
 
+.preview-form-fieldset {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: inherit;
+  gap: inherit;
+}
+
+.preview-form-fieldset:disabled {
+  opacity: 0.76;
+}
+
 .field input,
 .field select,
 .field textarea,
@@ -1467,6 +1527,15 @@ tbody td strong {
 .field textarea::placeholder,
 .owner-auth-field input::placeholder {
   color: var(--text-muted);
+}
+
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--surface-2) 94%, var(--surface));
+  color: var(--text-tertiary);
+  box-shadow: none;
 }
 
 .field input:focus,

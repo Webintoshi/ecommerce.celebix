@@ -36,9 +36,15 @@ interface UpdateStoreProfileFormProps {
       };
     };
   };
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function UpdateStoreProfileForm({ store }: UpdateStoreProfileFormProps) {
+export function UpdateStoreProfileForm({
+  store,
+  disabled = false,
+  disabledReason,
+}: UpdateStoreProfileFormProps) {
   const router = useRouter();
   const [status, setStatus] = useState<OwnerStoreStatus>(store.status);
   const [tagline, setTagline] = useState(store.tagline ?? "");
@@ -67,6 +73,11 @@ export function UpdateStoreProfileForm({ store }: UpdateStoreProfileFormProps) {
     event.preventDefault();
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch(`/api/stores/${store.slug}`, {
@@ -110,6 +121,7 @@ export function UpdateStoreProfileForm({ store }: UpdateStoreProfileFormProps) {
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
+      <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Proje durumu</span>
         <select value={status} onChange={(event) => setStatus(event.target.value as OwnerStoreStatus)}>
@@ -236,12 +248,14 @@ export function UpdateStoreProfileForm({ store }: UpdateStoreProfileFormProps) {
           rows={4}
         />
       </label>
+      </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {notice ? <p className="form-notice field-full">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice field-full">{disabledReason}</p> : null}
 
       <div className="actions field-full">
-        <button type="submit" className="button button-primary" disabled={isPending}>
+        <button type="submit" className="button button-primary" disabled={disabled || isPending}>
           {isPending ? "Kaydediliyor..." : "Proje profilini guncelle"}
         </button>
       </div>

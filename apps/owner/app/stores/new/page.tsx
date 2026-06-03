@@ -5,10 +5,19 @@ import {
 import { CreateStoreForm } from "@/components/CreateStoreForm";
 import { requireOwnerAuth, requireSuperAdmin } from "@/lib/owner-auth";
 import { getLightPostgresBootstrapStatus } from "@/lib/light-postgres-provisioning";
+import {
+  getOwnerPreviewDisabledNotice,
+  getOwnerPreviewFlags,
+  isOwnerActionDisabled,
+} from "@/lib/preview-mode";
 import { getSupabaseBootstrapStatus } from "@/lib/supabase-bootstrap";
 
 export default async function NewStorePage() {
   requireSuperAdmin(await requireOwnerAuth("/stores/new"));
+  const previewFlags = getOwnerPreviewFlags();
+  const createStoreDisabled = isOwnerActionDisabled("create_store", previewFlags);
+  const createStoreDisabledReason =
+    getOwnerPreviewDisabledNotice("create_store", previewFlags) ?? undefined;
   const lightPostgresBootstrap = await getLightPostgresBootstrapStatus();
   const supabaseBootstrap = await getSupabaseBootstrapStatus();
 
@@ -34,6 +43,8 @@ export default async function NewStorePage() {
         <CreateStoreForm
           ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
           storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}
+          disabled={createStoreDisabled}
+          disabledReason={createStoreDisabledReason}
         />
       </div>
     </>

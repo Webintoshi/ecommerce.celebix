@@ -12,9 +12,15 @@ interface ProvisioningStepSummary {
 
 interface RepairProjectButtonProps {
   slug: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
+export function RepairProjectButton({
+  slug,
+  disabled = false,
+  disabledReason,
+}: RepairProjectButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -25,6 +31,11 @@ export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
     setError(null);
     setNotice(null);
     setDetails([]);
+
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
 
     startTransition(() => {
       void (async () => {
@@ -75,12 +86,13 @@ export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
         type="button"
         className="button button-secondary"
         onClick={handleRepair}
-        disabled={isPending}
+        disabled={disabled || isPending}
       >
         {isPending ? "Repair calisiyor..." : "Projeyi onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice">{disabledReason}</p> : null}
       {details.length > 0 ? (
         <div className="stack-list stack-top-sm">
           {details

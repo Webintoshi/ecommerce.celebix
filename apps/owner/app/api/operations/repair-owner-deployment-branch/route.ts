@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { repairOwnerDeploymentBranch } from "@/lib/coolify-owner-deployment";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 
 export async function POST() {
   const auth = await getOwnerAuthContext();
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("repair");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {

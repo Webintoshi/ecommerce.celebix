@@ -24,6 +24,8 @@ interface CreateStorePayload {
 interface CreateStoreFormProps {
   ownerDeploymentBranch: string;
   storefrontBranchPrefix: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 function getTodayDateValue(): string {
@@ -72,6 +74,8 @@ function slugify(value: string): string {
 export function CreateStoreForm({
   ownerDeploymentBranch,
   storefrontBranchPrefix,
+  disabled = false,
+  disabledReason,
 }: CreateStoreFormProps) {
   const router = useRouter();
   const [form, setForm] = useState(INITIAL_STATE);
@@ -100,6 +104,11 @@ export function CreateStoreForm({
     event.preventDefault();
     setError(null);
 
+    if (disabled) {
+      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      return;
+    }
+
     startTransition(async () => {
       const response = await fetch("/api/stores", {
         method: "POST",
@@ -124,6 +133,7 @@ export function CreateStoreForm({
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
+      <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Magaza Adi</span>
         <input value={form.name} onChange={handleNameChange} placeholder="Deri Kordon" required />
@@ -283,8 +293,10 @@ export function CreateStoreForm({
         />
         <small className="muted">Aylik paket icin 1, yillik paket icin 12 gir.</small>
       </label>
+      </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
+      {disabledReason ? <p className="form-notice field-full">{disabledReason}</p> : null}
 
       <div className="actions field-full actions-end stack-top-sm">
         <button
@@ -295,7 +307,7 @@ export function CreateStoreForm({
         >
           Iptal
         </button>
-        <button type="submit" className="button button-primary" disabled={isPending}>
+        <button type="submit" className="button button-primary" disabled={disabled || isPending}>
           {isPending ? "Olusturuluyor..." : "Magaza Olustur"}
         </button>
       </div>
