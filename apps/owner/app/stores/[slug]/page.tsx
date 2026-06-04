@@ -10,10 +10,15 @@ import { DeleteStoreButton } from "@/components/DeleteStoreButton";
 import { ProvisioningLifecycleCard } from "@/components/ProvisioningLifecycleCard";
 import {
   OwnerActionPanel,
+  OwnerActionQueue,
+  OwnerEmptyState,
   OwnerLifecycleStepper,
   OwnerMetricCard,
+  OwnerPageHeader,
+  OwnerSectionCard,
   OwnerSectionHeader,
   OwnerStatusChip,
+  OwnerTimeline,
 } from "@/components/owner-control";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { repairStoreDeploymentAuthorityOnce } from "@/lib/coolify-store-deployment";
@@ -177,649 +182,262 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         : "current";
 
   return (
-    <>
-      <section className="dashboard-hero">
-        <div className="dashboard-hero-content">
-          <div className="hero-stack">
-            <Link href="/stores" className="eyebrow-link">
-              ← Tüm mağazalara dön
+    <div className="store-detail-page">
+      <OwnerPageHeader
+        eyebrow="Mağaza Kontrol Paneli"
+        title={store.name}
+        copy={store.tagline || "Mağaza kimliği, kurulum akışı, erişim ve yayın sağlığı tek sayfada yönetilir."}
+        className="store-detail-header"
+        chips={
+          <>
+            <OwnerStatusChip>{getStoreStatusLabel(store.status)}</OwnerStatusChip>
+            <OwnerStatusChip tone={store.health.label === "hazir" ? "success" : store.health.label === "kritik" ? "danger" : "warning"}>
+              {store.health.label}
+            </OwnerStatusChip>
+            <OwnerStatusChip tone={showSupabaseInfrastructure ? "legacy" : "accent"}>
+              {showSupabaseInfrastructure ? "Legacy" : "Yeni Standart"}
+            </OwnerStatusChip>
+            <span className={getDatabaseModePillClass(store.databaseMode)}>
+              {getDatabaseModeLabel(store.databaseMode)}
+            </span>
+          </>
+        }
+        actions={
+          <>
+            <Link className="button button-ghost" href="/stores">
+              Mağazalara Dön
             </Link>
-            <span className="hero-overline">Mağaza Kontrol Paneli</span>
-            <div>
-              <h1>{store.name}</h1>
-              <p>{store.tagline || "Mağaza detayı, operasyon sağlığı ve kurulum akışı tek ekranda izlenir."}</p>
+            <Link className="button button-secondary" href={`https://${store.storefrontDomain}`} target="_blank" rel="noreferrer">
+              Vitrini Aç
+            </Link>
+            <Link className="button button-primary" href={`https://${store.adminDomain}/admin`} target="_blank" rel="noreferrer">
+              Admini Aç
+            </Link>
+          </>
+        }
+        aside={
+          <div className="store-command-card">
+            <span>Domain</span>
+            <strong>{store.storefrontDomain}</strong>
+            <p>{store.adminDomain}</p>
+            <div className={`progress-track ${progressToneClass}`} aria-hidden="true">
+              <span style={{ width: `${subscriptionProgress}%` }} />
             </div>
-            <div className="actions hero-actions">
-              <span className="pill">{getStoreStatusLabel(store.status)}</span>
-              <span className={`pill ${healthToneClass}`}>{store.health.label}</span>
-              <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
-              <span className={getDatabaseModePillClass(store.databaseMode)}>
-                {getDatabaseModeLabel(store.databaseMode)}
-              </span>
-              {showSupabaseInfrastructure ? <span className="pill pill-legacy">Legacy özel mod</span> : null}
-              {pendingSetupSignals.map((signal) => (
-                <span key={signal.key} className={signal.pillClassName}>
-                  {signal.shortLabel}
-                </span>
-              ))}
-              <span className="pill pill-ink">{store.storefrontDomain}</span>
-            </div>
+            <small>{subscription.countdownLabel}</small>
           </div>
+        }
+      />
 
-          <div className="actions hero-actions">
-            <Link className="button button-secondary" href={`https://${store.adminDomain}/admin`} target="_blank" rel="noreferrer">
-              Admini aç
-            </Link>
-            {superAdmin ? (
-              <LaunchStorefrontButton
-                slug={store.slug}
-                currentStatus={store.storefrontStatus}
-                disabled={deployDisabled}
-                disabledReason={deployDisabledReason}
-              />
-            ) : null}
-          </div>
+      <nav className="store-section-nav" aria-label="Mağaza detay bölümleri">
+        <a href="#genel-bakis">Genel Bakış</a>
+        <a href="#kurulum">Kurulum</a>
+        <a href="#domain-deploy">Domain ve Deploy</a>
+        <a href="#erisim">Erişim</a>
+        <a href="#aktivite">Aktivite</a>
+        <a href="#tehlikeli">Tehlikeli İşlemler</a>
+      </nav>
+
+      <section id="genel-bakis" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Genel Bakış"
+          title="Mağaza sağlık özeti"
+          copy="Uzun metadata listesi yerine karar aldıran sinyaller, KPI kartları ve mağaza kimliği öne çıkarılır."
+        />
+        <div className="owner-metric-grid store-detail-kpis">
+          <OwnerMetricCard label="Ürün" value={store.productCount.toLocaleString("tr-TR")} note="Katalog hacmi" />
+          <OwnerMetricCard label="Sipariş" value={store.orderCount.toLocaleString("tr-TR")} note="Toplam operasyon" tone="accent" />
+          <OwnerMetricCard label="Müşteri" value={store.customerCount.toLocaleString("tr-TR")} note="Müşteri tabanı" />
+          <OwnerMetricCard label="Bekleyen" value={store.pendingOrderCount} note="Aksiyon bekleyen sipariş" tone={store.pendingOrderCount > 0 ? "warning" : "success"} />
+          <OwnerMetricCard label="Toplam ciro" value={formatCurrency(store.totalRevenue)} note="Mağaza performansı" tone="accent" />
+          <OwnerMetricCard label="Sepet ort." value={formatCurrency(store.averageOrderValue)} note="Ortalama sipariş" />
         </div>
 
-        <aside className="dashboard-hero-panel">
-          <div className="card-title">Mağaza özeti</div>
-          <div className="hero-list">
-            <div className="hero-list-item">
-              <span>Müşteri</span>
-              <strong>{store.management.clientCompanyName || store.name}</strong>
+        <div className="store-detail-two-column">
+          <OwnerSectionCard title="Müşteri ve Yaşam Döngüsü" copy={store.management.nextAction || "Sonraki aksiyon tanımlanmamış."}>
+            <div className="meta-pairs">
+              <span>Marka: <strong>{store.management.clientCompanyName || store.name}</strong></span>
+              <span>Yetkili: <strong>{store.management.clientContactName || "-"}</strong></span>
+              <span>E-posta: <strong>{store.management.clientContactEmail || "-"}</strong></span>
+              <span>Telefon: <strong>{store.management.clientContactPhone || "-"}</strong></span>
+              <span>İç sorumlu: <strong>{store.management.internalOwner || "-"}</strong></span>
+              <span>Aşama: <strong>{store.management.lifecycleStage}</strong></span>
+              <span>Hedef yayın: <strong>{formatDate(store.management.launchTarget)}</strong></span>
+              <span>Paket: <strong>{subscription.cadenceLabel} / {subscription.countdownLabel}</strong></span>
             </div>
-            <div className="hero-list-item">
-              <span>Paket ritmi</span>
-              <strong>{subscription.cadenceLabel}</strong>
+          </OwnerSectionCard>
+
+          <OwnerSectionCard
+            title="Altyapı Kartları"
+            copy="Light Postgres mağazalarda Supabase eksikliği hata gibi gösterilmez; Legacy ayrı mod olarak görünür."
+            tone={showSupabaseInfrastructure ? "legacy" : "accent"}
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Database</span>
+                <strong>{showSupabaseInfrastructure ? "Legacy" : "Yeni Standart"}</strong>
+                <p>{showSupabaseInfrastructure ? "Full Supabase özel mod." : "Light Postgres owner standardı."}</p>
+              </article>
+              <article>
+                <span>R2</span>
+                <strong>{store.health.r2Ready ? "Hazır" : "Bekliyor"}</strong>
+                <p>{store.r2BucketName || "Medya authority kurulum akışında tamamlanır."}</p>
+              </article>
+              <article>
+                <span>Auth</span>
+                <strong>{store.setup.auth.status}</strong>
+                <p>{store.setup.auth.provider}</p>
+              </article>
+              <article>
+                <span>Analytics</span>
+                <strong>{store.setup.analytics.status}</strong>
+                <p>{store.setup.analytics.provider}</p>
+              </article>
+              <article>
+                <span>Payment</span>
+                <strong>{store.setup.payments.status}</strong>
+                <p>{store.setup.payments.defaultProvider}</p>
+              </article>
+              <article>
+                <span>Admin App</span>
+                <strong>{store.health.adminRuntimeConsistent ? "Kararlı" : "Kontrol"}</strong>
+                <p>{adminDeploymentStatus || adminDeployment?.status || "Bekliyor"}</p>
+              </article>
+              <article>
+                <span>Storefront App</span>
+                <strong>{store.health.storefrontRuntimeConsistent ? "Kararlı" : "Kontrol"}</strong>
+                <p>{storefrontDeploymentStatus || storefrontDeployment?.status || store.storefrontStatus}</p>
+              </article>
             </div>
-            <div className="hero-list-item">
-              <span>Hedef yayın</span>
-              <strong>{formatDate(store.management.launchTarget)}</strong>
-            </div>
-            <div className="hero-list-item">
-              <span>Affiliate oranı</span>
-              <strong>%{formatPercent(store.totalAffiliateRate)}</strong>
-            </div>
-            <div className="hero-list-item">
-              <span>Kurulum kuyruğu</span>
-              <strong>
-                {pendingSetupSignals.length > 0
-                  ? `${pendingSetupSignals.length} bekleyen adım`
-                  : "owner hazır"}
-              </strong>
-            </div>
-          </div>
-          <div className={`progress-track ${progressToneClass}`} aria-hidden="true">
-            <span style={{ width: `${subscriptionProgress}%` }} />
-          </div>
-          <div className="hero-chip-row">
-            <span className={`hero-chip ${subscription.status === "active" ? "hero-chip-accent" : "hero-chip-neutral"}`}>
-              {subscription.countdownLabel}
-            </span>
-            <span className="hero-chip hero-chip-neutral">{store.storeAdminCount} mağaza admini</span>
-            <span className={`hero-chip ${showSupabaseInfrastructure ? "hero-chip-neutral" : "hero-chip-accent"}`}>
-              {showSupabaseInfrastructure ? "Legacy özel mod" : "Yeni Standart"}
-            </span>
-            <span className={`hero-chip ${cleanupRuns.length > 0 ? "hero-chip-neutral" : "hero-chip-accent"}`}>
-              {cleanupRuns.length > 0 ? `${cleanupRuns.length} temizlik kaydı` : "Temizlik temiz"}
-            </span>
-          </div>
-        </aside>
+          </OwnerSectionCard>
+        </div>
       </section>
 
-      <div className="owner-metric-grid">
-        <OwnerMetricCard label="Ürün" value={store.productCount.toLocaleString("tr-TR")} note="Katalog hacmi" />
-        <OwnerMetricCard label="Sipariş" value={store.orderCount.toLocaleString("tr-TR")} note="Toplam operasyon" tone="accent" />
-        <OwnerMetricCard label="Müşteri" value={store.customerCount.toLocaleString("tr-TR")} note="Müşteri tabanı" />
-        <OwnerMetricCard label="Bekleyen" value={store.pendingOrderCount} note="Aksiyon bekleyen sipariş" tone={store.pendingOrderCount > 0 ? "warning" : "success"} />
-        <OwnerMetricCard label="Toplam ciro" value={formatCurrency(store.totalRevenue)} note="Mağaza performansı" tone="accent" />
-        <OwnerMetricCard label="Sepet ort." value={formatCurrency(store.averageOrderValue)} note="Ortalama sipariş" />
-      </div>
+      <section id="kurulum" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Kurulum Akışı"
+          title="Hazırlık ve aksiyon sırası"
+          copy="Teknik log hissi yerine, mağazanın işletime hazır olma durumu adım adım okunur."
+        />
+        <div className="store-detail-two-column">
+          <OwnerActionPanel
+            title="Kurulum Akışı"
+            tone={deploymentStepState === "blocked" ? "danger" : "accent"}
+            actions={
+              <>
+                <OwnerStatusChip tone={pendingSetupSignals.length > 0 ? "warning" : "success"}>
+                  {pendingSetupSignals.length > 0 ? `${pendingSetupSignals.length} kurulum aksiyonu` : "Kurulum temiz"}
+                </OwnerStatusChip>
+                <OwnerStatusChip tone={showSupabaseInfrastructure ? "legacy" : "accent"}>
+                  {showSupabaseInfrastructure ? "Legacy" : "Yeni Standart"}
+                </OwnerStatusChip>
+              </>
+            }
+          >
+            <OwnerLifecycleStepper
+              steps={[
+                { label: "Mağaza kaydı", detail: `${store.slug} owner kaydı`, state: "done" },
+                { label: "Veritabanı", detail: showSupabaseInfrastructure ? "Legacy özel mod" : "Yeni Standart", state: "done" },
+                { label: "Auth / Analytics / Ödeme", detail: pendingSetupSignals.length > 0 ? "Kurulum aksiyonları bekliyor" : "Kurulum sinyalleri temiz", state: setupStepState },
+                { label: "Admin panel", detail: store.health.adminRuntimeConsistent ? "Runtime hazır" : "Runtime drift izleniyor", state: store.health.adminRuntimeConsistent ? "done" : "current" },
+                { label: "Vitrin yayını", detail: store.storefrontStatus, state: deploymentStepState },
+              ]}
+            />
+          </OwnerActionPanel>
 
-      <div className="split-grid">
-        <OwnerActionPanel
-          title="Kurulum Akışı"
-          copy="Kurulum akışı teknik loglardan ayrıldı; mağazanın işletime hazır olma durumu adım adım okunur."
-          tone={deploymentStepState === "blocked" ? "danger" : "accent"}
-          actions={
-            <>
-              <OwnerStatusChip tone={showSupabaseInfrastructure ? "legacy" : "accent"}>
-                {showSupabaseInfrastructure ? "Legacy özel mod" : "Yeni Celebix Standardı"}
-              </OwnerStatusChip>
-              <OwnerStatusChip tone={pendingSetupSignals.length > 0 ? "warning" : "success"}>
-                {pendingSetupSignals.length > 0 ? `${pendingSetupSignals.length} kurulum aksiyonu` : "Kurulum temiz"}
-              </OwnerStatusChip>
-            </>
-          }
-        >
-          <OwnerLifecycleStepper
-            steps={[
-              { label: "Mağaza kaydı", detail: `${store.slug} owner kaydı`, state: "done" },
-              { label: "Veritabanı", detail: showSupabaseInfrastructure ? "Legacy Supabase modu" : "Yeni Standart", state: "done" },
-              { label: "Auth / Analytics / Ödeme", detail: pendingSetupSignals.length > 0 ? "Engelleyici olmayan kurulum aksiyonları bekliyor" : "Kurulum sinyalleri temiz", state: setupStepState },
-              { label: "Admin panel", detail: store.health.adminRuntimeConsistent ? "Runtime hazır" : "Runtime drift izleniyor", state: store.health.adminRuntimeConsistent ? "done" : "current" },
-              { label: "Vitrin yayını", detail: store.storefrontStatus, state: deploymentStepState },
+          <OwnerActionQueue
+            items={[
+              ...setupSignals.map((signal) => ({
+                id: signal.key,
+                title: signal.title,
+                detail: signal.note,
+                meta: <strong>{signal.pending ? "Bekliyor" : "Hazır"}</strong>,
+                chips: (
+                  <>
+                    <span className={signal.pillClassName}>{signal.shortLabel}</span>
+                    <OwnerStatusChip tone="ink">{signal.providerLabel}</OwnerStatusChip>
+                  </>
+                ),
+                tone: signal.pending ? "warning" as const : "success" as const,
+              })),
+              {
+                id: "cleanup",
+                title: "Temizlik",
+                detail: cleanupRuns.length > 0 ? "Açık temizlik kaydı operasyon ekranında izleniyor." : "Açık temizlik kaydı görünmüyor.",
+                meta: <strong>{cleanupRuns.length}</strong>,
+                chips: <OwnerStatusChip tone={cleanupRuns.length > 0 ? "danger" : "success"}>{cleanupRuns.length > 0 ? "Takipte" : "Temiz"}</OwnerStatusChip>,
+                tone: cleanupRuns.length > 0 ? "danger" as const : "success" as const,
+              },
             ]}
           />
-        </OwnerActionPanel>
-
-        <OwnerActionPanel
-          title="Altyapı Durumu"
-          copy="Yeni Standart mağazalarda Supabase eksikliği hata gibi sunulmaz; Legacy mağazalar ayrı mod olarak izlenir."
-        >
-          <div className="setup-signal-grid">
-            <div className={`setup-signal-card ${showSupabaseInfrastructure ? "tone-legacy" : "tone-ready"}`}>
-              <span className="setup-signal-kicker">Veritabanı</span>
-              <div className="setup-signal-value">{getDatabaseModeLabel(store.databaseMode)}</div>
-              <p className="setup-signal-note">
-                {showSupabaseInfrastructure
-                  ? "Legacy full_supabase özel mod olarak ayrıldı."
-                  : "Yeni Celebix Standardı Light Postgres ile çalışır."}
-              </p>
-            </div>
-            <div className={`setup-signal-card ${store.health.r2Ready ? "tone-ready" : "tone-cleanup"}`}>
-              <span className="setup-signal-kicker">R2</span>
-              <div className="setup-signal-value">{store.health.r2Ready ? "Hazır" : "Eksik"}</div>
-              <p className="setup-signal-note">{store.r2BucketName || "Medya authority sonraki operasyon adımında tamamlanır."}</p>
-            </div>
-          </div>
-        </OwnerActionPanel>
-      </div>
-
-      <OwnerSectionHeader
-        eyebrow="Kurulum Akışı"
-        title="Bekleyen kurulum aksiyonları"
-        copy="Auth, analytics, ödeme ve temizlik sinyalleri mağaza detayında teknik hata yerine operasyon sırası olarak okunur."
-      />
-
-      <div className="setup-signal-grid">
-        {setupSignals.map((signal) => (
-          <div key={signal.key} className={`setup-signal-card ${signal.cardToneClass}`}>
-            <span className="setup-signal-kicker">{signal.title}</span>
-            <div className="actions compact-actions wrap stack-top-sm">
-              <span className={signal.pillClassName}>{signal.shortLabel}</span>
-              <span className="pill pill-ink">{signal.providerLabel}</span>
-            </div>
-            <div className="setup-signal-value">
-              {signal.pending
-                ? "Operasyon sırasında"
-                : signal.key === "auth" && showSupabaseInfrastructure
-                  ? "Legacy authority"
-                  : "Owner hazır"}
-            </div>
-            <p className="setup-signal-note">{signal.note}</p>
-          <div className="setup-signal-footer">
-              <span>
-                Sağlayıcı <strong>{signal.providerLabel}</strong>
-              </span>
-              <span>
-                Durum <strong>{signal.statusLabel}</strong>
-              </span>
-            </div>
-          </div>
-        ))}
-
-        <div className={`setup-signal-card ${cleanupRuns.length > 0 ? "tone-cleanup" : "tone-neutral"}`}>
-          <span className="setup-signal-kicker">Temizlik</span>
-          <div className="actions compact-actions wrap stack-top-sm">
-            <span className={`pill ${cleanupRuns.length > 0 ? "pill-danger" : "pill-success"}`}>
-              {cleanupRuns.length > 0 ? "temizlik bekliyor" : "temizlik temiz"}
-            </span>
-            <Link className="button button-ghost" href="/operations">
-              Operasyonu ac
-            </Link>
-          </div>
-          <div className="setup-signal-value">
-            {cleanupRuns.length > 0 ? `${cleanupRuns.length} açık kayıt` : "Açık kayıt yok"}
-          </div>
-          <p className="setup-signal-note">
-            {cleanupRuns.length > 0
-              ? "Bu mağaza için dış kaynak temizliği tamamlanmamış kayıtlar owner panelde izleniyor."
-              : "Bu mağaza için açık temizlik kaydı görünmüyor."}
-          </p>
-          <div className="setup-signal-footer">
-            <span>
-              Temizlik hedefi <strong>{orphanedTargetCount}</strong>
-            </span>
-            <span>
-              Kapsam <strong>{store.slug}</strong>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {cleanupRuns.length > 0 ? (
-        <div className="card surface-alert section-tight">
-          <div className="section-head">
-            <div>
-              <div className="card-title">Mağaza Temizlik Takibi</div>
-              <p className="section-copy">
-                Bu mağaza için authority silindikten sonra açık kalan temizlik kayıtları burada izlenir.
-              </p>
-            </div>
-            <Link href="/operations" className="button button-secondary">
-              Tüm temizlik kayıtları
-            </Link>
-          </div>
-          <div className="stack-list stack-top-sm">
-            {cleanupRuns.map((run) => (
-              <div key={run.id} className="inline-card">
-                <div>
-                  <strong>{run.storeName || store.name}</strong>
-                  <p>{run.status}</p>
-                </div>
-                <div className="activity-meta">
-                  <span>{run.targets.length} hedef</span>
-                  <span>
-                    {
-                      run.targets.filter(
-                        (target) => target.status === "failed" || target.status === "skipped",
-                      ).length
-                    }{" "}
-                    orphan
-                  </span>
-                  <span>{formatDateTime(run.createdAt)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Info Cards */}
-      <div className="info-row info-row-3">
-        <div className="card">
-          <div className="card-title">Müşteri Profili</div>
-          <div className="meta-pairs">
-            <span>Marka: <strong>{store.management.clientCompanyName || store.name}</strong></span>
-            <span>Yetkili: <strong>{store.management.clientContactName || "-"}</strong></span>
-            <span>E-posta: <strong>{store.management.clientContactEmail || "-"}</strong></span>
-            <span>Telefon: <strong>{store.management.clientContactPhone || "-"}</strong></span>
-            <span>İç sorumlu: <strong>{store.management.internalOwner || "-"}</strong></span>
-            <span>Tahsilat: <strong>{store.management.billingStatus}</strong></span>
-          </div>
         </div>
 
-        <div className="card">
-          <div className="card-title">Yaşam Döngüsü</div>
-          <div className="actions compact-actions wrap stack-top-sm">
-            <span className={`pill ${subscriptionStatusClass}`}>{subscription.cadenceLabel}</span>
-            <span className={`pill ${subscriptionStatusClass}`}>{subscription.countdownLabel}</span>
-            <span className={getDatabaseModePillClass(store.databaseMode)}>
-              {getDatabaseModeLabel(store.databaseMode)}
-            </span>
-            {showSupabaseInfrastructure ? <span className="pill pill-legacy">Legacy özel mod</span> : null}
-            <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
-          </div>
-          <div className="meta-pairs">
-            <span>Aşama: <strong>{store.management.lifecycleStage}</strong></span>
-            <span>Öncelik: <strong>{store.management.priority}</strong></span>
-            <span>Hedef yayın: <strong>{formatDate(store.management.launchTarget)}</strong></span>
-            <span>Vitrin: <strong>{store.storefrontStatus}</strong></span>
-            <span>Kurulum: <strong>{getProvisioningLabel(provisioning.state)}</strong></span>
-            <span>Affiliate oranı: <strong>%{formatPercent(store.totalAffiliateRate)}</strong></span>
-            <span>Mağaza admini: <strong>{store.storeAdminCount}</strong></span>
-            <span>Paket başlangıcı: <strong>{formatDate(subscription.startDate)}</strong></span>
-            <span>Paket bitisi: <strong>{formatDate(subscription.endDate)}</strong></span>
-            <span>Paket suresi: <strong>{subscription.durationMonths ? `${subscription.durationMonths} ay` : "-"}</strong></span>
-            <span>Kalan sure: <strong>{subscription.countdownLabel}</strong></span>
-          </div>
-          <div aria-hidden="true" className={`progress-track ${progressToneClass} stack-top-sm`}>
-            <span style={{ width: `${subscriptionProgress}%` }} />
-          </div>
-          <p className="card-note">{store.management.nextAction || "Sonraki aksiyon tanımlanmamış."}</p>
-        </div>
+        <ProvisioningLifecycleCard
+          slug={store.slug}
+          storeName={store.name}
+          provisioning={provisioning}
+          superAdmin={superAdmin}
+          repairDisabled={repairDisabled}
+          repairDisabledReason={repairDisabledReason}
+        />
+      </section>
 
-        <div className={`card ${showSupabaseInfrastructure ? "" : "surface-brand"}`}>
-          <div className="card-title">Altyapi</div>
-          <div className="actions compact-actions wrap stack-top-sm">
-            <span className={getDatabaseModePillClass(store.databaseMode)}>
-              {getDatabaseModeLabel(store.databaseMode)}
-            </span>
-            {showSupabaseInfrastructure ? <span className="pill pill-legacy">Legacy özel mod</span> : null}
-            <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
-          </div>
-          <div className="meta-pairs">
-            <span>Veritabanı modu: <strong>{getDatabaseModeLabel(store.databaseMode)}</strong></span>
-            {showSupabaseInfrastructure ? (
-              <span>Supabase: <strong>{store.supabaseProjectRef || "Eksik"}</strong></span>
-            ) : (
-              <span>Light Postgres DB: <strong>{store.slug}</strong></span>
-            )}
-            {showSupabaseInfrastructure ? (
-              <span>Supabase Host: <strong>{store.supabaseUrl || "Eksik"}</strong></span>
-            ) : (
-              <span>DB authority: <strong>{store.health.secretAuthorityReady ? "Hazır" : "Bekleniyor"}</strong></span>
-            )}
-            {showSupabaseInfrastructure ? (
-              <span>
-                Supabase Studio:{" "}
-                {store.supabaseDashboardUrl ? (
-                  <strong>
-                    <a href={store.supabaseDashboardUrl} target="_blank" rel="noreferrer">
-                      Studio'yu ac
-                    </a>
-                  </strong>
-                ) : (
-                  <strong>Eksik</strong>
-                )}
-              </span>
-            ) : (
-              <span>Auth: <strong>{store.setup.auth.provider} / {store.setup.auth.status}</strong></span>
-            )}
-            <span>Analytics: <strong>{store.setup.analytics.provider} / {store.setup.analytics.status}</strong></span>
-              <span>Ödeme: <strong>{store.setup.payments.defaultProvider} / {store.setup.payments.status}</strong></span>
-            <span>Legacy Auth: <strong>{store.health.legacyAuthConfigured ? "Var" : "Yok"}</strong></span>
-            <span>Admin runtime: <strong>{store.health.adminDeploymentReady ? (store.health.adminRuntimeConsistent ? "Hazır" : "Drift") : "Kapalı"}</strong></span>
-            <span>Admin branch: <strong>{adminDeploymentBranch || "-"}</strong></span>
-            <span>R2 Bucket: <strong>{store.r2BucketName || "Eksik"}</strong></span>
-            <span>R2 Public URL: <strong>{store.r2PublicUrl || "-"}</strong></span>
-            <span>R2 Managed Domain: <strong>{store.r2ManagedDomain || "-"}</strong></span>
-            <span>Admin Domain: <strong>{store.adminDomain}</strong></span>
-            <span>Vitrin domain: <strong>{store.storefrontDomain}</strong></span>
-            <span>Vitrin branch: <strong>{storefrontDeploymentBranch || "-"}</strong></span>
-            <span>Destek e-postası: <strong>{store.supportEmail || "-"}</strong></span>
-            <span>Destek telefonu: <strong>{store.supportPhone || "-"}</strong></span>
-            <span>Son Sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>
-          </div>
-          <p className="card-note">
-            {store.health.adminRuntimeMessage
-              ? `Admin runtime notu: ${store.health.adminRuntimeMessage}`
-              : showSupabaseInfrastructure
-                ? "Legacy Supabase stack authority ve istisnai auth modeli bu kartta ayrı izlenir."
-                : "Light Postgres mağaza veritabanı, R2 zinciri ve bekleyen kurulum aksiyonları bu kartta okunur."}
-          </p>
-        </div>
-      </div>
-
-      {/* Store Admins & Affiliates */}
-      <div className="split-grid">
-        <div className="card">
-          <div className="card-title">Mağaza Adminleri</div>
-          {store.storeAdmins.length === 0 ? (
-            <p className="muted">Atanmış mağaza admini yok.</p>
-          ) : (
-            <div className="stack-list">
-              {store.storeAdmins.map((admin) => (
-                <div key={admin.id} className="inline-card">
-                  <div>
-                    <strong>{admin.fullName || admin.email}</strong>
-                    <p>{admin.email}</p>
-                  </div>
-                  <div className="actions compact-actions">
-                    <span className="pill">{admin.role}</span>
-                    <span className="pill">{admin.taskDefinition || "Genel"}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="card">
-          <div className="card-title">Affiliate Erişimi</div>
-          {store.affiliateAssignments.length === 0 ? (
-            <p className="muted">Atanmış affiliate yok.</p>
-          ) : (
-            <div className="stack-list">
-              {store.affiliateAssignments.map((assignment) => (
-                <div key={assignment.profileId} className="inline-card">
-                  <div>
-                    <strong>{assignment.fullName || assignment.email}</strong>
-                    <p>{assignment.email}</p>
-                  </div>
-                  <span className="pill">%{formatPercent(assignment.commissionRate)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Recent Activity & Features */}
-      <div className="split-grid">
-        <div className="card">
-          <div className="card-title">Son Aktiviteler</div>
-          {store.recentActivity.length === 0 ? (
-            <p className="muted">Bu mağaza için audit kaydı henüz yok.</p>
-          ) : (
-            <div className="activity-list">
-              {store.recentActivity.map((item) => (
-                <div key={item.id} className="activity-item">
-                  <div>
-                    <strong>{item.action.replaceAll("_", " ")}</strong>
-                    <p>{item.actorName}</p>
-                  </div>
-                  <div className="activity-meta">
-                    <span>{item.targetLabel}</span>
-                    <span>{formatDateTime(item.createdAt)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="card">
-          <div className="card-title">Özellikler ve Notlar</div>
-          <div className="actions compact-actions wrap stack-top-sm">
-            {store.features.length === 0 ? (
-              <span className="muted">Tanımlı özellik yok</span>
-            ) : (
-              store.features.map((feature) => (
-                <span key={feature} className="pill">
-                  {feature}
-                </span>
-              ))
-            )}
-          </div>
-          <p className="card-note">{store.management.ownerNotes || "İç owner notu girilmemiş."}</p>
-        </div>
-      </div>
-
-      <div className="info-row info-row-3">
-        <div className="card">
-          <div className="card-title">Teknik Kimlikler</div>
-          <div className="meta-pairs">
-            <span>Slug: <strong>{store.slug}</strong></span>
-            <span>Tema: <strong>{store.themeKey}</strong></span>
-            <span>Vitrin app: <strong>{store.storefrontAppDir || "-"}</strong></span>
-            <span>Vitrin durumu: <strong>{store.storefrontStatus}</strong></span>
-            <span>Vitrin yayını: <strong>{storefrontDeploymentStatus || storefrontDeployment?.status || "-"}</strong></span>
-            <span>Oluşturma: <strong>{createdAt}</strong></span>
-            <span>Güncelleme: <strong>{updatedAt}</strong></span>
-          </div>
-        </div>
-
-        <div className={`card ${showSupabaseInfrastructure ? "" : "surface-brand"}`}>
-          <div className="card-title">
-            {showSupabaseInfrastructure ? "Legacy Supabase Kurulumu" : "Kurulum Aksiyonu Durumu"}
-          </div>
-          <div className="actions compact-actions wrap stack-top-sm">
-            {pendingSetupSignals.length > 0 ? (
-              pendingSetupSignals.map((signal) => (
-                <span key={signal.key} className={signal.pillClassName}>
-                  {signal.shortLabel}
-                </span>
-              ))
-            ) : (
-              <span className="pill pill-success">kurulum sinyali temiz</span>
-            )}
-          </div>
-          <div className="meta-pairs">
-            {showSupabaseInfrastructure ? (
+      <section id="domain-deploy" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Domain ve Deploy"
+          title="Yayın planı ve runtime sağlığı"
+          copy="Admin ve vitrin deployment bilgileri ayrı kartlarda, preview aksiyonları kilitli biçimde görünür."
+        />
+        <div className="store-detail-two-column">
+          <OwnerSectionCard
+            title="Vitrin Yayın Planı"
+            actions={
               <>
-                <span>Servis adı: <strong>{supabaseProjectName || "-"}</strong></span>
-                <span>Resource ID: <strong>{supabaseResourceId || "-"}</strong></span>
-                <span>Kurulum: <strong>{supabaseProvisioning || "-"}</strong></span>
-                <span>Kurulum zamanı: <strong>{provisionedAt}</strong></span>
-                <span>
-                  Studio URL:{" "}
-                  <strong>
-                    {supabaseDashboardUrl ? (
-                      <a href={supabaseDashboardUrl} target="_blank" rel="noreferrer">
-                        {supabaseDashboardUrl}
-                      </a>
-                    ) : (
-                      "-"
-                    )}
-                  </strong>
-                </span>
+                <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} disabled={deployDisabled} disabledReason={deployDisabledReason} />
+                {superAdmin ? <RepairStoreDeploymentAuthorityButton slug={store.slug} disabled={repairDisabled} disabledReason={repairDisabledReason} /> : null}
+              </>
+            }
+          >
+            {storefrontDeployment ? (
+              <>
+                <div className="meta-pairs">
+                  <span>Yayın adı: <strong>{storefrontDeploymentName || storefrontDeployment.appName}</strong></span>
+                  <span>Durum: <strong>{storefrontDeploymentStatus || storefrontDeployment.status}</strong></span>
+                  <span>Runtime: <strong>{storefrontRuntimeUrl || storefrontDeployment.runtimeUrl}</strong></span>
+                  <span>Branch: <strong>{storefrontDeploymentBranch || "-"}</strong></span>
+                  <span>Repo sync: <strong>{storefrontDeployment.repoSynced ? "Senkron" : storefrontRepoSyncStatus || "Bekliyor"}</strong></span>
+                  <span>Son sync: <strong>{storefrontRepoSyncedAt}</strong></span>
+                </div>
+                <p className="card-note">{storefrontDeploymentAuthorityNote || storefrontDeployment.runtimeMessage || "Vitrin yayın standardı owner tarafında hazır."}</p>
               </>
             ) : (
-              <>
-                <span>Auth sağlayıcı: <strong>{store.setup.auth.provider}</strong></span>
-                <span>Auth durumu: <strong>{store.setup.auth.status}</strong></span>
-                <span>Analytics sağlayıcı: <strong>{store.setup.analytics.provider}</strong></span>
-                <span>Analytics durumu: <strong>{store.setup.analytics.status}</strong></span>
-                <span>Ödeme sağlayıcı: <strong>{store.setup.payments.defaultProvider}</strong></span>
-                <span>Ödeme durumu: <strong>{store.setup.payments.status}</strong></span>
-              </>
+              <OwnerEmptyState title="Vitrin yayın planı okunamadı" copy="Bu kayıt sonraki kurulum adımında yeniden doğrulanır." />
             )}
-          </div>
-        </div>
+          </OwnerSectionCard>
 
-        <div className="card">
-          <div className="card-title">Admin Yayın Özeti</div>
-          <div className="meta-pairs">
-            <span>Yayın adı: <strong>{adminDeploymentName || adminDeployment?.appName || "-"}</strong></span>
-            <span>Yayın durumu: <strong>{adminDeploymentStatus || adminDeployment?.status || "-"}</strong></span>
-            <span>Runtime URL: <strong>{adminDeploymentRuntimeUrl || adminDeployment?.runtimeUrl || "-"}</strong></span>
-            <span>Hazırlanma zamanı: <strong>{adminDeploymentPreparedAt}</strong></span>
-            <span>Resource ID: <strong>{adminDeployment?.resourceId || "-"}</strong></span>
-          </div>
-        </div>
-      </div>
-
-      <ProvisioningLifecycleCard
-        slug={store.slug}
-        storeName={store.name}
-        provisioning={provisioning}
-        superAdmin={superAdmin}
-        repairDisabled={repairDisabled}
-        repairDisabledReason={repairDisabledReason}
-      />
-
-      <div className="card section-tight">
-        <div className="card-title">Vitrin Yayın Planı</div>
-        {storefrontDeployment ? (
-          <>
-            <div className="actions compact-actions stack-top-sm">
-              <LaunchStorefrontButton
-                slug={store.slug}
-                currentStatus={store.storefrontStatus}
-                disabled={deployDisabled}
-                disabledReason={deployDisabledReason}
-              />
-              {superAdmin ? (
-                <RepairStoreDeploymentAuthorityButton
-                  slug={store.slug}
-                  disabled={repairDisabled}
-                  disabledReason={repairDisabledReason}
-                />
-              ) : null}
-            </div>
-            <div className="meta-pairs">
-              <span>Yayın adı: <strong>{storefrontDeploymentName || storefrontDeployment.appName}</strong></span>
-              <span>Durum: <strong>{storefrontDeploymentStatus || storefrontDeployment.status}</strong></span>
-              <span>Runtime URL: <strong>{storefrontRuntimeUrl || storefrontDeployment.runtimeUrl}</strong></span>
-              <span>Hazırlanma zamanı: <strong>{storefrontPreparedAt}</strong></span>
-              <span>Yayın zamanı: <strong>{storefrontDeployedAt}</strong></span>
-              <span>Resource ID: <strong>{storefrontDeployment.resourceId || "-"}</strong></span>
-            <span>Çalışma alanı: <strong>{storefrontDeployment.workspace}</strong></span>
-              <span>Repo sync: <strong>{storefrontDeployment.repoSynced ? "senkron" : storefrontRepoSyncStatus || "bekliyor"}</strong></span>
-              <span>Repo sync zamanı: <strong>{storefrontRepoSyncedAt}</strong></span>
-              <span>Repo Commit: <strong>{storefrontRepoCommitSha || "-"}</strong></span>
-              <span>Env Local: <strong>{storefrontDeployment.envLocalPath || "-"}</strong></span>
-              <span>Env Template: <strong>{storefrontDeployment.envTemplatePath || "-"}</strong></span>
-              <span>Build: <strong>{storefrontDeployment.buildCommand}</strong></span>
-              <span>Start: <strong>{storefrontDeployment.startCommand}</strong></span>
-            </div>
-            <p className="card-note">
-              {storefrontDeploymentAuthorityNote ||
-                (storefrontDeployment.runtimeMessage
-                  ? `Vitrin yayın notu: ${storefrontDeployment.runtimeMessage}`
-                  : "Vitrin yayın standardı owner tarafında hazır.")}
-            </p>
-          </>
-        ) : (
-          <p className="muted">Vitrin yayın planı okunamadı.</p>
-        )}
-      </div>
-
-      <div className="card section-tight">
-        <div className="card-title">Admin Yayın Planı</div>
-        {adminDeployment ? (
-          <>
-            <div className="actions compact-actions stack-top-sm">
-              <ProvisionAdminDeploymentButton
-                slug={store.slug}
-                currentStatus={adminDeployment.status}
-                disabled={deployDisabled}
-                disabledReason={deployDisabledReason}
-              />
-            </div>
-            <div className="meta-pairs">
-              <span>App adı: <strong>{adminDeployment.appName}</strong></span>
-              <span>Durum: <strong>{adminDeployment.status}</strong></span>
-              <span>Runtime URL: <strong>{adminDeployment.runtimeUrl}</strong></span>
-              <span>Resource ID: <strong>{adminDeployment.resourceId || "-"}</strong></span>
-            <span>Çalışma alanı: <strong>{adminDeployment.workspace}</strong></span>
-              <span>Env Local: <strong>{adminDeployment.envLocalPath}</strong></span>
-              <span>Env Template: <strong>{adminDeployment.envTemplatePath}</strong></span>
-              <span>Build: <strong>{adminDeployment.buildCommand}</strong></span>
-              <span>Start: <strong>{adminDeployment.startCommand}</strong></span>
-            </div>
-            <p className="card-note">
-              {adminDeploymentAuthorityNote ||
-                (adminDeployment.runtimeMessage
-                  ? `Yayın notu: ${adminDeployment.runtimeMessage}`
-                  : "Bu mağaza için admin yayın standardı owner tarafında hazır.")}
-            </p>
-          </>
-        ) : (
-          <p className="muted">Admin yayın planı okunamadı.</p>
-        )}
-      </div>
-
-      <div className="card section-tight">
-        <div className="card-title">Tutarlılık Kontrolü</div>
-        <div className="meta-pairs">
-          <span>Toplam konu: <strong>{store.consistency.issueCount}</strong></span>
-          <span>Bloklayan konu: <strong>{store.consistency.blockingIssueCount}</strong></span>
-          <span>Durum: <strong>{store.consistency.blocking ? "Bloklu" : "Temiz"}</strong></span>
-          <span>Kontrol zamanı: <strong>{formatDateTime(store.consistency.checkedAt)}</strong></span>
-        </div>
-        {store.consistency.issues.length > 0 ? (
-          <div className="stack-list stack-top-md">
-            {store.consistency.issues.map((issue, index) => (
-              <div key={`${issue.code}-${index}`} className="inline-card">
-                <div>
-                  <strong>{issue.code}</strong>
-                  <p>{issue.message}</p>
+          <OwnerSectionCard
+            title="Admin Yayın Planı"
+            actions={adminDeployment ? <ProvisionAdminDeploymentButton slug={store.slug} currentStatus={adminDeployment.status} disabled={deployDisabled} disabledReason={deployDisabledReason} /> : null}
+          >
+            {adminDeployment ? (
+              <>
+                <div className="meta-pairs">
+                  <span>App adı: <strong>{adminDeploymentName || adminDeployment.appName}</strong></span>
+                  <span>Durum: <strong>{adminDeploymentStatus || adminDeployment.status}</strong></span>
+                  <span>Runtime: <strong>{adminDeploymentRuntimeUrl || adminDeployment.runtimeUrl}</strong></span>
+                  <span>Branch: <strong>{adminDeploymentBranch || "-"}</strong></span>
+                  <span>Hazırlanma: <strong>{adminDeploymentPreparedAt}</strong></span>
+                  <span>Resource: <strong>{adminDeployment.resourceId || "-"}</strong></span>
                 </div>
-                <div className="actions compact-actions">
-                  <span className={`pill ${issue.severity === "blocking" ? "pill-accent" : "pill-success"}`}>
-                    {issue.severity}
-                  </span>
-                  <span className="pill">{issue.source}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="card-note">Config, owner secrets ve canlı admin runtime aynı authoritative mağaza kaynağını izliyor.</p>
-        )}
-      </div>
+                <p className="card-note">{adminDeploymentAuthorityNote || adminDeployment.runtimeMessage || "Admin yayın standardı owner tarafında hazır."}</p>
+              </>
+            ) : (
+              <OwnerEmptyState title="Admin yayın planı okunamadı" copy="Bu kayıt sonraki kurulum adımında yeniden doğrulanır." />
+            )}
+          </OwnerSectionCard>
+        </div>
 
-      {/* Forms - Only for Super Admin */}
-      {superAdmin ? (
-        <>
-          <div className="card section-tight">
-            <div className="card-title">Demo Domain'den Özel Domain'e Geçiş</div>
-            <p className="section-copy">
-              Demo subdomain ile kurulan mağazayı owner panelden kontrollü şekilde gerçek domaine taşır.
-            </p>
+        {superAdmin ? (
+          <OwnerSectionCard title="Demo Domain'den Özel Domain'e Geçiş" copy="Domain taşıma aksiyonu preview modunda kilitli kalır.">
             <MigrateStoreDomainForm
               slug={store.slug}
               storefrontDomain={store.storefrontDomain}
@@ -828,65 +446,188 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               disabled={deployDisabled}
               disabledReason={deployDisabledReason}
             />
-          </div>
+          </OwnerSectionCard>
+        ) : null}
+      </section>
 
-          <div className="card section-tight">
-            <div className="card-title">Mağaza Profilini Güncelle</div>
-            <p className="section-copy">Müşteri iletişimini, iç sorumluyu, owner notlarını ve durum akışını buradan güncelle.</p>
-            <UpdateStoreProfileForm
-              store={{
-                slug: store.slug,
-                status: store.status,
-                tagline: store.tagline,
-                supportEmail: store.supportEmail,
-                supportPhone: store.supportPhone,
-                management: store.management
-              }}
-              disabled={writeDisabled}
-              disabledReason={writeDisabledReason}
-            />
-          </div>
+      <section id="erisim" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Erişim"
+          title="Admin, affiliate ve profil erişimi"
+          copy="Kullanıcı atamaları ile müşteri profil güncelleme aksiyonları tek bölümde toplanır."
+        />
+        <div className="store-detail-two-column">
+          <OwnerSectionCard title="Mağaza Adminleri">
+            {store.storeAdmins.length === 0 ? (
+              <OwnerEmptyState title="Admin atanmadı" copy="İlk mağaza admini aşağıdaki formdan atanır." />
+            ) : (
+              <OwnerActionQueue
+                items={store.storeAdmins.map((admin) => ({
+                  id: admin.id,
+                  title: admin.fullName || admin.email,
+                  detail: admin.email,
+                  chips: (
+                    <>
+                      <OwnerStatusChip>{admin.role}</OwnerStatusChip>
+                      <OwnerStatusChip tone="ink">{admin.taskDefinition || "Genel"}</OwnerStatusChip>
+                    </>
+                  ),
+                }))}
+              />
+            )}
+          </OwnerSectionCard>
 
-          <div className="card section-tight">
-            <div className="card-title">Bu Mağazaya Affiliate Ata</div>
+          <OwnerSectionCard title="Affiliate Erişimi">
+            {store.affiliateAssignments.length === 0 ? (
+              <OwnerEmptyState title="Affiliate atanmadı" copy="Bu mağaza için affiliate erişimi henüz yok." />
+            ) : (
+              <OwnerActionQueue
+                items={store.affiliateAssignments.map((assignment) => ({
+                  id: assignment.profileId,
+                  title: assignment.fullName || assignment.email,
+                  detail: assignment.email,
+                  meta: <strong>%{formatPercent(assignment.commissionRate)}</strong>,
+                  tone: "accent" as const,
+                }))}
+              />
+            )}
+          </OwnerSectionCard>
+        </div>
+
+        <div className="store-detail-two-column">
+          {superAdmin ? (
+            <OwnerSectionCard title="Mağaza Profilini Güncelle" copy="Müşteri iletişimi, iç sorumlu, owner notu ve durum akışı burada tutulur.">
+              <UpdateStoreProfileForm
+                store={{
+                  slug: store.slug,
+                  status: store.status,
+                  tagline: store.tagline,
+                  supportEmail: store.supportEmail,
+                  supportPhone: store.supportPhone,
+                  management: store.management,
+                }}
+                disabled={writeDisabled}
+                disabledReason={writeDisabledReason}
+              />
+            </OwnerSectionCard>
+          ) : null}
+
+          <OwnerSectionCard title="Bu Mağazaya Admin Ata" copy="Bu mağazaya bağlı operasyon kullanıcılarını yönet.">
+            <CreateStoreAdminForm storeSlug={store.slug} disabled={writeDisabled} disabledReason={writeDisabledReason} />
+          </OwnerSectionCard>
+        </div>
+
+        {superAdmin ? (
+          <OwnerSectionCard title="Bu Mağazaya Affiliate Ata">
             <CreateAffiliateForm
               stores={[{ slug: store.slug, name: store.name }]}
               defaultStoreSlug={store.slug}
               disabled={writeDisabled}
               disabledReason={writeDisabledReason}
             />
-          </div>
+          </OwnerSectionCard>
+        ) : null}
+      </section>
 
-          <div className="card section-tight surface-alert">
-            <div className="section-head">
-              <div>
-                <div className="card-title">Tehlikeli İşlem</div>
-                <p className="section-copy">
-                  Bu mağaza silindiğinde owner kaydı, yayınlar, Supabase, R2 ve generated vitrin izleri temizlenir.
-                </p>
-              </div>
-            </div>
-            <div className="actions">
-              <DeleteStoreButton
-                slug={store.slug}
-                name={store.name}
-                disabled={cleanupDisabled}
-                disabledReason={cleanupDisabledReason}
-              />
-            </div>
-          </div>
-        </>
-      ) : null}
-
-      <div className="card">
-        <div className="card-title">Bu Mağazaya Admin Ata</div>
-        <p className="section-copy">Bu mağazaya bağlı operasyon kullanıcılarını yönet.</p>
-        <CreateStoreAdminForm
-          storeSlug={store.slug}
-          disabled={writeDisabled}
-          disabledReason={writeDisabledReason}
+      <section id="aktivite" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Aktivite"
+          title="Son olaylar ve tutarlılık"
+          copy="Audit kayıtları, tutarlılık blokajları ve teknik kimlikler sıkıştırılmış bir aktivite alanında görünür."
         />
-      </div>
-    </>
+        <div className="store-detail-two-column">
+          <OwnerSectionCard title="Son Aktiviteler">
+            <OwnerTimeline
+              items={store.recentActivity.map((item) => ({
+                id: item.id,
+                title: item.action.replaceAll("_", " "),
+                detail: item.actorName,
+                meta: (
+                  <>
+                    <span>{item.targetLabel}</span>
+                    <strong>{formatDateTime(item.createdAt)}</strong>
+                  </>
+                ),
+              }))}
+              empty={<OwnerEmptyState title="Audit kaydı yok" copy="Bu mağaza için henüz görünür aktivite oluşmadı." />}
+            />
+          </OwnerSectionCard>
+
+          <OwnerSectionCard title="Tutarlılık Kontrolü" tone={store.consistency.blocking ? "danger" : "success"}>
+            <div className="meta-pairs">
+              <span>Toplam konu: <strong>{store.consistency.issueCount}</strong></span>
+              <span>Bloklayan konu: <strong>{store.consistency.blockingIssueCount}</strong></span>
+              <span>Durum: <strong>{store.consistency.blocking ? "Bloklu" : "Temiz"}</strong></span>
+              <span>Kontrol zamanı: <strong>{formatDateTime(store.consistency.checkedAt)}</strong></span>
+            </div>
+            <OwnerActionQueue
+              items={store.consistency.issues.map((issue, index) => ({
+                id: `${issue.code}-${index}`,
+                title: issue.code,
+                detail: issue.message,
+                chips: (
+                  <>
+                    <OwnerStatusChip tone={issue.severity === "blocking" ? "danger" : "warning"}>{issue.severity}</OwnerStatusChip>
+                    <OwnerStatusChip>{issue.source}</OwnerStatusChip>
+                  </>
+                ),
+                tone: issue.severity === "blocking" ? "danger" as const : "warning" as const,
+              }))}
+              empty={<p className="card-note">Config, owner secrets ve canlı admin runtime aynı authoritative mağaza kaynağını izliyor.</p>}
+            />
+          </OwnerSectionCard>
+        </div>
+
+        <OwnerSectionCard title="Teknik Kimlikler" copy="Teknik detaylar karar alanlarının altına taşındı; ana ekranı domine etmez.">
+          <div className="meta-pairs">
+            <span>Slug: <strong>{store.slug}</strong></span>
+            <span>Tema: <strong>{store.themeKey}</strong></span>
+            <span>Vitrin app: <strong>{store.storefrontAppDir || "-"}</strong></span>
+            <span>Vitrin durumu: <strong>{store.storefrontStatus}</strong></span>
+            <span>Oluşturma: <strong>{createdAt}</strong></span>
+            <span>Güncelleme: <strong>{updatedAt}</strong></span>
+            <span>Destek e-postası: <strong>{store.supportEmail || "-"}</strong></span>
+            <span>Destek telefonu: <strong>{store.supportPhone || "-"}</strong></span>
+            <span>Son sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>
+            {showSupabaseInfrastructure ? <span>Legacy servis: <strong>{supabaseProjectName || supabaseResourceId || "Ayrı mod"}</strong></span> : null}
+            {showSupabaseInfrastructure ? <span>Legacy kurulum: <strong>{supabaseProvisioning || provisionedAt}</strong></span> : null}
+            {showSupabaseInfrastructure && supabaseDashboardUrl ? (
+              <span>Legacy Studio: <strong><a href={supabaseDashboardUrl} target="_blank" rel="noreferrer">Aç</a></strong></span>
+            ) : null}
+          </div>
+        </OwnerSectionCard>
+      </section>
+
+      <section id="tehlikeli" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Tehlikeli İşlemler"
+          title="Kilitli onarım ve silme aksiyonları"
+          copy="Preview modunda deploy, repair, cleanup ve delete aksiyonları açık uyarıyla kapalı kalır."
+        />
+        {cleanupRuns.length > 0 ? (
+          <OwnerSectionCard title="Mağaza Temizlik Takibi" tone="danger" actions={<Link href="/operations" className="button button-secondary">Operasyonlara Git</Link>}>
+            <OwnerActionQueue
+              items={cleanupRuns.map((run) => ({
+                id: run.id,
+                title: run.storeName || store.name,
+                detail: `${run.targets.length} hedef / ${orphanedTargetCount} temizlik hedefi`,
+                meta: <strong>{formatDateTime(run.createdAt)}</strong>,
+                chips: <OwnerStatusChip tone="danger">{run.status}</OwnerStatusChip>,
+                tone: "danger" as const,
+              }))}
+            />
+          </OwnerSectionCard>
+        ) : null}
+
+        {superAdmin ? (
+          <OwnerSectionCard title="Tehlikeli İşlem" copy="Bu mağaza silindiğinde owner kaydı, yayınlar, Legacy kaynaklar, R2 ve generated vitrin izleri temizlenir." tone="danger">
+            <div className="store-danger-actions">
+              <DeleteStoreButton slug={store.slug} name={store.name} disabled={cleanupDisabled} disabledReason={cleanupDisabledReason} />
+              {cleanupDisabledReason ? <p className="form-notice form-notice-preview">{cleanupDisabledReason}</p> : null}
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+      </section>
+    </div>
   );
 }

@@ -132,211 +132,221 @@ export function CreateStoreForm({
   const legacyModeVisible = showLegacyOptions || form.databaseMode === "full_supabase";
 
   return (
-    <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
-      <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
-        <section className="owner-form-block field-full">
-          <div className="owner-form-block-title">
-            <strong>Mağaza bilgileri</strong>
-            <span>Adım 01</span>
-          </div>
-          <div className="form-grid form-grid-2">
-            <label className="field">
-              <span>Mağaza adı</span>
-              <input value={form.name} onChange={handleNameChange} placeholder="Deri Kordon" required />
-            </label>
-
-            <label className="field">
-              <span>Slug</span>
-              <input value={form.slug} onChange={handleSlugChange} placeholder="deri-kordon" required />
-            </label>
-
-            <label className="field field-full">
-              <span>Tagline</span>
-              <input
-                value={form.tagline}
-                onChange={(event) => updateField("tagline", event.target.value)}
-                placeholder="El yapimi deri kordon ve aksesuarlar"
-              />
-            </label>
+    <form className="owner-create-wizard" onSubmit={handleSubmit}>
+      <fieldset className="preview-form-fieldset owner-wizard-fieldset" disabled={disabled}>
+        <section className="owner-wizard-step-card">
+          <div className="owner-wizard-step-index">1</div>
+          <div className="owner-wizard-step-content">
+            <div className="owner-form-block-title">
+              <strong>Temel Bilgiler</strong>
+              <span>Marka kimliği</span>
+            </div>
+            <p className="section-copy">Mağazanın panelde ve vitrin planında görünecek temel adını belirle.</p>
+            <div className="form-grid form-grid-2">
+              <label className="field">
+                <span>Mağaza adı</span>
+                <input value={form.name} onChange={handleNameChange} placeholder="Deri Kordon" required />
+              </label>
+              <label className="field">
+                <span>Slug</span>
+                <input value={form.slug} onChange={handleSlugChange} placeholder="deri-kordon" required />
+              </label>
+              <label className="field field-full">
+                <span>Mağaza açıklaması</span>
+                <input
+                  value={form.tagline}
+                  onChange={(event) => updateField("tagline", event.target.value)}
+                  placeholder="El yapımı deri kordon ve aksesuarlar"
+                />
+              </label>
+            </div>
           </div>
         </section>
 
-        <section className="owner-form-block field-full">
-          <div className="owner-form-block-title">
-            <strong>Domain ve tema</strong>
-            <span>Adım 02-03</span>
-          </div>
-          <div className="form-grid form-grid-2">
+        <section className="owner-wizard-step-card">
+          <div className="owner-wizard-step-index">2</div>
+          <div className="owner-wizard-step-content">
+            <div className="owner-form-block-title">
+              <strong>Domain</strong>
+              <span>Yayın kimliği</span>
+            </div>
+            <p className="section-copy">Vitrin domaini ana karar alanıdır; admin domaini kurulum zincirinde bundan türetilir.</p>
             <label className="field">
-              <span>Domain</span>
+              <span>Vitrin domaini</span>
               <input
                 value={form.domain}
                 onChange={(event) => updateField("domain", event.target.value)}
                 placeholder="derikordon.com"
                 required
               />
-              <small className="muted">
-                Vitrin ve admin domaini. Demo domain kaydı <code>&lt;slug&gt;.demo.celebix.co</code> olarak tutulur.
-              </small>
-            </label>
-
-            <label className="field">
-              <span>Tema</span>
-              <select value={form.theme} onChange={(event) => updateField("theme", event.target.value)}>
-                {THEME_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <small className="muted">Demo kayıt ve admin host planı kurulum onayında teknik detay olarak görünür.</small>
             </label>
           </div>
         </section>
 
-        <section className="owner-standard-card field-full">
-          <div className="owner-form-block-title">
-            <strong>Yeni Celebix Standardı</strong>
-            <span>Adım 06</span>
-          </div>
-          <p>
-            Yeni mağaza akışı varsayılan olarak Yeni Standart + R2 + generated admin/vitrin
-            düzeninde açılır. Teknik veritabanı modu yalnızca Advanced Legacy alanında değişir.
-          </p>
-          <div className="actions compact-actions wrap stack-top-sm">
-            <span className="pill pill-success">Yeni Standart</span>
-            <span className="pill">R2 default</span>
-            <span className="pill provisioning-tone-pending_auth">Auth Kurulumu Bekleyen</span>
-            <span className="pill provisioning-tone-pending_analytics">Analytics Kurulumu Bekleyen</span>
-            <span className="pill provisioning-tone-pending_payment">Ödeme Kurulumu Bekleyen</span>
-          </div>
-          <div className="actions stack-top-sm">
-            <button
-              type="button"
-              className="button button-ghost"
-              onClick={() => {
-                if (legacyModeVisible && form.databaseMode === "full_supabase") {
-                  updateField("databaseMode", "light_postgres");
-                  setShowLegacyOptions(false);
-                  return;
-                }
-
-                setShowLegacyOptions((current) => !current);
-              }}
-            >
-              {legacyModeVisible ? "Advanced Legacy alanını gizle" : "Advanced Legacy"}
-            </button>
-          </div>
-          {legacyModeVisible ? (
-            <div className="stack-top-sm">
-              <label className="field">
-                <span>Veritabanı modu</span>
-                <select
-                  value={form.databaseMode}
-                  onChange={(event) =>
-                    updateField("databaseMode", event.target.value as FormState["databaseMode"])
-                  }
-                >
-                  <option value="light_postgres">Yeni Standart</option>
-                  <option value="full_supabase">Legacy</option>
-                </select>
-                <small className="muted">
-                  Legacy yalnızca özel/onaylı durumlarda açılır; varsayılan seçim Yeni Standart olarak korunur.
-                </small>
-              </label>
-              {form.databaseMode === "full_supabase" ? (
-                <div className="inline-card" style={{ borderColor: "rgba(254,97,0,.24)" }}>
-                  <div>
-                    <strong>Legacy kurulum açılır</strong>
-                    <p>Yeni Standart değildir</p>
-                    <p>Sadece özel/onaylı durumlarda kullanılır</p>
-                  </div>
-                  <span className="pill pill-legacy">legacy</span>
-                </div>
-              ) : (
-                <p className="card-note">
-                  Legacy paneli açık, ancak Yeni Standart seçimi aktif kalır.
-                </p>
-              )}
+        <section className="owner-wizard-step-card owner-standard-card">
+          <div className="owner-wizard-step-index">3</div>
+          <div className="owner-wizard-step-content">
+            <div className="owner-form-block-title">
+              <strong>Kurulum Standardı</strong>
+              <span>Yeni Celebix Standardı</span>
             </div>
-          ) : null}
+            <p>
+              Yeni mağazalar varsayılan olarak Yeni Standart, R2 medya zinciri ve generated admin/vitrin düzeniyle açılır.
+              Teknik veritabanı modu ana seçim değildir.
+            </p>
+            <div className="actions compact-actions wrap stack-top-sm">
+              <span className="pill pill-success">Yeni Standart</span>
+              <span className="pill">R2 varsayılan</span>
+              <span className="pill provisioning-tone-pending_auth">Auth Kurulumu Bekleyen</span>
+              <span className="pill provisioning-tone-pending_analytics">Analytics Kurulumu Bekleyen</span>
+              <span className="pill provisioning-tone-pending_payment">Ödeme Kurulumu Bekleyen</span>
+            </div>
+            <div className="owner-advanced-box">
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => {
+                  if (legacyModeVisible && form.databaseMode === "full_supabase") {
+                    updateField("databaseMode", "light_postgres");
+                    setShowLegacyOptions(false);
+                    return;
+                  }
+                  setShowLegacyOptions((current) => !current);
+                }}
+              >
+                {legacyModeVisible ? "Advanced Legacy alanını kapat" : "Advanced Legacy"}
+              </button>
+              {legacyModeVisible ? (
+                <div className="owner-legacy-panel">
+                  <label className="field">
+                    <span>Legacy modu</span>
+                    <select
+                      value={form.databaseMode}
+                      onChange={(event) =>
+                        updateField("databaseMode", event.target.value as FormState["databaseMode"])
+                      }
+                    >
+                      <option value="light_postgres">Yeni Standart</option>
+                      <option value="full_supabase">Legacy</option>
+                    </select>
+                    <small className="muted">Legacy yalnızca özel/onaylı durumlarda kullanılır.</small>
+                  </label>
+                  <div className="inline-card">
+                    <div>
+                      <strong>{form.databaseMode === "full_supabase" ? "Legacy kurulum seçildi" : "Yeni Standart korunuyor"}</strong>
+                      <p>{form.databaseMode === "full_supabase" ? "Full Supabase özel modda açılır." : "Advanced panel açık, ana standart değişmedi."}</p>
+                    </div>
+                    <span className={`pill ${form.databaseMode === "full_supabase" ? "pill-legacy" : "pill-success"}`}>
+                      {form.databaseMode === "full_supabase" ? "Legacy" : "Yeni Standart"}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </section>
 
-        <section className="owner-form-block field-full">
-          <div className="owner-form-block-title">
-            <strong>Admin, ödeme ve başlangıç</strong>
-            <span>Adım 04-05</span>
-          </div>
-          <div className="form-grid form-grid-2">
-            <label className="field">
-              <span>Destek e-postası</span>
-              <input
-                type="email"
-                value={form.supportEmail}
-                onChange={(event) => updateField("supportEmail", event.target.value)}
-                placeholder="destek@derikordon.com"
-              />
-            </label>
-
-            <label className="field">
-              <span>Destek Telefonu</span>
-              <input
-                value={form.supportPhone}
-                onChange={(event) => updateField("supportPhone", event.target.value)}
-                placeholder="+90 532 000 00 00"
-              />
-            </label>
-
-            <label className="field">
-              <span>Paket başlangıç tarihi</span>
-              <input
-                type="date"
-                value={form.packageStartDate}
-                onChange={(event) => updateField("packageStartDate", event.target.value)}
-              />
-            </label>
-
-            <label className="field">
-              <span>Paket süresi (ay)</span>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={form.packageDurationMonths}
-                onChange={(event) => updateField("packageDurationMonths", event.target.value)}
-                placeholder="1"
-              />
-              <small className="muted">Aylık paket için 1, yıllık paket için 12 gir.</small>
-            </label>
+        <section className="owner-wizard-step-card">
+          <div className="owner-wizard-step-index">4</div>
+          <div className="owner-wizard-step-content">
+            <div className="owner-form-block-title">
+              <strong>Admin Kullanıcı</strong>
+              <span>Başlangıç erişimi</span>
+            </div>
+            <p className="section-copy">İlk destek kanalı ve operasyon iletişimi mağaza teslim akışına eklenir.</p>
+            <div className="form-grid form-grid-2">
+              <label className="field">
+                <span>Destek e-postası</span>
+                <input
+                  type="email"
+                  value={form.supportEmail}
+                  onChange={(event) => updateField("supportEmail", event.target.value)}
+                  placeholder="destek@derikordon.com"
+                />
+              </label>
+              <label className="field">
+                <span>Destek telefonu</span>
+                <input
+                  value={form.supportPhone}
+                  onChange={(event) => updateField("supportPhone", event.target.value)}
+                  placeholder="+90 532 000 00 00"
+                />
+              </label>
+            </div>
           </div>
         </section>
 
-        <section className="owner-form-block field-full">
-          <div className="owner-form-block-title">
-            <strong>Yayın branch planı</strong>
-            <span>Yetki</span>
+        <section className="owner-wizard-step-card">
+          <div className="owner-wizard-step-index">5</div>
+          <div className="owner-wizard-step-content">
+            <div className="owner-form-block-title">
+              <strong>Ödeme ve Kargo Başlangıcı</strong>
+              <span>Paket ritmi</span>
+            </div>
+            <p className="section-copy">Mağaza ticaret başlangıcı için paket süresi ve takip tarihi belirlenir.</p>
+            <div className="form-grid form-grid-2">
+              <label className="field">
+                <span>Paket başlangıç tarihi</span>
+                <input
+                  type="date"
+                  value={form.packageStartDate}
+                  onChange={(event) => updateField("packageStartDate", event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Paket süresi (ay)</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={form.packageDurationMonths}
+                  onChange={(event) => updateField("packageDurationMonths", event.target.value)}
+                  placeholder="1"
+                />
+                <small className="muted">Aylık paket için 1, yıllık paket için 12 gir.</small>
+              </label>
+            </div>
           </div>
-          <div className="meta-pairs">
-            <span>Owner/Admin branch: <strong>{ownerDeploymentBranch}</strong></span>
-            <span>Vitrin branch: <strong>{storefrontBranchPreview}</strong></span>
+        </section>
+
+        <section className="owner-wizard-step-card owner-wizard-review-card">
+          <div className="owner-wizard-step-index">6</div>
+          <div className="owner-wizard-step-content">
+            <div className="owner-form-block-title">
+              <strong>Önizleme ve Onay</strong>
+              <span>Son kontrol</span>
+            </div>
+            <div className="owner-review-grid">
+              <span>Mağaza <strong>{form.name || "Henüz girilmedi"}</strong></span>
+              <span>Slug <strong>{branchSlugPreview}</strong></span>
+              <span>Domain <strong>{form.domain || "Bekleniyor"}</strong></span>
+              <span>Standart <strong>{form.databaseMode === "full_supabase" ? "Legacy" : "Yeni Standart"}</strong></span>
+              <span>Tema <strong>{form.theme}</strong></span>
+              <span>Paket <strong>{form.packageDurationMonths || "1"} ay</strong></span>
+            </div>
+            <details className="owner-technical-details">
+              <summary>Teknik branch planı</summary>
+              <div className="meta-pairs">
+                <span>Owner/Admin branch: <strong>{ownerDeploymentBranch}</strong></span>
+                <span>Vitrin branch: <strong>{storefrontBranchPreview}</strong></span>
+              </div>
+            </details>
           </div>
-          <p className="card-note">
-            Owner ve admin yayını aynı branch'te kalır. Her yeni vitrin kendi slug'ı için ayrı branch alır.
-          </p>
         </section>
       </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {disabledReason ? <p className="form-notice form-notice-preview field-full">{disabledReason}</p> : null}
 
-      <div className="actions field-full actions-end stack-top-sm">
-        <button
-          type="button"
-          className="button button-ghost"
-          onClick={() => router.back()}
-          disabled={isPending}
-        >
+      <div className="owner-wizard-footer">
+        <button type="button" className="button button-ghost" onClick={() => router.back()} disabled={isPending}>
           İptal
         </button>
+        <div className="owner-wizard-footer-copy">
+          <strong>{disabled ? "Önizleme Modu" : "Kurulum hazır"}</strong>
+          <span>{disabled ? "Yazma işlemleri kapalı" : "Yeni mağaza kaydı oluşturulabilir"}</span>
+        </div>
         <button
           type="submit"
           className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}

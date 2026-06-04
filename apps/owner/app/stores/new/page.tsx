@@ -54,12 +54,12 @@ export default async function NewStorePage() {
         }
         panelTitle="Kurulum sırası"
         panelItems={[
-          { label: "1. Marka", value: "Mağaza bilgileri" },
+          { label: "1. Temel Bilgiler", value: "Marka kimliği" },
           { label: "2. Domain", value: "Yayın kimliği" },
-          { label: "3. Tema", value: "Sektör dili" },
-          { label: "4. Admin", value: "Başlangıç erişimi" },
-          { label: "5. Ticaret", value: "Ödeme ve kargo" },
-          { label: "6. Sistem", value: "Yeni standart" },
+          { label: "3. Kurulum Standardı", value: "Yeni Standart" },
+          { label: "4. Admin Kullanıcı", value: "Başlangıç erişimi" },
+          { label: "5. Ödeme ve Kargo", value: "Başlangıç ayarı" },
+          { label: "6. Önizleme ve Onay", value: "Son kontrol" },
         ]}
         chips={
           <>
@@ -83,12 +83,12 @@ export default async function NewStorePage() {
             </div>
             <OwnerLifecycleStepper
               steps={[
-                { label: "Mağaza bilgileri", detail: "Ad, slug ve marka dili", state: "current" },
+                { label: "Temel Bilgiler", detail: "Ad, slug ve marka dili", state: "current" },
                 { label: "Domain", detail: "Vitrin ve admin kimliği", state: "pending" },
-                { label: "Tema / sektör", detail: "İlk tasarım şablonu", state: "pending" },
-                { label: "Admin kullanıcı", detail: "Başlangıç erişimi", state: "pending" },
-                { label: "Ödeme / kargo", detail: "Başlangıç ticaret ayarları", state: "pending" },
-                { label: "Yeni sistem kurulumu", detail: "Yeni Standart + R2 + kurulum istekleri", state: "pending" },
+                { label: "Kurulum Standardı", detail: "Yeni Standart + R2", state: "pending" },
+                { label: "Admin Kullanıcı", detail: "Başlangıç erişimi", state: "pending" },
+                { label: "Ödeme ve Kargo Başlangıcı", detail: "Paket ve ticaret ayarı", state: "pending" },
+                { label: "Önizleme ve Onay", detail: "Son kontrol", state: "pending" },
               ]}
             />
           </div>
