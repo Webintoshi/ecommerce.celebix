@@ -151,9 +151,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   <ThemeToggle />
                   <div className="topbar-user">
                     {previewFlags.previewMode || previewFlags.writeActionsDisabled ? (
-                      <span className="pill pill-warning">{getOwnerPreviewBannerTitle()}</span>
+                      <span className="pill pill-warning topbar-preview-pill">{getOwnerPreviewBannerTitle()}</span>
                     ) : null}
-                    <span className="pill pill-accent">{roleLabel}</span>
+                    <span className="pill pill-accent topbar-role-pill">{roleLabel}</span>
                     <span className="topbar-user-name">{userName}</span>
                   </div>
                 </header>

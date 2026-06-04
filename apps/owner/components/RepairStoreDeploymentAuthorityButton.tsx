@@ -81,7 +81,7 @@ export function RepairStoreDeploymentAuthorityButton({
     <div className="inline-stack">
       <button
         type="button"
-        className="button button-secondary"
+        className={`button button-secondary${disabledReason ? " button-preview-disabled" : ""}`}
         onClick={handleRepair}
         disabled={disabled || isPending}
       >
@@ -89,7 +89,7 @@ export function RepairStoreDeploymentAuthorityButton({
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
-      {disabledReason ? <p className="form-notice">{disabledReason}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview">{disabledReason}</p> : null}
     </div>
   );
 }

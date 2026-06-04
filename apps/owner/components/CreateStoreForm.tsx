@@ -296,7 +296,7 @@ export function CreateStoreForm({
       </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
-      {disabledReason ? <p className="form-notice field-full">{disabledReason}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview field-full">{disabledReason}</p> : null}
 
       <div className="actions field-full actions-end stack-top-sm">
         <button
@@ -307,7 +307,11 @@ export function CreateStoreForm({
         >
           Iptal
         </button>
-        <button type="submit" className="button button-primary" disabled={disabled || isPending}>
+        <button
+          type="submit"
+          className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
+          disabled={disabled || isPending}
+        >
           {isPending ? "Olusturuluyor..." : "Magaza Olustur"}
         </button>
       </div>

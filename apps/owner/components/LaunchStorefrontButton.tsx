@@ -66,7 +66,7 @@ export function LaunchStorefrontButton({
     <div className="inline-stack">
       <button
         type="button"
-        className="button button-primary"
+        className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
         onClick={handleLaunch}
         disabled={disabled || isPending}
       >
@@ -78,7 +78,7 @@ export function LaunchStorefrontButton({
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
-      {disabledReason ? <p className="form-notice">{disabledReason}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview">{disabledReason}</p> : null}
     </div>
   );
 }

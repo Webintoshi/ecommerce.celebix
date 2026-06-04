@@ -252,10 +252,14 @@ export function UpdateStoreProfileForm({
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {notice ? <p className="form-notice field-full">{notice}</p> : null}
-      {disabledReason ? <p className="form-notice field-full">{disabledReason}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview field-full">{disabledReason}</p> : null}
 
       <div className="actions field-full">
-        <button type="submit" className="button button-primary" disabled={disabled || isPending}>
+        <button
+          type="submit"
+          className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
+          disabled={disabled || isPending}
+        >
           {isPending ? "Kaydediliyor..." : "Proje profilini guncelle"}
         </button>
       </div>

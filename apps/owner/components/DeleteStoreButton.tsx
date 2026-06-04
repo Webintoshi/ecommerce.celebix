@@ -131,7 +131,7 @@ export function DeleteStoreButton({
       <Button variant="danger" onClick={() => setIsOpen(true)} disabled={disabled}>
         Projeyi sil
       </Button>
-      {disabledReason ? <p className="form-notice stack-top-sm">{disabledReason}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview stack-top-sm">{disabledReason}</p> : null}
 
       <Dialog
         isOpen={isOpen}
