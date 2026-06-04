@@ -1,82 +1,48 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth-context";
-import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
-import { Mail, ArrowRight, CheckCircle, Shield } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Mail, Shield } from "lucide-react";
 import { motion } from "framer-motion";
+import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
+import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
+import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 
 export default function ForgotPasswordPage() {
-  const { resetPassword } = useAuth();
-  
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
+  const [submitting, setSubmitting] = useState(false);
   const showLogoImage =
     typeof SITE_LOGO_PATH === "string" &&
     !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    const { error: resetError } = await resetPassword(email);
-
-    if (resetError) {
-      setError(resetError.message);
-      setLoading(false);
-    } else {
-      setSuccess(true);
-      setLoading(false);
-    }
-  };
-
-  if (success) {
+  if (authMigrationRequired) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center"
-        >
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Email Sent
-          </h2>
-          <p className="text-gray-600 mb-2">
-            Sifre sifirlama linki e-posta adresinize gonderildi.
-          </p>
-          <p className="text-sm text-gray-500 mb-6">
-            Lutfen gelen kutunuzu kontrol edin ve linke tiklayarak sifrenizi sifirlayin.
-          </p>
-          <Link
-            href="/giris"
-            className="inline-block bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors"
-          >
-            Giris Sayfasina Git
-          </Link>
-        </motion.div>
-      </div>
+      <CustomerAuthMigrationNotice
+        title="Sifre sifirlama gecici olarak pasif"
+        description="Bu rehearsal fazinda musteri auth migrasyonu tamamlanmadigi icin sifre sifirlama akisi acik tutulmuyor. Siparis vermek icin misafir odemeye devam edebilirsiniz."
+      />
     );
   }
 
+  const openResetFlow = () => {
+    setSubmitting(true);
+    const url = new URL("/api/auth/sign-in", window.location.origin);
+    url.searchParams.set("firstScreen", "reset_password");
+    url.searchParams.set("identifier", "email");
+    window.location.assign(url.toString());
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <motion.div 
+    <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] px-4 py-12">
+      <div className="mx-auto flex w-full max-w-md flex-col justify-center">
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="mb-8 text-center"
         >
           <Link href="/" className="inline-block">
             {showLogoImage ? (
-              <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
+              <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="mx-auto h-16 w-auto" />
             ) : (
               <span className="font-serif text-3xl font-semibold tracking-tight text-gray-900">
                 {SITE_NAME}
@@ -85,89 +51,54 @@ export default function ForgotPasswordPage() {
           </Link>
         </motion.div>
 
-        {/* Forgot Password Card */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-xl p-8"
+          className="rounded-3xl bg-white p-8 shadow-xl"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-              <Shield className="w-5 h-5 text-primary" />
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
+              <Shield className="h-5 w-5 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Sifremi Unuttum
-            </h2>
-          </div>
-          <p className="text-gray-500 mb-6">
-            Enter your email address and we will send you a password reset link.
-          </p>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="ornek@email.com"
-                />
-              </div>
+              <h1 className="text-2xl font-bold text-gray-900">Sifremi Unuttum</h1>
+              <p className="text-sm text-gray-500">
+                Guvenli sifre yenileme ekraninda e-postaniza sifirlama baglantisi gonderilir.
+              </p>
             </div>
+          </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Gonderiliyor...
-                </>
-              ) : (
-                <>
-                  Sifirlama Linki Gonder
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={openResetFlow}
+            disabled={submitting}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3.5 font-semibold text-white transition-colors hover:bg-[#7B1113] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {submitting ? (
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              <Mail className="h-5 w-5" />
+            )}
+            Sifre Yenileme Ekranini Ac
+          </button>
 
-          {/* Back to Login */}
-          <div className="mt-6 text-center text-gray-600">
-            <Link href="/giris" className="text-primary font-bold hover:underline">
-              Giris Sayfasina Don
+          <div className="mt-6 text-center text-sm text-gray-600">
+            Giris sayfasina geri donmek ister misiniz?{" "}
+            <Link href="/giris" className="font-semibold text-primary hover:underline">
+              Giris Yap
             </Link>
           </div>
         </motion.div>
 
-        {/* Back to Home */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
           className="mt-6 text-center"
         >
-          <Link 
-            href="/" 
-            className="text-sm text-gray-500 hover:text-primary transition-colors"
-          >
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary">
+            <ArrowRight className="h-4 w-4 rotate-180" />
             Ana Sayfaya Don
           </Link>
         </motion.div>

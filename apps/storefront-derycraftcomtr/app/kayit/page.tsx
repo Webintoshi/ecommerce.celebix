@@ -1,211 +1,75 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth-context";
-import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
-import { CaptchaProtection } from "@/components/auth/CaptchaProtection";
-import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, UserPlus, CheckCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Chrome, Shield, UserPlus } from "lucide-react";
 import { motion } from "framer-motion";
+import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
+import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
+import { useAuth } from "@/lib/auth-context";
+import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 
-const CUSTOMER_AUTH_DISABLED =
-  process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE?.trim().toLowerCase() === "light_postgres" &&
-  process.env.NEXT_PUBLIC_STORE_SLUG?.trim() === "derycraftcomtr";
+function sanitizeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/hesap";
+  }
+
+  return value;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { signUp, user } = useAuth();
-  
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-    agreeToTerms: false,
-  });
-  
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
-  const [captchaError, setCaptchaError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const { user, loading } = useAuth();
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
+  const [submitting, setSubmitting] = useState<"email" | "google" | null>(null);
   const showLogoImage =
     typeof SITE_LOGO_PATH === "string" &&
     !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
+  const nextPath = useMemo(() => sanitizeNextPath(searchParams.get("next")), [searchParams]);
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      router.push("/hesap");
+    if (!authMigrationRequired && !loading && user) {
+      router.push(nextPath);
     }
-  }, [user, router]);
+  }, [authMigrationRequired, loading, nextPath, router, user]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setCaptchaError(null);
-
-    // Captcha validation
-    if (!isCaptchaVerified) {
-      setCaptchaError("Verification is required");
-      setLoading(false);
-      return;
-    }
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError("Sifreler eslesmiyor");
-      setLoading(false);
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError("Sifre en az 6 karakter olmalidir");
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.agreeToTerms) {
-      setError("Devam etmek icin kullanim kosullarini kabul etmelisiniz");
-      setLoading(false);
-      return;
-    }
-
-    // Register with Supabase (NO email verification required)
-    const { error: authError, data } = await signUp(
-      formData.email,
-      formData.password,
-      {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone: formData.phone,
-        full_name: `${formData.firstName} ${formData.lastName}`,
-      }
+  if (authMigrationRequired) {
+    return (
+      <CustomerAuthMigrationNotice
+        title="Hesap olusturma gecici olarak pasif"
+        description="DeryCraft 2 light_postgres provasinda musteri hesap kaydi Supabase auth'a yazmasin diye kayit akisi kontrollu olarak kapatildi. Siparis vermek icin misafir odeme kullanilabilir."
+      />
     );
+  }
 
-    if (authError) {
-      if (authError.message.includes("User already registered")) {
-        setError("Bu e-posta adresi zaten kayitli");
-      } else if (authError.message.includes("Password should be")) {
-        setError("Sifre en az 6 karakter olmalidir");
-      } else {
-        setError(authError.message);
-      }
-      setLoading(false);
-    } else if (data?.user) {
-      // Success! Auto-login and redirect
-      setSuccess(true);
-      
-      // Create customer record
-      try {
-        await fetch("/api/customers/create-from-auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: formData.email,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            user_id: data?.user?.id,
-          }),
-        });
-      } catch (err) {
-        console.error("Customer creation error:", err);
-      }
+  const openSignupFlow = (mode: "email" | "google") => {
+    setSubmitting(mode);
 
-      // Redirect to account page after short delay
-      setTimeout(() => {
-        router.push("/hesap");
-      }, 1000);
+    const url = new URL("/api/auth/sign-in", window.location.origin);
+    url.searchParams.set("next", nextPath);
+
+    if (mode === "google") {
+      url.searchParams.set("directSignIn", "social:google");
+    } else {
+      url.searchParams.set("firstScreen", "register");
     }
+
+    window.location.assign(url.toString());
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center"
-        >
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Kayit Basarili
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Hesabiniz olusturuldu. Hesabiniza yonlendiriliyorsunuz...
-          </p>
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (CUSTOMER_AUTH_DISABLED) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4 py-12">
-        <div className="w-full max-w-md">
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
-            <Link href="/" className="inline-block">
-              {showLogoImage ? (
-                <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
-              ) : (
-                <span className="font-serif text-3xl font-semibold tracking-tight text-gray-900">{SITE_NAME}</span>
-              )}
-            </Link>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl shadow-xl p-8"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                <UserPlus className="w-5 h-5 text-amber-700" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Musteri Hesabi Gecici Olarak Kapali</h2>
-            </div>
-            <p className="text-gray-600 leading-7">
-              DeryCraft hesap olusturma akisi rehearsal surecinde devre disi. Siparislerinizi misafir olarak
-              tamamlayabilirsiniz.
-            </p>
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Bu durum katalogu veya odeme akisini etkilemez; yalnizca hesap ozellikleri gecici olarak kapatilmistir.
-            </div>
-            <Link
-              href="/odeme"
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-white transition-colors hover:bg-[#7B1113]"
-            >
-              Misafir Olarak Devam Et
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-          </motion.div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <motion.div 
+    <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] px-4 py-12">
+      <div className="mx-auto flex w-full max-w-md flex-col justify-center">
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="mb-8 text-center"
         >
           <Link href="/" className="inline-block">
             {showLogoImage ? (
-              <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
+              <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="mx-auto h-16 w-auto" />
             ) : (
               <span className="font-serif text-3xl font-semibold tracking-tight text-gray-900">
                 {SITE_NAME}
@@ -214,216 +78,74 @@ export default function RegisterPage() {
           </Link>
         </motion.div>
 
-        {/* Register Card */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-xl p-8"
+          className="rounded-3xl bg-white p-8 shadow-xl"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-              <UserPlus className="w-5 h-5 text-primary" />
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
+              <UserPlus className="h-5 w-5 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Hesap Olustur
-            </h2>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Hesap Olustur</h1>
+              <p className="text-sm text-gray-500">
+                E-posta veya Google ile kaydolun, siparislerinizi hesabinizdan takip edin.
+              </p>
+            </div>
           </div>
-          <p className="text-gray-500 mb-6">
-            {SITE_NAME} ailesine katilin
-          </p>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name Row */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Ad
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    required
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    placeholder="Ahmet"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Soyad
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    required
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    placeholder="Yilmaz"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="ornek@email.com"
-                />
-              </div>
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Phone <span className="text-gray-400 font-normal">(Optional)</span>
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="0555 555 55 55"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Sifre
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  minLength={6}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="En az 6 karakter"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Sifre Tekrar
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="Sifrenizi tekrar girin"
-                />
-              </div>
-            </div>
-
-            {/* Bot Protection */}
-            <div className="pt-2">
-              <CaptchaProtection
-                onVerify={setIsCaptchaVerified}
-                error={captchaError}
-              />
-            </div>
-
-            {/* Terms */}
-            <div className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={formData.agreeToTerms}
-                onChange={(e) => setFormData({ ...formData, agreeToTerms: e.target.checked })}
-                className="mt-1 w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-              />
-              <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                <Link href="/kullanim-kosullari" className="text-primary hover:underline font-medium">
-                  Terms of Use
-                </Link>
-                {" "}and{" "}
-                <Link href="/gizlilik" className="text-primary hover:underline font-medium">
-                  Privacy Policy
-                </Link>
-                {" "}I have read and accept them.
-              </label>
-            </div>
-
-            {/* Submit Button */}
+          <div className="space-y-3">
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              type="button"
+              onClick={() => openSignupFlow("email")}
+              disabled={Boolean(submitting)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3.5 font-semibold text-white transition-colors hover:bg-[#7B1113] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Kaydediliyor...
-                </>
+              {submitting === "email" ? (
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
               ) : (
-                <>
-                  Kayit Ol
-                  <ArrowRight className="w-5 h-5" />
-                </>
+                <Shield className="h-5 w-5" />
               )}
+              E-posta ile Hesap Olustur
             </button>
-          </form>
 
-          {/* Login Link */}
-          <div className="mt-6 text-center text-gray-600">
+            <button
+              type="button"
+              onClick={() => openSignupFlow("google")}
+              disabled={Boolean(submitting)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3.5 font-semibold text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitting === "google" ? (
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" />
+              ) : (
+                <Chrome className="h-5 w-5" />
+              )}
+              Google ile Devam Et
+            </button>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+            Hesap olusturmak zorunlu degil. Dilerseniz siparisinizi misafir olarak tamamlayabilirsiniz.
+          </div>
+
+          <div className="mt-6 text-center text-sm text-gray-600">
             Zaten hesabiniz var mi?{" "}
-            <Link href="/giris" className="text-primary font-bold hover:underline">
+            <Link href="/giris" className="font-semibold text-primary hover:underline">
               Giris Yap
             </Link>
           </div>
         </motion.div>
 
-        {/* Back to Home */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
           className="mt-6 text-center"
         >
-          <Link 
-            href="/" 
-            className="text-sm text-gray-500 hover:text-primary transition-colors"
-          >
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary">
+            <ArrowRight className="h-4 w-4 rotate-180" />
             Ana Sayfaya Don
           </Link>
         </motion.div>

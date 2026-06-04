@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { isLogtoCustomerAuthEnabled } from "@/lib/customer-auth-provider";
 import { createServerClient } from "@/lib/supabase";
-import { isDerycraftLightPostgresRuntime } from "@/lib/derycraft-light-postgres";
+import {
+  DERYCRAFT_AUTH_MIGRATION_CODE,
+  DERYCRAFT_AUTH_MIGRATION_MESSAGE,
+  isStorefrontCustomerAuthMigrationRequired,
+} from "@/lib/supabase-disconnect-readiness";
 
 type RegisterBody = {
   email?: string;
@@ -9,13 +14,23 @@ type RegisterBody = {
 };
 
 export async function POST(request: Request) {
-  if (isDerycraftLightPostgresRuntime()) {
+  if (isStorefrontCustomerAuthMigrationRequired()) {
     return NextResponse.json(
       {
-        error: "Musteri hesabi olusturma gecici olarak devre disi. Siparislerinizi misafir olarak tamamlayabilirsiniz.",
-        code: "temporarily_disabled",
+        error: DERYCRAFT_AUTH_MIGRATION_MESSAGE,
+        code: DERYCRAFT_AUTH_MIGRATION_CODE,
       },
       { status: 503 },
+    );
+  }
+
+  if (isLogtoCustomerAuthEnabled()) {
+    return NextResponse.json(
+      {
+        error: "Musteri kaydi Logto canary akisina tasindi. Lutfen /kayit veya /api/auth/sign-in kullanin.",
+        code: "customer_auth_redirect_required",
+      },
+      { status: 409 },
     );
   }
 
@@ -23,7 +38,7 @@ export async function POST(request: Request) {
     const { email, password, metadata }: RegisterBody = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+      return NextResponse.json({ error: "E-posta ve sifre zorunludur." }, { status: 400 });
     }
 
     const supabase = createServerClient();
@@ -48,4 +63,15 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "Kayit olusturulamadi.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+export async function GET(request: Request) {
+  if (isLogtoCustomerAuthEnabled()) {
+    const url = new URL("/api/auth/sign-in", request.url);
+    url.searchParams.set("next", "/hesap");
+    url.searchParams.set("firstScreen", "register");
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.redirect(new URL("/kayit", request.url));
 }
