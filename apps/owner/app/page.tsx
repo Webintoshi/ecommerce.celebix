@@ -9,11 +9,15 @@ import {
 } from "@/components/owner-control";
 import { repairOwnerDeploymentBranchOnce } from "@/lib/coolify-owner-deployment";
 import { getOwnerDashboard } from "@/lib/control-plane";
-import { formatCurrency, formatDateTime } from "@/lib/formatters";
-import { isLegacyDatabaseMode } from "@/lib/lifecycle-ui";
+import { formatDateTime } from "@/lib/formatters";
+import {
+  getProvisioningLabel,
+  getProvisioningToneClass,
+  getSetupSignals,
+  isLegacyDatabaseMode,
+} from "@/lib/lifecycle-ui";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
 import {
-  getOwnerPreviewDisabledNotice,
   getOwnerPreviewFlags,
   isOwnerActionDisabled,
 } from "@/lib/preview-mode";
@@ -23,9 +27,7 @@ export default async function OwnerDashboardPage() {
   const superAdmin = isSuperAdmin(auth);
   const previewFlags = getOwnerPreviewFlags();
   const createStoreDisabled = isOwnerActionDisabled("create_store", previewFlags);
-  const deployDisabled = isOwnerActionDisabled("deploy", previewFlags);
   const repairDisabled = isOwnerActionDisabled("repair", previewFlags);
-  const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
 
   if (superAdmin && !repairDisabled) {
     await repairOwnerDeploymentBranchOnce();
@@ -54,6 +56,7 @@ export default async function OwnerDashboardPage() {
 
   const dashboardStores = dashboard?.stores ?? [];
   const portfolioCount = totals.activeStores + totals.draftStores;
+  const readinessRate = portfolioCount > 0 ? Math.round((totals.liveStorefronts / portfolioCount) * 100) : 0;
   const attentionCount = dashboard?.attentionStores.length ?? 0;
   const pendingAuthCount = dashboardStores.filter(
     (store) => store.setup.auth.status === "pending_auth_setup",
@@ -65,113 +68,186 @@ export default async function OwnerDashboardPage() {
     (store) => store.setup.payments.status === "pending_payment_setup",
   ).length;
   const legacyStoreCount = dashboardStores.filter((store) => isLegacyDatabaseMode(store.databaseMode)).length;
-  const setupQueueCount = pendingAuthCount + pendingAnalyticsCount + pendingPaymentCount;
-  const cleanupRuns = dashboard?.cleanupRuns.slice(0, 3) ?? [];
-  const attentionStores = dashboard?.attentionStores.slice(0, 4) ?? [];
+  const setupQueueCount = dashboardStores.filter((store) =>
+    getSetupSignals(store.setup).some((signal) => signal.pending),
+  ).length;
+  const adminIssueCount = dashboardStores.filter(
+    (store) => !store.health.adminDeploymentReady || !store.health.adminRuntimeConsistent,
+  ).length;
+  const storefrontIssueCount = dashboardStores.filter(
+    (store) => !store.health.storefrontReady || !store.health.storefrontRuntimeConsistent,
+  ).length;
+  const infrastructureIssueCount = dashboardStores.filter(
+    (store) =>
+      !store.health.secretAuthorityReady ||
+      store.consistency.blocking ||
+      store.provisioning.failedStepCount > 0,
+  ).length;
+  const setupQueueStores = dashboardStores
+    .map((store) => ({
+      store,
+      signals: getSetupSignals(store.setup).filter((signal) => signal.pending),
+    }))
+    .filter((entry) => entry.signals.length > 0)
+    .slice(0, 5);
 
-  const queueBuckets = [
+  const priorityRows = [
     {
-      key: "auth",
-      title: "Auth Kurulumu Bekleyen",
+      label: "Auth kurulumu bekleyen mağazalar",
       count: pendingAuthCount,
-      note: "Yeni mağazaların kimlik katmanı kurulumu henüz tamamlanmadı.",
+      tone: pendingAuthCount > 0 ? ("warning" as const) : ("success" as const),
+      status: pendingAuthCount > 0 ? "Aksiyon bekliyor" : "Temiz",
     },
     {
-      key: "analytics",
-      title: "Analytics Kurulumu Bekleyen",
+      label: "Analytics kurulumu bekleyen mağazalar",
       count: pendingAnalyticsCount,
-      note: "İzleme ve raporlama akışı için kurulumu bekleyen mağazalar var.",
+      tone: pendingAnalyticsCount > 0 ? ("warning" as const) : ("success" as const),
+      status: pendingAnalyticsCount > 0 ? "Takipte" : "Temiz",
     },
     {
-      key: "payment",
-      title: "Ödeme Kurulumu Bekleyen",
+      label: "Ödeme kurulumu bekleyen mağazalar",
       count: pendingPaymentCount,
-      note: "Tahsilat katmanı devreye alınmadan önce operasyon takibi gerekiyor.",
+      tone: pendingPaymentCount > 0 ? ("warning" as const) : ("success" as const),
+      status: pendingPaymentCount > 0 ? "Öncelikli" : "Temiz",
+    },
+    {
+      label: "Yeni standart dışı mağazalar",
+      count: legacyStoreCount,
+      tone: legacyStoreCount > 0 ? ("warning" as const) : ("success" as const),
+      status: legacyStoreCount > 0 ? "Legacy" : "Yeni standart",
     },
   ];
 
-  const pageTitle = superAdmin ? "Owner panel genel bakış" : "Affiliate portföy genel bakış";
-  const pageCopy = superAdmin
-    ? "Light-first kontrol paneli ile kurulum akışını, canlı vitrinleri ve aksiyon bekleyen işleri daha net bir hiyerarşiyle izleyin."
-    : "Kendi portföyünüzdeki mağazaları, canlıya çıkış durumunu ve bekleyen kurulum işlerini sade bir kontrol akışıyla takip edin.";
+  const kpiCards = [
+    {
+      label: "Toplam Mağaza",
+      value: portfolioCount.toLocaleString("tr-TR"),
+      note: `${totals.activeStores} aktif, ${totals.draftStores} taslak`,
+      tone: "neutral" as const,
+    },
+    {
+      label: "Canlı Vitrin",
+      value: totals.liveStorefronts.toLocaleString("tr-TR"),
+      note: `%${readinessRate} canlı çıkış oranı`,
+      tone: "success" as const,
+    },
+    {
+      label: "Kurulum Bekleyen",
+      value: setupQueueCount.toLocaleString("tr-TR"),
+      note: "Auth, analytics veya ödeme adımı bekliyor",
+      tone: setupQueueCount > 0 ? ("warning" as const) : ("neutral" as const),
+    },
+    {
+      label: "Yeni Standart Dışı",
+      value: legacyStoreCount.toLocaleString("tr-TR"),
+      note: "Legacy veritabanı modunda izlenen mağaza",
+      tone: legacyStoreCount > 0 ? ("legacy" as const) : ("neutral" as const),
+    },
+  ];
+
+  const systemHealthCards = [
+    {
+      label: "Altyapı",
+      value: infrastructureIssueCount === 0 ? "Hazır" : `${infrastructureIssueCount} uyarı`,
+      tone: infrastructureIssueCount === 0 ? ("success" as const) : ("warning" as const),
+      note: "Secret, consistency ve provisioning sinyalleri",
+    },
+    {
+      label: "Admin Uygulamaları",
+      value: adminIssueCount === 0 ? "Kararlı" : `${adminIssueCount} takip`,
+      tone: adminIssueCount === 0 ? ("success" as const) : ("warning" as const),
+      note: "Deploy ve runtime tutarlılığı",
+    },
+    {
+      label: "Storefront",
+      value: storefrontIssueCount === 0 ? `${totals.liveStorefronts} canlı` : `${storefrontIssueCount} sorun`,
+      tone: storefrontIssueCount === 0 ? ("success" as const) : ("warning" as const),
+      note: "Vitrin erişimi ve runtime durumu",
+    },
+    {
+      label: "Veritabanı",
+      value: legacyStoreCount === 0 ? "Yeni standart" : `${legacyStoreCount} legacy`,
+      tone: legacyStoreCount === 0 ? ("success" as const) : ("warning" as const),
+      note: "Light Postgres geçiş standardı",
+    },
+  ];
 
   return (
     <>
       <OwnerPageHeader
-        eyebrow={superAdmin ? "Genel Bakış" : "Affiliate Paneli"}
-        title={pageTitle}
-        copy={pageCopy}
+        className="dashboard-page-header"
+        eyebrow="OWNER PANEL"
+        title="Genel Bakış"
+        copy="Mağaza kurulumlarını, operasyon aksiyonlarını ve platform sağlığını tek ekrandan yönetin."
         chips={
           <>
-            <OwnerStatusChip tone="accent">{totals.liveStorefronts} canlı vitrin</OwnerStatusChip>
-            <OwnerStatusChip tone={setupQueueCount > 0 ? "warning" : "success"}>
-              {setupQueueCount > 0 ? `${setupQueueCount} kurulum aksiyonu` : "Kurulum akışı temiz"}
-            </OwnerStatusChip>
-            <OwnerStatusChip tone={attentionCount > 0 ? "warning" : "success"}>
-              {attentionCount > 0 ? `${attentionCount} mağaza dikkat istiyor` : "Kritik uyarı yok"}
-            </OwnerStatusChip>
-          </>
-        }
-        actions={
-          <>
-            <OwnerActionButton href="/stores" tone="secondary">
-              Mağazalar
-            </OwnerActionButton>
-            {superAdmin ? (
-              <OwnerActionButton href="/stores/new" tone="primary">
-                {createStoreDisabled ? "Yeni Mağaza Formu" : "Yeni Mağaza"}
-              </OwnerActionButton>
+            {previewFlags.previewMode || previewFlags.writeActionsDisabled ? (
+              <OwnerStatusChip tone="warning">Önizleme Modu</OwnerStatusChip>
             ) : null}
+            <OwnerStatusChip tone="ink">{superAdmin ? "Süper Yönetici" : "Affiliate Yönetici"}</OwnerStatusChip>
           </>
-        }
-        aside={
-          <div className="owner-header-summary">
-            <div className="owner-header-summary-item">
-              <span>Toplam mağaza</span>
-              <strong>{portfolioCount}</strong>
-            </div>
-            <div className="owner-header-summary-item">
-              <span>Toplam sipariş</span>
-              <strong>{totals.orders.toLocaleString("tr-TR")}</strong>
-            </div>
-            <div className="owner-header-summary-item">
-              <span>Kurulum geliri</span>
-              <strong>{formatCurrency(totals.setupRevenue)}</strong>
-            </div>
-            <div className="owner-header-summary-item">
-              <span>Affiliate etkisi</span>
-              <strong>{formatCurrency(totals.affiliateExposure)}</strong>
-            </div>
-          </div>
         }
       />
 
-      <div className="owner-metric-grid">
-        <OwnerKpiCard
-          label="Toplam mağaza"
-          value={portfolioCount}
-          note={`${totals.activeStores} aktif, ${totals.draftStores} taslak`}
-          tone="accent"
-        />
-        <OwnerKpiCard
-          label="Canlı vitrin"
-          value={totals.liveStorefronts}
-          note="Yayın hazırlığı tamamlanan mağazalar"
-          tone="success"
-        />
-        <OwnerKpiCard
-          label="Bekleyen sipariş"
-          value={totals.pendingOrders}
-          note="Operasyon takibi gereken siparişler"
-          tone={totals.pendingOrders > 0 ? "warning" : "neutral"}
-        />
-        <OwnerKpiCard
-          label="Yeni standart dışı"
-          value={legacyStoreCount}
-          note="Legacy veya özel modda kalan mağazalar"
-          tone={legacyStoreCount > 0 ? "legacy" : "neutral"}
-        />
-      </div>
+      <section className="dashboard-command-grid">
+        <div className="dashboard-command-card">
+          <span className="dashboard-command-label">KONTROL PANELİ</span>
+          <div className="dashboard-command-copy">
+            <h2>Bugünkü kurulum, mağaza ve operasyon durumunu özetler.</h2>
+            <p>Öncelikli aksiyonları, canlı vitrinleri ve yeni standart dışı mağazaları aynı çalışma yüzeyinde takip edin.</p>
+          </div>
+          <div className="dashboard-command-chips">
+            <span>{totals.liveStorefronts.toLocaleString("tr-TR")} canlı vitrin</span>
+            <span>{setupQueueCount.toLocaleString("tr-TR")} kurulum aksiyonu</span>
+            <span>{attentionCount.toLocaleString("tr-TR")} mağaza dikkat istiyor</span>
+          </div>
+          <div className="actions no-margin">
+            {superAdmin ? (
+              <OwnerActionButton href="/stores/new" tone="primary" disabled={createStoreDisabled}>
+                Yeni Mağaza
+              </OwnerActionButton>
+            ) : null}
+            <OwnerActionButton href="/stores" tone="secondary">
+              Mağazaları Gör
+            </OwnerActionButton>
+          </div>
+        </div>
+
+        <aside className="dashboard-priority-card">
+          <div className="section-head">
+            <div>
+              <div className="card-title">Bugünün Öncelikleri</div>
+              <p className="section-copy">İlk bakışta takip edilmesi gereken kurulum ve standart sinyalleri.</p>
+            </div>
+          </div>
+          <div className="dashboard-priority-list">
+            {priorityRows.map((row) => (
+              <div key={row.label} className="dashboard-priority-row">
+                <div>
+                  <strong>{row.label}</strong>
+                  <span>{row.status}</span>
+                </div>
+                <div className="dashboard-priority-count">
+                  <b>{row.count.toLocaleString("tr-TR")}</b>
+                  <OwnerStatusChip tone={row.tone}>{row.count > 0 ? "Açık" : "Kapalı"}</OwnerStatusChip>
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+      </section>
+
+      <section className="dashboard-kpi-grid" aria-label="Dashboard metrikleri">
+        {kpiCards.map((card) => (
+          <OwnerKpiCard
+            key={card.label}
+            label={card.label}
+            value={card.value}
+            note={card.note}
+            tone={card.tone}
+          />
+        ))}
+      </section>
 
       {dashboardError ? (
         <OwnerSectionCard title="Veri uyarısı" tone="danger" className="section-tight">
@@ -179,150 +255,17 @@ export default async function OwnerDashboardPage() {
         </OwnerSectionCard>
       ) : null}
 
-      <div className="owner-dashboard-grid">
+      <section className="dashboard-lower-grid">
         <OwnerSectionCard
-          eyebrow="Panel Durumu"
-          title="Kontrol paneli özeti"
-          copy="Package 1 ile shell, light-first yüzey sistemi ve preview güvenliği aynı çerçevede toplanıyor."
-        >
-          <div className="owner-entity-list">
-            <OwnerEntityRow
-              title="Yazma ve deploy güvenliği"
-              subtitle={
-                deployDisabled
-                  ? deployDisabledReason || "Önizleme ortamında deploy ve yazma aksiyonları kontrollü kapatıldı."
-                  : "Deploy ve yazma aksiyonları yetkili kullanıcılar için aktif."
-              }
-              tags={
-                <>
-                  <OwnerStatusChip tone={deployDisabled ? "warning" : "success"}>
-                    {deployDisabled ? "Deploy kapalı" : "Deploy açık"}
-                  </OwnerStatusChip>
-                  <OwnerStatusChip tone={repairDisabled ? "warning" : "success"}>
-                    {repairDisabled ? "Onarım kapalı" : "Onarım açık"}
-                  </OwnerStatusChip>
-                </>
-              }
-              meta={
-                <>
-                  <strong>{previewFlags.previewMode ? "Önizleme" : "Canlı"}</strong>
-                  <span>ortam</span>
-                </>
-              }
-            />
-
-            <OwnerEntityRow
-              title="Ekosistem hacmi"
-              subtitle={`${totals.customers.toLocaleString("tr-TR")} müşteri ve ${formatCurrency(totals.revenue)} toplam hacim`}
-              tags={
-                <>
-                  <OwnerStatusChip tone="ink">{totals.orders.toLocaleString("tr-TR")} sipariş</OwnerStatusChip>
-                  <OwnerStatusChip tone="accent">{formatCurrency(totals.affiliateExposure)} affiliate etkisi</OwnerStatusChip>
-                </>
-              }
-              meta={
-                <>
-                  <strong>{totals.activeStores}</strong>
-                  <span>aktif mağaza</span>
-                </>
-              }
-            />
-
-            <OwnerEntityRow
-              title="Temizlik kuyruğu"
-              subtitle={
-                cleanupRuns.length > 0
-                  ? `Authority silinmiş ancak dış kaynak temizliği süren ${dashboard?.orphanedCleanupRuns ?? 0} kayıt var.`
-                  : "Şu anda açıkta kalan temizlik kaydı bulunmuyor."
-              }
-              tags={
-                cleanupRuns.length > 0 ? (
-                  cleanupRuns.map((run) => (
-                    <OwnerStatusChip key={run.id || run.slug} tone="warning">
-                      {run.storeName}
-                    </OwnerStatusChip>
-                  ))
-                ) : (
-                  <OwnerStatusChip tone="success">Temizlik kuyruğu temiz</OwnerStatusChip>
-                )
-              }
-              meta={
-                cleanupRuns[0] ? (
-                  <>
-                    <strong>{formatDateTime(cleanupRuns[0].createdAt)}</strong>
-                    <span>son kayıt</span>
-                  </>
-                ) : (
-                  <>
-                    <strong>0</strong>
-                    <span>kayıt</span>
-                  </>
-                )
-              }
-            />
-          </div>
-        </OwnerSectionCard>
-
-        <OwnerSectionCard
-          eyebrow="Kurulum Akışı"
           title="Kurulum Aksiyonu Bekleyenler"
-          copy="Auth, analytics ve ödeme kurulumları ile manuel takip isteyen mağazalar tek blokta özetlenir."
-          tone={setupQueueCount > 0 || attentionCount > 0 ? "accent" : "neutral"}
+          copy="Kurulum zincirinde sıradaki aksiyonu bekleyen mağazalar."
           actions={
             <OwnerActionButton href="/operations" tone="secondary">
-              Operasyonları Aç
+              Operasyonlar
             </OwnerActionButton>
           }
         >
-          {queueBuckets.some((bucket) => bucket.count > 0) || attentionStores.length > 0 ? (
-            <div className="owner-entity-list">
-              {queueBuckets.map((bucket) => (
-                <OwnerEntityRow
-                  key={bucket.key}
-                  title={bucket.title}
-                  subtitle={bucket.note}
-                  tags={
-                    <OwnerStatusChip tone={bucket.count > 0 ? "warning" : "success"}>
-                      {bucket.count > 0 ? "Aksiyon bekliyor" : "Tamamlandı"}
-                    </OwnerStatusChip>
-                  }
-                  meta={
-                    <>
-                      <strong>{bucket.count}</strong>
-                      <span>mağaza</span>
-                    </>
-                  }
-                />
-              ))}
-
-              {attentionStores.map((store) => (
-                <OwnerEntityRow
-                  key={store.id}
-                  title={store.name}
-                  subtitle={store.management.nextAction || "Kurulum veya operasyon tarafında manuel takip gerekiyor."}
-                  tags={
-                    <>
-                      <OwnerStatusChip tone="accent">{store.databaseMode}</OwnerStatusChip>
-                      <OwnerStatusChip tone={store.health.label === "kritik" ? "danger" : "warning"}>
-                        {store.health.label}
-                      </OwnerStatusChip>
-                    </>
-                  }
-                  actions={
-                    <OwnerActionButton href={`/stores/${store.slug}`} tone="ghost">
-                      Detay
-                    </OwnerActionButton>
-                  }
-                  meta={
-                    <>
-                      <strong>{store.pendingOrderCount}</strong>
-                      <span>bekleyen sipariş</span>
-                    </>
-                  }
-                />
-              ))}
-            </div>
-          ) : (
+          {setupQueueStores.length === 0 ? (
             <OwnerEmptyState
               title="Bekleyen kurulum aksiyonu yok"
               copy="Auth, analytics ve ödeme kurulum zinciri şu an temiz görünüyor."
@@ -332,9 +275,77 @@ export default async function OwnerDashboardPage() {
                 </OwnerActionButton>
               }
             />
+          ) : (
+            <div className="owner-entity-list dashboard-setup-list">
+              {setupQueueStores.map(({ store, signals }) => (
+                <OwnerEntityRow
+                  key={store.id}
+                  title={store.name}
+                  subtitle={store.slug}
+                  tags={
+                    <>
+                      <OwnerStatusChip tone={getProvisioningToneClass(store.provisioning.state).includes("danger") ? "danger" : "accent"}>
+                        {getProvisioningLabel(store.provisioning.state)}
+                      </OwnerStatusChip>
+                      {signals.slice(0, 2).map((signal) => (
+                        <span key={signal.key} className={`pill ${signal.pillClassName}`}>
+                          {signal.shortLabel}
+                        </span>
+                      ))}
+                    </>
+                  }
+                  actions={
+                    <OwnerActionButton href={`/stores/${store.slug}`} tone="ghost">
+                      Detay
+                    </OwnerActionButton>
+                  }
+                  meta={
+                    <>
+                      <strong>{signals.length}</strong>
+                      <span>aksiyon</span>
+                    </>
+                  }
+                />
+              ))}
+            </div>
           )}
         </OwnerSectionCard>
-      </div>
+
+        <OwnerSectionCard
+          title="Son Kurulum Olayları"
+          copy="Atama, profil güncelleme ve mağaza hareketleri."
+        >
+          {!dashboard || dashboard.recentActivity.length === 0 ? (
+            <OwnerEmptyState title="Henüz aktivite yok" copy="İlk mağaza hareketi sonrası bu alan dolacak." />
+          ) : (
+            <div className="owner-entity-list dashboard-activity-list">
+              {dashboard.recentActivity.slice(0, 5).map((item) => (
+                <OwnerEntityRow
+                  key={item.id}
+                  title={item.targetLabel}
+                  subtitle={item.action.replace(/_/g, " ")}
+                  meta={
+                    <>
+                      <strong>{item.actorName}</strong>
+                      <span>{formatDateTime(item.createdAt)}</span>
+                    </>
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </OwnerSectionCard>
+      </section>
+
+      <section className="dashboard-health-strip" aria-label="Sistem sağlığı">
+        {systemHealthCards.map((card) => (
+          <article key={card.label} className={`dashboard-health-card tone-${card.tone}`}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <p>{card.note}</p>
+          </article>
+        ))}
+      </section>
     </>
   );
 }
