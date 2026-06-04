@@ -158,6 +158,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const subscriptionProgress = subscription.progressPercent ?? 0;
   const showSupabaseInfrastructure = isLegacyDatabaseMode(store.databaseMode);
   const setupSignals = getSetupSignals(store.setup);
+  const authSignal = setupSignals.find((signal) => signal.key === "auth");
+  const analyticsSignal = setupSignals.find((signal) => signal.key === "analytics");
+  const paymentSignal = setupSignals.find((signal) => signal.key === "payment");
   const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
   const orphanedTargetCount = cleanupRuns.reduce(
     (total, run) =>
@@ -273,7 +276,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           >
             <div className="store-infrastructure-grid">
               <article>
-                <span>Database</span>
+                <span>Veritabanı</span>
                 <strong>{showSupabaseInfrastructure ? "Legacy" : "Yeni Standart"}</strong>
                 <p>{showSupabaseInfrastructure ? "Full Supabase özel mod." : "Light Postgres owner standardı."}</p>
               </article>
@@ -284,26 +287,26 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               </article>
               <article>
                 <span>Auth</span>
-                <strong>{store.setup.auth.status}</strong>
-                <p>{store.setup.auth.provider}</p>
+                <strong>{authSignal?.shortLabel || authSignal?.statusLabel || "Kontrol"}</strong>
+                <p>{authSignal?.providerLabel || store.setup.auth.provider}</p>
               </article>
               <article>
                 <span>Analytics</span>
-                <strong>{store.setup.analytics.status}</strong>
-                <p>{store.setup.analytics.provider}</p>
+                <strong>{analyticsSignal?.shortLabel || analyticsSignal?.statusLabel || "Kontrol"}</strong>
+                <p>{analyticsSignal?.providerLabel || store.setup.analytics.provider}</p>
               </article>
               <article>
-                <span>Payment</span>
-                <strong>{store.setup.payments.status}</strong>
-                <p>{store.setup.payments.defaultProvider}</p>
+                <span>Ödeme</span>
+                <strong>{paymentSignal?.shortLabel || paymentSignal?.statusLabel || "Kontrol"}</strong>
+                <p>{paymentSignal?.providerLabel || store.setup.payments.defaultProvider}</p>
               </article>
               <article>
-                <span>Admin App</span>
+                <span>Admin Uygulaması</span>
                 <strong>{store.health.adminRuntimeConsistent ? "Kararlı" : "Kontrol"}</strong>
                 <p>{adminDeploymentStatus || adminDeployment?.status || "Bekliyor"}</p>
               </article>
               <article>
-                <span>Storefront App</span>
+                <span>Vitrin Uygulaması</span>
                 <strong>{store.health.storefrontRuntimeConsistent ? "Kararlı" : "Kontrol"}</strong>
                 <p>{storefrontDeploymentStatus || storefrontDeployment?.status || store.storefrontStatus}</p>
               </article>
