@@ -37,83 +37,83 @@ const STEP_STORIES: Record<ProvisioningStepKey, StepStory> = {
   },
   supabase_preflight: {
     stage: "Veri nabzi",
-    copy: "Supabase altyapisinin tum kapilari test ediliyor.",
+    copy: "Supabase altyapısının tüm kapıları test ediliyor.",
   },
   r2_preflight: {
-    stage: "Medya raflari",
-    copy: "R2 depolama raflari gorselleri kabul etmeye hazirlaniyor.",
+    stage: "Medya rafları",
+    copy: "R2 depolama rafları görselleri kabul etmeye hazırlanıyor.",
   },
   coolify_preflight: {
-    stage: "Makine odasi",
-    copy: "Coolify uzerindeki sahne makineleri senkronlaniyor.",
+    stage: "Makine odası",
+    copy: "Coolify üzerindeki yayın altyapısı senkronlanıyor.",
   },
   github_preflight: {
     stage: "Kod koreografisi",
-    copy: "Kaynak repo ve yayin zinciri birbirine kilitleniyor.",
+    copy: "Kaynak repo ve yayın zinciri birbirine kilitleniyor.",
   },
   starter_source_preflight: {
-    stage: "Ilk taslak",
-    copy: "Starter kaynaklari vitrin iskeletini kurmak icin aciliyor.",
+    stage: "İlk taslak",
+    copy: "Starter kaynakları vitrin iskeletini kurmak için açılıyor.",
   },
   generated_apps_toggle: {
     stage: "Otomasyon anahtari",
-    copy: "Generated app politikasi acilis ritmine gore ayarlaniyor.",
+    copy: "Generated app politikası açılış ritmine göre ayarlanıyor.",
   },
   authority_repo_sync: {
     stage: "Marka otoritesi",
-    copy: "Store authority kayitlari ana sahneye tasiniyor.",
+    copy: "Mağaza authority kayıtları owner kaynağına taşınıyor.",
   },
   management_profile: {
-    stage: "Marka kimligi",
-    copy: "Musteri notlari, sahiplik ve operasyon profili yerlestiriliyor.",
+    stage: "Marka kimliği",
+    copy: "Müşteri notları, sahiplik ve operasyon profili yerleştiriliyor.",
   },
   supabase_provision: {
-    stage: "Veri odasi",
-    copy: "Magazanin cekirdek veritabani ve servis odasi kuruluyor.",
+    stage: "Veri odası",
+    copy: "Mağazanın çekirdek veritabanı ve servis odası kuruluyor.",
   },
   starter_seed: {
-    stage: "Ilk vitrin",
-    copy: "Demo urunler ve ilk vitrin hikayesi sahneye serpistiriliyor.",
+    stage: "İlk vitrin",
+    copy: "Demo ürünler ve ilk vitrin hikayesi hazırlanıyor.",
   },
   r2_provision: {
-    stage: "Gorsel deposu",
-    copy: "Gorsel upload zinciri icin medya deposu aciliyor.",
+    stage: "Görsel deposu",
+    copy: "Görsel upload zinciri için medya deposu açılıyor.",
   },
   admin_blueprint: {
-    stage: "Kontrol plani",
-    copy: "Admin panelinin blueprint cizimi sahneye aliniyor.",
+    stage: "Kontrol planı",
+    copy: "Admin panelinin yayın planı hazırlanıyor.",
   },
   admin_deploy: {
     stage: "Arka ofis",
-    copy: "Admin kontrol masasi canliya alinmak uzere kuruluyor.",
+    copy: "Admin kontrol masası canlıya alınmak üzere kuruluyor.",
   },
   analytics_setup: {
-    stage: "Olcum katmani",
-    copy: "Analitik katmani placeholder ya da canli authority olarak izleniyor; eksikse error yerine bekleyen kurulum olarak gorunur.",
+    stage: "Ölçüm katmanı",
+    copy: "Analitik katmanı placeholder ya da canlı authority olarak izleniyor; eksikse hata yerine bekleyen kurulum olarak görünür.",
   },
   auth_setup: {
-    stage: "Giris kapisi",
-    copy: "Admin ve musteri auth modeli placeholder ya da canli authority olarak kayit altinda tutuluyor.",
+    stage: "Giriş kapısı",
+    copy: "Admin ve müşteri auth modeli placeholder ya da canlı authority olarak kayıt altında tutuluyor.",
   },
   payment_setup: {
-    stage: "Tahsilat hatti",
-    copy: "Odeme kurulumu ayrica tamamlanacaksa bile owner panel bunu broken degil bekleyen operasyon adimi olarak izliyor.",
+    stage: "Tahsilat hattı",
+    copy: "Ödeme kurulumu ayrıca tamamlanacaksa owner panel bunu arıza değil bekleyen operasyon adımı olarak izliyor.",
   },
   storefront_scaffold: {
     stage: "Cephe kurulumu",
-    copy: "Storefront iskeleti markanin cephesine gore yukseliyor.",
+    copy: "Vitrin iskeleti markanın cephesine göre yükseliyor.",
   },
   storefront_blueprint: {
-    stage: "Vitrin plani",
-    copy: "Storefront blueprinti yayin sahnesine yerlesiyor.",
+    stage: "Vitrin planı",
+    copy: "Vitrin yayın planı hazırlanıyor.",
   },
   storefront_repo_sync: {
     stage: "Tema senkronu",
-    copy: "Tema, asset ve branch akisi vitrine dogru kilitleniyor.",
+    copy: "Tema, asset ve branch akışı vitrine doğru kilitleniyor.",
   },
   storefront_deploy: {
-    stage: "Perde acilisi",
-    copy: "Storefront son kez isinirken acilis perdesi hazirlaniyor.",
+    stage: "Yayın hazırlığı",
+    copy: "Vitrin son kontrollerle canlı yayına hazırlanıyor.",
   },
 };
 
@@ -138,7 +138,7 @@ const ACTS: Array<{
   {
     key: "storefront_deploy",
     title: "Acilis",
-    caption: "Storefront ve vitrin perdesi",
+    caption: "Vitrin ve yayın akışı",
     keys: ["storefront_scaffold", "storefront_repo_sync", "storefront_blueprint", "storefront_deploy"],
   },
   {
@@ -211,74 +211,74 @@ function summarizeActStatus(statuses: ProvisioningStepStatus[]): ProvisioningSte
 function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLabel: string | null) {
   if (state === "ready") {
     return {
-      eyebrow: "Perde acildi",
-      title: `${storeName} sahneye cikti`,
+      eyebrow: "Kurulum tamamlandı",
+      title: `${storeName} hazır`,
       body:
-        "Magaza kurulumu tamamlandi. Owner artik operasyonu izliyor, vitrin ve kontrol masasi canli akista.",
+        "Mağaza kurulumu tamamlandı. Owner artık operasyonu, vitrini ve kontrol masasını canlı akışta izliyor.",
     };
   }
 
   if (state === "pending_repair") {
     return {
       eyebrow: "Teknik mola",
-      title: "Kurulum takildi ama akis kontrol altinda",
+      title: "Kurulum takıldı ama akış kontrol altında",
       body: currentStepLabel
-        ? `${currentStepLabel} adiminda duraksama var. Owner panel onar akisini ve kalan adimlari bu sahneden yonetiyor.`
-        : "Kurulum zincirinde duzeltilmesi gereken bir adim var. Owner panel geri kalan adimlari kaybetmeden onar akisini surduruyor.",
+        ? `${currentStepLabel} adımında duraksama var. Owner panel onarım akışını ve kalan adımları buradan yönetiyor.`
+        : "Kurulum zincirinde düzeltilmesi gereken bir adım var. Owner panel geri kalan adımları kaybetmeden onarım akışını sürdürüyor.",
     };
   }
 
   if (state === "pending_dns") {
     return {
       eyebrow: "DNS beklemede",
-      title: "Uygulamalar ayakta, public rota henuz yayinlanmadi",
+      title: "Uygulamalar ayakta, public rota henüz yayınlanmadı",
       body: currentStepLabel
-        ? `${currentStepLabel} ic runtime tarafinda hazir. Owner panel public DNS veya proxy rotasinin tamamlanmasini bekliyor.`
-        : "Generated runtime iceride saglikli, ancak public domain authority henuz tam acilmadi. Owner panel bu bekleme durumunu onarimdan ayri tutuyor.",
+        ? `${currentStepLabel} iç runtime tarafında hazır. Owner panel public DNS veya proxy rotasının tamamlanmasını bekliyor.`
+        : "Generated runtime içeride sağlıklı, ancak public domain authority henüz tam açılmadı. Owner panel bu bekleme durumunu onarımdan ayrı tutuyor.",
     };
   }
 
   if (state === "pending_auth") {
     return {
       eyebrow: "Auth beklemede",
-      title: "Altyapi hazir, auth kurulumu bekleniyor",
+      title: "Altyapı hazır, auth kurulumu bekleniyor",
       body:
-        "Store DB, deploy ve runtime hazir. Logto-ready auth placeholder tamamlandigi icin owner panel bunu ariza degil bekleyen operasyon adimi olarak gosteriyor.",
+        "Mağaza DB, yayın ve runtime hazır. Auth placeholder tamamlandığı için owner panel bunu arıza değil bekleyen operasyon adımı olarak gösteriyor.",
     };
   }
 
   if (state === "pending_analytics") {
     return {
       eyebrow: "Analytics beklemede",
-      title: "Store ayakta, analitik baglantisi bekleniyor",
+      title: "Mağaza ayakta, analitik bağlantısı bekleniyor",
       body:
-        "Generated app kurulumu tamamlandi. Umami-ready placeholder kayitli oldugu icin eksik analytics error yerine bekleyen adim olarak izleniyor.",
+        "Generated app kurulumu tamamlandı. Analytics placeholder kayıtlı olduğu için eksik analytics hata yerine bekleyen adım olarak izleniyor.",
     };
   }
 
   if (state === "pending_payment") {
     return {
-      eyebrow: "Odeme beklemede",
-      title: "Store yayinda, odeme authority sirada",
+      eyebrow: "Ödeme beklemede",
+      title: "Mağaza yayında, ödeme authority sırada",
       body:
-        "Magaza kurulumu tamamlandi; tahsilat kurulumu ayrica tamamlanacak. Owner panel bunu broken degil operasyon kuyrugundaki sonraki adim olarak gorur.",
+        "Mağaza kurulumu tamamlandı; tahsilat kurulumu ayrıca tamamlanacak. Owner panel bunu arıza değil operasyon kuyruğundaki sonraki adım olarak görür.",
     };
   }
 
   if (state === "failed") {
     return {
-      eyebrow: "Kritik durus",
-      title: "Kurulum fail durumuna gecti",
+      eyebrow: "Kritik duruş",
+      title: "Kurulum fail durumuna geçti",
       body: currentStepLabel
-        ? `${currentStepLabel} adiminda terminal bir hata goruldu. Owner panel bu durumu bekleyen placeholder'lardan ayri, gercek ariza olarak isaretliyor.`
-        : "Kurulum zincirinde terminal bir hata goruldu. Owner panel bunu bekleyen operasyon adimlarindan ayri olarak gosteriyor.",
+        ? `${currentStepLabel} adımında terminal bir hata görüldü. Owner panel bu durumu bekleyen placeholder'lardan ayrı, gerçek arıza olarak işaretliyor.`
+        : "Kurulum zincirinde terminal bir hata görüldü. Owner panel bunu bekleyen operasyon adımlarından ayrı olarak gösteriyor.",
     };
   }
 
   return {
-    eyebrow: "Acilis seremonisi",
-    title: currentStepLabel ? `${currentStepLabel} hazirlaniyor` : "Magaza kuruluyor",
-    body: `${storeName} icin vitrin, veri odasi ve kontrol masasi sira ile ayaga kalkiyor. Bu alan kurulumun canli ritmini gosterir.`,
+    eyebrow: "Kurulum Akışı",
+    title: currentStepLabel ? `${currentStepLabel} hazırlanıyor` : "Mağaza kuruluyor",
+    body: `${storeName} için vitrin, veri odası ve kontrol masası sıra ile ayağa kalkıyor. Bu alan kurulumun canlı ritmini gösterir.`,
   };
 }
 

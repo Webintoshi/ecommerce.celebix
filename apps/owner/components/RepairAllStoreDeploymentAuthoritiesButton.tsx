@@ -22,7 +22,7 @@ export function RepairAllStoreDeploymentAuthoritiesButton({
     setNotice(null);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -38,12 +38,12 @@ export function RepairAllStoreDeploymentAuthoritiesButton({
       };
 
       if (!response.ok) {
-        setError(payload.error || "Store deployment authority taramasi basarisiz oldu.");
+        setError(payload.error || "Mağaza yayın authority taraması başarısız oldu.");
         return;
       }
 
       setNotice(
-        `${payload.totalStores ?? 0} store tarandi. ${payload.changedStores ?? 0} store onarildi. ${payload.failedStores ?? 0} store hata verdi.`,
+        `${payload.totalStores ?? 0} mağaza tarandı. ${payload.changedStores ?? 0} mağaza onarıldı. ${payload.failedStores ?? 0} mağaza hata verdi.`,
       );
       router.refresh();
     });
@@ -57,7 +57,7 @@ export function RepairAllStoreDeploymentAuthoritiesButton({
         onClick={handleRepair}
         disabled={disabled || isPending}
       >
-        {isPending ? "Tum store authority ayarlari taraniyor..." : "Tum store deploy ayarlarini onar"}
+        {isPending ? "Tüm mağaza yayın ayarları taranıyor..." : "Tüm mağaza yayın ayarlarını onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}

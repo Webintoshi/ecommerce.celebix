@@ -59,7 +59,7 @@ export function isLegacyDatabaseMode(databaseMode: DatabaseMode): boolean {
 }
 
 export function getDatabaseModeLabel(databaseMode: DatabaseMode): string {
-  return isLegacyDatabaseMode(databaseMode) ? "full_supabase" : "light_postgres";
+  return isLegacyDatabaseMode(databaseMode) ? "Legacy" : "Yeni Standart";
 }
 
 export function getDatabaseModePillClass(databaseMode: DatabaseMode): string {

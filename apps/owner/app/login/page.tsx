@@ -10,15 +10,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const ownerEnvError =
     params.error === "owner_auth_env_missing"
-      ? "Owner auth public authority eksik. Supabase public envleri tanimlanmamis."
+      ? "Owner auth public authority eksik. Supabase public envleri tanımlanmamış."
       : params.error === "owner_auth_service_missing"
-        ? "Owner auth service authority eksik. Service role anahtari tanimlanmamis."
+        ? "Owner auth service authority eksik. Service role anahtarı tanımlanmamış."
         : null;
 
   return (
     <main className="login-page">
       <OwnerAuthRecovery />
-      <section className="login-card" aria-label="Owner panel giris">
+      <section className="login-card" aria-label="Owner panel giriş">
         <div className="login-brand">
           <div className="login-badge" aria-hidden>
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -29,7 +29,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </svg>
           </div>
           <h1 className="login-heading">Celebix Owner</h1>
-          <p className="login-subtitle">Tum e-ticaret projelerini tek panelden yonet</p>
+          <p className="login-subtitle">Tüm e-ticaret mağazalarını tek panelden yönet</p>
         </div>
 
         <OwnerAuthForm />
@@ -44,7 +44,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <p className="login-message is-error">Onay linki eksik veya bozuk geldi.</p>
         ) : null}
         {params.error === "confirmation_failed" ? (
-          <p className="login-message is-error">E-posta onayi tamamlanamadi. Linki tekrar dene.</p>
+          <p className="login-message is-error">E-posta onayı tamamlanamadı. Linki tekrar dene.</p>
         ) : null}
         {ownerEnvError ? <p className="login-message is-error">{ownerEnvError}</p> : null}
       </section>

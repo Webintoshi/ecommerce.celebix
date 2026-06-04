@@ -29,28 +29,28 @@ export default async function NewStorePage() {
   return (
     <>
       <OwnerCommandHero
-        overline="New store setup"
-        title="Yeni magaza kurulum akisi"
-        copy="Yeni proje formu artik teknik create ekranindan cok bir kurulum rehberi gibi calisir: marka, domain, tema, admin, ticaret ve yeni Celebix standardi tek sirada ilerler."
+        overline="Yeni Mağaza"
+        title="Yeni mağaza kurulum akışı"
+        copy="Yeni mağaza formu teknik bir create ekranı değil; marka, domain, tema, admin, ticaret ve Yeni Standart adımlarını sırayla taşıyan kurulum akışıdır."
         metrics={[
-          { label: "Varsayilan standart", value: "light_postgres", note: "Yeni Celebix Standardi" },
-          { label: "Advanced legacy", value: "Kapali", note: "Full Supabase sadece ozel modda" },
-          { label: "Preview state", value: createStoreDisabled ? "Read-only" : "Create acik", note: createStoreDisabled ? "Submit kilitli" : "Canli create aktif" },
+          { label: "Varsayılan standart", value: "Yeni Standart", note: "Celebix kurulum standardı" },
+          { label: "Advanced Legacy", value: "Kapalı", note: "Legacy sadece özel modda" },
+          { label: "Önizleme Modu", value: createStoreDisabled ? "Kapalı" : "Açık", note: createStoreDisabled ? "Submit kilitli" : "Canlı kayıt aktif" },
         ]}
         actions={
           <>
             <OwnerStatusChip tone={lightPostgresBootstrap.configured ? "success" : "warning"}>
-              Light Postgres {lightPostgresBootstrap.configured ? "hazir" : "preflight bekliyor"}
+              Yeni Standart {lightPostgresBootstrap.configured ? "hazır" : "kontrol bekliyor"}
             </OwnerStatusChip>
             <OwnerStatusChip tone={supabaseBootstrap.configured ? "legacy" : "ink"}>
-              Full Supabase legacy {supabaseBootstrap.configured ? "hazir" : "ayrik"}
+              Legacy {supabaseBootstrap.configured ? "hazır" : "ayrık"}
             </OwnerStatusChip>
-            {createStoreDisabled ? <OwnerStatusChip tone="warning">Preview submit kapali</OwnerStatusChip> : null}
+            {createStoreDisabled ? <OwnerStatusChip tone="warning">Yazma işlemleri kapalı</OwnerStatusChip> : null}
           </>
         }
         panelTitle="Kurulum sirasi"
         panelItems={[
-          { label: "1. Marka", value: "Magaza bilgileri" },
+          { label: "1. Marka", value: "Mağaza bilgileri" },
           { label: "2. Domain", value: "Yayin kimligi" },
           { label: "3. Tema", value: "Sektor dili" },
           { label: "4. Admin", value: "Baslangic erisimi" },
@@ -59,8 +59,8 @@ export default async function NewStorePage() {
         ]}
         chips={
           <>
-            <span className="hero-chip hero-chip-accent">Wizard mode</span>
-            <span className="hero-chip hero-chip-neutral">Write guard korunur</span>
+            <span className="hero-chip hero-chip-accent">Kurulum Akışı</span>
+            <span className="hero-chip hero-chip-neutral">Yazma işlemleri kapalı</span>
           </>
         }
       />
@@ -69,20 +69,20 @@ export default async function NewStorePage() {
         <aside className="owner-wizard-rail">
           <div className="owner-action-panel tone-accent">
             <div>
-              <div className="card-title">Wizard kontrolu</div>
+              <div className="card-title">Kurulum rehberi</div>
               <p className="section-copy">
-                Teknik database mode ana secim olmaktan cikarildi; yeni standart varsayilan,
-                legacy akisi ise Advanced alaninda tutulur.
+                Teknik veritabanı modu ana seçim olmaktan çıkarıldı; Yeni Standart varsayılan,
+                Legacy akışı ise Advanced alanında tutulur.
               </p>
             </div>
             <OwnerLifecycleStepper
               steps={[
-                { label: "Magaza bilgileri", detail: "Ad, slug ve marka dili", state: "current" },
-                { label: "Domain", detail: "Storefront ve admin kimligi", state: "pending" },
-                { label: "Tema / sektor", detail: "Ilk tasarim sablonu", state: "pending" },
-                { label: "Admin kullanici", detail: "Baslangic erisimi", state: "pending" },
-                { label: "Odeme / kargo", detail: "Baslangic ticaret ayarlari", state: "pending" },
-                { label: "Yeni sistem kurulumu", detail: "Light Postgres + R2 + placeholders", state: "pending" },
+                { label: "Mağaza bilgileri", detail: "Ad, slug ve marka dili", state: "current" },
+                { label: "Domain", detail: "Vitrin ve admin kimliği", state: "pending" },
+                { label: "Tema / sektör", detail: "İlk tasarım şablonu", state: "pending" },
+                { label: "Admin kullanıcı", detail: "Başlangıç erişimi", state: "pending" },
+                { label: "Ödeme / kargo", detail: "Başlangıç ticaret ayarları", state: "pending" },
+                { label: "Yeni sistem kurulumu", detail: "Yeni Standart + R2 + kurulum istekleri", state: "pending" },
               ]}
             />
           </div>

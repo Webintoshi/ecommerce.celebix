@@ -59,12 +59,12 @@ export function DeleteStoreButton({
 
   function handleDelete() {
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
     if (!isConfirmed) {
-      setError("Devam etmek icin asagidaki slug ya da proje adini aynen gir veya tek tikla doldur.");
+      setError("Devam etmek için aşağıdaki slug ya da mağaza adını aynen gir veya tek tıkla doldur.");
       return;
     }
 
@@ -92,7 +92,7 @@ export function DeleteStoreButton({
         };
 
         if (!response.ok) {
-          setError(payload.error || "Proje silme islemi basarisiz oldu.");
+          setError(payload.error || "Mağaza silme işlemi başarısız oldu.");
           setDetails(payload.result?.targets ?? []);
           return;
         }
@@ -101,7 +101,7 @@ export function DeleteStoreButton({
         const targetDetails = payload.result?.targets ?? orphanedTargets;
 
         if (orphanedTargets.length > 0) {
-          setNotice("Owner authority silindi. Orphan kalan hedefler asagida listelendi.");
+          setNotice("Owner authority silindi. Temizliği bekleyen hedefler aşağıda listelendi.");
           setDetails(targetDetails);
           window.setTimeout(() => {
             window.location.assign("/stores");
@@ -112,7 +112,7 @@ export function DeleteStoreButton({
         handleClose(true);
         window.location.assign("/stores");
       } catch (error) {
-        setError(error instanceof Error ? error.message : "Proje silme istegi tamamlanamadi.");
+        setError(error instanceof Error ? error.message : "Mağaza silme isteği tamamlanamadı.");
       }
     });
   }
@@ -129,7 +129,7 @@ export function DeleteStoreButton({
   return (
     <>
       <Button variant="danger" onClick={() => setIsOpen(true)} disabled={disabled}>
-        Projeyi sil
+        Mağazayı sil
       </Button>
       {disabledReason ? <p className="form-notice form-notice-preview stack-top-sm">{disabledReason}</p> : null}
 
@@ -137,21 +137,21 @@ export function DeleteStoreButton({
         isOpen={isOpen}
         onClose={handleClose}
         size="md"
-        title={`${name} projesini sil`}
-        description="Bu islem admin, storefront, Supabase, R2 ve owner kaydini temizlemeyi dener. Geri alinmaz."
+        title={`${name} mağazasını sil`}
+        description="Bu işlem admin, vitrin, Supabase, R2 ve owner kaydını temizlemeyi dener. Geri alınmaz."
         footer={
           <>
             <Button variant="ghost" onClick={() => handleClose()} disabled={isPending}>
-              Vazgec
+              Vazgeç
             </Button>
             <Button variant="danger" onClick={handleDelete} isLoading={isPending}>
-              Projeyi kalici sil
+              Mağazayı kalıcı sil
             </Button>
           </>
         }
       >
         <div className="field">
-          <span>Silme onayi icin slug ya da proje adini kullan</span>
+          <span>Silme onayı için slug ya da mağaza adını kullan</span>
           <div className="inline-card stack-top-sm">
             <div>
               <strong>Slug</strong>
@@ -164,7 +164,7 @@ export function DeleteStoreButton({
               >
                 {slug}
               </p>
-              <strong>Proje Adi</strong>
+              <strong>Mağaza adı</strong>
               <p
                 style={{
                   fontSize: "0.95rem",
@@ -176,17 +176,17 @@ export function DeleteStoreButton({
             </div>
             <div className="actions compact-actions">
               <Button type="button" variant="ghost" onClick={() => setConfirmationValue(slug)} disabled={isPending}>
-                Slug'i doldur
+                Slug'ı doldur
               </Button>
               <Button type="button" variant="ghost" onClick={() => setConfirmationValue(name)} disabled={isPending}>
-                Proje adini doldur
+                Mağaza adını doldur
               </Button>
               <Button type="button" variant="ghost" onClick={handleCopySlug} disabled={isPending}>
-                {copied ? "Kopyalandi" : "Kopyala"}
+                {copied ? "Kopyalandı" : "Kopyala"}
               </Button>
             </div>
           </div>
-          <span className="stack-top-sm">Onay icin yukaridaki slug ya da proje adini aynen gir</span>
+          <span className="stack-top-sm">Onay için yukarıdaki slug ya da mağaza adını aynen gir</span>
           <input
             value={confirmationValue}
             onChange={(event) => setConfirmationValue(event.target.value)}
@@ -194,7 +194,7 @@ export function DeleteStoreButton({
             autoComplete="off"
           />
           <small>
-            Bu proje silinirse owner kaydi, bagli deploymentlar ve altyapi kaynaklari kaldirilir.
+            Bu mağaza silinirse owner kaydı, bağlı yayınlar ve altyapı kaynakları kaldırılır.
           </small>
         </div>
 

@@ -75,7 +75,7 @@ export function UpdateStoreProfileForm({
     setNotice(null);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -110,11 +110,11 @@ export function UpdateStoreProfileForm({
       const payload = (await response.json()) as { error?: string };
 
       if (!response.ok) {
-        setError(payload.error || "Proje profili kaydedilemedi.");
+        setError(payload.error || "Mağaza profili kaydedilemedi.");
         return;
       }
 
-      setNotice("Proje profili guncellendi.");
+      setNotice("Mağaza profili güncellendi.");
       router.refresh();
     });
   }
@@ -123,61 +123,61 @@ export function UpdateStoreProfileForm({
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
       <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
-        <span>Proje durumu</span>
+        <span>Mağaza durumu</span>
         <select value={status} onChange={(event) => setStatus(event.target.value as OwnerStoreStatus)}>
           <option value="draft">Taslak</option>
           <option value="active">Aktif</option>
-          <option value="paused">Duraklatildi</option>
+          <option value="paused">Duraklatıldı</option>
         </select>
       </label>
 
       <label className="field">
-        <span>Yasam dongusu</span>
+        <span>Yaşam döngüsü</span>
         <select value={lifecycleStage} onChange={(event) => setLifecycleStage(event.target.value as StoreLifecycleStage)}>
           <option value="onboarding">Onboarding</option>
           <option value="building">Kurulumda</option>
-          <option value="launch_ready">Yayina hazir</option>
-          <option value="live">Canlida</option>
-          <option value="growth">Buyume asamasinda</option>
+          <option value="launch_ready">Yayına hazır</option>
+          <option value="live">Canlıda</option>
+          <option value="growth">Büyüme aşamasında</option>
         </select>
       </label>
 
       <label className="field">
-        <span>Client / marka adi</span>
+        <span>Müşteri / marka adı</span>
         <input value={clientCompanyName} onChange={(event) => setClientCompanyName(event.target.value)} placeholder="Deri Kordon" />
       </label>
 
       <label className="field">
-        <span>Oncelik</span>
+        <span>Öncelik</span>
         <select value={priority} onChange={(event) => setPriority(event.target.value as StorePriority)}>
           <option value="normal">Normal</option>
-          <option value="high">Yuksek</option>
+          <option value="high">Yüksek</option>
           <option value="critical">Kritik</option>
         </select>
       </label>
 
       <label className="field field-full">
         <span>Tagline</span>
-        <input value={tagline} onChange={(event) => setTagline(event.target.value)} placeholder="Marka konumlamasi" />
+        <input value={tagline} onChange={(event) => setTagline(event.target.value)} placeholder="Marka konumlaması" />
       </label>
 
       <label className="field">
-        <span>Client yetkilisi</span>
+        <span>Müşteri yetkilisi</span>
         <input value={clientContactName} onChange={(event) => setClientContactName(event.target.value)} placeholder="Marka sahibi" />
       </label>
 
       <label className="field">
-        <span>Ic sorumlu</span>
+        <span>İç sorumlu</span>
         <input value={internalOwner} onChange={(event) => setInternalOwner(event.target.value)} placeholder="Webintoshi" />
       </label>
 
       <label className="field">
-        <span>Client e-posta</span>
+        <span>Müşteri e-postası</span>
         <input type="email" value={clientContactEmail} onChange={(event) => setClientContactEmail(event.target.value)} placeholder="iletisim@marka.com" />
       </label>
 
       <label className="field">
-        <span>Client telefon</span>
+        <span>Müşteri telefonu</span>
         <input value={clientContactPhone} onChange={(event) => setClientContactPhone(event.target.value)} placeholder="+90 5xx xxx xx xx" />
       </label>
 
@@ -194,19 +194,19 @@ export function UpdateStoreProfileForm({
       <label className="field">
         <span>Tahsilat durumu</span>
         <select value={billingStatus} onChange={(event) => setBillingStatus(event.target.value as BillingStatus)}>
-          <option value="healthy">Saglikli</option>
+          <option value="healthy">Sağlıklı</option>
           <option value="follow_up">Takipte</option>
           <option value="hold">Beklemede</option>
         </select>
       </label>
 
       <label className="field">
-        <span>Hedef yayin tarihi</span>
+        <span>Hedef yayın tarihi</span>
         <input type="date" value={launchTarget} onChange={(event) => setLaunchTarget(event.target.value)} />
       </label>
 
       <label className="field">
-        <span>Paket baslangic tarihi</span>
+        <span>Paket başlangıç tarihi</span>
         <input
           type="date"
           value={packageStartDate}
@@ -215,7 +215,7 @@ export function UpdateStoreProfileForm({
       </label>
 
       <label className="field">
-        <span>Paket suresi (ay)</span>
+        <span>Paket süresi (ay)</span>
         <input
           type="number"
           min="1"
@@ -230,21 +230,21 @@ export function UpdateStoreProfileForm({
       </label>
 
       <label className="field field-full">
-        <span>Siradaki owner aksiyonu</span>
+        <span>Sıradaki owner aksiyonu</span>
         <textarea
           value={nextAction}
           onChange={(event) => setNextAction(event.target.value)}
-          placeholder="Orn: Panel login teslimi ve ilk urun importu bekleniyor."
+          placeholder="Örn: Panel login teslimi ve ilk ürün importu bekleniyor."
           rows={3}
         />
       </label>
 
       <label className="field field-full">
-        <span>Ic notlar</span>
+        <span>İç notlar</span>
         <textarea
           value={ownerNotes}
           onChange={(event) => setOwnerNotes(event.target.value)}
-          placeholder="Bu magazayla ilgili notlar, riskler ve takip maddeleri."
+          placeholder="Bu mağazayla ilgili notlar, riskler ve takip maddeleri."
           rows={4}
         />
       </label>
@@ -260,7 +260,7 @@ export function UpdateStoreProfileForm({
           className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
           disabled={disabled || isPending}
         >
-          {isPending ? "Kaydediliyor..." : "Proje profilini guncelle"}
+          {isPending ? "Kaydediliyor..." : "Mağaza profilini güncelle"}
         </button>
       </div>
     </form>

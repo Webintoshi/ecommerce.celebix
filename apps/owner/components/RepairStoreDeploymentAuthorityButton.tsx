@@ -24,7 +24,7 @@ export function RepairStoreDeploymentAuthorityButton({
     setNotice(null);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -46,7 +46,7 @@ export function RepairStoreDeploymentAuthorityButton({
       };
 
       if (!response.ok) {
-        setError(payload.error || "Deployment authority onarimi basarisiz oldu.");
+        setError(payload.error || "Yayın authority onarımı başarısız oldu.");
         return;
       }
 
@@ -56,7 +56,7 @@ export function RepairStoreDeploymentAuthorityButton({
             target.branchChanged ? `branch ${target.desiredBranch}` : null,
             target.autoDeployChanged ? "auto deploy" : null,
           ].filter(Boolean);
-          return `${target.target}: ${changeSet.join(" + ") || "ayar"} onarildi`;
+          return `${target.target}: ${changeSet.join(" + ") || "ayar"} onarıldı`;
         }) ?? [];
       const missingTargets =
         payload.targets?.filter((target) => target.status === "missing").map((target) => target.target) ?? [];
@@ -65,13 +65,13 @@ export function RepairStoreDeploymentAuthorityButton({
 
       const fragments = [
         repairedTargets.join(", "),
-        stableTargets.length > 0 ? `${stableTargets.join(", ")} zaten dogru ayarda.` : null,
-        missingTargets.length > 0 ? `${missingTargets.join(", ")} resource'u Coolify'da bulunamadi.` : null,
+        stableTargets.length > 0 ? `${stableTargets.join(", ")} zaten doğru ayarda.` : null,
+        missingTargets.length > 0 ? `${missingTargets.join(", ")} resource'u Coolify'da bulunamadı.` : null,
         payload.deploymentTriggered ? "Redeploy tetiklendi." : null,
       ].filter(Boolean);
 
       setNotice(
-        fragments.join(" ") || "Deployment authority ayarlari kontrol edildi.",
+        fragments.join(" ") || "Yayın authority ayarları kontrol edildi.",
       );
       router.refresh();
     });
@@ -85,7 +85,7 @@ export function RepairStoreDeploymentAuthorityButton({
         onClick={handleRepair}
         disabled={disabled || isPending}
       >
-        {isPending ? "Deployment authority onariliyor..." : "Deployment authority'yi onar"}
+        {isPending ? "Yayın authority onarılıyor..." : "Yayın authority'yi onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}

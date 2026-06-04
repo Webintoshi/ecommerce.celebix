@@ -37,7 +37,7 @@ export function CreateAffiliateForm({
     setNotice(null);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -59,11 +59,11 @@ export function CreateAffiliateForm({
       const payload = (await response.json()) as { error?: string; success?: boolean };
 
       if (!response.ok) {
-        setError(payload.error || "Affiliate olusturulamadi.");
+        setError(payload.error || "Affiliate oluşturulamadı.");
         return;
       }
 
-      setNotice("Affiliate hesabi ve store yetkisi kaydedildi.");
+      setNotice("Affiliate hesabı ve mağaza yetkisi kaydedildi.");
       setEmail("");
       setFullName("");
       setPassword("");
@@ -76,7 +76,7 @@ export function CreateAffiliateForm({
       <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Ad soyad</span>
-        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Partner kullanici" />
+        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Partner kullanıcı" />
       </label>
 
       <label className="field">
@@ -85,12 +85,12 @@ export function CreateAffiliateForm({
       </label>
 
       <label className="field">
-        <span>Gecici sifre</span>
+        <span>Geçici şifre</span>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="En az 8 karakter" minLength={8} required />
       </label>
 
       <label className="field">
-        <span>Proje</span>
+        <span>Mağaza</span>
         <select value={storeSlug} onChange={(event) => setStoreSlug(event.target.value)} required>
           {stores.map((store) => (
             <option key={store.slug} value={store.slug}>
@@ -101,7 +101,7 @@ export function CreateAffiliateForm({
       </label>
 
       <label className="field field-full">
-        <span>Komisyon orani (%)</span>
+        <span>Komisyon oranı (%)</span>
         <input
           type="number"
           min="0"

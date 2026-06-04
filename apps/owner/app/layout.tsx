@@ -15,7 +15,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Celebix Owner Panel",
-  description: "Tum e-ticaret projelerini tek panelden yonet."
+  description: "Tüm e-ticaret mağazalarını tek panelden yönet."
 };
 
 // Prevent FOUC (Flash of Unstyled Content) script
@@ -32,7 +32,7 @@ const themeScript = `
       } catch (_) {
         return 'system';
       }
-      return 'system';
+      return 'light';
     }
 
     var mode = getThemePreference();
@@ -55,7 +55,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const previewFlags = getOwnerPreviewFlags();
 
   const userName = auth?.profile.full_name || auth?.user.email || "";
-  const roleLabel = auth?.profile.role === "super_admin" ? "Super Admin" : "Affiliate";
+  const roleLabel = auth?.profile.role === "super_admin" ? "Süper Yönetici" : "Affiliate";
 
   return (
     <html lang="tr" suppressHydrationWarning>
@@ -63,7 +63,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="owner-panel" suppressHydrationWarning>
-        <ThemeProvider defaultTheme="system" enableSystem disableTransitionOnChange={false}>
+        <ThemeProvider defaultTheme="light" enableSystem disableTransitionOnChange={false}>
           {auth ? (
             <div className="app-shell">
               <aside className="sidebar">
@@ -74,8 +74,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                     </div>
                     <div className="brand-caption">
                       <span className="brand-kicker">ECP</span>
-                      <strong>Ecommerce Control Panel</strong>
-                      <span>Super admin, affiliate ve proje kurulum operasyonlari tek Celebix sahnesinde.</span>
+                      <strong>Owner Panel</strong>
+                      <span>Mağaza, kurulum ve affiliate operasyonları.</span>
                     </div>
                   </Link>
                 </div>
@@ -88,7 +88,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       <rect x="14" y="14" width="7" height="7" />
                       <rect x="3" y="14" width="7" height="7" />
                     </svg>
-                    Dashboard
+                    Genel Bakış
                   </SidebarNavLink>
                   <SidebarNavLink href="/stores" exclude={["/stores/new"]}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -96,17 +96,17 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       <path d="M6 3h12l2 4H4z" />
                       <path d="M5 7h14v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" />
                     </svg>
-                    Projeler
+                    Mağazalar
                   </SidebarNavLink>
                   <SidebarNavLink href="/stores/new">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="5" x2="12" y2="19" />
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    Yeni Proje
+                    Yeni Mağaza
                   </SidebarNavLink>
 
-                  <div className="sidebar-group-label">Yonetim</div>
+                  <div className="sidebar-group-label">Yönetim</div>
                   <SidebarNavLink href="/clients">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -114,14 +114,14 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
-                    Musteriler
+                    Kullanıcılar
                   </SidebarNavLink>
                   <SidebarNavLink href="/finance">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 1v22" />
                       <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14.5a3.5 3.5 0 0 1 0 7H6" />
                     </svg>
-                    Finans
+                    Faturalar
                   </SidebarNavLink>
                   <SidebarNavLink href="/operations">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -130,7 +130,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       <path d="M6 20v-3" />
                       <path d="M2 20h20" />
                     </svg>
-                    Operasyon
+                    Operasyonlar
                   </SidebarNavLink>
                   <SidebarNavLink href="/affiliates">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -139,7 +139,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
-                    Affiliate
+                    Affiliate Paneli
                   </SidebarNavLink>
                 </nav>
                 <div className="sidebar-footer">

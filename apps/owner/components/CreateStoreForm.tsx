@@ -105,7 +105,7 @@ export function CreateStoreForm({
     setError(null);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -118,7 +118,7 @@ export function CreateStoreForm({
       const payload = (await response.json()) as CreateStorePayload;
 
       if (!response.ok || !payload.store) {
-        setError(payload.error || "Magaza olusturulamadi.");
+        setError(payload.error || "Mağaza oluşturulamadı.");
         return;
       }
 
@@ -136,12 +136,12 @@ export function CreateStoreForm({
       <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
         <section className="owner-form-block field-full">
           <div className="owner-form-block-title">
-            <strong>Magaza bilgileri</strong>
-            <span>Adim 01</span>
+            <strong>Mağaza bilgileri</strong>
+            <span>Adım 01</span>
           </div>
           <div className="form-grid form-grid-2">
             <label className="field">
-              <span>Magaza Adi</span>
+              <span>Mağaza adı</span>
               <input value={form.name} onChange={handleNameChange} placeholder="Deri Kordon" required />
             </label>
 
@@ -164,7 +164,7 @@ export function CreateStoreForm({
         <section className="owner-form-block field-full">
           <div className="owner-form-block-title">
             <strong>Domain ve tema</strong>
-            <span>Adim 02-03</span>
+            <span>Adım 02-03</span>
           </div>
           <div className="form-grid form-grid-2">
             <label className="field">
@@ -176,7 +176,7 @@ export function CreateStoreForm({
                 required
               />
               <small className="muted">
-                Storefront ve admin domaini. Demo domain authority icinde <code>&lt;slug&gt;.demo.celebix.co</code> olarak tutulur.
+                Vitrin ve admin domaini. Demo domain kaydı <code>&lt;slug&gt;.demo.celebix.co</code> olarak tutulur.
               </small>
             </label>
 
@@ -195,19 +195,19 @@ export function CreateStoreForm({
 
         <section className="owner-standard-card field-full">
           <div className="owner-form-block-title">
-            <strong>Yeni Celebix Standardi</strong>
-            <span>Adim 06</span>
+            <strong>Yeni Celebix Standardı</strong>
+            <span>Adım 06</span>
           </div>
           <p>
-            Yeni store create akisi varsayilan olarak light Postgres + R2 + generated admin/storefront
-            standardinda acilir. Teknik database mode sadece advanced legacy alaninda degisir.
+            Yeni mağaza akışı varsayılan olarak Yeni Standart + R2 + generated admin/vitrin
+            düzeninde açılır. Teknik veritabanı modu yalnızca Advanced Legacy alanında değişir.
           </p>
           <div className="actions compact-actions wrap stack-top-sm">
-            <span className="pill pill-success">light_postgres default</span>
+            <span className="pill pill-success">Yeni Standart</span>
             <span className="pill">R2 default</span>
-            <span className="pill provisioning-tone-pending_auth">Logto placeholder</span>
-            <span className="pill provisioning-tone-pending_analytics">Umami placeholder</span>
-            <span className="pill provisioning-tone-pending_payment">Payment placeholder</span>
+            <span className="pill provisioning-tone-pending_auth">Auth Kurulumu Bekleyen</span>
+            <span className="pill provisioning-tone-pending_analytics">Analytics Kurulumu Bekleyen</span>
+            <span className="pill provisioning-tone-pending_payment">Ödeme Kurulumu Bekleyen</span>
           </div>
           <div className="actions stack-top-sm">
             <button
@@ -223,38 +223,38 @@ export function CreateStoreForm({
                 setShowLegacyOptions((current) => !current);
               }}
             >
-              {legacyModeVisible ? "Advanced / Legacy alani gizle" : "Advanced / Legacy Mode"}
+              {legacyModeVisible ? "Advanced Legacy alanını gizle" : "Advanced Legacy"}
             </button>
           </div>
           {legacyModeVisible ? (
             <div className="stack-top-sm">
               <label className="field">
-                <span>Veritabani modu</span>
+                <span>Veritabanı modu</span>
                 <select
                   value={form.databaseMode}
                   onChange={(event) =>
                     updateField("databaseMode", event.target.value as FormState["databaseMode"])
                   }
                 >
-                  <option value="light_postgres">Light Postgres (yeni standart)</option>
-                  <option value="full_supabase">Full Supabase (legacy)</option>
+                  <option value="light_postgres">Yeni Standart</option>
+                  <option value="full_supabase">Legacy</option>
                 </select>
                 <small className="muted">
-                  Full Supabase sadece explicit legacy mod icin acilir; default secim light_postgres olarak korunur.
+                  Legacy yalnızca özel/onaylı durumlarda açılır; varsayılan seçim Yeni Standart olarak korunur.
                 </small>
               </label>
               {form.databaseMode === "full_supabase" ? (
                 <div className="inline-card" style={{ borderColor: "rgba(254,97,0,.24)" }}>
                   <div>
-                    <strong>Legacy Supabase stack olusturur</strong>
-                    <p>Yeni standart degildir</p>
-                    <p>Sadece ozel/onayli durumlarda kullanilir</p>
+                    <strong>Legacy kurulum açılır</strong>
+                    <p>Yeni Standart değildir</p>
+                    <p>Sadece özel/onaylı durumlarda kullanılır</p>
                   </div>
                   <span className="pill pill-legacy">legacy</span>
                 </div>
               ) : (
                 <p className="card-note">
-                  Legacy paneli acik, ancak yeni standard secimi light_postgres olarak aktif kalir.
+                  Legacy paneli açık, ancak Yeni Standart seçimi aktif kalır.
                 </p>
               )}
             </div>
@@ -263,12 +263,12 @@ export function CreateStoreForm({
 
         <section className="owner-form-block field-full">
           <div className="owner-form-block-title">
-            <strong>Admin, odeme ve baslangic</strong>
-            <span>Adim 04-05</span>
+            <strong>Admin, ödeme ve başlangıç</strong>
+            <span>Adım 04-05</span>
           </div>
           <div className="form-grid form-grid-2">
             <label className="field">
-              <span>Destek E-postasi</span>
+              <span>Destek e-postası</span>
               <input
                 type="email"
                 value={form.supportEmail}
@@ -287,7 +287,7 @@ export function CreateStoreForm({
             </label>
 
             <label className="field">
-              <span>Paket baslangic tarihi</span>
+              <span>Paket başlangıç tarihi</span>
               <input
                 type="date"
                 value={form.packageStartDate}
@@ -296,7 +296,7 @@ export function CreateStoreForm({
             </label>
 
             <label className="field">
-              <span>Paket suresi (ay)</span>
+              <span>Paket süresi (ay)</span>
               <input
                 type="number"
                 min="1"
@@ -305,22 +305,22 @@ export function CreateStoreForm({
                 onChange={(event) => updateField("packageDurationMonths", event.target.value)}
                 placeholder="1"
               />
-              <small className="muted">Aylik paket icin 1, yillik paket icin 12 gir.</small>
+              <small className="muted">Aylık paket için 1, yıllık paket için 12 gir.</small>
             </label>
           </div>
         </section>
 
         <section className="owner-form-block field-full">
           <div className="owner-form-block-title">
-            <strong>Deploy branch plani</strong>
-            <span>Authority</span>
+            <strong>Yayın branch planı</strong>
+            <span>Yetki</span>
           </div>
           <div className="meta-pairs">
             <span>Owner/Admin branch: <strong>{ownerDeploymentBranch}</strong></span>
-            <span>Storefront branch: <strong>{storefrontBranchPreview}</strong></span>
+            <span>Vitrin branch: <strong>{storefrontBranchPreview}</strong></span>
           </div>
           <p className="card-note">
-            Owner ve admin deploy ayni branch'te kalir. Her yeni storefront kendi slug'i icin ayri branch alir.
+            Owner ve admin yayını aynı branch'te kalır. Her yeni vitrin kendi slug'ı için ayrı branch alır.
           </p>
         </section>
       </fieldset>
@@ -335,14 +335,14 @@ export function CreateStoreForm({
           onClick={() => router.back()}
           disabled={isPending}
         >
-          Iptal
+          İptal
         </button>
         <button
           type="submit"
           className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
           disabled={disabled || isPending}
         >
-          {isPending ? "Olusturuluyor..." : "Magaza Olustur"}
+          {isPending ? "Oluşturuluyor..." : "Mağaza Oluştur"}
         </button>
       </div>
     </form>

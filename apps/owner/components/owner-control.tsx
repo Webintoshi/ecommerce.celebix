@@ -274,7 +274,7 @@ export function OwnerPreviewBanner({ title, message }: { title: string; message:
     <section className="preview-banner owner-preview-banner">
       <div className="preview-banner-chip">{title}</div>
       <div className="preview-banner-copy">
-        <strong>Read-only owner preview aktif.</strong>
+        <strong>Önizleme Modu aktif.</strong>
         <p>{message}</p>
       </div>
     </section>

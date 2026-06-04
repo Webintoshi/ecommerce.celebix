@@ -172,12 +172,12 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <div className="dashboard-hero-content">
           <div className="hero-stack">
             <Link href="/stores" className="eyebrow-link">
-              ← Tum projelere don
+              ← Tüm mağazalara dön
             </Link>
-            <span className="hero-overline">Project Control Layer</span>
+            <span className="hero-overline">Mağaza Kontrol Paneli</span>
             <div>
               <h1>{store.name}</h1>
-              <p>{store.tagline || "Proje detaylari, operasyon sagligi ve yonetim katmani."}</p>
+              <p>{store.tagline || "Mağaza detayı, operasyon sağlığı ve kurulum akışı tek ekranda izlenir."}</p>
             </div>
             <div className="actions hero-actions">
               <span className="pill pill-capitalize">{store.status}</span>
@@ -186,7 +186,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <span className={getDatabaseModePillClass(store.databaseMode)}>
                 {getDatabaseModeLabel(store.databaseMode)}
               </span>
-              {showSupabaseInfrastructure ? <span className="pill pill-legacy">legacy mode</span> : null}
+              {showSupabaseInfrastructure ? <span className="pill pill-legacy">Legacy özel mod</span> : null}
               {pendingSetupSignals.map((signal) => (
                 <span key={signal.key} className={signal.pillClassName}>
                   {signal.shortLabel}
@@ -198,7 +198,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
 
           <div className="actions hero-actions">
             <Link className="button button-secondary" href={`https://${store.adminDomain}/admin`} target="_blank" rel="noreferrer">
-              Admini ac
+              Admini aç
             </Link>
             {superAdmin ? (
               <LaunchStorefrontButton
@@ -212,10 +212,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <aside className="dashboard-hero-panel">
-          <div className="card-title">Sahne ozeti</div>
+          <div className="card-title">Mağaza özeti</div>
           <div className="hero-list">
             <div className="hero-list-item">
-              <span>Client</span>
+              <span>Müşteri</span>
               <strong>{store.management.clientCompanyName || store.name}</strong>
             </div>
             <div className="hero-list-item">
@@ -223,19 +223,19 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <strong>{subscription.cadenceLabel}</strong>
             </div>
             <div className="hero-list-item">
-              <span>Hedef yayin</span>
+              <span>Hedef yayın</span>
               <strong>{formatDate(store.management.launchTarget)}</strong>
             </div>
             <div className="hero-list-item">
-              <span>Affiliate orani</span>
+              <span>Affiliate oranı</span>
               <strong>%{formatPercent(store.totalAffiliateRate)}</strong>
             </div>
             <div className="hero-list-item">
-              <span>Setup kuyrugu</span>
+              <span>Kurulum kuyruğu</span>
               <strong>
                 {pendingSetupSignals.length > 0
-                  ? `${pendingSetupSignals.length} bekleyen adim`
-                  : "owner hazir"}
+                  ? `${pendingSetupSignals.length} bekleyen adım`
+                  : "owner hazır"}
               </strong>
             </div>
           </div>
@@ -246,80 +246,80 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span className={`hero-chip ${subscription.status === "active" ? "hero-chip-accent" : "hero-chip-neutral"}`}>
               {subscription.countdownLabel}
             </span>
-            <span className="hero-chip hero-chip-neutral">{store.storeAdminCount} store admin</span>
+            <span className="hero-chip hero-chip-neutral">{store.storeAdminCount} mağaza admini</span>
             <span className={`hero-chip ${showSupabaseInfrastructure ? "hero-chip-neutral" : "hero-chip-accent"}`}>
-              {showSupabaseInfrastructure ? "Legacy stack" : "Light Postgres standard"}
+              {showSupabaseInfrastructure ? "Legacy özel mod" : "Yeni Standart"}
             </span>
             <span className={`hero-chip ${cleanupRuns.length > 0 ? "hero-chip-neutral" : "hero-chip-accent"}`}>
-              {cleanupRuns.length > 0 ? `${cleanupRuns.length} cleanup run` : "Cleanup temiz"}
+              {cleanupRuns.length > 0 ? `${cleanupRuns.length} temizlik kaydı` : "Temizlik temiz"}
             </span>
           </div>
         </aside>
       </section>
 
       <div className="owner-metric-grid">
-        <OwnerMetricCard label="Urun" value={store.productCount.toLocaleString("tr-TR")} note="Katalog hacmi" />
-        <OwnerMetricCard label="Siparis" value={store.orderCount.toLocaleString("tr-TR")} note="Toplam operasyon" tone="accent" />
-        <OwnerMetricCard label="Musteri" value={store.customerCount.toLocaleString("tr-TR")} note="Musteri tabani" />
-        <OwnerMetricCard label="Bekleyen" value={store.pendingOrderCount} note="Aksiyon bekleyen siparis" tone={store.pendingOrderCount > 0 ? "warning" : "success"} />
+        <OwnerMetricCard label="Ürün" value={store.productCount.toLocaleString("tr-TR")} note="Katalog hacmi" />
+        <OwnerMetricCard label="Sipariş" value={store.orderCount.toLocaleString("tr-TR")} note="Toplam operasyon" tone="accent" />
+        <OwnerMetricCard label="Müşteri" value={store.customerCount.toLocaleString("tr-TR")} note="Müşteri tabanı" />
+        <OwnerMetricCard label="Bekleyen" value={store.pendingOrderCount} note="Aksiyon bekleyen sipariş" tone={store.pendingOrderCount > 0 ? "warning" : "success"} />
         <OwnerMetricCard label="Toplam ciro" value={formatCurrency(store.totalRevenue)} note="Store performansi" tone="accent" />
         <OwnerMetricCard label="Sepet ort." value={formatCurrency(store.averageOrderValue)} note="Ortalama siparis" />
       </div>
 
       <div className="split-grid">
         <OwnerActionPanel
-          title="Store setup progress"
-          copy="Kurulum akisi teknik loglardan ayrildi; store'un isletim sistemine hazir olma durumu adim adim okunur."
+          title="Kurulum Akışı"
+          copy="Kurulum akışı teknik loglardan ayrıldı; mağazanın işletime hazır olma durumu adım adım okunur."
           tone={deploymentStepState === "blocked" ? "danger" : "accent"}
           actions={
             <>
               <OwnerStatusChip tone={showSupabaseInfrastructure ? "legacy" : "accent"}>
-                {showSupabaseInfrastructure ? "Legacy full stack" : "Yeni Celebix Standardi"}
+                {showSupabaseInfrastructure ? "Legacy özel mod" : "Yeni Celebix Standardı"}
               </OwnerStatusChip>
               <OwnerStatusChip tone={pendingSetupSignals.length > 0 ? "warning" : "success"}>
-                {pendingSetupSignals.length > 0 ? `${pendingSetupSignals.length} setup aksiyonu` : "Setup temiz"}
+                {pendingSetupSignals.length > 0 ? `${pendingSetupSignals.length} kurulum aksiyonu` : "Kurulum temiz"}
               </OwnerStatusChip>
             </>
           }
         >
           <OwnerLifecycleStepper
             steps={[
-              { label: "Store authority", detail: `${store.slug} owner kaydi`, state: "done" },
-              { label: "Database", detail: showSupabaseInfrastructure ? "Legacy Supabase mode" : "Light Postgres standard", state: "done" },
-              { label: "Auth / Analytics / Payment", detail: pendingSetupSignals.length > 0 ? "Non-blocking setup aksiyonlari bekliyor" : "Placeholder sinyalleri temiz", state: setupStepState },
-              { label: "Admin app", detail: store.health.adminRuntimeConsistent ? "Runtime authority hazir" : "Runtime drift izleniyor", state: store.health.adminRuntimeConsistent ? "done" : "current" },
-              { label: "Storefront app", detail: store.storefrontStatus, state: deploymentStepState },
+              { label: "Mağaza kaydı", detail: `${store.slug} owner kaydı`, state: "done" },
+              { label: "Veritabanı", detail: showSupabaseInfrastructure ? "Legacy Supabase modu" : "Yeni Standart", state: "done" },
+              { label: "Auth / Analytics / Ödeme", detail: pendingSetupSignals.length > 0 ? "Engelleyici olmayan kurulum aksiyonları bekliyor" : "Kurulum sinyalleri temiz", state: setupStepState },
+              { label: "Admin panel", detail: store.health.adminRuntimeConsistent ? "Runtime hazır" : "Runtime drift izleniyor", state: store.health.adminRuntimeConsistent ? "done" : "current" },
+              { label: "Vitrin yayını", detail: store.storefrontStatus, state: deploymentStepState },
             ]}
           />
         </OwnerActionPanel>
 
         <OwnerActionPanel
-          title="Infrastructure status cards"
-          copy="Light Postgres store'larda Supabase eksikligi hata gibi sunulmaz; legacy store'lar ayrik mod olarak izlenir."
+          title="Altyapı Durumu"
+          copy="Yeni Standart mağazalarda Supabase eksikliği hata gibi sunulmaz; Legacy mağazalar ayrı mod olarak izlenir."
         >
           <div className="setup-signal-grid">
             <div className={`setup-signal-card ${showSupabaseInfrastructure ? "tone-legacy" : "tone-ready"}`}>
-              <span className="setup-signal-kicker">Database</span>
+              <span className="setup-signal-kicker">Veritabanı</span>
               <div className="setup-signal-value">{getDatabaseModeLabel(store.databaseMode)}</div>
               <p className="setup-signal-note">
                 {showSupabaseInfrastructure
-                  ? "Legacy full_supabase istisnasi olarak ayrildi."
-                  : "Yeni Celebix Standardi Light Postgres ile calisir."}
+                  ? "Legacy full_supabase özel mod olarak ayrıldı."
+                  : "Yeni Celebix Standardı Light Postgres ile çalışır."}
               </p>
             </div>
             <div className={`setup-signal-card ${store.health.r2Ready ? "tone-ready" : "tone-cleanup"}`}>
               <span className="setup-signal-kicker">R2</span>
-              <div className="setup-signal-value">{store.health.r2Ready ? "Hazir" : "Eksik"}</div>
-              <p className="setup-signal-note">{store.r2BucketName || "Media authority sonraki operasyon adiminda tamamlanir."}</p>
+              <div className="setup-signal-value">{store.health.r2Ready ? "Hazır" : "Eksik"}</div>
+              <p className="setup-signal-note">{store.r2BucketName || "Medya authority sonraki operasyon adımında tamamlanır."}</p>
             </div>
           </div>
         </OwnerActionPanel>
       </div>
 
       <OwnerSectionHeader
-        eyebrow="Lifecycle signals"
-        title="Bekleyen setup aksiyonlari"
-        copy="Auth, analytics, payment ve cleanup sinyalleri store detayinda teknik hata yerine operasyon sirasinda okunur."
+        eyebrow="Kurulum Akışı"
+        title="Bekleyen kurulum aksiyonları"
+        copy="Auth, analytics, ödeme ve temizlik sinyalleri mağaza detayında teknik hata yerine operasyon sırası olarak okunur."
       />
 
       <div className="setup-signal-grid">
@@ -338,41 +338,41 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                   : "Owner hazir"}
             </div>
             <p className="setup-signal-note">{signal.note}</p>
-            <div className="setup-signal-footer">
+          <div className="setup-signal-footer">
               <span>
-                Provider <strong>{signal.providerLabel}</strong>
+                Sağlayıcı <strong>{signal.providerLabel}</strong>
               </span>
               <span>
-                Status <strong>{signal.statusLabel}</strong>
+                Durum <strong>{signal.statusLabel}</strong>
               </span>
             </div>
           </div>
         ))}
 
         <div className={`setup-signal-card ${cleanupRuns.length > 0 ? "tone-cleanup" : "tone-neutral"}`}>
-          <span className="setup-signal-kicker">Cleanup</span>
+          <span className="setup-signal-kicker">Temizlik</span>
           <div className="actions compact-actions wrap stack-top-sm">
             <span className={`pill ${cleanupRuns.length > 0 ? "pill-danger" : "pill-success"}`}>
-              {cleanupRuns.length > 0 ? "orphan cleanup" : "cleanup temiz"}
+              {cleanupRuns.length > 0 ? "temizlik bekliyor" : "temizlik temiz"}
             </span>
             <Link className="button button-ghost" href="/operations">
               Operasyonu ac
             </Link>
           </div>
           <div className="setup-signal-value">
-            {cleanupRuns.length > 0 ? `${cleanupRuns.length} acik run` : "Acik run yok"}
+            {cleanupRuns.length > 0 ? `${cleanupRuns.length} açık kayıt` : "Açık kayıt yok"}
           </div>
           <p className="setup-signal-note">
             {cleanupRuns.length > 0
-              ? "Bu store icin dis kaynak temizligi tamamlanmamis cleanup kayitlari owner panelde izleniyor."
-              : "Bu store icin unresolved cleanup kaydi gorunmuyor."}
+              ? "Bu mağaza için dış kaynak temizliği tamamlanmamış kayıtlar owner panelde izleniyor."
+              : "Bu mağaza için açık temizlik kaydı görünmüyor."}
           </p>
           <div className="setup-signal-footer">
             <span>
-              Orphan target <strong>{orphanedTargetCount}</strong>
+              Temizlik hedefi <strong>{orphanedTargetCount}</strong>
             </span>
             <span>
-              Scope <strong>{store.slug}</strong>
+              Kapsam <strong>{store.slug}</strong>
             </span>
           </div>
         </div>
@@ -382,13 +382,13 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <div className="card surface-alert section-tight">
           <div className="section-head">
             <div>
-              <div className="card-title">Store-level Orphan Cleanup</div>
+              <div className="card-title">Mağaza Temizlik Takibi</div>
               <p className="section-copy">
-                Bu proje icin authority silindikten sonra unresolved kalan cleanup run&apos;lari burada izlenir.
+                Bu mağaza için authority silindikten sonra açık kalan temizlik kayıtları burada izlenir.
               </p>
             </div>
             <Link href="/operations" className="button button-secondary">
-              Tum cleanup kayitlari
+              Tüm temizlik kayıtları
             </Link>
           </div>
           <div className="stack-list stack-top-sm">
@@ -399,7 +399,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                   <p>{run.status}</p>
                 </div>
                 <div className="activity-meta">
-                  <span>{run.targets.length} target</span>
+                  <span>{run.targets.length} hedef</span>
                   <span>
                     {
                       run.targets.filter(
@@ -419,37 +419,37 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       {/* Info Cards */}
       <div className="info-row info-row-3">
         <div className="card">
-          <div className="card-title">Client Profili</div>
+          <div className="card-title">Müşteri Profili</div>
           <div className="meta-pairs">
             <span>Marka: <strong>{store.management.clientCompanyName || store.name}</strong></span>
             <span>Yetkili: <strong>{store.management.clientContactName || "-"}</strong></span>
             <span>E-posta: <strong>{store.management.clientContactEmail || "-"}</strong></span>
             <span>Telefon: <strong>{store.management.clientContactPhone || "-"}</strong></span>
-            <span>Ic sorumlu: <strong>{store.management.internalOwner || "-"}</strong></span>
+            <span>İç sorumlu: <strong>{store.management.internalOwner || "-"}</strong></span>
             <span>Tahsilat: <strong>{store.management.billingStatus}</strong></span>
           </div>
         </div>
 
         <div className="card">
-          <div className="card-title">Yasam Dongusu</div>
+          <div className="card-title">Yaşam Döngüsü</div>
           <div className="actions compact-actions wrap stack-top-sm">
             <span className={`pill ${subscriptionStatusClass}`}>{subscription.cadenceLabel}</span>
             <span className={`pill ${subscriptionStatusClass}`}>{subscription.countdownLabel}</span>
             <span className={getDatabaseModePillClass(store.databaseMode)}>
               {getDatabaseModeLabel(store.databaseMode)}
             </span>
-            {showSupabaseInfrastructure ? <span className="pill pill-legacy">legacy mode</span> : null}
+            {showSupabaseInfrastructure ? <span className="pill pill-legacy">Legacy özel mod</span> : null}
             <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
           </div>
           <div className="meta-pairs">
-            <span>Asama: <strong>{store.management.lifecycleStage}</strong></span>
-            <span>Oncelik: <strong>{store.management.priority}</strong></span>
-            <span>Hedef yayin: <strong>{formatDate(store.management.launchTarget)}</strong></span>
-            <span>Storefront: <strong>{store.storefrontStatus}</strong></span>
-            <span>Provisioning: <strong>{provisioning.state}</strong></span>
-            <span>Affiliate orani: <strong>%{formatPercent(store.totalAffiliateRate)}</strong></span>
-            <span>Store admin: <strong>{store.storeAdminCount}</strong></span>
-            <span>Paket baslangici: <strong>{formatDate(subscription.startDate)}</strong></span>
+            <span>Aşama: <strong>{store.management.lifecycleStage}</strong></span>
+            <span>Öncelik: <strong>{store.management.priority}</strong></span>
+            <span>Hedef yayın: <strong>{formatDate(store.management.launchTarget)}</strong></span>
+            <span>Vitrin: <strong>{store.storefrontStatus}</strong></span>
+            <span>Kurulum: <strong>{getProvisioningLabel(provisioning.state)}</strong></span>
+            <span>Affiliate oranı: <strong>%{formatPercent(store.totalAffiliateRate)}</strong></span>
+            <span>Mağaza admini: <strong>{store.storeAdminCount}</strong></span>
+            <span>Paket başlangıcı: <strong>{formatDate(subscription.startDate)}</strong></span>
             <span>Paket bitisi: <strong>{formatDate(subscription.endDate)}</strong></span>
             <span>Paket suresi: <strong>{subscription.durationMonths ? `${subscription.durationMonths} ay` : "-"}</strong></span>
             <span>Kalan sure: <strong>{subscription.countdownLabel}</strong></span>
@@ -457,7 +457,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <div aria-hidden="true" className={`progress-track ${progressToneClass} stack-top-sm`}>
             <span style={{ width: `${subscriptionProgress}%` }} />
           </div>
-          <p className="card-note">{store.management.nextAction || "Sonraki aksiyon tanimlanmamis."}</p>
+          <p className="card-note">{store.management.nextAction || "Sonraki aksiyon tanımlanmamış."}</p>
         </div>
 
         <div className={`card ${showSupabaseInfrastructure ? "" : "surface-brand"}`}>
@@ -466,11 +466,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span className={getDatabaseModePillClass(store.databaseMode)}>
               {getDatabaseModeLabel(store.databaseMode)}
             </span>
-            {showSupabaseInfrastructure ? <span className="pill pill-legacy">legacy full stack</span> : null}
+            {showSupabaseInfrastructure ? <span className="pill pill-legacy">Legacy özel mod</span> : null}
             <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
           </div>
           <div className="meta-pairs">
-            <span>Database Mode: <strong>{getDatabaseModeLabel(store.databaseMode)}</strong></span>
+            <span>Veritabanı modu: <strong>{getDatabaseModeLabel(store.databaseMode)}</strong></span>
             {showSupabaseInfrastructure ? (
               <span>Supabase: <strong>{store.supabaseProjectRef || "Eksik"}</strong></span>
             ) : (
@@ -479,7 +479,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             {showSupabaseInfrastructure ? (
               <span>Supabase Host: <strong>{store.supabaseUrl || "Eksik"}</strong></span>
             ) : (
-              <span>DB Authority: <strong>{store.health.secretAuthorityReady ? "Hazir" : "Bekleniyor"}</strong></span>
+              <span>DB authority: <strong>{store.health.secretAuthorityReady ? "Hazır" : "Bekleniyor"}</strong></span>
             )}
             {showSupabaseInfrastructure ? (
               <span>
@@ -498,26 +498,26 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <span>Auth: <strong>{store.setup.auth.provider} / {store.setup.auth.status}</strong></span>
             )}
             <span>Analytics: <strong>{store.setup.analytics.provider} / {store.setup.analytics.status}</strong></span>
-            <span>Payment: <strong>{store.setup.payments.defaultProvider} / {store.setup.payments.status}</strong></span>
+              <span>Ödeme: <strong>{store.setup.payments.defaultProvider} / {store.setup.payments.status}</strong></span>
             <span>Legacy Auth: <strong>{store.health.legacyAuthConfigured ? "Var" : "Yok"}</strong></span>
-            <span>Admin Runtime: <strong>{store.health.adminDeploymentReady ? (store.health.adminRuntimeConsistent ? "Hazir" : "Drift") : "Kapali"}</strong></span>
-            <span>Admin Branch: <strong>{adminDeploymentBranch || "-"}</strong></span>
+            <span>Admin runtime: <strong>{store.health.adminDeploymentReady ? (store.health.adminRuntimeConsistent ? "Hazır" : "Drift") : "Kapalı"}</strong></span>
+            <span>Admin branch: <strong>{adminDeploymentBranch || "-"}</strong></span>
             <span>R2 Bucket: <strong>{store.r2BucketName || "Eksik"}</strong></span>
             <span>R2 Public URL: <strong>{store.r2PublicUrl || "-"}</strong></span>
             <span>R2 Managed Domain: <strong>{store.r2ManagedDomain || "-"}</strong></span>
             <span>Admin Domain: <strong>{store.adminDomain}</strong></span>
-            <span>Storefront Domain: <strong>{store.storefrontDomain}</strong></span>
-            <span>Storefront Branch: <strong>{storefrontDeploymentBranch || "-"}</strong></span>
-            <span>Support E-posta: <strong>{store.supportEmail || "-"}</strong></span>
-            <span>Support Telefon: <strong>{store.supportPhone || "-"}</strong></span>
+            <span>Vitrin domain: <strong>{store.storefrontDomain}</strong></span>
+            <span>Vitrin branch: <strong>{storefrontDeploymentBranch || "-"}</strong></span>
+            <span>Destek e-postası: <strong>{store.supportEmail || "-"}</strong></span>
+            <span>Destek telefonu: <strong>{store.supportPhone || "-"}</strong></span>
             <span>Son Sync: <strong>{formatDateTime(store.lastSyncedAt)}</strong></span>
           </div>
           <p className="card-note">
             {store.health.adminRuntimeMessage
               ? `Admin runtime notu: ${store.health.adminRuntimeMessage}`
               : showSupabaseInfrastructure
-                ? "Legacy Supabase stack authority ve istisnai auth modeli bu kartta ayri izlenir."
-                : "Light Postgres store-per-database authority, R2 zinciri ve bekleyen setup placeholder'lari bu kartta okunur."}
+                ? "Legacy Supabase stack authority ve istisnai auth modeli bu kartta ayrı izlenir."
+                : "Light Postgres mağaza veritabanı, R2 zinciri ve bekleyen kurulum aksiyonları bu kartta okunur."}
           </p>
         </div>
       </div>
@@ -525,9 +525,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       {/* Store Admins & Affiliates */}
       <div className="split-grid">
         <div className="card">
-          <div className="card-title">Store Adminleri</div>
+          <div className="card-title">Mağaza Adminleri</div>
           {store.storeAdmins.length === 0 ? (
-            <p className="muted">Atanmis store admin yok.</p>
+            <p className="muted">Atanmış mağaza admini yok.</p>
           ) : (
             <div className="stack-list">
               {store.storeAdmins.map((admin) => (
@@ -547,9 +547,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <div className="card">
-          <div className="card-title">Affiliate Erisimi</div>
+          <div className="card-title">Affiliate Erişimi</div>
           {store.affiliateAssignments.length === 0 ? (
-            <p className="muted">Atanmis affiliate yok.</p>
+            <p className="muted">Atanmış affiliate yok.</p>
           ) : (
             <div className="stack-list">
               {store.affiliateAssignments.map((assignment) => (
@@ -571,7 +571,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <div className="card">
           <div className="card-title">Son Aktiviteler</div>
           {store.recentActivity.length === 0 ? (
-            <p className="muted">Bu proje icin audit kaydi henuz yok.</p>
+            <p className="muted">Bu mağaza için audit kaydı henüz yok.</p>
           ) : (
             <div className="activity-list">
               {store.recentActivity.map((item) => (
@@ -591,10 +591,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <div className="card">
-          <div className="card-title">Ozellikler ve Notlar</div>
+          <div className="card-title">Özellikler ve Notlar</div>
           <div className="actions compact-actions wrap stack-top-sm">
             {store.features.length === 0 ? (
-              <span className="muted">Tanimli ozellik yok</span>
+              <span className="muted">Tanımlı özellik yok</span>
             ) : (
               store.features.map((feature) => (
                 <span key={feature} className="pill">
@@ -603,7 +603,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               ))
             )}
           </div>
-          <p className="card-note">{store.management.ownerNotes || "Ic owner notu girilmemis."}</p>
+          <p className="card-note">{store.management.ownerNotes || "İç owner notu girilmemiş."}</p>
         </div>
       </div>
 
@@ -612,18 +612,18 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <div className="card-title">Teknik Kimlikler</div>
           <div className="meta-pairs">
             <span>Slug: <strong>{store.slug}</strong></span>
-            <span>Theme: <strong>{store.themeKey}</strong></span>
-            <span>Storefront App: <strong>{store.storefrontAppDir || "-"}</strong></span>
-            <span>Storefront Status: <strong>{store.storefrontStatus}</strong></span>
-            <span>Storefront Deploy: <strong>{storefrontDeploymentStatus || storefrontDeployment?.status || "-"}</strong></span>
-            <span>Olusturma: <strong>{createdAt}</strong></span>
-            <span>Guncelleme: <strong>{updatedAt}</strong></span>
+            <span>Tema: <strong>{store.themeKey}</strong></span>
+            <span>Vitrin app: <strong>{store.storefrontAppDir || "-"}</strong></span>
+            <span>Vitrin durumu: <strong>{store.storefrontStatus}</strong></span>
+            <span>Vitrin yayını: <strong>{storefrontDeploymentStatus || storefrontDeployment?.status || "-"}</strong></span>
+            <span>Oluşturma: <strong>{createdAt}</strong></span>
+            <span>Güncelleme: <strong>{updatedAt}</strong></span>
           </div>
         </div>
 
         <div className={`card ${showSupabaseInfrastructure ? "" : "surface-brand"}`}>
           <div className="card-title">
-            {showSupabaseInfrastructure ? "Supabase Provisioning" : "Setup Placeholder Durumu"}
+            {showSupabaseInfrastructure ? "Legacy Supabase Kurulumu" : "Kurulum Aksiyonu Durumu"}
           </div>
           <div className="actions compact-actions wrap stack-top-sm">
             {pendingSetupSignals.length > 0 ? (
@@ -633,16 +633,16 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                 </span>
               ))
             ) : (
-              <span className="pill pill-success">setup sinyali temiz</span>
+              <span className="pill pill-success">kurulum sinyali temiz</span>
             )}
           </div>
           <div className="meta-pairs">
             {showSupabaseInfrastructure ? (
               <>
-                <span>Service Name: <strong>{supabaseProjectName || "-"}</strong></span>
+                <span>Servis adı: <strong>{supabaseProjectName || "-"}</strong></span>
                 <span>Resource ID: <strong>{supabaseResourceId || "-"}</strong></span>
-                <span>Provisioning: <strong>{supabaseProvisioning || "-"}</strong></span>
-                <span>Provisioned At: <strong>{provisionedAt}</strong></span>
+                <span>Kurulum: <strong>{supabaseProvisioning || "-"}</strong></span>
+                <span>Kurulum zamanı: <strong>{provisionedAt}</strong></span>
                 <span>
                   Studio URL:{" "}
                   <strong>
@@ -658,24 +658,24 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               </>
             ) : (
               <>
-                <span>Auth Provider: <strong>{store.setup.auth.provider}</strong></span>
-                <span>Auth Status: <strong>{store.setup.auth.status}</strong></span>
-                <span>Analytics Provider: <strong>{store.setup.analytics.provider}</strong></span>
-                <span>Analytics Status: <strong>{store.setup.analytics.status}</strong></span>
-                <span>Payment Provider: <strong>{store.setup.payments.defaultProvider}</strong></span>
-                <span>Payment Status: <strong>{store.setup.payments.status}</strong></span>
+                <span>Auth sağlayıcı: <strong>{store.setup.auth.provider}</strong></span>
+                <span>Auth durumu: <strong>{store.setup.auth.status}</strong></span>
+                <span>Analytics sağlayıcı: <strong>{store.setup.analytics.provider}</strong></span>
+                <span>Analytics durumu: <strong>{store.setup.analytics.status}</strong></span>
+                <span>Ödeme sağlayıcı: <strong>{store.setup.payments.defaultProvider}</strong></span>
+                <span>Ödeme durumu: <strong>{store.setup.payments.status}</strong></span>
               </>
             )}
           </div>
         </div>
 
         <div className="card">
-          <div className="card-title">Admin Deployment</div>
+          <div className="card-title">Admin Yayın Özeti</div>
           <div className="meta-pairs">
-            <span>Deployment Name: <strong>{adminDeploymentName || adminDeployment?.appName || "-"}</strong></span>
-            <span>Deployment Status: <strong>{adminDeploymentStatus || adminDeployment?.status || "-"}</strong></span>
+            <span>Yayın adı: <strong>{adminDeploymentName || adminDeployment?.appName || "-"}</strong></span>
+            <span>Yayın durumu: <strong>{adminDeploymentStatus || adminDeployment?.status || "-"}</strong></span>
             <span>Runtime URL: <strong>{adminDeploymentRuntimeUrl || adminDeployment?.runtimeUrl || "-"}</strong></span>
-            <span>Prepared At: <strong>{adminDeploymentPreparedAt}</strong></span>
+            <span>Hazırlanma zamanı: <strong>{adminDeploymentPreparedAt}</strong></span>
             <span>Resource ID: <strong>{adminDeployment?.resourceId || "-"}</strong></span>
           </div>
         </div>
@@ -691,7 +691,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       />
 
       <div className="card section-tight">
-        <div className="card-title">Storefront Deployment Blueprint</div>
+        <div className="card-title">Vitrin Yayın Planı</div>
         {storefrontDeployment ? (
           <>
             <div className="actions compact-actions stack-top-sm">
@@ -710,15 +710,15 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               ) : null}
             </div>
             <div className="meta-pairs">
-              <span>Deployment Name: <strong>{storefrontDeploymentName || storefrontDeployment.appName}</strong></span>
+              <span>Yayın adı: <strong>{storefrontDeploymentName || storefrontDeployment.appName}</strong></span>
               <span>Durum: <strong>{storefrontDeploymentStatus || storefrontDeployment.status}</strong></span>
               <span>Runtime URL: <strong>{storefrontRuntimeUrl || storefrontDeployment.runtimeUrl}</strong></span>
-              <span>Prepared At: <strong>{storefrontPreparedAt}</strong></span>
-              <span>Deployed At: <strong>{storefrontDeployedAt}</strong></span>
+              <span>Hazırlanma zamanı: <strong>{storefrontPreparedAt}</strong></span>
+              <span>Yayın zamanı: <strong>{storefrontDeployedAt}</strong></span>
               <span>Resource ID: <strong>{storefrontDeployment.resourceId || "-"}</strong></span>
-              <span>Workspace: <strong>{storefrontDeployment.workspace}</strong></span>
-              <span>Repo Sync: <strong>{storefrontDeployment.repoSynced ? "synced" : storefrontRepoSyncStatus || "pending"}</strong></span>
-              <span>Repo Synced At: <strong>{storefrontRepoSyncedAt}</strong></span>
+            <span>Çalışma alanı: <strong>{storefrontDeployment.workspace}</strong></span>
+              <span>Repo sync: <strong>{storefrontDeployment.repoSynced ? "senkron" : storefrontRepoSyncStatus || "bekliyor"}</strong></span>
+              <span>Repo sync zamanı: <strong>{storefrontRepoSyncedAt}</strong></span>
               <span>Repo Commit: <strong>{storefrontRepoCommitSha || "-"}</strong></span>
               <span>Env Local: <strong>{storefrontDeployment.envLocalPath || "-"}</strong></span>
               <span>Env Template: <strong>{storefrontDeployment.envTemplatePath || "-"}</strong></span>
@@ -728,17 +728,17 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <p className="card-note">
               {storefrontDeploymentAuthorityNote ||
                 (storefrontDeployment.runtimeMessage
-                  ? `Storefront deployment notu: ${storefrontDeployment.runtimeMessage}`
-                  : "Storefront deployment standardi owner tarafinda hazir.")}
+                  ? `Vitrin yayın notu: ${storefrontDeployment.runtimeMessage}`
+                  : "Vitrin yayın standardı owner tarafında hazır.")}
             </p>
           </>
         ) : (
-          <p className="muted">Storefront deployment blueprint okunamadi.</p>
+          <p className="muted">Vitrin yayın planı okunamadı.</p>
         )}
       </div>
 
       <div className="card section-tight">
-        <div className="card-title">Admin Deployment Blueprint</div>
+        <div className="card-title">Admin Yayın Planı</div>
         {adminDeployment ? (
           <>
             <div className="actions compact-actions stack-top-sm">
@@ -750,11 +750,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               />
             </div>
             <div className="meta-pairs">
-              <span>App Name: <strong>{adminDeployment.appName}</strong></span>
+              <span>App adı: <strong>{adminDeployment.appName}</strong></span>
               <span>Durum: <strong>{adminDeployment.status}</strong></span>
               <span>Runtime URL: <strong>{adminDeployment.runtimeUrl}</strong></span>
               <span>Resource ID: <strong>{adminDeployment.resourceId || "-"}</strong></span>
-              <span>Workspace: <strong>{adminDeployment.workspace}</strong></span>
+            <span>Çalışma alanı: <strong>{adminDeployment.workspace}</strong></span>
               <span>Env Local: <strong>{adminDeployment.envLocalPath}</strong></span>
               <span>Env Template: <strong>{adminDeployment.envTemplatePath}</strong></span>
               <span>Build: <strong>{adminDeployment.buildCommand}</strong></span>
@@ -763,22 +763,22 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <p className="card-note">
               {adminDeploymentAuthorityNote ||
                 (adminDeployment.runtimeMessage
-                  ? `Deployment notu: ${adminDeployment.runtimeMessage}`
-                  : "Bu store icin admin deployment standardi owner tarafinda hazir.")}
+                  ? `Yayın notu: ${adminDeployment.runtimeMessage}`
+                  : "Bu mağaza için admin yayın standardı owner tarafında hazır.")}
             </p>
           </>
         ) : (
-          <p className="muted">Admin deployment blueprint okunamadi.</p>
+          <p className="muted">Admin yayın planı okunamadı.</p>
         )}
       </div>
 
       <div className="card section-tight">
-        <div className="card-title">Consistency Guardrail</div>
+        <div className="card-title">Tutarlılık Kontrolü</div>
         <div className="meta-pairs">
-          <span>Toplam issue: <strong>{store.consistency.issueCount}</strong></span>
-          <span>Blocking issue: <strong>{store.consistency.blockingIssueCount}</strong></span>
+          <span>Toplam konu: <strong>{store.consistency.issueCount}</strong></span>
+          <span>Bloklayan konu: <strong>{store.consistency.blockingIssueCount}</strong></span>
           <span>Durum: <strong>{store.consistency.blocking ? "Bloklu" : "Temiz"}</strong></span>
-          <span>Kontrol zamani: <strong>{formatDateTime(store.consistency.checkedAt)}</strong></span>
+          <span>Kontrol zamanı: <strong>{formatDateTime(store.consistency.checkedAt)}</strong></span>
         </div>
         {store.consistency.issues.length > 0 ? (
           <div className="stack-list stack-top-md">
@@ -798,7 +798,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             ))}
           </div>
         ) : (
-          <p className="card-note">Config, owner secrets ve canlı admin runtime aynı authoritative store kaynağını izliyor.</p>
+          <p className="card-note">Config, owner secrets ve canlı admin runtime aynı authoritative mağaza kaynağını izliyor.</p>
         )}
       </div>
 
@@ -806,9 +806,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       {superAdmin ? (
         <>
           <div className="card section-tight">
-            <div className="card-title">Demo Domain'den Custom Domain'e Gecis</div>
+            <div className="card-title">Demo Domain'den Özel Domain'e Geçiş</div>
             <p className="section-copy">
-              Demo subdomain ile kurulan magazayi owner panelden kontrollu sekilde gercek domaine tasir.
+              Demo subdomain ile kurulan mağazayı owner panelden kontrollü şekilde gerçek domaine taşır.
             </p>
             <MigrateStoreDomainForm
               slug={store.slug}
@@ -821,8 +821,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           </div>
 
           <div className="card section-tight">
-            <div className="card-title">Proje Profilini Guncelle</div>
-            <p className="section-copy">Client iletisimini, ic sorumluyu, owner notlarini ve durum akisini buradan guncelle.</p>
+            <div className="card-title">Mağaza Profilini Güncelle</div>
+            <p className="section-copy">Müşteri iletişimini, iç sorumluyu, owner notlarını ve durum akışını buradan güncelle.</p>
             <UpdateStoreProfileForm
               store={{
                 slug: store.slug,
@@ -838,7 +838,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           </div>
 
           <div className="card section-tight">
-            <div className="card-title">Bu Projeye Affiliate Ata</div>
+            <div className="card-title">Bu Mağazaya Affiliate Ata</div>
             <CreateAffiliateForm
               stores={[{ slug: store.slug, name: store.name }]}
               defaultStoreSlug={store.slug}
@@ -850,9 +850,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           <div className="card section-tight surface-alert">
             <div className="section-head">
               <div>
-                <div className="card-title">Tehlikeli Islem</div>
+                <div className="card-title">Tehlikeli İşlem</div>
                 <p className="section-copy">
-                  Bu proje silindiginde owner kaydi, deploymentlar, Supabase, R2 ve generated storefront izleri temizlenir.
+                  Bu mağaza silindiğinde owner kaydı, yayınlar, Supabase, R2 ve generated vitrin izleri temizlenir.
                 </p>
               </div>
             </div>
@@ -869,8 +869,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       ) : null}
 
       <div className="card">
-        <div className="card-title">Bu Projeye Store Admin Ata</div>
-        <p className="section-copy">Bu magazaya bagli operasyon kullanicilarini yonet.</p>
+        <div className="card-title">Bu Mağazaya Admin Ata</div>
+        <p className="section-copy">Bu mağazaya bağlı operasyon kullanıcılarını yönet.</p>
         <CreateStoreAdminForm
           storeSlug={store.slug}
           disabled={writeDisabled}

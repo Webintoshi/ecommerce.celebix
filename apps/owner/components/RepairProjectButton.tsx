@@ -33,7 +33,7 @@ export function RepairProjectButton({
     setDetails([]);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -52,15 +52,15 @@ export function RepairProjectButton({
           }>(response);
 
           if (!response.ok) {
-            setError(errorMessage || "Repair akisi basarisiz oldu.");
+            setError(errorMessage || "Onarım akışı başarısız oldu.");
             return;
           }
 
           setDetails(payload?.steps ?? []);
           setNotice(
             payload?.provisioningState === "ready"
-              ? "Repair akisi tamamlandi; provisioning state hazir."
-              : "Repair akisi calisti; kalan blocker'lar asagida listelendi.",
+              ? "Onarım akışı tamamlandı; kurulum durumu hazır."
+              : "Onarım akışı çalıştı; kalan blokajlar aşağıda listelendi.",
           );
 
           if (payload?.provisioningState !== "ready") {
@@ -68,13 +68,13 @@ export function RepairProjectButton({
               payload?.blockers
                 ?.map((step) => step.message)
                 .filter((value): value is string => Boolean(value))
-                .join(" / ") || "Provisioning henuz pending_repair durumda.",
+                .join(" / ") || "Kurulum hâlâ pending_repair durumunda.",
             );
           }
 
           router.refresh();
         } catch (error) {
-          setError(normalizeActionError(error, "Repair akisi basarisiz oldu."));
+          setError(normalizeActionError(error, "Onarım akışı başarısız oldu."));
         }
       })();
     });
@@ -88,7 +88,7 @@ export function RepairProjectButton({
         onClick={handleRepair}
         disabled={disabled || isPending}
       >
-        {isPending ? "Repair calisiyor..." : "Projeyi onar"}
+        {isPending ? "Onarım çalışıyor..." : "Mağazayı onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}

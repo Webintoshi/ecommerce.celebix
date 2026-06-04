@@ -70,11 +70,11 @@ export function isOwnerActionDisabled(
 }
 
 export function getOwnerPreviewBannerTitle(): string {
-  return "Preview Mode";
+  return "Önizleme Modu";
 }
 
 export function getOwnerPreviewBannerMessage(): string {
-  return "Yazma ve kurulum aksiyonlari kapali. Bu ortam yalnizca gorsel QA icindir.";
+  return "Yazma işlemleri kapalı. Bu ortam yalnızca görsel kalite kontrol içindir.";
 }
 
 export function getOwnerActionDisabledPayload(
@@ -88,13 +88,13 @@ export function getOwnerActionDisabledPayload(
   if (flags.previewMode || flags.writeActionsDisabled) {
     return {
       code: "preview_write_disabled",
-      message: "Preview ortaminda yazma/kurulum islemleri kapalidir.",
+      message: "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.",
     };
   }
 
   return {
     code: "action_disabled_in_preview",
-    message: "Preview ortaminda yazma/kurulum islemleri kapalidir.",
+    message: "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.",
   };
 }
 

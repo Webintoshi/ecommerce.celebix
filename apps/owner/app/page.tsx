@@ -74,22 +74,22 @@ export default async function OwnerDashboardPage() {
   const setupQueueCount = dashboardStores.filter((store) =>
     getSetupSignals(store.setup).some((signal) => signal.pending),
   ).length;
-  const heroTitle = superAdmin ? "Celebix commerce command center" : "Affiliate portfoy kontrol katmani";
+  const heroTitle = superAdmin ? "Celebix Owner Paneli" : "Affiliate Portföy Kontrolü";
   const heroCopy = superAdmin
-    ? "Kurulum queue'larini, orphan cleanup akislarini ve canli storefront sagligini tek Celebix diliyle yonet."
-    : "Kendi proje portfoyunu, bekleyen setup adimlarini ve gelir etkini marka odakli tek panelden izle.";
+    ? "Mağaza kurulumlarını, operasyon sinyallerini ve canlı vitrin sağlığını tek ekranda takip et."
+    : "Kendi mağaza portföyünü, bekleyen kurulum adımlarını ve gelir etkini tek panelden izle.";
 
   return (
     <>
       <OwnerCommandHero
-        overline={superAdmin ? "Super Admin Layer" : "Affiliate Layer"}
+        overline={superAdmin ? "Genel Bakış" : "Affiliate Paneli"}
         title={heroTitle}
         copy={heroCopy}
         metrics={[
           {
             label: "Kurulum geliri",
             value: formatCurrency(totals.setupRevenue),
-            note: `${totals.activeStores} aktif, ${totals.draftStores} taslak proje`,
+            note: `${totals.activeStores} aktif, ${totals.draftStores} taslak mağaza`,
           },
           {
             label: "Ekosistem GMV",
@@ -104,70 +104,70 @@ export default async function OwnerDashboardPage() {
         ]}
         actions={
           <>
-            <Link href="/stores" className="button button-secondary">Tum projeler</Link>
+            <Link href="/stores" className="button button-secondary">Tüm mağazalar</Link>
             {superAdmin ? (
               <Link
                 href="/stores/new"
                 className={`button ${createStoreDisabled ? "button-secondary" : "button-primary"}`}
               >
-                {createStoreDisabled ? "Yeni proje formu" : "+ Yeni proje"}
+              {createStoreDisabled ? "Yeni Mağaza formu" : "+ Yeni Mağaza"}
               </Link>
             ) : null}
-            <OwnerStatusChip tone="accent">{totals.liveStorefronts} canli vitrin</OwnerStatusChip>
+            <OwnerStatusChip tone="accent">{totals.liveStorefronts} canlı vitrin</OwnerStatusChip>
             <OwnerStatusChip tone={attentionCount > 0 ? "warning" : "success"}>
-              {attentionCount > 0 ? `${attentionCount} dikkat gerekiyor` : "Sahne temiz"}
+              {attentionCount > 0 ? `${attentionCount} dikkat gerekiyor` : "Durum temiz"}
             </OwnerStatusChip>
             <OwnerStatusChip tone={setupQueueCount > 0 ? "warning" : "success"}>
               {setupQueueCount > 0 ? `${setupQueueCount} kurulum aksiyonu` : "Kurulum aksiyonu temiz"}
             </OwnerStatusChip>
           </>
         }
-        panelTitle="Bugunun panel ritmi"
+        panelTitle="Bugünün özeti"
         panelItems={[
-          { label: "Kurulumda ilerleyen proje", value: portfolioCount },
-          { label: "Bekleyen siparis hacmi", value: totals.pendingOrders.toLocaleString("tr-TR") },
-          { label: "Canli storefront", value: totals.liveStorefronts.toLocaleString("tr-TR") },
-          { label: "Yeni standart disi magazalar", value: legacyStoreCount },
+          { label: "Kurulumdaki mağaza", value: portfolioCount },
+          { label: "Bekleyen sipariş", value: totals.pendingOrders.toLocaleString("tr-TR") },
+          { label: "Canlı vitrin", value: totals.liveStorefronts.toLocaleString("tr-TR") },
+          { label: "Yeni Standart Dışı Mağazalar", value: legacyStoreCount },
         ]}
         chips={
           <>
-            <span className="hero-chip hero-chip-accent">{superAdmin ? "Command mode" : "Portfolio mode"}</span>
+            <span className="hero-chip hero-chip-accent">{superAdmin ? "Yönetim modu" : "Portföy modu"}</span>
             <span className="hero-chip hero-chip-neutral">{dashboard?.cleanupRuns.length ?? 0} orphan cleanup</span>
-            <span className="hero-chip hero-chip-neutral">{legacyStoreCount} yeni standart disi</span>
+            <span className="hero-chip hero-chip-neutral">{legacyStoreCount} yeni standart dışı</span>
           </>
         }
       />
 
       {/* Metrics Row */}
       <div className="owner-metric-grid">
-        <OwnerMetricCard label="Toplam siparis" value={totals.orders.toLocaleString("tr-TR")} note="Ekosistem hacmi" tone="accent" />
-        <OwnerMetricCard label="Toplam musteri" value={totals.customers.toLocaleString("tr-TR")} note="Tum store portfoyu" />
-        <OwnerMetricCard label="Aktif proje" value={totals.activeStores} note="Canli operasyon" tone="success" />
-        <OwnerMetricCard label="Taslak proje" value={totals.draftStores} note="Kurulum ritmi" tone="warning" />
-        <OwnerMetricCard label="Canli storefront" value={totals.liveStorefronts} note="Yayin hazirligi" tone="success" />
-        <OwnerMetricCard label="Bekleyen siparis" value={totals.pendingOrders} note="Operasyon izlemi" />
+        <OwnerMetricCard label="Toplam sipariş" value={totals.orders.toLocaleString("tr-TR")} note="Ekosistem hacmi" tone="accent" />
+        <OwnerMetricCard label="Toplam müşteri" value={totals.customers.toLocaleString("tr-TR")} note="Tüm mağaza portföyü" />
+        <OwnerMetricCard label="Aktif mağaza" value={totals.activeStores} note="Canlı operasyon" tone="success" />
+        <OwnerMetricCard label="Taslak mağaza" value={totals.draftStores} note="Kurulum ritmi" tone="warning" />
+        <OwnerMetricCard label="Canlı vitrin" value={totals.liveStorefronts} note="Yayın hazırlığı" tone="success" />
+        <OwnerMetricCard label="Bekleyen sipariş" value={totals.pendingOrders} note="Operasyon izlemi" />
       </div>
 
       <OwnerSectionHeader
-        eyebrow="Control center"
-        title="Kurulum akisi ve is etkisi"
-        copy="Dashboard artik yalnizca metrik gostermiyor; lifecycle, gelir, affiliate ve operasyon sinyallerini tek komuta alaninda toparliyor."
+        eyebrow="Genel Bakış"
+        title="Kurulum Akışı ve iş etkisi"
+        copy="Genel Bakış ekranı mağaza kurulumlarını, gelir etkisini, affiliate sinyallerini ve operasyon durumunu tek yerde toplar."
       />
 
       <div className="insight-grid">
         <div className="insight-card insight-card-dark">
           <div>
-            <div className="hero-card-label">Affiliate Dashboard</div>
+            <div className="hero-card-label">Affiliate Paneli</div>
             <div className="insight-stat">{formatCurrency(totals.affiliateExposure)}</div>
             <p>Affiliate kanalinin ekosistem icindeki tahmini gelir etkisi.</p>
           </div>
           <div className="insight-list">
             <div className="insight-list-row">
-              <span>Aktif proje</span>
+              <span>Aktif mağaza</span>
               <strong>{totals.activeStores}</strong>
             </div>
             <div className="insight-list-row">
-              <span>Taslak proje</span>
+              <span>Taslak mağaza</span>
               <strong>{totals.draftStores}</strong>
             </div>
             <div className="insight-list-row">
@@ -179,21 +179,21 @@ export default async function OwnerDashboardPage() {
 
         <div className="insight-card insight-card-accent">
           <div>
-            <div className="hero-card-label">Kurulum Nabzi</div>
+            <div className="hero-card-label">Kurulum Akışı</div>
             <div className="insight-stat">{attentionCount}</div>
-            <p>Kurulum aksiyonu bekleyenler, pending repair ve operasyonel sinyaller bu blokta toparlanir.</p>
+            <p>Kurulum Aksiyonu Bekleyenler ve operasyon sinyalleri bu blokta toparlanır.</p>
           </div>
           <div className="insight-list">
             <div className="insight-list-row">
-              <span>Pending auth</span>
+              <span>Auth Kurulumu Bekleyen</span>
               <strong>{pendingAuthCount}</strong>
             </div>
             <div className="insight-list-row">
-              <span>Pending analytics</span>
+              <span>Analytics Kurulumu Bekleyen</span>
               <strong>{pendingAnalyticsCount}</strong>
             </div>
             <div className="insight-list-row">
-              <span>Pending payment</span>
+              <span>Ödeme Kurulumu Bekleyen</span>
               <strong>{pendingPaymentCount}</strong>
             </div>
           </div>
@@ -203,7 +203,7 @@ export default async function OwnerDashboardPage() {
           <div>
             <div className="hero-card-label">Canli Cikis Orani</div>
             <div className="insight-stat">%{readinessRate}</div>
-            <p>Celebix kurulum zincirinden gecen projelerin vitrine cikma hizi.</p>
+            <p>Celebix kurulum zincirinden geçen mağazaların vitrine çıkma hızı.</p>
           </div>
           <div className="insight-list">
             <div className="insight-list-row">
@@ -225,7 +225,7 @@ export default async function OwnerDashboardPage() {
       {(setupQueueCount > 0 || legacyStoreCount > 0) && (
         <div className="setup-signal-grid">
           <div className={`setup-signal-card ${pendingAuthCount > 0 ? "tone-auth" : "tone-ready"}`}>
-            <span className="setup-signal-kicker">Auth Queue</span>
+            <span className="setup-signal-kicker">Auth Kurulumu Bekleyen</span>
             <div className="actions compact-actions wrap stack-top-sm">
               <span className={`pill ${pendingAuthCount > 0 ? "provisioning-tone-pending_auth" : "pill-success"}`}>
                 {pendingAuthCount > 0 ? "auth bekliyor" : "auth hazir"}
@@ -238,7 +238,7 @@ export default async function OwnerDashboardPage() {
           </div>
 
           <div className={`setup-signal-card ${pendingAnalyticsCount > 0 ? "tone-analytics" : "tone-ready"}`}>
-            <span className="setup-signal-kicker">Analytics Queue</span>
+            <span className="setup-signal-kicker">Analytics Kurulumu Bekleyen</span>
             <div className="actions compact-actions wrap stack-top-sm">
               <span className={`pill ${pendingAnalyticsCount > 0 ? "provisioning-tone-pending_analytics" : "pill-success"}`}>
                 {pendingAnalyticsCount > 0 ? "analytics bekliyor" : "analytics hazir"}
@@ -251,7 +251,7 @@ export default async function OwnerDashboardPage() {
           </div>
 
           <div className={`setup-signal-card ${pendingPaymentCount > 0 ? "tone-payment" : "tone-ready"}`}>
-            <span className="setup-signal-kicker">Payment Queue</span>
+            <span className="setup-signal-kicker">Ödeme Kurulumu Bekleyen</span>
             <div className="actions compact-actions wrap stack-top-sm">
               <span className={`pill ${pendingPaymentCount > 0 ? "provisioning-tone-pending_payment" : "pill-success"}`}>
                 {pendingPaymentCount > 0 ? "odeme bekliyor" : "odeme hazir"}
@@ -264,15 +264,15 @@ export default async function OwnerDashboardPage() {
           </div>
 
           <div className={`setup-signal-card ${legacyStoreCount > 0 ? "tone-legacy" : "tone-neutral"}`}>
-            <span className="setup-signal-kicker">Legacy Mode</span>
+            <span className="setup-signal-kicker">Yeni Standart Dışı Mağazalar</span>
             <div className="actions compact-actions wrap stack-top-sm">
               <span className={`pill ${legacyStoreCount > 0 ? "pill-legacy" : "pill-ink"}`}>
-                {legacyStoreCount > 0 ? "legacy stack" : "legacy temiz"}
+                {legacyStoreCount > 0 ? "Legacy mağaza" : "Legacy yok"}
               </span>
             </div>
             <div className="setup-signal-value">{legacyStoreCount}</div>
             <p className="setup-signal-note">
-              Yeni light_postgres standardi disinda kalan full Supabase istisnalari.
+              Yeni Standart dışında kalan Legacy istisnaları.
             </p>
           </div>
         </div>
@@ -282,9 +282,9 @@ export default async function OwnerDashboardPage() {
         <div className="card surface-alert">
           <div className="section-head">
             <div>
-              <div className="card-title">Orphan Cleanup Takibi</div>
+              <div className="card-title">Temizlik Takibi</div>
               <p className="section-copy">
-                Authority silinmis ancak dis kaynak temizligi tamamlanmamis {dashboard.orphanedCleanupRuns} kayit var.
+                Authority silinmiş ancak dış kaynak temizliği tamamlanmamış {dashboard.orphanedCleanupRuns} kayıt var.
               </p>
             </div>
             <Link href="/operations" className="button button-secondary">
@@ -299,7 +299,7 @@ export default async function OwnerDashboardPage() {
                   <p>{run.slug}</p>
                 </div>
                 <div className="activity-meta">
-                  <span>{run.orphanedTargetCount} orphan</span>
+                  <span>{run.orphanedTargetCount} hedef</span>
                   <span>{formatDateTime(run.createdAt)}</span>
                 </div>
               </div>
@@ -319,7 +319,7 @@ export default async function OwnerDashboardPage() {
         <div className="card section-tight">
           <div className="section-head">
             <div>
-              <div className="card-title">Dikkat Gerektiren Projeler</div>
+              <div className="card-title">Dikkat Gerektiren Mağazalar</div>
               <p className="section-copy">Kurulum, admin kapsama alanı veya operasyon açısından takip gerektiren mağazalar.</p>
             </div>
           </div>
@@ -363,14 +363,14 @@ export default async function OwnerDashboardPage() {
                     ))}
                 </div>
                 <div className="status-card-meta">
-                  <span>Provisioning: {getProvisioningLabel(store.provisioning.state)}</span>
+                  <span>Kurulum: {getProvisioningLabel(store.provisioning.state)}</span>
                   <span>
-                    Lifecycle: {store.provisioning.failedStepCount} fail / {store.provisioning.pendingStepCount} pending
+                    Adımlar: {store.provisioning.failedStepCount} fail / {store.provisioning.pendingStepCount} bekleyen
                   </span>
                   <span>Admin: {store.storeAdminCount}</span>
-                  <span>Secrets: {store.health.secretAuthorityReady ? "Hazir" : "Drift"}</span>
-                  <span>Runtime: {store.health.adminRuntimeConsistent ? "Hazir" : "Sorun"}</span>
-                  <span>Consistency: {store.consistency.blocking ? `${store.consistency.blockingIssueCount} blok` : "Temiz"}</span>
+                  <span>Secrets: {store.health.secretAuthorityReady ? "Hazır" : "Drift"}</span>
+                  <span>Runtime: {store.health.adminRuntimeConsistent ? "Hazır" : "Sorun"}</span>
+                  <span>Tutarlılık: {store.consistency.blocking ? `${store.consistency.blockingIssueCount} blok` : "Temiz"}</span>
                   <span>Bekleyen: {store.pendingOrderCount}</span>
                   <span>Paket: {store.management.subscription.countdownLabel}</span>
                 </div>
@@ -386,23 +386,23 @@ export default async function OwnerDashboardPage() {
         <div className="card">
           <div className="section-head">
             <div>
-              <div className="card-title">En Çok Gelir Üreten Projeler</div>
+              <div className="card-title">En Çok Gelir Üreten Mağazalar</div>
               <p className="section-copy">En yüksek hacimli mağazalar</p>
             </div>
-            <Link href="/finance" className="button button-secondary">Finans Paneli</Link>
+            <Link href="/finance" className="button button-secondary">Faturalar</Link>
           </div>
 
           {!dashboard || dashboard.spotlightStores.length === 0 ? (
             <div className="empty-state">
-              <h3>Henüz Veri Yok</h3>
-              <p>İlk senkronizasyondan sonra projeler burada listelenecek.</p>
+              <h3>Henüz veri yok</h3>
+              <p>İlk senkronizasyondan sonra mağazalar burada listelenecek.</p>
             </div>
           ) : (
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Proje</th>
+                    <th>Mağaza</th>
                     <th>Durum</th>
                     <th>Ciro</th>
                     <th>Sipariş</th>
@@ -436,7 +436,7 @@ export default async function OwnerDashboardPage() {
                             {store.databaseMode}
                           </span>
                           {store.provisioning.failedStepCount > 0 ? (
-                            <span className="pill pill-danger">{store.provisioning.failedStepCount} failed</span>
+                            <span className="pill pill-danger">{store.provisioning.failedStepCount} hata</span>
                           ) : null}
                         </div>
                       </td>
@@ -468,7 +468,7 @@ export default async function OwnerDashboardPage() {
           <div className="section-head">
             <div>
               <div className="card-title">Son Aktiviteler</div>
-              <p className="section-copy">Atama, profil güncelleme ve proje hareketleri</p>
+              <p className="section-copy">Atama, profil güncelleme ve mağaza hareketleri</p>
             </div>
           </div>
 

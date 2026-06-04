@@ -56,13 +56,13 @@ export default async function StoresPage() {
   return (
     <>
       <OwnerCommandHero
-        overline="Stores Layer"
-        title="Projeler"
-        copy="Magaza portfoyu artik liste degil; database standardi, lifecycle ritmi ve setup aksiyonlariyla okunan operasyon haritasi."
+        overline="Mağazalar"
+        title="Mağazalar"
+        copy="Mağaza portföyü; standart, kurulum akışı, sağlık ve bekleyen aksiyonlarıyla okunur."
         metrics={[
-          { label: "Toplam proje", value: stores.length, note: `${readyCount} proje canliya yakin akista` },
-          { label: "Kurulum aksiyonu", value: pendingSignalCount, note: "Auth, analytics ve payment sinyalleri" },
-          { label: "Yeni standart disi", value: legacyCount, note: "Legacy full_supabase istisnalari" },
+          { label: "Toplam mağaza", value: stores.length, note: `${readyCount} mağaza yayına yakın` },
+          { label: "Kurulum aksiyonu", value: pendingSignalCount, note: "Auth, analytics ve ödeme sinyalleri" },
+          { label: "Yeni standart dışı", value: legacyCount, note: "Legacy istisnaları" },
         ]}
         actions={
           <>
@@ -71,43 +71,43 @@ export default async function StoresPage() {
                 className={`button ${createStoreDisabled ? "button-secondary" : "button-primary"}`}
                 href="/stores/new"
               >
-                {createStoreDisabled ? "Yeni proje formu" : "+ Yeni proje"}
+                {createStoreDisabled ? "Yeni Mağaza formu" : "+ Yeni Mağaza"}
               </Link>
             ) : null}
-            <OwnerStatusChip tone="accent">{readyCount} lifecycle hazir</OwnerStatusChip>
+            <OwnerStatusChip tone="accent">{readyCount} kurulum hazır</OwnerStatusChip>
             <OwnerStatusChip tone={repairCount > 0 ? "danger" : "success"}>
               {repairCount > 0 ? `${repairCount} onarim aksiyonu` : "Repair kuyrugu temiz"}
             </OwnerStatusChip>
           </>
         }
-        panelTitle="Store standardizasyon notlari"
+        panelTitle="Mağaza standardı"
         panelItems={[
-          { label: "Varsayilan profil", value: "light_postgres" },
-          { label: "Legacy ayrimi", value: `${legacyCount} store` },
-          { label: "Setup sinyali", value: `${pendingSignalCount} proje` },
+          { label: "Varsayılan profil", value: "Yeni Standart" },
+          { label: "Legacy ayrımı", value: `${legacyCount} mağaza` },
+          { label: "Kurulum sinyali", value: `${pendingSignalCount} mağaza` },
           { label: "Onarim gerektiren", value: repairCount },
         ]}
         chips={
           <>
-            <span className="hero-chip hero-chip-accent">Brand locked lifecycle</span>
-            <span className="hero-chip hero-chip-neutral">Legacy ve yeni standart ayni dilde ayrisir</span>
+            <span className="hero-chip hero-chip-accent">Kurulum Akışı</span>
+            <span className="hero-chip hero-chip-neutral">Legacy ve Yeni Standart net ayrılır</span>
           </>
         }
       />
 
       <div className="owner-metric-grid">
-        <OwnerMetricCard label="Hazir lifecycle" value={readyCount} note="Ready state projeler" tone="success" />
-        <OwnerMetricCard label="Setup queue" value={pendingSignalCount} note="Non-blocking aksiyonlar" tone={pendingSignalCount > 0 ? "warning" : "success"} />
-        <OwnerMetricCard label="Legacy mode" value={legacyCount} note="Full Supabase istisnasi" tone={legacyCount > 0 ? "legacy" : "neutral"} />
-        <OwnerMetricCard label="Repair queue" value={repairCount} note="Onarim bekleyenler" tone={repairCount > 0 ? "danger" : "success"} />
+        <OwnerMetricCard label="Kurulum hazır" value={readyCount} note="Hazır durumdaki mağazalar" tone="success" />
+        <OwnerMetricCard label="Kurulum isteği" value={pendingSignalCount} note="Bekleyen aksiyonlar" tone={pendingSignalCount > 0 ? "warning" : "success"} />
+        <OwnerMetricCard label="Legacy" value={legacyCount} note="Özel mod istisnası" tone={legacyCount > 0 ? "legacy" : "neutral"} />
+        <OwnerMetricCard label="Onarım bekleyen" value={repairCount} note="Onarım kuyruğu" tone={repairCount > 0 ? "danger" : "success"} />
       </div>
 
       <OwnerDataTableShell
-        title="Magaza operasyon listesi"
-        copy="Her proje satiri artik teknik kolonlar yerine kimlik, standart, lifecycle ve hizli aksiyon bilgisiyle okunur."
+        title="Mağaza operasyon listesi"
+        copy="Her mağaza; kimlik, standart, Kurulum Akışı ve hızlı aksiyon bilgisiyle okunur."
       >
         {stores.length === 0 ? (
-          <OwnerEmptyState title="Henuz proje yok" copy="Ilk projeyi olusturmak icin Yeni proje akisini kullanin." />
+          <OwnerEmptyState title="Henüz mağaza yok" copy="İlk mağazayı oluşturmak için Yeni Mağaza akışını kullanın." />
         ) : (
           <div className="owner-store-list">
             {stores.map((store) => {
@@ -127,14 +127,14 @@ export default async function StoresPage() {
                     <span className="owner-store-domain">{store.storefrontDomain}</span>
                     <div className="table-pill-row">
                       <span className={databaseModePillClass}>{databaseModeLabel}</span>
-                      {legacyMode ? <span className="pill pill-legacy">legacy mode</span> : null}
+                      {legacyMode ? <span className="pill pill-legacy">Legacy özel mod</span> : null}
                       <span className="pill pill-capitalize">{store.status}</span>
                     </div>
                   </div>
                   <div className="owner-store-meta">
                     <strong>{store.management.clientCompanyName || store.name}</strong>
                     <span>{store.management.internalOwner || "Atanmadi"}</span>
-                    <span>{legacyMode ? "Legacy istisna akisi" : "Yeni Celebix Standardi"}</span>
+                    <span>{legacyMode ? "Legacy özel mod" : "Yeni Standart"}</span>
                     <span>{formatCurrency(store.totalRevenue)} / {store.orderCount} siparis</span>
                   </div>
                   <div className="owner-store-health">
@@ -148,12 +148,12 @@ export default async function StoresPage() {
                       ))}
                     </div>
                     <div className="table-inline-meta">
-                      Admin {store.health.adminRuntimeConsistent ? "hazir" : "runtime drift"} / R2{" "}
-                      {store.health.r2Ready ? "hazir" : "eksik"} / Secret{" "}
-                      {store.health.secretAuthorityReady ? "hazir" : "drift"}
+                      Admin {store.health.adminRuntimeConsistent ? "hazır" : "runtime drift"} / R2{" "}
+                      {store.health.r2Ready ? "hazır" : "eksik"} / Secret{" "}
+                      {store.health.secretAuthorityReady ? "hazır" : "drift"}
                     </div>
                     <div className="table-inline-meta">
-                      {pendingSignals.length > 0 ? `${pendingSignals.length} setup aksiyonu bekliyor` : "Setup sinyali temiz"} / Son sync {formatDateTime(store.lastSyncedAt)}
+                      {pendingSignals.length > 0 ? `${pendingSignals.length} kurulum aksiyonu bekliyor` : "Kurulum sinyali temiz"} / Son eşitleme {formatDateTime(store.lastSyncedAt)}
                     </div>
                   </div>
                   <div className="owner-store-actions">

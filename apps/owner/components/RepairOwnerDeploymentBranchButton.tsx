@@ -22,7 +22,7 @@ export function RepairOwnerDeploymentBranchButton({
     setNotice(null);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -43,19 +43,19 @@ export function RepairOwnerDeploymentBranchButton({
       };
 
       if (!response.ok) {
-        setError(payload.error || "Owner deployment branch onarimi basarisiz oldu.");
+        setError(payload.error || "Owner yayın branch onarımı başarısız oldu.");
         return;
       }
 
       const current = payload.currentBranch || "bilinmiyor";
       const desired = payload.desiredBranch || "deploy/owner";
       const branchNotice = payload.branchChanged
-        ? `Owner branch ${current} yerine ${desired} olacak sekilde guncellendi.`
+        ? `Owner branch ${current} yerine ${desired} olacak şekilde güncellendi.`
         : `Owner branch zaten ${desired}.`;
       const autoDeployNotice = payload.autoDeployChanged
-        ? "Auto deploy yeniden acildi."
+        ? "Auto deploy yeniden açıldı."
         : payload.currentAutoDeployEnabled === true
-          ? "Auto deploy zaten acik."
+          ? "Auto deploy zaten açık."
           : "Auto deploy durumu teyit edilemedi.";
       const deployNotice = payload.deploymentTriggered
         ? "Redeploy tetiklendi."
@@ -76,7 +76,7 @@ export function RepairOwnerDeploymentBranchButton({
         onClick={handleRepair}
         disabled={disabled || isPending}
       >
-        {isPending ? "Owner deploy ayari onariliyor..." : "Owner deploy ayarini onar"}
+        {isPending ? "Owner yayın ayarı onarılıyor..." : "Owner yayın ayarını onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}

@@ -10,8 +10,8 @@ export default async function FinancePage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Finans</h1>
-          <p>Tum magazalarin GMV, sepet ortalamasi ve affiliate etkisini tek ekranda izle.</p>
+          <h1>Faturalar</h1>
+          <p>Tüm mağazaların GMV, sepet ortalaması ve affiliate etkisini tek ekranda izle.</p>
         </div>
       </div>
 
@@ -26,11 +26,11 @@ export default async function FinancePage() {
           <div className="metric-box-value">{formatCurrency(summary.totals.revenue)}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Toplam Siparis</div>
+          <div className="metric-box-label">Toplam Sipariş</div>
           <div className="metric-box-value">{summary.totals.orders.toLocaleString('tr-TR')}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Sepet Ortalamasi</div>
+          <div className="metric-box-label">Sepet Ortalaması</div>
           <div className="metric-box-value">{formatCurrency(summary.totals.averageOrderValue)}</div>
         </div>
         <div className="metric-box">
@@ -38,7 +38,7 @@ export default async function FinancePage() {
           <div className="metric-box-value">{formatCurrency(summary.totals.affiliateExposure)}</div>
         </div>
         <div className="metric-box">
-          <div className="metric-box-label">Bekleyen Siparis</div>
+          <div className="metric-box-label">Bekleyen Sipariş</div>
           <div className="metric-box-value">{summary.totals.pendingOrders}</div>
         </div>
       </div>
@@ -49,11 +49,11 @@ export default async function FinancePage() {
           <table>
             <thead>
               <tr>
-                <th>Proje</th>
+                <th>Mağaza</th>
                 <th>Durum</th>
                 <th>Kurulum</th>
                 <th>GMV</th>
-                <th>Siparis</th>
+                <th>Sipariş</th>
                 <th>AOV</th>
                 <th>Affiliate</th>
                 <th>Tahmini Pay</th>

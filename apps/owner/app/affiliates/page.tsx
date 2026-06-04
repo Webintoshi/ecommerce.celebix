@@ -41,66 +41,66 @@ export default async function AffiliatesPage() {
   return (
     <>
       <OwnerCommandHero
-        overline={superAdmin ? "Affiliate Command" : "Partner View"}
-        title="Affiliate yonetimi"
-        copy="Gelir ortaklari artik basit bir form listesi degil; proje atamasi, komisyon ritmi ve gelecek partner paneli icin urunlesmis bir operasyon alani."
+        overline="Affiliate Paneli"
+        title="Affiliate Paneli"
+        copy="Gelir ortakları, mağaza atamaları ve komisyon akışı tek ürünleşmiş panelde izlenir."
         metrics={[
-          { label: "Kayitli partner", value: affiliates.length, note: `${stores.length} proje havuzu icinde` },
-          { label: "Aktif atama", value: totalAssignments, note: "Her atama proje bazli komisyon tasir" },
-          { label: "Ortalama komisyon", value: `%${averageCommission}`, note: "Super admin bazli ayarlanabilir" },
+          { label: "Kayıtlı partner", value: affiliates.length, note: `${stores.length} mağaza havuzu içinde` },
+          { label: "Aktif atama", value: totalAssignments, note: "Her atama mağaza bazlı komisyon taşır" },
+          { label: "Ortalama komisyon", value: `%${averageCommission}`, note: "Yönetici tarafından ayarlanır" },
         ]}
         actions={
           <>
             <OwnerStatusChip tone={writeDisabled ? "warning" : "success"}>
-              {writeDisabled ? "Preview create kapali" : "Create aktif"}
+              {writeDisabled ? "Yazma işlemleri kapalı" : "Kayıt oluşturma açık"}
             </OwnerStatusChip>
-            <OwnerStatusChip tone="accent">{stores.length} atanabilir proje</OwnerStatusChip>
+            <OwnerStatusChip tone="accent">{stores.length} atanabilir mağaza</OwnerStatusChip>
           </>
         }
-        panelTitle="Affiliate panel notlari"
+        panelTitle="Affiliate notları"
         panelItems={[
-          { label: "Gorunurluk siniri", value: "Kendi portfoyu" },
-          { label: "Komisyon mantigi", value: "Partner bazli" },
-          { label: "Atanabilir proje", value: stores.length },
+          { label: "Görünürlük sınırı", value: "Kendi portföyü" },
+          { label: "Komisyon mantığı", value: "Partner bazlı" },
+          { label: "Atanabilir mağaza", value: stores.length },
         ]}
         chips={
           <>
-            <span className="hero-chip hero-chip-accent">Brand locked palette</span>
-            <span className="hero-chip hero-chip-neutral">{superAdmin ? "Super admin controls" : "Read-only partner scope"}</span>
+            <span className="hero-chip hero-chip-accent">Affiliate akışı</span>
+            <span className="hero-chip hero-chip-neutral">{superAdmin ? "Yönetici kontrolleri" : "Sınırlı partner görünümü"}</span>
           </>
         }
       />
 
       <div className="owner-metric-grid">
-        <OwnerMetricCard label="Toplam affiliate" value={affiliates.length} note="Kayitli partner" tone="accent" />
-        <OwnerMetricCard label="Bekleyen proje istegi" value="Roadmap" note="Partner onboarding queue" tone="warning" />
-        <OwnerMetricCard label="Bekleyen komisyon" value="Planlandi" note="Payout queue hazirligi" />
-        <OwnerMetricCard label="Odenen komisyon" value="Planlandi" note="Finance integration sonrasi" />
+        <OwnerMetricCard label="Toplam affiliate" value={affiliates.length} note="Kayıtlı partner" tone="accent" />
+        <OwnerMetricCard label="Bekleyen mağaza isteği" value="Planlandı" note="Partner kurulum istekleri" tone="warning" />
+        <OwnerMetricCard label="Bekleyen komisyon" value="Planlandı" note="Ödeme kuyruğu hazırlığı" />
+        <OwnerMetricCard label="Ödenen komisyon" value="Planlandı" note="Fatura entegrasyonu sonrası" />
       </div>
 
       <OwnerSectionHeader
-        eyebrow="Affiliate product layer"
-        title="Partner operasyon akisi"
-        copy="Bu yuzey gelecekte affiliate dashboard'a gececek sekilde proje, komisyon ve onboarding kartlarini ayri bloklar halinde tasir."
+        eyebrow="Affiliate Paneli"
+        title="Partner operasyon akışı"
+        copy="Bu yüzey; mağaza istekleri, komisyon akışı ve partner erişimini ayrı bloklar halinde taşır."
       />
 
       <div className="info-row info-row-3">
-        <OwnerActionPanel title="Proje istekleri" copy="Partnerlerden gelecek yeni magaza kurulum talepleri burada queue olarak okunacak." tone="accent">
+        <OwnerActionPanel title="Mağaza istekleri" copy="Partnerlerden gelecek yeni mağaza kurulum talepleri burada izlenecek." tone="accent">
           <div className="hero-chip-row">
-            <span className="pill provisioning-tone-pending_payment">bekleyen talep alani</span>
-            <span className="pill pill-ink">roadmap</span>
+            <span className="pill provisioning-tone-pending_payment">bekleyen talep alanı</span>
+            <span className="pill pill-ink">planlandı</span>
           </div>
         </OwnerActionPanel>
-        <OwnerActionPanel title="Komisyon akisi" copy="Bekleyen, onaylanan ve odenen komisyonlar finance entegrasyonu ile ayrisacak.">
+        <OwnerActionPanel title="Komisyon akışı" copy="Bekleyen, onaylanan ve ödenen komisyonlar fatura entegrasyonu ile ayrışacak.">
           <div className="hero-chip-row">
-            <span className="pill pill-accent">payout panel hazirligi</span>
-            <span className="pill pill-ink">read model</span>
+            <span className="pill pill-accent">ödeme paneli hazırlığı</span>
+            <span className="pill pill-ink">okuma modeli</span>
           </div>
         </OwnerActionPanel>
-        <OwnerActionPanel title="Affiliate portal" copy="Partnerin yalniz kendi projelerini ve gelir etkisini gorecegi ayrik panel icin operasyon sinyali.">
+        <OwnerActionPanel title="Affiliate erişimi" copy="Partnerin yalnız kendi mağazalarını ve gelir etkisini göreceği ayrık erişim katmanı.">
           <div className="hero-chip-row">
-            <span className="pill pill-success">scope kontrollu</span>
-            <span className="pill pill-ink">future product</span>
+            <span className="pill pill-success">yetki kontrollü</span>
+            <span className="pill pill-ink">planlandı</span>
           </div>
         </OwnerActionPanel>
       </div>
@@ -183,7 +183,7 @@ export default async function AffiliatesPage() {
 
                     <div className="affiliate-card-meta">
                       <span>Gizlilik: yalnizca kendi store akisi</span>
-                      <span>Yetki: proje + komisyon gorunumu</span>
+                      <span>Yetki: mağaza + komisyon görünümü</span>
                     </div>
                   </div>
                 );
@@ -197,7 +197,7 @@ export default async function AffiliatesPage() {
         <div className="card surface-alert">
           <div className="card-title">Scope notu</div>
           <p className="section-copy">
-            Affiliate kullanicilari sadece kendi proje, komisyon ve musteri akislarini gorebilir. Diger partner portfoyleri bu yuzeyde listelenmez.
+            Affiliate kullanıcıları sadece kendi mağaza, komisyon ve müşteri akışlarını görebilir. Diğer partner portföyleri bu yüzeyde listelenmez.
           </p>
         </div>
       ) : null}

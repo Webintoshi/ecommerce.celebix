@@ -6,10 +6,10 @@ import { type FormEvent, useState, useTransition } from "react";
 type StoreAdminRole = "super_admin" | "product_manager" | "content_creator" | "order_manager";
 
 const ROLE_OPTIONS: Array<{ value: StoreAdminRole; label: string }> = [
-  { value: "super_admin", label: "Super admin" },
-  { value: "product_manager", label: "Urun yoneticisi" },
-  { value: "content_creator", label: "Icerik editoru" },
-  { value: "order_manager", label: "Siparis yoneticisi" },
+  { value: "super_admin", label: "Süper admin" },
+  { value: "product_manager", label: "Ürün yöneticisi" },
+  { value: "content_creator", label: "İçerik editörü" },
+  { value: "order_manager", label: "Sipariş yöneticisi" },
 ];
 
 interface CreateStoreAdminFormProps {
@@ -39,7 +39,7 @@ export function CreateStoreAdminForm({
     setNotice(null);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -61,11 +61,11 @@ export function CreateStoreAdminForm({
       const payload = (await response.json()) as { error?: string; success?: boolean; created?: boolean };
 
       if (!response.ok) {
-        setError(payload.error || "Store admin kaydedilemedi.");
+        setError(payload.error || "Mağaza admini kaydedilemedi.");
         return;
       }
 
-      setNotice(payload.created ? "Store admin hesabi olusturuldu." : "Store admin hesabi guncellendi.");
+      setNotice(payload.created ? "Mağaza admin hesabı oluşturuldu." : "Mağaza admin hesabı güncellendi.");
       setEmail("");
       setFullName("");
       setPassword("");
@@ -80,7 +80,7 @@ export function CreateStoreAdminForm({
       <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Ad soyad</span>
-        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Magaza yoneticisi" required />
+        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Mağaza yöneticisi" required />
       </label>
 
       <label className="field">
@@ -89,7 +89,7 @@ export function CreateStoreAdminForm({
       </label>
 
       <label className="field">
-        <span>Gecici sifre</span>
+        <span>Geçici şifre</span>
         <input
           type="password"
           value={password}
@@ -112,11 +112,11 @@ export function CreateStoreAdminForm({
       </label>
 
       <label className="field field-full">
-        <span>Gorev tanimi</span>
+        <span>Görev tanımı</span>
         <textarea
           value={taskDefinition}
           onChange={(event) => setTaskDefinition(event.target.value)}
-          placeholder="Orn: Siparis akisini ve destek taleplerini yonetecek."
+          placeholder="Örn: Sipariş akışını ve destek taleplerini yönetecek."
           rows={4}
         />
       </label>
@@ -132,7 +132,7 @@ export function CreateStoreAdminForm({
           className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
           disabled={disabled || isPending}
         >
-          {isPending ? "Kaydediliyor..." : "Store admin kaydet"}
+          {isPending ? "Kaydediliyor..." : "Mağaza admini kaydet"}
         </button>
       </div>
     </form>

@@ -27,7 +27,7 @@ export function ProvisionAdminDeploymentButton({
     setNotice(null);
 
     if (disabled) {
-      setError(disabledReason || "Preview ortaminda yazma/kurulum islemleri kapalidir.");
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
     }
 
@@ -44,18 +44,18 @@ export function ProvisionAdminDeploymentButton({
           }>(response);
 
           if (!response.ok) {
-            setError(errorMessage || "Admin deployment otomasyonu basarisiz oldu.");
+            setError(errorMessage || "Admin yayın otomasyonu başarısız oldu.");
             return;
           }
 
           setNotice(
             payload?.deployment?.status === "configured"
-              ? "Admin deployment hazir ve runtime tutarli."
-              : "Admin deployment guncellendi; runtime tutarliligi kontrol ediliyor.",
+              ? "Admin yayını hazır ve runtime tutarlı."
+              : "Admin yayını güncellendi; runtime tutarlılığı kontrol ediliyor.",
           );
           router.refresh();
         } catch (error) {
-          setError(normalizeActionError(error, "Admin deployment otomasyonu basarisiz oldu."));
+          setError(normalizeActionError(error, "Admin yayın otomasyonu başarısız oldu."));
         }
       })();
     });
@@ -70,10 +70,10 @@ export function ProvisionAdminDeploymentButton({
         disabled={disabled || isPending}
       >
         {isPending
-          ? "Deploy hazirlaniyor..."
+          ? "Yayın hazırlanıyor..."
           : currentStatus === "configured"
-            ? "Admin deployment'i yenile"
-            : "Admin deployment'i kur"}
+            ? "Admin yayınını yenile"
+            : "Admin yayınını kur"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
