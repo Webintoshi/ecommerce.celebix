@@ -404,6 +404,90 @@ export function OwnerDataTableShell({
   );
 }
 
+export function OwnerDataList({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={`owner-data-list ${className}`.trim()}>{children}</div>;
+}
+
+export function OwnerActionQueue({
+  items,
+  empty,
+  className = "",
+}: {
+  items: Array<{
+    id: string;
+    title: ReactNode;
+    detail?: ReactNode;
+    meta?: ReactNode;
+    chips?: ReactNode;
+    actions?: ReactNode;
+    tone?: OwnerTone;
+  }>;
+  empty?: ReactNode;
+  className?: string;
+}) {
+  if (items.length === 0) {
+    return empty ? <>{empty}</> : null;
+  }
+
+  return (
+    <div className={`owner-action-queue ${className}`.trim()}>
+      {items.map((item) => (
+        <article key={item.id} className={`owner-action-queue-item tone-${item.tone ?? "neutral"}`}>
+          <div className="owner-action-queue-copy">
+            <strong>{item.title}</strong>
+            {item.detail ? <p>{item.detail}</p> : null}
+            {item.chips ? <div className="owner-action-queue-tags">{item.chips}</div> : null}
+          </div>
+          {item.meta ? <div className="owner-action-queue-meta">{item.meta}</div> : null}
+          {item.actions ? <div className="owner-action-queue-actions">{item.actions}</div> : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+export function OwnerTimeline({
+  items,
+  empty,
+  className = "",
+}: {
+  items: Array<{
+    id: string;
+    title: ReactNode;
+    detail?: ReactNode;
+    meta?: ReactNode;
+    chips?: ReactNode;
+  }>;
+  empty?: ReactNode;
+  className?: string;
+}) {
+  if (items.length === 0) {
+    return empty ? <>{empty}</> : null;
+  }
+
+  return (
+    <div className={`owner-timeline ${className}`.trim()}>
+      {items.map((item, index) => (
+        <article key={item.id} className="owner-timeline-item">
+          <span className={`owner-timeline-dot ${index === 0 ? "is-current" : ""}`} />
+          <div className="owner-timeline-copy">
+            <strong>{item.title}</strong>
+            {item.detail ? <p>{item.detail}</p> : null}
+            {item.chips ? <div className="owner-timeline-tags">{item.chips}</div> : null}
+          </div>
+          {item.meta ? <div className="owner-timeline-meta">{item.meta}</div> : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export function OwnerSectionHeader({
   eyebrow,
   title,

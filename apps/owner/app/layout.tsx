@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { OwnerShellFrame } from "@/components/OwnerShellFrame";
 import { getOwnerAuthContext } from "@/lib/owner-auth";
@@ -8,6 +9,10 @@ import {
   getOwnerPreviewBannerTitle,
   getOwnerPreviewFlags,
 } from "@/lib/preview-mode";
+import {
+  getPreviewOwnerAuthContext,
+  hasOwnerPreviewDataFallback,
+} from "@/lib/owner-preview-fixtures";
 
 export const metadata: Metadata = {
   title: "Celebix Owner Panel",
@@ -47,11 +52,20 @@ const themeScript = `
 `;
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const auth = await getOwnerAuthContext();
+  const [auth, requestHeaders] = await Promise.all([getOwnerAuthContext(), headers()]);
   const previewFlags = getOwnerPreviewFlags();
+  const pathname = requestHeaders.get("x-owner-pathname") ?? "/";
+  const canUsePreviewShell =
+    !auth &&
+    hasOwnerPreviewDataFallback() &&
+    pathname !== "/login" &&
+    pathname !== "/auth/recover" &&
+    !pathname.startsWith("/auth/confirm");
+  const shellAuth = auth ?? (canUsePreviewShell ? getPreviewOwnerAuthContext() : null);
 
-  const userName = auth?.profile.full_name || auth?.user.email || "";
-  const roleLabel = auth?.profile.role === "super_admin" ? "Süper Yönetici" : "Affiliate Yetkilisi";
+  const userName = shellAuth?.profile.full_name || shellAuth?.user.email || "";
+  const roleLabel =
+    shellAuth?.profile.role === "super_admin" ? "Süper Yönetici" : "Affiliate Yetkilisi";
 
   return (
     <html lang="tr" suppressHydrationWarning>
@@ -60,7 +74,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body className="owner-panel" suppressHydrationWarning>
         <ThemeProvider defaultTheme="light" enableSystem disableTransitionOnChange={false}>
-          {auth ? (
+          {shellAuth ? (
             <OwnerShellFrame
               userName={userName}
               roleLabel={roleLabel}
