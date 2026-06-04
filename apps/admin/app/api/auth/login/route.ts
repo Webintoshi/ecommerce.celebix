@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import {
   isLightPostgresRuntime,
   resolveRuntimeAuthSetupStatus,
 } from "@celebix/platform-config/src/light-postgres-runtime";
+import { clearAdminRoleCookie } from "@/lib/admin-role-cookie";
 import {
   getOptionalSupabaseAnonKey,
   getOptionalSupabaseUrl,
@@ -11,12 +13,19 @@ import {
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from "@/lib/supabase-shared";
+import { isLogtoAdminAuthEnabled } from "@/lib/admin-auth-provider";
+import {
+  buildLogtoAuthorizeUrl,
+  clearLogtoAdminSessionCookies,
+  writeLogtoAdminStateCookie,
+} from "@/lib/logto-admin-auth";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 import { writeAdminRoleCookie } from "@/lib/admin-role-cookie";
 import type { UserRole } from "@/lib/permissions";
 
 type LoginBody = {
   email?: string;
+  nextPath?: string;
   password?: string;
 };
 
@@ -162,6 +171,39 @@ export async function POST(request: Request) {
       );
     }
 
+    const { email, password, nextPath: requestedNextPath }: LoginBody = await request.json();
+    const nextPath = sanitizeInternalRedirectPath(requestedNextPath, "/admin");
+
+    if (isLogtoAdminAuthEnabled()) {
+      const normalizedEmail = email?.trim() ? normalizeEmail(email) : null;
+      const { url, statePayload } = await buildLogtoAuthorizeUrl(nextPath, {
+        firstScreen: "identifier:sign-in",
+        identifier: normalizedEmail ? ["email"] : undefined,
+        loginHint: normalizedEmail,
+        uiLocales: "tr",
+      });
+      const response = NextResponse.json(
+        {
+          provider: "logto",
+          redirectTo: url.toString(),
+          requiresRedirect: true,
+        },
+        { status: 200 },
+      );
+
+      clearAdminRoleCookie(response);
+      clearLogtoAdminSessionCookies(response);
+      writeLogtoAdminStateCookie(response, statePayload);
+
+      return response;
+    }
+
+    if (!email || !password) {
+      return NextResponse.json({ error: "E-posta ve sifre zorunludur." }, { status: 400 });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+
     if (!getOptionalSupabaseUrl() || !getOptionalSupabaseAnonKey()) {
       return NextResponse.json(
         {
@@ -172,16 +214,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, password }: LoginBody = await request.json();
-
-    if (!email || !password) {
-      return NextResponse.json({ error: "E-posta ve sifre zorunludur." }, { status: 400 });
-    }
-
     let repaired = false;
     let publicClient = createAdminLoginClient();
     let { data, error } = await publicClient.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
     });
 
@@ -194,7 +230,7 @@ export async function POST(request: Request) {
 
         publicClient = createAdminLoginClient();
         ({ data, error } = await publicClient.auth.signInWithPassword({
-          email: email.trim(),
+          email: normalizedEmail,
           password,
         }));
       }

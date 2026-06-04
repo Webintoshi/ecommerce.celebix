@@ -12,7 +12,21 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("next"),
     "/admin",
   );
-  const { url, statePayload } = await buildLogtoAuthorizeUrl(nextPath);
+  const screen = request.nextUrl.searchParams.get("screen");
+  const loginHint =
+    request.nextUrl.searchParams.get("login_hint") ??
+    request.nextUrl.searchParams.get("email");
+  const { url, statePayload } = await buildLogtoAuthorizeUrl(nextPath, {
+    firstScreen:
+      screen === "reset_password"
+        ? "reset_password"
+        : screen === "identifier:sign-in"
+          ? "identifier:sign-in"
+          : undefined,
+    identifier: loginHint ? ["email"] : undefined,
+    loginHint,
+    uiLocales: "tr",
+  });
   const response = NextResponse.redirect(url);
 
   writeLogtoAdminStateCookie(response, statePayload);

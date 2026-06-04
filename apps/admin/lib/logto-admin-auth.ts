@@ -75,6 +75,20 @@ type LogtoAdminStatePayload = SignedCookiePayload & {
   issuedAt: string;
 };
 
+type LogtoAuthorizeOptions = {
+  firstScreen?:
+    | "sign_in"
+    | "register"
+    | "reset_password"
+    | "single_sign_on"
+    | "identifier:sign-in"
+    | "identifier:register";
+  identifier?: Array<"username" | "email" | "phone">;
+  loginHint?: string | null;
+  prompt?: string | null;
+  uiLocales?: string | null;
+};
+
 function readRequiredEnv(name: string, value: string | undefined): string {
   const normalized = value?.trim().replace(/^["']|["']$/g, "");
 
@@ -338,7 +352,7 @@ export async function getLogtoDiscoveryDocument(): Promise<LogtoDiscoveryDocumen
   return (await response.json()) as LogtoDiscoveryDocument;
 }
 
-export async function buildLogtoAuthorizeUrl(nextPath: string) {
+export async function buildLogtoAuthorizeUrl(nextPath: string, options: LogtoAuthorizeOptions = {}) {
   const discovery = await getLogtoDiscoveryDocument();
   const statePayload = createLogtoAdminStatePayload(nextPath);
   const url = new URL(discovery.authorization_endpoint);
@@ -347,6 +361,29 @@ export async function buildLogtoAuthorizeUrl(nextPath: string) {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid profile email");
   url.searchParams.set("state", statePayload.state);
+
+  if (options.firstScreen) {
+    url.searchParams.set("first_screen", options.firstScreen);
+  }
+
+  if (options.identifier && options.identifier.length > 0) {
+    url.searchParams.set("identifier", options.identifier.join(" "));
+  }
+
+  const loginHint = coerceString(options.loginHint);
+  if (loginHint) {
+    url.searchParams.set("login_hint", loginHint);
+  }
+
+  const uiLocales = coerceString(options.uiLocales);
+  if (uiLocales) {
+    url.searchParams.set("ui_locales", uiLocales);
+  }
+
+  const prompt = coerceString(options.prompt);
+  if (prompt) {
+    url.searchParams.set("prompt", prompt);
+  }
 
   return {
     url,

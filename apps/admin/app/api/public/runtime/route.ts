@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAdminAuthProvider } from "@/lib/admin-auth-provider";
-import { getOptionalLogtoIssuer, LOGTO_ADMIN_SESSION_COOKIE_NAME } from "@/lib/logto-admin-auth";
+import {
+  getOptionalLogtoIssuer,
+  LOGTO_ADMIN_SESSION_COOKIE_NAME,
+} from "@/lib/logto-admin-auth";
 import { getStoreRuntime } from "@/lib/store-runtime";
 import {
   getOptionalSupabaseAnonKey,
