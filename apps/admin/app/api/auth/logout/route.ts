@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isLogtoAdminAuthEnabled } from "@/lib/admin-auth-provider";
 import { clearAdminRoleCookie } from "@/lib/admin-role-cookie";
 import {
   clearLogtoAdminSessionCookies,
@@ -8,7 +9,9 @@ import {
 
 export async function GET(request: NextRequest) {
   const session = readLogtoAdminSessionCookie(request.cookies.getAll());
-  const redirectUrl = await getLogtoLogoutRedirectUrl(session?.idToken ?? null);
+  const redirectUrl = isLogtoAdminAuthEnabled()
+    ? await getLogtoLogoutRedirectUrl(session?.idToken ?? null)
+    : new URL("/admin/login", request.url).toString();
   const response = NextResponse.redirect(redirectUrl);
 
   clearAdminRoleCookie(response);

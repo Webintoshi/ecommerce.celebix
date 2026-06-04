@@ -178,10 +178,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "E-posta ve sifre zorunludur." }, { status: 400 });
     }
 
+    const normalizedEmail = normalizeEmail(email);
+
     let repaired = false;
     let publicClient = createAdminLoginClient();
     let { data, error } = await publicClient.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
     });
 
@@ -194,7 +196,7 @@ export async function POST(request: Request) {
 
         publicClient = createAdminLoginClient();
         ({ data, error } = await publicClient.auth.signInWithPassword({
-          email: email.trim(),
+          email: normalizedEmail,
           password,
         }));
       }
@@ -212,7 +214,7 @@ export async function POST(request: Request) {
     const adminRole = await getAdminRoleForUser(data.user.id, data.user.user_metadata);
     if (!adminRole) {
       return NextResponse.json(
-        { error: "Admin yetkisi bulunamadi." },
+        { error: "Bu mağaza paneline erişim yetkiniz yok." },
         { status: 403 },
       );
     }
