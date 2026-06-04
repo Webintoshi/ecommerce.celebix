@@ -92,15 +92,16 @@ export default async function OwnerDashboardPage() {
 
   const pageTitle = superAdmin ? "Owner panel genel bakış" : "Affiliate portföy genel bakış";
   const pageCopy = superAdmin
-    ? "Light-first kontrol paneli ile kurulum akışını, canlı vitrinleri ve aksiyon bekleyen işleri daha net bir hiyerarşiyle izleyin."
+    ? "Kurulum akışını, canlı vitrinleri ve aksiyon bekleyen işleri tek ekranda izleyin."
     : "Kendi portföyünüzdeki mağazaları, canlıya çıkış durumunu ve bekleyen kurulum işlerini sade bir kontrol akışıyla takip edin.";
 
   return (
     <>
       <OwnerPageHeader
         eyebrow={superAdmin ? "Genel Bakış" : "Affiliate Paneli"}
-        title={pageTitle}
+        title={superAdmin ? "Genel Bakış" : pageTitle}
         copy={pageCopy}
+        className="dashboard-page-header"
         chips={
           <>
             <OwnerStatusChip tone="accent">{totals.liveStorefronts} canlı vitrin</OwnerStatusChip>
@@ -146,7 +147,67 @@ export default async function OwnerDashboardPage() {
         }
       />
 
-      <div className="owner-metric-grid">
+      <div className="dashboard-command-grid">
+        <section className="dashboard-command-card">
+          <span className="dashboard-command-label">Kontrol Paneli</span>
+          <div className="dashboard-command-copy">
+            <h2>Bugünkü kurulum, mağaza ve operasyon durumunu özetler.</h2>
+            <p>Öncelikli aksiyonları, canlı vitrinleri ve yeni standart dışı mağazaları aynı çalışma yüzeyinde takip edin.</p>
+          </div>
+          <div className="dashboard-command-chips">
+            <span>{totals.liveStorefronts} canlı vitrin</span>
+            <span>{setupQueueCount} kurulum aksiyonu</span>
+            <span>{attentionCount} mağaza dikkat istiyor</span>
+          </div>
+          <div className="actions hero-actions">
+            {superAdmin ? (
+              <OwnerActionButton href="/stores/new" tone="primary" disabled={createStoreDisabled}>
+                Yeni Mağaza
+              </OwnerActionButton>
+            ) : null}
+            <OwnerActionButton href="/stores" tone="secondary">
+              Mağazaları Gör
+            </OwnerActionButton>
+          </div>
+        </section>
+
+        <OwnerSectionCard
+          title="Bugünün Öncelikleri"
+          copy="İlk bakışta takip edilmesi gereken kurulum ve standart sinyalleri."
+          className="dashboard-priority-card"
+        >
+          <div className="dashboard-priority-list">
+            {queueBuckets.map((bucket) => (
+              <div key={bucket.key} className="dashboard-priority-row">
+                <div>
+                  <strong>{bucket.title}</strong>
+                  <span>{bucket.count > 0 ? "Aksiyon bekliyor" : "Tamamlandı"}</span>
+                </div>
+                <div className="dashboard-priority-count">
+                  <strong>{bucket.count}</strong>
+                  <OwnerStatusChip tone={bucket.count > 0 ? "warning" : "success"}>
+                    {bucket.count > 0 ? "Açık" : "Kapalı"}
+                  </OwnerStatusChip>
+                </div>
+              </div>
+            ))}
+            <div className="dashboard-priority-row">
+              <div>
+                <strong>Yeni standart dışı mağazalar</strong>
+                <span>{legacyStoreCount > 0 ? "Legacy takipte" : "Yeni standart"}</span>
+              </div>
+              <div className="dashboard-priority-count">
+                <strong>{legacyStoreCount}</strong>
+                <OwnerStatusChip tone={legacyStoreCount > 0 ? "legacy" : "success"}>
+                  {legacyStoreCount > 0 ? "Takipte" : "Kapalı"}
+                </OwnerStatusChip>
+              </div>
+            </div>
+          </div>
+        </OwnerSectionCard>
+      </div>
+
+      <div className="owner-metric-grid dashboard-kpi-grid">
         <OwnerKpiCard
           label="Toplam mağaza"
           value={portfolioCount}

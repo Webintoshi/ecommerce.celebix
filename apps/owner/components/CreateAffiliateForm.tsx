@@ -76,12 +76,12 @@ export function CreateAffiliateForm({
       <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Ad soyad</span>
-        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Partner kullanıcı" />
+        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Satış ortağı kullanıcısı" />
       </label>
 
       <label className="field">
         <span>E-posta</span>
-        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="partner@ornek.com" required />
+        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ortak@ornek.com" required />
       </label>
 
       <label className="field">
@@ -124,7 +124,7 @@ export function CreateAffiliateForm({
           className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
           disabled={disabled || isPending || stores.length === 0}
         >
-          {isPending ? "Kaydediliyor..." : "Affiliate kaydet"}
+          {isPending ? "Kaydediliyor..." : "Satış Ortağı Kaydet"}
         </button>
       </div>
     </form>
