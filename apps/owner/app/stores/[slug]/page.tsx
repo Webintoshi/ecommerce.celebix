@@ -68,7 +68,7 @@ function buildDeploymentAuthorityNote(
       target.autoDeployChanged ? "auto deploy" : null,
     ].filter(Boolean);
 
-    return `Authority self-heal: ${fragments.join(" + ") || "ayarlar"} onarildi.`;
+    return `Authority self-heal: ${fragments.join(" + ") || "ayarlar"} onarıldı.`;
   }
 
   if (target.status === "missing") {
@@ -263,7 +263,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <OwnerMetricCard label="Müşteri" value={store.customerCount.toLocaleString("tr-TR")} note="Müşteri tabanı" />
         <OwnerMetricCard label="Bekleyen" value={store.pendingOrderCount} note="Aksiyon bekleyen sipariş" tone={store.pendingOrderCount > 0 ? "warning" : "success"} />
         <OwnerMetricCard label="Toplam ciro" value={formatCurrency(store.totalRevenue)} note="Store performansi" tone="accent" />
-        <OwnerMetricCard label="Sepet ort." value={formatCurrency(store.averageOrderValue)} note="Ortalama siparis" />
+        <OwnerMetricCard label="Sepet ort." value={formatCurrency(store.averageOrderValue)} note="Ortalama sipariş" />
       </div>
 
       <div className="split-grid">
@@ -335,7 +335,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                 ? "Operasyon sirasinda"
                 : signal.key === "auth" && showSupabaseInfrastructure
                   ? "Legacy authority"
-                  : "Owner hazir"}
+                  : "Owner hazır"}
             </div>
             <p className="setup-signal-note">{signal.note}</p>
           <div className="setup-signal-footer">

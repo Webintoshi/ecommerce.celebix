@@ -1221,27 +1221,27 @@ function normalizeProvisioningSummaryForDisplay(
     markCompleted(
       "supabase_provision",
       input.databaseMode === "light_postgres"
-        ? "Light Postgres authority canli durumda hazir."
-        : "Supabase authority canli durumda hazir.",
+        ? "Light Postgres authority canlı durumda hazır."
+        : "Supabase authority canlı durumda hazır.",
     );
   }
 
   if (starterSeedReady) {
-    markCompleted("starter_seed", "Starter icerik canli metriklerde gorunuyor.");
+    markCompleted("starter_seed", "Starter içerik canlı metriklerde görünüyor.");
   }
 
   if (input.health.r2Ready) {
-    markCompleted("r2_provision", "R2 authority canli durumda hazir.");
+    markCompleted("r2_provision", "R2 authority canlı durumda hazır.");
   }
 
   if (input.health.adminDeploymentReady) {
-    markCompleted("admin_blueprint", "Admin blueprint authority hazir.");
+    markCompleted("admin_blueprint", "Admin yayın planı hazır.");
   }
 
   if (input.health.adminDeploymentReady && input.health.adminRuntimeConsistent) {
     markCompleted(
       "admin_deploy",
-      input.health.adminRuntimeMessage || "Admin runtime canli ve tutarli cevap veriyor.",
+      input.health.adminRuntimeMessage || "Admin runtime canlı ve tutarlı cevap veriyor.",
     );
   } else if (input.adminDeploymentStatus === "failed") {
     const adminFailureMessage =
@@ -1253,27 +1253,27 @@ function normalizeProvisioningSummaryForDisplay(
   } else if (input.adminDeploymentStatus === "pending-owner-env" && input.health.storefrontRuntimeConsistent) {
     markFailed(
       "admin_blueprint",
-      "Admin deployment authority eksik veya senkron disi kaldigi icin generated admin app baslatilamadi.",
+      "Admin yayın authority eksik veya senkron dışı kaldığı için generated admin app başlatılamadı.",
     );
     blockRemainingStepsAfter("admin_blueprint", "Admin blueprint tamamlanmadan ilerlenemez.");
   }
 
   if (input.storefrontAppDir?.trim()) {
-    markCompleted("storefront_scaffold", "Storefront app dizini olusturulmus durumda.");
+    markCompleted("storefront_scaffold", "Vitrin app dizini oluşturulmuş durumda.");
   }
 
   if (hasStorefrontBlueprint) {
-    markCompleted("storefront_blueprint", "Storefront blueprint authority hazir.");
+    markCompleted("storefront_blueprint", "Vitrin yayın planı hazır.");
   }
 
   if (hasStorefrontRepoSync) {
-    markCompleted("storefront_repo_sync", "Storefront branch ve app dizini repo ile senkron.");
+    markCompleted("storefront_repo_sync", "Vitrin branch ve app dizini repo ile senkron.");
   }
 
   if (input.health.storefrontRuntimeConsistent) {
     markCompleted(
       "storefront_deploy",
-      input.health.storefrontDataMessage || "Storefront runtime canli durumda.",
+      input.health.storefrontDataMessage || "Vitrin runtime canlı durumda.",
     );
   } else if (
     input.storefrontDeploymentStatus === "failed" ||
@@ -1281,34 +1281,34 @@ function normalizeProvisioningSummaryForDisplay(
   ) {
     const storefrontFailureMessage =
       input.health.storefrontDataMessage ||
-      "Storefront runtime smoke kontrolleri basarisiz oldu.";
+      "Vitrin runtime smoke kontrolleri başarısız oldu.";
     markFailed("storefront_deploy", storefrontFailureMessage);
     blockRemainingStepsAfter("storefront_deploy", "Storefront deployment tamamlanmadan ilerlenemez.");
   }
 
   if (input.setup.analytics.status === "configured") {
-    markCompleted("analytics_setup", "Analytics authority hazir.");
+    markCompleted("analytics_setup", "Analytics authority hazır.");
   } else if (analyticsPending && input.analyticsPlaceholderReady) {
-    markCompleted("analytics_setup", "Umami-ready analytics placeholder owner authority icinde kayitli.");
+    markCompleted("analytics_setup", "Umami-ready analytics placeholder owner authority içinde kayıtlı.");
   } else if (!input.analyticsPlaceholderReady) {
-    markFailed("analytics_setup", "light_postgres store icin analytics hazirligi tamamlanmadi.");
+    markFailed("analytics_setup", "light_postgres mağaza için analytics hazırlığı tamamlanmadı.");
   }
 
   if (input.setup.auth.status === "configured") {
     markCompleted(
       "auth_setup",
       input.setup.auth.provider === "supabase"
-        ? "Supabase auth authority hazir."
-        : "Auth authority hazir.",
+        ? "Supabase auth authority hazır."
+        : "Auth authority hazır.",
     );
   } else if (authPending) {
-    markCompleted("auth_setup", "Logto-ready auth placeholder owner authority icinde kayitli.");
+    markCompleted("auth_setup", "Logto-ready auth placeholder owner authority içinde kayıtlı.");
   }
 
   if (input.setup.payments.status === "configured") {
-    markCompleted("payment_setup", "Odeme authority hazir.");
+    markCompleted("payment_setup", "Ödeme authority hazır.");
   } else if (paymentPending) {
-    markCompleted("payment_setup", "Odeme ayari bekleniyor; placeholder owner authority icinde kayitli.");
+    markCompleted("payment_setup", "Ödeme ayarı bekleniyor; placeholder owner authority içinde kayıtlı.");
   }
 
   const blockers = nextSteps.filter(
@@ -1613,13 +1613,13 @@ function buildStoreSubscriptionSummary(
   const progressPercent =
     totalDays > 0 ? Math.round(clampNumber((elapsedDays / totalDays) * 100, 0, 100)) : 100;
   const cadenceLabel =
-    durationMonths === 1 ? "Aylik" : durationMonths === 12 ? "Yillik" : `${durationMonths} aylik`;
+    durationMonths === 1 ? "Aylık" : durationMonths === 12 ? "Yıllık" : `${durationMonths} aylık`;
   const countdownLabel =
     daysRemaining < 0
-      ? `${Math.abs(daysRemaining)} gun gecti`
+      ? `${Math.abs(daysRemaining)} gün geçti`
       : daysRemaining === 0
-        ? "Bugun bitiyor"
-        : `${daysRemaining} gun kaldi`;
+        ? "Bugün bitiyor"
+        : `${daysRemaining} gün kaldı`;
   const status: StoreSubscriptionStatus =
     daysRemaining < 0
       ? "expired"

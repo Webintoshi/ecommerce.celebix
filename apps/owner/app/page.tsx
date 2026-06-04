@@ -94,12 +94,12 @@ export default async function OwnerDashboardPage() {
           {
             label: "Ekosistem GMV",
             value: formatCurrency(totals.revenue),
-            note: `${totals.orders.toLocaleString("tr-TR")} siparis ve ${totals.customers.toLocaleString("tr-TR")} musteri`,
+            note: `${totals.orders.toLocaleString("tr-TR")} sipariş ve ${totals.customers.toLocaleString("tr-TR")} müşteri`,
           },
           {
             label: "Affiliate etkisi",
             value: formatCurrency(totals.affiliateExposure),
-            note: `${readinessRate}% canli cikis orani`,
+            note: `${readinessRate}% canlı çıkış oranı`,
           },
         ]}
         actions={
@@ -159,7 +159,7 @@ export default async function OwnerDashboardPage() {
           <div>
             <div className="hero-card-label">Affiliate Paneli</div>
             <div className="insight-stat">{formatCurrency(totals.affiliateExposure)}</div>
-            <p>Affiliate kanalinin ekosistem icindeki tahmini gelir etkisi.</p>
+            <p>Affiliate kanalının ekosistem içindeki tahmini gelir etkisi.</p>
           </div>
           <div className="insight-list">
             <div className="insight-list-row">
@@ -171,7 +171,7 @@ export default async function OwnerDashboardPage() {
               <strong>{totals.draftStores}</strong>
             </div>
             <div className="insight-list-row">
-              <span>Bekleyen siparis</span>
+              <span>Bekleyen sipariş</span>
               <strong>{totals.pendingOrders}</strong>
             </div>
           </div>
@@ -201,21 +201,21 @@ export default async function OwnerDashboardPage() {
 
         <div className="insight-card">
           <div>
-            <div className="hero-card-label">Canli Cikis Orani</div>
+            <div className="hero-card-label">Canlı Çıkış Oranı</div>
             <div className="insight-stat">%{readinessRate}</div>
             <p>Celebix kurulum zincirinden geçen mağazaların vitrine çıkma hızı.</p>
           </div>
           <div className="insight-list">
             <div className="insight-list-row">
-              <span>Toplam portfoy</span>
+              <span>Toplam portföy</span>
               <strong>{portfolioCount}</strong>
             </div>
             <div className="insight-list-row">
-              <span>Toplam musteri</span>
+              <span>Toplam müşteri</span>
               <strong>{totals.customers.toLocaleString("tr-TR")}</strong>
             </div>
             <div className="insight-list-row">
-              <span>Toplam siparis</span>
+              <span>Toplam sipariş</span>
               <strong>{totals.orders.toLocaleString("tr-TR")}</strong>
             </div>
           </div>
@@ -228,7 +228,7 @@ export default async function OwnerDashboardPage() {
             <span className="setup-signal-kicker">Auth Kurulumu Bekleyen</span>
             <div className="actions compact-actions wrap stack-top-sm">
               <span className={`pill ${pendingAuthCount > 0 ? "provisioning-tone-pending_auth" : "pill-success"}`}>
-                {pendingAuthCount > 0 ? "auth bekliyor" : "auth hazir"}
+                {pendingAuthCount > 0 ? "auth bekliyor" : "auth hazır"}
               </span>
             </div>
             <div className="setup-signal-value">{pendingAuthCount}</div>
@@ -241,12 +241,12 @@ export default async function OwnerDashboardPage() {
             <span className="setup-signal-kicker">Analytics Kurulumu Bekleyen</span>
             <div className="actions compact-actions wrap stack-top-sm">
               <span className={`pill ${pendingAnalyticsCount > 0 ? "provisioning-tone-pending_analytics" : "pill-success"}`}>
-                {pendingAnalyticsCount > 0 ? "analytics bekliyor" : "analytics hazir"}
+                {pendingAnalyticsCount > 0 ? "analytics bekliyor" : "analytics hazır"}
               </span>
             </div>
             <div className="setup-signal-value">{pendingAnalyticsCount}</div>
             <p className="setup-signal-note">
-              Umami-ready placeholder ile operasyon sirasina birakilan store sayisi.
+              Umami-ready placeholder ile operasyon sırasına bırakılan mağaza sayısı.
             </p>
           </div>
 
@@ -254,12 +254,12 @@ export default async function OwnerDashboardPage() {
             <span className="setup-signal-kicker">Ödeme Kurulumu Bekleyen</span>
             <div className="actions compact-actions wrap stack-top-sm">
               <span className={`pill ${pendingPaymentCount > 0 ? "provisioning-tone-pending_payment" : "pill-success"}`}>
-                {pendingPaymentCount > 0 ? "odeme bekliyor" : "odeme hazir"}
+                {pendingPaymentCount > 0 ? "ödeme bekliyor" : "ödeme hazır"}
               </span>
             </div>
             <div className="setup-signal-value">{pendingPaymentCount}</div>
             <p className="setup-signal-note">
-              Tahsilat authority sonraki operasyon adimi olarak izlenen store sayisi.
+              Tahsilat authority sonraki operasyon adımı olarak izlenen mağaza sayısı.
             </p>
           </div>
 

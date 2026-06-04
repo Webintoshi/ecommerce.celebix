@@ -16,15 +16,15 @@ export interface SetupSignalDisplay {
 }
 
 const PROVISIONING_LABELS: Record<ProvisioningState, string> = {
-  running: "isleniyor",
+  running: "işleniyor",
   provisioning: "kuruluyor",
   pending_dns: "dns bekliyor",
   pending_auth: "auth bekliyor",
   pending_analytics: "analytics bekliyor",
-  pending_payment: "odeme bekliyor",
-  ready: "hazir",
-  pending_repair: "onarim aksiyonu",
-  failed: "kritik ariza",
+  pending_payment: "ödeme bekliyor",
+  ready: "hazır",
+  pending_repair: "onarım aksiyonu",
+  failed: "kritik arıza",
 };
 
 export function getProvisioningToneClass(state: ProvisioningState): string {
@@ -76,7 +76,7 @@ export function getSetupSignals(setup: StoreSetupSummary): SetupSignalDisplay[] 
     {
       key: "auth",
       title: "Auth",
-      shortLabel: authPending ? "auth bekliyor" : authLegacy ? "legacy auth" : "auth hazir",
+      shortLabel: authPending ? "auth bekliyor" : authLegacy ? "legacy auth" : "auth hazır",
       providerLabel: setup.auth.provider,
       statusLabel: authPending ? "pending_auth_setup" : "configured",
       pillClassName: authPending
@@ -86,17 +86,17 @@ export function getSetupSignals(setup: StoreSetupSummary): SetupSignalDisplay[] 
           : "pill pill-success",
       cardToneClass: authPending ? "tone-auth" : authLegacy ? "tone-legacy" : "tone-ready",
       note: authPending
-        ? "Logto-ready placeholder owner authority icinde kayitli."
+        ? "Logto-ready placeholder owner authority içinde kayıtlı."
         : authLegacy
-          ? "Bu store istisnai olarak legacy Supabase auth ile calisiyor."
-          : "Auth authority canli ve owner tarafinda hazir gorunuyor.",
+          ? "Bu mağaza istisnai olarak legacy Supabase auth ile çalışıyor."
+          : "Auth authority canlı ve owner tarafında hazır görünüyor.",
       pending: authPending,
       configured: !authPending,
     },
     {
       key: "analytics",
       title: "Analytics",
-      shortLabel: analyticsPending ? "analytics bekliyor" : "analytics hazir",
+      shortLabel: analyticsPending ? "analytics bekliyor" : "analytics hazır",
       providerLabel: setup.analytics.provider,
       statusLabel: setup.analytics.status,
       pillClassName: analyticsPending
@@ -104,15 +104,15 @@ export function getSetupSignals(setup: StoreSetupSummary): SetupSignalDisplay[] 
         : "pill pill-success",
       cardToneClass: analyticsPending ? "tone-analytics" : "tone-ready",
       note: analyticsPending
-        ? "Umami-ready placeholder owner authority icinde kayitli."
-        : "Analytics authority canli ve lifecycle tarafinda tamam gorunuyor.",
+        ? "Umami-ready placeholder owner authority içinde kayıtlı."
+        : "Analytics authority canlı ve lifecycle tarafında tamam görünüyor.",
       pending: analyticsPending,
       configured: !analyticsPending,
     },
     {
       key: "payment",
       title: "Payment",
-      shortLabel: paymentPending ? "odeme bekliyor" : "odeme hazir",
+      shortLabel: paymentPending ? "ödeme bekliyor" : "ödeme hazır",
       providerLabel: setup.payments.defaultProvider,
       statusLabel: setup.payments.status,
       pillClassName: paymentPending
@@ -120,8 +120,8 @@ export function getSetupSignals(setup: StoreSetupSummary): SetupSignalDisplay[] 
         : "pill pill-success",
       cardToneClass: paymentPending ? "tone-payment" : "tone-ready",
       note: paymentPending
-        ? "Tahsilat authority sonraki operasyon adiminda tamamlanacak."
-        : "Odeme authority owner panel tarafinda hazir kabul ediliyor.",
+        ? "Tahsilat authority sonraki operasyon adımında tamamlanacak."
+        : "Ödeme authority owner panel tarafında hazır kabul ediliyor.",
       pending: paymentPending,
       configured: !paymentPending,
     },

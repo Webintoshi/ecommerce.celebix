@@ -290,7 +290,7 @@ export default async function OperationsPage() {
                           <span className={`status-text ${row.r2BucketName ? "status-text-success" : "status-text-error"}`}>
                             {row.r2BucketName || "R2 eksik"}
                           </span>
-                          <span className="table-inline-meta">{row.pendingOrderCount} bekleyen siparis</span>
+                          <span className="table-inline-meta">{row.pendingOrderCount} bekleyen sipariş</span>
                         </div>
                       </td>
                       <td>{formatDateTime(row.lastSyncedAt)}</td>

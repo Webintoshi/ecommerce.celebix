@@ -76,7 +76,7 @@ export default async function StoresPage() {
             ) : null}
             <OwnerStatusChip tone="accent">{readyCount} kurulum hazır</OwnerStatusChip>
             <OwnerStatusChip tone={repairCount > 0 ? "danger" : "success"}>
-              {repairCount > 0 ? `${repairCount} onarim aksiyonu` : "Repair kuyrugu temiz"}
+              {repairCount > 0 ? `${repairCount} onarım aksiyonu` : "Onarım kuyruğu temiz"}
             </OwnerStatusChip>
           </>
         }
@@ -135,7 +135,7 @@ export default async function StoresPage() {
                     <strong>{store.management.clientCompanyName || store.name}</strong>
                     <span>{store.management.internalOwner || "Atanmadi"}</span>
                     <span>{legacyMode ? "Legacy özel mod" : "Yeni Standart"}</span>
-                    <span>{formatCurrency(store.totalRevenue)} / {store.orderCount} siparis</span>
+                    <span>{formatCurrency(store.totalRevenue)} / {store.orderCount} sipariş</span>
                   </div>
                   <div className="owner-store-health">
                     <div className="table-pill-row">
