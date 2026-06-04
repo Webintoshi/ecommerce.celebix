@@ -35,7 +35,11 @@ export default async function NewStorePage() {
         metrics={[
           { label: "Varsayılan standart", value: "Yeni Standart", note: "Celebix kurulum standardı" },
           { label: "Advanced Legacy", value: "Kapalı", note: "Legacy sadece özel modda" },
-          { label: "Önizleme Modu", value: createStoreDisabled ? "Kapalı" : "Açık", note: createStoreDisabled ? "Submit kilitli" : "Canlı kayıt aktif" },
+          {
+            label: "Yazma işlemleri",
+            value: createStoreDisabled ? "Kapalı" : "Açık",
+            note: createStoreDisabled ? "Önizleme koruması aktif" : "Canlı kayıt aktif",
+          },
         ]}
         actions={
           <>
@@ -60,7 +64,9 @@ export default async function NewStorePage() {
         chips={
           <>
             <span className="hero-chip hero-chip-accent">Kurulum Akışı</span>
-            <span className="hero-chip hero-chip-neutral">Yazma işlemleri kapalı</span>
+            <span className="hero-chip hero-chip-neutral">
+              {createStoreDisabled ? "Yazma işlemleri kapalı" : "Yeni Standart akışı aktif"}
+            </span>
           </>
         }
       />
