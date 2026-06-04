@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserFromCookies } from "@/lib/admin-session-cookie";
 import { clearAdminRoleCookie, readAdminRoleCookie } from "@/lib/admin-role-cookie";
+import { buildAdminUrl } from "@/lib/store-runtime";
 import {
   isLightPostgresRuntime,
   resolveRuntimeAuthSetupStatus,
@@ -17,6 +18,17 @@ const ADMIN_LOGIN_API_PATH = "/api/auth/login";
 const ADMIN_ROLES = new Set(["super_admin", "product_manager", "content_creator", "order_manager"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
+
+function buildAdminLoginUrl(nextPath?: string, error?: string) {
+  const loginUrl = new URL(buildAdminUrl(ADMIN_LOGIN_PATH));
+  if (nextPath) {
+    loginUrl.searchParams.set("next", nextPath);
+  }
+  if (error) {
+    loginUrl.searchParams.set("error", error);
+  }
+  return loginUrl;
+}
 
 function isLightPostgresAuthBlocked() {
   return (
@@ -156,9 +168,8 @@ export async function middleware(request: NextRequest) {
       return createBlockedAuthApiResponse(request);
     }
 
-    const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
+    const loginUrl = buildAdminLoginUrl(request.nextUrl.pathname + request.nextUrl.search);
     loginUrl.searchParams.set("blocked_auth_setup", "1");
-    loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
     return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
@@ -190,8 +201,7 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
-    loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+    const loginUrl = buildAdminLoginUrl(request.nextUrl.pathname + request.nextUrl.search);
     return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
@@ -211,15 +221,14 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
-    loginUrl.searchParams.set("error", "unauthorized");
+    const loginUrl = buildAdminLoginUrl(undefined, "unauthorized");
     const redirectResponse = NextResponse.redirect(loginUrl);
     clearAdminRoleCookie(redirectResponse);
     return applySecurityHeaders(request, redirectResponse, "admin");
   }
 
   if (pathname === ADMIN_LOGIN_PATH) {
-    return applySecurityHeaders(request, NextResponse.redirect(new URL("/admin", request.url)), "admin");
+    return applySecurityHeaders(request, NextResponse.redirect(buildAdminUrl("/admin")), "admin");
   }
 
   return applySecurityHeaders(request, response, "admin");

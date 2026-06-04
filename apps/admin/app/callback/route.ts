@@ -11,9 +11,10 @@ import {
   readLogtoAdminStateCookie,
   writeLogtoAdminSessionCookie,
 } from "@/lib/logto-admin-auth";
+import { buildAdminUrl } from "@/lib/store-runtime";
 
 function buildLoginRedirect(request: NextRequest, params: Record<string, string>) {
-  const url = new URL("/admin/login", request.url);
+  const url = new URL(buildAdminUrl("/admin/login"));
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     const nextPath = sanitizeInternalRedirectPath(stateCookie.nextPath, "/admin");
-    const response = NextResponse.redirect(new URL(nextPath, request.url));
+    const response = NextResponse.redirect(buildAdminUrl(nextPath));
     const sessionPayload = buildLogtoAdminSessionPayload({
       bridge,
       userInfo,

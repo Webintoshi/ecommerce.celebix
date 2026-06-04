@@ -139,6 +139,12 @@ export function buildStorefrontUrl(path = "/") {
   return `${baseUrl}${normalizedPath}`;
 }
 
+export function buildAdminUrl(path = "/") {
+  const baseUrl = STORE_RUNTIME.adminUrl.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${baseUrl}${normalizedPath}`;
+}
+
 export function buildStorefrontProductUrl(slug: string) {
   return buildStorefrontUrl(`/urunler/${slug}`);
 }

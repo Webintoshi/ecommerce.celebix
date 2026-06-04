@@ -6,12 +6,13 @@ import {
   getLogtoLogoutRedirectUrl,
   readLogtoAdminSessionCookie,
 } from "@/lib/logto-admin-auth";
+import { buildAdminUrl } from "@/lib/store-runtime";
 
 export async function GET(request: NextRequest) {
   const session = readLogtoAdminSessionCookie(request.cookies.getAll());
   const redirectUrl = isLogtoAdminAuthEnabled()
     ? await getLogtoLogoutRedirectUrl(session?.idToken ?? null)
-    : new URL("/admin/login", request.url).toString();
+    : buildAdminUrl("/admin/login");
   const response = NextResponse.redirect(redirectUrl);
 
   clearAdminRoleCookie(response);
