@@ -11,6 +11,7 @@ import {
 } from "@/lib/control-plane";
 import { validateNewStoreDeploymentBranches } from "@/lib/deployment-branch-guard";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { isRedisLockError } from "@/lib/redis";
 import { hasUnresolvedCleanupRun } from "@/lib/store-lifecycle";
 import {
@@ -60,6 +61,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
     }
 
+    const previewBlock = blockOwnerActionInPreview("create_store");
+
+    if (previewBlock) {
+      return previewBlock;
+    }
+
     const body = (await request.json()) as {
       name?: string;
       slug?: string;
@@ -76,6 +83,7 @@ export async function POST(request: Request) {
       packageDurationMonths?: number | string | null;
     };
     const requestedDatabaseMode = resolveDefaultDatabaseMode(body.databaseMode);
+    const legacyModeSelected = requestedDatabaseMode === "full_supabase";
 
     const predictedSlug = predictStoreSlug(body.name ?? "", body.slug);
 
@@ -142,7 +150,9 @@ export async function POST(request: Request) {
       details: {
         name: created.store.name,
         domain: created.store.domains.storefront,
-        provisioningState: "running",
+        databaseMode: requestedDatabaseMode,
+        legacyModeSelected,
+        provisioningState: "provisioning",
       },
     });
 
@@ -175,7 +185,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ...created,
-        provisioningState: "running",
+        provisioningState: "provisioning",
         steps: [],
         blockers: [],
       },

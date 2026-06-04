@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { createOrAssignAffiliate } from "@/lib/control-plane";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 
 export async function POST(request: Request) {
   const auth = await getOwnerAuthContext();
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("write");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {

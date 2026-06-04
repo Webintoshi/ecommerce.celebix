@@ -3,38 +3,105 @@ import {
   getStorefrontDeploymentBranchPrefix,
 } from "@/lib/platform-config-owner";
 import { CreateStoreForm } from "@/components/CreateStoreForm";
+import {
+  OwnerCommandHero,
+  OwnerLifecycleStepper,
+  OwnerStatusChip,
+} from "@/components/owner-control";
 import { requireOwnerAuth, requireSuperAdmin } from "@/lib/owner-auth";
 import { getLightPostgresBootstrapStatus } from "@/lib/light-postgres-provisioning";
+import {
+  getOwnerPreviewDisabledNotice,
+  getOwnerPreviewFlags,
+  isOwnerActionDisabled,
+} from "@/lib/preview-mode";
 import { getSupabaseBootstrapStatus } from "@/lib/supabase-bootstrap";
 
 export default async function NewStorePage() {
   requireSuperAdmin(await requireOwnerAuth("/stores/new"));
+  const previewFlags = getOwnerPreviewFlags();
+  const createStoreDisabled = isOwnerActionDisabled("create_store", previewFlags);
+  const createStoreDisabledReason =
+    getOwnerPreviewDisabledNotice("create_store", previewFlags) ?? undefined;
   const lightPostgresBootstrap = await getLightPostgresBootstrapStatus();
   const supabaseBootstrap = await getSupabaseBootstrapStatus();
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Yeni Proje Olustur</h1>
-          <p>
-            Yeni magaza kaydi, authority dosyalari ve env sablonu olusturulur. Varsayilan akista
-            storefront/admin domainleri ile birlikte demo domain authority&apos;si de hazirlanir.
-            {lightPostgresBootstrap.configured
-              ? ` Light Postgres authority hazir oldugu icin yeni standard store-per-database modeli hedeflenir.`
-              : " Light Postgres bootstrap authority eksikse yeni store create preflight'ta bloklanir; owner env tamamlanmadan canli create baslatilmaz."}
-            {supabaseBootstrap.configured
-              ? ` Full Supabase sadece explicit legacy mode secildiginde devreye girer.`
-              : " Full Supabase bootstrap authority ayrica legacy mod icin ayrik tutulur."}
-          </p>
-        </div>
-      </div>
+      <OwnerCommandHero
+        overline="Yeni Mağaza"
+        title="Yeni mağaza kurulum akışı"
+        copy="Yeni mağaza formu teknik bir create ekranı değil; marka, domain, tema, admin, ticaret ve Yeni Standart adımlarını sırayla taşıyan kurulum akışıdır."
+        metrics={[
+          { label: "Varsayılan standart", value: "Yeni Standart", note: "Celebix kurulum standardı" },
+          { label: "Advanced Legacy", value: "Kapalı", note: "Legacy sadece özel modda" },
+          {
+            label: "Yazma işlemleri",
+            value: createStoreDisabled ? "Kapalı" : "Açık",
+            note: createStoreDisabled ? "Önizleme koruması aktif" : "Canlı kayıt aktif",
+          },
+        ]}
+        actions={
+          <>
+            <OwnerStatusChip tone={lightPostgresBootstrap.configured ? "success" : "warning"}>
+              Yeni Standart {lightPostgresBootstrap.configured ? "hazır" : "kontrol bekliyor"}
+            </OwnerStatusChip>
+            <OwnerStatusChip tone={supabaseBootstrap.configured ? "legacy" : "ink"}>
+              Legacy {supabaseBootstrap.configured ? "hazır" : "ayrık"}
+            </OwnerStatusChip>
+            {createStoreDisabled ? <OwnerStatusChip tone="warning">Yazma işlemleri kapalı</OwnerStatusChip> : null}
+          </>
+        }
+        panelTitle="Kurulum sırası"
+        panelItems={[
+          { label: "1. Temel Bilgiler", value: "Marka kimliği" },
+          { label: "2. Domain", value: "Yayın kimliği" },
+          { label: "3. Kurulum Standardı", value: "Yeni Standart" },
+          { label: "4. Admin Kullanıcı", value: "Başlangıç erişimi" },
+          { label: "5. Ödeme ve Kargo", value: "Başlangıç ayarı" },
+          { label: "6. Önizleme ve Onay", value: "Son kontrol" },
+        ]}
+        chips={
+          <>
+            <span className="hero-chip hero-chip-accent">Kurulum Akışı</span>
+            <span className="hero-chip hero-chip-neutral">
+              {createStoreDisabled ? "Yazma işlemleri kapalı" : "Yeni Standart akışı aktif"}
+            </span>
+          </>
+        }
+      />
 
-      <div className="card card-cap">
-        <CreateStoreForm
-          ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
-          storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}
-        />
+      <div className="owner-wizard-shell">
+        <aside className="owner-wizard-rail">
+          <div className="owner-action-panel tone-accent">
+            <div>
+              <div className="card-title">Kurulum rehberi</div>
+              <p className="section-copy">
+                Teknik veritabanı modu ana seçim olmaktan çıkarıldı; Yeni Standart varsayılan,
+                Legacy akışı ise Advanced alanında tutulur.
+              </p>
+            </div>
+            <OwnerLifecycleStepper
+              steps={[
+                { label: "Temel Bilgiler", detail: "Ad, slug ve marka dili", state: "current" },
+                { label: "Domain", detail: "Vitrin ve admin kimliği", state: "pending" },
+                { label: "Kurulum Standardı", detail: "Yeni Standart + R2", state: "pending" },
+                { label: "Admin Kullanıcı", detail: "Başlangıç erişimi", state: "pending" },
+                { label: "Ödeme ve Kargo Başlangıcı", detail: "Paket ve ticaret ayarı", state: "pending" },
+                { label: "Önizleme ve Onay", detail: "Son kontrol", state: "pending" },
+              ]}
+            />
+          </div>
+        </aside>
+
+        <div className="owner-wizard-form-panel">
+          <CreateStoreForm
+            ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
+            storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}
+            disabled={createStoreDisabled}
+            disabledReason={createStoreDisabledReason}
+          />
+        </div>
       </div>
     </>
   );

@@ -11,9 +11,16 @@ interface StoreOption {
 interface CreateAffiliateFormProps {
   stores: StoreOption[];
   defaultStoreSlug?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliateFormProps) {
+export function CreateAffiliateForm({
+  stores,
+  defaultStoreSlug,
+  disabled = false,
+  disabledReason,
+}: CreateAffiliateFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -28,6 +35,11 @@ export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliat
     event.preventDefault();
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/affiliates", {
@@ -47,11 +59,11 @@ export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliat
       const payload = (await response.json()) as { error?: string; success?: boolean };
 
       if (!response.ok) {
-        setError(payload.error || "Affiliate olusturulamadi.");
+        setError(payload.error || "Affiliate oluşturulamadı.");
         return;
       }
 
-      setNotice("Affiliate hesabi ve store yetkisi kaydedildi.");
+      setNotice("Affiliate hesabı ve mağaza yetkisi kaydedildi.");
       setEmail("");
       setFullName("");
       setPassword("");
@@ -61,23 +73,24 @@ export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliat
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
+      <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
         <span>Ad soyad</span>
-        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Partner kullanici" />
+        <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Satış ortağı kullanıcısı" />
       </label>
 
       <label className="field">
         <span>E-posta</span>
-        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="partner@ornek.com" required />
+        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ortak@ornek.com" required />
       </label>
 
       <label className="field">
-        <span>Gecici sifre</span>
+        <span>Geçici şifre</span>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="En az 8 karakter" minLength={8} required />
       </label>
 
       <label className="field">
-        <span>Proje</span>
+        <span>Mağaza</span>
         <select value={storeSlug} onChange={(event) => setStoreSlug(event.target.value)} required>
           {stores.map((store) => (
             <option key={store.slug} value={store.slug}>
@@ -88,7 +101,7 @@ export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliat
       </label>
 
       <label className="field field-full">
-        <span>Komisyon orani (%)</span>
+        <span>Komisyon oranı (%)</span>
         <input
           type="number"
           min="0"
@@ -99,13 +112,19 @@ export function CreateAffiliateForm({ stores, defaultStoreSlug }: CreateAffiliat
           required
         />
       </label>
+      </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {notice ? <p className="form-notice field-full">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview field-full">{disabledReason}</p> : null}
 
       <div className="actions field-full">
-        <button type="submit" className="button button-primary" disabled={isPending || stores.length === 0}>
-          {isPending ? "Kaydediliyor..." : "Affiliate kaydet"}
+        <button
+          type="submit"
+          className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
+          disabled={disabled || isPending || stores.length === 0}
+        >
+          {isPending ? "Kaydediliyor..." : "Satış Ortağı Kaydet"}
         </button>
       </div>
     </form>

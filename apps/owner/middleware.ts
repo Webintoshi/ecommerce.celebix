@@ -18,6 +18,7 @@ import {
   getOwnerSupabaseServiceRoleKey,
   getOwnerSupabaseUrl,
 } from "@/lib/owner-supabase-shared";
+import { hasOwnerPreviewDataFallback } from "@/lib/owner-preview-fixtures";
 
 const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
@@ -35,6 +36,20 @@ type OwnerProfileRecord = {
 
 function withSecurity(request: NextRequest, response: NextResponse) {
   return applySecurityHeaders(request, response, "owner");
+}
+
+function buildRequestHeaders(request: NextRequest) {
+  const headers = new Headers(request.headers);
+  headers.set("x-owner-pathname", request.nextUrl.pathname);
+  return headers;
+}
+
+function nextResponse(request: NextRequest) {
+  return NextResponse.next({
+    request: {
+      headers: buildRequestHeaders(request),
+    },
+  });
 }
 
 function jsonResponse(request: NextRequest, body: Record<string, unknown>, status: number) {
@@ -92,9 +107,38 @@ export async function middleware(request: NextRequest) {
   const requiresAuth = isProtectedOwnerPage(pathname) || isProtectedOwnerApi(pathname);
   const missingPublicEnv = getMissingOwnerSupabaseEnvNames();
   const missingAuthEnv = getMissingOwnerSupabaseEnvNames({ requireServiceRole: true });
+  const previewFallback = hasOwnerPreviewDataFallback();
 
   if (missingPublicEnv.length > 0) {
     const message = formatMissingOwnerSupabaseEnvMessage(missingPublicEnv);
+
+    if (previewFallback) {
+      if (pathname === OWNER_PUBLIC_RUNTIME_API_PATH) {
+        return withSecurity(request, nextResponse(request));
+      }
+
+      if (pathname.startsWith("/api/")) {
+        if (isMutationMethod(request.method)) {
+          return jsonResponse(
+            request,
+            { error: "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır." },
+            403,
+          );
+        }
+
+        return jsonResponse(request, { error: message }, 503);
+      }
+
+      if (
+        pathname === OWNER_LOGIN_PATH ||
+        pathname === OWNER_RECOVER_PATH ||
+        pathname.startsWith(OWNER_CONFIRM_PREFIX)
+      ) {
+        return withSecurity(request, nextResponse(request));
+      }
+
+      return withSecurity(request, nextResponse(request));
+    }
 
     if (pathname.startsWith("/api/") && pathname !== OWNER_PUBLIC_RUNTIME_API_PATH) {
       return jsonResponse(request, { error: message }, 503);
@@ -105,7 +149,7 @@ export async function middleware(request: NextRequest) {
       pathname === OWNER_RECOVER_PATH ||
       pathname.startsWith(OWNER_CONFIRM_PREFIX)
     ) {
-      return withSecurity(request, NextResponse.next());
+      return withSecurity(request, nextResponse(request));
     }
 
     return buildLoginErrorRedirect(request, "owner_auth_env_missing");
@@ -114,6 +158,34 @@ export async function middleware(request: NextRequest) {
   if (missingAuthEnv.length > 0) {
     const message = formatMissingOwnerSupabaseEnvMessage(missingAuthEnv);
 
+    if (previewFallback) {
+      if (pathname === OWNER_PUBLIC_RUNTIME_API_PATH) {
+        return withSecurity(request, nextResponse(request));
+      }
+
+      if (pathname.startsWith("/api/")) {
+        if (isMutationMethod(request.method)) {
+          return jsonResponse(
+            request,
+            { error: "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır." },
+            403,
+          );
+        }
+
+        return jsonResponse(request, { error: message }, 503);
+      }
+
+      if (
+        pathname === OWNER_LOGIN_PATH ||
+        pathname === OWNER_RECOVER_PATH ||
+        pathname.startsWith(OWNER_CONFIRM_PREFIX)
+      ) {
+        return withSecurity(request, nextResponse(request));
+      }
+
+      return withSecurity(request, nextResponse(request));
+    }
+
     if (pathname.startsWith("/api/") && pathname !== OWNER_PUBLIC_RUNTIME_API_PATH) {
       return jsonResponse(request, { error: message }, 503);
     }
@@ -123,7 +195,7 @@ export async function middleware(request: NextRequest) {
       pathname === OWNER_RECOVER_PATH ||
       pathname.startsWith(OWNER_CONFIRM_PREFIX)
     ) {
-      return withSecurity(request, NextResponse.next());
+      return withSecurity(request, nextResponse(request));
     }
 
     return buildLoginErrorRedirect(request, "owner_auth_service_missing");
@@ -155,7 +227,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!requiresAuth && pathname !== OWNER_LOGIN_PATH) {
-    return withSecurity(request, NextResponse.next());
+    return withSecurity(request, nextResponse(request));
   }
 
   if (isProtectedOwnerApi(pathname) && isMutationMethod(request.method)) {
@@ -165,11 +237,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
+  let response = nextResponse(request);
 
   const supabase = createServerClient(getOwnerSupabaseUrl(), getOwnerSupabaseAnonKey(), {
     cookies: {

@@ -3,6 +3,7 @@ import { getStoreDetail } from "@/lib/control-plane";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
 import { provisionAdminDeploymentForStore } from "@/lib/admin-deployment-coolify";
 import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import {
   type DeploymentWindowHandle,
   releaseGeneratedDeploymentWindow,
@@ -21,6 +22,12 @@ export async function POST(_: Request, { params }: RouteContext) {
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("deploy");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   const { slug } = await params;

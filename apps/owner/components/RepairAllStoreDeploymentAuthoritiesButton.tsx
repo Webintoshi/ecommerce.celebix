@@ -3,7 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-export function RepairAllStoreDeploymentAuthoritiesButton() {
+interface RepairAllStoreDeploymentAuthoritiesButtonProps {
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
+export function RepairAllStoreDeploymentAuthoritiesButton({
+  disabled = false,
+  disabledReason,
+}: RepairAllStoreDeploymentAuthoritiesButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -12,6 +20,11 @@ export function RepairAllStoreDeploymentAuthoritiesButton() {
   function handleRepair() {
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/operations/repair-store-deployment-authorities", {
@@ -25,12 +38,12 @@ export function RepairAllStoreDeploymentAuthoritiesButton() {
       };
 
       if (!response.ok) {
-        setError(payload.error || "Store deployment authority taramasi basarisiz oldu.");
+        setError(payload.error || "Mağaza yayın authority taraması başarısız oldu.");
         return;
       }
 
       setNotice(
-        `${payload.totalStores ?? 0} store tarandi. ${payload.changedStores ?? 0} store onarildi. ${payload.failedStores ?? 0} store hata verdi.`,
+        `${payload.totalStores ?? 0} mağaza tarandı. ${payload.changedStores ?? 0} mağaza onarıldı. ${payload.failedStores ?? 0} mağaza hata verdi.`,
       );
       router.refresh();
     });
@@ -40,14 +53,15 @@ export function RepairAllStoreDeploymentAuthoritiesButton() {
     <div className="inline-stack">
       <button
         type="button"
-        className="button button-secondary"
+        className={`button button-secondary${disabledReason ? " button-preview-disabled" : ""}`}
         onClick={handleRepair}
-        disabled={isPending}
+        disabled={disabled || isPending}
       >
-        {isPending ? "Tum store authority ayarlari taraniyor..." : "Tum store deploy ayarlarini onar"}
+        {isPending ? "Tüm mağaza yayın ayarları taranıyor..." : "Tüm mağaza yayın ayarlarını onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview">{disabledReason}</p> : null}
     </div>
   );
 }

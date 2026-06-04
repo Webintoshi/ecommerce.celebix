@@ -11,16 +11,16 @@ export default async function ClientsPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Musteriler</h1>
-          <p>Marka sahibi, ic sorumlu, sonraki aksiyon ve teslimat takibini tek CRM gorunumuyle yonet.</p>
+          <h1>Kullanıcılar</h1>
+          <p>Marka sahibi, iç sorumlu, sonraki aksiyon ve teslimat takibini tek CRM görünümüyle yönet.</p>
         </div>
       </div>
 
       {clients.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <h3>Henüz Müşteri Yok</h3>
-            <p>Müşteriler projelerle birlikte otomatik olarak listelenecektir.</p>
+            <h3>Henüz müşteri yok</h3>
+            <p>Müşteriler mağazalarla birlikte otomatik olarak listelenecektir.</p>
           </div>
         </div>
       ) : (
@@ -33,11 +33,11 @@ export default async function ClientsPage() {
                   {client.lifecycleStage}
                 </span>
               </div>
-              <p>{client.nextAction || "Siradaki aksiyon tanimlanmamis."}</p>
+              <p>{client.nextAction || "Sıradaki aksiyon tanımlanmamış."}</p>
               <div className="meta-pairs meta-pairs-compact">
-                <span>Magaza: <strong>{client.storeName}</strong></span>
-                <span>Ic sorumlu: <strong>{client.internalOwner || "Atanmadi"}</strong></span>
-                <span>Iletisim: <strong>{client.clientContactName || client.clientContactEmail || "-"}</strong></span>
+                <span>Mağaza: <strong>{client.storeName}</strong></span>
+                <span>İç sorumlu: <strong>{client.internalOwner || "Atanmadı"}</strong></span>
+                <span>İletişim: <strong>{client.clientContactName || client.clientContactEmail || "-"}</strong></span>
                 <span>Ciro: <strong>{formatCurrency(client.totalRevenue)}</strong></span>
               </div>
             </Link>

@@ -31,6 +31,7 @@ import {
   getLightPostgresBootstrapStatus,
   provisionLightPostgresForStore,
 } from "@/lib/light-postgres-provisioning";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import {
@@ -88,13 +89,6 @@ export interface StoreProvisioningWorkflowResult {
   steps: ProvisioningStepSummary[];
   blockers: ProvisioningStepSummary[];
   repaired: boolean;
-}
-
-class ProvisioningBlockedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ProvisioningBlockedError";
-  }
 }
 
 export interface ProvisioningEnvironmentReadiness {
@@ -157,6 +151,18 @@ function resolveRequestedDatabaseMode(
   input: ProvisioningEnvironmentReadinessInput = {},
 ): DatabaseMode {
   return resolveDefaultDatabaseMode(input.databaseMode);
+}
+
+function isPendingAuthSetup(store: StoreConfig): boolean {
+  return store.auth?.status === "pending_auth_setup" && store.auth.blocking !== true;
+}
+
+function isPendingAnalyticsSetup(store: StoreConfig): boolean {
+  return store.analytics?.status === "pending_analytics_setup" && store.analytics.blocking !== true;
+}
+
+function isPendingPaymentSetup(store: StoreConfig): boolean {
+  return store.payments?.status === "pending_payment_setup" && store.payments.blocking !== true;
 }
 
 export async function validateProvisioningEnvironmentReadiness(
@@ -316,7 +322,7 @@ class ProvisioningTracker {
       status: "running",
       message: null,
       blocking: true,
-      state: "running",
+      state: "provisioning",
       lastError: null,
       lastRunAt: this.lastRunAt,
     });
@@ -327,7 +333,7 @@ class ProvisioningTracker {
       status: "completed",
       message,
       blocking: false,
-      state: "running",
+      state: "provisioning",
       lastError: null,
       lastRunAt: this.lastRunAt,
     });
@@ -407,20 +413,26 @@ class ProvisioningTracker {
 
   async finalize(): Promise<StoreProvisioningWorkflowResult> {
     this.summary = await reconcileProvisioningSummaryWithLiveState(this.slug, this.summary);
+    const store = repairStoreConfig(this.slug);
     const blockers = getProvisioningBlockers(this.summary);
     const derivedIssueMessage =
       this.summary.steps.find((step) => readGeneratedRuntimeIssueCode(step.message))?.message ??
       this.summary.lastError;
     const lastError = blockers[0]?.message ?? derivedIssueMessage ?? this.summary.lastError;
-    const state = deriveProvisioningState(this.summary.steps, lastError);
+    const state = deriveProvisioningState(this.summary.steps, lastError, {
+      authPending: isPendingAuthSetup(store),
+      analyticsPending: isPendingAnalyticsSetup(store),
+      paymentPending: isPendingPaymentSetup(store),
+    });
     this.summary = await persistProvisioningSummary(this.slug, {
       state,
-      lastError: state === "ready" ? null : lastError,
+      lastError:
+        state === "pending_repair" || state === "failed" || state === "pending_dns"
+          ? lastError
+          : null,
       lastRunAt: this.lastRunAt,
       steps: this.summary.steps,
     });
-
-    const store = repairStoreConfig(this.slug);
 
     return {
       store,
@@ -439,12 +451,12 @@ async function initializeTracker(
   const now = new Date().toISOString();
   const existing = mode === "repair"
     ? await persistProvisioningSummary(slug, {
-        state: "running",
+        state: "provisioning",
         lastError: null,
         lastRunAt: now,
       })
     : await persistProvisioningSummary(slug, {
-        state: "running",
+        state: "provisioning",
         lastError: null,
         lastRunAt: now,
         steps: createDefaultProvisioningSteps(),
@@ -490,11 +502,6 @@ async function runWorkflowStep(
     await tracker.complete(key, await action());
     return true;
   } catch (error) {
-    if (error instanceof ProvisioningBlockedError) {
-      await tracker.block(key, error.message);
-      return false;
-    }
-
     await tracker.fail(key, error, options?.blockingOnFailure ?? true);
     return options?.continueOnFailure ?? false;
   }
@@ -806,15 +813,8 @@ async function reconcileProvisioningSummaryWithLiveState(
   try {
     const adminBlueprint = await getStoreAdminDeploymentBlueprint(slug);
 
-    if (adminBlueprint.status === "prepared" || adminBlueprint.status === "configured") {
+    if (adminBlueprint.status !== "pending-owner-env") {
       markCompleted("admin_blueprint", "Admin blueprint authority hazir.");
-    } else if (adminBlueprint.status === "failed") {
-      const adminBlueprintError =
-        adminBlueprint.runtimeMessage ||
-        "Admin blueprint authority deploy modelini karsilamiyor.";
-      readinessError = readinessError ?? adminBlueprintError;
-      markFailed("admin_blueprint", adminBlueprintError);
-      blockRemainingStepsAfter("admin_blueprint", "Admin blueprint tamamlanmadan ilerlenemez.");
     }
 
     if (adminBlueprint.status === "configured" && adminBlueprint.runtimeConsistent) {
@@ -842,32 +842,11 @@ async function reconcileProvisioningSummaryWithLiveState(
   try {
     const storefrontBlueprint = await getStorefrontDeploymentBlueprint(slug);
 
-    if (storefrontBlueprint.status === "prepared" || storefrontBlueprint.status === "configured") {
+    if (storefrontBlueprint.status !== "pending-owner-env") {
       markCompleted("storefront_blueprint", "Storefront blueprint authority hazir.");
-    } else if (storefrontBlueprint.status === "failed") {
-      const storefrontBlueprintError =
-        storefrontBlueprint.runtimeMessage ||
-        "Storefront blueprint authority deploy modelini karsilamiyor.";
-      readinessError = readinessError ?? storefrontBlueprintError;
-      markFailed("storefront_blueprint", storefrontBlueprintError);
-      blockRemainingStepsAfter(
-        "storefront_blueprint",
-        "Storefront blueprint tamamlanmadan ilerlenemez.",
-      );
     }
 
-    if (store.storefront?.repoSyncStatus === "failed") {
-      const repoSyncError =
-        store.storefront?.lastRepoSyncError ||
-        storefrontBlueprint.runtimeMessage ||
-        "Storefront repo senkronu basarisiz oldu.";
-      readinessError = readinessError ?? repoSyncError;
-      markFailed("storefront_repo_sync", repoSyncError);
-      blockRemainingStepsAfter(
-        "storefront_repo_sync",
-        "Storefront repo sync tamamlanmadan ilerlenemez.",
-      );
-    } else if (storefrontBlueprint.repoSynced) {
+    if (storefrontBlueprint.repoSynced) {
       markCompleted("storefront_repo_sync", "Storefront branch ve app dizini repo ile senkron.");
     }
 
@@ -880,13 +859,6 @@ async function reconcileProvisioningSummaryWithLiveState(
       if (readGeneratedRuntimeIssueCode(storefrontBlueprint.runtimeMessage) === "pending_dns") {
         readinessError = readinessError ?? storefrontBlueprint.runtimeMessage;
       }
-    } else if (store.storefront?.deploymentStatus === "failed") {
-      const storefrontFailureMessage =
-        store.storefront?.lastDeploymentError ||
-        storefrontBlueprint.runtimeMessage ||
-        "Storefront deployment basarisiz oldu.";
-      readinessError = readinessError ?? storefrontFailureMessage;
-      markFailed("storefront_deploy", storefrontFailureMessage);
     }
   } catch {
     // Keep existing provisioning summary when storefront runtime cannot be checked.
@@ -929,10 +901,6 @@ async function reconcileProvisioningSummaryWithLiveState(
         "Storefront veri API smoke kontrolleri basarisiz oldu.";
       readinessError = readinessError ?? storefrontError;
       markFailed("storefront_deploy", `Storefront smoke basarisiz: ${storefrontError}`);
-      blockRemainingStepsAfter(
-        "storefront_deploy",
-        "Storefront deployment tamamlanmadan ilerlenemez.",
-      );
     }
   }
 
@@ -999,6 +967,10 @@ async function reconcileProvisioningSummaryWithLiveState(
 export async function runStoreProvisioningWorkflow(
   input: StoreProvisioningWorkflowInput,
 ): Promise<StoreProvisioningWorkflowResult> {
+  if (isOwnerActionDisabled("provisioning")) {
+    throw new Error("Preview ortaminda yazma/kurulum islemleri kapalidir.");
+  }
+
   const provisioningWindow = await reserveStoreProvisioningWindow({
     slug: input.slug,
     mode: input.mode,
@@ -1123,33 +1095,6 @@ export async function runStoreProvisioningWorkflow(
       },
     ],
     [
-      "admin_blueprint",
-      async () => {
-        const blueprint = await prepareStoreAdminDeployment(input.slug);
-
-        if (blueprint.status === "pending-owner-env" || blueprint.status === "failed") {
-          throw new Error(blueprint.runtimeMessage || "Admin blueprint hazirlanamadi.");
-        }
-
-        return "Admin blueprint hazirlandi.";
-      },
-    ],
-    [
-      "admin_deploy",
-      async () => {
-        const deployment = await runGeneratedDeploymentStep(
-          { slug: input.slug, target: "admin" },
-          () => provisionAdminDeploymentForStore(input.slug, { waitForRuntime: true }),
-        );
-
-        if (deployment.status !== "configured" || !deployment.runtimeConsistent) {
-          throw new Error(deployment.message || "Admin deployment basarisiz oldu.");
-        }
-
-        return deployment.message || "Admin runtime dogrulandi.";
-      },
-    ],
-    [
       "storefront_deploy",
       async () => {
         const blueprint = await prepareStorefrontDeployment(input.slug);
@@ -1177,18 +1122,47 @@ export async function runStoreProvisioningWorkflow(
       },
     ],
     [
+      "admin_blueprint",
+      async () => {
+        const blueprint = await prepareStoreAdminDeployment(input.slug);
+
+        if (blueprint.status === "pending-owner-env" || blueprint.status === "failed") {
+          throw new Error(blueprint.runtimeMessage || "Admin blueprint hazirlanamadi.");
+        }
+
+        return "Admin blueprint hazirlandi.";
+      },
+    ],
+    [
+      "admin_deploy",
+      async () => {
+        const deployment = await runGeneratedDeploymentStep(
+          { slug: input.slug, target: "admin" },
+          () => provisionAdminDeploymentForStore(input.slug, { waitForRuntime: true }),
+        );
+
+        if (deployment.status !== "configured" || !deployment.runtimeConsistent) {
+          throw new Error(deployment.message || "Admin deployment basarisiz oldu.");
+        }
+
+        return deployment.message || "Admin runtime dogrulandi.";
+      },
+    ],
+    [
       "analytics_setup",
       async () => {
         const store = repairStoreConfig(input.slug);
 
         if (store.databaseMode === "light_postgres") {
           if (store.lightPostgres?.umamiReady === false) {
-            throw new ProvisioningBlockedError(
-              "light_postgres store icin analytics hazirligi tamamlanmadi.",
-            );
+            throw new Error("light_postgres store icin analytics hazirligi tamamlanmadi.");
           }
 
-          return "Umami-ready analytics authority kaydi hazir.";
+          if (isPendingAnalyticsSetup(store)) {
+            return "Umami-ready analytics placeholder owner authority icinde kayitli.";
+          }
+
+          return "Umami analytics authority hazir.";
         }
 
         return "Legacy analytics setup store runtime icinde ele alinir.";
@@ -1200,12 +1174,26 @@ export async function runStoreProvisioningWorkflow(
         const store = repairStoreConfig(input.slug);
 
         if (store.databaseMode === "light_postgres") {
-          throw new ProvisioningBlockedError(
-            "blocked_auth_setup: light_postgres store icin merkezi admin auth kurulumu ayrica tamamlanmali.",
-          );
+          if (isPendingAuthSetup(store)) {
+            return "Logto-ready auth placeholder owner authority icinde kayitli.";
+          }
+
+          return "Light Postgres auth authority hazir.";
         }
 
         return "Supabase auth store ile birlikte hazir.";
+      },
+    ],
+    [
+      "payment_setup",
+      async () => {
+        const store = repairStoreConfig(input.slug);
+
+        if (isPendingPaymentSetup(store)) {
+          return "Odeme ayari bekleniyor; placeholder owner authority icinde kayitli.";
+        }
+
+        return "Odeme authority hazir.";
       },
     ],
   ];

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getOwnerRepositoryBranch } from "@/lib/platform-config-owner";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 
 interface CoolifyApplication {
   uuid?: string;
@@ -226,6 +227,10 @@ export async function repairOwnerDeploymentBranch(options?: {
 }
 
 export async function repairOwnerDeploymentBranchOnce(): Promise<OwnerDeploymentBranchRepairResult | null> {
+  if (isOwnerActionDisabled("repair")) {
+    return null;
+  }
+
   if (!hasOwnerDeploymentRepairEnv()) {
     return null;
   }

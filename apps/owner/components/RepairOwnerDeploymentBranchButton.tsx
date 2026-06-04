@@ -3,7 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-export function RepairOwnerDeploymentBranchButton() {
+interface RepairOwnerDeploymentBranchButtonProps {
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
+export function RepairOwnerDeploymentBranchButton({
+  disabled = false,
+  disabledReason,
+}: RepairOwnerDeploymentBranchButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -12,6 +20,11 @@ export function RepairOwnerDeploymentBranchButton() {
   function handleRepair() {
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/operations/repair-owner-deployment-branch", {
@@ -30,19 +43,19 @@ export function RepairOwnerDeploymentBranchButton() {
       };
 
       if (!response.ok) {
-        setError(payload.error || "Owner deployment branch onarimi basarisiz oldu.");
+        setError(payload.error || "Owner yayın branch onarımı başarısız oldu.");
         return;
       }
 
       const current = payload.currentBranch || "bilinmiyor";
       const desired = payload.desiredBranch || "deploy/owner";
       const branchNotice = payload.branchChanged
-        ? `Owner branch ${current} yerine ${desired} olacak sekilde guncellendi.`
+        ? `Owner branch ${current} yerine ${desired} olacak şekilde güncellendi.`
         : `Owner branch zaten ${desired}.`;
       const autoDeployNotice = payload.autoDeployChanged
-        ? "Auto deploy yeniden acildi."
+        ? "Auto deploy yeniden açıldı."
         : payload.currentAutoDeployEnabled === true
-          ? "Auto deploy zaten acik."
+          ? "Auto deploy zaten açık."
           : "Auto deploy durumu teyit edilemedi.";
       const deployNotice = payload.deploymentTriggered
         ? "Redeploy tetiklendi."
@@ -59,14 +72,15 @@ export function RepairOwnerDeploymentBranchButton() {
     <div className="inline-stack">
       <button
         type="button"
-        className="button button-secondary"
+        className={`button button-secondary${disabledReason ? " button-preview-disabled" : ""}`}
         onClick={handleRepair}
-        disabled={isPending}
+        disabled={disabled || isPending}
       >
-        {isPending ? "Owner deploy ayari onariliyor..." : "Owner deploy ayarini onar"}
+        {isPending ? "Owner yayın ayarı onarılıyor..." : "Owner yayın ayarını onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview">{disabledReason}</p> : null}
     </div>
   );
 }

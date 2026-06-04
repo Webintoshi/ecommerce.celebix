@@ -44,6 +44,8 @@ interface MigrateStoreDomainFormProps {
   storefrontDomain: string;
   adminDomain: string;
   domainMigration: DomainMigrationStatusSnapshot;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 function normalizeInputDomain(value: string): string {
@@ -75,6 +77,8 @@ export function MigrateStoreDomainForm({
   storefrontDomain,
   adminDomain,
   domainMigration,
+  disabled = false,
+  disabledReason,
 }: MigrateStoreDomainFormProps) {
   const router = useRouter();
   const [domain, setDomain] = useState(storefrontDomain);
@@ -92,6 +96,11 @@ export function MigrateStoreDomainForm({
     setNotice(null);
     setDetails([]);
 
+    if (disabled) {
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
+      return;
+    }
+
     startTransition(() => {
       void (async () => {
         try {
@@ -107,29 +116,29 @@ export function MigrateStoreDomainForm({
           const { payload, errorMessage } = await readActionResponse<DomainMigrationPayload>(response);
 
           if (!response.ok) {
-            setError(errorMessage || "Domain migration basarisiz oldu.");
+            setError(errorMessage || "Domain geçişi başarısız oldu.");
             return;
           }
 
           const nextDetails = [
             payload?.authoritySyncMessage,
             payload?.adminDeployment
-              ? `Admin deploy: ${payload.adminDeployment.status} (${payload.adminDeployment.runtimeUrl})`
+              ? `Admin yayını: ${payload.adminDeployment.status} (${payload.adminDeployment.runtimeUrl})`
               : null,
             payload?.storefrontDeployment
-              ? `Storefront deploy: ${payload.storefrontDeployment.status} (${payload.storefrontDeployment.runtimeUrl})`
+              ? `Vitrin yayını: ${payload.storefrontDeployment.status} (${payload.storefrontDeployment.runtimeUrl})`
               : null,
           ].filter((value): value is string => Boolean(value));
 
           setNotice(
             payload?.storefrontDomain && payload?.adminDomain
-              ? `Domain migration tamamlandi: ${payload.storefrontDomain} / ${payload.adminDomain}`
-              : "Domain migration tamamlandi.",
+              ? `Domain geçişi tamamlandı: ${payload.storefrontDomain} / ${payload.adminDomain}`
+              : "Domain geçişi tamamlandı.",
           );
           setDetails(nextDetails);
           router.refresh();
         } catch (error) {
-          setError(normalizeActionError(error, "Domain migration basarisiz oldu."));
+          setError(normalizeActionError(error, "Domain geçişi başarısız oldu."));
         }
       })();
     });
@@ -137,8 +146,9 @@ export function MigrateStoreDomainForm({
 
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
+      <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
       <label className="field">
-        <span>Mevcut storefront domain</span>
+        <span>Mevcut vitrin domain</span>
         <input value={storefrontDomain} disabled />
       </label>
 
@@ -148,7 +158,7 @@ export function MigrateStoreDomainForm({
       </label>
 
       <label className="field">
-        <span>Yeni storefront domain</span>
+        <span>Yeni vitrin domain</span>
         <input
           value={domain}
           onChange={(event) => setDomain(event.target.value)}
@@ -161,40 +171,42 @@ export function MigrateStoreDomainForm({
         <span>Yeni admin domain</span>
         <input value={previewAdminDomain} disabled placeholder="admin.wayabutik.com" />
         <small className="muted">
-          {"`celebix.co` demo domainlerinde admin host `admin-<slug>.celebix.co`, custom domainlerde `admin.<domain>` olur."}
+          {"`celebix.co` demo domainlerinde admin host `admin-<slug>.celebix.co`, özel domainlerde `admin.<domain>` olur."}
         </small>
       </label>
 
       <div className="card field-full section-tight">
-        <div className="card-title">Migration etkisi</div>
+        <div className="card-title">Domain geçiş etkisi</div>
         <div className="meta-pairs">
-          <span>Store config: <strong>guncellenecek</strong></span>
-          <span>Owner authority: <strong>guncellenecek</strong></span>
-          <span>Coolify admin/storefront: <strong>patch + redeploy</strong></span>
+          <span>Mağaza config: <strong>güncellenecek</strong></span>
+          <span>Owner authority: <strong>güncellenecek</strong></span>
+          <span>Coolify admin/vitrin: <strong>patch + redeploy</strong></span>
         </div>
         <p className="card-note">
-          Destek ve noreply e-postalari eski domainin varsayilan formundaysa yeni domaine otomatik tasinir.
+          Destek ve noreply e-postaları eski domainin varsayılan formundaysa yeni domaine otomatik taşınır.
         </p>
       </div>
 
       {domainMigration.hasHistory ? (
         <div className="inline-card field-full">
           <div className="meta-pairs">
-            <span>Son migration state: <strong>{domainMigration.state}</strong></span>
+            <span>Son geçiş durumu: <strong>{domainMigration.state}</strong></span>
             <span>Rollback: <strong>{domainMigration.rollbackState}</strong></span>
-            <span>Baslangic: <strong>{domainMigration.startedAt || "-"}</strong></span>
+            <span>Başlangıç: <strong>{domainMigration.startedAt || "-"}</strong></span>
             <span>Tamamlama: <strong>{domainMigration.completedAt || "-"}</strong></span>
           </div>
           {domainMigration.lastError ? (
             <p className="form-error" style={{ marginTop: 12 }}>
-              Son migration notu: {domainMigration.lastError}
+              Son geçiş notu: {domainMigration.lastError}
             </p>
           ) : null}
         </div>
       ) : null}
+      </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}
       {notice ? <p className="form-notice field-full">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview field-full">{disabledReason}</p> : null}
       {details.length > 0 ? (
         <div className="stack-list field-full">
           {details.map((detail) => (
@@ -206,8 +218,12 @@ export function MigrateStoreDomainForm({
       ) : null}
 
       <div className="actions field-full">
-        <button type="submit" className="button button-primary" disabled={isPending}>
-          {isPending ? "Domain tasiniyor..." : "Custom domain'e gecir"}
+        <button
+          type="submit"
+          className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
+          disabled={disabled || isPending}
+        >
+          {isPending ? "Domain taşınıyor..." : "Özel domain'e geçir"}
         </button>
       </div>
     </form>

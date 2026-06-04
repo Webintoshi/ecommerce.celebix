@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getStoreConfig, repairStoreConfig } from "@celebix/platform-config";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { syncOwnerStoresAndMetrics } from "@/lib/control-plane";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import { prepareStorefrontDeployment } from "@/lib/storefront-deployment";
@@ -26,6 +27,12 @@ export async function POST(_request: Request, { params }: StorefrontRouteProps) 
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("deploy");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {

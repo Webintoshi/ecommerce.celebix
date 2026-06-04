@@ -70,6 +70,41 @@ export interface StoreLightPostgresConfig {
   umamiReady?: boolean;
 }
 
+export type StoreAuthProvider = "logto" | "supabase";
+export type StoreAuthStatus = "pending_auth_setup" | "configured";
+export type StoreAuthMode = "logto_ready_placeholder" | "legacy_supabase_auth";
+
+export interface StoreAuthConfig {
+  provider: StoreAuthProvider;
+  status: StoreAuthStatus;
+  mode: StoreAuthMode;
+  requiredAction?: string;
+  blocking?: boolean;
+}
+
+export type StoreAnalyticsProvider = "umami";
+export type StoreAnalyticsStatus = "pending_analytics_setup" | "configured";
+export type StoreAnalyticsMode = "umami_ready_placeholder";
+
+export interface StoreAnalyticsConfig {
+  provider: StoreAnalyticsProvider;
+  status: StoreAnalyticsStatus;
+  mode: StoreAnalyticsMode;
+  websiteId?: string;
+  requiredAction?: string;
+  blocking?: boolean;
+}
+
+export type StorePaymentStatus = "pending_payment_setup" | "configured";
+export type StorePaymentProvider = "bank_transfer" | "none";
+
+export interface StorePaymentsConfig {
+  status: StorePaymentStatus;
+  defaultProvider: StorePaymentProvider;
+  requiredAction?: string;
+  blocking?: boolean;
+}
+
 export interface GeneratedDeploymentConfig {
   strategy: DeploymentStrategy;
   image: string;
@@ -118,8 +153,13 @@ export interface StoreConfig {
   owner: {
     createdBy: string;
     notes: string;
+    legacyModeSelected?: boolean;
+    standardProfile?: "celebix_new_standard" | "legacy_supabase";
   };
   lightPostgres?: StoreLightPostgresConfig;
+  auth?: StoreAuthConfig;
+  analytics?: StoreAnalyticsConfig;
+  payments?: StorePaymentsConfig;
   supabase: {
     projectRef: string;
     url: string;
@@ -408,6 +448,47 @@ function resolveDeploymentStrategy(): DeploymentStrategy {
   return "build_server_ghcr";
 }
 
+export function buildDefaultStoreAuthConfig(
+  databaseMode: DatabaseMode = "light_postgres",
+): StoreAuthConfig {
+  if (databaseMode === "full_supabase") {
+    return {
+      provider: "supabase",
+      status: "configured",
+      mode: "legacy_supabase_auth",
+      requiredAction: "legacy_supabase_auth_managed_in_store_runtime",
+      blocking: false,
+    };
+  }
+
+  return {
+    provider: "logto",
+    status: "pending_auth_setup",
+    mode: "logto_ready_placeholder",
+    requiredAction: "configure_admin_and_customer_auth",
+    blocking: false,
+  };
+}
+
+export function buildDefaultStoreAnalyticsConfig(): StoreAnalyticsConfig {
+  return {
+    provider: "umami",
+    status: "pending_analytics_setup",
+    mode: "umami_ready_placeholder",
+    requiredAction: "configure_umami_website",
+    blocking: false,
+  };
+}
+
+export function buildDefaultStorePaymentsConfig(): StorePaymentsConfig {
+  return {
+    status: "pending_payment_setup",
+    defaultProvider: "bank_transfer",
+    requiredAction: "configure_payment_provider",
+    blocking: false,
+  };
+}
+
 function normalizeRepositoryBranch(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
 
@@ -613,7 +694,10 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       },
     owner: {
       createdBy: "owner-panel",
-      notes: "Merkezi owner panel uzerinden olusturuldu."
+      notes: "Merkezi owner panel uzerinden olusturuldu.",
+      legacyModeSelected: databaseMode === "full_supabase",
+      standardProfile:
+        databaseMode === "full_supabase" ? "legacy_supabase" : "celebix_new_standard",
     },
     lightPostgres: {
       cluster: resolveLightPostgresCluster(),
@@ -622,6 +706,9 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       provisioning: databaseMode === "light_postgres" ? "pending-owner-env" : "configured",
       umamiReady: true,
     },
+    auth: buildDefaultStoreAuthConfig(databaseMode),
+    analytics: buildDefaultStoreAnalyticsConfig(),
+    payments: buildDefaultStorePaymentsConfig(),
     supabase: {
       projectRef: "pending-owner-bootstrap",
       url: "configure-in-env",
@@ -1016,6 +1103,36 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     lastProvisionError: config.lightPostgres?.lastProvisionError,
     umamiReady: config.lightPostgres?.umamiReady ?? true,
   } satisfies NonNullable<StoreConfig["lightPostgres"]>;
+  const defaultAuth = buildDefaultStoreAuthConfig(databaseMode);
+  const normalizedAuth = {
+    provider: config.auth?.provider ?? defaultAuth.provider,
+    status:
+      config.auth?.status ??
+      (config.auth?.mode === "legacy_supabase_auth" || databaseMode === "full_supabase"
+        ? "configured"
+        : defaultAuth.status),
+    mode: config.auth?.mode ?? defaultAuth.mode,
+    requiredAction: config.auth?.requiredAction ?? defaultAuth.requiredAction,
+    blocking: config.auth?.blocking ?? false,
+  } satisfies NonNullable<StoreConfig["auth"]>;
+  const defaultAnalytics = buildDefaultStoreAnalyticsConfig();
+  const normalizedAnalytics = {
+    provider: config.analytics?.provider ?? defaultAnalytics.provider,
+    status:
+      config.analytics?.status ??
+      (config.analytics?.websiteId?.trim() ? "configured" : defaultAnalytics.status),
+    mode: config.analytics?.mode ?? defaultAnalytics.mode,
+    websiteId: normalizeOptionalString(config.analytics?.websiteId),
+    requiredAction: config.analytics?.requiredAction ?? defaultAnalytics.requiredAction,
+    blocking: config.analytics?.blocking ?? false,
+  } satisfies NonNullable<StoreConfig["analytics"]>;
+  const defaultPayments = buildDefaultStorePaymentsConfig();
+  const normalizedPayments = {
+    status: config.payments?.status ?? defaultPayments.status,
+    defaultProvider: config.payments?.defaultProvider ?? defaultPayments.defaultProvider,
+    requiredAction: config.payments?.requiredAction ?? defaultPayments.requiredAction,
+    blocking: config.payments?.blocking ?? false,
+  } satisfies NonNullable<StoreConfig["payments"]>;
   const normalizedStorefront = mergeStorefrontConfig(
     {
       ...config,
@@ -1034,6 +1151,9 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     databaseMode,
     domains: normalizedDomains,
     lightPostgres: normalizedLightPostgres,
+    auth: normalizedAuth,
+    analytics: normalizedAnalytics,
+    payments: normalizedPayments,
     supabase: {
       ...config.supabase,
       provider: supabaseProvider,

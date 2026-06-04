@@ -38,13 +38,13 @@ export function OwnerAuthForm() {
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          setError(payload.error || "Giris yapilamadi.");
+          setError(payload.error || "Giriş yapılamadı.");
           return;
         }
 
         const session = payload.session;
         if (!session?.access_token || !session?.refresh_token) {
-          setError("Giris oturumu olusturulamadi.");
+          setError("Giriş oturumu oluşturulamadı.");
           return;
         }
 
@@ -73,13 +73,13 @@ export function OwnerAuthForm() {
         return;
       }
 
-      setNotice("Hesap olusturuldu. E-posta dogrulamasi aciksa maildeki linke tikla, sonra buradan giris yap.");
+      setNotice("Hesap oluşturuldu. E-posta doğrulaması açıksa maildeki linke tıkla, sonra buradan giriş yap.");
     });
   }
 
   return (
     <form onSubmit={handleSubmit} className="owner-auth-form">
-      <div className="owner-auth-switch" role="tablist" aria-label="Giris modu secimi">
+      <div className="owner-auth-switch" role="tablist" aria-label="Giriş modu seçimi">
         <button
           type="button"
           role="tab"
@@ -87,7 +87,7 @@ export function OwnerAuthForm() {
           className={`owner-auth-switch-btn${mode === "login" ? " is-active" : ""}`}
           onClick={() => setMode("login")}
         >
-          Giris Yap
+          Giriş Yap
         </button>
         <button
           type="button"
@@ -96,7 +96,7 @@ export function OwnerAuthForm() {
           className={`owner-auth-switch-btn${mode === "register" ? " is-active" : ""}`}
           onClick={() => setMode("register")}
         >
-          Hesap Olustur
+          Hesap Oluştur
         </button>
       </div>
 
@@ -107,7 +107,7 @@ export function OwnerAuthForm() {
             type="text"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
-            placeholder="Celebix Yonetici"
+            placeholder="Celebix Yönetici"
           />
         </label>
       ) : null}
@@ -124,7 +124,7 @@ export function OwnerAuthForm() {
       </label>
 
       <label className="owner-auth-field">
-        <span>Sifre</span>
+        <span>Şifre</span>
         <input
           type="password"
           value={password}
@@ -139,7 +139,7 @@ export function OwnerAuthForm() {
       {notice ? <p className="owner-auth-message is-notice">{notice}</p> : null}
 
       <button type="submit" disabled={isPending} className="button button-primary owner-auth-submit">
-        {isPending ? "Isleniyor..." : mode === "login" ? "Panel'e Giris Yap" : "Owner Hesabi Olustur"}
+        {isPending ? "İşleniyor..." : mode === "login" ? "Panel'e Giriş Yap" : "Owner Hesabı Oluştur"}
       </button>
     </form>
   );

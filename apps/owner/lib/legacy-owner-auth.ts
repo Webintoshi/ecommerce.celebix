@@ -18,10 +18,6 @@ type LegacyAuthConfigCache = {
   expiresAt: number;
 };
 
-type LegacyFetchOutcome =
-  | { status: "disabled" | "missing_config" | "removed" | "unavailable"; anonKey: null }
-  | { status: "ready"; anonKey: string };
-
 const SUPABASE_MANAGEMENT_API_URL = "https://api.supabase.com/v1";
 const LEGACY_CONFIG_TTL_MS = 10 * 60 * 1000;
 
@@ -35,18 +31,12 @@ function getLegacyProjectRef(): string | null {
   return value || null;
 }
 
-function isLegacyAuthRepairEnabled(): boolean {
-  const value = process.env.OWNER_ENABLE_LEGACY_AUTH_REPAIR?.trim().toLowerCase();
-
-  return value === "1" || value === "true" || value === "yes" || value === "on";
-}
-
 function getSupabaseManagementToken(): string | null {
   const value = process.env.SUPABASE_ACCESS_TOKEN?.trim();
   return value || null;
 }
 
-async function fetchLegacyAnonKey(projectRef: string, accessToken: string): Promise<LegacyFetchOutcome> {
+async function fetchLegacyAnonKey(projectRef: string, accessToken: string): Promise<string | null> {
   const response = await fetch(`${SUPABASE_MANAGEMENT_API_URL}/projects/${projectRef}/api-keys`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -56,16 +46,7 @@ async function fetchLegacyAnonKey(projectRef: string, accessToken: string): Prom
   });
 
   if (!response.ok) {
-    const payload = await response.text();
-
-    if (
-      response.status === 400 &&
-      payload.toLowerCase().includes("resource has been removed")
-    ) {
-      return { status: "removed", anonKey: null };
-    }
-
-    return { status: "unavailable", anonKey: null };
+    return null;
   }
 
   const keys = (await response.json()) as LegacyApiKey[];
@@ -74,22 +55,12 @@ async function fetchLegacyAnonKey(projectRef: string, accessToken: string): Prom
     keys.find((entry) => entry.id === "anon")?.api_key ||
     null;
 
-  return anonKey?.trim()
-    ? { status: "ready", anonKey: anonKey.trim() }
-    : { status: "missing_config", anonKey: null };
+  return anonKey?.trim() || null;
 }
 
 export async function getLegacyOwnerAuthConfig(): Promise<LegacyAuthConfig | null> {
   if (legacyConfigCache.config && legacyConfigCache.expiresAt > Date.now()) {
     return legacyConfigCache.config;
-  }
-
-  if (!isLegacyAuthRepairEnabled()) {
-    legacyConfigCache = {
-      config: null,
-      expiresAt: Date.now() + LEGACY_CONFIG_TTL_MS,
-    };
-    return null;
   }
 
   const projectRef = getLegacyProjectRef();
@@ -103,9 +74,9 @@ export async function getLegacyOwnerAuthConfig(): Promise<LegacyAuthConfig | nul
     return null;
   }
 
-  const outcome = await fetchLegacyAnonKey(projectRef, accessToken);
+  const anonKey = await fetchLegacyAnonKey(projectRef, accessToken);
 
-  if (outcome.status !== "ready") {
+  if (!anonKey) {
     legacyConfigCache = {
       config: null,
       expiresAt: Date.now() + LEGACY_CONFIG_TTL_MS,
@@ -114,7 +85,7 @@ export async function getLegacyOwnerAuthConfig(): Promise<LegacyAuthConfig | nul
   }
 
   const config: LegacyAuthConfig = {
-    anonKey: outcome.anonKey,
+    anonKey,
     url: `https://${projectRef}.supabase.co`,
   };
 

@@ -7,11 +7,15 @@ import { normalizeActionError, readActionResponse } from "@/components/action-re
 interface ProvisionAdminDeploymentButtonProps {
   slug: string;
   currentStatus: "pending-owner-env" | "prepared" | "configured" | "failed";
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export function ProvisionAdminDeploymentButton({
   slug,
   currentStatus,
+  disabled = false,
+  disabledReason,
 }: ProvisionAdminDeploymentButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +25,11 @@ export function ProvisionAdminDeploymentButton({
   function handleProvision() {
     setError(null);
     setNotice(null);
+
+    if (disabled) {
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
+      return;
+    }
 
     startTransition(() => {
       void (async () => {
@@ -35,18 +44,18 @@ export function ProvisionAdminDeploymentButton({
           }>(response);
 
           if (!response.ok) {
-            setError(errorMessage || "Admin deployment otomasyonu basarisiz oldu.");
+            setError(errorMessage || "Admin yayın otomasyonu başarısız oldu.");
             return;
           }
 
           setNotice(
             payload?.deployment?.status === "configured"
-              ? "Admin deployment hazir ve runtime tutarli."
-              : "Admin deployment guncellendi; runtime tutarliligi kontrol ediliyor.",
+              ? "Admin yayını hazır ve runtime tutarlı."
+              : "Admin yayını güncellendi; runtime tutarlılığı kontrol ediliyor.",
           );
           router.refresh();
         } catch (error) {
-          setError(normalizeActionError(error, "Admin deployment otomasyonu basarisiz oldu."));
+          setError(normalizeActionError(error, "Admin yayın otomasyonu başarısız oldu."));
         }
       })();
     });
@@ -54,15 +63,21 @@ export function ProvisionAdminDeploymentButton({
 
   return (
     <div className="inline-stack">
-      <button type="button" className="button button-secondary" onClick={handleProvision} disabled={isPending}>
+      <button
+        type="button"
+        className={`button button-secondary${disabledReason ? " button-preview-disabled" : ""}`}
+        onClick={handleProvision}
+        disabled={disabled || isPending}
+      >
         {isPending
-          ? "Deploy hazirlaniyor..."
+          ? "Yayın hazırlanıyor..."
           : currentStatus === "configured"
-            ? "Admin deployment'i yenile"
-            : "Admin deployment'i kur"}
+            ? "Admin yayınını yenile"
+            : "Admin yayınını kur"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview">{disabledReason}</p> : null}
     </div>
   );
 }

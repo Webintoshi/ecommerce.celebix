@@ -12,9 +12,15 @@ interface ProvisioningStepSummary {
 
 interface RepairProjectButtonProps {
   slug: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
+export function RepairProjectButton({
+  slug,
+  disabled = false,
+  disabledReason,
+}: RepairProjectButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -25,6 +31,11 @@ export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
     setError(null);
     setNotice(null);
     setDetails([]);
+
+    if (disabled) {
+      setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
+      return;
+    }
 
     startTransition(() => {
       void (async () => {
@@ -41,15 +52,15 @@ export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
           }>(response);
 
           if (!response.ok) {
-            setError(errorMessage || "Repair akisi basarisiz oldu.");
+            setError(errorMessage || "Onarım akışı başarısız oldu.");
             return;
           }
 
           setDetails(payload?.steps ?? []);
           setNotice(
             payload?.provisioningState === "ready"
-              ? "Repair akisi tamamlandi; provisioning state hazir."
-              : "Repair akisi calisti; kalan blocker'lar asagida listelendi.",
+              ? "Onarım akışı tamamlandı; kurulum durumu hazır."
+              : "Onarım akışı çalıştı; kalan blokajlar aşağıda listelendi.",
           );
 
           if (payload?.provisioningState !== "ready") {
@@ -57,13 +68,13 @@ export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
               payload?.blockers
                 ?.map((step) => step.message)
                 .filter((value): value is string => Boolean(value))
-                .join(" / ") || "Provisioning henuz pending_repair durumda.",
+                .join(" / ") || "Kurulum hâlâ pending_repair durumunda.",
             );
           }
 
           router.refresh();
         } catch (error) {
-          setError(normalizeActionError(error, "Repair akisi basarisiz oldu."));
+          setError(normalizeActionError(error, "Onarım akışı başarısız oldu."));
         }
       })();
     });
@@ -73,14 +84,15 @@ export function RepairProjectButton({ slug }: RepairProjectButtonProps) {
     <div className="inline-stack">
       <button
         type="button"
-        className="button button-secondary"
+        className={`button button-secondary${disabledReason ? " button-preview-disabled" : ""}`}
         onClick={handleRepair}
-        disabled={isPending}
+        disabled={disabled || isPending}
       >
-        {isPending ? "Repair calisiyor..." : "Projeyi onar"}
+        {isPending ? "Onarım çalışıyor..." : "Mağazayı onar"}
       </button>
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-notice">{notice}</p> : null}
+      {disabledReason ? <p className="form-notice form-notice-preview">{disabledReason}</p> : null}
       {details.length > 0 ? (
         <div className="stack-list stack-top-sm">
           {details

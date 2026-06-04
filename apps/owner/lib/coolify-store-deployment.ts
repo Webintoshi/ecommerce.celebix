@@ -3,6 +3,7 @@ import "server-only";
 import { getStores, requireStoreConfig } from "@celebix/platform-config";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { getStoreDeploymentBranches } from "@/lib/platform-config-owner";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
 
 interface CoolifyApplication {
@@ -291,6 +292,10 @@ export async function repairStoreDeploymentAuthority(
 export async function repairStoreDeploymentAuthorityOnce(
   slug: string,
 ): Promise<StoreDeploymentAuthorityRepairResult | null> {
+  if (isOwnerActionDisabled("repair")) {
+    return null;
+  }
+
   if (!hasStoreDeploymentRepairEnv()) {
     return null;
   }

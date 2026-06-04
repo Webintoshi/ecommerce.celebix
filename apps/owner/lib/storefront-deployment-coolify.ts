@@ -8,8 +8,8 @@ import {
 } from "@/lib/storefront-deployment";
 import { prepareCoolifyEnvValue } from "@/lib/coolify-env";
 import { normalizeCoolifyRepository } from "@/lib/coolify-repository";
-import { getGeneratedDeploymentModelGuardFailure } from "@/lib/generated-deployment-model";
 import { getStoreDeploymentBranches } from "@/lib/platform-config-owner";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 
 interface CoolifyProject {
@@ -297,20 +297,6 @@ function buildStorefrontAppPayload(
   projectUuid: string,
   environmentUuid: string,
 ) {
-  const deploymentModelError = getGeneratedDeploymentModelGuardFailure({
-    target: "storefront",
-    deploymentStrategy: blueprint.deploymentStrategy,
-    dockerImage: blueprint.dockerImage,
-    dockerImageTag: blueprint.dockerImageTag,
-    useBuildServer: blueprint.useBuildServer,
-    buildServer: blueprint.buildServer,
-    watchPaths: blueprint.watchPaths,
-  });
-
-  if (deploymentModelError) {
-    throw new Error(deploymentModelError);
-  }
-
   return {
     project_uuid: projectUuid,
     environment_uuid: environmentUuid,
@@ -861,6 +847,10 @@ export async function provisionStorefrontDeploymentForStore(
   slug: string,
   options: StorefrontDeploymentProvisioningOptions = {},
 ): Promise<StorefrontDeploymentProvisioningResult> {
+  if (isOwnerActionDisabled("deploy")) {
+    throw new Error("Preview ortaminda yazma/kurulum islemleri kapalidir.");
+  }
+
   const store = requireStoreConfig(slug);
   const blueprint = await getStorefrontDeploymentBlueprint(slug);
   const shouldWaitForRuntime = options.waitForRuntime ?? true;

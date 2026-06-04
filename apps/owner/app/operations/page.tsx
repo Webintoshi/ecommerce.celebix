@@ -1,226 +1,536 @@
-import { formatDateTime } from "@/lib/formatters";
+import {
+  OwnerActionPanel,
+  OwnerActionQueue,
+  OwnerActionButton,
+  OwnerEmptyState,
+  OwnerKpiCard,
+  OwnerPageHeader,
+  OwnerSectionCard,
+  OwnerStatusChip,
+  OwnerTimeline,
+  type OwnerTone,
+} from "@/components/owner-control";
 import { RepairAllStoreDeploymentAuthoritiesButton } from "@/components/RepairAllStoreDeploymentAuthoritiesButton";
 import { RepairOwnerDeploymentBranchButton } from "@/components/RepairOwnerDeploymentBranchButton";
+import type { AuditLogSummary, DashboardStoreSummary } from "@/lib/control-plane";
+import { getOperationsSummary, listDashboardStores } from "@/lib/control-plane";
+import { formatDateTime } from "@/lib/formatters";
+import {
+  getDatabaseModeLabel,
+  getProvisioningLabel,
+  getSetupSignals,
+  isLegacyDatabaseMode,
+} from "@/lib/lifecycle-ui";
 import { isSuperAdmin, requireOwnerAuth } from "@/lib/owner-auth";
-import { getOperationsSummary } from "@/lib/control-plane";
+import {
+  getOwnerPreviewDisabledNotice,
+  getOwnerPreviewFlags,
+  isOwnerActionDisabled,
+} from "@/lib/preview-mode";
+import {
+  getPreviewDashboardStores,
+  getPreviewOperationsSummary,
+  getPreviewOwnerAuthContext,
+  hasOwnerPreviewDataFallback,
+} from "@/lib/owner-preview-fixtures";
+
+type QueueReason = {
+  label: string;
+  tone: OwnerTone;
+};
+
+function getProvisioningTone(state: DashboardStoreSummary["provisioning"]["state"]): OwnerTone {
+  switch (state) {
+    case "failed":
+      return "danger";
+    case "pending_repair":
+    case "pending_auth":
+    case "pending_analytics":
+    case "pending_payment":
+    case "pending_dns":
+      return "warning";
+    case "ready":
+      return "success";
+    case "running":
+    case "provisioning":
+      return "accent";
+    default:
+      return "neutral";
+  }
+}
+
+function getActionReasons(store: DashboardStoreSummary): QueueReason[] {
+  const reasons: QueueReason[] = [];
+  const pendingSignals = getSetupSignals(store.setup).filter((signal) => signal.pending);
+
+  if (store.provisioning.state === "failed") {
+    reasons.push({ label: "Kritik onarım", tone: "danger" });
+  } else if (store.provisioning.state === "pending_repair") {
+    reasons.push({ label: "Onarım kuyruğu", tone: "warning" });
+  }
+
+  if (pendingSignals.length > 0) {
+    reasons.push({ label: `${pendingSignals.length} kurulum işi`, tone: "warning" });
+  }
+
+  if (store.consistency.blocking) {
+    reasons.push({ label: `${store.consistency.blockingIssueCount} blokaj`, tone: "danger" });
+  }
+
+  if (!store.health.adminRuntimeConsistent || !store.health.adminDeploymentReady) {
+    reasons.push({ label: "Admin panel", tone: store.health.adminDeploymentReady ? "warning" : "danger" });
+  }
+
+  if (!store.health.storefrontRuntimeConsistent || !store.health.storefrontReady) {
+    reasons.push({ label: "Storefront", tone: store.storefrontStatus === "active" ? "warning" : "neutral" });
+  }
+
+  if (!store.health.r2Ready) {
+    reasons.push({ label: "Medya altyapısı", tone: "warning" });
+  }
+
+  return reasons;
+}
+
+function getActionSummary(store: DashboardStoreSummary) {
+  const pendingSignals = getSetupSignals(store.setup).filter((signal) => signal.pending);
+
+  if (store.provisioning.state === "failed") {
+    return store.provisioning.lastError || "Kurulum adımlarından biri hata verdi, mağaza manuel onarım bekliyor.";
+  }
+
+  if (store.provisioning.state === "pending_repair") {
+    return "Otomatik akış dışına düştü. Onarım kuyruğundan tekrar standarda alınmalı.";
+  }
+
+  if (pendingSignals.length > 0) {
+    return `Kurulum zincirinde ${pendingSignals.map((signal) => signal.title.toLowerCase()).join(", ")} tarafı tamamlanmadı.`;
+  }
+
+  if (store.consistency.blocking) {
+    return store.consistency.issues[0]?.message || "Tutarlılık blokajı owner otoritesi ile runtime arasında fark oluşturuyor.";
+  }
+
+  if (!store.health.adminDeploymentReady || !store.health.adminRuntimeConsistent) {
+    return store.health.adminRuntimeMessage || "Yönetici paneli erişimi veya runtime çıktısı tekrar doğrulanmalı.";
+  }
+
+  if (!store.health.storefrontReady || !store.health.storefrontRuntimeConsistent) {
+    return store.health.storefrontDataMessage || "Storefront yüzeyi günlük sağlık kontrolünde yeniden incelenmeli.";
+  }
+
+  if (!store.health.r2Ready) {
+    return "Medya altyapısı eksik görünüyor, görsel yayın akışı tamamlanmadan işaretlenmemeli.";
+  }
+
+  return store.management.nextAction || "Bu mağaza gözlem kuyruğunda tutuluyor.";
+}
+
+function getActionPriority(store: DashboardStoreSummary): number {
+  let score = 0;
+
+  if (store.provisioning.state === "failed") score += 10;
+  if (store.provisioning.state === "pending_repair") score += 8;
+  if (store.consistency.blocking) score += 7;
+  if (!store.health.adminRuntimeConsistent || !store.health.adminDeploymentReady) score += 5;
+  if (!store.health.storefrontRuntimeConsistent || !store.health.storefrontReady) score += 4;
+  if (!store.health.r2Ready) score += 3;
+  score += getSetupSignals(store.setup).filter((signal) => signal.pending).length * 2;
+
+  return score;
+}
+
+function getTimelineTitle(item: AuditLogSummary) {
+  const action = item.action.toLowerCase();
+
+  if (action.includes("repair_owner_deployment_branch")) {
+    return "Owner yayın hattı güncellendi";
+  }
+
+  if (action.includes("repair_store_deployment_authorities")) {
+    return "Mağaza yayın otoriteleri tarandı";
+  }
+
+  if (action.includes("cleanup")) {
+    return "Temizlik kuyruğunda hareket var";
+  }
+
+  if (action.includes("store")) {
+    return "Mağaza kaydında hareket";
+  }
+
+  return item.action
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (value) => value.toLocaleUpperCase("tr-TR"));
+}
 
 export default async function OperationsPage() {
-  const auth = await requireOwnerAuth("/operations");
+  const previewFallback = hasOwnerPreviewDataFallback();
+  const auth = previewFallback ? getPreviewOwnerAuthContext() : await requireOwnerAuth("/operations");
   const superAdmin = isSuperAdmin(auth);
-  const summary = await getOperationsSummary(auth);
+  const previewFlags = getOwnerPreviewFlags();
+  const repairDisabled = isOwnerActionDisabled("repair", previewFlags);
+  const repairDisabledReason = getOwnerPreviewDisabledNotice("repair", previewFlags) ?? undefined;
+  const [summary, stores] = previewFallback
+    ? [getPreviewOperationsSummary(), getPreviewDashboardStores()]
+    : await Promise.all([getOperationsSummary(auth), listDashboardStores(auth)]);
+
+  const legacyStores = stores.filter((store) => isLegacyDatabaseMode(store.databaseMode));
+  const pendingAuthCount = stores.filter((store) => store.setup.auth.status === "pending_auth_setup").length;
+  const pendingAnalyticsCount = stores.filter(
+    (store) => store.setup.analytics.status === "pending_analytics_setup",
+  ).length;
+  const pendingPaymentCount = stores.filter(
+    (store) => store.setup.payments.status === "pending_payment_setup",
+  ).length;
+  const setupQueueCount = stores.filter((store) => getSetupSignals(store.setup).some((signal) => signal.pending)).length;
+  const repairQueueStores = stores.filter(
+    (store) => store.provisioning.state === "pending_repair" || store.provisioning.state === "failed",
+  );
+  const actionRequiredStores = stores
+    .filter((store) => getActionReasons(store).length > 0)
+    .sort((left, right) => getActionPriority(right) - getActionPriority(left));
+
+  const openQueueCount =
+    setupQueueCount +
+    repairQueueStores.length +
+    summary.totals.secretDrift +
+    summary.totals.adminRuntimeIssues +
+    summary.totals.orphanedCleanupRuns;
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Operasyon</h1>
-          <p>Supabase, R2, storefront, admin kapsama alani ve aktiviteleri tek panelden izle.</p>
-        </div>
-      </div>
-
-      {superAdmin ? (
-        <div className="stack-list stack-top-sm">
-          <div className="card surface-alert">
-            <div className="section-head">
-              <div>
-                <div className="card-title">Deployment Branch Authority</div>
-                <p className="section-copy">
-                  Owner resource yanlislikla `main` uzerinden deploy oluyorsa ya da auto deploy kapanmissa buradan tek tusla `deploy/owner` branch&apos;i ve otomatik deployment ayari onarilir.
-                </p>
-              </div>
-              <RepairOwnerDeploymentBranchButton />
+      <OwnerPageHeader
+        eyebrow="Operasyon Merkezi"
+        title="Operasyonlar"
+        copy="Kurulum kuyruğu, olay akışı, temizlik kayıtları ve Yeni Standart dışı mağazalar tek ekranda toplanır. Yüzey teknik log yerine karar aldıran operasyon merkezi gibi davranır."
+        chips={
+          <>
+            <OwnerStatusChip tone={setupQueueCount > 0 ? "warning" : "success"}>
+              {setupQueueCount > 0 ? `${setupQueueCount} mağaza kurulum bekliyor` : "Kurulum kuyruğu temiz"}
+            </OwnerStatusChip>
+            <OwnerStatusChip tone={repairQueueStores.length > 0 ? "danger" : "success"}>
+              {repairQueueStores.length > 0 ? `${repairQueueStores.length} mağaza onarım istiyor` : "Onarım kuyruğu temiz"}
+            </OwnerStatusChip>
+            <OwnerStatusChip tone={legacyStores.length > 0 ? "legacy" : "success"}>
+              {legacyStores.length > 0 ? `${legacyStores.length} Legacy mağaza` : "Legacy istisna yok"}
+            </OwnerStatusChip>
+          </>
+        }
+        actions={
+          <OwnerActionButton href="/stores" tone="secondary">
+            Mağazalara Dön
+          </OwnerActionButton>
+        }
+        aside={
+          <div className="owner-header-summary">
+            <div className="owner-header-summary-item">
+              <span>Hazır mağaza</span>
+              <strong>{summary.totals.readyStores}</strong>
+            </div>
+            <div className="owner-header-summary-item">
+              <span>Açık kuyruk</span>
+              <strong>{openQueueCount}</strong>
+            </div>
+            <div className="owner-header-summary-item">
+              <span>Temizlik kaydı</span>
+              <strong>{summary.totals.orphanedCleanupRuns}</strong>
+            </div>
+            <div className="owner-header-summary-item">
+              <span>Yetki uyumsuzluğu</span>
+              <strong>{summary.totals.secretDrift}</strong>
             </div>
           </div>
+        }
+      />
 
-          <div className="card surface-alert">
-            <div className="section-head">
-              <div>
-                <div className="card-title">Store Deployment Authority</div>
-                <p className="section-copy">
-                  Mevcut store resource&apos;lari `deploy/storefront/&lt;slug&gt;` ve `deploy/owner` branch authority&apos;sine alinip auto deploy acik hale getirilir. Yeni store&apos;lar artik varsayilan olarak bu ayarla olusur.
-                </p>
-              </div>
-              <RepairAllStoreDeploymentAuthoritiesButton />
+      <div className="owner-metric-grid">
+        <OwnerKpiCard
+          label="Hazır mağaza"
+          value={summary.totals.readyStores}
+          note="Kurulum ve panel sağlığı birlikte tamamlananlar"
+          tone="success"
+        />
+        <OwnerKpiCard
+          label="Açık aksiyon kuyruğu"
+          value={openQueueCount}
+          note="Kurulum, onarım, temizlik ve yetki farkları"
+          tone={openQueueCount > 0 ? "warning" : "success"}
+        />
+        <OwnerKpiCard
+          label="Panel sağlığı uyarısı"
+          value={summary.totals.adminRuntimeIssues}
+          note="Owner tarafından yeniden doğrulanması gereken panel çıktıları"
+          tone={summary.totals.adminRuntimeIssues > 0 ? "danger" : "success"}
+        />
+        <OwnerKpiCard
+          label="Yeni Standart dışı"
+          value={legacyStores.length}
+          note="Legacy modda kalan mağazalar"
+          tone={legacyStores.length > 0 ? "legacy" : "neutral"}
+        />
+      </div>
+
+      <OwnerActionPanel
+        title="Kontrollü operasyon aksiyonları"
+        copy="Preview güvenliği korunur. Onarım ve yayın otoritesi aksiyonları yalnızca yetkili kullanıcıda görünür, önizleme modunda ise uyarı ile kapalı kalır."
+        tone={repairDisabled ? "accent" : "neutral"}
+        actions={
+          <>
+            <OwnerStatusChip tone={repairDisabled ? "warning" : "success"}>
+              Onarım {repairDisabled ? "kapalı" : "hazır"}
+            </OwnerStatusChip>
+            <OwnerStatusChip tone="ink">{summary.totals.orphanedCleanupRuns} temizlik kaydı</OwnerStatusChip>
+          </>
+        }
+      >
+        {superAdmin ? (
+          <div className="operations-toolbar">
+            <p className="operations-toolbar-note">
+              Owner hattı ve mağaza yayın ayarları burada tutulur. Preview modunda bu aksiyonlar yazma güvenliği nedeniyle bilerek kapalı bırakılır.
+            </p>
+            <div className="operations-toolbar-actions">
+              <RepairOwnerDeploymentBranchButton
+                disabled={repairDisabled}
+                disabledReason={repairDisabledReason}
+              />
+              <RepairAllStoreDeploymentAuthoritiesButton
+                disabled={repairDisabled}
+                disabledReason={repairDisabledReason}
+              />
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </OwnerActionPanel>
 
-      {/* Operation Metrics */}
-      <div className="metric-row metric-row-6">
-        <div className="metric-box">
-          <div className="metric-box-label">Hazir Store</div>
-          <div className="metric-box-value status-text-success">
-            {summary.totals.readyStores}
-          </div>
+      <OwnerSectionCard
+        eyebrow="Operasyon Özeti"
+        title="Bugünün operasyon görünümü"
+        copy="Hangi kuyrukların açıldığını, hangilerinin günlük izleme modunda kaldığını ve nerede manuel dokunuş gerektiğini Türkçe operasyon diliyle özetler."
+      >
+        <div className="operations-summary-grid">
+          <article className="operations-summary-card tone-warning">
+            <span>Kimlik kurulumu bekleyen</span>
+            <strong>{pendingAuthCount}</strong>
+            <p>Admin veya customer auth hazırlığı tamamlanmamış mağazalar.</p>
+          </article>
+          <article className="operations-summary-card tone-warning">
+            <span>Analytics bekleyen</span>
+            <strong>{pendingAnalyticsCount}</strong>
+            <p>Raporlama katmanı tamamlanmadığı için ilk veri akışı açılmayan mağazalar.</p>
+          </article>
+          <article className="operations-summary-card tone-warning">
+            <span>Ödeme bekleyen</span>
+            <strong>{pendingPaymentCount}</strong>
+            <p>Tahsilat tarafı kapanmadan yayına alınmaması gereken mağazalar.</p>
+          </article>
+          <article className="operations-summary-card tone-danger">
+            <span>Panel sağlığı uyarısı</span>
+            <strong>{summary.totals.adminRuntimeIssues}</strong>
+            <p>Owner panelinin yeniden doğrulama beklediği admin runtime sinyalleri.</p>
+          </article>
+          <article className="operations-summary-card tone-accent">
+            <span>Tutarlılık blokajı</span>
+            <strong>{summary.totals.consistencyBlockingStores}</strong>
+            <p>Authority ile runtime arasında blokaj oluşturan farklar.</p>
+          </article>
+          <article className="operations-summary-card tone-legacy">
+            <span>Yeni Standart dışı</span>
+            <strong>{legacyStores.length}</strong>
+            <p>Legacy modda tutulduğu için ayrı gözle izlenmesi gereken portföy.</p>
+          </article>
         </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Supabase Eksik</div>
-          <div className={`metric-box-value ${summary.totals.missingSupabase > 0 ? "status-text-error" : ""}`}>
-            {summary.totals.missingSupabase}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">R2 Eksik</div>
-          <div className={`metric-box-value ${summary.totals.missingR2 > 0 ? "status-text-error" : ""}`}>
-            {summary.totals.missingR2}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Admin Eksik</div>
-          <div className={`metric-box-value ${summary.totals.missingAdmins > 0 ? "status-text-warning" : ""}`}>
-            {summary.totals.missingAdmins}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Secret Drift</div>
-          <div className={`metric-box-value ${summary.totals.secretDrift > 0 ? "status-text-warning" : ""}`}>
-            {summary.totals.secretDrift}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Runtime Sorunu</div>
-          <div className={`metric-box-value ${summary.totals.adminRuntimeIssues > 0 ? "status-text-error" : ""}`}>
-            {summary.totals.adminRuntimeIssues}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Consistency Block</div>
-          <div className={`metric-box-value ${summary.totals.consistencyBlockingStores > 0 ? "status-text-error" : ""}`}>
-            {summary.totals.consistencyBlockingStores}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Storefront Bekleyen</div>
-          <div className="metric-box-value">{summary.totals.pendingStorefronts}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Orphan Cleanup</div>
-          <div className={`metric-box-value ${summary.totals.orphanedCleanupRuns > 0 ? "status-text-warning" : ""}`}>
-            {summary.totals.orphanedCleanupRuns}
-          </div>
-        </div>
+      </OwnerSectionCard>
+
+      <OwnerSectionCard
+        eyebrow="Aksiyon Gerektirenler"
+        title="Öncelikli mağaza kuyruğu"
+        copy="Kurulum, onarım, runtime veya tutarlılık sinyali taşıyan mağazalar önce burada görünür."
+        actions={
+          <OwnerStatusChip tone={actionRequiredStores.length > 0 ? "warning" : "success"}>
+            {actionRequiredStores.length > 0 ? `${actionRequiredStores.length} mağaza sırada` : "Aksiyon kuyruğu boş"}
+          </OwnerStatusChip>
+        }
+      >
+        <OwnerActionQueue
+          items={actionRequiredStores.map((store) => {
+            const reasons = getActionReasons(store);
+
+            return {
+              id: store.id,
+              title: store.name,
+              detail: getActionSummary(store),
+              tone: reasons.some((reason) => reason.tone === "danger")
+                ? "danger"
+                : reasons.some((reason) => reason.tone === "warning")
+                  ? "warning"
+                  : "accent",
+              chips: (
+                <>
+                  <OwnerStatusChip tone={isLegacyDatabaseMode(store.databaseMode) ? "legacy" : "ink"}>
+                    {getDatabaseModeLabel(store.databaseMode)}
+                  </OwnerStatusChip>
+                  <OwnerStatusChip tone={getProvisioningTone(store.provisioning.state)}>
+                    {getProvisioningLabel(store.provisioning.state)}
+                  </OwnerStatusChip>
+                  {reasons.map((reason) => (
+                    <OwnerStatusChip key={`${store.id}-${reason.label}`} tone={reason.tone}>
+                      {reason.label}
+                    </OwnerStatusChip>
+                  ))}
+                </>
+              ),
+              meta: (
+                <>
+                  <strong>{formatDateTime(store.lastSyncedAt)}</strong>
+                  <span>Son aktivite</span>
+                </>
+              ),
+              actions: (
+                <OwnerActionButton href={`/stores/${store.slug}`} tone="secondary">
+                  Mağazayı Aç
+                </OwnerActionButton>
+              ),
+            };
+          })}
+          empty={
+            <OwnerEmptyState
+              title="Öncelikli aksiyon yok"
+              copy="Kurulum, runtime ve temizlik kuyrukları şu an günlük izleme seviyesinde."
+            />
+          }
+        />
+      </OwnerSectionCard>
+
+      <div className="operations-split-grid">
+        <OwnerSectionCard
+          eyebrow="Olay Akışı"
+          title="Son operasyon hareketleri"
+          copy="Kim ne yaptı, hangi mağaza etkilendi ve hareket ne zaman gerçekleşti bilgisini tek akışta toplar."
+        >
+          <OwnerTimeline
+            items={summary.recentActivity.map((item) => ({
+              id: item.id,
+              title: getTimelineTitle(item),
+              detail: `${item.targetLabel} · ${item.actorName}`,
+              chips: <OwnerStatusChip tone="ink">{item.targetType}</OwnerStatusChip>,
+              meta: (
+                <>
+                  <strong>{formatDateTime(item.createdAt)}</strong>
+                  <span>İşlem zamanı</span>
+                </>
+              ),
+            }))}
+            empty={<OwnerEmptyState title="Henüz hareket yok" copy="İlk operasyon kaydı geldiğinde bu akış dolacak." />}
+          />
+        </OwnerSectionCard>
+
+        <OwnerSectionCard
+          eyebrow="Cleanup / Repair Queue"
+          title="Temizlik ve onarım kayıtları"
+          copy="Açıkta kalan temizlik kayıtları ile manuel onarım bekleyen mağazalar aynı blokta tutulur."
+          actions={
+            <OwnerStatusChip tone={summary.cleanupRuns.length + repairQueueStores.length > 0 ? "warning" : "success"}>
+              {summary.cleanupRuns.length + repairQueueStores.length > 0
+                ? `${summary.cleanupRuns.length + repairQueueStores.length} kayıt`
+                : "Açık kuyruk yok"}
+            </OwnerStatusChip>
+          }
+        >
+          <OwnerActionQueue
+            items={[
+              ...summary.cleanupRuns.map((run) => ({
+                id: `cleanup-${run.id}`,
+                title: run.storeName,
+                detail: `${run.slug} için ${run.orphanedTargetCount} hedef hâlâ temizlenmeyi bekliyor.`,
+                tone: "warning" as const,
+                chips: <OwnerStatusChip tone="warning">{run.status}</OwnerStatusChip>,
+                meta: (
+                  <>
+                    <strong>{formatDateTime(run.createdAt)}</strong>
+                    <span>Temizlik kaydı açıldı</span>
+                  </>
+                ),
+                actions: (
+                  <OwnerActionButton href={`/stores/${run.slug}`} tone="secondary">
+                    Detayı Aç
+                  </OwnerActionButton>
+                ),
+              })),
+              ...repairQueueStores.map((store) => ({
+                id: `repair-${store.id}`,
+                title: store.name,
+                detail: store.provisioning.lastError || "Kurulum veya yayın otoritesi tekrar ele alınmalı.",
+                tone: store.provisioning.state === "failed" ? ("danger" as const) : ("warning" as const),
+                chips: (
+                  <>
+                    <OwnerStatusChip tone={getProvisioningTone(store.provisioning.state)}>
+                      {getProvisioningLabel(store.provisioning.state)}
+                    </OwnerStatusChip>
+                    <OwnerStatusChip tone={isLegacyDatabaseMode(store.databaseMode) ? "legacy" : "ink"}>
+                      {getDatabaseModeLabel(store.databaseMode)}
+                    </OwnerStatusChip>
+                  </>
+                ),
+                meta: (
+                  <>
+                    <strong>{formatDateTime(store.provisioning.lastRunAt || store.lastSyncedAt)}</strong>
+                    <span>Son kontrol</span>
+                  </>
+                ),
+                actions: (
+                  <OwnerActionButton href={`/stores/${store.slug}`} tone="secondary">
+                    Mağazayı Aç
+                  </OwnerActionButton>
+                ),
+              })),
+            ]}
+            empty={<OwnerEmptyState title="Temizlik ve onarım kuyruğu boş" copy="Şu anda açıkta kalan kayıt görünmüyor." />}
+          />
+        </OwnerSectionCard>
       </div>
 
-      {/* Operations Table & Activity */}
-      <div className="split-grid">
-        <div className="card">
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Proje</th>
-                  <th>Saglik</th>
-                  <th>Supabase</th>
-                  <th>Provisioning</th>
-                  <th>Secrets</th>
-                  <th>Admin Runtime</th>
-                  <th>Consistency</th>
-                  <th>R2</th>
-                  <th>Storefront</th>
-                  <th>Son Sync</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <strong>{row.name}</strong>
-                      <div className="table-inline-meta">{row.storefrontDomain}</div>
-                    </td>
-                    <td>
-                      <span className={`pill ${row.health.label === "hazir" ? "pill-success" : "pill-accent"}`}>
-                        {row.health.label}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.supabaseProjectRef ? "status-text-success" : "status-text-error"}`}>
-                        {row.supabaseProjectRef || "Eksik"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.provisioning.state === "ready" ? "status-text-success" : "status-text-warning"}`}>
-                        {row.provisioning.state}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.health.secretAuthorityReady ? "status-text-success" : "status-text-warning"}`}>
-                        {row.health.secretAuthorityReady ? "Hazir" : "Drift"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.health.adminDeploymentReady && row.health.adminRuntimeConsistent ? "status-text-success" : "status-text-error"}`} title={row.health.adminRuntimeMessage || undefined}>
-                        {row.health.adminDeploymentReady
-                          ? row.health.adminRuntimeConsistent
-                            ? "Hazir"
-                            : "Drift"
-                          : "Kapali"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.consistency.blocking ? "status-text-error" : "status-text-success"}`} title={row.consistency.issues.length > 0 ? row.consistency.issues.map((issue) => issue.message).join(" / ") : undefined}>
-                        {row.consistency.blocking ? `${row.consistency.blockingIssueCount} blok` : "Temiz"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-text ${row.r2BucketName ? "status-text-success" : "status-text-error"}`}>
-                        {row.r2BucketName || "Eksik"}
-                      </span>
-                    </td>
-                    <td>{row.storefrontStatus}</td>
-                    <td>{formatDateTime(row.lastSyncedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">Son Operasyon Aktiviteleri</div>
-          {summary.recentActivity.length === 0 ? (
-            <p className="muted">Henüz aktivite kaydı yok.</p>
-          ) : (
-            <div className="activity-list">
-              {summary.recentActivity.map((item) => (
-                <div key={item.id} className="activity-item">
-                  <div>
-                    <strong>{item.targetLabel}</strong>
-                    <p>{item.action.replaceAll("_", " ")}</p>
-                  </div>
-                  <div className="activity-meta">
-                    <span>{item.actorName}</span>
-                    <span>{formatDateTime(item.createdAt)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="card section-tight">
-        <div className="card-title">Orphan Cleanup Runs</div>
-        {summary.cleanupRuns.length === 0 ? (
-          <p className="muted">Unresolved cleanup kaydi yok.</p>
-        ) : (
-          <div className="stack-list stack-top-sm">
-            {summary.cleanupRuns.map((run) => (
-              <div key={run.id} className="inline-card">
-                <div>
-                  <strong>{run.storeName}</strong>
-                  <p>{run.slug}</p>
-                </div>
-                <div className="activity-meta">
-                  <span>{run.status}</span>
-                  <span>{run.orphanedTargetCount} orphan</span>
-                  <span>{formatDateTime(run.createdAt)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <OwnerSectionCard
+        eyebrow="Yeni Standart Dışı Mağazalar"
+        title="Legacy portföy"
+        copy="Geçiş planı veya özel istisna sebebiyle Legacy modda tutulan mağazalar ayrı blokta görünür."
+      >
+        <OwnerActionQueue
+          items={legacyStores.map((store) => ({
+            id: store.id,
+            title: store.name,
+            detail:
+              store.management.nextAction ||
+              "Bu mağaza Yeni Standart dışında tutuluyor; auth, analytics ve ödeme akışı ayrıca gözden geçirilmeli.",
+            tone: "legacy",
+            chips: (
+              <>
+                <OwnerStatusChip tone="legacy">Legacy</OwnerStatusChip>
+                <OwnerStatusChip tone={getProvisioningTone(store.provisioning.state)}>
+                  {getProvisioningLabel(store.provisioning.state)}
+                </OwnerStatusChip>
+              </>
+            ),
+            meta: (
+              <>
+                <strong>{formatDateTime(store.lastSyncedAt)}</strong>
+                <span>Son aktivite</span>
+              </>
+            ),
+            actions: (
+              <OwnerActionButton href={`/stores/${store.slug}`} tone="secondary">
+                Detayı Aç
+              </OwnerActionButton>
+            ),
+          }))}
+          empty={
+            <OwnerEmptyState
+              title="Legacy mağaza yok"
+              copy="Portföyün tamamı Yeni Standart çizgisinde ilerliyor."
+            />
+          }
+        />
+      </OwnerSectionCard>
     </>
   );
 }

@@ -26,29 +26,29 @@ export function StatCard({
   variant = "default"
 }: StatCardProps) {
   const variants = {
-    default: "bg-white border-[#E2E8F0]",
-    primary: "bg-[#2B2B2B] border-[#2B2B2B] text-white",
-    success: "bg-emerald-50 border-emerald-200",
-    warning: "bg-amber-50 border-amber-200"
+    default: "bg-[var(--surface)] border-[var(--border-default)]",
+    primary: "bg-[linear-gradient(145deg,var(--surface-dark),var(--surface-dark-2))] border-[rgba(254,97,0,0.2)] text-[var(--text-inverse)]",
+    success: "bg-[var(--status-success-soft)] border-[var(--status-success-border)]",
+    warning: "bg-[var(--status-warning-soft)] border-[var(--status-warning-border)]"
   };
 
   const textColors = {
-    default: "text-[#2B2B2B]",
-    primary: "text-white",
-    success: "text-emerald-800",
-    warning: "text-amber-800"
+    default: "text-[var(--text-primary)]",
+    primary: "text-[var(--text-inverse)]",
+    success: "text-[var(--status-success)]",
+    warning: "text-[var(--status-warning)]"
   };
 
   const subTextColors = {
-    default: "text-[#64748B]",
-    primary: "text-white/70",
-    success: "text-emerald-600",
-    warning: "text-amber-600"
+    default: "text-[var(--text-tertiary)]",
+    primary: "text-[rgba(255,247,241,0.7)]",
+    success: "text-[var(--status-success)]",
+    warning: "text-[var(--status-warning)]"
   };
 
   if (isLoading) {
     return (
-      <div className="bg-white border border-[#E2E8F0] rounded-xl p-5">
+      <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface)] p-5">
         <Skeleton width={80} height={12} className="mb-3" />
         <Skeleton width="60%" height={28} />
       </div>
@@ -56,10 +56,10 @@ export function StatCard({
   }
 
   return (
-    <div className={cn(
-      "border rounded-xl p-5 transition-all duration-200 hover:shadow-md",
-      variants[variant]
-    )}>
+      <div className={cn(
+        "border rounded-xl p-5 transition-all duration-200 hover:shadow-md",
+        variants[variant]
+      )}>
       <div className="flex items-start justify-between">
         <div>
           <p className={cn("text-xs font-bold uppercase tracking-wider", subTextColors[variant])}>
@@ -77,7 +77,7 @@ export function StatCard({
             <div className="flex items-center gap-1 mt-2">
               <span className={cn(
                 "text-xs font-bold",
-                trend.isPositive ? "text-emerald-500" : "text-red-500"
+                trend.isPositive ? "text-[var(--status-success)]" : "text-[var(--status-danger)]"
               )}>
                 {trend.isPositive ? "↑" : "↓"} {Math.abs(trend.value)}%
               </span>
@@ -90,7 +90,7 @@ export function StatCard({
         {icon && (
           <div className={cn(
             "p-2.5 rounded-lg",
-            variant === "primary" ? "bg-white/10" : "bg-[#F8FAFC]"
+            variant === "primary" ? "bg-white/10" : "bg-[var(--surface-2)]"
           )}>
             {icon}
           </div>

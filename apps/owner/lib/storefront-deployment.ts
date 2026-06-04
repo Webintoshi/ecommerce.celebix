@@ -19,7 +19,7 @@ import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 import { verifyStorefrontBranchState } from "@/lib/storefront-repo-sync";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
-import { getGeneratedDeploymentModelGuardFailure } from "@/lib/generated-deployment-model";
+import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
 
 export interface StorefrontDeploymentBlueprint {
   storeSlug: string;
@@ -197,6 +197,7 @@ function buildPublicEnvEntries(store: StoreConfig): Record<string, string> {
   return {
     CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(3, ["CELEBIX_STOREFRONT_BUILD_CPUS"]),
     STORE_SLUG: store.slug,
+    NEXT_PUBLIC_STORE_SLUG: store.slug,
     NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
     NEXT_PUBLIC_ADMIN_URL: `https://${store.domains.admin}`,
     NEXT_PUBLIC_STORE_DOMAIN: store.domains.storefront,
@@ -262,19 +263,11 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
   const adminEnvEntries = resolveAdminEnvEntries(store);
 
   if (store.databaseMode === "light_postgres") {
-    const runtimeDatabaseUrl =
-      adminEnvEntries.LIGHT_POSTGRES_DATABASE_URL?.trim() ||
-      adminEnvEntries.DATABASE_URL?.trim() ||
-      adminEnvEntries.DATABASE_DIRECT_URL?.trim() ||
-      "";
-    const runtimeDatabaseName =
-      adminEnvEntries.LIGHT_POSTGRES_DATABASE_NAME?.trim() ||
-      store.lightPostgres?.databaseName?.trim() ||
-      store.slug;
-    const runtimeSslMode =
-      adminEnvEntries.LIGHT_POSTGRES_DATABASE_SSLMODE?.trim() ||
-      adminEnvEntries.DATABASE_SSLMODE?.trim() ||
-      "require";
+    const {
+      runtimeDatabaseUrl,
+      runtimeDatabaseName,
+      runtimeSslMode,
+    } = resolveLightPostgresDeploymentEnv(store, adminEnvEntries);
     const entries: Record<string, string> = {
       ...buildPublicEnvEntries(store),
       DATABASE_MODE: "light_postgres",
@@ -287,6 +280,8 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
 
     if (runtimeDatabaseUrl) {
       entries.LIGHT_POSTGRES_DATABASE_URL = runtimeDatabaseUrl;
+      entries.DATABASE_URL = entries.DATABASE_URL || runtimeDatabaseUrl;
+      entries.DATABASE_DIRECT_URL = entries.DATABASE_DIRECT_URL || runtimeDatabaseUrl;
     }
 
     for (const key of [
@@ -487,22 +482,16 @@ export async function getStorefrontDeploymentBlueprint(
   const expectedPackageName = getExpectedStorefrontPackageName(store.slug);
   const workspace = readWorkspaceName(store);
   const serverPort = readWorkspaceServerPort(store);
-  const deploymentStrategy = deploymentConfig?.strategy ?? "build_server_ghcr";
   const dockerImage = deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-storefront`;
   const dockerImageTag = deploymentConfig?.imageTag ?? "production";
   const useBuildServer = deploymentConfig?.useBuildServer ?? true;
   const buildServer = deploymentConfig?.buildServer ?? "celebix-build-01";
-  const watchPaths =
-    deploymentConfig?.watchPaths ?? [`apps/storefront-${store.slug}/**`, "packages/**"];
-  const deploymentModelError = getGeneratedDeploymentModelGuardFailure({
-    target: "storefront",
-    deploymentStrategy,
-    dockerImage,
-    dockerImageTag,
-    useBuildServer,
-    buildServer,
-    watchPaths,
-  });
+  const buildServerReady = Boolean(
+    dockerImage.trim() &&
+      dockerImageTag.trim() &&
+      useBuildServer &&
+      buildServer.trim(),
+  );
 
   let status: "pending-owner-env" | "pending-repo-sync" | "prepared" | "configured" | "failed" =
     "pending-repo-sync";
@@ -539,9 +528,10 @@ export async function getStorefrontDeploymentBlueprint(
     }
   }
 
-  if (deploymentModelError) {
+  if (!buildServerReady) {
     status = "failed";
-    runtimeMessage = deploymentModelError;
+    runtimeMessage =
+      "Storefront deploy authority build-server/GHCR zorunlulugunu karsilamiyor.";
   } else if (status === "failed") {
     // keep the earlier failure reason
   } else if (!requiredEnvReady) {
@@ -574,12 +564,13 @@ export async function getStorefrontDeploymentBlueprint(
     appName: store.storefront?.deploymentName || `${store.slug}-storefront`,
     runtimeUrl,
     resourceId: store.storefront?.resourceId ?? null,
-    deploymentStrategy,
+    deploymentStrategy: deploymentConfig?.strategy ?? "build_server_ghcr",
     dockerImage,
     dockerImageTag,
     useBuildServer,
     buildServer,
-    watchPaths,
+    watchPaths:
+      deploymentConfig?.watchPaths ?? [`apps/storefront-${store.slug}/**`, "packages/**"],
     serverPort,
     workspace,
     installCommand: "npm install --include=optional --no-audit --no-fund",

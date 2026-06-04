@@ -7,6 +7,7 @@ import {
   upsertStoreAdminEnvLocal
 } from "@celebix/platform-config";
 import { CreateBucketCommand, ListBucketsCommand, S3Client } from "@aws-sdk/client-s3";
+import { isOwnerActionDisabled } from "@/lib/preview-mode";
 
 const CLOUDFLARE_API_URL = "https://api.cloudflare.com/client/v4";
 
@@ -218,6 +219,10 @@ export async function getR2BootstrapStatus(): Promise<R2BootstrapStatus> {
 }
 
 export async function provisionR2ForStore(store: StoreConfig): Promise<R2ProvisioningResult> {
+  if (isOwnerActionDisabled("provisioning")) {
+    throw new Error("Preview ortaminda yazma/kurulum islemleri kapalidir.");
+  }
+
   const token = await verifyCloudflareToken();
   const bucketName = store.r2?.bucketName?.trim() || buildBucketName(store);
 

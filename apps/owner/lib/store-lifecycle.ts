@@ -3,7 +3,16 @@ import "server-only";
 import { createOwnerServiceClient } from "@/lib/owner-supabase-server";
 import { readGeneratedRuntimeIssueCode } from "@/lib/generated-runtime-readiness";
 
-export type ProvisioningState = "ready" | "running" | "pending_dns" | "pending_repair";
+export type ProvisioningState =
+  | "running"
+  | "provisioning"
+  | "pending_dns"
+  | "pending_auth"
+  | "pending_analytics"
+  | "pending_payment"
+  | "ready"
+  | "pending_repair"
+  | "failed";
 export type ProvisioningStepStatus =
   | "pending"
   | "running"
@@ -37,7 +46,8 @@ export type ProvisioningStepKey =
   | "storefront_repo_sync"
   | "storefront_deploy"
   | "analytics_setup"
-  | "auth_setup";
+  | "auth_setup"
+  | "payment_setup";
 
 export interface ProvisioningStepSummary {
   key: ProvisioningStepKey;
@@ -106,14 +116,15 @@ const STEP_LABELS: Record<ProvisioningStepKey, string> = {
   supabase_provision: "Database provisioning",
   starter_seed: "Starter content seed",
   r2_provision: "R2 provisioning",
+  storefront_scaffold: "Storefront scaffold",
+  storefront_repo_sync: "Storefront repo sync",
+  storefront_blueprint: "Storefront blueprint",
+  storefront_deploy: "Storefront deployment",
   admin_blueprint: "Admin blueprint",
   admin_deploy: "Admin deployment",
-  storefront_scaffold: "Storefront scaffold",
-  storefront_blueprint: "Storefront blueprint",
-  storefront_repo_sync: "Storefront repo sync",
-  storefront_deploy: "Storefront deployment",
   analytics_setup: "Analytics setup",
   auth_setup: "Auth setup",
+  payment_setup: "Payment setup",
 };
 
 export const PROVISIONING_STEP_KEYS = Object.keys(STEP_LABELS) as ProvisioningStepKey[];
@@ -133,9 +144,17 @@ function readBoolean(value: unknown, fallback: boolean): boolean {
 }
 
 function normalizeProvisioningState(value: unknown): ProvisioningState {
-  return value === "ready" || value === "running" || value === "pending_dns" || value === "pending_repair"
+  return value === "running" ||
+    value === "provisioning" ||
+    value === "pending_dns" ||
+    value === "pending_auth" ||
+    value === "pending_analytics" ||
+    value === "pending_payment" ||
+    value === "ready" ||
+    value === "pending_repair" ||
+    value === "failed"
     ? value
-    : "ready";
+    : "provisioning";
 }
 
 function normalizeProvisioningStepStatus(value: unknown): ProvisioningStepStatus {
@@ -469,20 +488,28 @@ export function getProvisioningBlockers(summary: ProvisioningSummary): Provision
   );
 }
 
+export interface ProvisioningStateDerivationOptions {
+  authPending?: boolean;
+  analyticsPending?: boolean;
+  paymentPending?: boolean;
+  terminalFailure?: boolean;
+}
+
 export function deriveProvisioningState(
   steps: ProvisioningStepSummary[],
   lastError: string | null | undefined,
+  options: ProvisioningStateDerivationOptions = {},
 ): ProvisioningState {
   const blockers = steps.filter(
     (step) => (step.status === "failed" || step.status === "blocked") && step.blocking,
   );
 
   if (blockers.length > 0) {
-    return "pending_repair";
+    return options.terminalFailure ? "failed" : "pending_repair";
   }
 
   if (steps.some((step) => step.status === "pending" || step.status === "running")) {
-    return "running";
+    return "provisioning";
   }
 
   const issueCodes = [lastError, ...steps.map((step) => step.message)]
@@ -494,7 +521,19 @@ export function deriveProvisioningState(
   }
 
   if (issueCodes.includes("proxy_not_ready") || issueCodes.includes("runtime_unreachable")) {
-    return "pending_repair";
+    return options.terminalFailure ? "failed" : "pending_repair";
+  }
+
+  if (options.authPending) {
+    return "pending_auth";
+  }
+
+  if (options.analyticsPending) {
+    return "pending_analytics";
+  }
+
+  if (options.paymentPending) {
+    return "pending_payment";
   }
 
   return "ready";

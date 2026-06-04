@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOwnerAuthContext, isSuperAdmin } from "@/lib/owner-auth";
+import { blockOwnerActionInPreview } from "@/lib/preview-action-guard";
 import { isRedisLockError } from "@/lib/redis";
 import { migrateStoreDomain } from "@/lib/store-domain-migration";
 
@@ -12,6 +13,12 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Bu islem icin super admin gerekli." }, { status: 403 });
+  }
+
+  const previewBlock = blockOwnerActionInPreview("deploy");
+
+  if (previewBlock) {
+    return previewBlock;
   }
 
   try {

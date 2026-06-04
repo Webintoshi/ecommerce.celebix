@@ -14,7 +14,6 @@ import { readCoolifySupabaseRuntimeAuthority } from "@/lib/coolify-runtime-autho
 import { diagnoseGeneratedRuntimeFailure } from "@/lib/generated-runtime-readiness";
 import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
-import { getGeneratedDeploymentModelGuardFailure } from "@/lib/generated-deployment-model";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
 
 export interface StoreAdminDeploymentBlueprint {
@@ -162,19 +161,11 @@ async function readAdminEnvEntries(
   const existingEnv = readExistingAdminEnvMap(store);
 
   if (store.databaseMode === "light_postgres") {
-    const runtimeDatabaseUrl =
-      existingEnv.LIGHT_POSTGRES_DATABASE_URL?.trim() ||
-      existingEnv.DATABASE_URL?.trim() ||
-      existingEnv.DATABASE_DIRECT_URL?.trim() ||
-      "";
-    const runtimeDatabaseName =
-      existingEnv.LIGHT_POSTGRES_DATABASE_NAME?.trim() ||
-      store.lightPostgres?.databaseName?.trim() ||
-      store.slug;
-    const runtimeSslMode =
-      existingEnv.LIGHT_POSTGRES_DATABASE_SSLMODE?.trim() ||
-      existingEnv.DATABASE_SSLMODE?.trim() ||
-      "require";
+    const {
+      runtimeDatabaseUrl,
+      runtimeDatabaseName,
+      runtimeSslMode,
+    } = resolveLightPostgresDeploymentEnv(store, existingEnv);
     const envEntries: Record<string, string> = {
       CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
       CELEBIX_ADMIN_DEPLOYMENT_MARKER:
@@ -207,6 +198,8 @@ async function readAdminEnvEntries(
 
     if (runtimeDatabaseUrl) {
       envEntries.LIGHT_POSTGRES_DATABASE_URL = runtimeDatabaseUrl;
+      envEntries.DATABASE_URL = envEntries.DATABASE_URL || runtimeDatabaseUrl;
+      envEntries.DATABASE_DIRECT_URL = envEntries.DATABASE_DIRECT_URL || runtimeDatabaseUrl;
     }
 
     for (const key of [
@@ -422,12 +415,10 @@ export async function getStoreAdminDeploymentBlueprint(
   const envEntries = await readAdminEnvEntries(store, options);
   const runtimeUrl = store.bootstrap?.adminDeploymentRuntimeUrl || `https://${store.domains.admin}`;
   const deploymentConfig = store.bootstrap?.adminDeployment;
-  const deploymentStrategy = deploymentConfig?.strategy ?? "build_server_ghcr";
   const dockerImage = deploymentConfig?.image ?? `ghcr.io/celebixco/${store.slug}-admin`;
   const dockerImageTag = deploymentConfig?.imageTag ?? "production";
   const useBuildServer = deploymentConfig?.useBuildServer ?? true;
   const buildServer = deploymentConfig?.buildServer ?? "celebix-build-01";
-  const watchPaths = deploymentConfig?.watchPaths ?? ["apps/admin/**", "packages/**"];
   const deploymentMarker = envEntries.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null;
   const hasRequiredEnv = store.databaseMode === "light_postgres"
     ? Boolean(
@@ -441,23 +432,21 @@ export async function getStoreAdminDeploymentBlueprint(
           envEntries.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
           envEntries.SUPABASE_SERVICE_ROLE_KEY,
       );
-  const deploymentModelError = getGeneratedDeploymentModelGuardFailure({
-    target: "admin",
-    deploymentStrategy,
-    dockerImage,
-    dockerImageTag,
-    useBuildServer,
-    buildServer,
-    watchPaths,
-  });
+  const buildServerReady = Boolean(
+    dockerImage.trim() &&
+      dockerImageTag.trim() &&
+      useBuildServer &&
+      buildServer.trim(),
+  );
 
   let status: "pending-owner-env" | "prepared" | "configured" | "failed" = hasRequiredEnv ? "prepared" : "pending-owner-env";
   let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
   let runtimeConsistent = false;
 
-  if (deploymentModelError) {
+  if (!buildServerReady) {
     status = "failed";
-    runtimeMessage = deploymentModelError;
+    runtimeMessage =
+      "Admin deploy authority build-server/GHCR zorunlulugunu karsilamiyor.";
   } else {
     const runtime = await readRuntimeConsistency(
       store,
@@ -475,12 +464,12 @@ export async function getStoreAdminDeploymentBlueprint(
     appName: store.bootstrap?.adminDeploymentName || `${store.slug}-admin`,
     runtimeUrl,
     resourceId: store.bootstrap?.adminDeploymentResourceId ?? null,
-    deploymentStrategy,
+    deploymentStrategy: deploymentConfig?.strategy ?? "build_server_ghcr",
     dockerImage,
     dockerImageTag,
     useBuildServer,
     buildServer,
-    watchPaths,
+    watchPaths: deploymentConfig?.watchPaths ?? ["apps/admin/**", "packages/**"],
     deploymentMarker,
     workspace: "@celebix/admin",
     installCommand: "npm ci --include=optional --no-audit --no-fund",
