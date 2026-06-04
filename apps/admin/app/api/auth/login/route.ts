@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import {
   isLightPostgresRuntime,
   resolveRuntimeAuthSetupStatus,
@@ -11,12 +12,14 @@ import {
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from "@/lib/supabase-shared";
+import { isLogtoAdminAuthEnabled } from "@/lib/admin-auth-provider";
 import { verifyLegacyAdminPassword } from "@/lib/legacy-admin-auth";
 import { writeAdminRoleCookie } from "@/lib/admin-role-cookie";
 import type { UserRole } from "@/lib/permissions";
 
 type LoginBody = {
   email?: string;
+  nextPath?: string;
   password?: string;
 };
 
@@ -172,7 +175,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, password }: LoginBody = await request.json();
+    const { email, password, nextPath }: LoginBody = await request.json();
+
+    if (isLogtoAdminAuthEnabled()) {
+      const redirectTarget = sanitizeInternalRedirectPath(nextPath ?? null, "/admin");
+      return NextResponse.json(
+        {
+          requiresRedirect: true,
+          redirectTo: `/api/auth/sign-in?next=${encodeURIComponent(redirectTarget)}`,
+        },
+        { status: 409 },
+      );
+    }
 
     if (!email || !password) {
       return NextResponse.json({ error: "E-posta ve sifre zorunludur." }, { status: 400 });

@@ -9,6 +9,8 @@ import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
 type LoginResponse =
   | {
       error?: string;
+      requiresRedirect?: boolean;
+      redirectTo?: string;
       session?: {
         access_token?: string;
         refresh_token?: string;
@@ -33,22 +35,25 @@ function resolveLoginErrorMessage(searchParams: URLSearchParams) {
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const authProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
+  const isLogtoProvider = authProvider === "logto";
   const hasBrowserSupabaseAuthEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
   const authBlocked =
     process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE === "light_postgres" &&
     process.env.NEXT_PUBLIC_AUTH_SETUP_STATUS === "blocked_auth_setup";
-  const authUnavailable = authBlocked || !hasBrowserSupabaseAuthEnv;
+  const authUnavailable = authBlocked || (!isLogtoProvider && !hasBrowserSupabaseAuthEnv);
   const supabase = useMemo(
-    () => (authUnavailable ? null : getOptionalBrowserSupabaseClient()),
-    [authUnavailable],
+    () => (authUnavailable || isLogtoProvider ? null : getOptionalBrowserSupabaseClient()),
+    [authUnavailable, isLogtoProvider],
   );
   const [nextPath, setNextPath] = useState("/admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const logtoSignInHref = `/api/auth/sign-in?next=${encodeURIComponent(nextPath)}`;
 
   useEffect(() => {
     let mounted = true;
@@ -83,6 +88,23 @@ export default function AdminLoginPage() {
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (isLogtoProvider) {
+      if (authUnavailable) {
+        setErrorMessage(
+          authBlocked
+            ? "Yönetici girişi şu anda hazır değil. Lütfen daha sonra tekrar deneyin."
+            : "Giriş servisi şu anda kullanılamıyor.",
+        );
+        return;
+      }
+
+      setLoading(true);
+      if (typeof window !== "undefined") {
+        window.location.assign(logtoSignInHref);
+      }
+      return;
+    }
+
     if (authUnavailable || !supabase) {
       setErrorMessage(
         authBlocked
@@ -113,6 +135,11 @@ export default function AdminLoginPage() {
       });
 
       const payload = (await response.json().catch(() => null)) as LoginResponse;
+
+      if (payload?.requiresRedirect && payload.redirectTo && typeof window !== "undefined") {
+        window.location.assign(payload.redirectTo);
+        return;
+      }
 
       if (!response.ok) {
         setErrorMessage(payload?.error || "E-posta veya şifre hatalı.");
@@ -192,54 +219,62 @@ export default function AdminLoginPage() {
               </div>
             ) : null}
 
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                E-posta
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                    if (errorMessage) {
-                      setErrorMessage(null);
-                    }
-                  }}
-                  placeholder="yonetici@magaza.com"
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
-                  required
-                  autoComplete="email"
-                  disabled={loading || authUnavailable}
-                />
+            {isLogtoProvider ? (
+              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-700">
+                Güvenli giriş ekranında e-posta ve şifrenizle oturum açacaksınız.
               </div>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1.5">
+                    E-posta
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => {
+                        setEmail(event.target.value);
+                        if (errorMessage) {
+                          setErrorMessage(null);
+                        }
+                      }}
+                      placeholder="yonetici@magaza.com"
+                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
+                      required
+                      autoComplete="email"
+                      disabled={loading || authUnavailable}
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                Şifre
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => {
-                    setPassword(event.target.value);
-                    if (errorMessage) {
-                      setErrorMessage(null);
-                    }
-                  }}
-                  placeholder="••••••••"
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
-                  required
-                  minLength={8}
-                  autoComplete="current-password"
-                  disabled={loading || authUnavailable}
-                />
-              </div>
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-1.5">
+                    Şifre
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                        if (errorMessage) {
+                          setErrorMessage(null);
+                        }
+                      }}
+                      placeholder="••••••••"
+                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
+                      required
+                      minLength={8}
+                      autoComplete="current-password"
+                      disabled={loading || authUnavailable}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <button
               type="submit"
@@ -249,7 +284,7 @@ export default function AdminLoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Bilgileriniz kontrol ediliyor...
+                  {isLogtoProvider ? "Güvenli giriş ekranı açılıyor..." : "Bilgileriniz kontrol ediliyor..."}
                 </>
               ) : (
                 "Giriş Yap"
