@@ -37,6 +37,16 @@ function getHealthToneClass(label: string) {
   return "pill-warning";
 }
 
+function getStoreStatusLabel(status: string) {
+  if (status === "active") {
+    return "Aktif";
+  }
+  if (status === "paused") {
+    return "Duraklatıldı";
+  }
+  return "Taslak";
+}
+
 export default async function StoresPage() {
   const auth = await requireOwnerAuth("/stores");
   const superAdmin = isSuperAdmin(auth);
@@ -128,7 +138,7 @@ export default async function StoresPage() {
                     <div className="table-pill-row">
                       <span className={databaseModePillClass}>{databaseModeLabel}</span>
                       {legacyMode ? <span className="pill pill-legacy">Legacy özel mod</span> : null}
-                      <span className="pill pill-capitalize">{store.status}</span>
+                      <span className="pill">{getStoreStatusLabel(store.status)}</span>
                     </div>
                   </div>
                   <div className="owner-store-meta">

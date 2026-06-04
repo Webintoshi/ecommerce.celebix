@@ -78,6 +78,16 @@ function buildDeploymentAuthorityNote(
   return null;
 }
 
+function getStoreStatusLabel(status: string) {
+  if (status === "active") {
+    return "Aktif";
+  }
+  if (status === "paused") {
+    return "Duraklatıldı";
+  }
+  return "Taslak";
+}
+
 export default async function StoreDetailPage({ params }: StoreDetailPageProps) {
   const auth = await requireOwnerAuth();
   const { slug } = await params;
@@ -180,7 +190,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               <p>{store.tagline || "Mağaza detayı, operasyon sağlığı ve kurulum akışı tek ekranda izlenir."}</p>
             </div>
             <div className="actions hero-actions">
-              <span className="pill pill-capitalize">{store.status}</span>
+              <span className="pill">{getStoreStatusLabel(store.status)}</span>
               <span className={`pill ${healthToneClass}`}>{store.health.label}</span>
               <span className={`pill ${provisioningToneClass}`}>{getProvisioningLabel(provisioning.state)}</span>
               <span className={getDatabaseModePillClass(store.databaseMode)}>
