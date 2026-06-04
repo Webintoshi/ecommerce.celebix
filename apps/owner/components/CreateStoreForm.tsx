@@ -134,165 +134,195 @@ export function CreateStoreForm({
   return (
     <form className="form-grid form-grid-2" onSubmit={handleSubmit}>
       <fieldset className="preview-form-fieldset field-full" disabled={disabled}>
-      <label className="field">
-        <span>Magaza Adi</span>
-        <input value={form.name} onChange={handleNameChange} placeholder="Deri Kordon" required />
-      </label>
-
-      <label className="field">
-        <span>Slug</span>
-        <input value={form.slug} onChange={handleSlugChange} placeholder="deri-kordon" required />
-      </label>
-
-      <label className="field">
-        <span>Domain</span>
-        <input
-          value={form.domain}
-          onChange={(event) => updateField("domain", event.target.value)}
-          placeholder="derikordon.com"
-          required
-        />
-        <small className="muted">
-          Bu alan storefront ve admin domaini icindir. Demo domain authority icinde ayrica
-          <code>&lt;slug&gt;.demo.celebix.co</code> olarak tutulur.
-        </small>
-      </label>
-
-      <label className="field">
-        <span>Tema</span>
-        <select value={form.theme} onChange={(event) => updateField("theme", event.target.value)}>
-          {THEME_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="field field-full">
-        <span>Tagline</span>
-        <input
-          value={form.tagline}
-          onChange={(event) => updateField("tagline", event.target.value)}
-          placeholder="El yapimi deri kordon ve aksesuarlar"
-        />
-      </label>
-
-      <div className="card field-full section-tight">
-        <div className="card-title">Deploy Branch Plani</div>
-        <div className="meta-pairs">
-          <span>Owner/Admin branch: <strong>{ownerDeploymentBranch}</strong></span>
-          <span>Storefront branch: <strong>{storefrontBranchPreview}</strong></span>
-        </div>
-        <p className="card-note">
-          Owner ve admin deploy ayni branch'te kalir. Her yeni storefront kendi slug'i icin ayri branch alir.
-        </p>
-      </div>
-
-      <div className="card field-full section-tight">
-        <div className="card-title">Varsayilan Standard</div>
-        <p className="card-note">
-          Yeni store create akisi varsayilan olarak light Postgres + R2 + generated admin/storefront
-          standardinda acilir.
-        </p>
-        <div className="actions compact-actions wrap stack-top-sm">
-          <span className="pill pill-success">light_postgres</span>
-          <span className="pill">R2 default</span>
-          <span className="pill">Logto placeholder</span>
-          <span className="pill">Umami placeholder</span>
-        </div>
-        <div className="actions stack-top-sm">
-          <button
-            type="button"
-            className="button button-ghost"
-            onClick={() => {
-              if (legacyModeVisible && form.databaseMode === "full_supabase") {
-                updateField("databaseMode", "light_postgres");
-                setShowLegacyOptions(false);
-                return;
-              }
-
-              setShowLegacyOptions((current) => !current);
-            }}
-          >
-            {legacyModeVisible ? "Advanced / Legacy alani gizle" : "Advanced / Legacy Mode"}
-          </button>
-        </div>
-        {legacyModeVisible ? (
-          <div className="stack-top-sm">
+        <section className="owner-form-block field-full">
+          <div className="owner-form-block-title">
+            <strong>Magaza bilgileri</strong>
+            <span>Adim 01</span>
+          </div>
+          <div className="form-grid form-grid-2">
             <label className="field">
-              <span>Veritabani modu</span>
-              <select
-                value={form.databaseMode}
-                onChange={(event) =>
-                  updateField("databaseMode", event.target.value as FormState["databaseMode"])
-                }
-              >
-                <option value="light_postgres">Light Postgres (yeni standart)</option>
-                <option value="full_supabase">Full Supabase (legacy)</option>
-              </select>
+              <span>Magaza Adi</span>
+              <input value={form.name} onChange={handleNameChange} placeholder="Deri Kordon" required />
+            </label>
+
+            <label className="field">
+              <span>Slug</span>
+              <input value={form.slug} onChange={handleSlugChange} placeholder="deri-kordon" required />
+            </label>
+
+            <label className="field field-full">
+              <span>Tagline</span>
+              <input
+                value={form.tagline}
+                onChange={(event) => updateField("tagline", event.target.value)}
+                placeholder="El yapimi deri kordon ve aksesuarlar"
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="owner-form-block field-full">
+          <div className="owner-form-block-title">
+            <strong>Domain ve tema</strong>
+            <span>Adim 02-03</span>
+          </div>
+          <div className="form-grid form-grid-2">
+            <label className="field">
+              <span>Domain</span>
+              <input
+                value={form.domain}
+                onChange={(event) => updateField("domain", event.target.value)}
+                placeholder="derikordon.com"
+                required
+              />
               <small className="muted">
-                Full Supabase sadece explicit legacy mod icin acilir; default secim light_postgres olarak korunur.
+                Storefront ve admin domaini. Demo domain authority icinde <code>&lt;slug&gt;.demo.celebix.co</code> olarak tutulur.
               </small>
             </label>
-            {form.databaseMode === "full_supabase" ? (
-              <div className="inline-card" style={{ borderColor: "rgba(254,97,0,.24)" }}>
-                <div>
-                  <strong>Legacy Supabase stack olusturur</strong>
-                  <p>Yeni standart degildir</p>
-                  <p>Sadece ozel/onayli durumlarda kullanilir</p>
-                </div>
-                <span className="pill pill-accent">legacy</span>
-              </div>
-            ) : (
-              <p className="card-note">
-                Legacy paneli acik, ancak yeni standard secimi light_postgres olarak aktif kalir.
-              </p>
-            )}
+
+            <label className="field">
+              <span>Tema</span>
+              <select value={form.theme} onChange={(event) => updateField("theme", event.target.value)}>
+                {THEME_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        ) : null}
-      </div>
+        </section>
 
-      <label className="field">
-        <span>Destek E-postasi</span>
-        <input
-          type="email"
-          value={form.supportEmail}
-          onChange={(event) => updateField("supportEmail", event.target.value)}
-          placeholder="destek@derikordon.com"
-        />
-      </label>
+        <section className="owner-standard-card field-full">
+          <div className="owner-form-block-title">
+            <strong>Yeni Celebix Standardi</strong>
+            <span>Adim 06</span>
+          </div>
+          <p>
+            Yeni store create akisi varsayilan olarak light Postgres + R2 + generated admin/storefront
+            standardinda acilir. Teknik database mode sadece advanced legacy alaninda degisir.
+          </p>
+          <div className="actions compact-actions wrap stack-top-sm">
+            <span className="pill pill-success">light_postgres default</span>
+            <span className="pill">R2 default</span>
+            <span className="pill provisioning-tone-pending_auth">Logto placeholder</span>
+            <span className="pill provisioning-tone-pending_analytics">Umami placeholder</span>
+            <span className="pill provisioning-tone-pending_payment">Payment placeholder</span>
+          </div>
+          <div className="actions stack-top-sm">
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={() => {
+                if (legacyModeVisible && form.databaseMode === "full_supabase") {
+                  updateField("databaseMode", "light_postgres");
+                  setShowLegacyOptions(false);
+                  return;
+                }
 
-      <label className="field">
-        <span>Destek Telefonu</span>
-        <input
-          value={form.supportPhone}
-          onChange={(event) => updateField("supportPhone", event.target.value)}
-          placeholder="+90 532 000 00 00"
-        />
-      </label>
+                setShowLegacyOptions((current) => !current);
+              }}
+            >
+              {legacyModeVisible ? "Advanced / Legacy alani gizle" : "Advanced / Legacy Mode"}
+            </button>
+          </div>
+          {legacyModeVisible ? (
+            <div className="stack-top-sm">
+              <label className="field">
+                <span>Veritabani modu</span>
+                <select
+                  value={form.databaseMode}
+                  onChange={(event) =>
+                    updateField("databaseMode", event.target.value as FormState["databaseMode"])
+                  }
+                >
+                  <option value="light_postgres">Light Postgres (yeni standart)</option>
+                  <option value="full_supabase">Full Supabase (legacy)</option>
+                </select>
+                <small className="muted">
+                  Full Supabase sadece explicit legacy mod icin acilir; default secim light_postgres olarak korunur.
+                </small>
+              </label>
+              {form.databaseMode === "full_supabase" ? (
+                <div className="inline-card" style={{ borderColor: "rgba(254,97,0,.24)" }}>
+                  <div>
+                    <strong>Legacy Supabase stack olusturur</strong>
+                    <p>Yeni standart degildir</p>
+                    <p>Sadece ozel/onayli durumlarda kullanilir</p>
+                  </div>
+                  <span className="pill pill-legacy">legacy</span>
+                </div>
+              ) : (
+                <p className="card-note">
+                  Legacy paneli acik, ancak yeni standard secimi light_postgres olarak aktif kalir.
+                </p>
+              )}
+            </div>
+          ) : null}
+        </section>
 
-      <label className="field">
-        <span>Paket baslangic tarihi</span>
-        <input
-          type="date"
-          value={form.packageStartDate}
-          onChange={(event) => updateField("packageStartDate", event.target.value)}
-        />
-      </label>
+        <section className="owner-form-block field-full">
+          <div className="owner-form-block-title">
+            <strong>Admin, odeme ve baslangic</strong>
+            <span>Adim 04-05</span>
+          </div>
+          <div className="form-grid form-grid-2">
+            <label className="field">
+              <span>Destek E-postasi</span>
+              <input
+                type="email"
+                value={form.supportEmail}
+                onChange={(event) => updateField("supportEmail", event.target.value)}
+                placeholder="destek@derikordon.com"
+              />
+            </label>
 
-      <label className="field">
-        <span>Paket suresi (ay)</span>
-        <input
-          type="number"
-          min="1"
-          step="1"
-          value={form.packageDurationMonths}
-          onChange={(event) => updateField("packageDurationMonths", event.target.value)}
-          placeholder="1"
-        />
-        <small className="muted">Aylik paket icin 1, yillik paket icin 12 gir.</small>
-      </label>
+            <label className="field">
+              <span>Destek Telefonu</span>
+              <input
+                value={form.supportPhone}
+                onChange={(event) => updateField("supportPhone", event.target.value)}
+                placeholder="+90 532 000 00 00"
+              />
+            </label>
+
+            <label className="field">
+              <span>Paket baslangic tarihi</span>
+              <input
+                type="date"
+                value={form.packageStartDate}
+                onChange={(event) => updateField("packageStartDate", event.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span>Paket suresi (ay)</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={form.packageDurationMonths}
+                onChange={(event) => updateField("packageDurationMonths", event.target.value)}
+                placeholder="1"
+              />
+              <small className="muted">Aylik paket icin 1, yillik paket icin 12 gir.</small>
+            </label>
+          </div>
+        </section>
+
+        <section className="owner-form-block field-full">
+          <div className="owner-form-block-title">
+            <strong>Deploy branch plani</strong>
+            <span>Authority</span>
+          </div>
+          <div className="meta-pairs">
+            <span>Owner/Admin branch: <strong>{ownerDeploymentBranch}</strong></span>
+            <span>Storefront branch: <strong>{storefrontBranchPreview}</strong></span>
+          </div>
+          <p className="card-note">
+            Owner ve admin deploy ayni branch'te kalir. Her yeni storefront kendi slug'i icin ayri branch alir.
+          </p>
+        </section>
       </fieldset>
 
       {error ? <p className="form-error field-full">{error}</p> : null}

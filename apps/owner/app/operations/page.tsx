@@ -2,6 +2,13 @@ import { formatDateTime } from "@/lib/formatters";
 import { RepairAllStoreDeploymentAuthoritiesButton } from "@/components/RepairAllStoreDeploymentAuthoritiesButton";
 import { RepairOwnerDeploymentBranchButton } from "@/components/RepairOwnerDeploymentBranchButton";
 import {
+  OwnerActionPanel,
+  OwnerCommandHero,
+  OwnerDataTableShell,
+  OwnerMetricCard,
+  OwnerStatusChip,
+} from "@/components/owner-control";
+import {
   getDatabaseModeLabel,
   getDatabaseModePillClass,
   getProvisioningLabel,
@@ -53,68 +60,33 @@ export default async function OperationsPage() {
 
   return (
     <>
-      <section className="dashboard-hero">
-        <div className="dashboard-hero-content">
-          <div className="hero-stack">
-            <span className="hero-overline">Operations Layer</span>
-            <div>
-              <h1>Operasyon komuta kati</h1>
-              <p>
-                Light Postgres standardi, generated app authority, orphan cleanup akislari ve
-                legacy Supabase istisnalari tek panelden izlenir.
-              </p>
-            </div>
-          </div>
-
-          <div className="hero-quick-metrics">
-            <div className="hero-kpi">
-              <span>Hazir store</span>
-              <strong>{summary.totals.readyStores}</strong>
-              <small>Canliya yakin operasyon paketi</small>
-            </div>
-            <div className="hero-kpi">
-              <span>Kurulum aksiyonu bekleyenler</span>
-              <strong>{setupQueueCount}</strong>
-              <small>Auth, analytics veya payment bekleyenler</small>
-            </div>
-            <div className="hero-kpi">
-              <span>Cleanup kuyrugu</span>
-              <strong>{summary.totals.orphanedCleanupRuns}</strong>
-              <small>{repairQueueCount} repair queue / {legacyStoreCount} legacy mode</small>
-            </div>
-          </div>
-        </div>
-
-        <aside className="dashboard-hero-panel">
-          <div className="card-title">Operasyon sinyalleri</div>
-          <div className="hero-list">
-            <div className="hero-list-item">
-              <span>Consistency block</span>
-              <strong>{summary.totals.consistencyBlockingStores}</strong>
-            </div>
-            <div className="hero-list-item">
-              <span>Secret drift</span>
-              <strong>{summary.totals.secretDrift}</strong>
-            </div>
-            <div className="hero-list-item">
-              <span>Yeni standart disi magazalar</span>
-              <strong>{legacyStoreCount}</strong>
-            </div>
-            <div className="hero-list-item">
-              <span>Repair queue</span>
-              <strong>{repairQueueCount}</strong>
-            </div>
-          </div>
-          <div className="hero-chip-row">
+      <OwnerCommandHero
+        overline="Operations Layer"
+        title="Operasyon komuta kati"
+        copy="Light Postgres standardi, generated app authority, orphan cleanup akislari ve legacy istisnalar tek komuta yuzeyinde izlenir."
+        metrics={[
+          { label: "Hazir store", value: summary.totals.readyStores, note: "Canliya yakin operasyon paketi" },
+          { label: "Kurulum aksiyonu", value: setupQueueCount, note: "Auth, analytics veya payment bekleyenler" },
+          { label: "Cleanup kuyrugu", value: summary.totals.orphanedCleanupRuns, note: `${repairQueueCount} repair queue / ${legacyStoreCount} legacy mode` },
+        ]}
+        panelTitle="Operasyon sinyalleri"
+        panelItems={[
+          { label: "Consistency block", value: summary.totals.consistencyBlockingStores },
+          { label: "Secret drift", value: summary.totals.secretDrift },
+          { label: "Yeni standart disi magazalar", value: legacyStoreCount },
+          { label: "Repair queue", value: repairQueueCount },
+        ]}
+        chips={
+          <>
             <span className="hero-chip hero-chip-accent">
               {superAdmin ? "Repair controls active" : "Observation mode"}
             </span>
             <span className={`hero-chip ${warningCount > 0 ? "hero-chip-neutral" : "hero-chip-accent"}`}>
               {warningCount > 0 ? "Dikkat isteyen akim var" : "Operasyon temiz"}
             </span>
-          </div>
-        </aside>
-      </section>
+          </>
+        }
+      />
 
       {superAdmin ? (
         <div className="admin-command-grid">
@@ -162,63 +134,37 @@ export default async function OperationsPage() {
         </div>
       ) : null}
 
-      <div className="metric-row metric-row-6">
-        <div className="metric-box">
-          <div className="metric-box-label">Hazir Store</div>
-          <div className="metric-box-value status-text-success">{summary.totals.readyStores}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Yeni standart disi</div>
-          <div className={`metric-box-value ${legacyStoreCount > 0 ? "status-text-warning" : ""}`}>
-            {legacyStoreCount}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Auth Bekleyen</div>
-          <div className={`metric-box-value ${pendingAuthCount > 0 ? "status-text-warning" : ""}`}>
-            {pendingAuthCount}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Analytics Bekleyen</div>
-          <div className={`metric-box-value ${pendingAnalyticsCount > 0 ? "status-text-warning" : ""}`}>
-            {pendingAnalyticsCount}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Payment Bekleyen</div>
-          <div className={`metric-box-value ${pendingPaymentCount > 0 ? "status-text-warning" : ""}`}>
-            {pendingPaymentCount}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">R2 Eksik</div>
-          <div className={`metric-box-value ${summary.totals.missingR2 > 0 ? "status-text-error" : ""}`}>
-            {summary.totals.missingR2}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Secret Drift</div>
-          <div className={`metric-box-value ${summary.totals.secretDrift > 0 ? "status-text-warning" : ""}`}>
-            {summary.totals.secretDrift}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Runtime Sorunu</div>
-          <div className={`metric-box-value ${summary.totals.adminRuntimeIssues > 0 ? "status-text-error" : ""}`}>
-            {summary.totals.adminRuntimeIssues}
-          </div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Orphan Cleanup</div>
-          <div className={`metric-box-value ${summary.totals.orphanedCleanupRuns > 0 ? "status-text-warning" : ""}`}>
-            {summary.totals.orphanedCleanupRuns}
-          </div>
-        </div>
+      <div className="owner-metric-grid">
+        <OwnerMetricCard label="Hazir store" value={summary.totals.readyStores} note="Ready lifecycle" tone="success" />
+        <OwnerMetricCard label="Yeni standart disi" value={legacyStoreCount} note="Legacy mode" tone={legacyStoreCount > 0 ? "legacy" : "neutral"} />
+        <OwnerMetricCard label="Auth bekleyen" value={pendingAuthCount} note="Logto-ready placeholder" tone={pendingAuthCount > 0 ? "warning" : "success"} />
+        <OwnerMetricCard label="Analytics bekleyen" value={pendingAnalyticsCount} note="Umami-ready placeholder" tone={pendingAnalyticsCount > 0 ? "warning" : "success"} />
+        <OwnerMetricCard label="Payment bekleyen" value={pendingPaymentCount} note="Tahsilat authority" tone={pendingPaymentCount > 0 ? "warning" : "success"} />
+        <OwnerMetricCard label="R2 eksik" value={summary.totals.missingR2} note="Media authority" tone={summary.totals.missingR2 > 0 ? "danger" : "success"} />
+        <OwnerMetricCard label="Secret drift" value={summary.totals.secretDrift} note="Authority drift" tone={summary.totals.secretDrift > 0 ? "warning" : "success"} />
+        <OwnerMetricCard label="Runtime sorunu" value={summary.totals.adminRuntimeIssues} note="Admin runtime" tone={summary.totals.adminRuntimeIssues > 0 ? "danger" : "success"} />
+        <OwnerMetricCard label="Orphan cleanup" value={summary.totals.orphanedCleanupRuns} note="Cleanup queue" tone={summary.totals.orphanedCleanupRuns > 0 ? "warning" : "success"} />
       </div>
 
+      <OwnerActionPanel
+        title="Preview-disabled aksiyonlar"
+        copy="Preview ortaminda repair, cleanup ve deploy aksiyonlari read-only guard altinda tutulur; operasyon ekrani yine de queue durumunu gostermeye devam eder."
+        tone="accent"
+        actions={
+          <>
+            <OwnerStatusChip tone={repairDisabled ? "warning" : "success"}>
+              Repair {repairDisabled ? "kapali" : "aktif"}
+            </OwnerStatusChip>
+            <OwnerStatusChip tone="ink">Cleanup queue {summary.totals.orphanedCleanupRuns}</OwnerStatusChip>
+          </>
+        }
+      />
+
       <div className="split-grid">
-        <div className="card">
+        <OwnerDataTableShell
+          title="Operasyon queue"
+          copy="Store satirlari lifecycle, setup, data mode ve runtime guardrail sinyalleriyle izlenir."
+        >
           <div className="table-wrap">
             <table>
               <thead>
@@ -356,7 +302,7 @@ export default async function OperationsPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </OwnerDataTableShell>
 
         <div className="card">
           <div className="card-title">Son Operasyon Aktiviteleri</div>

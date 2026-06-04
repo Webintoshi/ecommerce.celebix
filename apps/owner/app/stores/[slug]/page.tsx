@@ -8,6 +8,13 @@ import { ProvisionAdminDeploymentButton } from "@/components/ProvisionAdminDeplo
 import { RepairStoreDeploymentAuthorityButton } from "@/components/RepairStoreDeploymentAuthorityButton";
 import { DeleteStoreButton } from "@/components/DeleteStoreButton";
 import { ProvisioningLifecycleCard } from "@/components/ProvisioningLifecycleCard";
+import {
+  OwnerActionPanel,
+  OwnerLifecycleStepper,
+  OwnerMetricCard,
+  OwnerSectionHeader,
+  OwnerStatusChip,
+} from "@/components/owner-control";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { repairStoreDeploymentAuthorityOnce } from "@/lib/coolify-store-deployment";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
@@ -151,6 +158,13 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         : "pill-warning";
   const provisioningToneClass = getProvisioningToneClass(provisioning.state);
   const progressToneClass = subscription.status === "active" ? "is-success" : "is-warning";
+  const setupStepState = pendingSetupSignals.length > 0 ? "current" : "done";
+  const deploymentStepState =
+    provisioning.state === "failed" || provisioning.state === "pending_repair"
+      ? "blocked"
+      : provisioning.state === "ready"
+        ? "done"
+        : "current";
 
   return (
     <>
@@ -243,33 +257,70 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </aside>
       </section>
 
-      {/* Metric Boxes */}
-      <div className="metric-row metric-row-6">
-        <div className="metric-box">
-          <div className="metric-box-label">Urun</div>
-          <div className="metric-box-value">{store.productCount.toLocaleString('tr-TR')}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Siparis</div>
-          <div className="metric-box-value">{store.orderCount.toLocaleString('tr-TR')}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Musteri</div>
-          <div className="metric-box-value">{store.customerCount.toLocaleString('tr-TR')}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Bekleyen</div>
-          <div className="metric-box-value">{store.pendingOrderCount}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Toplam Ciro</div>
-          <div className="metric-box-value">{formatCurrency(store.totalRevenue)}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Sepet Ort.</div>
-          <div className="metric-box-value">{formatCurrency(store.averageOrderValue)}</div>
-        </div>
+      <div className="owner-metric-grid">
+        <OwnerMetricCard label="Urun" value={store.productCount.toLocaleString("tr-TR")} note="Katalog hacmi" />
+        <OwnerMetricCard label="Siparis" value={store.orderCount.toLocaleString("tr-TR")} note="Toplam operasyon" tone="accent" />
+        <OwnerMetricCard label="Musteri" value={store.customerCount.toLocaleString("tr-TR")} note="Musteri tabani" />
+        <OwnerMetricCard label="Bekleyen" value={store.pendingOrderCount} note="Aksiyon bekleyen siparis" tone={store.pendingOrderCount > 0 ? "warning" : "success"} />
+        <OwnerMetricCard label="Toplam ciro" value={formatCurrency(store.totalRevenue)} note="Store performansi" tone="accent" />
+        <OwnerMetricCard label="Sepet ort." value={formatCurrency(store.averageOrderValue)} note="Ortalama siparis" />
       </div>
+
+      <div className="split-grid">
+        <OwnerActionPanel
+          title="Store setup progress"
+          copy="Kurulum akisi teknik loglardan ayrildi; store'un isletim sistemine hazir olma durumu adim adim okunur."
+          tone={deploymentStepState === "blocked" ? "danger" : "accent"}
+          actions={
+            <>
+              <OwnerStatusChip tone={showSupabaseInfrastructure ? "legacy" : "accent"}>
+                {showSupabaseInfrastructure ? "Legacy full stack" : "Yeni Celebix Standardi"}
+              </OwnerStatusChip>
+              <OwnerStatusChip tone={pendingSetupSignals.length > 0 ? "warning" : "success"}>
+                {pendingSetupSignals.length > 0 ? `${pendingSetupSignals.length} setup aksiyonu` : "Setup temiz"}
+              </OwnerStatusChip>
+            </>
+          }
+        >
+          <OwnerLifecycleStepper
+            steps={[
+              { label: "Store authority", detail: `${store.slug} owner kaydi`, state: "done" },
+              { label: "Database", detail: showSupabaseInfrastructure ? "Legacy Supabase mode" : "Light Postgres standard", state: "done" },
+              { label: "Auth / Analytics / Payment", detail: pendingSetupSignals.length > 0 ? "Non-blocking setup aksiyonlari bekliyor" : "Placeholder sinyalleri temiz", state: setupStepState },
+              { label: "Admin app", detail: store.health.adminRuntimeConsistent ? "Runtime authority hazir" : "Runtime drift izleniyor", state: store.health.adminRuntimeConsistent ? "done" : "current" },
+              { label: "Storefront app", detail: store.storefrontStatus, state: deploymentStepState },
+            ]}
+          />
+        </OwnerActionPanel>
+
+        <OwnerActionPanel
+          title="Infrastructure status cards"
+          copy="Light Postgres store'larda Supabase eksikligi hata gibi sunulmaz; legacy store'lar ayrik mod olarak izlenir."
+        >
+          <div className="setup-signal-grid">
+            <div className={`setup-signal-card ${showSupabaseInfrastructure ? "tone-legacy" : "tone-ready"}`}>
+              <span className="setup-signal-kicker">Database</span>
+              <div className="setup-signal-value">{getDatabaseModeLabel(store.databaseMode)}</div>
+              <p className="setup-signal-note">
+                {showSupabaseInfrastructure
+                  ? "Legacy full_supabase istisnasi olarak ayrildi."
+                  : "Yeni Celebix Standardi Light Postgres ile calisir."}
+              </p>
+            </div>
+            <div className={`setup-signal-card ${store.health.r2Ready ? "tone-ready" : "tone-cleanup"}`}>
+              <span className="setup-signal-kicker">R2</span>
+              <div className="setup-signal-value">{store.health.r2Ready ? "Hazir" : "Eksik"}</div>
+              <p className="setup-signal-note">{store.r2BucketName || "Media authority sonraki operasyon adiminda tamamlanir."}</p>
+            </div>
+          </div>
+        </OwnerActionPanel>
+      </div>
+
+      <OwnerSectionHeader
+        eyebrow="Lifecycle signals"
+        title="Bekleyen setup aksiyonlari"
+        copy="Auth, analytics, payment ve cleanup sinyalleri store detayinda teknik hata yerine operasyon sirasinda okunur."
+      />
 
       <div className="setup-signal-grid">
         {setupSignals.map((signal) => (

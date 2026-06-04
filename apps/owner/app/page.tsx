@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
+import {
+  OwnerCommandHero,
+  OwnerMetricCard,
+  OwnerSectionHeader,
+  OwnerStatusChip,
+} from "@/components/owner-control";
 import { formatCurrency, formatDateTime } from "@/lib/formatters";
 import {
   getDatabaseModePillClass,
@@ -75,35 +81,29 @@ export default async function OwnerDashboardPage() {
 
   return (
     <>
-      <section className="dashboard-hero">
-        <div className="dashboard-hero-content">
-          <div className="hero-stack">
-            <span className="hero-overline">{superAdmin ? "Super Admin Layer" : "Affiliate Layer"}</span>
-            <div>
-              <h1>{heroTitle}</h1>
-              <p>{heroCopy}</p>
-            </div>
-          </div>
-
-          <div className="hero-quick-metrics">
-            <div className="hero-kpi">
-              <span>Kurulum Geliri</span>
-              <strong>{formatCurrency(totals.setupRevenue)}</strong>
-              <small>{totals.activeStores} aktif, {totals.draftStores} taslak proje</small>
-            </div>
-            <div className="hero-kpi">
-              <span>Ekosistem GMV</span>
-              <strong>{formatCurrency(totals.revenue)}</strong>
-              <small>{totals.orders.toLocaleString("tr-TR")} siparis ve {totals.customers.toLocaleString("tr-TR")} musteri</small>
-            </div>
-            <div className="hero-kpi">
-              <span>Affiliate Etkisi</span>
-              <strong>{formatCurrency(totals.affiliateExposure)}</strong>
-              <small>{readinessRate}% canli cikis orani</small>
-            </div>
-          </div>
-
-          <div className="actions hero-actions">
+      <OwnerCommandHero
+        overline={superAdmin ? "Super Admin Layer" : "Affiliate Layer"}
+        title={heroTitle}
+        copy={heroCopy}
+        metrics={[
+          {
+            label: "Kurulum geliri",
+            value: formatCurrency(totals.setupRevenue),
+            note: `${totals.activeStores} aktif, ${totals.draftStores} taslak proje`,
+          },
+          {
+            label: "Ekosistem GMV",
+            value: formatCurrency(totals.revenue),
+            note: `${totals.orders.toLocaleString("tr-TR")} siparis ve ${totals.customers.toLocaleString("tr-TR")} musteri`,
+          },
+          {
+            label: "Affiliate etkisi",
+            value: formatCurrency(totals.affiliateExposure),
+            note: `${readinessRate}% canli cikis orani`,
+          },
+        ]}
+        actions={
+          <>
             <Link href="/stores" className="button button-secondary">Tum projeler</Link>
             {superAdmin ? (
               <Link
@@ -113,71 +113,46 @@ export default async function OwnerDashboardPage() {
                 {createStoreDisabled ? "Yeni proje formu" : "+ Yeni proje"}
               </Link>
             ) : null}
-            <span className="pill pill-accent">{totals.liveStorefronts} canli vitrin</span>
-            <span className={`pill ${attentionCount > 0 ? "pill-warning" : "pill-success"}`}>
+            <OwnerStatusChip tone="accent">{totals.liveStorefronts} canli vitrin</OwnerStatusChip>
+            <OwnerStatusChip tone={attentionCount > 0 ? "warning" : "success"}>
               {attentionCount > 0 ? `${attentionCount} dikkat gerekiyor` : "Sahne temiz"}
-            </span>
-            <span className={`pill ${setupQueueCount > 0 ? "pill-warning" : "pill-success"}`}>
+            </OwnerStatusChip>
+            <OwnerStatusChip tone={setupQueueCount > 0 ? "warning" : "success"}>
               {setupQueueCount > 0 ? `${setupQueueCount} kurulum aksiyonu` : "Kurulum aksiyonu temiz"}
-            </span>
-          </div>
-        </div>
-
-        <aside className="dashboard-hero-panel">
-          <div className="card-title">Bugunun panel ritmi</div>
-          <div className="hero-list">
-            <div className="hero-list-item">
-              <span>Kurulumda ilerleyen proje</span>
-              <strong>{portfolioCount}</strong>
-            </div>
-            <div className="hero-list-item">
-              <span>Bekleyen siparis hacmi</span>
-              <strong>{totals.pendingOrders.toLocaleString("tr-TR")}</strong>
-            </div>
-            <div className="hero-list-item">
-              <span>Canli storefront</span>
-              <strong>{totals.liveStorefronts.toLocaleString("tr-TR")}</strong>
-            </div>
-            <div className="hero-list-item">
-              <span>Yeni standart disi magazalar</span>
-              <strong>{legacyStoreCount}</strong>
-            </div>
-          </div>
-          <div className="hero-chip-row">
+            </OwnerStatusChip>
+          </>
+        }
+        panelTitle="Bugunun panel ritmi"
+        panelItems={[
+          { label: "Kurulumda ilerleyen proje", value: portfolioCount },
+          { label: "Bekleyen siparis hacmi", value: totals.pendingOrders.toLocaleString("tr-TR") },
+          { label: "Canli storefront", value: totals.liveStorefronts.toLocaleString("tr-TR") },
+          { label: "Yeni standart disi magazalar", value: legacyStoreCount },
+        ]}
+        chips={
+          <>
             <span className="hero-chip hero-chip-accent">{superAdmin ? "Command mode" : "Portfolio mode"}</span>
             <span className="hero-chip hero-chip-neutral">{dashboard?.cleanupRuns.length ?? 0} orphan cleanup</span>
             <span className="hero-chip hero-chip-neutral">{legacyStoreCount} yeni standart disi</span>
-          </div>
-        </aside>
-      </section>
+          </>
+        }
+      />
 
       {/* Metrics Row */}
-      <div className="metric-row metric-row-6">
-        <div className="metric-box">
-          <div className="metric-box-label">Toplam Sipariş</div>
-          <div className="metric-box-value">{totals.orders.toLocaleString("tr-TR")}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Toplam Müşteri</div>
-          <div className="metric-box-value">{totals.customers.toLocaleString("tr-TR")}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Aktif Proje</div>
-          <div className="metric-box-value">{totals.activeStores}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Taslak Proje</div>
-          <div className="metric-box-value">{totals.draftStores}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Canlı Storefront</div>
-          <div className="metric-box-value">{totals.liveStorefronts}</div>
-        </div>
-        <div className="metric-box">
-          <div className="metric-box-label">Bekleyen Sipariş</div>
-          <div className="metric-box-value">{totals.pendingOrders}</div>
-        </div>
+      <div className="owner-metric-grid">
+        <OwnerMetricCard label="Toplam siparis" value={totals.orders.toLocaleString("tr-TR")} note="Ekosistem hacmi" tone="accent" />
+        <OwnerMetricCard label="Toplam musteri" value={totals.customers.toLocaleString("tr-TR")} note="Tum store portfoyu" />
+        <OwnerMetricCard label="Aktif proje" value={totals.activeStores} note="Canli operasyon" tone="success" />
+        <OwnerMetricCard label="Taslak proje" value={totals.draftStores} note="Kurulum ritmi" tone="warning" />
+        <OwnerMetricCard label="Canli storefront" value={totals.liveStorefronts} note="Yayin hazirligi" tone="success" />
+        <OwnerMetricCard label="Bekleyen siparis" value={totals.pendingOrders} note="Operasyon izlemi" />
       </div>
+
+      <OwnerSectionHeader
+        eyebrow="Control center"
+        title="Kurulum akisi ve is etkisi"
+        copy="Dashboard artik yalnizca metrik gostermiyor; lifecycle, gelir, affiliate ve operasyon sinyallerini tek komuta alaninda toparliyor."
+      />
 
       <div className="insight-grid">
         <div className="insight-card insight-card-dark">

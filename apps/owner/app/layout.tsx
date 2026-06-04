@@ -6,6 +6,7 @@ import { SidebarNavLink } from "@/components/SidebarNavLink";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { OwnerPreviewBanner } from "@/components/owner-control";
 import {
   getOwnerPreviewBannerMessage,
   getOwnerPreviewBannerTitle,
@@ -159,13 +160,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 </header>
                 <main className="page-content">
                   {previewFlags.previewMode || previewFlags.writeActionsDisabled ? (
-                    <section className="preview-banner">
-                      <div className="preview-banner-chip">{getOwnerPreviewBannerTitle()}</div>
-                      <div className="preview-banner-copy">
-                        <strong>Read-only owner preview aktif.</strong>
-                        <p>{getOwnerPreviewBannerMessage()}</p>
-                      </div>
-                    </section>
+                    <OwnerPreviewBanner
+                      title={getOwnerPreviewBannerTitle()}
+                      message={getOwnerPreviewBannerMessage()}
+                    />
                   ) : null}
                   {children}
                 </main>
