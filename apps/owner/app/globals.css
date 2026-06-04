@@ -3449,7 +3449,8 @@ code {
 .dashboard-command-card {
   display: grid;
   gap: 16px;
-  min-height: 248px;
+  min-height: 0;
+  align-content: start;
   padding: 22px;
   background:
     linear-gradient(145deg, var(--surface-dark), var(--surface-dark-2));
@@ -3519,7 +3520,7 @@ code {
 
 .dashboard-priority-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .dashboard-priority-row {
@@ -3527,7 +3528,7 @@ code {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border-soft);
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface-2) 70%, white);
@@ -3540,13 +3541,13 @@ code {
 
 .dashboard-priority-row strong {
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .dashboard-priority-row span {
   margin-top: 2px;
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .dashboard-priority-count {
@@ -3557,7 +3558,7 @@ code {
 
 .dashboard-priority-count b {
   color: var(--text-primary);
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
   letter-spacing: -0.03em;
 }
