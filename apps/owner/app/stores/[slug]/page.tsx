@@ -262,7 +262,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <OwnerMetricCard label="Sipariş" value={store.orderCount.toLocaleString("tr-TR")} note="Toplam operasyon" tone="accent" />
         <OwnerMetricCard label="Müşteri" value={store.customerCount.toLocaleString("tr-TR")} note="Müşteri tabanı" />
         <OwnerMetricCard label="Bekleyen" value={store.pendingOrderCount} note="Aksiyon bekleyen sipariş" tone={store.pendingOrderCount > 0 ? "warning" : "success"} />
-        <OwnerMetricCard label="Toplam ciro" value={formatCurrency(store.totalRevenue)} note="Store performansi" tone="accent" />
+        <OwnerMetricCard label="Toplam ciro" value={formatCurrency(store.totalRevenue)} note="Mağaza performansı" tone="accent" />
         <OwnerMetricCard label="Sepet ort." value={formatCurrency(store.averageOrderValue)} note="Ortalama sipariş" />
       </div>
 
@@ -332,7 +332,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             </div>
             <div className="setup-signal-value">
               {signal.pending
-                ? "Operasyon sirasinda"
+                ? "Operasyon sırasında"
                 : signal.key === "auth" && showSupabaseInfrastructure
                   ? "Legacy authority"
                   : "Owner hazır"}

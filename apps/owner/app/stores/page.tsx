@@ -85,7 +85,7 @@ export default async function StoresPage() {
           { label: "Varsayılan profil", value: "Yeni Standart" },
           { label: "Legacy ayrımı", value: `${legacyCount} mağaza` },
           { label: "Kurulum sinyali", value: `${pendingSignalCount} mağaza` },
-          { label: "Onarim gerektiren", value: repairCount },
+          { label: "Onarım gerektiren", value: repairCount },
         ]}
         chips={
           <>

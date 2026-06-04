@@ -32,7 +32,7 @@ const STEP_STORIES: Record<ProvisioningStepKey, StepStory> = {
     copy: "Eski izler temizleniyor, yeni acilis alani bosaltiliyor.",
   },
   deployment_branch_preflight: {
-    stage: "Yayin rotasi",
+    stage: "Yayın rotası",
     copy: "Dogru deployment hattina giris kontrolu yapiliyor.",
   },
   supabase_preflight: {

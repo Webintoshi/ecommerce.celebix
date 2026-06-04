@@ -48,13 +48,13 @@ export default async function NewStorePage() {
             {createStoreDisabled ? <OwnerStatusChip tone="warning">Yazma işlemleri kapalı</OwnerStatusChip> : null}
           </>
         }
-        panelTitle="Kurulum sirasi"
+        panelTitle="Kurulum sırası"
         panelItems={[
           { label: "1. Marka", value: "Mağaza bilgileri" },
-          { label: "2. Domain", value: "Yayin kimligi" },
-          { label: "3. Tema", value: "Sektor dili" },
-          { label: "4. Admin", value: "Baslangic erisimi" },
-          { label: "5. Ticaret", value: "Odeme ve kargo" },
+          { label: "2. Domain", value: "Yayın kimliği" },
+          { label: "3. Tema", value: "Sektör dili" },
+          { label: "4. Admin", value: "Başlangıç erişimi" },
+          { label: "5. Ticaret", value: "Ödeme ve kargo" },
           { label: "6. Sistem", value: "Yeni standart" },
         ]}
         chips={
