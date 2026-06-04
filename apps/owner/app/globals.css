@@ -3433,6 +3433,7 @@ code {
 .dashboard-command-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.75fr);
+  align-items: start;
   gap: 16px;
   margin-bottom: 16px;
 }
