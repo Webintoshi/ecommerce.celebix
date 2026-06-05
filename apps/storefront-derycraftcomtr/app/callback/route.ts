@@ -10,9 +10,10 @@ import {
   readLogtoCustomerStateCookie,
   writeLogtoCustomerSessionCookie,
 } from "@/lib/logto-customer-auth";
+import { absoluteStorefrontUrl } from "@/lib/storefront-runtime";
 
 function buildLoginRedirect(request: NextRequest, params: Record<string, string>) {
-  const url = new URL("/giris", request.url);
+  const url = new URL(absoluteStorefrontUrl("/giris"));
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     const userInfo = await fetchLogtoUserInfo(tokens.access_token);
     const bridge = await findOrProvisionCustomerBridge(userInfo);
     const nextPath = sanitizeInternalRedirectPath(stateCookie.nextPath, "/hesap");
-    const response = NextResponse.redirect(new URL(nextPath, request.url));
+    const response = NextResponse.redirect(absoluteStorefrontUrl(nextPath));
     const sessionPayload = buildLogtoCustomerSessionPayload({
       bridge,
       userInfo,

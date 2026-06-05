@@ -6,6 +6,7 @@ import {
   DERYCRAFT_AUTH_MIGRATION_MESSAGE,
   isStorefrontCustomerAuthMigrationRequired,
 } from "@/lib/supabase-disconnect-readiness";
+import { absoluteStorefrontUrl } from "@/lib/storefront-runtime";
 
 type RegisterBody = {
   email?: string;
@@ -67,11 +68,11 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   if (isLogtoCustomerAuthEnabled()) {
-    const url = new URL("/api/auth/sign-in", request.url);
+    const url = new URL(absoluteStorefrontUrl("/api/auth/sign-in"));
     url.searchParams.set("next", "/hesap");
     url.searchParams.set("firstScreen", "register");
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.redirect(new URL("/kayit", request.url));
+  return NextResponse.redirect(absoluteStorefrontUrl("/kayit"));
 }

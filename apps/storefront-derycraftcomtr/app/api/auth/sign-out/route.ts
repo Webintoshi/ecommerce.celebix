@@ -5,9 +5,10 @@ import {
   getLogtoLogoutRedirectUrl,
   readLogtoCustomerSessionCookie,
 } from "@/lib/logto-customer-auth";
+import { absoluteStorefrontUrl } from "@/lib/storefront-runtime";
 
 export async function GET(request: NextRequest) {
-  const fallbackUrl = new URL("/", request.url);
+  const fallbackUrl = absoluteStorefrontUrl("/");
 
   if (!isLogtoCustomerAuthEnabled()) {
     return NextResponse.redirect(fallbackUrl);
