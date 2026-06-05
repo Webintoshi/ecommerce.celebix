@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getCodeIntegrationsSettings, getSeoSettings, getStoreInfo } from "@/lib/db/settings";
 import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { shouldUseTurkishTextFallback } from "@/lib/storefront-locale-policy";
 import { getRequestOrigin } from "@/lib/request-origin";
 import {
   LOCALE_LANGUAGE_CODES,
@@ -111,15 +112,27 @@ function buildPageTitle(title: string, titleSuffix: string) {
 export async function getStoreSeoContext(locale: StorefrontLocale): Promise<StoreSeoContext> {
   const [storeInfo, seoSettings] = await Promise.all([getStoreInfo(), getSeoSettings()]);
   const copy = getLocalizedCopy(locale);
+  const fallbackSiteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
+  const configuredSiteName = normalizeTitle(seoSettings.siteName);
   const siteName =
-    normalizeTitle(seoSettings.siteName) || storeInfo?.name || STOREFRONT_RUNTIME.name;
-  const titleSuffix = normalizeTitle(seoSettings.titleSuffix) || siteName;
-  const rawDefaultTitle = normalizeTitle(seoSettings.defaultTitle) || siteName || copy.siteTitle;
+    shouldUseTurkishTextFallback(configuredSiteName) || !configuredSiteName
+      ? fallbackSiteName
+      : configuredSiteName;
+  const configuredTitleSuffix = normalizeTitle(seoSettings.titleSuffix);
+  const titleSuffix =
+    shouldUseTurkishTextFallback(configuredTitleSuffix) || !configuredTitleSuffix
+      ? siteName
+      : configuredTitleSuffix;
+  const configuredDefaultTitle = normalizeTitle(seoSettings.defaultTitle);
+  const configuredDefaultDescription = normalizeDescription(seoSettings.defaultDescription);
+  const rawDefaultTitle =
+    shouldUseTurkishTextFallback(configuredDefaultTitle) || !configuredDefaultTitle
+      ? siteName || copy.siteTitle
+      : configuredDefaultTitle;
   const rawDefaultDescription =
-    normalizeDescription(seoSettings.defaultDescription) ||
-    copy.siteDescription ||
-    STOREFRONT_RUNTIME.description ||
-    siteName;
+    shouldUseTurkishTextFallback(configuredDefaultDescription) || !configuredDefaultDescription
+      ? copy.siteDescription || STOREFRONT_RUNTIME.description || siteName
+      : configuredDefaultDescription;
   const [defaultTitle, defaultDescription] = await translateSeoStrings(
     [rawDefaultTitle, rawDefaultDescription],
     locale,

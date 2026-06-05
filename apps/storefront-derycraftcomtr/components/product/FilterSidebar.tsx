@@ -100,19 +100,19 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
   return (
     <div className={cn("bg-white p-6 border border-[#E5E2DE]", className)}>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="font-serif text-xl text-[#0F1626]">Filters</h2>
+        <h2 className="font-serif text-xl text-[#0F1626]">Filtreler</h2>
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
             className="text-sm text-[#8A6B37] hover:text-[#0F1626] transition-colors"
           >
-            Clear
+            Temizle
           </button>
         )}
       </div>
 
       <div className="space-y-1">
-        <FilterSection title="Categories">
+        <FilterSection title="Kategoriler">
           {CATEGORIES.map((category) => (
             <Checkbox
               key={category.value}
@@ -124,7 +124,7 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
           ))}
         </FilterSection>
 
-        <FilterSection title="Price Range">
+        <FilterSection title="Fiyat Aralığı">
           <RangeSlider
             min={0}
             max={5000}
@@ -134,9 +134,9 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
           />
         </FilterSection>
 
-        <FilterSection title="Features">
+        <FilterSection title="Özellikler">
           <Checkbox
-            label="Handmade"
+            label="El Yapımı"
             checked={filters.vegan}
             onChange={(e) => onFilterChange({ vegan: e.target.checked })}
           />

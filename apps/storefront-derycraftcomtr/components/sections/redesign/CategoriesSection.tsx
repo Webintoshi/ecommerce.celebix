@@ -16,7 +16,7 @@ interface CategoriesSectionProps {
 export function CategoriesSection({
   initialCategories = [],
   eyebrow = "Koleksiyonlar",
-  heading = "Categories",
+  heading = "Kategoriler",
 }: CategoriesSectionProps) {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 

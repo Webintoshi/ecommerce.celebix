@@ -8,6 +8,7 @@ import {
   type LocaleRoutingConfig,
   type StorefrontLocale,
 } from "@/lib/i18n";
+import { getForcedTurkishLocaleRoutingConfig } from "@/lib/storefront-locale-policy";
 
 const LOCALE_ROUTING_CACHE_KEY = "storefront:locale-routing:v1";
 const LOCALE_ROUTING_CACHE_TTL_MS = 15_000;
@@ -46,6 +47,11 @@ export function deriveLocaleRoutingConfig(input: {
 
 export async function getLocaleRoutingConfig(): Promise<LocaleRoutingConfig> {
   return getOrSetCachedValue(LOCALE_ROUTING_CACHE_KEY, LOCALE_ROUTING_CACHE_TTL_MS, async () => {
+    const forcedConfig = getForcedTurkishLocaleRoutingConfig();
+    if (forcedConfig) {
+      return forcedConfig;
+    }
+
     const settings = await getTranslationSettings();
     return deriveLocaleRoutingConfig(settings);
   });

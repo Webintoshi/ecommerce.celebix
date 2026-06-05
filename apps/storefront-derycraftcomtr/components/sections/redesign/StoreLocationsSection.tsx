@@ -46,10 +46,10 @@ function LocationImage({
 }
 
 export function StoreLocationsSection({
-  eyebrow = "Our Stores",
-  heading = "Experience leather in person",
-  description = "Visit our Giresun and Ordu stores to explore DeryCraft leather collections up close.",
-  linkLabel = "View all stores",
+  eyebrow = "Mağazalarımız",
+  heading = "Deriye yakından dokunun",
+  description = "Giresun ve Ordu mağazalarımızda DeryCraft koleksiyonlarını yakından inceleyin.",
+  linkLabel = "Tüm şubeleri gör",
   storesHref,
 }: StoreLocationsSectionProps) {
   const galleryImages = STORE_LOCATIONS.flatMap((store) =>

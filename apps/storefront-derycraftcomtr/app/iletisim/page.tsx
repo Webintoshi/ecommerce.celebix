@@ -14,10 +14,10 @@ export async function generateMetadata() {
   return buildStorePageMetadata({
     locale,
     pathname: "/iletisim",
-    title: managedPage?.seoTitle || `Contact | ${profile.name}`,
+    title: managedPage?.seoTitle || `İletişim | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `Contact ${profile.name} for support, quotes, wholesale and project requests.`,
+      `${profile.name} ile destek, teklif, toptan satış ve proje talepleriniz için iletişime geçin.`,
   });
 }
 
@@ -27,25 +27,25 @@ export default async function ContactPage() {
 
   const cards = [
     {
-      title: "Address",
+      title: "Adres",
       value: profile.address,
       href: profile.mapSearchUrl,
       icon: MapPin,
-      linkLabel: "Open Map",
+      linkLabel: "Haritada Aç",
     },
     {
-      title: "Email",
+      title: "E-posta",
       value: profile.email,
       href: `mailto:${profile.email}`,
       icon: Mail,
-      linkLabel: "Send Email",
+      linkLabel: "E-posta Gönder",
     },
     {
-      title: "Phone",
+      title: "Telefon",
       value: profile.phone,
       href: `tel:${profile.phoneLink}`,
       icon: Phone,
-      linkLabel: "Call Now",
+      linkLabel: "Hemen Ara",
     },
   ];
 
@@ -55,14 +55,14 @@ export default async function ContactPage() {
         <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-              Contact
+              İletişim
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-              Connect with {profile.name}
+              {profile.name} ile iletişime geçin
             </h1>
             <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
               {managedPage?.plainText ||
-                "Contact cards are managed from general settings, while body content is managed from the Contact page in the admin panel."}
+                "İletişim kartları genel ayarlardan, sayfa içeriği ise admin panelindeki İletişim sayfasından yönetilir."}
             </p>
           </div>
         </div>

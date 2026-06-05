@@ -28,15 +28,15 @@ export default function CartPage() {
             <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-primary/10">
               <ShoppingBag className="h-12 w-12 text-primary" />
             </div>
-            <h1 className="mb-4 text-3xl font-bold text-primary">Your cart is empty</h1>
+            <h1 className="mb-4 text-3xl font-bold text-primary">Sepetiniz boş</h1>
             <p className="mb-8 text-muted">
-              You do not have any products in your cart yet. Continue shopping to explore DeryCraft collections.
+              Henüz sepetinizde ürün bulunmuyor. DeryCraft koleksiyonlarını keşfetmek için alışverişe devam edin.
             </p>
             <Link
               href="/urunler"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-4 font-medium text-primary-foreground transition-all hover:bg-primary/90"
             >
-              Start Shopping
+              Alışverişe Başla
             </Link>
           </div>
         </div>
@@ -49,7 +49,7 @@ export default function CartPage() {
       <div className="bg-primary py-8 text-primary-foreground">
         <div className="container mx-auto px-4">
           <h1 className="text-2xl font-bold md:text-3xl">
-            Cart ({getTotalItems()} items)
+            Sepet ({getTotalItems()} ürün)
           </h1>
         </div>
       </div>

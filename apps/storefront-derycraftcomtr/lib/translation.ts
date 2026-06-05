@@ -9,6 +9,7 @@ import {
 import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { createServerClient } from "@/lib/supabase";
 import { getTranslationSettings } from "@/lib/db/settings";
+import { shouldBypassTranslationsForLocale } from "@/lib/storefront-locale-policy";
 
 const DEEPL_FREE_API_URL = "https://api-free.deepl.com/v2/translate";
 const MAX_BATCH_SIZE = 40;
@@ -562,16 +563,16 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
   const settings = await getConfiguredTranslationSettings();
   if (!settings.translateUi || !shouldTranslateLocale(settings, locale)) {
     return {
-      categoriesEyebrow: "Collections",
-      categoriesHeading: "Categories",
-      viewAllLabel: "View All",
-      testimonialsHeading: "Customer Reviews",
-      testimonialsCountLabel: "from 1,581 reviews",
+      categoriesEyebrow: "Koleksiyonlar",
+      categoriesHeading: "Kategoriler",
+      viewAllLabel: "Tümünü Gör",
+      testimonialsHeading: "Müşteri Yorumları",
+      testimonialsCountLabel: "1581 değerlendirmeden",
       productGroups: [
-        { title: "Best Sellers", subtitle: "Selected Collection" },
-        { title: "Apple Watch Bands", subtitle: "Featured Picks" },
-        { title: "Accessories", subtitle: "Finishing Touches" },
-        { title: "Leather Watch Straps", subtitle: "Classic Selection" },
+        { title: "Çok Satanlar", subtitle: "Seçili Koleksiyon" },
+        { title: "Apple Watch Kayışları", subtitle: "Öne Çıkanlar" },
+        { title: "Aksesuarlar", subtitle: "Tamamlayıcılar" },
+        { title: "Deri Saat Kayışları", subtitle: "Klasik Seçim" },
       ],
     };
   }
@@ -584,11 +585,11 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
     testimonialsCountLabel,
   ] = await translateTexts(
     [
-      "Collections",
-      "Categories",
-      "View All",
-      "Customer Reviews",
-      "from 1,581 reviews",
+      "Koleksiyonlar",
+      "Kategoriler",
+      "Tümünü Gör",
+      "Müşteri Yorumları",
+      "1581 değerlendirmeden",
     ],
     {
       locale,
@@ -598,14 +599,14 @@ export async function translateHomepageSectionCopy(locale: StoreTranslationLocal
 
   const groupRows = await translateTexts(
     [
-      "Best Sellers",
-      "Selected Collection",
-      "Apple Watch Bands",
-      "Featured Picks",
-      "Accessories",
-      "Finishing Touches",
-      "Leather Watch Straps",
-      "Classic Selection",
+      "Çok Satanlar",
+      "Seçili Koleksiyon",
+      "Apple Watch Kayışları",
+      "Öne Çıkanlar",
+      "Aksesuarlar",
+      "Tamamlayıcılar",
+      "Deri Saat Kayışları",
+      "Klasik Seçim",
     ],
     {
       locale,
@@ -633,6 +634,10 @@ export async function translateUiStrings(
   locale: StoreTranslationLocale,
   context: string,
 ) {
+  if (shouldBypassTranslationsForLocale(locale)) {
+    return values;
+  }
+
   const settings = await getConfiguredTranslationSettings();
   if (!settings.translateUi || !shouldTranslateLocale(settings, locale)) {
     return values;
@@ -655,6 +660,10 @@ export async function translateSeoStrings(
   locale: StoreTranslationLocale,
   context: string,
 ) {
+  if (shouldBypassTranslationsForLocale(locale)) {
+    return values.map((value) => value || "");
+  }
+
   const settings = await getConfiguredTranslationSettings();
   if (!settings.translateSeo || !shouldTranslateLocale(settings, locale)) {
     return values.map((value) => value || "");

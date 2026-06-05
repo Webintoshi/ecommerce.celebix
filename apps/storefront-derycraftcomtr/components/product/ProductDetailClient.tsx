@@ -316,21 +316,21 @@ export function ProductDetailClient({
               className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Back to All Products</span>
+              <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
             </Link>
             <div className="ml-auto flex items-center gap-2 text-neutral-400">
               <Link
                   href={buildPath("/")}
                 className="transition-colors hover:text-neutral-600"
               >
-                Home
+                Ana Sayfa
               </Link>
               <ChevronRight className="w-4 h-4" />
               <Link
                   href={buildPath("/urunler")}
                 className="transition-colors hover:text-neutral-600"
               >
-                Products
+                Ürünler
               </Link>
               <ChevronRight className="w-4 h-4" />
               <span className="max-w-[150px] truncate font-medium text-neutral-900">
@@ -360,7 +360,7 @@ export function ProductDetailClient({
                 <span className="h-px w-8 bg-neutral-300" />
                 {product.featured && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
-                    Featured
+                    Öne Çıkan
                   </span>
                 )}
               </div>
@@ -383,7 +383,7 @@ export function ProductDetailClient({
                   ))}
                 </div>
                 <span className="text-sm text-neutral-500">
-                  ({product.reviewCount || 0} reviews)
+                  ({product.reviewCount || 0} değerlendirme)
                 </span>
               </div>
 
@@ -401,12 +401,12 @@ export function ProductDetailClient({
               <div className="flex flex-wrap gap-2">
                 {discountPercent > 0 && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    {discountPercent}% Off
+                    %{discountPercent} İndirim
                   </span>
                 )}
                 {product.new && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-                    New
+                    Yeni
                   </span>
                 )}
                 {product.vegan && (
@@ -424,7 +424,7 @@ export function ProductDetailClient({
 
               {isSchemaLoading ? (
                 <div className="py-3 text-sm text-neutral-500">
-                  Loading personalization options...
+                  Kişiselleştirme seçenekleri yükleniyor...
                 </div>
               ) : activeSchema ? (
                 <div
@@ -467,7 +467,7 @@ export function ProductDetailClient({
                   </div>
                   {activeSchema && customizationState.extraPrice > 0 && (
                     <p className="text-sm text-neutral-500">
-                      +{formatPrice(customizationState.extraPrice)} personalization
+                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
                     </p>
                   )}
                 </div>
@@ -512,10 +512,10 @@ export function ProductDetailClient({
                   >
                     <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
                     {isSchemaLoading
-                      ? "Loading"
+                      ? "Yükleniyor"
                       : isOutOfStock
-                        ? "Sold Out"
-                        : "Add to Cart"}
+                        ? "Tükendi"
+                        : "Sepete Ekle"}
                   </button>
                   <button
                     onClick={toggleWishlist}
@@ -553,19 +553,19 @@ export function ProductDetailClient({
                 {[
                   {
                     id: "features",
-                    label: "Product Details",
+                    label: "Ürün Detayları",
                     content: <ProductFeatures product={product} />,
                   },
                   {
                     id: "specs",
-                    label: "Features",
+                    label: "Özellikler",
                     content: (
                       <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                         <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
                           <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Material
+                              Malzeme
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
                               Premium Full-Grain Deri
@@ -576,10 +576,10 @@ export function ProductDetailClient({
                           <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Craftsmanship
+                              İşçilik
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Hand Stitching (Saddle Stitch)
+                              El Dikişi (Saddle Stitch)
                             </p>
                           </div>
                         </div>
@@ -587,10 +587,10 @@ export function ProductDetailClient({
                           <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Production Time
+                              Üretim Süresi
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              1-3 Business Days
+                              1-3 İş Günü
                             </p>
                           </div>
                         </div>
@@ -598,10 +598,10 @@ export function ProductDetailClient({
                           <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Guarantee
+                              Garanti
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Handmade Craft Quality
+                              El İşçiliği Kalitesi
                             </p>
                           </div>
                         </div>
@@ -610,32 +610,32 @@ export function ProductDetailClient({
                   },
                   {
                     id: "shipping",
-                    label: "Shipping & Returns",
+                    label: "Kargo ve İade",
                     content: (
                       <div className="space-y-5 text-sm text-neutral-600">
                         <div>
                           <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>🚛</span> SHIPPING & RETURNS
+                            <span>🚛</span> KARGO VE İADE
                           </h4>
                           <ul className="list-none space-y-1.5">
                             <li>
-                              <strong className="text-neutral-800">Free Shipping:</strong> on orders over 1500 TL
+                              <strong className="text-neutral-800">Ücretsiz Kargo:</strong> 1500 TL üzeri siparişlerde
                             </li>
                             <li>
-                              <strong className="text-neutral-800">Delivery Time:</strong> 1-3 business days preparation + 2-4 business days shipping
+                              <strong className="text-neutral-800">Teslimat Süresi:</strong> 1-3 iş günü hazırlık + 2-4 iş günü kargo
                             </li>
                             <li>
-                              <strong className="text-neutral-800">Shipping Partner:</strong> may vary depending on the delivery address.
+                              <strong className="text-neutral-800">Kargo Partneri:</strong> teslimat adresine göre değişebilir.
                             </li>
                           </ul>
                         </div>
                         <div>
                           <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>💳</span> PAYMENT OPTIONS
+                            <span>💳</span> ÖDEME SEÇENEKLERİ
                           </h4>
                           <ul className="list-none space-y-1.5">
-                            <li>Credit/Debit Card with 3D Secure</li>
-                            <li>Bank Transfer</li>
+                            <li>3D Secure ile kredi / banka kartı</li>
+                            <li>Havale / EFT</li>
                           </ul>
                         </div>
                         <div>
@@ -727,17 +727,17 @@ export function ProductDetailClient({
           <div className="mb-10 flex items-center justify-between">
             <div>
               <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Discover
+                Keşfet
               </span>
               <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
-                Similar Products
+                Benzer Ürünler
               </h2>
             </div>
             <Link
                   href={buildPath("/urunler")}
               className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
             >
-              View All
+              Tümünü Gör
               <ChevronRight className="w-5 h-5" />
             </Link>
           </div>

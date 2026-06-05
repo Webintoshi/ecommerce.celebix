@@ -169,9 +169,9 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                     <ShoppingBag className="h-10 w-10 text-gray-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">Your cart is empty</h3>
+                    <h3 className="text-lg font-bold text-gray-900">Sepetiniz boş</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      You have not added any products yet.
+                      Henüz sepetinize ürün eklemediniz.
                     </p>
                   </div>
                   <Link
@@ -179,7 +179,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                     onClick={onClose}
                     className="rounded-xl bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-red-800"
                   >
-                    Start Shopping
+                    Alışverişe Başla
                   </Link>
                 </div>
               ) : (

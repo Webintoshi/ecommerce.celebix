@@ -90,7 +90,7 @@ export default function BestSellers({ initialProducts }: { initialProducts?: Pro
               href={ROUTES.products}
               className="mt-6 px-6 py-3 bg-neutral-900 text-white rounded-xl font-medium hover:bg-neutral-800 transition-colors"
             >
-              Start Shopping
+              Alışverişe Başla
             </Link>
           </div>
         </div>
@@ -105,10 +105,10 @@ export default function BestSellers({ initialProducts }: { initialProducts?: Pro
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 md:mb-12">
           <div>
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 mb-2 block">
-              Popular
+              Popüler
             </span>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900">
-              Best Sellers
+              Çok Satanlar
             </h2>
           </div>
           
@@ -117,7 +117,7 @@ export default function BestSellers({ initialProducts }: { initialProducts?: Pro
             href={ROUTES.products} 
             className="hidden sm:inline-flex items-center gap-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors group"
           >
-            View All
+            Tümünü Gör
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>

@@ -143,38 +143,38 @@ export const ROUTES = {
 
 export const PRODUCT_BADGES = {
   vegan: { label: "Vegan", color: "bg-primary/10 text-primary" },
-  glutenFree: { label: "Gluten Free", color: "bg-primary/10 text-primary" },
-  sugarFree: { label: "Sugar Free", color: "bg-primary/10 text-primary" },
-  highProtein: { label: "High Protein", color: "bg-primary/10 text-primary" },
-  new: { label: "New", color: "bg-primary/10 text-primary" },
-  discount: { label: "Discount", color: "bg-primary/10 text-primary" },
+  glutenFree: { label: "Glutensiz", color: "bg-primary/10 text-primary" },
+  sugarFree: { label: "Şekersiz", color: "bg-primary/10 text-primary" },
+  highProtein: { label: "Yüksek Protein", color: "bg-primary/10 text-primary" },
+  new: { label: "Yeni", color: "bg-primary/10 text-primary" },
+  discount: { label: "İndirim", color: "bg-primary/10 text-primary" },
 };
 
 export const NAV_LINKS = [
-  { name: "Home", href: ROUTES.home },
-  { name: "Products", href: ROUTES.products },
+  { name: "Ana Sayfa", href: ROUTES.home },
+  { name: "Ürünler", href: ROUTES.products },
   { name: "Blog", href: ROUTES.blog },
-  { name: "Contact", href: ROUTES.contact },
-  { name: "FAQ", href: "/sss" },
+  { name: "İletişim", href: ROUTES.contact },
+  { name: "SSS", href: "/sss" },
 ];
 
 export const FOOTER_LINKS = {
   discover: [
-    { name: "All Products", href: ROUTES.products },
-    { name: "Featured", href: `${ROUTES.products}?sort=featured` },
-    { name: "New Arrivals", href: `${ROUTES.products}?sort=newest` },
+    { name: "Tüm Ürünler", href: ROUTES.products },
+    { name: "Öne Çıkanlar", href: `${ROUTES.products}?sort=featured` },
+    { name: "Yeni Gelenler", href: `${ROUTES.products}?sort=newest` },
   ],
   company: [
-    { name: "Home", href: ROUTES.home },
+    { name: "Ana Sayfa", href: ROUTES.home },
     { name: "Blog", href: ROUTES.blog },
-    { name: "Contact", href: ROUTES.contact },
-    { name: "FAQ", href: "/sss" },
+    { name: "İletişim", href: ROUTES.contact },
+    { name: "SSS", href: "/sss" },
   ],
   policies: [
-    { name: "Privacy Policy", href: "/gizlilik" },
-    { name: "Return Policy", href: "/iade" },
-    { name: "Terms of Service", href: "/sartlar" },
-    { name: "Shipping Policy", href: "/kargo" },
+    { name: "Gizlilik Politikası", href: "/gizlilik" },
+    { name: "İade Politikası", href: "/iade" },
+    { name: "Kullanım Şartları", href: "/sartlar" },
+    { name: "Kargo Politikası", href: "/kargo" },
   ],
 };
 

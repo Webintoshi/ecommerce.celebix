@@ -19,7 +19,7 @@ export async function generateMetadata() {
     title: managedPage?.seoTitle || `SSS | ${profile.name}`,
     description:
       managedPage?.seoDescription ||
-      `${profile.name} frequently asked questions about orders, shipping, returns and store flows.`,
+      `${profile.name} için sipariş, kargo, iade ve mağaza süreçlerine dair sıkça sorulan sorular.`,
   });
 }
 
@@ -34,14 +34,14 @@ export default async function FAQPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            Help Center
+            Yardım Merkezi
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-            Frequently asked questions
+            Sıkça sorulan sorular
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
             {managedPage?.plainText ||
-              `You can manage order, delivery, return and support content for ${profile.name} from the admin panel.`}
+              `${profile.name} için sipariş, teslimat, iade ve destek içeriklerini admin panelinden yönetebilirsiniz.`}
           </p>
         </div>
       </section>
@@ -56,11 +56,11 @@ export default async function FAQPage() {
           ) : (
             <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
               <p>
-                This page is powered by the <strong>FAQ</strong> content in the admin panel. You can manage the
-                questions, answers, operation notes or help flow you want customers to see as rich text here.
+                Bu sayfa admin panelindeki <strong>SSS</strong> içeriğiyle beslenir. Müşterilerin görmesini istediğiniz
+                soru, cevap ve yardım akışını burada zengin metin olarak yönetebilirsiniz.
               </p>
               <p>
-                Until content is added, this area remains a basic information block.
+                İçerik eklenene kadar bu alan temel bir bilgilendirme bloğu olarak kalır.
               </p>
             </div>
           )}
@@ -68,18 +68,18 @@ export default async function FAQPage() {
 
         <div className="mt-8 rounded-[32px] bg-[#11192D] px-6 py-8 text-white sm:px-8">
           <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
-            More help
+            Daha fazla destek
           </p>
-          <h2 className="mt-3 text-3xl font-semibold">Still have a question? Contact us</h2>
+          <h2 className="mt-3 text-3xl font-semibold">Hâlâ sorunuz mu var? Bizimle iletişime geçin</h2>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-white/78">
-            Contact cards come from the general settings and complete the store support flow here.
+            İletişim kartları genel ayarlardan gelir ve mağaza destek akışını burada tamamlar.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href={buildLocalizedPath("/iletisim", locale, routing)}
               className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#11192D] transition hover:bg-[#F4ECE5]"
             >
-              Go to contact page
+              İletişim sayfasına git
             </Link>
             <a
               href={`mailto:${profile.email}`}

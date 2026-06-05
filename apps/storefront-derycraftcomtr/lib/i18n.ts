@@ -99,51 +99,51 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
       };
     default:
       return {
-        siteTitle: `${name} | Handmade Leather Wallets, Watch Straps & Accessories`,
+        siteTitle: `${name} | El Yapımı Deri Cüzdan, Kayış ve Aksesuarlar`,
         siteDescription:
-          "Discover handcrafted leather wallets, cardholders, Apple Watch bands, watch straps, bags and personalized leather accessories by DeryCraft.",
-        homeTitle: `${name} | Handmade Leather Wallets, Watch Straps & Accessories`,
+          "DeryCraft imzalı el yapımı deri cüzdanları, kartlıkları, Apple Watch kayışlarını, deri saat kayışlarını, çantaları ve kişiselleştirilebilir aksesuarları keşfedin.",
+        homeTitle: `${name} | El Yapımı Deri Cüzdan, Kayış ve Aksesuarlar`,
         homeDescription:
-          "Discover handcrafted leather wallets, cardholders, Apple Watch bands, watch straps, bags and personalized leather accessories by DeryCraft.",
-        productsTitle: `All Products | ${name}`,
+          "DeryCraft imzalı el yapımı deri cüzdanları, kartlıkları, Apple Watch kayışlarını, deri saat kayışlarını, çantaları ve kişiselleştirilebilir aksesuarları keşfedin.",
+        productsTitle: `Tüm Ürünler | ${name}`,
         productsDescription:
-          "Explore DeryCraft leather wallets, cardholders, watch straps, Apple Watch bands, bags and personalized accessories.",
-        contactTitle: `Contact | ${name}`,
+          "DeryCraft deri cüzdanlarını, kartlıklarını, saat kayışlarını, Apple Watch kayışlarını, çantalarını ve kişiselleştirilebilir aksesuarlarını inceleyin.",
+        contactTitle: `İletişim | ${name}`,
         contactDescription:
-          "Contact DeryCraft for support, custom leather requests, wholesale inquiries and store information.",
-        corporateTitle: `Corporate Products | ${name}`,
+          "Destek, özel deri talepleri, toptan siparişler ve mağaza bilgileri için DeryCraft ile iletişime geçin.",
+        corporateTitle: `Kurumsal Ürünler | ${name}`,
         corporateDescription:
-          "Discover handcrafted leather gifts, branded accessories and custom corporate product options by DeryCraft.",
-        missingProductTitle: `Product Not Found | ${name}`,
-        missingProductDescription: "The product you are looking for could not be found.",
-        missingCategoryTitle: `Collection Not Found | ${name}`,
+          "DeryCraft imzalı el yapımı deri hediyeleri, markalı aksesuarları ve özel kurumsal ürün seçeneklerini keşfedin.",
+        missingProductTitle: `Ürün Bulunamadı | ${name}`,
+        missingProductDescription: "Aradığınız ürün bulunamadı.",
+        missingCategoryTitle: `Koleksiyon Bulunamadı | ${name}`,
         missingCategoryDescription:
-          "This collection is not available yet. Published categories will appear here automatically.",
+          "Bu koleksiyon henüz hazır değil. Yayınlanan kategoriler burada otomatik olarak görünecek.",
       };
   }
 }
 
 const BASE_LOCALE_COPY: Record<StorefrontLocale, Omit<LocaleCopy, keyof ReturnType<typeof getRuntimeCopyDefaults>>> = {
   tr: {
-    menuLabel: "Menu",
-    searchLabel: "Search",
-    cartLabel: "Open cart",
-    categoriesHeading: "Categories",
-    aboutHeading: "Discover Us",
-    policiesHeading: "Policies",
-    footerHome: "Home",
-    footerAbout: "About",
-    footerStores: "Stores",
-    footerCorporate: "Corporate Products",
-    footerContact: "Contact",
-    footerDistanceSales: "Distance Sales Agreement",
-    footerReturns: "Delivery and Returns",
-    footerPrivacy: "Privacy Policy",
-    footerKvkk: "Data Privacy",
-    footerRights: "All rights reserved.",
-    breadcrumbHome: "Home",
-    breadcrumbProducts: "Products",
-    faqHeading: "Frequently asked questions",
+    menuLabel: "Menü",
+    searchLabel: "Ara",
+    cartLabel: "Sepeti aç",
+    categoriesHeading: "Kategoriler",
+    aboutHeading: "Bizi Tanıyın",
+    policiesHeading: "Politikalar",
+    footerHome: "Ana Sayfa",
+    footerAbout: "Hakkımızda",
+    footerStores: "Mağazalarımız",
+    footerCorporate: "Kurumsal Ürünler",
+    footerContact: "İletişim",
+    footerDistanceSales: "Mesafeli Satış Sözleşmesi",
+    footerReturns: "Teslimat ve İade Politikası",
+    footerPrivacy: "Gizlilik Politikası",
+    footerKvkk: "KVKK",
+    footerRights: "Tüm hakları saklıdır.",
+    breadcrumbHome: "Ana Sayfa",
+    breadcrumbProducts: "Ürünler",
+    faqHeading: "Sıkça sorulan sorular",
   },
   en: {
     menuLabel: "Menu",
