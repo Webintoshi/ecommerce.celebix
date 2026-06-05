@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Chrome, Shield, UserRound } from "lucide-react";
 import { motion } from "framer-motion";
-import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
-import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 
 function sanitizeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -35,7 +33,6 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
-  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   const [submitting, setSubmitting] = useState<"email" | "google" | null>(null);
   const showLogoImage =
     typeof SITE_LOGO_PATH === "string" &&
@@ -44,19 +41,10 @@ export default function LoginPage() {
   const errorMessage = resolveErrorMessage(searchParams.get("error"));
 
   useEffect(() => {
-    if (!authMigrationRequired && !loading && user) {
+    if (!loading && user) {
       router.push(nextPath);
     }
-  }, [authMigrationRequired, loading, nextPath, router, user]);
-
-  if (authMigrationRequired) {
-    return (
-      <CustomerAuthMigrationNotice
-        title="Musteri girisi gecici olarak pasif"
-        description="DeryCraft 2 light_postgres provasinda musteri auth yuzeyi Supabase'e geri donmesin diye giris akisi kontrollu olarak kapatildi. Siparis akisi misafir odeme ile devam eder."
-      />
-    );
-  }
+  }, [loading, nextPath, router, user]);
 
   const openLogtoFlow = (mode: "email" | "google") => {
     setSubmitting(mode);

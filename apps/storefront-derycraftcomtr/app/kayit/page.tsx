@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Chrome, Shield, UserPlus } from "lucide-react";
 import { motion } from "framer-motion";
-import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
-import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 
 function sanitizeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -22,7 +20,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
-  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   const [submitting, setSubmitting] = useState<"email" | "google" | null>(null);
   const showLogoImage =
     typeof SITE_LOGO_PATH === "string" &&
@@ -30,19 +27,10 @@ export default function RegisterPage() {
   const nextPath = useMemo(() => sanitizeNextPath(searchParams.get("next")), [searchParams]);
 
   useEffect(() => {
-    if (!authMigrationRequired && !loading && user) {
+    if (!loading && user) {
       router.push(nextPath);
     }
-  }, [authMigrationRequired, loading, nextPath, router, user]);
-
-  if (authMigrationRequired) {
-    return (
-      <CustomerAuthMigrationNotice
-        title="Hesap olusturma gecici olarak pasif"
-        description="DeryCraft 2 light_postgres provasinda musteri hesap kaydi Supabase auth'a yazmasin diye kayit akisi kontrollu olarak kapatildi. Siparis vermek icin misafir odeme kullanilabilir."
-      />
-    );
-  }
+  }, [loading, nextPath, router, user]);
 
   const openSignupFlow = (mode: "email" | "google") => {
     setSubmitting(mode);

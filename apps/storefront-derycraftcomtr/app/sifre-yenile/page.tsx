@@ -4,25 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, KeyRound, Shield } from "lucide-react";
 import { motion } from "framer-motion";
-import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
-import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 
 export default function ResetPasswordPage() {
-  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   const [submitting, setSubmitting] = useState(false);
   const showLogoImage =
     typeof SITE_LOGO_PATH === "string" &&
     !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
-
-  if (authMigrationRequired) {
-    return (
-      <CustomerAuthMigrationNotice
-        title="Sifre guncelleme gecici olarak pasif"
-        description="DeryCraft 2 light_postgres provasinda musteri auth akisi Supabase'e donmesin diye sifre yenileme yuzeyi kontrollu olarak kapatildi."
-      />
-    );
-  }
 
   const openResetFlow = () => {
     setSubmitting(true);
