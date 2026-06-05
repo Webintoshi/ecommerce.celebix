@@ -15,11 +15,11 @@ export interface StoreLocation {
 export const STORE_LOCATIONS: StoreLocation[] = [
   {
     id: "giresun",
-    name: "Giresun Store",
+    name: "Giresun Mağazası",
     city: "Giresun",
-    badge: "Workshop & Showroom",
+    badge: "Atölye & Showroom",
     summary:
-      "Explore genuine leather collections, production details and custom order options in one place.",
+      "Hakiki deri koleksiyonlarımızı, üretim detaylarını ve kişiye özel sipariş seçeneklerini tek noktada keşfedin.",
     address: "Bulancak Mahallesi, Fatih Caddesi 29/A, Giresun",
     phone: "+90 (507) 559-7228",
     email: "bilgi@derycraft.com",
@@ -34,11 +34,11 @@ export const STORE_LOCATIONS: StoreLocation[] = [
   },
   {
     id: "ordu",
-    name: "Ordu Store",
+    name: "Ordu Mağazası",
     city: "Ordu",
     badge: "Marinoport",
     summary:
-      "Experience Apple Watch bands and everyday leather accessories in a calm retail setting.",
+      "Apple Watch kayışlarını ve günlük deri aksesuarları sakin bir mağaza deneyimiyle yakından inceleyin.",
     address: "Düz Mahalle, Süleyman Felek Caddesi No: 330, Ordu",
     phone: "+90 (507) 559-7228",
     email: "bilgi@derycraft.com",

@@ -131,7 +131,7 @@ function VerifiedBadge() {
   return (
     <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
       <Check className="h-3 w-3" />
-      Dogrulanmis Alici
+      Doğrulanmış Alıcı
     </span>
   );
 }
@@ -298,7 +298,7 @@ export function TestimonialsSection({
                 type="button"
                 onClick={nextSlide}
                 className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:translate-x-6"
-                aria-label="Next"
+                aria-label="Sonraki"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -316,7 +316,7 @@ export function TestimonialsSection({
                     "h-2 rounded-full transition-all",
                     index === currentIndex ? "w-8 bg-[#8A6B37]" : "w-2 bg-neutral-300 hover:bg-neutral-400",
                   )}
-                  aria-label={`Slide ${index + 1}`}
+                  aria-label={`Slayt ${index + 1}`}
                 />
               ))}
             </div>
