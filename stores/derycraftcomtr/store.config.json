@@ -21,7 +21,8 @@
   },
   "domains": {
     "storefront": "derycraft.com.tr",
-    "admin": "admin.derycraft.com.tr"
+    "admin": "admin.derycraft.com.tr",
+    "demo": "derycraftcomtr.demo.celebix.co"
   },
   "owner": {
     "createdBy": "owner-panel",
@@ -31,7 +32,7 @@
     "projectRef": "coolify:derycraftcomtr:ay5xmnd0cu2mwveiswxwrw1p",
     "url": "https://supabasekong-derycraftcomtr.46.225.183.57.sslip.io",
     "provider": "self_hosted_coolify",
-    "storage": "separate-project-per-store"
+    "storage": "disabled-by-database-mode"
   },
   "r2": {
     "bucketName": "derycraftcomtr-assets",
@@ -44,6 +45,7 @@
     "createdAt": "2026-05-18T21:06:07.520Z",
     "envTemplatePath": "stores/derycraftcomtr/admin.env.example",
     "adminEnvLocalPath": "stores/derycraftcomtr/admin.env.local",
+    "authorityBranch": "stores/authority",
     "coolifyProjectName": "DeryCraft 2",
     "adminDeploymentProvider": "coolify",
     "adminDeploymentName": "DeryCraft 2 admin",
@@ -57,12 +59,24 @@
     "supabaseProjectName": "DeryCraft 2",
     "supabaseResourceId": "ay5xmnd0cu2mwveiswxwrw1p",
     "provisionedAt": "2026-05-19T12:59:28.295Z",
-    "supabaseProvisioning": "configured"
+    "supabaseProvisioning": "configured",
+    "adminDeployment": {
+      "strategy": "build_server_ghcr",
+      "image": "ghcr.io/celebixco/derycraftcomtr-admin",
+      "imageTag": "production",
+      "useBuildServer": true,
+      "buildServer": "celebix-build-01",
+      "watchPaths": [
+        "apps/admin/**",
+        "packages/**"
+      ]
+    }
   },
   "storefront": {
     "appDir": "apps/storefront-derycraftcomtr",
+    "packageName": "@celebix/storefront-derycraftcomtr",
     "status": "active",
-    "lastScaffoldedAt": "2026-05-19T13:53:46.999Z",
+    "lastScaffoldedAt": "2026-06-05T20:07:12.247Z",
     "repoSyncStatus": "synced",
     "repoSyncedAt": "2026-05-19T14:06:25.252Z",
     "lastRepoSyncedAt": "2026-05-19T14:06:25.252Z",
@@ -75,7 +89,18 @@
     "deploymentStatus": "configured",
     "preparedAt": "2026-05-19T14:02:47.463Z",
     "lastDeploymentPreparedAt": "2026-05-19T14:02:47.463Z",
-    "deployedAt": "2026-05-19T17:27:58.394Z"
+    "deployedAt": "2026-06-05T20:07:16.487Z",
+    "deployment": {
+      "strategy": "build_server_ghcr",
+      "image": "ghcr.io/celebixco/derycraftcomtr-storefront",
+      "imageTag": "production",
+      "useBuildServer": true,
+      "buildServer": "celebix-build-01",
+      "watchPaths": [
+        "apps/storefront-derycraftcomtr/**",
+        "packages/**"
+      ]
+    }
   },
   "features": [
     "catalog",
@@ -84,5 +109,33 @@
     "discounts",
     "cms",
     "frontend_from_existing_store"
-  ]
+  ],
+  "databaseMode": "light_postgres",
+  "lightPostgres": {
+    "cluster": "celebix-light-postgres",
+    "databaseName": "derycraftcomtr",
+    "schemaProfile": "storefront_core",
+    "provisioning": "pending-owner-env",
+    "umamiReady": true
+  },
+  "auth": {
+    "provider": "logto",
+    "status": "pending_auth_setup",
+    "mode": "logto_ready_placeholder",
+    "requiredAction": "configure_admin_and_customer_auth",
+    "blocking": false
+  },
+  "analytics": {
+    "provider": "umami",
+    "status": "pending_analytics_setup",
+    "mode": "umami_ready_placeholder",
+    "requiredAction": "configure_umami_website",
+    "blocking": false
+  },
+  "payments": {
+    "status": "pending_payment_setup",
+    "defaultProvider": "bank_transfer",
+    "requiredAction": "configure_payment_provider",
+    "blocking": false
+  }
 }
