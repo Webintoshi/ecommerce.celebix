@@ -58,8 +58,24 @@ const ENGLISH_FOOTER_COPY: FooterLocaleCopy = {
   partnerLabel: "Digital Growth Partner",
 };
 
+const TURKISH_FOOTER_COPY: FooterLocaleCopy = {
+  languageLabel: "Dil",
+  aboutHeading: "Bizi Keşfedin",
+  categoriesHeading: "Kategoriler",
+  policiesHeading: "Politikalar",
+  aboutLinks: [
+    { name: "Ana Sayfa", href: "/" },
+    { name: "Hakkımızda", href: "/hakkimizda" },
+    { name: "Mağazalarımız", href: "/magazalarimiz" },
+    { name: "Kurumsal Ürünler", href: "/kurumsal-urunler" },
+    { name: "İletişim", href: "/iletisim" },
+  ],
+  rights: "Tüm hakları saklıdır.",
+  partnerLabel: "Dijital Büyüme Partneri",
+};
+
 const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
-  tr: ENGLISH_FOOTER_COPY,
+  tr: TURKISH_FOOTER_COPY,
   en: ENGLISH_FOOTER_COPY,
   de: ENGLISH_FOOTER_COPY,
   ru: ENGLISH_FOOTER_COPY,
