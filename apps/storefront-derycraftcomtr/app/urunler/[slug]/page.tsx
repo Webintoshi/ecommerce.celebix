@@ -20,6 +20,7 @@ import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { getStoreInfo } from "@/lib/db/settings";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 import { translateProductCollection, translateProductRecord } from "@/lib/translation";
@@ -160,8 +161,8 @@ export default async function ProductDetailPage({
   let groupedProducts: ProductGroupDisplayGroup[] = [];
 
   try {
-    const supabase = createServerClient();
     const lightPostgresProduct = await maybeGetStorefrontProductBySlug(baseSlug);
+    let supabase: ReturnType<typeof createServerClient> | null = null;
 
     let dbProduct: any | null = null;
     let variants: any[] | null = null;
@@ -173,7 +174,9 @@ export default async function ProductDetailPage({
         dbProduct = lightPostgresProduct;
         variants = lightPostgresProduct.variants || [];
       }
-    } else {
+    } else if (!shouldUseLightPostgresStorefront()) {
+      supabase = createServerClient();
+
       const { data: dbProducts, error: productError } = await supabase
         .from("products")
         .select("*")
@@ -192,7 +195,7 @@ export default async function ProductDetailPage({
     }
 
     if (dbProduct) {
-      if (variants === null) {
+      if (variants === null && supabase) {
         const variantsResult = await fetchProductVariants(supabase, dbProduct.id);
         variants = variantsResult.data;
 
@@ -205,7 +208,7 @@ export default async function ProductDetailPage({
       const productDiscountRules = discountRulesMap[dbProduct.id] || [];
 
       const allAttributeValues =
-        lightPostgresProduct !== undefined
+        lightPostgresProduct !== undefined || !supabase
           ? []
           : (
               await supabase

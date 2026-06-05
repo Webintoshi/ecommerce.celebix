@@ -23,6 +23,8 @@ import {
   translateText,
 } from "@/lib/translation";
 
+type StorefrontServerClient = ReturnType<typeof createServerClient>;
+
 interface RawHeroSlide {
   id?: string | number;
   desktop?: string;
@@ -230,7 +232,7 @@ function normalizePromoBanners(payload: unknown) {
     });
 }
 
-async function fetchHomepageCategories(supabase: ReturnType<typeof createServerClient>) {
+async function fetchHomepageCategories(supabase: StorefrontServerClient | null) {
   const lightPostgresCategories = await maybeListStorefrontCategories();
   if (lightPostgresCategories !== undefined) {
     return [...lightPostgresCategories]
@@ -257,9 +259,13 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
           return leftSortOrder - rightSortOrder;
         }
 
-        return String(left.name ?? "").localeCompare(String(right.name ?? ""), "tr");
-      })
-      .slice(0, 6);
+      return String(left.name ?? "").localeCompare(String(right.name ?? ""), "tr");
+    })
+    .slice(0, 6);
+  }
+
+  if (!supabase) {
+    return [];
   }
 
   const result = await runCategoriesQuery((includeIsActiveFilter) => {
@@ -308,7 +314,7 @@ async function fetchHomepageCategories(supabase: ReturnType<typeof createServerC
 }
 
 async function fetchHomepageCategoriesWithCuration(
-  supabase: ReturnType<typeof createServerClient>,
+  supabase: StorefrontServerClient | null,
   featuredCategorySlugs: string[],
 ) {
   const lightPostgresCategories = await maybeListStorefrontCategories();
@@ -346,6 +352,10 @@ async function fetchHomepageCategoriesWithCuration(
       .filter((category) => category.parent_id === null)
       .sort((left, right) => left.sort_order - right.sort_order)
       .slice(0, 6);
+  }
+
+  if (!supabase) {
+    return [];
   }
 
   const featuredSlugs = featuredCategorySlugs.filter(Boolean).slice(0, 4);
@@ -442,7 +452,7 @@ function withHomepageFeaturedFlag<T extends Record<string, unknown>>(product: T)
   };
 }
 
-async function fetchHomepageProducts(supabase: ReturnType<typeof createServerClient>) {
+async function fetchHomepageProducts(supabase: StorefrontServerClient | null) {
   const lightPostgresProducts = await maybeListStorefrontProducts();
   if (lightPostgresProducts !== undefined) {
     return [...lightPostgresProducts]
@@ -456,6 +466,10 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
           (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
       })
       .slice(0, 8);
+  }
+
+  if (!supabase) {
+    return [];
   }
 
   const strictQuery = await supabase
@@ -494,7 +508,7 @@ async function fetchHomepageProducts(supabase: ReturnType<typeof createServerCli
   return fallbackQuery.data ?? [];
 }
 
-async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createServerClient>) {
+async function fetchAllProductsForShowcase(supabase: StorefrontServerClient | null) {
   const lightPostgresProducts = await maybeListStorefrontProducts();
   if (lightPostgresProducts !== undefined) {
     return [...lightPostgresProducts].sort((left, right) => {
@@ -505,6 +519,10 @@ async function fetchAllProductsForShowcase(supabase: ReturnType<typeof createSer
       return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
         (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
     });
+  }
+
+  if (!supabase) {
+    return [];
   }
 
   const strictQuery = await supabase
@@ -560,8 +578,8 @@ async function translateHeroBanners(
   );
 }
 
-async function fetchHomepageTestimonials(supabase: ReturnType<typeof createServerClient>) {
-  if (shouldUseLightPostgresStorefront()) {
+async function fetchHomepageTestimonials(supabase: StorefrontServerClient | null) {
+  if (shouldUseLightPostgresStorefront() || !supabase) {
     return [];
   }
 
@@ -594,13 +612,20 @@ async function fetchHomepageTestimonials(supabase: ReturnType<typeof createServe
 }
 
 async function fetchHomepageSetting(
-  supabase: ReturnType<typeof createServerClient>,
+  supabase: StorefrontServerClient | null,
   key: string,
 ) {
   const lightPostgresValue = await maybeGetStorefrontSetting(key);
   if (lightPostgresValue !== undefined) {
     return {
       data: lightPostgresValue === null ? null : { value: lightPostgresValue },
+      error: null,
+    };
+  }
+
+  if (!supabase) {
+    return {
+      data: null,
       error: null,
     };
   }
@@ -613,7 +638,7 @@ async function fetchHomepageSetting(
 }
 
 export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<HomepageData> {
-  const supabase = createServerClient();
+  const supabase = shouldUseLightPostgresStorefront() ? null : createServerClient();
 
   const [
     heroBannersData,

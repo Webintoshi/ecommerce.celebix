@@ -10,6 +10,7 @@ import {
   maybeListStorefrontCategories,
   maybeListStorefrontProducts,
 } from "@/lib/db/light-postgres-storefront-read";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { createServerClient } from "@/lib/supabase";
 import { getRequestLocale } from "@/lib/request-locale";
 import { buildLocalizedPath, getLocalizedCopy, type StorefrontLocale } from "@/lib/i18n";
@@ -95,6 +96,10 @@ async function getCategoryBySlug(slug: string): Promise<Category | null> {
     return lightPostgresCategory as unknown as Category | null;
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return null;
+  }
+
   const supabase = createServerClient();
 
   try {
@@ -163,6 +168,10 @@ async function getCollectionSlugs(category: Category): Promise<string[]> {
     }
 
     return Array.from(collectedSlugs);
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return [category.slug];
   }
 
   const supabase = createServerClient();
@@ -329,7 +338,6 @@ function transformProduct(
 }
 
 async function getProductsByCategory(category: Category, locale: StorefrontLocale): Promise<Product[]> {
-  const supabase = createServerClient();
   const categorySlugs = await getCollectionSlugs(category);
   const categorySet = new Set(categorySlugs);
 
@@ -352,7 +360,7 @@ async function getProductsByCategory(category: Category, locale: StorefrontLocal
 
     const orderedProducts = sortProductsByListingOrder(matchingProducts, productListingOrder);
     const discountRulesMap = await getProductDiscountRulesMap(
-      supabase,
+      null,
       orderedProducts.map((product) => product.id),
     );
 
@@ -362,6 +370,12 @@ async function getProductsByCategory(category: Category, locale: StorefrontLocal
       .map((product) => transformProduct(product as DBProduct, attributeRegistry, discountRulesMap[String(product.id)] || []))
       .filter((product) => product.variants.length > 0);
   }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
+  const supabase = createServerClient();
 
   try {
     const [{ data, error }] = await Promise.all([

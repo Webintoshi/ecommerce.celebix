@@ -5,6 +5,7 @@ import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { createServerClient } from "@/lib/supabase";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import { maybeListStorefrontProducts } from "@/lib/db/light-postgres-storefront-read";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import {
   getVariantAttributeRegistry,
   hydrateProductVariantSnapshots,
@@ -127,7 +128,6 @@ function transformProduct(
 }
 
 async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>): Promise<Product[]> {
-  const supabase = createServerClient();
   const [lightPostgresProducts, attributeRegistry, productListingOrder] = await Promise.all([
     maybeListStorefrontProducts(),
     getVariantAttributeRegistry(),
@@ -140,7 +140,7 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
       productListingOrder,
     );
     const discountRulesMap = await getProductDiscountRulesMap(
-      supabase,
+      null,
       orderedProducts.map((product) => product.id),
     );
 
@@ -153,6 +153,12 @@ async function getProducts(locale: Awaited<ReturnType<typeof getRequestLocale>>)
       transformProduct(product as DBProduct, attributeRegistry, discountRulesMap[String(product.id)] || []),
     );
   }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
+  const supabase = createServerClient();
 
   try {
     const [{ data: products, error }] = await Promise.all([
@@ -205,6 +211,10 @@ async function getCategoryCounts() {
     });
 
     return counts;
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return {};
   }
 
   const supabase = createServerClient();

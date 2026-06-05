@@ -19,7 +19,7 @@ function isMissingProductDiscountRulesTable(error: unknown): boolean {
 }
 
 export async function getProductDiscountRulesMap(
-  supabase: any,
+  supabase: any | null | undefined,
   productIds: string[],
 ): Promise<Record<string, ProductDiscountRule[]>> {
   if (shouldUseLightPostgresStorefront()) {
@@ -32,6 +32,10 @@ export async function getProductDiscountRulesMap(
 
   const uniqueIds = [...new Set(productIds.filter(Boolean))];
   if (uniqueIds.length === 0) {
+    return {};
+  }
+
+  if (!supabase) {
     return {};
   }
 

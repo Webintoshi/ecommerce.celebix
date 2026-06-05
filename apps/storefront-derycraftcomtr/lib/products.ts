@@ -5,6 +5,7 @@ import {
   maybeGetStorefrontProductBySlug,
   maybeListStorefrontProducts,
 } from "@/lib/db/light-postgres-storefront-read";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { runProductsQuery } from "@/lib/products-query-compat";
 
 export type { Product } from "@/types/product";
@@ -606,6 +607,10 @@ export async function getAllProducts(): Promise<Product[]> {
     return lightPostgresProducts as unknown as Product[];
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
@@ -633,6 +638,10 @@ export async function getLimitedProducts(limit: number = 8): Promise<Product[]> 
   const lightPostgresProducts = await maybeListStorefrontProducts();
   if (lightPostgresProducts !== undefined) {
     return (lightPostgresProducts.slice(0, limit) as unknown) as Product[];
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
   }
 
   const { createServerClient } = await import("@/lib/supabase");
@@ -667,6 +676,10 @@ export async function getProductSlug(): Promise<string[]> {
     return lightPostgresProducts.map((product) => product.slug);
   }
 
+  if (shouldUseLightPostgresStorefront()) {
+    return [];
+  }
+
   const { createServerClient } = await import("@/lib/supabase");
   const supabase = createServerClient();
   const { data, error } = await runProductsQuery((includeIsActiveFilter) => {
@@ -692,6 +705,10 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
   const lightPostgresProduct = await maybeGetStorefrontProductBySlug(slug);
   if (lightPostgresProduct !== undefined) {
     return (lightPostgresProduct as unknown as Product) || undefined;
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
+    return undefined;
   }
 
   const { createServerClient } = await import("@/lib/supabase");
@@ -740,6 +757,10 @@ export async function getProductGroupsForProduct(
   productId: string,
 ): Promise<ProductGroupDisplayGroup[]> {
   if (!productId?.trim()) {
+    return [];
+  }
+
+  if (shouldUseLightPostgresStorefront()) {
     return [];
   }
 
