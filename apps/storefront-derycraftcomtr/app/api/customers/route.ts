@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireInternalApiAccess } from "@/lib/internal-api-auth";
 import {
     getCustomers,
     getCustomerById,
@@ -14,6 +15,11 @@ import {
 
 // GET /api/customers - Get customers
 export async function GET(request: NextRequest) {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
@@ -56,6 +62,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/customers - Create or get customer
 export async function POST(request: NextRequest) {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
+
     try {
         const body = await request.json();
 
@@ -78,6 +89,11 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/customers - Update customer
 export async function PUT(request: NextRequest) {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
+
     try {
         const body = await request.json();
         const { id, ...updates } = body;
@@ -113,6 +129,11 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/customers - Delete customer
 export async function DELETE(request: NextRequest) {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getActiveStoreSlug, getStoreConfig } from "@celebix/platform-config";
+import { getStorefrontSupabaseDisconnectRuntime } from "@/lib/supabase-disconnect-readiness";
 
 function readRuntime() {
   const slug = getActiveStoreSlug();
@@ -29,8 +30,11 @@ function readRuntime() {
 }
 
 export async function GET() {
+  const disconnectRuntime = getStorefrontSupabaseDisconnectRuntime();
+
   return NextResponse.json({
     ...readRuntime(),
+    ...disconnectRuntime,
     generatedAt: new Date().toISOString(),
   });
 }

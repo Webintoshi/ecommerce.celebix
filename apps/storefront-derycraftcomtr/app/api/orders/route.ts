@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireInternalApiAccess } from "@/lib/internal-api-auth";
 import {
     createOrder,
     getOrders,
@@ -12,6 +13,11 @@ import {
 
 // GET /api/orders - Get orders or order stats
 export async function GET(request: NextRequest) {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
@@ -83,6 +89,11 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/orders - Update order status
 export async function PATCH(request: NextRequest) {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
+
     try {
         const body = await request.json();
         const { id, status, paymentStatus } = body;
@@ -114,6 +125,11 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE /api/orders - Delete an order
 export async function DELETE(request: NextRequest) {
+    const unauthorizedResponse = requireInternalApiAccess(request);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
