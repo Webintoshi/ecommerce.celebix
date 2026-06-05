@@ -128,7 +128,7 @@ export default async function Home() {
               "@type": "ContactPoint",
               telephone: storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone,
               contactType: "customer service",
-              availableLanguage: ["Turkish", "English", "German", "Russian", "Arabic", "Georgian"],
+              availableLanguage: ["Turkish"],
             },
             sameAs: [storeInfo?.socialInstagram || STOREFRONT_RUNTIME.socialInstagram].filter(Boolean),
           }),

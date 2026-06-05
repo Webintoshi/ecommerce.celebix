@@ -8,6 +8,7 @@ import {
 } from "@celebix/platform-config/src/translation";
 import { createServerClient } from "@/lib/supabase";
 import { getTranslationSettings } from "@/lib/db/settings";
+import { shouldBypassTranslationsForLocale } from "@/lib/storefront-locale-policy";
 
 const DEEPL_FREE_API_URL = "https://api-free.deepl.com/v2/translate";
 const MAX_BATCH_SIZE = 40;
@@ -624,6 +625,10 @@ export async function translateUiStrings(
   locale: StoreTranslationLocale,
   context: string,
 ) {
+  if (shouldBypassTranslationsForLocale(locale)) {
+    return values;
+  }
+
   const settings = await getConfiguredTranslationSettings();
   if (!settings.translateUi || !shouldTranslateLocale(settings, locale)) {
     return values;
@@ -646,6 +651,10 @@ export async function translateSeoStrings(
   locale: StoreTranslationLocale,
   context: string,
 ) {
+  if (shouldBypassTranslationsForLocale(locale)) {
+    return values.map((value) => value || "");
+  }
+
   const settings = await getConfiguredTranslationSettings();
   if (!settings.translateSeo || !shouldTranslateLocale(settings, locale)) {
     return values.map((value) => value || "");
