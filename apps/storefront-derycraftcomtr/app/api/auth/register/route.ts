@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   if (isLogtoCustomerAuthEnabled()) {
     return NextResponse.json(
       {
-        error: "Musteri kaydi Logto canary akisina tasindi. Lutfen /kayit veya /api/auth/sign-in kullanin.",
+        error: "Musteri kaydi guvenli kayit ekranina tasindi. Lutfen /kayit veya /api/auth/sign-in kullanin.",
         code: "customer_auth_redirect_required",
       },
       { status: 409 },

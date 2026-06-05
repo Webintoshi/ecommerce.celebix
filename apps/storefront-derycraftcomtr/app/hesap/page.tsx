@@ -17,8 +17,6 @@ import {
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
-import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 
 type AccountAddress = {
   id: string;
@@ -100,17 +98,11 @@ function getStatusClasses(status: string) {
 export default function AccountPage() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
-  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   const [account, setAccount] = useState<AccountPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (authMigrationRequired) {
-      setLoading(false);
-      return;
-    }
-
     if (authLoading) {
       return;
     }
@@ -170,7 +162,7 @@ export default function AccountPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, authMigrationRequired, router, user]);
+  }, [authLoading, router, user]);
 
   const customer = account?.customer ?? null;
   const addresses = customer?.addresses ?? [];
@@ -183,17 +175,6 @@ export default function AccountPage() {
     const fullName = [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
     return fullName || customer.email || user?.email || "Musteri";
   }, [customer, user]);
-
-  if (authMigrationRequired) {
-    return (
-      <CustomerAuthMigrationNotice
-        title="Musteri hesabim sayfasi gecici olarak pasif"
-        description="DeryCraft 2 light_postgres provasinda musteri auth ve hesap gecmisi Supabase'e geri donmesin diye bu yuzey kontrollu olarak kapatildi. Mevcut rehearsal kapsami misafir siparis ve light_postgres commerce akisina odaklanir."
-        primaryHref="/"
-        primaryLabel="Magazaya don"
-      />
-    );
-  }
 
   if (authLoading || loading) {
     return (

@@ -5,7 +5,7 @@ const DERYCRAFT_HOSTS = new Set(["derycraft.com.tr", "www.derycraft.com.tr"]);
 
 export const DERYCRAFT_AUTH_MIGRATION_CODE = "requires_auth_migration";
 export const DERYCRAFT_AUTH_MIGRATION_MESSAGE =
-  "Musteri hesabi girisi bu light_postgres gecis provasinda gecici olarak pasif. Misafir odeme kullanilabilir.";
+  "Musteri kimlik islemleri bu magaza icin guvenli giris ekraninda tamamlanir.";
 export const DERYCRAFT_LOGTO_CANARY_CODE = "logto_canary";
 export const DERYCRAFT_TEMPORARILY_DISABLED_CODE = "temporarily_disabled";
 export const DERYCRAFT_REQUIRES_LIGHT_POSTGRES_SUPPORT_CODE = "requires_light_postgres_support";
