@@ -43,7 +43,7 @@ export function CategoriesSection({
       <div className="container-premium">
         <div className="mb-12 text-center lg:mb-16">
           <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-400">{eyebrow}</p>
-          <h2 className="font-serif text-3xl font-medium text-neutral-900 lg:text-4xl">{heading}</h2>
+          <h2 className="font-serif text-[1.8rem] font-medium text-neutral-900 lg:text-[2.15rem]">{heading}</h2>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">

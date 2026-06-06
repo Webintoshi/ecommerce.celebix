@@ -151,25 +151,25 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
             onChange={(e) => onFilterChange({ highProtein: e.target.checked })}
           />
           <Checkbox
-            label="Personalizable"
+            label="Kişiselleştirilebilir"
             checked={filters.glutenFree}
             onChange={(e) => onFilterChange({ glutenFree: e.target.checked })}
           />
         </FilterSection>
 
-        <FilterSection title="Stock & Discount" defaultOpen={false}>
+        <FilterSection title="Stok ve İndirim" defaultOpen={false}>
           <Checkbox
-            label="In stock"
+            label="Stokta"
             checked={filters.inStock}
             onChange={(e) => onFilterChange({ inStock: e.target.checked })}
           />
           <Checkbox
-            label="Discounted products"
+            label="İndirimli ürünler"
             checked={filters.onSale}
             onChange={(e) => onFilterChange({ onSale: e.target.checked })}
           />
           <Checkbox
-            label="New products"
+            label="Yeni ürünler"
             checked={filters.isNew}
             onChange={(e) => onFilterChange({ isNew: e.target.checked })}
           />
@@ -186,7 +186,7 @@ interface ActiveFiltersProps {
 
 const CATEGORY_LABELS: Record<string, string> = {
   "kol-saati-kordonu": "Kol Saati Kordonu",
-  "akilli-saat-kordonu": "Smart Watch Bands",
+  "akilli-saat-kordonu": "Akıllı Saat Kordonu",
   "deri-bileklik": "Deri Bileklik",
   "anahtarlik": "Keychains",
   "kartlik": "Cardholders",
@@ -238,21 +238,21 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
 
   if (filters.glutenFree) {
     activeFilters.push({
-      label: "Personalizable",
+      label: "Kişiselleştirilebilir",
       onRemove: () => onFilterChange({ glutenFree: false }),
     });
   }
 
   if (filters.inStock) {
     activeFilters.push({
-      label: "In Stock",
+      label: "Stokta",
       onRemove: () => onFilterChange({ inStock: false }),
     });
   }
 
   if (filters.onSale) {
     activeFilters.push({
-      label: "Discounted",
+      label: "İndirimli",
       onRemove: () => onFilterChange({ onSale: false }),
     });
   }

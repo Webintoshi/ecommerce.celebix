@@ -199,8 +199,8 @@ function MobileTestimonialCard({ review }: { review: TestimonialItem }) {
 }
 
 export function TestimonialsSection({
-  heading = "Musteri Yorumlari",
-  countLabel = "1581 degerlendirmeden",
+  heading = "Müşteri Yorumları",
+  countLabel = "1581 değerlendirmeden",
   items,
 }: {
   heading?: string;
@@ -246,7 +246,7 @@ export function TestimonialsSection({
     <section className="bg-neutral-50 py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-8 text-center lg:mb-10">
-          <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">{heading}</h2>
+          <h2 className="mb-2 text-[1.8rem] font-medium text-neutral-900 lg:text-[2.1rem]">{heading}</h2>
           <p className="text-sm text-neutral-500">{countLabel}</p>
         </div>
 

@@ -99,15 +99,15 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
 
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-gray-900">Cart</h2>
+                <h2 className="text-xl font-bold text-gray-900">Sepet</h2>
                 <span className="text-sm font-medium text-gray-500">
-                  ({getTotalItems()} items)
+                  ({getTotalItems()} ürün)
                 </span>
               </div>
               <button
                 onClick={onClose}
                 className="rounded-full p-2 transition-colors hover:bg-gray-100"
-                aria-label="Close"
+                aria-label="Kapat"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
@@ -120,7 +120,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                    Recently Added
+                    Yeni eklendi
                   </p>
                   <p className="truncate text-sm font-bold text-gray-900">
                     {lastAddedItem.product.name}
@@ -150,8 +150,8 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   <span className="font-bold text-primary">
                     {formatPrice(remainingForFreeShipping)}
                   </span>{" "}
-                  away from{" "}
-                  <span className="font-bold text-emerald-600">free shipping</span>
+                  ücretsiz kargoya{" "}
+                  <span className="font-bold text-emerald-600">kalan tutar</span>
                 </p>
                 <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                   <div
@@ -268,26 +268,26 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
               <div className="space-y-4 border-t border-gray-100 bg-white p-6 pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] sm:pb-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-500">Subtotal</span>
+                    <span className="font-medium text-gray-500">Ara Toplam</span>
                     <span className="font-bold text-gray-900">
                       {formatPrice(subtotal)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-500">Shipping</span>
+                    <span className="font-medium text-gray-500">Kargo</span>
                     <span
                       className={cn(
                         "font-bold",
                         shipping === 0 ? "text-emerald-600" : "text-gray-900",
                       )}
                     >
-                      {shipping === 0 ? "Free" : formatPrice(shipping)}
+                      {shipping === 0 ? "Ücretsiz" : formatPrice(shipping)}
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between rounded-xl border border-[#eecfc2] bg-[#F5E6E0] p-4">
-                  <span className="font-bold text-[#7B1113]">Total</span>
+                  <span className="font-bold text-[#7B1113]">Toplam</span>
                   <span className="text-2xl font-black tracking-tight text-[#7B1113]">
                     {formatPrice(total)}
                   </span>
@@ -298,12 +298,12 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   onClick={onClose}
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-800 active:scale-[0.98]"
                 >
-                  Go to Checkout <ArrowRight className="h-5 w-5" />
+                  Ödemeye Geç <ArrowRight className="h-5 w-5" />
                 </Link>
 
                 <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
                   <Lock className="h-3 w-3" />
-                  <span>Secure checkout with 256-bit SSL</span>
+                  <span>256-bit SSL ile güvenli ödeme</span>
                 </div>
               </div>
             ) : null}

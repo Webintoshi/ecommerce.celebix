@@ -131,30 +131,30 @@ const PERSONALIZATION_FONT_FACE_CSS = `
 const PREVIEW_COPY = [
   {
     lead: "Dikkat:",
-    text: "This preview is representative.",
+    text: "Bu ön izleme temsilidir.",
   },
   {
     lead: null,
-    text: "We can add initials, a name or custom text to the selected personalization area. The text will be applied clearly and elegantly to the defined engraving area.",
+    text: "Seçilen kişiselleştirme alanına baş harf, isim veya özel metin eklenebilir. Metin, tanımlı baskı alanına net ve zarif şekilde uygulanır.",
   },
   {
     lead: null,
-    text: "Your text is prepared with the exact capitalization and spacing you provide. Please check it carefully.",
+    text: "Metniniz, yazdığınız büyük-küçük harf ve boşluk düzeni korunarak hazırlanır. Lütfen dikkatle kontrol edin.",
   },
   {
     lead: "Not:",
-    text: "Personalized orders cannot be returned or exchanged.",
+    text: "Kişiselleştirilmiş siparişlerde iade ve değişim yapılamaz.",
   },
 ];
 
 const LEATHER_GOODS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/1.3.jpg",
-  imageAlt: "Leather product personalization preview",
+  imageAlt: "Deri ürün kişiselleştirme ön izlemesi",
   textPositionClass:
     "bottom-[11%] right-[6%] w-[84%] text-right sm:bottom-[13%] sm:right-[8%]",
   textToneClass: "text-[#1f140f]",
-  defaultText: "Preview",
+  defaultText: "Ön İzleme",
   sizePreset: "leather",
   maxCharacters: 15,
 };
@@ -162,11 +162,11 @@ const LEATHER_GOODS_PREVIEW: PreviewConfig = {
 const WATCH_STRAPS_PREVIEW: PreviewConfig = {
   image:
     "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/Ekstralar/11.avif",
-  imageAlt: "Watch strap personalization preview",
+  imageAlt: "Saat kayışı kişiselleştirme ön izlemesi",
   textPositionClass:
     "left-1/2 top-1/2 w-[78%] -translate-x-1/2 -translate-y-1/2 text-center",
   textToneClass: "text-[#1a0f0a]",
-  defaultText: "Text",
+  defaultText: "Metin",
   sizePreset: "watch",
   maxCharacters: 6,
 };
@@ -271,7 +271,7 @@ export function PersonalizationPreview({
   const previewImage = resolveStorefrontAssetUrl(previewConfig.image);
   const usesProxiedPreview = isProxiedStorefrontAssetUrl(previewImage);
   const typedText = previewText.trim();
-  const displayText = typedText || previewConfig.defaultText || "Preview";
+  const displayText = typedText || previewConfig.defaultText || "Ön İzleme";
 
   const previewTextRef = useRef<HTMLSpanElement | null>(null);
   const measurementRef = useRef<HTMLSpanElement | null>(null);
@@ -365,14 +365,14 @@ export function PersonalizationPreview({
           style={{ fontSize: "24px", lineHeight: "31px" }}
           className="font-semibold tracking-[0.02em] text-neutral-950"
         >
-          Personalization Preview
+          Kişiselleştirme Ön İzlemesi
         </h3>
         <Search className="absolute right-0 h-3.5 w-3.5 text-[#8A6B37]" />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_170px]">
         <label className="sr-only" htmlFor="personalization-preview-text">
-          Enter your text
+          Metninizi girin
         </label>
         <input
           id="personalization-preview-text"
@@ -380,13 +380,13 @@ export function PersonalizationPreview({
           onChange={(event) =>
             setPreviewText(event.target.value.slice(0, previewConfig.maxCharacters))
           }
-          placeholder="Add your text"
+          placeholder="Metninizi yazın"
           maxLength={previewConfig.maxCharacters}
           className="h-10 rounded-[12px] border border-[#8cb8df] bg-white px-4 text-[13px] text-neutral-900 shadow-[0_0_0_1px_rgba(140,184,223,0.18),0_10px_22px_rgba(84,109,138,0.08)] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#6b9fce]"
         />
 
         <label className="sr-only" htmlFor="personalization-preview-font">
-          Choose font
+          Yazı tipi seçin
         </label>
         <select
           id="personalization-preview-font"

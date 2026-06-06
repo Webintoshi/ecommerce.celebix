@@ -114,7 +114,7 @@ export function DynamicVariantSelector({
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="font-medium text-neutral-900">Option</span>
+          <span className="font-medium text-neutral-900">Seçenek</span>
           <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
             {variant.weight}g
           </span>
@@ -122,7 +122,7 @@ export function DynamicVariantSelector({
         <div className="flex items-center gap-2 p-3 bg-neutral-100/50 rounded-xl border border-neutral-900/10">
           <span className="font-medium text-[#8A6B37]">{variant.name}</span>
           {variant.stock <= 5 && variant.stock > 0 && (
-            <span className="text-xs text-amber-600">(Only {variant.stock} left!)</span>
+            <span className="text-xs text-amber-600">(Yalnızca {variant.stock} adet kaldı!)</span>
           )}
         </div>
       </div>
@@ -235,7 +235,7 @@ export function DynamicVariantSelector({
                       {/* Out of stock badge */}
                       {isOutOfStock && (
                         <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-gray-400 text-white text-[10px] rounded-full whitespace-nowrap">
-                          Sold Out
+                          Tükendi
                         </span>
                       )}
                     </button>
@@ -251,7 +251,7 @@ export function DynamicVariantSelector({
       {attributes.size === 0 && variants.length > 1 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-[#8A6B37]">Choose Size</span>
+            <span className="font-medium text-[#8A6B37]">Seçenek Seçin</span>
             <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
               {variants[selectedIndex]?.weight}g
             </span>

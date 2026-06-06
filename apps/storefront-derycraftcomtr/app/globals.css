@@ -82,8 +82,8 @@
   --store-font-product-title-weight: 600;
   --store-font-base-size: 16px;
   --store-font-menu-size: 15px;
-  --store-font-product-card-size: 16px;
-  --store-font-product-page-size: 44px;
+  --store-font-product-card-size: 15px;
+  --store-font-product-page-size: 38px;
   --store-font-heading-scale: 1.1;
   --store-font-heading-tracking: -0.01em;
   --store-font-body-tracking: 0;
@@ -198,9 +198,9 @@ button, input, select, textarea {
 
 .store-product-title-detail {
   font-family: var(--store-font-product-title);
-  font-size: clamp(2rem, 4vw, var(--store-font-product-page-size));
+  font-size: clamp(1.85rem, 2vw + 1.25rem, var(--store-font-product-page-size));
   font-weight: var(--store-font-product-title-weight);
-  line-height: 1.08;
+  line-height: 1.12;
 }
 
 /* === TEXT STYLES === */

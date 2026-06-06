@@ -69,7 +69,7 @@ async function fetchAssignedSchema(productId: string) {
   const payload = await response.json();
 
   if (!response.ok || !payload?.success) {
-    throw new Error(payload?.error || "Personalization options could not be loaded");
+    throw new Error(payload?.error || "Kişiselleştirme seçenekleri yüklenemedi");
   }
 
   return (payload.schema as ResolvedCustomizationSchema | null) || null;
@@ -234,7 +234,7 @@ export function ProductDetailClient({
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-[#F8F8F8]">
         <div className="text-center">
-          <p className="text-neutral-500">Product information could not be loaded.</p>
+          <p className="text-neutral-500">Ürün bilgileri yüklenemedi.</p>
         </div>
       </div>
     );
@@ -289,11 +289,11 @@ export function ProductDetailClient({
   };
 
   const getStockStatus = () => {
-    if (isOutOfStock) return { text: "Sold Out", color: "text-neutral-400" };
+    if (isOutOfStock) return { text: "Tükendi", color: "text-neutral-400" };
     if (variant.stock <= 5) {
-      return { text: `Only ${variant.stock} left`, color: "text-amber-600" };
+      return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
     }
-    return { text: "In Stock", color: "text-neutral-500" };
+    return { text: "Stokta", color: "text-neutral-500" };
   };
 
   const stockStatus = getStockStatus();
@@ -433,7 +433,7 @@ export function ProductDetailClient({
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                      Personalization
+                      Kişiselleştirme
                     </span>
                     <span className="h-px w-8 bg-neutral-300" />
                   </div>
@@ -475,7 +475,7 @@ export function ProductDetailClient({
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
-                      Quantity
+                      Adet
                     </span>
                     <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
                       <button
@@ -568,7 +568,7 @@ export function ProductDetailClient({
                               Malzeme
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Premium Full-Grain Deri
+                              Birinci sınıf hakiki deri
                             </p>
                           </div>
                         </div>
@@ -579,7 +579,7 @@ export function ProductDetailClient({
                               İşçilik
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
+                              El dikişi
                             </p>
                           </div>
                         </div>
@@ -640,27 +640,27 @@ export function ProductDetailClient({
                         </div>
                         <div>
                           <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>🔄</span> RETURN POLICY
+                            <span>🔄</span> İADE KOŞULLARI
                           </h4>
                           <ul className="list-none space-y-1.5">
                             <li>
-                              <strong className="text-neutral-800">14-day return right</strong>
+                              <strong className="text-neutral-800">14 gün içinde iade hakkı</strong>
                             </li>
                             <li>
-                              <strong className="text-neutral-800">Exceptions:</strong> personalized products cannot be returned
+                              <strong className="text-neutral-800">İstisnalar:</strong> kişiselleştirilmiş ürünlerde iade yapılamaz
                             </li>
                             <li>
-                              <strong className="text-neutral-800">Return Shipping:</strong> paid by the buyer
+                              <strong className="text-neutral-800">İade Kargosu:</strong> alıcı tarafından karşılanır
                             </li>
                           </ul>
                         </div>
                         <div>
                           <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>✨</span> WHY DERYCRAFT?
+                            <span>✨</span> NEDEN DERYCRAFT?
                           </h4>
                           <ul className="list-none space-y-1.5">
-                            <li>100% handmade genuine leather products</li>
-                            <li>Secure shopping protected by SSL</li>
+                            <li>%100 el yapımı hakiki deri ürünler</li>
+                            <li>SSL ile korunan güvenli alışveriş</li>
                           </ul>
                         </div>
                       </div>

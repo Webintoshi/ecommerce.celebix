@@ -96,12 +96,12 @@ function buildProductGroups(
       title: category.name,
       subtitle:
         index === 0
-          ? "Secili Koleksiyon"
+          ? "Seçili Koleksiyon"
           : index === 1
-            ? "One Cikanlar"
+            ? "Öne Çıkanlar"
             : index === 2
-              ? "Editorden"
-              : "Kesfet",
+              ? "Editörden"
+              : "Keşfet",
       isCategoryDriven: true,
       link: `/${category.slug}`,
       products: selectedProducts,
@@ -153,7 +153,7 @@ function EmptyShowcaseState() {
             <Sparkles className="h-3.5 w-3.5" />
             Vitrin Hazır
           </span>
-          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
+          <h2 className="mt-5 text-[1.85rem] font-semibold tracking-[-0.03em] text-[#18110B] sm:text-[2.2rem]">
             DeryCraft ürünleri yayınlandıkça bu alan otomatik dolacak
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
@@ -230,7 +230,7 @@ export function ProductShowcaseSections({
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
                   {group.subtitle}
                 </span>
-                <h2 className="text-3xl font-bold text-neutral-900 sm:text-4xl">
+                <h2 className="text-[1.8rem] font-bold text-neutral-900 sm:text-[2.15rem]">
                   {group.title}
                 </h2>
               </div>

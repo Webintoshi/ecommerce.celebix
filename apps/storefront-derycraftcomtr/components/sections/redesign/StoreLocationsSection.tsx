@@ -56,7 +56,7 @@ export function StoreLocationsSection({
     store.images.map((image, index) => ({
       id: `${store.id}-${index}`,
       src: image,
-      alt: `${store.name} view ${index + 1}`,
+      alt: `${store.name} görünüm ${index + 1}`,
       city: store.city,
     })),
   ).slice(0, 4);
@@ -68,7 +68,7 @@ export function StoreLocationsSection({
           <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
             {eyebrow}
           </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
+          <h2 className="mt-4 text-[1.85rem] font-semibold tracking-[-0.03em] text-[#18110B] sm:text-[2.2rem]">
             {heading}
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#69584A] sm:text-[15px]">

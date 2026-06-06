@@ -173,7 +173,7 @@ export default function LuckyWheelPage() {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
-          <p className="text-gray-600">Loading lucky wheel...</p>
+          <p className="text-gray-600">Şans çarkı yükleniyor...</p>
         </div>
       </div>
     );

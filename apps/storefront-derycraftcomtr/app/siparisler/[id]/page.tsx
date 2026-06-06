@@ -259,18 +259,18 @@ export default async function OrderSuccessPage({
               </div>
 
               <p className="mt-6 text-xs font-semibold uppercase tracking-[0.34em] text-stone-500">
-                Order Confirmation
+                Sipariş Onayı
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-950 sm:text-4xl">
-                Your order has been received
+                Siparişiniz alındı
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-stone-600 sm:text-base">
-                Your order has been created successfully. You can follow preparation and shipping updates on this page.
+                Siparişiniz başarıyla oluşturuldu. Hazırlık ve kargo güncellemelerini bu sayfadan takip edebilirsiniz.
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Order No</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Sipariş No</p>
                   <p className="mt-2 font-mono text-sm font-semibold text-stone-900">#{order.order_number}</p>
                 </div>
                 <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
@@ -284,7 +284,7 @@ export default async function OrderSuccessPage({
                   </p>
                 </div>
                 <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Total</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Toplam</p>
                   <p className="mt-2 text-sm font-semibold text-stone-900">{formatPrice(order.total)}</p>
                 </div>
               </div>
@@ -294,7 +294,7 @@ export default async function OrderSuccessPage({
               <div className="rounded-[28px] border border-stone-200 bg-[#fcfaf6] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Payment Method</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Ödeme Yöntemi</p>
                     <h2 className="mt-2 text-xl font-semibold text-stone-900">{paymentMeta.name}</h2>
                     <p className="mt-1 text-sm text-stone-600">{paymentMeta.description}</p>
                   </div>
@@ -313,7 +313,7 @@ export default async function OrderSuccessPage({
                     <span className="font-medium text-stone-900">{accountingSnapshot?.invoiceNo || "-"}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span>Provider</span>
+                    <span>Sağlayıcı</span>
                     <span className="font-medium text-stone-900">{accountingSnapshot?.provider || "-"}</span>
                   </div>
                 </div>
@@ -325,7 +325,7 @@ export default async function OrderSuccessPage({
                     rel="noreferrer"
                     className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-stone-300 px-5 text-sm font-semibold text-stone-900 transition-colors hover:bg-white"
                   >
-                    View invoice
+                    Faturayı Görüntüle
                   </a>
                 )}
               </div>
@@ -340,8 +340,8 @@ export default async function OrderSuccessPage({
                 <ShoppingBag className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Order Detail</p>
-                <h3 className="mt-1 text-2xl font-semibold text-stone-950">Order items</h3>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Sipariş Detayı</p>
+                <h3 className="mt-1 text-2xl font-semibold text-stone-950">Sipariş ürünleri</h3>
               </div>
             </div>
 
@@ -391,7 +391,7 @@ export default async function OrderSuccessPage({
                         {item.customizations?.[0] && (
                           <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-3">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">
-                              Personalization
+                              Kişiselleştirme
                             </p>
                             <div className="mt-3 space-y-2 text-sm text-stone-700">
                               {item.customizations[0].selections?.map((selection, index) => (
@@ -431,8 +431,8 @@ export default async function OrderSuccessPage({
                   <MapPin className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Delivery</p>
-                  <h3 className="mt-1 text-2xl font-semibold text-stone-950">Address information</h3>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Teslimat</p>
+                  <h3 className="mt-1 text-2xl font-semibold text-stone-950">Adres bilgileri</h3>
                 </div>
               </div>
 
@@ -452,27 +452,27 @@ export default async function OrderSuccessPage({
             </div>
 
             <div className="rounded-[30px] border border-stone-200 bg-white p-6 shadow-[0_14px_42px_rgba(15,23,42,0.05)] sm:p-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Order Summary</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Sipariş Özeti</p>
               <div className="mt-5 space-y-3 text-sm text-stone-600">
                 <div className="flex items-center justify-between gap-3">
                   <span>Ara toplam</span>
                   <span className="font-semibold text-stone-900">{formatPrice(order.subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>Shipping</span>
+                  <span>Kargo</span>
                   <span className="font-semibold text-stone-900">
-                    {order.shipping_cost === 0 ? "Free" : formatPrice(order.shipping_cost)}
+                    {order.shipping_cost === 0 ? "Ücretsiz" : formatPrice(order.shipping_cost)}
                   </span>
                 </div>
                 {order.discount > 0 && (
                   <div className="flex items-center justify-between gap-3 text-emerald-700">
-                    <span>Discount</span>
+                    <span>İndirim</span>
                     <span className="font-semibold">-{formatPrice(order.discount)}</span>
                   </div>
                 )}
               </div>
               <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-5">
-                <span className="text-base font-semibold text-stone-950">Total amount</span>
+                <span className="text-base font-semibold text-stone-950">Toplam tutar</span>
                 <span className="text-2xl font-semibold text-primary">{formatPrice(order.total)}</span>
               </div>
             </div>
@@ -484,14 +484,14 @@ export default async function OrderSuccessPage({
             href="/urunler"
             className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-8 text-sm font-semibold text-white transition-colors hover:bg-red-800 sm:w-auto"
           >
-            Continue shopping
+            Alışverişe Devam Et
             <ChevronRight className="h-4 w-4" />
           </Link>
           <Link
             href="/hesap"
             className="inline-flex h-12 w-full items-center justify-center rounded-full border border-stone-300 px-8 text-sm font-semibold text-stone-900 transition-colors hover:bg-white sm:w-auto"
           >
-            Go to my account
+            Hesabıma Git
           </Link>
         </div>
       </div>

@@ -120,7 +120,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-sm text-neutral-400">
-                Gorsel yok
+                Görsel yok
               </div>
             )}
           </div>
@@ -160,7 +160,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-sm text-neutral-400">
-            Gorsel yok
+            Görsel yok
           </div>
         )}
       </div>

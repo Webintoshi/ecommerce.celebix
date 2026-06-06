@@ -96,7 +96,7 @@ export default function CartPage() {
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
                         className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-primary/5"
-                        aria-label="Decrease quantity"
+                        aria-label="Adedi azalt"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
@@ -106,7 +106,7 @@ export default function CartPage() {
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-primary/5"
-                        aria-label="Increase quantity"
+                        aria-label="Adedi artır"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
@@ -115,7 +115,7 @@ export default function CartPage() {
                     <button
                       onClick={() => removeFromCart(item.id)}
                       className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
-                      aria-label="Remove from cart"
+                      aria-label="Sepetten kaldır"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -124,7 +124,7 @@ export default function CartPage() {
 
                 <div className="mt-4 flex justify-end border-t border-primary/10 pt-4">
                   <span className="font-semibold text-primary">
-                    Item total: {formatPrice(item.unitPrice * item.quantity)}
+                    Ürün toplamı: {formatPrice(item.unitPrice * item.quantity)}
                   </span>
                 </div>
               </div>
@@ -133,19 +133,19 @@ export default function CartPage() {
 
           <div className="lg:col-span-1">
             <div className="sticky top-24 rounded-xl border border-primary/10 bg-white p-6 shadow-sm">
-              <h2 className="mb-6 text-xl font-bold text-primary">Order Summary</h2>
+              <h2 className="mb-6 text-xl font-bold text-primary">Sipariş Özeti</h2>
 
               <div className="mb-6 space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-muted">Subtotal</span>
+                  <span className="text-muted">Ara Toplam</span>
                   <span className="font-medium">{formatPrice(subtotal)}</span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span className="text-muted">Shipping</span>
+                  <span className="text-muted">Kargo</span>
                   <span className="font-medium">
                     {shipping === 0 ? (
-                      <span className="text-primary">Free</span>
+                      <span className="text-primary">Ücretsiz</span>
                     ) : (
                       formatPrice(shipping)
                     )}
@@ -154,12 +154,12 @@ export default function CartPage() {
 
                 {shipping > 0 && shippingThreshold != null && (
                   <div className="rounded-lg bg-primary/5 p-3 text-xs text-muted">
-                    Add {formatPrice(shippingThresholdValue - subtotal)} more to unlock free shipping.
+                    Ücretsiz kargoya ulaşmak için {formatPrice(shippingThresholdValue - subtotal)} daha ekleyin.
                   </div>
                 )}
 
                 <div className="flex justify-between border-t border-primary/10 pt-4 text-lg font-bold">
-                  <span>Total</span>
+                  <span>Toplam</span>
                   <span className="text-primary">{formatPrice(total)}</span>
                 </div>
               </div>
@@ -169,13 +169,13 @@ export default function CartPage() {
                   href="/odeme"
                   className="block w-full rounded-lg bg-primary px-6 py-4 text-center font-medium text-primary-foreground transition-all hover:bg-primary/90"
                 >
-                  Complete Order
+                  Siparişi Tamamla
                 </Link>
                 <Link
                   href="/urunler"
                   className="block w-full rounded-lg border border-primary/20 px-6 py-4 text-center font-medium transition-all hover:bg-primary/5"
                 >
-                  Continue Shopping
+                  Alışverişe Devam Et
                 </Link>
               </div>
             </div>

@@ -95,7 +95,7 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
               {hasMore ? (
                 <div className="flex items-center gap-2 text-neutral-500">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">Loading more products...</span>
+                  <span className="text-sm">Daha fazla ürün yükleniyor...</span>
                 </div>
               ) : null}
             </div>

@@ -141,14 +141,14 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
 
     return [
       { label: "Ara toplam", value: formatPrice(link.subtotal) },
-      { label: "Shipping", value: formatPrice(link.shipping_cost) },
-      { label: "Indirim", value: `-${formatPrice(link.discount)}` },
+      { label: "Kargo", value: formatPrice(link.shipping_cost) },
+      { label: "İndirim", value: `-${formatPrice(link.discount)}` },
     ];
   }, [link]);
 
   const handleStartPayment = async () => {
     if (!selectedGatewayId) {
-      toast.error("Please select a payment method.");
+      toast.error("Lütfen bir ödeme yöntemi seçin.");
       return;
     }
 
@@ -201,8 +201,8 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="flex items-start gap-3 text-rose-700">
             <AlertCircle className="mt-0.5 h-5 w-5" />
             <div>
-              <h1 className="text-lg font-semibold">Hizli siparis linki acilamadi</h1>
-              <p className="mt-2 text-sm">{error || "Something went wrong while opening this link."}</p>
+              <h1 className="text-lg font-semibold">Hızlı sipariş bağlantısı açılamadı</h1>
+              <p className="mt-2 text-sm">{error || "Bu bağlantı açılırken bir sorun oluştu."}</p>
             </div>
           </div>
         </div>
@@ -224,20 +224,20 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
             </div>
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Secure payment
+              Güvenli ödeme
             </div>
           </div>
 
           <div className="mt-6 space-y-4">
             {paymentState === "pending" && !isPaid ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                Odeme sonucu kontrol ediliyor. Bu sayfa otomatik olarak yenileniyor.
+                Ödeme sonucu kontrol ediliyor. Bu sayfa otomatik olarak yenileniyor.
               </div>
             ) : null}
 
             {paymentState === "failed" ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                Odeme tamamlanamadi. Link suresi dolmadiysa ayni siparisi tekrar deneyebilirsiniz.
+                Ödeme tamamlanamadı. Bağlantı süresi dolmadıysa aynı siparişi tekrar deneyebilirsiniz.
               </div>
             ) : null}
 
@@ -246,14 +246,14 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5" />
                   <div>
-                    <p className="font-semibold">Odeme basariyla tamamlandi.</p>
-                    <p className="mt-1 text-sm">Siparisiniz olusturuldu. Siparis detayina asagidan ulasabilirsiniz.</p>
+                    <p className="font-semibold">Ödeme başarıyla tamamlandı.</p>
+                    <p className="mt-1 text-sm">Siparişiniz oluşturuldu. Sipariş detayına aşağıdan ulaşabilirsiniz.</p>
                     {link.order_id ? (
                       <Link
                         href={`/siparisler/${link.order_id}`}
                         className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
                       >
-                        Siparis detayini ac
+                        Sipariş detayını aç
                       </Link>
                     ) : null}
                   </div>
@@ -266,8 +266,8 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 <div className="flex items-start gap-3">
                   <Ban className="mt-0.5 h-5 w-5" />
                   <div>
-                    <p className="font-semibold">This link has been cancelled.</p>
-                    <p className="mt-1 text-sm">Contact the store team for a new payment link.</p>
+                    <p className="font-semibold">Bu bağlantı iptal edildi.</p>
+                    <p className="mt-1 text-sm">Yeni bir ödeme bağlantısı için mağaza ekibiyle iletişime geçin.</p>
                   </div>
                 </div>
               </div>
@@ -278,8 +278,8 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 <div className="flex items-start gap-3">
                   <Timer className="mt-0.5 h-5 w-5" />
                   <div>
-                    <p className="font-semibold">This link has expired.</p>
-                    <p className="mt-1 text-sm">Please request a renewed payment link.</p>
+                    <p className="font-semibold">Bu bağlantının süresi doldu.</p>
+                    <p className="mt-1 text-sm">Lütfen yenilenmiş bir ödeme bağlantısı talep edin.</p>
                   </div>
                 </div>
               </div>
@@ -289,7 +289,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="mt-8 rounded-[26px] border border-gray-100 bg-[#fafafa] p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-gray-500">Musteri</p>
+                <p className="text-sm font-medium text-gray-500">Müşteri</p>
                 <p className="mt-1 text-lg font-semibold text-gray-950">{link.customer_name || link.customer_email}</p>
                 <p className="mt-1 text-sm text-gray-500">{link.customer_email}</p>
               </div>
@@ -297,7 +297,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
-                  toast.success("Odeme linki kopyalandi.");
+                  toast.success("Ödeme bağlantısı kopyalandı.");
                 }}
                 className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-950"
               >
@@ -310,7 +310,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
                   <MapPin className="h-4 w-4 text-gray-500" />
-                  Delivery address
+                  Teslimat adresi
                 </div>
                 <p className="mt-3 text-sm leading-6 text-gray-600">{formatAddress(link.shipping_address)}</p>
               </div>
@@ -333,9 +333,9 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="mt-8 rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
               <CreditCard className="h-4 w-4 text-gray-500" />
-              Select payment method
+              Ödeme yöntemini seçin
             </div>
-            <p className="mt-2 text-sm text-gray-500">Only online payment methods enabled by the store team are available for this link.</p>
+            <p className="mt-2 text-sm text-gray-500">Bu bağlantıda yalnızca mağaza ekibi tarafından etkinleştirilen çevrim içi ödeme yöntemleri kullanılabilir.</p>
 
             <div className="mt-5 space-y-3">
               {gateways.map((gateway) => (
@@ -368,7 +368,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
 
             {!gateways.length && !isPaid && !isBlocked ? (
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                No online payment method is available for this link.
+                Bu bağlantı için çevrim içi ödeme yöntemi bulunmuyor.
               </div>
             ) : null}
 
@@ -379,7 +379,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
               className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-950 px-5 py-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              {submitting ? "Odeme baslatiliyor..." : `${formatPrice(link.total)} ode`}
+              {submitting ? "Ödeme başlatılıyor..." : `${formatPrice(link.total)} öde`}
             </button>
           </div>
         </section>
@@ -387,7 +387,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
         <aside className="rounded-[30px] bg-white p-6 shadow-sm md:p-8">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-gray-500">Siparis ozeti</p>
+              <p className="text-sm font-medium text-gray-500">Sipariş özeti</p>
               <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-gray-950">{formatPrice(link.total)}</h2>
             </div>
             <div className="rounded-full bg-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-600">
@@ -396,7 +396,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           </div>
 
           <div className="mt-4 rounded-2xl border border-gray-100 bg-[#fafafa] px-4 py-3 text-sm text-gray-600">
-            Link gecerlilik tarihi: <span className="font-semibold text-gray-900">{formatDateTime(link.expires_at)}</span>
+            Bağlantı geçerlilik tarihi: <span className="font-semibold text-gray-900">{formatDateTime(link.expires_at)}</span>
           </div>
 
           <div className="mt-6 space-y-4">
@@ -431,7 +431,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-gray-200 pt-3 text-base font-semibold text-gray-950">
-              <span>Total</span>
+              <span>Toplam</span>
               <span>{formatPrice(link.total)}</span>
             </div>
           </div>

@@ -350,15 +350,15 @@ export default function AccountPage() {
                   <MapPin className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Kayitli Adresler</h2>
-                  <p className="text-sm text-gray-500">Checkout sirasinda kullanilan teslimat adresleri</p>
+                  <h2 className="text-xl font-bold text-gray-900">Kayıtlı Adresler</h2>
+                  <p className="text-sm text-gray-500">Ödeme sırasında kullanılan teslimat adresleri</p>
                 </div>
               </div>
 
               {addresses.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm text-gray-500">
-                  Henüz kayitli adres bulunmuyor. Ilk siparisinizden sonra teslimat adresiniz burada
-                  gorunur.
+                  Henüz kayıtlı adres bulunmuyor. İlk siparişinizden sonra teslimat adresiniz burada
+                  görünür.
                 </div>
               ) : (
                 <div className="space-y-3">

@@ -188,7 +188,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
         >
           <button
             type="button"
-            aria-label="Close image zoom"
+            aria-label="Görsel büyütmeyi kapat"
             onClick={(e) => {
               e.stopPropagation();
               setIsLightboxOpen(false);
@@ -202,7 +202,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             <>
               <button
                 type="button"
-                aria-label="Previous image"
+                aria-label="Önceki görsel"
                 onClick={(e) => {
                   e.stopPropagation();
                   handlePrevious();
@@ -213,7 +213,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               </button>
               <button
                 type="button"
-                aria-label="Next image"
+                aria-label="Sonraki görsel"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleNext();
@@ -266,7 +266,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l4.586-4.586a2 2 0 012.828 0L20 14M10 4v4m0 0H4m6 0h6" />
               </svg>
-              <p className="text-sm text-gray-500">Image could not be loaded</p>
+              <p className="text-sm text-gray-500">Görsel yüklenemedi</p>
             </div>
           ) : (
             <img
@@ -394,7 +394,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l4.586-4.586a2 2 0 012.828 0L20 14M10 4v4m0 0H4m6 0h6" />
               </svg>
-              <p className="text-sm text-gray-500">Image could not be loaded</p>
+              <p className="text-sm text-gray-500">Görsel yüklenemedi</p>
             </div>
           )}
 
@@ -403,7 +403,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             ref={mainImageRef}
             key={selectedIndex}
             src={currentImage}
-            alt={`${productName} - Main Image`}
+            alt={`${productName} ana görsel`}
             draggable={false}
             className={`w-full h-full object-contain transition-opacity duration-300 ${
               currentStatus === 'loaded' ? 'opacity-100' : 'opacity-0'

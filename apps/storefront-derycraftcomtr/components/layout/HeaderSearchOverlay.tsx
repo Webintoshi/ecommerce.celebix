@@ -159,7 +159,7 @@ export function HeaderSearchOverlay({
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search products..."
+            placeholder="Ürün ara..."
             className="flex-1 bg-transparent text-base text-neutral-900 placeholder:text-neutral-400 outline-none"
           />
           {query ? (
@@ -183,7 +183,7 @@ export function HeaderSearchOverlay({
               <div className="mb-3 rounded-full bg-neutral-50 p-3">
                 <Search className="h-6 w-6 text-neutral-300" />
               </div>
-              <p className="text-sm text-neutral-400">Start typing a product name to search.</p>
+              <p className="text-sm text-neutral-400">Aramak için ürün adı yazmaya başlayın.</p>
             </div>
           ) : isLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -191,7 +191,7 @@ export function HeaderSearchOverlay({
             </div>
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-sm text-neutral-400">No results found</p>
+              <p className="text-sm text-neutral-400">Sonuç bulunamadı</p>
             </div>
           ) : (
             <div className="py-2">
