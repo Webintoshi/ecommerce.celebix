@@ -377,6 +377,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             data={formData}
             onChange={updateFormData}
             errors={errors}
+            autoSyncSlugFromName={!productId}
           />
         );
       case 2:

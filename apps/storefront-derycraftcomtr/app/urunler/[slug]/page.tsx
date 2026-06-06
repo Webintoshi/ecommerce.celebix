@@ -98,7 +98,6 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const locale = await getRequestLocale();
-  const copy = getLocalizedCopy(locale);
   const { slug } = await params;
   const { baseSlug } = parseProductSlug(slug);
   const lightPostgresProduct = await maybeGetStorefrontProductBySlug(baseSlug);
@@ -121,13 +120,7 @@ export async function generateMetadata({
       : await getProductBySlug(baseSlug);
 
   if (!product) {
-    return buildStorePageMetadata({
-      locale,
-      pathname: `/urunler/${baseSlug}`,
-      title: copy.missingProductTitle,
-      description: copy.missingProductDescription,
-      noIndex: true,
-    });
+    notFound();
   }
 
   const translatedProduct = await translateProductRecord(product, locale);

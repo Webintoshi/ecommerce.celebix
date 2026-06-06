@@ -15,6 +15,7 @@ interface StepBasicInfoProps {
   data: AdminProductWizardState;
   onChange: (updates: Partial<AdminProductWizardState>) => void;
   errors: Record<string, string>;
+  autoSyncSlugFromName?: boolean;
 }
 
 interface TagSuggestion {
@@ -48,7 +49,12 @@ function generateSlug(name: string) {
     .replace(/^-|-$/g, "");
 }
 
-export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
+export function StepBasicInfo({
+  data,
+  onChange,
+  errors,
+  autoSyncSlugFromName = true,
+}: StepBasicInfoProps) {
   const [categories, setCategories] = useState<
     Awaited<ReturnType<typeof fetchCategories>>
   >([]);
@@ -150,7 +156,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
   const handleNameChange = (value: string) => {
     const updates: Partial<AdminProductWizardState> = { name: value };
 
-    if (!data.slug || data.slug === generateSlug(data.name)) {
+    if (!data.slug || (autoSyncSlugFromName && data.slug === generateSlug(data.name))) {
       updates.slug = generateSlug(value);
     }
 

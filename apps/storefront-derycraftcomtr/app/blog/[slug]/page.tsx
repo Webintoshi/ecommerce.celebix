@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BlogArticlePage } from "@/components/blog/BlogArticlePage";
 import { getRelatedPosts, mapBlogRow, mapBlogRows } from "@/lib/blog-content";
@@ -5,6 +6,24 @@ import { getPostBySlug, getPublishedPosts } from "@/lib/db/blog";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const row = await getPostBySlug(slug);
+
+  if (!row) {
+    notFound();
+  }
+
+  return {
+    title: row.title,
+    description: row.excerpt ?? undefined,
+  };
+}
 
 export default async function BlogPostPage({
   params,
