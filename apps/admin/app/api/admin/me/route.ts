@@ -11,6 +11,8 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      provider: auth.provider,
+      authSource: auth.authSource,
       profile: {
         id: auth.profile.id,
         email: auth.profile.email,

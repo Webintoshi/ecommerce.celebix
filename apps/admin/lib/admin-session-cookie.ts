@@ -1,5 +1,15 @@
 import { createClient, type User } from "@supabase/supabase-js";
-import { getSupabaseAnonKey, getSupabaseAuthStorageKey, getSupabaseServerUrl } from "@/lib/supabase-shared";
+import { isLogtoAdminAuthEnabled } from "@/lib/admin-auth-provider";
+import {
+  isLogtoSessionUser,
+  readLogtoAdminSessionUser,
+} from "@/lib/logto-admin-auth";
+import {
+  getOptionalSupabaseAnonKey,
+  getOptionalSupabaseAuthStorageKey,
+  getOptionalSupabaseServerUrl,
+  isLightPostgresAuthBlockedRuntime,
+} from "@/lib/supabase-shared";
 import { decodeSessionCookiePayload } from "@/lib/supabase-session-cookie-utils";
 
 type CookieValue = {
@@ -33,7 +43,17 @@ function readChunkedCookieValue(cookies: CookieValue[], cookieName: string): str
 }
 
 export function readSupabaseSessionCookie(cookies: CookieValue[]): SessionCookiePayload | null {
-  const encodedValue = readChunkedCookieValue(cookies, getSupabaseAuthStorageKey());
+  if (isLightPostgresAuthBlockedRuntime()) {
+    return null;
+  }
+
+  const cookieName = getOptionalSupabaseAuthStorageKey();
+
+  if (!cookieName) {
+    return null;
+  }
+
+  const encodedValue = readChunkedCookieValue(cookies, cookieName);
   if (!encodedValue) {
     return null;
   }
@@ -46,6 +66,11 @@ export function readSupabaseSessionCookie(cookies: CookieValue[]): SessionCookie
 }
 
 export function readSessionUserSnapshotFromCookies(cookies: CookieValue[]): User | null {
+  const logtoUser = readLogtoAdminSessionUser(cookies);
+  if (logtoUser) {
+    return logtoUser;
+  }
+
   const session = readSupabaseSessionCookie(cookies);
   const user = session?.user;
 
@@ -57,13 +82,33 @@ export function readSessionUserSnapshotFromCookies(cookies: CookieValue[]): User
 }
 
 export async function getSessionUserFromCookies(cookies: CookieValue[]): Promise<User | null> {
+  const logtoUser = readLogtoAdminSessionUser(cookies);
+  if (logtoUser) {
+    return logtoUser;
+  }
+
+  if (isLogtoAdminAuthEnabled()) {
+    return null;
+  }
+
+  if (isLightPostgresAuthBlockedRuntime()) {
+    return null;
+  }
+
   const session = readSupabaseSessionCookie(cookies);
 
   if (!session?.access_token) {
     return null;
   }
 
-  const supabase = createClient(getSupabaseServerUrl(), getSupabaseAnonKey(), {
+  const serverUrl = getOptionalSupabaseServerUrl();
+  const anonKey = getOptionalSupabaseAnonKey();
+
+  if (!serverUrl || !anonKey) {
+    return null;
+  }
+
+  const supabase = createClient(serverUrl, anonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -79,5 +124,5 @@ export async function getSessionUserFromCookies(cookies: CookieValue[]): Promise
     return null;
   }
 
-  return user;
+  return isLogtoSessionUser(user) ? null : user;
 }

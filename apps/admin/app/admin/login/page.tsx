@@ -7,6 +7,24 @@ import { toast } from "sonner";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
 
+function resolveLoginErrorMessage(searchParams: URLSearchParams) {
+  if (searchParams.get("blocked_auth_setup") === "1") {
+    return "Yönetici girişi şu anda hazır değil. Lütfen daha sonra tekrar deneyin.";
+  }
+
+  switch (searchParams.get("error")) {
+    case "unauthorized":
+      return "Bu panel icin yetkiniz bulunmuyor.";
+    case "invalid_callback":
+    case "login_failed":
+      return "Giriş oturumu tamamlanamadı. Lütfen tekrar deneyin.";
+    case "provider_disabled":
+      return "Giriş servisi şu anda kullanılamıyor.";
+    default:
+      return null;
+  }
+}
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const envAuthProvider =
@@ -29,17 +47,18 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
     const redirectIfAuthenticated = async () => {
-      const next =
-        typeof window !== "undefined"
-          ? sanitizeInternalRedirectPath(new URLSearchParams(window.location.search).get("next"), "/admin")
-          : "/admin";
+      const searchParams =
+        typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+      const next = sanitizeInternalRedirectPath(searchParams.get("next"), "/admin");
       if (mounted) {
         setNextPath(next);
+        setErrorMessage(resolveLoginErrorMessage(searchParams));
       }
 
       const response = await fetch("/api/admin/me", {
@@ -86,6 +105,7 @@ export default function AdminLoginPage() {
     }
 
     if (authBlocked || !hasBrowserSupabaseAuthEnv || !supabase) {
+      setErrorMessage("Bu store icin admin auth kurulumu henuz tamamlanmadi.");
       toast.error("Bu store icin admin auth kurulumu henuz tamamlanmadi.");
       return;
     }
@@ -104,12 +124,14 @@ export default function AdminLoginPage() {
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        setErrorMessage(payload.error || "Giriş yapılamadı.");
         toast.error(`Giriş başarısız: ${payload.error || "Giriş yapılamadı."}`);
         return;
       }
 
       const session = payload.session;
       if (!session?.access_token || !session?.refresh_token) {
+        setErrorMessage("Giriş oturumu oluşturulamadı.");
         toast.error("Giriş oturumu oluşturulamadı.");
         return;
       }
@@ -120,15 +142,18 @@ export default function AdminLoginPage() {
       });
 
       if (sessionError) {
+        setErrorMessage(sessionError.message);
         toast.error(sessionError.message);
         return;
       }
 
+      setErrorMessage(null);
       toast.success("Giriş yapıldı.");
       router.replace(nextPath);
       router.refresh();
     } catch (error) {
       console.error("Admin login error:", error);
+      setErrorMessage("Beklenmeyen bir hata olustu.");
       toast.error("Beklenmeyen bir hata oluştu.");
     } finally {
       setLoading(false);
@@ -173,6 +198,12 @@ export default function AdminLoginPage() {
                 Owner provisioning bu adimi acikca
                 <code className="mx-1 rounded bg-amber-100 px-1.5 py-0.5 text-[12px]">blocked_auth_setup</code>
                 olarak isaretler.
+              </div>
+            ) : null}
+
+            {errorMessage ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-900">
+                {errorMessage}
               </div>
             ) : null}
 
