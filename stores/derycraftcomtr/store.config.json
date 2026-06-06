@@ -89,7 +89,7 @@
     "deploymentStatus": "configured",
     "preparedAt": "2026-05-19T14:02:47.463Z",
     "lastDeploymentPreparedAt": "2026-05-19T14:02:47.463Z",
-    "deployedAt": "2026-06-06T13:29:20.547Z",
+    "deployedAt": "2026-06-06T13:32:54.884Z",
     "deployment": {
       "strategy": "build_server_ghcr",
       "image": "ghcr.io/celebixco/derycraftcomtr-storefront",
