@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, getLuckyWheelPublicData } from "@/lib/lucky-wheel";
 
 function isMissingLuckyWheelTableError(error: unknown) {
@@ -15,6 +16,16 @@ function isMissingLuckyWheelTableError(error: unknown) {
 
 export async function GET(request: NextRequest) {
   try {
+    if (shouldUseLightPostgresStorefront()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Aktif şans çarkı bulunamadı.",
+        },
+        { status: 404 },
+      );
+    }
+
     const configId = request.nextUrl.searchParams.get("id") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;
     const { config, prizes } = await getLuckyWheelPublicData(configId);
 
