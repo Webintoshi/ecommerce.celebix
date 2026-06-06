@@ -1,4 +1,8 @@
 import { createServerClient, BlogPost } from "@/lib/supabase";
+import {
+  maybeGetLightPostgresBlogPostBySlug,
+  maybeListPublishedLightPostgresBlogPosts,
+} from "@/lib/db/blog-light-postgres";
 import { getSetting, setSetting } from "@/lib/db/settings";
 import { slugify } from "@/lib/utils";
 
@@ -180,6 +184,11 @@ function getStoredPostBySlug(posts: BlogPost[], slug: string): BlogPost | null {
 }
 
 export async function getPublishedPosts() {
+  const lightPostgresPosts = await maybeListPublishedLightPostgresBlogPosts();
+  if (lightPostgresPosts !== undefined) {
+    return lightPostgresPosts;
+  }
+
   const serverClient = createServerClient();
   const { data, error } = await serverClient
     .from("blog_posts")
@@ -198,8 +207,13 @@ export async function getPublishedPosts() {
 }
 
 export async function getPostBySlug(slug: string) {
-  const serverClient = createServerClient();
   const candidates = buildSlugCandidates(slug);
+  const lightPostgresPost = await maybeGetLightPostgresBlogPostBySlug(candidates);
+  if (lightPostgresPost !== undefined) {
+    return lightPostgresPost;
+  }
+
+  const serverClient = createServerClient();
   const { data, error } = await serverClient
     .from("blog_posts")
     .select("*")
