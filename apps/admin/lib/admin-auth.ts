@@ -3,11 +3,17 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import type { AdminAuthProvider } from "@/lib/admin-auth-provider";
 import type { UserRole } from "@/lib/permissions";
 import { readCachedAdminProfile, writeCachedAdminProfile } from "@/lib/admin-profile-cache";
 import { readAdminRoleCookie } from "@/lib/admin-role-cookie";
 import { getSessionUserFromCookies, readSessionUserSnapshotFromCookies } from "@/lib/admin-session-cookie";
+import {
+  findLegacyAdminBridgeByUserId,
+  isLogtoSessionUser,
+} from "@/lib/logto-admin-auth";
 import { createServiceSupabaseClient } from "@/lib/supabase-server";
+import { isLightPostgresAuthBlockedRuntime } from "@/lib/supabase-shared";
 
 export interface AdminProfile {
   id: string;
@@ -20,6 +26,8 @@ export interface AdminProfile {
 export interface AdminAuthContext {
   user: User;
   profile: AdminProfile;
+  provider: AdminAuthProvider;
+  authSource: AdminAuthProvider;
 }
 
 type CookieValue = {
@@ -42,6 +50,10 @@ function readUserDisplayName(user: User): string | null {
   return null;
 }
 
+function resolveSessionProvider(user: User): AdminAuthProvider {
+  return isLogtoSessionUser(user) ? "logto" : "supabase";
+}
+
 function buildFallbackAdminAuthContext(cookieValues: CookieValue[], userOverride?: User | null): AdminAuthContext | null {
   const user = userOverride ?? readSessionUserSnapshotFromCookies(cookieValues);
   if (!user) {
@@ -62,10 +74,16 @@ function buildFallbackAdminAuthContext(cookieValues: CookieValue[], userOverride
       role: adminRole.role,
       task_definition: null,
     },
+    provider: resolveSessionProvider(user),
+    authSource: resolveSessionProvider(user),
   };
 }
 
 export async function getAdminBootstrapProfileFromCookies(): Promise<Pick<AdminProfile, "email" | "full_name" | "role"> | null> {
+  if (isLightPostgresAuthBlockedRuntime()) {
+    return null;
+  }
+
   const cookieStore = await cookies();
   const fallbackContext = buildFallbackAdminAuthContext(cookieStore.getAll());
 
@@ -81,6 +99,10 @@ export async function getAdminBootstrapProfileFromCookies(): Promise<Pick<AdminP
 }
 
 export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
+  if (isLightPostgresAuthBlockedRuntime()) {
+    return null;
+  }
+
   const cookieStore = await cookies();
   const cookieValues = cookieStore.getAll();
   const snapshotUser = readSessionUserSnapshotFromCookies(cookieValues);
@@ -101,6 +123,40 @@ export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
         ...cachedProfile,
         email: user.email || "",
       },
+      provider: resolveSessionProvider(user),
+      authSource: resolveSessionProvider(user),
+    };
+  }
+
+  if (isLogtoSessionUser(user)) {
+    const appMetadata = typeof user.app_metadata === "object" && user.app_metadata ? user.app_metadata : {};
+    const providerSubject = Reflect.get(appMetadata, "provider_subject");
+    const bridge = await findLegacyAdminBridgeByUserId(
+      user.id,
+      typeof providerSubject === "string" ? providerSubject : null,
+    );
+
+    if (!bridge) {
+      return fallbackContext;
+    }
+
+    const profile = {
+      id: bridge.userId,
+      full_name: bridge.fullName,
+      role: bridge.role,
+      task_definition: bridge.taskDefinition,
+    };
+
+    writeCachedAdminProfile(profile);
+
+    return {
+      user,
+      profile: {
+        ...profile,
+        email: bridge.email || user.email || "",
+      },
+      provider: "logto",
+      authSource: "logto",
     };
   }
 
@@ -136,6 +192,8 @@ export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
       ...profile,
       email: user.email || "",
     },
+    provider: resolveSessionProvider(user),
+    authSource: resolveSessionProvider(user),
   };
 }
 

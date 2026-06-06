@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import { getAdminAuthProvider } from "@/lib/admin-auth-provider";
+import {
+  getOptionalLogtoIssuer,
+  LOGTO_ADMIN_SESSION_COOKIE_NAME,
+} from "@/lib/logto-admin-auth";
 import { getStoreRuntime } from "@/lib/store-runtime";
 import {
   getOptionalSupabaseAnonKey,
@@ -10,15 +15,26 @@ import {
 
 export async function GET() {
   const runtime = getStoreRuntime();
+  const authProvider = getAdminAuthProvider();
   const supabaseUrl = getOptionalSupabaseUrl();
   const supabaseAnonKey = getOptionalSupabaseAnonKey();
   const supabaseServerUrl = getOptionalSupabaseServerUrl();
-  const authCookieName = getOptionalSupabaseAuthStorageKey();
+  const authCookieName =
+    authProvider === "logto"
+      ? LOGTO_ADMIN_SESSION_COOKIE_NAME
+      : getOptionalSupabaseAuthStorageKey();
   const authBlocked = isLightPostgresAuthBlockedRuntime();
   const hasPublicSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey && authCookieName);
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
+  const logtoIssuer = authProvider === "logto" ? getOptionalLogtoIssuer() : null;
+  const authStrategy =
+    authBlocked
+      ? "blocked_auth_setup"
+      : authProvider === "logto"
+        ? "logto_oidc_bridge_v1"
+        : "supabase_cookie_direct_v1";
 
-  if (!authBlocked && (!hasPublicSupabaseAuth || !supabaseServerUrl)) {
+  if (authProvider !== "logto" && !authBlocked && (!hasPublicSupabaseAuth || !supabaseServerUrl)) {
     return NextResponse.json(
       {
         slug: runtime.slug,
@@ -29,10 +45,12 @@ export async function GET() {
         adminDomain: runtime.adminDomain,
         storefrontUrl: runtime.storefrontUrl,
         adminUrl: runtime.adminUrl,
-        authStrategy: "supabase_cookie_direct_v1",
+        authStrategy,
+        authProvider,
         authCookieName,
         supabaseUrl,
         supabaseServerUrl,
+        logtoIssuer,
         hasServiceRoleKey,
         deploymentMarker: process.env.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null,
         generatedAt: new Date().toISOString(),
@@ -51,12 +69,14 @@ export async function GET() {
     adminDomain: runtime.adminDomain,
     storefrontUrl: runtime.storefrontUrl,
     adminUrl: runtime.adminUrl,
-    authStrategy: authBlocked ? "blocked_auth_setup" : "supabase_cookie_direct_v1",
+    authStrategy,
+    authProvider,
     authCookieName,
     supabaseUrl,
     supabaseServerUrl,
+    logtoIssuer,
     hasServiceRoleKey,
     deploymentMarker: process.env.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null,
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
   });
 }

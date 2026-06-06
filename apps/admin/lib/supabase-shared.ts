@@ -188,5 +188,8 @@ export function getOptionalSupabaseServiceRoleKey(): string | null {
 }
 
 export function getSupabaseServiceRoleKey(): string {
-  return requireEnvValue("SUPABASE_SERVICE_ROLE_KEY", getOptionalSupabaseServiceRoleKey() ?? undefined);
+  return requireEnvValue(
+    "SUPABASE_SERVICE_ROLE_KEY",
+    getOptionalSupabaseServiceRoleKey() ?? undefined,
+  );
 }
