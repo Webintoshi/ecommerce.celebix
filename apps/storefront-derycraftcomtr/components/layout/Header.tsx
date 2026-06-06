@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -24,6 +25,7 @@ export function Header({
 }: {
   navigationCategories: StorefrontNavigationCategory[];
 }) {
+  const [isClient, setIsClient] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeMobileCategoryId, setActiveMobileCategoryId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -45,6 +47,11 @@ export function Header({
     : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -91,6 +98,169 @@ export function Header({
   const toggleMobileCategory = (categoryId: string) => {
     setActiveMobileCategoryId((current) => (current === categoryId ? null : categoryId));
   };
+
+  const mobileMenu = isClient
+    ? createPortal(
+        <AnimatePresence>
+          {isMenuOpen ? (
+            <>
+              <motion.button
+                type="button"
+                aria-label="Menüyü kapat"
+                className="fixed inset-0 z-[130] bg-black/55 lg:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={closeMenu}
+              />
+
+              <motion.aside
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ duration: 0.24, ease: "easeOut" }}
+                className="fixed inset-y-0 right-0 z-[140] flex w-[min(100vw-28px,24rem)] flex-col overflow-hidden rounded-l-[2rem] bg-white text-[#11100E] shadow-[0_22px_60px_rgba(0,0,0,0.24)] lg:hidden"
+                aria-label="Mobil menü"
+              >
+                <div className="flex items-center justify-between px-6 pb-5 pt-6">
+                  <Link href={buildPath(ROUTES.home)} aria-label={logoAlt} onClick={closeMenu}>
+                    {logoSrc ? (
+                      <div className="relative h-8 w-[112px]">
+                        <Image
+                          src={logoSrc}
+                          alt={logoAlt}
+                          fill
+                          className="object-contain object-left"
+                          sizes="112px"
+                          unoptimized={usesProxiedLogo}
+                        />
+                      </div>
+                    ) : (
+                      <span className="font-serif text-3xl font-semibold text-[#11100E]">{logoAlt}</span>
+                    )}
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={closeMenu}
+                    className="rounded-full p-2 text-[#11100E]"
+                    aria-label="Menüyü kapat"
+                  >
+                    <X className="h-7 w-7" />
+                  </button>
+                </div>
+
+                <nav className="flex-1 overflow-y-auto px-6 pb-40">
+                  {navigationCategories.map((category) => {
+                    const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
+                    const drawerLabel = localizedCategoryName.toLocaleUpperCase("tr");
+                    const isExpanded = activeMobileCategoryId === category.id;
+                    const hasChildren = category.children.length > 0;
+
+                    return (
+                      <div key={category.id} className="border-b border-[#11100E]/12">
+                        <div className="flex items-center gap-3 py-5">
+                          <Link
+                            href={buildPath(ROUTES.category(category.slug))}
+                            className="flex-1 text-[1.05rem] font-black leading-none text-[#11100E] transition-colors hover:text-[#6E5139]"
+                            onClick={closeMenu}
+                          >
+                            {drawerLabel}
+                          </Link>
+
+                          {hasChildren ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleMobileCategory(category.id)}
+                              className="rounded-full p-1 text-[#BDBDBD]"
+                              aria-label={`${drawerLabel} alt kategorilerini ${isExpanded ? "kapat" : "aç"}`}
+                              aria-expanded={isExpanded}
+                            >
+                              <ChevronDown
+                                className={`h-6 w-6 transition-transform ${
+                                  isExpanded ? "rotate-0 text-[#11100E]" : "-rotate-90"
+                                }`}
+                              />
+                            </button>
+                          ) : null}
+                        </div>
+
+                        <AnimatePresence initial={false}>
+                          {hasChildren && isExpanded ? (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.18, ease: "easeOut" }}
+                              className="overflow-hidden"
+                            >
+                              <div className="space-y-1 pb-4 pl-2">
+                                {category.children.map((subcategory) => (
+                                  <Link
+                                    key={subcategory.id}
+                                    href={buildPath(ROUTES.category(subcategory.slug))}
+                                    className="block rounded-2xl px-3 py-2 text-[0.95rem] font-medium text-[#5E5A55] transition-colors hover:bg-[#F7F3EE] hover:text-[#11100E]"
+                                    onClick={closeMenu}
+                                  >
+                                    {subcategory.name}
+                                  </Link>
+                                ))}
+                              </div>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </nav>
+
+                <div className="mt-auto border-t border-black bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-5">
+                  {isAuthenticated ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Link
+                        href={buildPath("/hesap")}
+                        className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
+                        onClick={closeMenu}
+                      >
+                        Hesabım
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeMenu();
+                          void signOut();
+                        }}
+                        className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
+                      >
+                        Çıkış Yap
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
+                        onClick={() => navigateToCustomerAuth(CUSTOMER_AUTH_URLS.register)}
+                      >
+                        Kayıt Ol
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
+                        onClick={() => navigateToCustomerAuth(CUSTOMER_AUTH_URLS.signIn)}
+                      >
+                        Giriş Yap
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.aside>
+            </>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )
+    : null;
 
   return (
     <header
@@ -218,163 +388,7 @@ export function Header({
         </div>
       </div>
 
-      <AnimatePresence>
-        {isMenuOpen ? (
-          <>
-            <motion.button
-              type="button"
-              aria-label="Menüyü kapat"
-              className="fixed inset-0 z-[70] bg-black/55 lg:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeMenu}
-            />
-
-            <motion.aside
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ duration: 0.24, ease: "easeOut" }}
-              className="fixed inset-y-0 right-0 z-[80] flex w-[min(100vw-28px,24rem)] flex-col overflow-hidden rounded-l-[2rem] bg-white text-[#11100E] shadow-[0_22px_60px_rgba(0,0,0,0.24)] lg:hidden"
-              aria-label="Mobil menü"
-            >
-              <div className="flex items-center justify-between px-6 pb-5 pt-6">
-                <Link href={buildPath(ROUTES.home)} aria-label={logoAlt} onClick={closeMenu}>
-                  {logoSrc ? (
-                    <div className="relative h-8 w-[112px]">
-                      <Image
-                        src={logoSrc}
-                        alt={logoAlt}
-                        fill
-                        className="object-contain object-left"
-                        sizes="112px"
-                        unoptimized={usesProxiedLogo}
-                      />
-                    </div>
-                  ) : (
-                    <span className="font-serif text-3xl font-semibold text-[#11100E]">{logoAlt}</span>
-                  )}
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={closeMenu}
-                  className="rounded-full p-2 text-[#11100E]"
-                  aria-label="Menüyü kapat"
-                >
-                  <X className="h-7 w-7" />
-                </button>
-              </div>
-
-              <nav className="flex-1 overflow-y-auto px-6 pb-40">
-                {navigationCategories.map((category) => {
-                  const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
-                  const drawerLabel = localizedCategoryName.toLocaleUpperCase("tr");
-                  const isExpanded = activeMobileCategoryId === category.id;
-                  const hasChildren = category.children.length > 0;
-
-                  return (
-                    <div key={category.id} className="border-b border-[#11100E]/12">
-                      <div className="flex items-center gap-3 py-5">
-                        <Link
-                          href={buildPath(ROUTES.category(category.slug))}
-                          className="flex-1 text-[1.05rem] font-black leading-none text-[#11100E] transition-colors hover:text-[#6E5139]"
-                          onClick={closeMenu}
-                        >
-                          {drawerLabel}
-                        </Link>
-
-                        {hasChildren ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleMobileCategory(category.id)}
-                            className="rounded-full p-1 text-[#BDBDBD]"
-                            aria-label={`${drawerLabel} alt kategorilerini ${isExpanded ? "kapat" : "aç"}`}
-                            aria-expanded={isExpanded}
-                          >
-                            <ChevronDown
-                              className={`h-6 w-6 transition-transform ${
-                                isExpanded ? "rotate-0 text-[#11100E]" : "-rotate-90"
-                              }`}
-                            />
-                          </button>
-                        ) : null}
-                      </div>
-
-                      <AnimatePresence initial={false}>
-                        {hasChildren && isExpanded ? (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.18, ease: "easeOut" }}
-                            className="overflow-hidden"
-                          >
-                            <div className="space-y-1 pb-4 pl-2">
-                              {category.children.map((subcategory) => (
-                                <Link
-                                  key={subcategory.id}
-                                  href={buildPath(ROUTES.category(subcategory.slug))}
-                                  className="block rounded-2xl px-3 py-2 text-[0.95rem] font-medium text-[#5E5A55] transition-colors hover:bg-[#F7F3EE] hover:text-[#11100E]"
-                                  onClick={closeMenu}
-                                >
-                                  {subcategory.name}
-                                </Link>
-                              ))}
-                            </div>
-                          </motion.div>
-                        ) : null}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </nav>
-
-              <div className="mt-auto border-t border-black bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-5">
-                {isAuthenticated ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <Link
-                      href={buildPath("/hesap")}
-                      className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
-                      onClick={closeMenu}
-                    >
-                      Hesabım
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        closeMenu();
-                        void signOut();
-                      }}
-                      className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
-                    >
-                      Çıkış Yap
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
-                      onClick={() => navigateToCustomerAuth(CUSTOMER_AUTH_URLS.register)}
-                    >
-                      Kayıt Ol
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
-                      onClick={() => navigateToCustomerAuth(CUSTOMER_AUTH_URLS.signIn)}
-                    >
-                      Giriş Yap
-                    </button>
-                  </div>
-                )}
-              </div>
-            </motion.aside>
-          </>
-        ) : null}
-      </AnimatePresence>
+      {mobileMenu}
 
       <HeaderSearchOverlay
         isOpen={isSearchOpen}
