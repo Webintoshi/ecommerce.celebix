@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import Script from "next/script";
 import "./globals.css";
 import "@/app/styles/redesign.scss";
@@ -53,6 +53,7 @@ export default async function RootLayout({
   const umamiHostUrl = process.env.NEXT_PUBLIC_UMAMI_HOST_URL?.trim() || "";
   const umamiWebsiteId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID?.trim() || "";
   const shouldLoadUmami = Boolean(umamiHostUrl && umamiWebsiteId);
+  const AnalyticsProvider = shouldLoadUmami ? Fragment : TrackingProvider;
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
   const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
@@ -129,7 +130,7 @@ export default async function RootLayout({
           initialInternalPathname={pathname}
           initialRouting={localeRouting}
         >
-          <TrackingProvider>
+          <AnalyticsProvider>
             <StoreInfoProvider initialStoreInfo={initialStoreInfo ?? undefined}>
               <AuthProvider>
                 <CartProvider>
@@ -145,7 +146,7 @@ export default async function RootLayout({
                 </CartProvider>
               </AuthProvider>
             </StoreInfoProvider>
-          </TrackingProvider>
+          </AnalyticsProvider>
         </StorefrontRouteProvider>
         <CodeIntegrationMarkup html={codeIntegrations.customBodyEndHtml} />
       </body>
