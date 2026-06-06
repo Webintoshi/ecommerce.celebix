@@ -9,7 +9,9 @@ import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const authProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
+  const envAuthProvider =
+    process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
+  const [authProvider, setAuthProvider] = useState<"logto" | "supabase">(envAuthProvider);
   const isLogtoProvider = authProvider === "logto";
   const hasBrowserSupabaseAuthEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -47,6 +49,23 @@ export default function AdminLoginPage() {
 
       if (mounted && response?.ok) {
         router.replace(next);
+      }
+
+      const runtimeResponse = await fetch("/api/public/runtime", {
+        credentials: "same-origin",
+        cache: "no-store",
+      }).catch(() => null);
+
+      const runtimePayload = runtimeResponse?.ok
+        ? await runtimeResponse.json().catch(() => null)
+        : null;
+      const runtimeAuthStrategy =
+        typeof runtimePayload?.authStrategy === "string" ? runtimePayload.authStrategy : null;
+
+      if (mounted && runtimeAuthStrategy === "supabase_cookie_direct_v1") {
+        setAuthProvider("supabase");
+      } else if (mounted && runtimeAuthStrategy?.includes("logto")) {
+        setAuthProvider("logto");
       }
     };
 
