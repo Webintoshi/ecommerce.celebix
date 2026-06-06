@@ -83,6 +83,11 @@ export function Header({
 
   const closeMenu = () => setIsMenuOpen(false);
 
+  const navigateToCustomerAuth = (href: string) => {
+    closeMenu();
+    window.location.assign(href);
+  };
+
   const toggleMobileCategory = (categoryId: string) => {
     setActiveMobileCategoryId((current) => (current === categoryId ? null : categoryId));
   };
@@ -349,20 +354,20 @@ export function Header({
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
-                    <a
-                      href={CUSTOMER_AUTH_URLS.register}
+                    <button
+                      type="button"
                       className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
-                      onClick={closeMenu}
+                      onClick={() => navigateToCustomerAuth(CUSTOMER_AUTH_URLS.register)}
                     >
                       Kayıt Ol
-                    </a>
-                    <a
-                      href={CUSTOMER_AUTH_URLS.signIn}
+                    </button>
+                    <button
+                      type="button"
                       className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
-                      onClick={closeMenu}
+                      onClick={() => navigateToCustomerAuth(CUSTOMER_AUTH_URLS.signIn)}
                     >
                       Giriş Yap
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>
