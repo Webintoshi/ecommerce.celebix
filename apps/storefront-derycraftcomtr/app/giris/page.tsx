@@ -7,6 +7,8 @@ import { ArrowLeft, Chrome, Loader2, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { useStoreInfo } from "@/lib/store-info-context";
 
 function sanitizeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -33,10 +35,15 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
+  const { storeInfo } = useStoreInfo();
   const [submitting, setSubmitting] = useState<"email" | "google" | null>(null);
-  const showLogoImage =
-    typeof SITE_LOGO_PATH === "string" &&
-    !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
+  const resolvedLogoSource = storeInfo?.logoUrl || SITE_LOGO_PATH;
+  const logoSrc =
+    typeof resolvedLogoSource === "string" &&
+    !resolvedLogoSource.includes("placeholder-storefront-logo")
+      ? resolveStorefrontAssetUrl(resolvedLogoSource)
+      : "";
+  const displayName = storeInfo?.name || SITE_NAME.replace(/\s+2$/, "");
   const nextPath = useMemo(() => sanitizeNextPath(searchParams.get("next")), [searchParams]);
   const errorMessage = resolveErrorMessage(searchParams.get("error"));
 
@@ -70,15 +77,15 @@ export default function LoginPage() {
           className="mb-10 text-center"
         >
           <Link href="/" className="inline-block">
-            {showLogoImage ? (
+            {logoSrc ? (
               <img
-                src={SITE_LOGO_PATH}
-                alt={SITE_NAME}
+                src={logoSrc}
+                alt={displayName}
                 className="mx-auto h-20 w-auto object-contain sm:h-24"
               />
             ) : (
               <span className="font-serif text-4xl font-semibold text-[#17130F]">
-                {SITE_NAME}
+                {displayName}
               </span>
             )}
           </Link>
