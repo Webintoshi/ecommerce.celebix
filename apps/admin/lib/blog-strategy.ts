@@ -1,6 +1,7 @@
 import "server-only";
 
 import { CONTENT_GUIDELINES, calculateSEOScore } from "@/lib/blog";
+import { getAllPosts } from "@/lib/db/blog";
 import { createServerClient } from "@/lib/supabase";
 import { getStoreRuntime } from "@/lib/store-runtime";
 import type { BlogPost, TopicType } from "@/types/blog";
@@ -453,12 +454,9 @@ export async function getBlogStrategySnapshot(): Promise<BlogStrategySnapshot> {
   const supabase = createServerClient();
   const storeRuntime = getStoreRuntime();
 
-  const [{ data: blogRows, error: blogError }, { data: categoryRows, error: categoryError }, { data: productRows, error: productError }] =
+  const [blogRows, { data: categoryRows, error: categoryError }, { data: productRows, error: productError }] =
     await Promise.all([
-      supabase
-        .from("blog_posts")
-        .select("id, title, slug, content, excerpt, featured_image, author, status, published_at, created_at")
-        .order("created_at", { ascending: false }),
+      getAllPosts(),
       supabase
         .from("categories")
         .select("id, name, slug, description, parent_id, sort_order")
@@ -468,10 +466,6 @@ export async function getBlogStrategySnapshot(): Promise<BlogStrategySnapshot> {
         .select("id, name, slug, description, short_description, category, subcategory, tags, status")
         .order("created_at", { ascending: false }),
     ]);
-
-  if (blogError) {
-    throw blogError;
-  }
 
   if (categoryError) {
     throw categoryError;

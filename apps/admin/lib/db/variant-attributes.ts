@@ -22,6 +22,15 @@ function slugify(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
+function isCompatTableUnsupported(message: string, tableName: string): boolean {
+  return (
+    message.includes(`light_postgres compatibility table destegi bulunamadi: ${tableName}`) ||
+    message.includes(`Insert desteklenmiyor: ${tableName}`) ||
+    message.includes(`Update desteklenmiyor: ${tableName}`) ||
+    message.includes(`Delete desteklenmiyor: ${tableName}`)
+  );
+}
+
 function normalizeValue(
   value: Partial<VariantAttributeValue> & Pick<VariantAttributeValue, "value">,
   attributeId: string,
@@ -69,7 +78,8 @@ export function isVariantAttributeTableMissing(error: unknown): boolean {
   return (
     /Could not find the table 'public\.variant_attributes' in the schema cache/i.test(message) ||
     /relation ["']public\.variant_attributes["'] does not exist/i.test(message) ||
-    /relation ["']variant_attributes["'] does not exist/i.test(message)
+    /relation ["']variant_attributes["'] does not exist/i.test(message) ||
+    isCompatTableUnsupported(message, "variant_attributes")
   );
 }
 
@@ -79,7 +89,8 @@ export function isVariantAttributeValueTableMissing(error: unknown): boolean {
   return (
     /Could not find the table 'public\.variant_attribute_values' in the schema cache/i.test(message) ||
     /relation ["']public\.variant_attribute_values["'] does not exist/i.test(message) ||
-    /relation ["']variant_attribute_values["'] does not exist/i.test(message)
+    /relation ["']variant_attribute_values["'] does not exist/i.test(message) ||
+    isCompatTableUnsupported(message, "variant_attribute_values")
   );
 }
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/product-seo";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { resolveAdminDatabaseMode } from "@/lib/db/admin-database-mode";
 import { normalizeVisibleText, normalizeVisibleTextFields, repairMojibakeIfNeeded } from "@/lib/text-encoding";
 import { getProductDiscountRulesMap } from "@/lib/product-pricing";
 import {
@@ -139,6 +140,8 @@ function logVariantAttributeSyncError(error: unknown, context: string) {
 
 const OPTIONAL_PRODUCT_COLUMNS = new Set([
     "images_v2",
+    "faq",
+    "geo_data",
     "subcategory",
     "is_active",
     "is_new",
@@ -198,6 +201,21 @@ const OPTIONAL_PRODUCT_VARIANT_COLUMNS = new Set([
     "shopify_metadata",
 ]);
 
+const LIGHT_POSTGRES_PRODUCT_JSON_COLUMNS = [
+    "images_v2",
+    "dimensions",
+    "faq",
+    "geo_data",
+    "vitamins",
+    "shopify_metadata",
+    "shopify_metafields",
+] as const;
+
+const LIGHT_POSTGRES_VARIANT_JSON_COLUMNS = [
+    "attributes",
+    "shopify_metadata",
+] as const;
+
 const ALLOWED_TAX_RATES = new Set([0, 1, 8, 10, 20]);
 
 function normalizeTaxRate(value: unknown): number {
@@ -213,6 +231,61 @@ function normalizeTaxRate(value: unknown): number {
     }
 
     return 0;
+}
+
+function isLightPostgresAdminRuntime() {
+    return resolveAdminDatabaseMode() === "light_postgres";
+}
+
+function serializeLightPostgresJsonValue(value: unknown): unknown {
+    if (value === undefined || value === null || typeof value === "string") {
+        return value;
+    }
+
+    if (Array.isArray(value) || typeof value === "object") {
+        return JSON.stringify(value);
+    }
+
+    return value;
+}
+
+function prepareLightPostgresMutationPayload<T extends Record<string, unknown>>(
+    payload: T,
+    jsonColumns: readonly string[],
+): T {
+    if (!isLightPostgresAdminRuntime()) {
+        return payload;
+    }
+
+    const nextPayload = { ...payload };
+    for (const column of jsonColumns) {
+        if (column in nextPayload) {
+            nextPayload[column] = serializeLightPostgresJsonValue(nextPayload[column]);
+        }
+    }
+
+    return nextPayload as T;
+}
+
+function prepareProductMutationPayload<T extends Record<string, unknown>>(payload: T): T {
+    return prepareLightPostgresMutationPayload(payload, LIGHT_POSTGRES_PRODUCT_JSON_COLUMNS);
+}
+
+function prepareVariantMutationPayload<T extends Record<string, unknown>>(payload: T): T {
+    return prepareLightPostgresMutationPayload(payload, LIGHT_POSTGRES_VARIANT_JSON_COLUMNS);
+}
+
+async function deleteProductVariantsById(supabase: any, variantIds: string[]) {
+    for (const variantId of variantIds) {
+        const { error } = await supabase
+            .from("product_variants")
+            .delete()
+            .eq("id", variantId);
+
+        if (error) {
+            throw error;
+        }
+    }
 }
 
 function getMissingTableColumn(error: unknown, tableName: string): string | null {
@@ -814,7 +887,7 @@ export async function POST(request: NextRequest) {
                 ? new Date().toISOString()
                 : null);
 
-        let productInsertPayload: Record<string, unknown> = {
+        let productInsertPayload: Record<string, unknown> = prepareProductMutationPayload({
                 name: productData.name,
                 slug: productData.slug,
                 description: normalizedDescription,
@@ -872,7 +945,7 @@ export async function POST(request: NextRequest) {
                 sodium: productData.sodium || 0,
                 shopify_metadata: normalizedShopifyMetadata,
                 shopify_metafields: toJsonObject(productData.shopify_metafields),
-        }
+        });
         let product: ({ id: string } & Record<string, unknown>) | null = null;
 
         while (true) {
@@ -913,7 +986,7 @@ export async function POST(request: NextRequest) {
             console.log("Processing variants, count:", preparedVariants.length);
             console.log("Variants data:", JSON.stringify(preparedVariants, null, 2));
             
-            const variantsToInsert = preparedVariants.map((v: Record<string, unknown>, idx: number) => ({
+            const variantsToInsert = preparedVariants.map((v: Record<string, unknown>, idx: number) => prepareVariantMutationPayload({
                 product_id: product.id,
                 name: v.name,
                 weight: String(v.weight || 0),
@@ -1330,7 +1403,7 @@ export async function PUT(request: NextRequest) {
 
         // Ana ürünü güncelle
         if (Object.keys(updateData).length > 0) {
-            let productUpdatePayload = updateData;
+            let productUpdatePayload = prepareProductMutationPayload(updateData);
 
             while (true) {
                 const { error: productError } = await supabase
@@ -1425,12 +1498,9 @@ export async function PUT(request: NextRequest) {
             console.log("Variants to delete:", variantsToDelete);
 
             if (variantsToDelete.length > 0) {
-                const { error: deleteError } = await supabase
-                    .from("product_variants")
-                    .delete()
-                    .in("id", variantsToDelete);
-
-                if (deleteError) {
+                try {
+                    await deleteProductVariantsById(supabase, variantsToDelete);
+                } catch (deleteError: any) {
                     console.error("Variants delete error:", deleteError);
                     throw new Error(`Variants delete failed: ${deleteError.message}`);
                 }
@@ -1441,7 +1511,7 @@ export async function PUT(request: NextRequest) {
             const existingVariantsToUpdate = preparedVariants.filter((v: Record<string, unknown>) => v.id && !String(v.id).startsWith("variant-") && !orderedVariantIds.has(String(v.id)));
 
             for (const v of existingVariantsToUpdate) {
-                let variantUpdatePayload: Record<string, unknown> = {
+                let variantUpdatePayload: Record<string, unknown> = prepareVariantMutationPayload({
                     name: v.name,
                     weight: String(v.weight || 0),
                     price: v.price || 0,
@@ -1457,7 +1527,7 @@ export async function PUT(request: NextRequest) {
                     images: v.images || [],
                     attributes: toJsonArray(v.attributes),
                     shopify_metadata: toJsonObject(v.shopify_metadata),
-                };
+                });
 
                 while (true) {
                     const { error: updateError } = await supabase
@@ -1486,7 +1556,7 @@ export async function PUT(request: NextRequest) {
             }
 
             if (newVariants.length > 0) {
-                const variantsToInsert = newVariants.map((v: Record<string, unknown>, idx: number) => ({
+                const variantsToInsert = newVariants.map((v: Record<string, unknown>, idx: number) => prepareVariantMutationPayload({
                     product_id: id,
                     name: v.name,
                     weight: String(v.weight || 0),
