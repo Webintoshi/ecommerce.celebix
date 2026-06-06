@@ -4,6 +4,7 @@ import {
   isVariantAttributeValueTableMissing,
   saveStoredVariantAttributes,
 } from "@/lib/db/variant-attributes";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 import { isIgnoredLegacyVariantAttributeName } from "@/lib/variant-attribute-legacy";
 
 type JsonObject = Record<string, unknown>;
@@ -65,6 +66,27 @@ function getMissingColumn(error: unknown, tableName: string): string | null {
 }
 
 async function readVariantAttributeRegistry(supabase: any): Promise<RegistryAttribute[]> {
+  if (shouldUseLightPostgresAdmin()) {
+    const storedAttributes = await getStoredVariantAttributes();
+    return storedAttributes
+      .filter((attribute) => !isIgnoredLegacyVariantAttributeName(attribute.name))
+      .map((attribute) => ({
+        id: attribute.id,
+        name: attribute.name,
+        is_active: attribute.is_active !== false,
+        values: attribute.values
+          .filter((value) => value.is_active !== false)
+          .map((value) => ({
+            id: value.id,
+            attribute_id: value.attribute_id,
+            value: value.value,
+            display_order: value.display_order ?? null,
+            color_code: value.color_code ?? null,
+            image_url: value.image_url ?? null,
+          })),
+      }));
+  }
+
   const { data: attributes, error: attributesError } = await supabase
     .from("variant_attributes")
     .select("id,name,is_active");

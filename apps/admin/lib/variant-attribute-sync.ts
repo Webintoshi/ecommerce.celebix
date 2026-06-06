@@ -5,6 +5,7 @@ import {
   isVariantAttributeValueTableMissing,
   updateStoredVariantAttribute,
 } from "@/lib/db/variant-attributes";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 
 type JsonObject = Record<string, unknown>;
 
@@ -544,6 +545,11 @@ async function syncDatabaseAttributes(supabase: any, inputs: VariantAttributeInp
 export async function syncVariantAttributeRegistryFromVariants(supabase: any, variants: unknown[]): Promise<void> {
   const inputs = extractVariantAttributeInputs(variants);
   if (inputs.length === 0) return;
+
+  if (shouldUseLightPostgresAdmin()) {
+    await syncStoredAttributes(inputs);
+    return;
+  }
 
   const existingAttributes = await readDatabaseAttributes(supabase);
   if (existingAttributes === null) {

@@ -8,6 +8,7 @@ import {
   isVariantAttributeValueTableMissing,
   updateStoredVariantAttributeValue,
 } from "@/lib/db/variant-attributes";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 import {
   removeCatalogVariantAttributeValueSnapshots,
   syncCatalogVariantAttributeSnapshots,
@@ -51,6 +52,21 @@ export async function GET(request: NextRequest) {
     const attributeId = searchParams.get("attribute_id");
     const id = searchParams.get("id");
     const supabase = createServerClient();
+
+    if (shouldUseLightPostgresAdmin()) {
+      const attributes = await getStoredVariantAttributes();
+      const values = attributes.flatMap((attribute) => attribute.values);
+      const filteredValues = attributeId
+        ? values.filter((value) => value.attribute_id === attributeId)
+        : id
+          ? values.filter((value) => value.id === id)
+          : values;
+
+      return NextResponse.json({
+        success: true,
+        values: filteredValues.map((value) => normalizeReturnedValue((value ?? {}) as Record<string, unknown>)),
+      });
+    }
 
     const query = supabase.from("variant_attribute_values").select("*").order("display_order").order("value");
     const scopedQuery = attributeId ? query.eq("attribute_id", attributeId) : id ? query.eq("id", id) : query;
@@ -97,6 +113,32 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+
+    if (shouldUseLightPostgresAdmin()) {
+      const createdValue = await addStoredVariantAttributeValue({
+        attribute_id,
+        value: value.trim(),
+        color_code: color_code || null,
+        image_url: image_url || null,
+        display_order: display_order || 0,
+      });
+
+      if (!createdValue) {
+        return NextResponse.json({ success: false, error: "Nitelik bulunamadi" }, { status: 404 });
+      }
+
+      try {
+        await syncCatalogVariantAttributeSnapshots(supabase);
+      } catch (syncError) {
+        logCatalogVariantSyncError(syncError, "create:stored");
+      }
+
+      return NextResponse.json({
+        success: true,
+        value: normalizeReturnedValue((createdValue ?? {}) as Record<string, unknown>),
+      });
+    }
+
     let payload: Record<string, unknown> = {
       attribute_id,
       value: value.trim(),
@@ -171,6 +213,33 @@ export async function PUT(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+
+    if (shouldUseLightPostgresAdmin()) {
+      const updatedValue = await updateStoredVariantAttributeValue(id, (currentValue) => ({
+        ...currentValue,
+        ...(value !== undefined ? { value: value.trim() } : {}),
+        ...(color_code !== undefined ? { color_code } : {}),
+        ...(image_url !== undefined ? { image_url } : {}),
+        ...(display_order !== undefined ? { display_order } : {}),
+        ...(is_active !== undefined ? { is_active } : {}),
+      }));
+
+      if (!updatedValue) {
+        return NextResponse.json({ success: false, error: "Deger bulunamadi" }, { status: 404 });
+      }
+
+      try {
+        await syncCatalogVariantAttributeSnapshots(supabase);
+      } catch (syncError) {
+        logCatalogVariantSyncError(syncError, "update:stored");
+      }
+
+      return NextResponse.json({
+        success: true,
+        value: normalizeReturnedValue((updatedValue ?? {}) as Record<string, unknown>),
+      });
+    }
+
     let payload: Record<string, unknown> = {};
 
     if (value !== undefined) payload.value = value.trim();
@@ -258,6 +327,27 @@ export async function DELETE(request: NextRequest) {
         attributeName: attribute.name,
       })))
       .find((entry) => entry.value.id === id) ?? null;
+
+    if (shouldUseLightPostgresAdmin()) {
+      const deleted = await deleteStoredVariantAttributeValue(id);
+      if (!deleted) {
+        return NextResponse.json({ success: false, error: "Deger bulunamadi" }, { status: 404 });
+      }
+
+      try {
+        await removeCatalogVariantAttributeValueSnapshots(supabase, {
+          valueId: id,
+          attributeId: storedValue?.attributeId ?? null,
+          attributeName: storedValue?.attributeName ?? null,
+          value: storedValue?.value.value ?? null,
+        });
+      } catch (cleanupError) {
+        logCatalogVariantSyncError(cleanupError, "delete:stored");
+      }
+
+      return NextResponse.json({ success: true, message: "Deger basariyla silindi" });
+    }
+
     const { error } = await supabase.from("variant_attribute_values").update({ is_active: false }).eq("id", id);
 
     if (error) {

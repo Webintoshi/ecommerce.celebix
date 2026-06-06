@@ -109,8 +109,23 @@ function sortPublishedPosts(posts: BlogPost[]) {
 async function getStoredBlogPosts(): Promise<BlogPost[]> {
   const registry = (await getSetting(BLOG_POSTS_SETTING_KEY)) as BlogRegistry | null;
   const rawPosts = Array.isArray(registry?.posts) ? registry.posts : [];
+  if (rawPosts.length > 0) {
+    return sortPostsByCreatedAt(
+      rawPosts.map((post) => normalizeBlogPost((post ?? {}) as Partial<BlogPost>)),
+    );
+  }
+
+  const serverClient = createServerClient();
+  const { data } = await serverClient
+    .from("settings")
+    .select("value")
+    .eq("key", BLOG_POSTS_SETTING_KEY)
+    .single();
+  const legacyRegistry = (data?.value ?? null) as BlogRegistry | null;
+  const legacyPosts = Array.isArray(legacyRegistry?.posts) ? legacyRegistry.posts : [];
+
   return sortPostsByCreatedAt(
-    rawPosts.map((post) => normalizeBlogPost((post ?? {}) as Partial<BlogPost>)),
+    legacyPosts.map((post) => normalizeBlogPost((post ?? {}) as Partial<BlogPost>)),
   );
 }
 

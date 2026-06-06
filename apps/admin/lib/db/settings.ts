@@ -42,9 +42,9 @@ import {
 import {
     maybeGetAdminSetting,
     maybeGetAllAdminSettings,
-    maybeSetAdminSetting,
-    maybeDeleteAdminSetting,
 } from "@/lib/db/light-postgres-read";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
+import { queryAdminLightPostgres } from "@/lib/db/light-postgres-client";
 
 // =====================================================
 // SETTINGS OPERATIONS
@@ -54,6 +54,7 @@ export const PRIVATE_SETTING_KEY_PREFIX = "__admin_internal__";
 
 const LIGHT_POSTGRES_CUSTOMER_FACING_SETTING_KEYS = new Set<string>([
     "announcement_bar",
+    "blog_posts_registry",
     "code_integrations",
     "hero_banners",
     "homepage_curation",
@@ -70,13 +71,49 @@ export function isPrivateSettingKey(key: string) {
     return key.startsWith(PRIVATE_SETTING_KEY_PREFIX);
 }
 
+function shouldMirrorSettingToLightPostgres(key: string) {
+    return (
+        shouldUseLightPostgresAdmin() &&
+        LIGHT_POSTGRES_CUSTOMER_FACING_SETTING_KEYS.has(key)
+    );
+}
+
+async function upsertLightPostgresSetting(key: string, value: Record<string, unknown>) {
+    const [row] = await queryAdminLightPostgres<{ key: string; value: Record<string, unknown> | null }>(
+        `
+            insert into public.settings (key, value, updated_at)
+            values ($1, $2::jsonb, now())
+            on conflict (key)
+            do update set
+                value = excluded.value,
+                updated_at = now()
+            returning key, value
+        `,
+        [key, JSON.stringify(value)],
+    );
+
+    return row ?? { key, value };
+}
+
+async function deleteLightPostgresSetting(key: string) {
+    await queryAdminLightPostgres(
+        `
+            delete from public.settings
+            where key = $1
+        `,
+        [key],
+    );
+}
+
 /**
  * Get setting by key
  */
 export async function getSetting(key: string): Promise<Record<string, unknown> | null> {
-    const lightPostgresValue = await maybeGetAdminSetting(key);
-    if (lightPostgresValue !== undefined) {
-        return (lightPostgresValue as Record<string, unknown> | null) ?? null;
+    if (LIGHT_POSTGRES_CUSTOMER_FACING_SETTING_KEYS.has(key)) {
+        const lightPostgresValue = await maybeGetAdminSetting(key);
+        if (lightPostgresValue !== undefined) {
+            return (lightPostgresValue as Record<string, unknown> | null) ?? null;
+        }
     }
 
     const serverClient = createServerClient();
@@ -127,9 +164,8 @@ export async function getAllSettings(): Promise<Record<string, Record<string, un
  * Set setting (upsert)
  */
 export async function setSetting(key: string, value: Record<string, unknown>) {
-    const lightPostgresSetting = await maybeSetAdminSetting(key, value);
-    if (lightPostgresSetting !== undefined) {
-        return lightPostgresSetting;
+    if (shouldMirrorSettingToLightPostgres(key)) {
+        return upsertLightPostgresSetting(key, value);
     }
 
     const serverClient = createServerClient();
@@ -148,8 +184,8 @@ export async function setSetting(key: string, value: Record<string, unknown>) {
  * Delete setting
  */
 export async function deleteSetting(key: string) {
-    const deletedFromLightPostgres = await maybeDeleteAdminSetting(key);
-    if (deletedFromLightPostgres !== undefined) {
+    if (shouldMirrorSettingToLightPostgres(key)) {
+        await deleteLightPostgresSetting(key);
         return true;
     }
 
