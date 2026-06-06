@@ -117,13 +117,7 @@ export async function generateMetadata({
       : await getProductBySlug(baseSlug);
 
   if (!product) {
-    return buildStorePageMetadata({
-      locale,
-      pathname: `/urunler/${baseSlug}`,
-      title: copy.missingProductTitle,
-      description: copy.missingProductDescription,
-      noIndex: true,
-    });
+    notFound();
   }
 
   const translatedProduct = await translateProductRecord(product, locale);

@@ -19,13 +19,7 @@ export async function generateMetadata({
   const row = await getPostBySlug(slug);
 
   if (!row) {
-    return buildStorePageMetadata({
-      locale,
-      pathname: `/blog/${slug}`,
-      title: "Blog yazisi bulunamadi",
-      description: "Talep edilen blog yazisi su anda yayinda degil.",
-      noIndex: true,
-    });
+    notFound();
   }
 
   const post = mapBlogRow(row);
