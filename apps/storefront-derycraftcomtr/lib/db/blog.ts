@@ -1,8 +1,4 @@
 import { createServerClient, BlogPost } from "@/lib/supabase";
-import {
-  maybeGetLightPostgresBlogPostBySlug,
-  maybeListPublishedLightPostgresBlogPosts,
-} from "@/lib/db/blog-light-postgres";
 import { getSetting, setSetting } from "@/lib/db/settings";
 import { slugify } from "@/lib/utils";
 
@@ -113,8 +109,23 @@ function sortPublishedPosts(posts: BlogPost[]) {
 async function getStoredBlogPosts(): Promise<BlogPost[]> {
   const registry = (await getSetting(BLOG_POSTS_SETTING_KEY)) as BlogRegistry | null;
   const rawPosts = Array.isArray(registry?.posts) ? registry.posts : [];
+  if (rawPosts.length > 0) {
+    return sortPostsByCreatedAt(
+      rawPosts.map((post) => normalizeBlogPost((post ?? {}) as Partial<BlogPost>)),
+    );
+  }
+
+  const serverClient = createServerClient();
+  const { data } = await serverClient
+    .from("settings")
+    .select("value")
+    .eq("key", BLOG_POSTS_SETTING_KEY)
+    .single();
+  const legacyRegistry = (data?.value ?? null) as BlogRegistry | null;
+  const legacyPosts = Array.isArray(legacyRegistry?.posts) ? legacyRegistry.posts : [];
+
   return sortPostsByCreatedAt(
-    rawPosts.map((post) => normalizeBlogPost((post ?? {}) as Partial<BlogPost>)),
+    legacyPosts.map((post) => normalizeBlogPost((post ?? {}) as Partial<BlogPost>)),
   );
 }
 
@@ -184,11 +195,6 @@ function getStoredPostBySlug(posts: BlogPost[], slug: string): BlogPost | null {
 }
 
 export async function getPublishedPosts() {
-  const lightPostgresPosts = await maybeListPublishedLightPostgresBlogPosts();
-  if (lightPostgresPosts !== undefined) {
-    return lightPostgresPosts;
-  }
-
   const serverClient = createServerClient();
   const { data, error } = await serverClient
     .from("blog_posts")
@@ -207,13 +213,8 @@ export async function getPublishedPosts() {
 }
 
 export async function getPostBySlug(slug: string) {
-  const candidates = buildSlugCandidates(slug);
-  const lightPostgresPost = await maybeGetLightPostgresBlogPostBySlug(candidates);
-  if (lightPostgresPost !== undefined) {
-    return lightPostgresPost;
-  }
-
   const serverClient = createServerClient();
+  const candidates = buildSlugCandidates(slug);
   const { data, error } = await serverClient
     .from("blog_posts")
     .select("*")

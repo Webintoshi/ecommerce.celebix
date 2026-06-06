@@ -23,7 +23,7 @@ import {
     DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
     normalizeStoreCodeIntegrationsSettings,
     type StoreCodeIntegrationsSettings,
-} from "@/lib/code-integrations";
+} from "@celebix/platform-config/src/code-integrations";
 import {
     normalizeFloatingContactSettings,
     type FloatingContactSettings,
@@ -39,6 +39,7 @@ import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-m
 
 const LIGHT_POSTGRES_PUBLIC_SETTING_KEYS = new Set<string>([
     "announcement_bar",
+    "blog_posts_registry",
     "code_integrations",
     "hero_banners",
     "homepage_curation",
@@ -60,14 +61,16 @@ const LIGHT_POSTGRES_PUBLIC_SETTING_KEYS = new Set<string>([
  * Get setting by key
  */
 export async function getSetting(key: string): Promise<Record<string, unknown> | null> {
-    if (LIGHT_POSTGRES_PUBLIC_SETTING_KEYS.has(key)) {
+    const shouldForceLightPostgres = shouldUseLightPostgresStorefront();
+
+    if (LIGHT_POSTGRES_PUBLIC_SETTING_KEYS.has(key) || shouldForceLightPostgres) {
         const { maybeGetStorefrontSetting } = await import("@/lib/db/light-postgres-storefront-read");
         const lightPostgresValue = await maybeGetStorefrontSetting(key);
         if (lightPostgresValue !== undefined) {
             return (lightPostgresValue as Record<string, unknown> | null) ?? null;
         }
 
-        if (shouldUseLightPostgresStorefront()) {
+        if (shouldForceLightPostgres) {
             return null;
         }
     }
