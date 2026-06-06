@@ -54,6 +54,7 @@ export const PRIVATE_SETTING_KEY_PREFIX = "__admin_internal__";
 
 const LIGHT_POSTGRES_CUSTOMER_FACING_SETTING_KEYS = new Set<string>([
     "announcement_bar",
+    "blog_posts_registry",
     "code_integrations",
     "hero_banners",
     "homepage_curation",

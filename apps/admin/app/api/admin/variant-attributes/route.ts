@@ -9,6 +9,7 @@ import {
   isVariantAttributeValueTableMissing,
   updateStoredVariantAttribute,
 } from "@/lib/db/variant-attributes";
+import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 import { backfillVariantAttributeRegistryFromCatalog } from "@/lib/variant-attribute-sync";
 import {
   removeCatalogVariantAttributeSnapshots,
@@ -329,6 +330,37 @@ export async function GET(request: NextRequest) {
 
     await purgeIgnoredVariantAttributes(supabase);
 
+    if (shouldUseLightPostgresAdmin()) {
+      if (id) {
+        const attribute = await getStoredVariantAttributeById(id);
+        if (!attribute || isIgnoredLegacyVariantAttributeName(attribute.name)) {
+          return NextResponse.json({ success: false, error: "Nitelik bulunamadı" }, { status: 404 });
+        }
+
+        return NextResponse.json({
+          success: true,
+          attribute: normalizeAttribute((attribute ?? {}) as Record<string, unknown>),
+        });
+      }
+
+      let attributes = await getStoredVariantAttributes();
+      if (attributes.length === 0) {
+        try {
+          await backfillVariantAttributeRegistryFromCatalog(supabase);
+          attributes = await getStoredVariantAttributes();
+        } catch (backfillError) {
+          console.error("Error backfilling variant attributes from catalog:", backfillError);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        attributes: attributes.map((attribute) =>
+          normalizeAttribute((attribute ?? {}) as Record<string, unknown>),
+        ),
+      });
+    }
+
     if (id) {
       try {
         const attribute = await fetchAttributeWithValues(id);
@@ -495,12 +527,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "En az bir geçerli değer gereklidir" }, { status: 400 });
     }
 
-    const supabase = createServerClient();
     const slug = normalizedName
       .toLowerCase()
       .replace(/[^\w\s-]/g, "")
       .replace(/\s+/g, "-")
       .substring(0, 100);
+
+    const supabase = createServerClient();
+
+    if (shouldUseLightPostgresAdmin()) {
+      const storedAttribute = await createStoredVariantAttribute({
+        name: normalizedName,
+        slug: `${slug}-${Date.now().toString(36)}`,
+        values: normalizedValues,
+      });
+
+      try {
+        await syncCatalogVariantAttributeSnapshots(supabase);
+      } catch (syncError) {
+        logCatalogVariantSyncError(syncError, "create:stored");
+      }
+
+      return NextResponse.json({
+        success: true,
+        attribute: normalizeAttribute((storedAttribute ?? {}) as Record<string, unknown>),
+      });
+    }
 
     let attributePayload: Record<string, unknown> = {
       name: normalizedName,
@@ -629,6 +681,72 @@ export async function PUT(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+
+    if (shouldUseLightPostgresAdmin()) {
+      const normalizedValues = values && Array.isArray(values)
+        ? extractIncomingValues(values as VariantValueInput[], colorCodes, imageUrls)
+        : null;
+
+      const updatedAttribute = await updateStoredVariantAttribute(id, (attribute) => {
+        const nextAttribute: Record<string, unknown> = {
+          ...attribute,
+        };
+
+        if (normalizedName !== undefined) {
+          nextAttribute.name = normalizedName;
+        }
+
+        if (is_active !== undefined) {
+          nextAttribute.is_active = is_active;
+        }
+
+        if (normalizedValues) {
+          const nextValues = [...attribute.values];
+          normalizedValues.forEach((incomingValue) => {
+            const exists = nextValues.some(
+              (value) => value.value.toLocaleLowerCase("tr-TR") === incomingValue.value.toLocaleLowerCase("tr-TR"),
+            );
+
+            if (!exists) {
+              nextValues.push({
+                id: crypto.randomUUID(),
+                attribute_id: attribute.id,
+                value: incomingValue.value,
+                color_code: incomingValue.color_code,
+                image_url: incomingValue.image_url,
+                display_order:
+                  typeof incomingValue.display_order === "number"
+                    ? incomingValue.display_order
+                    : nextValues.length,
+                is_active: incomingValue.is_active !== false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+            }
+          });
+
+          nextAttribute.values = nextValues;
+        }
+
+        return nextAttribute as any;
+      });
+
+      if (!updatedAttribute) {
+        return NextResponse.json({ success: false, error: "Nitelik bulunamadı" }, { status: 404 });
+      }
+
+      try {
+        await syncCatalogVariantAttributeSnapshots(supabase);
+      } catch (syncError) {
+        logCatalogVariantSyncError(syncError, "update:stored");
+      }
+
+      return NextResponse.json({
+        success: true,
+        attribute: normalizeAttribute((updatedAttribute ?? {}) as Record<string, unknown>),
+      });
+    }
+
     let updatePayload: Record<string, unknown> = {};
 
     if (normalizedName !== undefined) updatePayload.name = normalizedName;
@@ -819,6 +937,26 @@ export async function DELETE(request: NextRequest) {
     const attributeIdentity = storedAttribute
       ? { id: storedAttribute.id, name: storedAttribute.name, slug: storedAttribute.slug }
       : { id, name: null, slug: null };
+
+    if (shouldUseLightPostgresAdmin()) {
+      const deleted = await deleteStoredVariantAttribute(id);
+      if (!deleted) {
+        return NextResponse.json({ success: false, error: "Nitelik bulunamadı" }, { status: 404 });
+      }
+
+      try {
+        await removeCatalogVariantAttributeSnapshots(supabase, {
+          attributeId: attributeIdentity.id,
+          attributeName: attributeIdentity.name,
+          attributeSlug: attributeIdentity.slug,
+        });
+      } catch (cleanupError) {
+        logCatalogVariantSyncError(cleanupError, "delete:stored");
+      }
+
+      return NextResponse.json({ success: true, message: "Nitelik başarıyla silindi" });
+    }
+
     const { error } = await supabase.from("variant_attributes").update({ is_active: false }).eq("id", id);
 
     if (error) {

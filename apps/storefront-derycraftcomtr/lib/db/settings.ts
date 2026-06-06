@@ -39,6 +39,7 @@ import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-m
 
 const LIGHT_POSTGRES_PUBLIC_SETTING_KEYS = new Set<string>([
     "announcement_bar",
+    "blog_posts_registry",
     "code_integrations",
     "hero_banners",
     "homepage_curation",

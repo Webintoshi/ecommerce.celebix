@@ -22,6 +22,30 @@ function slugify(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
+function normalizeLookup(value: string): string {
+  return value
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function isCompatTableUnsupported(message: string, tableName: string): boolean {
+  return (
+    message.includes(`light_postgres compatibility table destegi bulunamadi: ${tableName}`) ||
+    message.includes(`Insert desteklenmiyor: ${tableName}`) ||
+    message.includes(`Update desteklenmiyor: ${tableName}`) ||
+    message.includes(`Delete desteklenmiyor: ${tableName}`)
+  );
+}
+
 function normalizeValue(
   value: Partial<VariantAttributeValue> & Pick<VariantAttributeValue, "value">,
   attributeId: string,
@@ -69,7 +93,8 @@ export function isVariantAttributeTableMissing(error: unknown): boolean {
   return (
     /Could not find the table 'public\.variant_attributes' in the schema cache/i.test(message) ||
     /relation ["']public\.variant_attributes["'] does not exist/i.test(message) ||
-    /relation ["']variant_attributes["'] does not exist/i.test(message)
+    /relation ["']variant_attributes["'] does not exist/i.test(message) ||
+    isCompatTableUnsupported(message, "variant_attributes")
   );
 }
 
@@ -79,7 +104,8 @@ export function isVariantAttributeValueTableMissing(error: unknown): boolean {
   return (
     /Could not find the table 'public\.variant_attribute_values' in the schema cache/i.test(message) ||
     /relation ["']public\.variant_attribute_values["'] does not exist/i.test(message) ||
-    /relation ["']variant_attribute_values["'] does not exist/i.test(message)
+    /relation ["']variant_attribute_values["'] does not exist/i.test(message) ||
+    isCompatTableUnsupported(message, "variant_attribute_values")
   );
 }
 
@@ -122,12 +148,80 @@ export async function createStoredVariantAttribute(input: {
   }>;
 }): Promise<VariantAttributeRecord> {
   const attributes = await getStoredVariantAttributes();
+  const normalizedName = input.name.trim();
+  const normalizedSlug = input.slug || slugify(input.name);
+  const existingAttribute = attributes.find(
+    (attribute) =>
+      normalizeLookup(attribute.slug) === normalizeLookup(normalizedSlug) ||
+      normalizeLookup(attribute.name) === normalizeLookup(normalizedName),
+  );
+
+  if (existingAttribute) {
+    const nextValues = [...existingAttribute.values];
+    let mutated = false;
+
+    input.values.forEach((value, index) => {
+      const normalizedValue = value.value.trim();
+      const existingValueIndex = nextValues.findIndex(
+        (entry) => normalizeLookup(entry.value) === normalizeLookup(normalizedValue),
+      );
+
+      if (existingValueIndex === -1) {
+        nextValues.push(
+          normalizeValue(
+            {
+              value: normalizedValue,
+              color_code: value.color_code ?? null,
+              image_url: value.image_url ?? null,
+              display_order: value.display_order ?? nextValues.length,
+              is_active: value.is_active !== false,
+            },
+            existingAttribute.id,
+            typeof value.display_order === "number" ? value.display_order : nextValues.length || index,
+          ),
+        );
+        mutated = true;
+        return;
+      }
+
+      const existingValue = nextValues[existingValueIndex];
+      const nextValue = normalizeValue(
+        {
+          ...existingValue,
+          color_code: existingValue.color_code || value.color_code || null,
+          image_url: existingValue.image_url || value.image_url || null,
+          is_active: value.is_active !== false,
+        },
+        existingAttribute.id,
+        existingValue.display_order,
+      );
+
+      if (JSON.stringify(nextValue) !== JSON.stringify(existingValue)) {
+        nextValues[existingValueIndex] = nextValue;
+        mutated = true;
+      }
+    });
+
+    if (!mutated) {
+      return existingAttribute;
+    }
+
+    const updated = await updateStoredVariantAttribute(existingAttribute.id, (attribute) => ({
+      ...attribute,
+      name: normalizedName,
+      slug: normalizedSlug,
+      values: nextValues,
+    }));
+
+    return updated ?? existingAttribute;
+  }
+
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   const attribute = normalizeAttribute({
     id,
-    name: input.name.trim(),
-    slug: input.slug || slugify(input.name),
+    name: normalizedName,
+    slug: normalizedSlug,
     is_active: true,
     created_at: now,
     updated_at: now,
@@ -184,6 +278,19 @@ export async function addStoredVariantAttributeValue(input: {
   image_url?: string | null;
   display_order?: number;
 }): Promise<VariantAttributeValue | null> {
+  const attributes = await getStoredVariantAttributes();
+  const existingAttribute = attributes.find((attribute) => attribute.id === input.attribute_id);
+  if (!existingAttribute) {
+    return null;
+  }
+
+  const existingValue = existingAttribute.values.find(
+    (value) => normalizeLookup(value.value) === normalizeLookup(input.value),
+  );
+  if (existingValue) {
+    return existingValue;
+  }
+
   const updated = await updateStoredVariantAttribute(input.attribute_id, (attribute) => {
     const nextValue = normalizeValue(
       {
