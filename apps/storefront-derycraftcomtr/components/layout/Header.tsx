@@ -45,8 +45,6 @@ export function Header({
     : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
-  const accountHref = isAuthenticated ? buildPath("/hesap") : CUSTOMER_AUTH_URLS.signIn;
-
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -98,23 +96,14 @@ export function Header({
       }`}
     >
       <div className="container-premium">
-        <div className="relative flex h-16 items-center justify-between lg:h-20">
-          <button
-            className="-ml-2 rounded-full p-2 lg:hidden"
-            onClick={() => setIsMenuOpen(true)}
-            aria-label={copy.menuLabel}
-            type="button"
-          >
-            <Menu className="h-5 w-5 text-neutral-800" />
-          </button>
-
+        <div className="flex h-16 items-center lg:h-20">
           <Link
             href={buildPath(ROUTES.home)}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 lg:static lg:translate-x-0 lg:translate-y-0 lg:flex-shrink-0"
+            className="flex-shrink-0"
             aria-label={logoAlt}
           >
             {logoSrc ? (
-              <div className="relative h-7 w-[92px] sm:h-8 sm:w-[104px] lg:h-8 lg:w-[112px]">
+              <div className="relative h-7 w-[94px] sm:h-8 sm:w-[104px] lg:h-8 lg:w-[112px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
@@ -178,7 +167,7 @@ export function Header({
             })}
           </nav>
 
-          <div className="relative z-10 flex items-center gap-1 sm:gap-2 lg:gap-4">
+          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:gap-4">
             <button
               type="button"
               className="p-2"
@@ -188,9 +177,15 @@ export function Header({
               <Search className="h-5 w-5 text-neutral-600" />
             </button>
 
-            <Link href={accountHref} className="hidden p-2 sm:block">
-              <User className="h-5 w-5 text-neutral-600" />
-            </Link>
+            {isAuthenticated ? (
+              <Link href={buildPath("/hesap")} className="hidden p-2 sm:block">
+                <User className="h-5 w-5 text-neutral-600" />
+              </Link>
+            ) : (
+              <a href={CUSTOMER_AUTH_URLS.signIn} className="hidden p-2 sm:block">
+                <User className="h-5 w-5 text-neutral-600" />
+              </a>
+            )}
 
             <button
               type="button"
@@ -204,6 +199,15 @@ export function Header({
                   {cartItemCount}
                 </span>
               ) : null}
+            </button>
+
+            <button
+              className="-mr-2 rounded-full p-2 lg:hidden"
+              onClick={() => setIsMenuOpen(true)}
+              aria-label={copy.menuLabel}
+              type="button"
+            >
+              <Menu className="h-5 w-5 text-neutral-800" />
             </button>
           </div>
         </div>
@@ -233,13 +237,13 @@ export function Header({
               <div className="flex items-center justify-between px-6 pb-5 pt-6">
                 <Link href={buildPath(ROUTES.home)} aria-label={logoAlt} onClick={closeMenu}>
                   {logoSrc ? (
-                    <div className="relative h-9 w-[136px]">
+                    <div className="relative h-8 w-[112px]">
                       <Image
                         src={logoSrc}
                         alt={logoAlt}
                         fill
                         className="object-contain object-left"
-                        sizes="136px"
+                        sizes="112px"
                         unoptimized={usesProxiedLogo}
                       />
                     </div>
@@ -345,20 +349,20 @@ export function Header({
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
-                    <Link
+                    <a
                       href={CUSTOMER_AUTH_URLS.register}
                       className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
                       onClick={closeMenu}
                     >
                       Kayıt Ol
-                    </Link>
-                    <Link
+                    </a>
+                    <a
                       href={CUSTOMER_AUTH_URLS.signIn}
                       className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
                       onClick={closeMenu}
                     >
                       Giriş Yap
-                    </Link>
+                    </a>
                   </div>
                 )}
               </div>

@@ -74,9 +74,9 @@ export default function ForgotPasswordPage() {
 
           <div className="mt-6 text-center text-sm text-gray-600">
             Giriş sayfasına geri dönmek ister misiniz?{" "}
-            <Link href={CUSTOMER_AUTH_URLS.signIn} className="font-semibold text-primary hover:underline">
+            <a href={CUSTOMER_AUTH_URLS.signIn} className="font-semibold text-primary hover:underline">
               Giriş Yap
-            </Link>
+            </a>
           </div>
         </motion.div>
 

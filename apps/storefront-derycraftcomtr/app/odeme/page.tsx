@@ -667,9 +667,9 @@ export default function CheckoutPage() {
                     {!user && !customerAuthMigrationRequired && logtoCustomerAuthEnabled && (
                       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-900">
                         Hesap olusturmak zorunlu degil. Isterseniz siparisinizi misafir olarak tamamlayabilir veya{" "}
-                        <Link href={CUSTOMER_AUTH_URLS.register} className="font-semibold underline">
+                        <a href={CUSTOMER_AUTH_URLS.register} className="font-semibold underline">
                           hesap olusturma ekranina
-                        </Link>{" "}
+                        </a>{" "}
                         gecebilirsiniz.
                       </div>
                     )}

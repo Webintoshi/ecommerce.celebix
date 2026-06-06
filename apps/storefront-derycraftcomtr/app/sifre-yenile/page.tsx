@@ -73,9 +73,9 @@ export default function ResetPasswordPage() {
           </button>
 
           <div className="mt-6 text-center text-sm text-gray-600">
-            <Link href={CUSTOMER_AUTH_URLS.signIn} className="font-semibold text-primary hover:underline">
+            <a href={CUSTOMER_AUTH_URLS.signIn} className="font-semibold text-primary hover:underline">
               Giriş sayfasına dön
-            </Link>
+            </a>
           </div>
         </motion.div>
 
