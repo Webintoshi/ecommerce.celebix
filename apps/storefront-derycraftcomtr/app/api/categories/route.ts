@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { CategoryApiResponse, CategoryInput } from "@/types/category";
-import { isValidCategory } from "@/types/category";
+import type { Category, CategoryApiResponse, CategoryInput } from "@/types/category";
+import { isCategoryFAQ, isCategoryGEO, isValidCategory } from "@/types/category";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
+import {
+  type StorefrontLightPostgresCategoryRow,
+  maybeGetStorefrontCategoryBySlug,
+  maybeListStorefrontCategories,
+} from "@/lib/db/light-postgres-storefront-read";
+import { shouldUseLightPostgresStorefront } from "@/lib/db/storefront-database-mode";
 import { getRequestLocale } from "@/lib/request-locale";
 import { isSupportedLocale, type StorefrontLocale } from "@/lib/i18n";
 import { translateCategoryCollection, translateCategoryRecord } from "@/lib/translation";
@@ -198,6 +204,39 @@ async function resolveApiLocale(
   return getRequestLocale();
 }
 
+function normalizeLightPostgresCategory(
+  category: StorefrontLightPostgresCategoryRow,
+): Category {
+  const faq: Category["faq"] = Array.isArray(category.faq)
+    ? category.faq.reduce<NonNullable<Category["faq"]>>((entries, item) => {
+        if (isCategoryFAQ(item)) {
+          entries.push(item);
+        }
+
+        return entries;
+      }, [])
+    : null;
+  const geoData = isCategoryGEO(category.geo_data) ? category.geo_data : null;
+
+  return {
+    id: category.id,
+    name: category.name,
+    slug: category.slug,
+    description: category.description,
+    image: category.image,
+    icon: category.icon,
+    sort_order: category.sort_order,
+    is_active: category.is_active,
+    seo_title: category.seo_title,
+    seo_description: category.seo_description,
+    seo_keywords: category.seo_keywords,
+    faq,
+    geo_data: geoData,
+    created_at: category.created_at || category.updated_at || new Date(0).toISOString(),
+    updated_at: category.updated_at || category.created_at || new Date(0).toISOString(),
+  };
+}
+
 // ============================================================================
 // API HANDLERS
 // ============================================================================
@@ -219,6 +258,50 @@ export async function GET(request: NextRequest) {
     const locale = await resolveApiLocale(request, searchParams);
     const id = searchParams.get("id");
     const slug = searchParams.get("slug");
+
+    if (shouldUseLightPostgresStorefront()) {
+      const lightPostgresCategories = ((await maybeListStorefrontCategories()) ?? [])
+        .map(normalizeLightPostgresCategory);
+
+      if (id) {
+        if (!validateUUID(id)) {
+          throw new APIError("Invalid category ID format", 400, "INVALID_ID");
+        }
+
+        const category = lightPostgresCategories.find((entry) => entry.id === id);
+        if (!category) {
+          throw new APIError("Category not found", 404, "NOT_FOUND");
+        }
+
+        return createSuccessResponse({
+          category: await translateCategoryRecord(category, locale),
+        });
+      }
+
+      if (slug) {
+        if (!validateSlug(slug)) {
+          throw new APIError("Invalid slug format", 400, "INVALID_SLUG");
+        }
+
+        const lightPostgresCategory = await maybeGetStorefrontCategoryBySlug(slug);
+        const category =
+          (lightPostgresCategory ? normalizeLightPostgresCategory(lightPostgresCategory) : null) ||
+          lightPostgresCategories.find((entry) => entry.slug === slug) ||
+          null;
+
+        if (!category) {
+          throw new APIError("Category not found", 404, "NOT_FOUND");
+        }
+
+        return createSuccessResponse({
+          category: await translateCategoryRecord(category, locale),
+        });
+      }
+
+      return createSuccessResponse({
+        categories: await translateCategoryCollection(lightPostgresCategories, locale),
+      });
+    }
 
     const supabase = await getSupabaseClient();
 

@@ -452,6 +452,34 @@ function withHomepageFeaturedFlag<T extends Record<string, unknown>>(product: T)
   };
 }
 
+function buildHomepageCategoryProductCountMap(
+  products: Array<Record<string, unknown>>,
+) {
+  const counts = new Map<string, number>();
+
+  for (const product of products) {
+    const productCategorySlugs = new Set<string>();
+
+    for (const field of ["category", "subcategory"]) {
+      const rawValue = product[field];
+      if (typeof rawValue !== "string") {
+        continue;
+      }
+
+      const normalizedValue = rawValue.trim();
+      if (normalizedValue.length > 0) {
+        productCategorySlugs.add(normalizedValue);
+      }
+    }
+
+    for (const slug of productCategorySlugs) {
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+  }
+
+  return counts;
+}
+
 async function fetchHomepageProducts(supabase: StorefrontServerClient | null) {
   const lightPostgresProducts = await maybeListStorefrontProducts();
   if (lightPostgresProducts !== undefined) {
@@ -666,6 +694,9 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
   ]);
 
   const heroBanners = normalizeHeroSlides(heroBannersData.data?.value);
+  const homepageCategoryProductCounts = buildHomepageCategoryProductCountMap(
+    (allProductsData || []) as Array<Record<string, unknown>>,
+  );
   const activeCategoryOrder = new Map(
     (
       homepageCuration.featuredCategorySlugs.length > 0
@@ -682,7 +713,10 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       slug: category.slug,
       description: category.description || null,
       image: category.image,
-      productCount: typeof category.product_count === "number" ? category.product_count : 0,
+      productCount:
+        typeof category.product_count === "number"
+          ? category.product_count
+          : (homepageCategoryProductCounts.get(category.slug) ?? 0),
       seo_title: category.seo_title || null,
       seo_description: category.seo_description || null,
     }));
@@ -712,7 +746,10 @@ export async function getHomepageData(locale: StorefrontLocale = "tr"): Promise<
       slug: category.slug,
       description: category.description || null,
       image: category.image,
-      productCount: typeof category.product_count === "number" ? category.product_count : 0,
+      productCount:
+        typeof category.product_count === "number"
+          ? category.product_count
+          : (homepageCategoryProductCounts.get(category.slug) ?? 0),
       seo_title: category.seo_title || null,
       seo_description: category.seo_description || null,
     }));

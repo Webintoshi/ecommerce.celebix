@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, getLuckyWheelPublicData } from "@/lib/lucky-wheel";
 
+function isMissingLuckyWheelTableError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
+
+  return (
+    message.includes("lucky_wheel") &&
+    (message.includes("schema cache") ||
+      message.includes("relation") ||
+      message.includes("does not exist"))
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
     const configId = request.nextUrl.searchParams.get("id") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;
@@ -44,6 +56,16 @@ export async function GET(request: NextRequest) {
       prizes: publicPrizes,
     });
   } catch (error) {
+    if (isMissingLuckyWheelTableError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Aktif şans çarkı bulunamadı.",
+        },
+        { status: 404 },
+      );
+    }
+
     console.error("Lucky wheel public GET error:", error);
     return NextResponse.json(
       {
