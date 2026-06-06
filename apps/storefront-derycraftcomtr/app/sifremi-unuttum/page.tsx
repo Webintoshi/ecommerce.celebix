@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ArrowRight, Mail, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
+import { CUSTOMER_AUTH_URLS } from "@/lib/customer-auth-links";
 
 export default function ForgotPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
@@ -50,9 +51,9 @@ export default function ForgotPasswordPage() {
               <Shield className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Sifremi Unuttum</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Şifremi Unuttum</h1>
               <p className="text-sm text-gray-500">
-                Guvenli sifre yenileme ekraninda e-postaniza sifirlama baglantisi gonderilir.
+                Güvenli şifre yenileme ekranında e-postanıza sıfırlama bağlantısı gönderilir.
               </p>
             </div>
           </div>
@@ -68,13 +69,13 @@ export default function ForgotPasswordPage() {
             ) : (
               <Mail className="h-5 w-5" />
             )}
-            Sifre Yenileme Ekranini Ac
+            Şifre Yenileme Ekranını Aç
           </button>
 
           <div className="mt-6 text-center text-sm text-gray-600">
-            Giris sayfasina geri donmek ister misiniz?{" "}
-            <Link href="/giris" className="font-semibold text-primary hover:underline">
-              Giris Yap
+            Giriş sayfasına geri dönmek ister misiniz?{" "}
+            <Link href={CUSTOMER_AUTH_URLS.signIn} className="font-semibold text-primary hover:underline">
+              Giriş Yap
             </Link>
           </div>
         </motion.div>
@@ -87,7 +88,7 @@ export default function ForgotPasswordPage() {
         >
           <Link href="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary">
             <ArrowRight className="h-4 w-4 rotate-180" />
-            Ana Sayfaya Don
+            Ana Sayfaya Dön
           </Link>
         </motion.div>
       </div>

@@ -5,8 +5,15 @@ import { Footer } from "@/components/layout/Footer";
 import { CartWrapper } from "@/components/cart/CartWrapper";
 import { AnnouncementBar } from "@/components/sections/AnnouncementBar";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
+import type { StorefrontNavigationCategory } from "@/lib/storefront-navigation";
 
-export function LayoutWrapper({ children }: { children: React.ReactNode }) {
+export function LayoutWrapper({
+  children,
+  navigationCategories,
+}: {
+  children: React.ReactNode;
+  navigationCategories: StorefrontNavigationCategory[];
+}) {
   const { internalPathname } = useStorefrontRoute();
   const isAdmin = internalPathname.startsWith("/admin");
   const isAuthPage = internalPathname === "/giris" || internalPathname === "/kayit";
@@ -17,11 +24,11 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
         {!isAdmin && !isAuthPage && (
           <>
             <AnnouncementBar />
-            <Header />
+            <Header navigationCategories={navigationCategories} />
           </>
         )}
         <main className={isAdmin ? "bg-[#F8F8F8F8]" : "flex-1 bg-[#F8F8F8F8]"}>{children}</main>
-        {!isAdmin && <Footer />}
+        {!isAdmin && <Footer categoryLinks={navigationCategories.map(({ id, name, slug }) => ({ id, name, slug }))} />}
       </div>
       {!isAdmin && <CartWrapper />}
     </>

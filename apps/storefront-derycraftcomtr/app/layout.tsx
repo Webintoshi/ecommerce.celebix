@@ -18,6 +18,7 @@ import { getRequestLocale, getRequestPathname } from "@/lib/request-locale";
 import { RTL_LOCALES } from "@/lib/i18n";
 import { StorefrontRouteProvider } from "@/lib/storefront-route-context";
 import { buildStoreRootMetadata } from "@/lib/seo-metadata";
+import { getStorefrontNavigationCategories } from "@/lib/storefront-navigation";
 import TrackingProvider from "@/components/TrackingProvider";
 import { Toaster } from "sonner";
 import PromotionalBannersPreload from "@/components/preload/PromotionalBannersPreload";
@@ -41,10 +42,11 @@ export default async function RootLayout({
 }>) {
   const locale = await getRequestLocale();
   const pathname = await getRequestPathname();
-  const [initialStoreInfo, codeIntegrations, localeRouting] = await Promise.all([
+  const [initialStoreInfo, codeIntegrations, localeRouting, navigationCategories] = await Promise.all([
     getStoreInfo(),
     getCodeIntegrationsSettings(),
     getLocaleRoutingConfig(),
+    getStorefrontNavigationCategories(locale),
   ]);
   const gtmId = codeIntegrations.googleTagManagerId || STOREFRONT_RUNTIME.gtmId;
   const metaPixelId = codeIntegrations.metaPixelId;
@@ -133,7 +135,7 @@ export default async function RootLayout({
                 <CartProvider>
                   <WishlistProvider>
                     <QuickViewProvider>
-                      <LayoutWrapper>
+                      <LayoutWrapper navigationCategories={navigationCategories}>
                         {children}
                         <FloatingContactButton />
                         <Toaster position="top-right" theme="light" />

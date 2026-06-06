@@ -7,17 +7,11 @@ import { ChevronDown, Instagram, Youtube } from "lucide-react";
 import { SITE_NAME, SOCIAL_LINKS } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import type { PolicyFooterLink } from "@/lib/policy-pages";
 import { type StorefrontLocale } from "@/lib/i18n";
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
-
-type FooterCategory = {
-  id: string;
-  name: string;
-  slug: string;
-};
+import type { StorefrontFooterCategory } from "@/lib/storefront-navigation";
 
 type FooterLocaleCopy = {
   languageLabel: string;
@@ -83,9 +77,8 @@ const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
   ka: ENGLISH_FOOTER_COPY,
 };
 
-export function Footer() {
+export function Footer({ categoryLinks }: { categoryLinks: StorefrontFooterCategory[] }) {
   const { storeInfo } = useStoreInfo();
-  const [categoryLinks, setCategoryLinks] = useState<FooterCategory[]>([]);
   const [policyLinks, setPolicyLinks] = useState<PolicyFooterLink[]>([]);
   const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false);
   const { locale, internalPathname, routing, buildPath } = useStorefrontRoute();
@@ -109,28 +102,16 @@ export function Footer() {
   useEffect(() => {
     let isMounted = true;
 
-    const loadCategories = async () => {
+    const loadPolicies = async () => {
       try {
-        const [categories, policyResponse] = await Promise.all([
-          fetchCategories(locale),
-          fetch(`/api/policies?locale=${encodeURIComponent(locale)}`, {
-            cache: "no-store",
-          }),
-        ]);
+        const policyResponse = await fetch(`/api/policies?locale=${encodeURIComponent(locale)}`, {
+          cache: "no-store",
+        });
+
         if (!isMounted) {
           return;
         }
 
-        const topLevelCategories = categories
-          .filter((category) => !category.parent_id && category.is_active !== false && category.slug)
-          .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
-          .map((category) => ({
-            id: category.id,
-            name: category.name,
-            slug: category.slug,
-          }));
-
-        setCategoryLinks(topLevelCategories);
         if (policyResponse.ok) {
           const payload = (await policyResponse.json()) as {
             pages?: PolicyFooterLink[];
@@ -140,12 +121,12 @@ export function Footer() {
           setPolicyLinks([]);
         }
       } catch (error) {
-        console.error("Failed to load footer categories:", error);
+        console.error("Failed to load footer policies:", error);
         setPolicyLinks([]);
       }
     };
 
-    void loadCategories();
+    void loadPolicies();
 
     return () => {
       isMounted = false;

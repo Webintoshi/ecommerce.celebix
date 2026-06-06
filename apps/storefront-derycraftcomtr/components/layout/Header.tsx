@@ -3,83 +3,39 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { ROUTES, SITE_NAME, SITE_LOGO_PATH } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
+import { CUSTOMER_AUTH_URLS } from "@/lib/customer-auth-links";
 import { useCart } from "@/lib/cart-context";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
+import type { StorefrontNavigationCategory } from "@/lib/storefront-navigation";
 import {
   getLocalizedCategoryLabel,
   getLocalizedCopy,
 } from "@/lib/i18n";
 
-type NavSubcategory = {
-  id: string;
-  name: string;
-  slug: string;
-};
-
-type NavCategory = {
-  id: string;
-  name: string;
-  slug: string;
-  children: NavSubcategory[];
-};
-
-const normalizeCategoryKey = (value: string) =>
-  value
-    .toLocaleLowerCase("tr")
-    .replace(/ç/g, "c")
-    .replace(/ğ/g, "g")
-    .replace(/ı/g, "i")
-    .replace(/ö/g, "o")
-    .replace(/ş/g, "s")
-    .replace(/ü/g, "u")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-
-const getHeaderCategoryPriority = (category: { name: string; slug: string }) => {
-  const normalized = normalizeCategoryKey(`${category.slug} ${category.name}`);
-
-  if (normalized.includes("cuzdan") || normalized.includes("kartlik")) {
-    return 0;
-  }
-
-  if (normalized.includes("apple watch")) {
-    return 1;
-  }
-
-  if (normalized.includes("saat kayis") || normalized.includes("watch strap")) {
-    return 2;
-  }
-
-  if (normalized.includes("canta") || normalized.includes("organizer")) {
-    return 3;
-  }
-
-  if (normalized.includes("aksesuar")) {
-    return 4;
-  }
-
-  return 99;
-};
-
-export function Header() {
+export function Header({
+  navigationCategories,
+}: {
+  navigationCategories: StorefrontNavigationCategory[];
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeMobileCategoryId, setActiveMobileCategoryId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [headerCategories, setHeaderCategories] = useState<NavCategory[]>([]);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { storeInfo } = useStoreInfo();
   const { locale, buildPath } = useStorefrontRoute();
 
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const cartItemCount = getTotalItems();
+  const isAuthenticated = Boolean(user);
   const shouldUsePlaceholderLogo =
     !storeInfo?.logoUrl &&
     typeof SITE_LOGO_PATH === "string" &&
@@ -89,6 +45,7 @@ export function Header() {
     : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+  const accountHref = isAuthenticated ? buildPath("/hesap") : CUSTOMER_AUTH_URLS.signIn;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -100,83 +57,37 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
+    if (!isMenuOpen) {
+      return;
+    }
 
-    const loadCategories = async () => {
-      try {
-        const categories = await fetchCategories(locale);
-        if (!isMounted) {
-          return;
-        }
-
-        const activeCategories = categories
-          .filter((category) => category.is_active !== false && category.slug)
-          .sort((left, right) => {
-            const sortDiff = (left.sort_order || 0) - (right.sort_order || 0);
-            if (sortDiff !== 0) {
-              return sortDiff;
-            }
-
-            return left.name.localeCompare(right.name, "tr");
-          });
-
-        const childrenByParent = new Map<string, NavSubcategory[]>();
-
-        for (const category of activeCategories) {
-          if (!category.parent_id) {
-            continue;
-          }
-
-          const siblings = childrenByParent.get(category.parent_id) || [];
-          siblings.push({
-            id: category.id,
-            name: category.name,
-            slug: category.slug,
-          });
-          childrenByParent.set(category.parent_id, siblings);
-        }
-
-        const topLevelCategories = activeCategories
-          .filter((category) => !category.parent_id)
-          .map((category) => ({
-            id: category.id,
-            name: category.name,
-            slug: category.slug,
-            children: (childrenByParent.get(category.id) || []).sort((left, right) =>
-              left.name.localeCompare(right.name, "tr"),
-            ),
-            headerPriority: getHeaderCategoryPriority(category),
-            sortOrder: category.sort_order || 0,
-          }));
-
-        const orderedCategories = topLevelCategories
-          .sort((left, right) => {
-            const priorityDiff = left.headerPriority - right.headerPriority;
-            if (priorityDiff !== 0) {
-              return priorityDiff;
-            }
-
-            const sortDiff = left.sortOrder - right.sortOrder;
-            if (sortDiff !== 0) {
-              return sortDiff;
-            }
-
-            return left.name.localeCompare(right.name, "tr");
-          })
-          .map(({ headerPriority: _headerPriority, sortOrder: _sortOrder, ...category }) => category);
-
-        setHeaderCategories(orderedCategories);
-      } catch (error) {
-        console.error("Failed to load header categories:", error);
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
       }
     };
 
-    void loadCategories();
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      isMounted = false;
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [locale]);
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      setActiveMobileCategoryId(null);
+    }
+  }, [isMenuOpen]);
+
+  const closeMenu = () => setIsMenuOpen(false);
+
+  const toggleMobileCategory = (categoryId: string) => {
+    setActiveMobileCategoryId((current) => (current === categoryId ? null : categoryId));
+  };
 
   return (
     <header
@@ -187,17 +98,21 @@ export function Header() {
       }`}
     >
       <div className="container-premium">
-        <div className="flex h-16 items-center justify-between lg:h-20">
+        <div className="relative flex h-16 items-center justify-between lg:h-20">
           <button
-            className="-ml-2 p-2 lg:hidden"
-            onClick={() => setIsMenuOpen((open) => !open)}
+            className="-ml-2 rounded-full p-2 lg:hidden"
+            onClick={() => setIsMenuOpen(true)}
             aria-label={copy.menuLabel}
             type="button"
           >
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <Menu className="h-5 w-5 text-neutral-800" />
           </button>
 
-          <Link href={buildPath(ROUTES.home)} className="flex-shrink-0" aria-label={logoAlt}>
+          <Link
+            href={buildPath(ROUTES.home)}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 lg:static lg:translate-x-0 lg:translate-y-0 lg:flex-shrink-0"
+            aria-label={logoAlt}
+          >
             {logoSrc ? (
               <div className="relative h-7 w-[92px] sm:h-8 sm:w-[104px] lg:h-8 lg:w-[112px]">
                 <Image
@@ -217,8 +132,8 @@ export function Header() {
             )}
           </Link>
 
-          <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
-            {headerCategories.map((category) => {
+          <nav className="hidden items-center gap-4 lg:ml-10 lg:flex lg:flex-1 xl:gap-6">
+            {navigationCategories.map((category) => {
               const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
 
               if (category.children.length === 0) {
@@ -263,7 +178,7 @@ export function Header() {
             })}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="relative z-10 flex items-center gap-1 sm:gap-2 lg:gap-4">
             <button
               type="button"
               className="p-2"
@@ -273,7 +188,7 @@ export function Header() {
               <Search className="h-5 w-5 text-neutral-600" />
             </button>
 
-            <Link href={buildPath(user ? "/hesap" : ROUTES.login)} className="hidden p-2 sm:block">
+            <Link href={accountHref} className="hidden p-2 sm:block">
               <User className="h-5 w-5 text-neutral-600" />
             </Link>
 
@@ -294,38 +209,163 @@ export function Header() {
         </div>
       </div>
 
-      {isMenuOpen ? (
-        <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
-          <nav className="container-premium space-y-4 py-4">
-            {headerCategories.map((category) => (
-              <div key={category.id} className="space-y-2">
-                <Link
-                  href={buildPath(ROUTES.category(category.slug))}
-                  className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {getLocalizedCategoryLabel(category.slug, category.name, locale)}
+      <AnimatePresence>
+        {isMenuOpen ? (
+          <>
+            <motion.button
+              type="button"
+              aria-label="Menüyü kapat"
+              className="fixed inset-0 z-[70] bg-black/55 lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeMenu}
+            />
+
+            <motion.aside
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ duration: 0.24, ease: "easeOut" }}
+              className="fixed inset-y-0 right-0 z-[80] flex w-[min(100vw-28px,24rem)] flex-col overflow-hidden rounded-l-[2rem] bg-white text-[#11100E] shadow-[0_22px_60px_rgba(0,0,0,0.24)] lg:hidden"
+              aria-label="Mobil menü"
+            >
+              <div className="flex items-center justify-between px-6 pb-5 pt-6">
+                <Link href={buildPath(ROUTES.home)} aria-label={logoAlt} onClick={closeMenu}>
+                  {logoSrc ? (
+                    <div className="relative h-9 w-[136px]">
+                      <Image
+                        src={logoSrc}
+                        alt={logoAlt}
+                        fill
+                        className="object-contain object-left"
+                        sizes="136px"
+                        unoptimized={usesProxiedLogo}
+                      />
+                    </div>
+                  ) : (
+                    <span className="font-serif text-3xl font-semibold text-[#11100E]">{logoAlt}</span>
+                  )}
                 </Link>
 
-                {category.children.length > 0 ? (
-                  <div className="space-y-2 border-l border-neutral-200 pl-4">
-                    {category.children.map((subcategory) => (
-                      <Link
-                        key={subcategory.id}
-                        href={buildPath(ROUTES.category(subcategory.slug))}
-                        className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        {subcategory.name}
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={closeMenu}
+                  className="rounded-full p-2 text-[#11100E]"
+                  aria-label="Menüyü kapat"
+                >
+                  <X className="h-7 w-7" />
+                </button>
               </div>
-            ))}
-          </nav>
-        </div>
-      ) : null}
+
+              <nav className="flex-1 overflow-y-auto px-6 pb-40">
+                {navigationCategories.map((category) => {
+                  const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
+                  const drawerLabel = localizedCategoryName.toLocaleUpperCase("tr");
+                  const isExpanded = activeMobileCategoryId === category.id;
+                  const hasChildren = category.children.length > 0;
+
+                  return (
+                    <div key={category.id} className="border-b border-[#11100E]/12">
+                      <div className="flex items-center gap-3 py-5">
+                        <Link
+                          href={buildPath(ROUTES.category(category.slug))}
+                          className="flex-1 text-[1.05rem] font-black leading-none text-[#11100E] transition-colors hover:text-[#6E5139]"
+                          onClick={closeMenu}
+                        >
+                          {drawerLabel}
+                        </Link>
+
+                        {hasChildren ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleMobileCategory(category.id)}
+                            className="rounded-full p-1 text-[#BDBDBD]"
+                            aria-label={`${drawerLabel} alt kategorilerini ${isExpanded ? "kapat" : "aç"}`}
+                            aria-expanded={isExpanded}
+                          >
+                            <ChevronDown
+                              className={`h-6 w-6 transition-transform ${
+                                isExpanded ? "rotate-0 text-[#11100E]" : "-rotate-90"
+                              }`}
+                            />
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <AnimatePresence initial={false}>
+                        {hasChildren && isExpanded ? (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.18, ease: "easeOut" }}
+                            className="overflow-hidden"
+                          >
+                            <div className="space-y-1 pb-4 pl-2">
+                              {category.children.map((subcategory) => (
+                                <Link
+                                  key={subcategory.id}
+                                  href={buildPath(ROUTES.category(subcategory.slug))}
+                                  className="block rounded-2xl px-3 py-2 text-[0.95rem] font-medium text-[#5E5A55] transition-colors hover:bg-[#F7F3EE] hover:text-[#11100E]"
+                                  onClick={closeMenu}
+                                >
+                                  {subcategory.name}
+                                </Link>
+                              ))}
+                            </div>
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-auto border-t border-black bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-5">
+                {isAuthenticated ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Link
+                      href={buildPath("/hesap")}
+                      className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
+                      onClick={closeMenu}
+                    >
+                      Hesabım
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenu();
+                        void signOut();
+                      }}
+                      className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
+                    >
+                      Çıkış Yap
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Link
+                      href={CUSTOMER_AUTH_URLS.register}
+                      className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
+                      onClick={closeMenu}
+                    >
+                      Kayıt Ol
+                    </Link>
+                    <Link
+                      href={CUSTOMER_AUTH_URLS.signIn}
+                      className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
+                      onClick={closeMenu}
+                    >
+                      Giriş Yap
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </motion.aside>
+          </>
+        ) : null}
+      </AnimatePresence>
 
       <HeaderSearchOverlay
         isOpen={isSearchOpen}

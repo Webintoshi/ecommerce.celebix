@@ -13,6 +13,7 @@ import { fetchShippingRatesForLocation, getResolvedShippingPrice } from "@/lib/s
 import { PaymentGatewayConfig } from "@/types/payment";
 import { ShippingRate } from "@/lib/shipping-storage";
 import { isStorefrontAbandonedCartDisabled, isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
+import { CUSTOMER_AUTH_URLS } from "@/lib/customer-auth-links";
 import { toast } from "sonner";
 import {
   CreditCard,
@@ -666,7 +667,7 @@ export default function CheckoutPage() {
                     {!user && !customerAuthMigrationRequired && logtoCustomerAuthEnabled && (
                       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-900">
                         Hesap olusturmak zorunlu degil. Isterseniz siparisinizi misafir olarak tamamlayabilir veya{" "}
-                        <Link href="/kayit" className="font-semibold underline">
+                        <Link href={CUSTOMER_AUTH_URLS.register} className="font-semibold underline">
                           hesap olusturma ekranina
                         </Link>{" "}
                         gecebilirsiniz.

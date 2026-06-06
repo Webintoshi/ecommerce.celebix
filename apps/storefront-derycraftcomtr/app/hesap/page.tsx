@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CreditCard,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { buildProtectedSignInBridgePath } from "@/lib/customer-auth-links";
 
 type AccountAddress = {
   id: string;
@@ -96,11 +96,11 @@ function getStatusClasses(status: string) {
 }
 
 export default function AccountPage() {
-  const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
   const [account, setAccount] = useState<AccountPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const protectedSignInHref = buildProtectedSignInBridgePath("/hesap");
 
   useEffect(() => {
     if (authLoading) {
@@ -108,7 +108,7 @@ export default function AccountPage() {
     }
 
     if (!user) {
-      router.push("/giris?next=/hesap");
+      window.location.replace(protectedSignInHref);
       return;
     }
 
@@ -131,7 +131,7 @@ export default function AccountPage() {
 
         if (!response.ok) {
           if (response.status === 401) {
-            router.push("/giris?next=/hesap");
+            window.location.replace(protectedSignInHref);
             return;
           }
 
@@ -162,7 +162,7 @@ export default function AccountPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, router, user]);
+  }, [authLoading, protectedSignInHref, user]);
 
   const customer = account?.customer ?? null;
   const addresses = customer?.addresses ?? [];
