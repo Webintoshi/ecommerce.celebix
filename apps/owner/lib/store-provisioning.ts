@@ -28,6 +28,7 @@ import {
   reserveGeneratedDeploymentWindow,
 } from "@/lib/generated-deployment-guard";
 import {
+  checkLightPostgresReadinessForStore,
   getLightPostgresBootstrapStatus,
   provisionLightPostgresForStore,
 } from "@/lib/light-postgres-provisioning";
@@ -802,6 +803,32 @@ async function reconcileProvisioningSummaryWithLiveState(
     markCompleted("supabase_provision", "Supabase authority canli durumda hazir.");
   }
 
+  if (store.databaseMode === "light_postgres") {
+    if (store.lightPostgres?.readinessStatus === "ready") {
+      markCompleted("supabase_provision", "light_postgres schema, seed ve runtime role hazir.");
+    } else if (store.lightPostgres?.provisioning === "configured") {
+      try {
+        const readiness = await checkLightPostgresReadinessForStore(store);
+
+        if (readiness.ready) {
+          markCompleted("supabase_provision", readiness.message);
+        } else {
+          readinessError = readinessError ?? readiness.message;
+          markFailed("supabase_provision", readiness.message);
+          blockRemainingStepsAfter("supabase_provision", readiness.nextRepairAction ?? readiness.message);
+        }
+      } catch (error) {
+        const databaseError =
+          error instanceof Error
+            ? error.message
+            : "light_postgres readiness kontrolu basarisiz oldu.";
+        readinessError = readinessError ?? databaseError;
+        markFailed("supabase_provision", databaseError);
+        blockRemainingStepsAfter("supabase_provision", "light_postgres repair/retry gerekli.");
+      }
+    }
+  }
+
   if (store.r2?.provisioning === "configured" && store.r2?.bucketName && store.r2?.publicUrl) {
     markCompleted("r2_provision", "R2 authority canli durumda hazir.");
   }
@@ -1027,7 +1054,7 @@ export async function runStoreProvisioningWorkflow(
         if (store.databaseMode === "light_postgres") {
           const result = await provisionLightPostgresForStore(store);
           await syncOwnerStoresAndMetrics();
-          return `light_postgres provision edildi: ${result.cluster}/${result.databaseName}`;
+          return `light_postgres provision edildi: ${result.cluster}/${result.databaseName}; role=${result.roleName}; ${result.readiness.message}`;
         }
 
         const result = await provisionSupabaseForStore(store);

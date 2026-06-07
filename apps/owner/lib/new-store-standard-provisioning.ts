@@ -26,7 +26,7 @@ export interface NewStoreProvisioningHookResult {
   message: string;
 }
 
-export type NewStoreSmokeArea = "storefront" | "admin" | "auth" | "analytics" | "checkout";
+export type NewStoreSmokeArea = "database" | "storefront" | "admin" | "auth" | "analytics" | "checkout";
 export type NewStoreSmokeExpectation = "http_200" | "http_307" | "runtime_ready" | "safe_state";
 
 export interface NewStoreSmokeChecklistItem {
@@ -97,6 +97,13 @@ export const NEW_STORE_STANDARD_PROVISIONING_HOOKS: NewStoreProvisioningHookDefi
 ];
 
 export const NEW_STORE_SMOKE_CHECKLIST: NewStoreSmokeChecklistItem[] = [
+  { area: "database", key: "light_postgres_connect", label: "light_postgres runtime role connects", target: "light_postgres_runtime_role", expectation: "runtime_ready" },
+  { area: "database", key: "schema_core_tables", label: "Core commerce schema tables exist", target: "categories,products,customers,orders,payment_attempts", expectation: "runtime_ready" },
+  { area: "database", key: "settings_seed", label: "Settings baseline seed exists", target: "settings.store_info,runtime,schema_version", expectation: "runtime_ready" },
+  { area: "database", key: "payment_gateways_seed", label: "Payment gateways safe-disabled seed exists", target: "payment_gateways.bank_transfer,cod", expectation: "safe_state" },
+  { area: "database", key: "auth_bridge_tables", label: "Logto auth bridge tables exist", target: "auth_principals,auth_store_memberships,auth_store_customer_links", expectation: "runtime_ready" },
+  { area: "database", key: "optional_modules_disabled", label: "Optional modules start disabled", target: "optional_module_state", expectation: "safe_state" },
+  { area: "database", key: "no_supabase_runtime_dependency", label: "No Supabase runtime dependency for light_postgres", target: "database_mode", expectation: "runtime_ready" },
   { area: "storefront", key: "home", label: "Storefront home", target: "/", expectation: "http_200" },
   { area: "storefront", key: "products", label: "Storefront products", target: "/urunler", expectation: "http_200" },
   { area: "storefront", key: "checkout", label: "Storefront checkout", target: "/odeme", expectation: "http_200" },

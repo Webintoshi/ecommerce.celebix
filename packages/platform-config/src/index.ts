@@ -35,6 +35,12 @@ export type StoreSupabaseStatus = "none" | "legacy" | "configured" | "failed";
 export type StoreStandardResourceStatus = "pending" | "configured" | "failed" | "skipped";
 export type StoreReadinessStatus = "pending" | "ready" | "failed";
 export type StoreProvisioningStatus = "pending-owner-env" | "configured" | "failed";
+export type StoreLightPostgresReadinessStatus = "pending" | "ready" | "failed";
+export type StoreLightPostgresRoleStatus =
+  | "pending-owner-env"
+  | "configured"
+  | "failed"
+  | "admin-shared";
 export type StorefrontStatus = "not_started" | "scaffolded" | "active";
 export type StorefrontRepoSyncStatus = "pending" | "synced" | "failed";
 export type StorefrontDeploymentStatus =
@@ -72,6 +78,19 @@ export interface StoreLightPostgresConfig {
   provisionedAt?: string;
   lastProvisionError?: string;
   umamiReady?: boolean;
+  roleName?: string;
+  roleStatus?: StoreLightPostgresRoleStatus;
+  schemaStatus?: StoreLightPostgresReadinessStatus;
+  seedStatus?: StoreLightPostgresReadinessStatus;
+  readinessStatus?: StoreLightPostgresReadinessStatus;
+  readinessCheckedAt?: string;
+  readinessRepairAction?: string;
+  missingTables?: string[];
+  missingSeedKeys?: string[];
+  missingOptionalModules?: string[];
+  missingPaymentGatewayKeys?: string[];
+  missingAuthBridgeTables?: string[];
+  lastReadinessError?: string;
 }
 
 export type StoreAuthProvider = "logto" | "supabase";
@@ -113,6 +132,9 @@ export interface StoreUmamiConfig {
 
 export interface StoreReadinessConfig {
   database: StoreReadinessStatus;
+  databaseSchema?: StoreReadinessStatus;
+  databaseSeed?: StoreReadinessStatus;
+  databaseSmoke?: StoreReadinessStatus;
   storage: StoreReadinessStatus;
   auth: StoreReadinessStatus;
   analytics: StoreReadinessStatus;
@@ -285,6 +307,19 @@ export interface StoreLightPostgresUpdateInput {
   provisioningStatus: StoreProvisioningStatus;
   lastProvisionError?: string;
   umamiReady?: boolean;
+  roleName?: string;
+  roleStatus?: StoreLightPostgresRoleStatus;
+  schemaStatus?: StoreLightPostgresReadinessStatus;
+  seedStatus?: StoreLightPostgresReadinessStatus;
+  readinessStatus?: StoreLightPostgresReadinessStatus;
+  readinessCheckedAt?: string;
+  readinessRepairAction?: string | null;
+  missingTables?: string[];
+  missingSeedKeys?: string[];
+  missingOptionalModules?: string[];
+  missingPaymentGatewayKeys?: string[];
+  missingAuthBridgeTables?: string[];
+  lastReadinessError?: string | null;
 }
 
 export interface StoreR2UpdateInput {
@@ -776,6 +811,10 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       databaseName: input.slug,
       schemaProfile: "storefront_core",
       provisioning: databaseMode === "light_postgres" ? "pending-owner-env" : "configured",
+      roleStatus: databaseMode === "light_postgres" ? "pending-owner-env" : "configured",
+      schemaStatus: databaseMode === "light_postgres" ? "pending" : "ready",
+      seedStatus: databaseMode === "light_postgres" ? "pending" : "ready",
+      readinessStatus: databaseMode === "light_postgres" ? "pending" : "ready",
       umamiReady: true,
     },
     auth: buildDefaultStoreAuthConfig(databaseMode),
@@ -1178,6 +1217,37 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     provisionedAt: config.lightPostgres?.provisionedAt,
     lastProvisionError: config.lightPostgres?.lastProvisionError,
     umamiReady: config.lightPostgres?.umamiReady ?? true,
+    roleName: config.lightPostgres?.roleName,
+    roleStatus:
+      config.lightPostgres?.roleStatus ??
+      (databaseMode === "full_supabase"
+        ? "configured"
+        : config.lightPostgres?.provisioning === "configured"
+        ? "admin-shared"
+        : "pending-owner-env"),
+    schemaStatus:
+      config.lightPostgres?.schemaStatus ??
+      (databaseMode === "full_supabase" || config.lightPostgres?.provisioning === "configured"
+        ? "ready"
+        : "pending"),
+    seedStatus:
+      config.lightPostgres?.seedStatus ??
+      (databaseMode === "full_supabase" || config.lightPostgres?.provisioning === "configured"
+        ? "ready"
+        : "pending"),
+    readinessStatus:
+      config.lightPostgres?.readinessStatus ??
+      (databaseMode === "full_supabase" || config.lightPostgres?.provisioning === "configured"
+        ? "ready"
+        : "pending"),
+    readinessCheckedAt: config.lightPostgres?.readinessCheckedAt,
+    readinessRepairAction: config.lightPostgres?.readinessRepairAction,
+    missingTables: config.lightPostgres?.missingTables ?? [],
+    missingSeedKeys: config.lightPostgres?.missingSeedKeys ?? [],
+    missingOptionalModules: config.lightPostgres?.missingOptionalModules ?? [],
+    missingPaymentGatewayKeys: config.lightPostgres?.missingPaymentGatewayKeys ?? [],
+    missingAuthBridgeTables: config.lightPostgres?.missingAuthBridgeTables ?? [],
+    lastReadinessError: config.lightPostgres?.lastReadinessError,
   } satisfies NonNullable<StoreConfig["lightPostgres"]>;
   const defaultAuth = buildDefaultStoreAuthConfig(databaseMode);
   const normalizedAuth = {
@@ -1229,6 +1299,15 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
       }) === "configured" || databaseMode === "full_supabase"
         ? "ready"
         : defaultReadiness.database),
+    databaseSchema:
+      config.readiness?.databaseSchema ??
+      (normalizedLightPostgres.schemaStatus === "ready" ? "ready" : defaultReadiness.database),
+    databaseSeed:
+      config.readiness?.databaseSeed ??
+      (normalizedLightPostgres.seedStatus === "ready" ? "ready" : defaultReadiness.database),
+    databaseSmoke:
+      config.readiness?.databaseSmoke ??
+      (normalizedLightPostgres.readinessStatus === "ready" ? "ready" : defaultReadiness.database),
     storage:
       config.readiness?.storage ??
       (inferR2ProvisioningStatus(config) === "configured" || databaseMode === "full_supabase"
@@ -1674,6 +1753,46 @@ export function updateStoreLightPostgresConfig(
           : current.lightPostgres?.provisionedAt,
       lastProvisionError: input.lastProvisionError,
       umamiReady: input.umamiReady ?? current.lightPostgres?.umamiReady ?? true,
+      roleName: input.roleName ?? current.lightPostgres?.roleName,
+      roleStatus: input.roleStatus ?? current.lightPostgres?.roleStatus ?? "pending-owner-env",
+      schemaStatus:
+        input.schemaStatus ??
+        (input.provisioningStatus === "configured"
+          ? "ready"
+          : input.provisioningStatus === "failed"
+          ? "failed"
+          : current.lightPostgres?.schemaStatus ?? "pending"),
+      seedStatus:
+        input.seedStatus ??
+        (input.provisioningStatus === "configured"
+          ? "ready"
+          : input.provisioningStatus === "failed"
+          ? "failed"
+          : current.lightPostgres?.seedStatus ?? "pending"),
+      readinessStatus:
+        input.readinessStatus ??
+        (input.provisioningStatus === "configured"
+          ? "ready"
+          : input.provisioningStatus === "failed"
+          ? "failed"
+          : current.lightPostgres?.readinessStatus ?? "pending"),
+      readinessCheckedAt: input.readinessCheckedAt ?? current.lightPostgres?.readinessCheckedAt,
+      readinessRepairAction:
+        input.readinessRepairAction === null
+          ? undefined
+          : input.readinessRepairAction ?? current.lightPostgres?.readinessRepairAction,
+      missingTables: input.missingTables ?? current.lightPostgres?.missingTables ?? [],
+      missingSeedKeys: input.missingSeedKeys ?? current.lightPostgres?.missingSeedKeys ?? [],
+      missingOptionalModules:
+        input.missingOptionalModules ?? current.lightPostgres?.missingOptionalModules ?? [],
+      missingPaymentGatewayKeys:
+        input.missingPaymentGatewayKeys ?? current.lightPostgres?.missingPaymentGatewayKeys ?? [],
+      missingAuthBridgeTables:
+        input.missingAuthBridgeTables ?? current.lightPostgres?.missingAuthBridgeTables ?? [],
+      lastReadinessError:
+        input.lastReadinessError === null
+          ? undefined
+          : input.lastReadinessError ?? current.lightPostgres?.lastReadinessError,
     },
     bootstrap: {
       ...(current.bootstrap ?? {
@@ -1690,6 +1809,24 @@ export function updateStoreLightPostgresConfig(
     readiness: {
       ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
       database: input.provisioningStatus === "configured" ? "ready" : input.provisioningStatus === "failed" ? "failed" : "pending",
+      databaseSchema:
+        input.schemaStatus === "ready"
+          ? "ready"
+          : input.schemaStatus === "failed" || input.provisioningStatus === "failed"
+          ? "failed"
+          : current.readiness?.databaseSchema ?? "pending",
+      databaseSeed:
+        input.seedStatus === "ready"
+          ? "ready"
+          : input.seedStatus === "failed" || input.provisioningStatus === "failed"
+          ? "failed"
+          : current.readiness?.databaseSeed ?? "pending",
+      databaseSmoke:
+        input.readinessStatus === "ready"
+          ? "ready"
+          : input.readinessStatus === "failed" || input.provisioningStatus === "failed"
+          ? "failed"
+          : current.readiness?.databaseSmoke ?? "pending",
     },
   }));
 }
