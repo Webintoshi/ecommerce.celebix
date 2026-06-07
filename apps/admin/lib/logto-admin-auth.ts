@@ -75,20 +75,6 @@ type LogtoAdminStatePayload = SignedCookiePayload & {
   issuedAt: string;
 };
 
-type LogtoAuthorizeOptions = {
-  firstScreen?:
-    | "sign_in"
-    | "register"
-    | "reset_password"
-    | "single_sign_on"
-    | "identifier:sign-in"
-    | "identifier:register";
-  identifier?: Array<"username" | "email" | "phone">;
-  loginHint?: string | null;
-  prompt?: string | null;
-  uiLocales?: string | null;
-};
-
 function readRequiredEnv(name: string, value: string | undefined): string {
   const normalized = value?.trim().replace(/^["']|["']$/g, "");
 
@@ -165,9 +151,11 @@ export function getLogtoCallbackUrl(): string {
   return normalizeUrl(readOptionalEnv("LOGTO_CALLBACK_URL") ?? `${STORE_RUNTIME.adminUrl}/callback`);
 }
 
-function getLogtoPostLogoutRedirectUrl(): string {
+function getLogtoPostLogoutRedirectUrl(postLogoutRedirectUrl?: string | null): string {
   return normalizeUrl(
-    readOptionalEnv("LOGTO_POST_LOGOUT_REDIRECT_URL") ?? `${STORE_RUNTIME.adminUrl}/admin/login`,
+    postLogoutRedirectUrl ??
+      readOptionalEnv("LOGTO_POST_LOGOUT_REDIRECT_URL") ??
+      `${STORE_RUNTIME.adminUrl}/admin/login`,
   );
 }
 
@@ -352,7 +340,7 @@ export async function getLogtoDiscoveryDocument(): Promise<LogtoDiscoveryDocumen
   return (await response.json()) as LogtoDiscoveryDocument;
 }
 
-export async function buildLogtoAuthorizeUrl(nextPath: string, options: LogtoAuthorizeOptions = {}) {
+export async function buildLogtoAuthorizeUrl(nextPath: string) {
   const discovery = await getLogtoDiscoveryDocument();
   const statePayload = createLogtoAdminStatePayload(nextPath);
   const url = new URL(discovery.authorization_endpoint);
@@ -361,29 +349,6 @@ export async function buildLogtoAuthorizeUrl(nextPath: string, options: LogtoAut
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid profile email");
   url.searchParams.set("state", statePayload.state);
-
-  if (options.firstScreen) {
-    url.searchParams.set("first_screen", options.firstScreen);
-  }
-
-  if (options.identifier && options.identifier.length > 0) {
-    url.searchParams.set("identifier", options.identifier.join(" "));
-  }
-
-  const loginHint = coerceString(options.loginHint);
-  if (loginHint) {
-    url.searchParams.set("login_hint", loginHint);
-  }
-
-  const uiLocales = coerceString(options.uiLocales);
-  if (uiLocales) {
-    url.searchParams.set("ui_locales", uiLocales);
-  }
-
-  const prompt = coerceString(options.prompt);
-  if (prompt) {
-    url.searchParams.set("prompt", prompt);
-  }
 
   return {
     url,
@@ -434,15 +399,23 @@ export async function fetchLogtoUserInfo(accessToken: string): Promise<LogtoUser
   return (await response.json()) as LogtoUserInfo;
 }
 
-export async function getLogtoLogoutRedirectUrl(idTokenHint: string | null) {
+export async function getLogtoLogoutRedirectUrl(
+  idTokenHint: string | null,
+  options?: {
+    postLogoutRedirectUrl?: string | null;
+  },
+) {
   const discovery = await getLogtoDiscoveryDocument();
 
   if (!discovery.end_session_endpoint) {
-    return getLogtoPostLogoutRedirectUrl();
+    return getLogtoPostLogoutRedirectUrl(options?.postLogoutRedirectUrl ?? null);
   }
 
   const url = new URL(discovery.end_session_endpoint);
-  url.searchParams.set("post_logout_redirect_uri", getLogtoPostLogoutRedirectUrl());
+  url.searchParams.set(
+    "post_logout_redirect_uri",
+    getLogtoPostLogoutRedirectUrl(options?.postLogoutRedirectUrl ?? null),
+  );
   url.searchParams.set("client_id", getLogtoAppId());
 
   if (idTokenHint) {

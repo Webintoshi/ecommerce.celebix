@@ -237,6 +237,8 @@ export function AdminSidebar({
   const siteHeading = /admin/i.test(siteName) ? siteName : `${siteName} Admin`;
   const siteLogo = storeInfo?.logoUrl || ADMIN_BRAND_LOGO_SRC;
   const mobileMenuOpen = isMobile ? isOpen : true;
+  const isLogtoProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto";
+  const logtoLogoutHref = "/api/auth/logout?next=%2Fadmin%2Flogin%3Flogged_out%3D1";
 
   useEffect(() => {
     setResolvedProfile(initialProfile);
@@ -422,6 +424,16 @@ export function AdminSidebar({
     }
 
     setIsSigningOut(true);
+
+    if (isLogtoProvider) {
+      if (typeof window !== "undefined") {
+        window.location.assign("/api/auth/logout");
+      } else {
+        router.replace("/admin/login");
+        router.refresh();
+      }
+      return;
+    }
 
     try {
       const supabase = getBrowserSupabaseClient();
@@ -746,14 +758,24 @@ export function AdminSidebar({
 
             <div className="border-t border-[#EEF1F4] bg-white/96 px-4 pb-[max(env(safe-area-inset-bottom,0px),1rem)] pt-3.5">
               <div className="space-y-1.5">
-                <button
-                  onClick={handleLogout}
-                  disabled={isSigningOut}
-                  className="flex min-h-[48px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#FDECEC] hover:text-[#EF4444]"
-                >
-                  <LogOut className="h-[1rem] w-[1rem] shrink-0" />
-                  <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
-                </button>
+                {isLogtoProvider ? (
+                  <a
+                    href={logtoLogoutHref}
+                    className="flex min-h-[48px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#FDECEC] hover:text-[#EF4444]"
+                  >
+                    <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+                    <span>Çıkış Yap</span>
+                  </a>
+                ) : (
+                  <button
+                    onClick={handleLogout}
+                    disabled={isSigningOut}
+                    className="flex min-h-[48px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#FDECEC] hover:text-[#EF4444]"
+                  >
+                    <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+                    <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
+                  </button>
+                )}
 
                 <Link
                   href={STORE_RUNTIME.storefrontUrl}
@@ -935,14 +957,24 @@ export function AdminSidebar({
       </nav>
 
       <div className="space-y-1.5 border-t border-[#EEF1F4] px-3 py-3.5">
-        <button
-          onClick={handleLogout}
-          disabled={isSigningOut}
-          className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"
-        >
-          <LogOut className="h-[1rem] w-[1rem] shrink-0" />
-          <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
-        </button>
+        {isLogtoProvider ? (
+          <a
+            href={logtoLogoutHref}
+            className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"
+          >
+            <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+            <span>Çıkış Yap</span>
+          </a>
+        ) : (
+          <button
+            onClick={handleLogout}
+            disabled={isSigningOut}
+            className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"
+          >
+            <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+            <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
+          </button>
+        )}
 
         <Link
           href={STORE_RUNTIME.storefrontUrl}
