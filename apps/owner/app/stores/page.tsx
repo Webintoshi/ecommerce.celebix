@@ -142,6 +142,7 @@ function getProvisioningTone(state: DashboardStoreSummary["provisioning"]["state
   switch (state) {
     case "failed":
     case "failed_storage":
+    case "failed_smoke":
       return "danger";
     case "pending_repair":
     case "pending_dns":

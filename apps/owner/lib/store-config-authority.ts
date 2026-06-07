@@ -19,6 +19,7 @@ import {
   resolveAuthorityRepositoryBranch,
   resolveStorefrontRepositoryBranch,
   type StoreConfig,
+  type StoreSmokeReport,
   type StorefrontStatus,
   type StoreRegistryEntry,
   type StorefrontAuthorityPatchInput,
@@ -154,6 +155,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
   const r2 = asRecord(metadata.r2);
   const media = asRecord(metadata.media);
   const readiness = asRecord(metadata.readiness);
+  const smoke = asRecord(metadata.smoke);
   const payments = asRecord(metadata.payments);
   const defaultAuth = buildDefaultStoreAuthConfig(databaseMode);
   const defaultAnalytics = buildDefaultStoreAnalyticsConfig();
@@ -380,6 +382,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
           ? (readOptionalString(readiness.smoke) as "ready" | "failed")
           : "pending",
     },
+    smoke: Object.keys(smoke).length > 0 ? (smoke as unknown as StoreSmokeReport) : undefined,
     payments: {
       status:
         readOptionalString(payments.status) === "configured"

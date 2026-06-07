@@ -169,6 +169,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const umami = store.umami;
   const r2 = store.r2;
   const media = store.media;
+  const smoke = store.smoke;
+  const smokePassedCount = smoke?.checks.filter((check) => check.status === "passed").length ?? 0;
+  const smokeFailedCount = smoke?.checks.filter((check) => check.status === "failed").length ?? 0;
+  const smokePendingCount = smoke?.checks.filter((check) => check.status === "pending").length ?? 0;
   const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
   const orphanedTargetCount = cleanupRuns.reduce(
     (total, run) =>
@@ -509,6 +513,45 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                 <span>Vitrin okuma</span>
                 <strong>{media?.storefrontReadStatus === "configured" ? "Aktif" : "Pending"}</strong>
                 <p>{media?.noSupabaseStorage !== false ? "Supabase Storage kullanılmıyor." : "Legacy storage kontrol edilmeli."}</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="New-store smoke"
+            copy="Package 7 smoke runner planı mağaza canlıya alınmadan önce runtime, auth, analytics, medya ve Supabase-free kontrollerini izler."
+            tone={smoke?.overallStatus === "failed" ? "danger" : smoke?.overallStatus === "passed" ? "success" : "accent"}
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Durum</span>
+                <strong>
+                  {smoke?.overallStatus === "passed"
+                    ? "Smoke geçti"
+                    : smoke?.overallStatus === "failed"
+                      ? "Smoke başarısız"
+                      : smoke?.overallStatus === "partial"
+                        ? "Kısmi"
+                        : "Smoke bekliyor"}
+                </strong>
+                <p>{smoke?.mode === "execute" ? "Execute sonucu" : "Plan mode; canlı request çalıştırılmadı."}</p>
+              </article>
+              <article>
+                <span>Check sayısı</span>
+                <strong>{smoke?.checks.length ?? 0}</strong>
+                <p>{smokePassedCount} geçti / {smokeFailedCount} fail / {smokePendingCount} pending</p>
+              </article>
+              <article>
+                <span>Son çalışma</span>
+                <strong>{smoke?.finishedAt ? formatDateTime(smoke.finishedAt) : "Bekliyor"}</strong>
+                <p>{smoke?.startedAt ? `Plan başlangıcı: ${formatDateTime(smoke.startedAt)}` : "Smoke runner henüz planlanmadı."}</p>
+              </article>
+              <article>
+                <span>Repair action</span>
+                <strong>{smokeFailedCount > 0 ? "Gerekli" : "Yok"}</strong>
+                <p>{smoke?.checks.find((check) => check.status === "failed")?.repairAction || "Fail oluşursa ilgili check repairAction alanı doldurulur."}</p>
               </article>
             </div>
           </OwnerSectionCard>

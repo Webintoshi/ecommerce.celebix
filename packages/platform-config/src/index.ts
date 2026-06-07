@@ -221,6 +221,44 @@ export interface StoreReadinessConfig {
   smoke: StoreReadinessStatus;
 }
 
+export type StoreSmokeStatus = "passed" | "failed" | "skipped" | "pending";
+export type StoreSmokeOverallStatus = "passed" | "failed" | "partial" | "pending";
+export type StoreSmokeCategory =
+  | "storefront"
+  | "admin"
+  | "auth"
+  | "database"
+  | "analytics"
+  | "media"
+  | "checkout"
+  | "optional_modules"
+  | "supabase_absence"
+  | "security";
+
+export interface StoreSmokeCheckResult {
+  id: string;
+  label: string;
+  category: StoreSmokeCategory;
+  status: StoreSmokeStatus;
+  expected?: string;
+  actual?: string;
+  url?: string;
+  statusCode?: number;
+  durationMs?: number;
+  errorCode?: string;
+  message?: string;
+  repairAction?: string;
+}
+
+export interface StoreSmokeReport {
+  storeSlug: string;
+  startedAt: string;
+  finishedAt?: string;
+  mode?: "plan" | "execute";
+  overallStatus: StoreSmokeOverallStatus;
+  checks: StoreSmokeCheckResult[];
+}
+
 export type StorePaymentStatus = "pending_payment_setup" | "configured";
 export type StorePaymentProvider = "bank_transfer" | "none";
 
@@ -293,6 +331,7 @@ export interface StoreConfig {
   logto?: StoreLogtoConfig;
   umami?: StoreUmamiConfig;
   readiness?: StoreReadinessConfig;
+  smoke?: StoreSmokeReport;
   payments?: StorePaymentsConfig;
   supabase: {
     projectRef: string;
@@ -716,6 +755,16 @@ function buildStoreMediaConfig(input: {
   };
 }
 
+function buildDefaultStoreSmokeReport(slug: string): StoreSmokeReport {
+  return {
+    storeSlug: slug,
+    startedAt: new Date().toISOString(),
+    mode: "plan",
+    overallStatus: "pending",
+    checks: [],
+  };
+}
+
 function findRepoRoot(startDirectory = process.cwd()): string {
   const attempted = new Set<string>();
   const candidates = [
@@ -1134,6 +1183,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       storefrontDomain: input.domain,
     }),
     readiness: buildDefaultStoreReadinessConfig(),
+    smoke: buildDefaultStoreSmokeReport(input.slug),
     payments: buildDefaultStorePaymentsConfig(),
     supabase: {
       projectRef: "pending-owner-bootstrap",
@@ -1349,6 +1399,16 @@ function inferLightPostgresProvisioningStatus(
 function normalizeOptionalString(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function normalizeUnknownString(value: unknown): string | undefined {
+  return typeof value === "string" ? normalizeOptionalString(value) : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function normalizeOptionalPath(value: string | null | undefined): string | undefined {
@@ -1824,6 +1884,63 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
       (config.storefront?.deploymentStatus === "configured" ? "ready" : defaultReadiness.storefront),
     smoke: config.readiness?.smoke ?? defaultReadiness.smoke,
   } satisfies NonNullable<StoreConfig["readiness"]>;
+  const smokeRecord = asRecord(config.smoke);
+  const smokeChecks = Array.isArray(smokeRecord.checks)
+    ? smokeRecord.checks
+        .map((value) => asRecord(value))
+        .map((record) => {
+          const category = normalizeUnknownString(record.category);
+          const status = normalizeUnknownString(record.status);
+
+          return {
+            id: normalizeUnknownString(record.id) ?? "unknown",
+            label: normalizeUnknownString(record.label) ?? "Smoke check",
+            category:
+              category === "admin" ||
+              category === "auth" ||
+              category === "database" ||
+              category === "analytics" ||
+              category === "media" ||
+              category === "checkout" ||
+              category === "optional_modules" ||
+              category === "supabase_absence" ||
+              category === "security"
+                ? (category as StoreSmokeCategory)
+                : "storefront",
+            status:
+              status === "passed" || status === "failed" || status === "skipped"
+                ? (status as StoreSmokeStatus)
+                : "pending",
+            expected: normalizeUnknownString(record.expected) ?? undefined,
+            actual: normalizeUnknownString(record.actual) ?? undefined,
+            url: normalizeUnknownString(record.url) ?? undefined,
+            statusCode: typeof record.statusCode === "number" ? record.statusCode : undefined,
+            durationMs: typeof record.durationMs === "number" ? record.durationMs : undefined,
+            errorCode: normalizeUnknownString(record.errorCode) ?? undefined,
+            message: normalizeUnknownString(record.message) ?? undefined,
+            repairAction: normalizeUnknownString(record.repairAction) ?? undefined,
+          };
+        })
+    : [];
+  const smokeMode = normalizeUnknownString(smokeRecord.mode);
+  const smokeOverallStatus = normalizeUnknownString(smokeRecord.overallStatus);
+  const normalizedSmoke = {
+    storeSlug: normalizeUnknownString(smokeRecord.storeSlug) ?? config.slug,
+    startedAt: normalizeUnknownString(smokeRecord.startedAt) ?? new Date().toISOString(),
+    finishedAt: normalizeUnknownString(smokeRecord.finishedAt) ?? undefined,
+    mode:
+      smokeMode === "execute" ||
+      smokeMode === "plan"
+        ? (smokeMode as "plan" | "execute")
+        : "plan",
+    overallStatus:
+      smokeOverallStatus === "passed" ||
+      smokeOverallStatus === "failed" ||
+      smokeOverallStatus === "partial"
+        ? (smokeOverallStatus as StoreSmokeOverallStatus)
+        : "pending",
+    checks: smokeChecks,
+  } satisfies StoreSmokeReport;
   const defaultPayments = buildDefaultStorePaymentsConfig();
   const normalizedPayments = {
     status: config.payments?.status ?? defaultPayments.status,
@@ -1861,6 +1978,7 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     logto: normalizedLogto,
     umami: normalizedUmami,
     readiness: normalizedReadiness,
+    smoke: normalizedSmoke,
     payments: normalizedPayments,
     supabase: {
       ...config.supabase,
@@ -2720,6 +2838,22 @@ export function updateStoreR2MediaConfig(
       },
     };
   });
+}
+
+export function updateStoreSmokeReport(slug: string, report: StoreSmokeReport): StoreConfig {
+  return updateStoreConfig(slug, (current) => ({
+    ...current,
+    smoke: report,
+    readiness: {
+      ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+      smoke:
+        report.overallStatus === "passed"
+          ? "ready"
+          : report.overallStatus === "failed"
+          ? "failed"
+          : "pending",
+    },
+  }));
 }
 
 export function applyStorefrontAuthorityPatchToConfig(

@@ -218,7 +218,7 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
-  if (state === "pending_repair" || state === "failed_storage") {
+  if (state === "pending_repair" || state === "failed_storage" || state === "failed_smoke") {
     return {
       eyebrow: "Teknik mola",
       title: "Kurulum takıldı ama akış kontrol altında",
@@ -348,6 +348,7 @@ function getFocusedLifecycleStepKey(state: ProvisioningState): ProvisioningStepK
     case "pending_payment":
       return "payment_setup";
     case "pending_smoke":
+    case "failed_smoke":
     case "smoke_ready":
       return null;
     default:

@@ -34,6 +34,7 @@ const PROVISIONING_LABELS: Record<ProvisioningState, string> = {
   ready: "hazır",
   pending_repair: "onarım aksiyonu",
   failed_storage: "depolama arızası",
+  failed_smoke: "smoke başarısız",
   failed: "kritik arıza",
 };
 
@@ -61,6 +62,7 @@ export function getProvisioningToneClass(state: ProvisioningState): string {
       return "provisioning-tone-pending_analytics";
     case "failed":
     case "failed_storage":
+    case "failed_smoke":
       return "provisioning-tone-failed";
     case "pending_repair":
       return "provisioning-tone-pending_repair";

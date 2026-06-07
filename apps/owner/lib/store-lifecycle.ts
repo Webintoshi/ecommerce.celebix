@@ -22,6 +22,7 @@ export type ProvisioningState =
   | "ready"
   | "pending_repair"
   | "failed_storage"
+  | "failed_smoke"
   | "failed";
 export type ProvisioningStepStatus =
   | "pending"
@@ -172,6 +173,7 @@ function normalizeProvisioningState(value: unknown): ProvisioningState {
     value === "ready" ||
     value === "pending_repair" ||
     value === "failed_storage" ||
+    value === "failed_smoke" ||
     value === "failed"
     ? value
     : "provisioning";

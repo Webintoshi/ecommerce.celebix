@@ -1,5 +1,6 @@
 import type { StoreConfig } from "@celebix/platform-config";
 import { provisionLogtoAppsForStore } from "@/lib/logto-provisioning";
+import { runNewStoreSmokeRunner } from "@/lib/new-store-smoke-runner";
 import { provisionR2MediaForStore } from "@/lib/r2-provisioning";
 import { provisionUmamiForStore } from "@/lib/umami-provisioning";
 
@@ -148,7 +149,7 @@ export const NEW_STORE_STANDARD_PROVISIONING_HOOKS: NewStoreProvisioningHookDefi
   {
     key: "runNewStoreSmoke",
     label: "New-store acceptance smoke checklist",
-    status: "planned",
+    status: "implemented",
     createsLiveResource: false,
     nextPackage: "Package 7",
   },
@@ -341,5 +342,13 @@ export async function configureAdminAnalytics(store: StoreConfig): Promise<NewSt
 }
 
 export async function runNewStoreSmoke(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
-  return plannedHookResult("runNewStoreSmoke", store);
+  const report = await runNewStoreSmokeRunner(store, {
+    mode: "plan",
+    persist: true,
+  });
+  return {
+    key: "runNewStoreSmoke",
+    status: "configured",
+    message: `Smoke runner plan hazir: ${report.checks.length} check pending, live request calistirilmadi.`,
+  };
 }
