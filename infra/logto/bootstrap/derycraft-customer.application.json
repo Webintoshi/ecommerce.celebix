@@ -1,0 +1,29 @@
+{
+  "name": "DeryCraft Storefront",
+  "description": "Central Logto template for the DeryCraft storefront customer surface.",
+  "type": "Traditional",
+  "oidcClientMetadata": {
+    "redirectUris": [
+      "https://derycraft.com.tr/callback"
+    ],
+    "postLogoutRedirectUris": [
+      "https://derycraft.com.tr",
+      "https://derycraft.com.tr/giris?next=/hesap&logged_out=1"
+    ]
+  },
+  "customClientMetadata": {
+    "corsAllowedOrigins": [
+      "https://derycraft.com.tr"
+    ],
+    "refreshTokenTtlInDays": 14,
+    "alwaysIssueRefreshToken": true,
+    "rotateRefreshToken": true
+  },
+  "customData": {
+    "templateKey": "derycraft-storefront-v1",
+    "celebixStoreSlug": "derycraftcomtr",
+    "celebixSurface": "storefront",
+    "celebixBridgeMode": "store_membership_v1",
+    "celebixHostedAuthProfile": "public_self_signup_v1"
+  }
+}
