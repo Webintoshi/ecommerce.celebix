@@ -21,7 +21,7 @@ function createBlogQueryError(message: string, code?: string): BlogQueryError {
   return error;
 }
 
-function isBlogPostsTableUnsupported(error: unknown): boolean {
+function isBlogPostsFallbackError(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) {
     return false;
   }
@@ -31,6 +31,9 @@ function isBlogPostsTableUnsupported(error: unknown): boolean {
     /Could not find the table 'public\.blog_posts' in the schema cache/i.test(message) ||
     /relation ["']public\.blog_posts["'] does not exist/i.test(message) ||
     /relation ["']blog_posts["'] does not exist/i.test(message) ||
+    /no available server/i.test(message) ||
+    /fetch failed/i.test(message) ||
+    /network request failed/i.test(message) ||
     message.includes("light_postgres compatibility table destegi bulunamadi: blog_posts") ||
     message.includes("Insert desteklenmiyor: blog_posts") ||
     message.includes("Update desteklenmiyor: blog_posts") ||
@@ -195,81 +198,116 @@ function getStoredPostBySlug(posts: BlogPost[], slug: string): BlogPost | null {
 }
 
 export async function getPublishedPosts() {
-  const serverClient = createServerClient();
-  const { data, error } = await serverClient
-    .from("blog_posts")
-    .select("*")
-    .eq("status", "published")
-    .order("published_at", { ascending: false });
+  try {
+    const serverClient = createServerClient();
+    const { data, error } = await serverClient
+      .from("blog_posts")
+      .select("*")
+      .eq("status", "published")
+      .order("published_at", { ascending: false });
 
-  if (error) {
-    if (isBlogPostsTableUnsupported(error)) {
+    if (error) {
+      if (isBlogPostsFallbackError(error)) {
+        return sortPublishedPosts(await getStoredBlogPosts());
+      }
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    if (isBlogPostsFallbackError(error)) {
       return sortPublishedPosts(await getStoredBlogPosts());
     }
     throw error;
   }
-
-  return data || [];
 }
 
 export async function getPostBySlug(slug: string) {
-  const serverClient = createServerClient();
   const candidates = buildSlugCandidates(slug);
-  const { data, error } = await serverClient
-    .from("blog_posts")
-    .select("*")
-    .in("slug", candidates)
-    .eq("status", "published")
-    .limit(10);
 
-  if (error) {
-    if (isBlogPostsTableUnsupported(error)) {
+  try {
+    const serverClient = createServerClient();
+    const { data, error } = await serverClient
+      .from("blog_posts")
+      .select("*")
+      .in("slug", candidates)
+      .eq("status", "published")
+      .limit(10);
+
+    if (error) {
+      if (isBlogPostsFallbackError(error)) {
+        return getStoredPostBySlug(await getStoredBlogPosts(), slug);
+      }
+      return null;
+    }
+
+    if (!data?.length) {
+      return null;
+    }
+
+    for (const candidate of candidates) {
+      const exactMatch = data.find((row) => row.slug === candidate);
+      if (exactMatch) {
+        return exactMatch;
+      }
+    }
+
+    return data[0] ?? null;
+  } catch (error) {
+    if (isBlogPostsFallbackError(error)) {
       return getStoredPostBySlug(await getStoredBlogPosts(), slug);
     }
     return null;
   }
-
-  if (!data?.length) {
-    return null;
-  }
-
-  for (const candidate of candidates) {
-    const exactMatch = data.find((row) => row.slug === candidate);
-    if (exactMatch) {
-      return exactMatch;
-    }
-  }
-
-  return data[0] ?? null;
 }
 
 export async function getAllPosts() {
-  const serverClient = createServerClient();
-  const { data, error } = await serverClient
-    .from("blog_posts")
-    .select("*")
-    .order("created_at", { ascending: false });
+  try {
+    const serverClient = createServerClient();
+    const { data, error } = await serverClient
+      .from("blog_posts")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  if (error) {
-    if (isBlogPostsTableUnsupported(error)) {
+    if (error) {
+      if (isBlogPostsFallbackError(error)) {
+        return getStoredBlogPosts();
+      }
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    if (isBlogPostsFallbackError(error)) {
       return getStoredBlogPosts();
     }
     throw error;
   }
-
-  return data || [];
 }
 
 export async function getPostById(id: string) {
-  const serverClient = createServerClient();
-  const { data, error } = await serverClient
-    .from("blog_posts")
-    .select("*")
-    .eq("id", id)
-    .single();
+  try {
+    const serverClient = createServerClient();
+    const { data, error } = await serverClient
+      .from("blog_posts")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-  if (error) {
-    if (isBlogPostsTableUnsupported(error)) {
+    if (error) {
+      if (isBlogPostsFallbackError(error)) {
+        const storedPost = (await getStoredBlogPosts()).find((post) => post.id === id) ?? null;
+        if (!storedPost) {
+          throw createBlogQueryError("Row not found", "PGRST116");
+        }
+        return storedPost;
+      }
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (isBlogPostsFallbackError(error)) {
       const storedPost = (await getStoredBlogPosts()).find((post) => post.id === id) ?? null;
       if (!storedPost) {
         throw createBlogQueryError("Row not found", "PGRST116");
@@ -278,8 +316,6 @@ export async function getPostById(id: string) {
     }
     throw error;
   }
-
-  return data;
 }
 
 export async function createPost(post: Omit<BlogPost, "id" | "created_at">) {
@@ -291,7 +327,7 @@ export async function createPost(post: Omit<BlogPost, "id" | "created_at">) {
     .single();
 
   if (error) {
-    if (!isBlogPostsTableUnsupported(error)) {
+    if (!isBlogPostsFallbackError(error)) {
       throw error;
     }
 
@@ -326,7 +362,7 @@ export async function updatePost(id: string, updates: Partial<BlogPost>) {
     .single();
 
   if (error) {
-    if (!isBlogPostsTableUnsupported(error)) {
+    if (!isBlogPostsFallbackError(error)) {
       throw error;
     }
 
@@ -374,7 +410,7 @@ export async function publishPost(id: string) {
     .single();
 
   if (error) {
-    if (isBlogPostsTableUnsupported(error)) {
+    if (isBlogPostsFallbackError(error)) {
       return updatePost(id, {
         status: "published",
         published_at: publishedAt,
@@ -396,7 +432,7 @@ export async function unpublishPost(id: string) {
     .single();
 
   if (error) {
-    if (isBlogPostsTableUnsupported(error)) {
+    if (isBlogPostsFallbackError(error)) {
       return updatePost(id, { status: "draft", published_at: null });
     }
     throw error;
@@ -413,7 +449,7 @@ export async function deletePost(id: string) {
     .eq("id", id);
 
   if (error) {
-    if (!isBlogPostsTableUnsupported(error)) {
+    if (!isBlogPostsFallbackError(error)) {
       throw error;
     }
 
