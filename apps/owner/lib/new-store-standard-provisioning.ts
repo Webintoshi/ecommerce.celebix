@@ -1,10 +1,14 @@
 import type { StoreConfig } from "@celebix/platform-config";
+import { provisionLogtoAppsForStore } from "@/lib/logto-provisioning";
 
 export type NewStoreProvisioningHookKey =
   | "provisionLightPostgres"
   | "provisionR2"
   | "provisionLogtoAdminApp"
   | "provisionLogtoCustomerApp"
+  | "configureStorefrontAuth"
+  | "configureAdminAuth"
+  | "verifyLogtoReadiness"
   | "provisionUmamiWebsite"
   | "configureStorefrontTracking"
   | "configureAdminAnalytics"
@@ -22,7 +26,7 @@ export interface NewStoreProvisioningHookDefinition {
 
 export interface NewStoreProvisioningHookResult {
   key: NewStoreProvisioningHookKey;
-  status: "planned";
+  status: "planned" | "configured";
   message: string;
 }
 
@@ -55,15 +59,36 @@ export const NEW_STORE_STANDARD_PROVISIONING_HOOKS: NewStoreProvisioningHookDefi
   {
     key: "provisionLogtoAdminApp",
     label: "Logto admin app bootstrap",
-    status: "planned",
-    createsLiveResource: true,
+    status: "implemented",
+    createsLiveResource: false,
     nextPackage: "Package 3",
   },
   {
     key: "provisionLogtoCustomerApp",
     label: "Logto customer app bootstrap",
-    status: "planned",
-    createsLiveResource: true,
+    status: "implemented",
+    createsLiveResource: false,
+    nextPackage: "Package 3",
+  },
+  {
+    key: "configureStorefrontAuth",
+    label: "Storefront Logto runtime config",
+    status: "implemented",
+    createsLiveResource: false,
+    nextPackage: "Package 3",
+  },
+  {
+    key: "configureAdminAuth",
+    label: "Admin Logto runtime config",
+    status: "implemented",
+    createsLiveResource: false,
+    nextPackage: "Package 3",
+  },
+  {
+    key: "verifyLogtoReadiness",
+    label: "Logto redirect/logout readiness model",
+    status: "implemented",
+    createsLiveResource: false,
     nextPackage: "Package 3",
   },
   {
@@ -113,6 +138,9 @@ export const NEW_STORE_SMOKE_CHECKLIST: NewStoreSmokeChecklistItem[] = [
   { area: "storefront", key: "register", label: "Customer register page", target: "/kayit", expectation: "http_200" },
   { area: "storefront", key: "forgot_password", label: "Customer forgot password page", target: "/sifremi-unuttum", expectation: "http_200" },
   { area: "admin", key: "admin_login", label: "Admin login page", target: "/admin/login", expectation: "http_200" },
+  { area: "admin", key: "admin_sign_in_route", label: "Admin Logto sign-in redirect", target: "/api/auth/sign-in?next=%2Fadmin", expectation: "http_307" },
+  { area: "admin", key: "admin_callback_domain", label: "Admin callback uses public domain", target: "https://admin.<domain>/callback", expectation: "runtime_ready" },
+  { area: "admin", key: "admin_logout_return", label: "Admin logout returns login", target: "/admin/login?logged_out=1", expectation: "runtime_ready" },
   { area: "admin", key: "admin_runtime", label: "Admin runtime uses Logto/light_postgres", target: "runtime", expectation: "runtime_ready" },
   { area: "admin", key: "admin_me", label: "Authenticated admin identity", target: "/api/admin/me", expectation: "http_200" },
   { area: "admin", key: "admin_crud", label: "Products/categories/settings CRUD opens", target: "admin_core_tables", expectation: "runtime_ready" },
@@ -120,6 +148,9 @@ export const NEW_STORE_SMOKE_CHECKLIST: NewStoreSmokeChecklistItem[] = [
   { area: "auth", key: "customer_sign_in", label: "Customer sign-in redirect", target: "customer_sign_in", expectation: "http_307" },
   { area: "auth", key: "google_sign_in", label: "Google sign-in redirect", target: "google_sign_in", expectation: "http_307" },
   { area: "auth", key: "forgot_password_redirect", label: "Forgot password redirect", target: "forgot_password", expectation: "http_307" },
+  { area: "auth", key: "customer_email_sign_in", label: "Customer email sign-in redirects to Logto", target: "email_sign_in", expectation: "http_307" },
+  { area: "auth", key: "customer_logout", label: "Customer logout returns account login", target: "/giris?next=/hesap&logged_out=1", expectation: "runtime_ready" },
+  { area: "auth", key: "anonymous_account", label: "Anonymous account API is unauthorized", target: "/api/account", expectation: "safe_state" },
   { area: "auth", key: "logout", label: "Admin and customer logout", target: "logout", expectation: "runtime_ready" },
   { area: "auth", key: "no_localhost", label: "No localhost/0.0.0.0/:3000 callback URI", target: "logto_redirect_uris", expectation: "runtime_ready" },
   { area: "analytics", key: "script_loaded", label: "Umami script loaded", target: "umami_script", expectation: "runtime_ready" },
@@ -148,11 +179,48 @@ export async function provisionR2(store: StoreConfig): Promise<NewStoreProvision
 }
 
 export async function provisionLogtoAdminApp(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
-  return plannedHookResult("provisionLogtoAdminApp", store);
+  const result = await provisionLogtoAppsForStore(store);
+  return {
+    key: "provisionLogtoAdminApp",
+    status: "configured",
+    message: `Admin Logto config generated for ${store.slug}: ${result.adminConfigPath}`,
+  };
 }
 
 export async function provisionLogtoCustomerApp(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
-  return plannedHookResult("provisionLogtoCustomerApp", store);
+  const result = await provisionLogtoAppsForStore(store);
+  return {
+    key: "provisionLogtoCustomerApp",
+    status: "configured",
+    message: `Customer Logto config generated for ${store.slug}: ${result.customerConfigPath}`,
+  };
+}
+
+export async function configureStorefrontAuth(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
+  const result = await provisionLogtoAppsForStore(store);
+  return {
+    key: "configureStorefrontAuth",
+    status: "configured",
+    message: `Storefront Logto redirect/logout metadata ready: ${result.config.customerApp.redirectUris.join(", ")}`,
+  };
+}
+
+export async function configureAdminAuth(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
+  const result = await provisionLogtoAppsForStore(store);
+  return {
+    key: "configureAdminAuth",
+    status: "configured",
+    message: `Admin Logto redirect/logout metadata ready: ${result.config.adminApp.redirectUris.join(", ")}`,
+  };
+}
+
+export async function verifyLogtoReadiness(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
+  const result = await provisionLogtoAppsForStore(store);
+  return {
+    key: "verifyLogtoReadiness",
+    status: "configured",
+    message: `Logto readiness pending apply; Google=${result.googleSignIn}, emailRecovery=${result.emailRecovery}.`,
+  };
 }
 
 export async function provisionUmamiWebsite(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {

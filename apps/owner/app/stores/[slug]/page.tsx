@@ -161,6 +161,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const authSignal = setupSignals.find((signal) => signal.key === "auth");
   const analyticsSignal = setupSignals.find((signal) => signal.key === "analytics");
   const paymentSignal = setupSignals.find((signal) => signal.key === "payment");
+  const logto = store.logto;
+  const logtoAdminRedirectCount = logto?.adminRedirectUris?.length ?? 0;
+  const logtoAdminLogoutCount = logto?.adminPostLogoutRedirectUris?.length ?? 0;
+  const logtoCustomerRedirectCount = logto?.customerRedirectUris?.length ?? 0;
+  const logtoCustomerLogoutCount = logto?.customerPostLogoutRedirectUris?.length ?? 0;
   const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
   const orphanedTargetCount = cleanupRuns.reduce(
     (total, run) =>
@@ -382,6 +387,47 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           repairDisabled={repairDisabled}
           repairDisabledReason={repairDisabledReason}
         />
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="Logto kimlik doğrulama"
+            copy="Yeni Standart mağazalarda admin ve müşteri giriş uygulamaları ayrı Logto config olarak hazırlanır."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Admin uygulaması</span>
+                <strong>{logto?.adminAppStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{logto?.adminBootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Müşteri uygulaması</span>
+                <strong>{logto?.customerAppStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{logto?.customerBootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Redirect URI</span>
+                <strong>{logtoAdminRedirectCount + logtoCustomerRedirectCount} kayıt</strong>
+                <p>Admin ve müşteri callback domainleri public HTTPS olarak tutulur.</p>
+              </article>
+              <article>
+                <span>Çıkış yönlendirmeleri</span>
+                <strong>{logtoAdminLogoutCount + logtoCustomerLogoutCount} kayıt</strong>
+                <p>Admin login ve müşteri hesap dönüşleri hazır.</p>
+              </article>
+              <article>
+                <span>Google ile giriş</span>
+                <strong>{logto?.googleSignIn === "enabled" ? "Aktif" : "Bekliyor"}</strong>
+                <p>Central connector hazır olunca customer app kullanabilir.</p>
+              </article>
+              <article>
+                <span>Şifre sıfırlama</span>
+                <strong>{logto?.emailRecovery === "enabled" ? "Aktif" : "Bekliyor"}</strong>
+                <p>SMTP recovery connector hazır olunca akış açılır.</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
       </section>
 
       <section id="domain-deploy" className="store-detail-section">

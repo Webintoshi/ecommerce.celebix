@@ -23,6 +23,7 @@ import {
   type StoreAuthConfig,
   type StoreConfig,
   type DatabaseMode,
+  type StoreLogtoConfig,
   type StorePaymentsConfig,
   type StorefrontStatus
 } from "@celebix/platform-config";
@@ -354,6 +355,7 @@ export interface DashboardStoreSummary {
   storeAdminCount: number;
   management: StoreManagementProfile;
   setup: StoreSetupSummary;
+  logto?: StoreLogtoConfig | null;
   health: StoreHealthSummary;
   consistency: StoreConsistencySummary;
   provisioning: StoreProvisioningSummary;
@@ -3519,6 +3521,7 @@ async function buildDashboardStoreSummaries(
           storefrontStatus: resolveOwnerStorefrontStatus(store)
         }),
         setup,
+        logto: storeConfig?.logto ?? null,
         provisioning,
         domainMigration,
         health,

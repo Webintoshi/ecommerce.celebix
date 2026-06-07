@@ -269,7 +269,35 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
             ? "pending"
             : "skipped",
       adminAppId: readOptionalString(logto.adminAppId),
+      adminClientId: readOptionalString(logto.adminClientId),
       customerAppId: readOptionalString(logto.customerAppId),
+      customerClientId: readOptionalString(logto.customerClientId),
+      adminIssuer: readOptionalString(logto.adminIssuer) ?? "https://auth.celebix.co/oidc",
+      customerIssuer: readOptionalString(logto.customerIssuer) ?? "https://auth.celebix.co/oidc",
+      adminRedirectUris: readStringArray(logto.adminRedirectUris),
+      adminPostLogoutRedirectUris: readStringArray(logto.adminPostLogoutRedirectUris),
+      adminOrigins: readStringArray(logto.adminOrigins),
+      customerRedirectUris: readStringArray(logto.customerRedirectUris),
+      customerPostLogoutRedirectUris: readStringArray(logto.customerPostLogoutRedirectUris),
+      customerOrigins: readStringArray(logto.customerOrigins),
+      googleSignIn:
+        readOptionalString(logto.googleSignIn) === "enabled" ||
+        readOptionalString(logto.googleSignIn) === "unavailable"
+          ? (readOptionalString(logto.googleSignIn) as "enabled" | "unavailable")
+          : "pending",
+      emailRecovery:
+        readOptionalString(logto.emailRecovery) === "enabled" ||
+        readOptionalString(logto.emailRecovery) === "unavailable"
+          ? (readOptionalString(logto.emailRecovery) as "enabled" | "unavailable")
+          : "pending",
+      adminBootstrapConfigPath: readOptionalString(logto.adminBootstrapConfigPath) ?? undefined,
+      customerBootstrapConfigPath: readOptionalString(logto.customerBootstrapConfigPath) ?? undefined,
+      bootstrapApplyState:
+        readOptionalString(logto.bootstrapApplyState) === "applied" ||
+        readOptionalString(logto.bootstrapApplyState) === "failed"
+          ? (readOptionalString(logto.bootstrapApplyState) as "applied" | "failed")
+          : "pending",
+      lastProvisionError: readOptionalString(logto.lastProvisionError) ?? undefined,
     },
     umami: {
       websiteStatus:

@@ -32,6 +32,10 @@ import {
   getLightPostgresBootstrapStatus,
   provisionLightPostgresForStore,
 } from "@/lib/light-postgres-provisioning";
+import {
+  getLogtoBootstrapStatus,
+  provisionLogtoAppsForStore,
+} from "@/lib/logto-provisioning";
 import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
@@ -657,6 +661,19 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
     return `Starter source erisilebilir: ${sourceBase}`;
   });
 
+  await runPreflightStep(tracker, "auth_setup", async () => {
+    const store = repairStoreConfig(input.slug);
+
+    if (store.databaseMode !== "light_postgres") {
+      return "Legacy Supabase auth store runtime icinde ele alinir.";
+    }
+
+    const status = getLogtoBootstrapStatus();
+    return status.configured
+      ? "Logto management authority apply-ready durumda."
+      : status.lastError || "Logto config generation pending apply modunda calisacak.";
+  });
+
   await runPreflightStep(tracker, "generated_apps_toggle", async () => {
     if (!shouldAutoProvisionGeneratedApps()) {
       throw new Error("Generated app provisioning owner env tarafinda kapali.");
@@ -1201,11 +1218,10 @@ export async function runStoreProvisioningWorkflow(
         const store = repairStoreConfig(input.slug);
 
         if (store.databaseMode === "light_postgres") {
-          if (isPendingAuthSetup(store)) {
-            return "Logto-ready auth placeholder owner authority icinde kayitli.";
-          }
+          const result = await provisionLogtoAppsForStore(store);
+          await syncOwnerStoresAndMetrics();
 
-          return "Light Postgres auth authority hazir.";
+          return `Logto admin/customer app config hazirlandi: ${result.adminConfigPath}, ${result.customerConfigPath}`;
         }
 
         return "Supabase auth store ile birlikte hazir.";

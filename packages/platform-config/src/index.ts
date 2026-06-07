@@ -96,6 +96,8 @@ export interface StoreLightPostgresConfig {
 export type StoreAuthProvider = "logto" | "supabase";
 export type StoreAuthStatus = "pending_auth_setup" | "configured";
 export type StoreAuthMode = "logto_ready_placeholder" | "legacy_supabase_auth";
+export type StoreLogtoConnectorStatus = "enabled" | "pending" | "unavailable";
+export type StoreLogtoBootstrapApplyState = "pending" | "applied" | "failed";
 
 export interface StoreAuthConfig {
   provider: StoreAuthProvider;
@@ -122,7 +124,23 @@ export interface StoreLogtoConfig {
   adminAppStatus: StoreStandardResourceStatus;
   customerAppStatus: StoreStandardResourceStatus;
   adminAppId?: string | null;
+  adminClientId?: string | null;
   customerAppId?: string | null;
+  customerClientId?: string | null;
+  adminIssuer?: string;
+  customerIssuer?: string;
+  adminRedirectUris?: string[];
+  adminPostLogoutRedirectUris?: string[];
+  adminOrigins?: string[];
+  customerRedirectUris?: string[];
+  customerPostLogoutRedirectUris?: string[];
+  customerOrigins?: string[];
+  googleSignIn?: StoreLogtoConnectorStatus;
+  emailRecovery?: StoreLogtoConnectorStatus;
+  adminBootstrapConfigPath?: string;
+  customerBootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreLogtoBootstrapApplyState;
+  lastProvisionError?: string;
 }
 
 export interface StoreUmamiConfig {
@@ -322,6 +340,30 @@ export interface StoreLightPostgresUpdateInput {
   lastReadinessError?: string | null;
 }
 
+export interface StoreLogtoUpdateInput {
+  adminAppStatus?: StoreStandardResourceStatus;
+  customerAppStatus?: StoreStandardResourceStatus;
+  adminAppId?: string | null;
+  adminClientId?: string | null;
+  customerAppId?: string | null;
+  customerClientId?: string | null;
+  adminIssuer?: string;
+  customerIssuer?: string;
+  adminRedirectUris?: string[];
+  adminPostLogoutRedirectUris?: string[];
+  adminOrigins?: string[];
+  customerRedirectUris?: string[];
+  customerPostLogoutRedirectUris?: string[];
+  customerOrigins?: string[];
+  googleSignIn?: StoreLogtoConnectorStatus;
+  emailRecovery?: StoreLogtoConnectorStatus;
+  adminBootstrapConfigPath?: string;
+  customerBootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreLogtoBootstrapApplyState;
+  lastProvisionError?: string | null;
+  authStatus?: StoreAuthStatus;
+}
+
 export interface StoreR2UpdateInput {
   bucketName: string;
   publicUrl: string;
@@ -416,6 +458,51 @@ function resolveAdminDomain(storefrontDomain: string): string {
 
 export function getStoreAdminDomainForStorefrontDomain(storefrontDomain: string): string {
   return resolveAdminDomain(storefrontDomain);
+}
+
+function buildHttpsOrigin(domain: string): string {
+  return `https://${ensureDomain(domain)}`;
+}
+
+function buildStoreLogtoConfig(input: {
+  databaseMode: DatabaseMode;
+  slug: string;
+  storefrontDomain: string;
+  adminDomain: string;
+}): StoreLogtoConfig {
+  const status: StoreStandardResourceStatus =
+    input.databaseMode === "light_postgres" ? "pending" : "skipped";
+  const storefrontOrigin = buildHttpsOrigin(input.storefrontDomain);
+  const adminOrigin = buildHttpsOrigin(input.adminDomain);
+  const issuer = "https://auth.celebix.co/oidc";
+
+  return {
+    adminAppStatus: status,
+    customerAppStatus: status,
+    adminAppId: null,
+    adminClientId: null,
+    customerAppId: null,
+    customerClientId: null,
+    adminIssuer: issuer,
+    customerIssuer: issuer,
+    adminRedirectUris: [`${adminOrigin}/callback`],
+    adminPostLogoutRedirectUris: [
+      `${adminOrigin}/admin/login`,
+      `${adminOrigin}/admin/login?logged_out=1`,
+    ],
+    adminOrigins: [adminOrigin],
+    customerRedirectUris: [`${storefrontOrigin}/callback`],
+    customerPostLogoutRedirectUris: [
+      storefrontOrigin,
+      `${storefrontOrigin}/giris?next=/hesap&logged_out=1`,
+    ],
+    customerOrigins: [storefrontOrigin],
+    googleSignIn: input.databaseMode === "light_postgres" ? "pending" : "unavailable",
+    emailRecovery: input.databaseMode === "light_postgres" ? "pending" : "unavailable",
+    adminBootstrapConfigPath: `infra/logto/bootstrap/generated/${input.slug}-admin.application.json`,
+    customerBootstrapConfigPath: `infra/logto/bootstrap/generated/${input.slug}-customer.application.json`,
+    bootstrapApplyState: input.databaseMode === "light_postgres" ? "pending" : "applied",
+  };
 }
 
 function findRepoRoot(startDirectory = process.cwd()): string {
@@ -819,7 +906,12 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     },
     auth: buildDefaultStoreAuthConfig(databaseMode),
     analytics: buildDefaultStoreAnalyticsConfig(),
-    logto: buildDefaultStoreLogtoConfig(databaseMode),
+    logto: buildStoreLogtoConfig({
+      databaseMode,
+      slug: input.slug,
+      storefrontDomain: input.domain,
+      adminDomain,
+    }),
     umami: buildDefaultStoreUmamiConfig(),
     readiness: buildDefaultStoreReadinessConfig(),
     payments: buildDefaultStorePaymentsConfig(),
@@ -1272,12 +1364,47 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     requiredAction: config.analytics?.requiredAction ?? defaultAnalytics.requiredAction,
     blocking: config.analytics?.blocking ?? false,
   } satisfies NonNullable<StoreConfig["analytics"]>;
-  const defaultLogto = buildDefaultStoreLogtoConfig(databaseMode);
+  const defaultLogto = buildStoreLogtoConfig({
+    databaseMode,
+    slug: config.slug,
+    storefrontDomain: normalizedDomains.storefront,
+    adminDomain: normalizedDomains.admin,
+  });
   const normalizedLogto = {
     adminAppStatus: config.logto?.adminAppStatus ?? defaultLogto.adminAppStatus,
     customerAppStatus: config.logto?.customerAppStatus ?? defaultLogto.customerAppStatus,
     adminAppId: normalizeOptionalString(config.logto?.adminAppId) ?? null,
+    adminClientId: normalizeOptionalString(config.logto?.adminClientId) ?? null,
     customerAppId: normalizeOptionalString(config.logto?.customerAppId) ?? null,
+    customerClientId: normalizeOptionalString(config.logto?.customerClientId) ?? null,
+    adminIssuer: normalizeOptionalString(config.logto?.adminIssuer) ?? defaultLogto.adminIssuer,
+    customerIssuer: normalizeOptionalString(config.logto?.customerIssuer) ?? defaultLogto.customerIssuer,
+    adminRedirectUris:
+      config.logto?.adminRedirectUris?.length ? config.logto.adminRedirectUris : defaultLogto.adminRedirectUris,
+    adminPostLogoutRedirectUris:
+      config.logto?.adminPostLogoutRedirectUris?.length
+        ? config.logto.adminPostLogoutRedirectUris
+        : defaultLogto.adminPostLogoutRedirectUris,
+    adminOrigins:
+      config.logto?.adminOrigins?.length ? config.logto.adminOrigins : defaultLogto.adminOrigins,
+    customerRedirectUris:
+      config.logto?.customerRedirectUris?.length ? config.logto.customerRedirectUris : defaultLogto.customerRedirectUris,
+    customerPostLogoutRedirectUris:
+      config.logto?.customerPostLogoutRedirectUris?.length
+        ? config.logto.customerPostLogoutRedirectUris
+        : defaultLogto.customerPostLogoutRedirectUris,
+    customerOrigins:
+      config.logto?.customerOrigins?.length ? config.logto.customerOrigins : defaultLogto.customerOrigins,
+    googleSignIn: config.logto?.googleSignIn ?? defaultLogto.googleSignIn,
+    emailRecovery: config.logto?.emailRecovery ?? defaultLogto.emailRecovery,
+    adminBootstrapConfigPath:
+      normalizeOptionalString(config.logto?.adminBootstrapConfigPath) ??
+      defaultLogto.adminBootstrapConfigPath,
+    customerBootstrapConfigPath:
+      normalizeOptionalString(config.logto?.customerBootstrapConfigPath) ??
+      defaultLogto.customerBootstrapConfigPath,
+    bootstrapApplyState: config.logto?.bootstrapApplyState ?? defaultLogto.bootstrapApplyState,
+    lastProvisionError: normalizeOptionalString(config.logto?.lastProvisionError),
   } satisfies NonNullable<StoreConfig["logto"]>;
   const defaultUmami = buildDefaultStoreUmamiConfig();
   const normalizedUmami = {
@@ -1315,7 +1442,11 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
         : defaultReadiness.storage),
     auth:
       config.readiness?.auth ??
-      (normalizedAuth.status === "configured" ? "ready" : defaultReadiness.auth),
+      (normalizedAuth.status === "configured" ||
+      (normalizedLogto.adminAppStatus === "configured" &&
+        normalizedLogto.customerAppStatus === "configured")
+        ? "ready"
+        : defaultReadiness.auth),
     analytics:
       config.readiness?.analytics ??
       (normalizedAnalytics.status === "configured" ? "ready" : defaultReadiness.analytics),
@@ -1829,6 +1960,97 @@ export function updateStoreLightPostgresConfig(
           : current.readiness?.databaseSmoke ?? "pending",
     },
   }));
+}
+
+export function updateStoreLogtoConfig(
+  slug: string,
+  input: StoreLogtoUpdateInput,
+): StoreConfig {
+  return updateStoreConfig(slug, (current) => {
+    const defaults = buildStoreLogtoConfig({
+      databaseMode: current.databaseMode,
+      slug: current.slug,
+      storefrontDomain: current.domains.storefront,
+      adminDomain: current.domains.admin,
+    });
+    const nextLogto = {
+      ...defaults,
+      ...(current.logto ?? {}),
+      adminAppStatus: input.adminAppStatus ?? current.logto?.adminAppStatus ?? defaults.adminAppStatus,
+      customerAppStatus:
+        input.customerAppStatus ?? current.logto?.customerAppStatus ?? defaults.customerAppStatus,
+      adminAppId:
+        input.adminAppId === null ? null : input.adminAppId ?? current.logto?.adminAppId ?? null,
+      adminClientId:
+        input.adminClientId === null ? null : input.adminClientId ?? current.logto?.adminClientId ?? null,
+      customerAppId:
+        input.customerAppId === null ? null : input.customerAppId ?? current.logto?.customerAppId ?? null,
+      customerClientId:
+        input.customerClientId === null
+          ? null
+          : input.customerClientId ?? current.logto?.customerClientId ?? null,
+      adminIssuer: input.adminIssuer ?? current.logto?.adminIssuer ?? defaults.adminIssuer,
+      customerIssuer: input.customerIssuer ?? current.logto?.customerIssuer ?? defaults.customerIssuer,
+      adminRedirectUris:
+        input.adminRedirectUris ?? current.logto?.adminRedirectUris ?? defaults.adminRedirectUris,
+      adminPostLogoutRedirectUris:
+        input.adminPostLogoutRedirectUris ??
+        current.logto?.adminPostLogoutRedirectUris ??
+        defaults.adminPostLogoutRedirectUris,
+      adminOrigins: input.adminOrigins ?? current.logto?.adminOrigins ?? defaults.adminOrigins,
+      customerRedirectUris:
+        input.customerRedirectUris ?? current.logto?.customerRedirectUris ?? defaults.customerRedirectUris,
+      customerPostLogoutRedirectUris:
+        input.customerPostLogoutRedirectUris ??
+        current.logto?.customerPostLogoutRedirectUris ??
+        defaults.customerPostLogoutRedirectUris,
+      customerOrigins:
+        input.customerOrigins ?? current.logto?.customerOrigins ?? defaults.customerOrigins,
+      googleSignIn: input.googleSignIn ?? current.logto?.googleSignIn ?? defaults.googleSignIn,
+      emailRecovery: input.emailRecovery ?? current.logto?.emailRecovery ?? defaults.emailRecovery,
+      adminBootstrapConfigPath:
+        input.adminBootstrapConfigPath ??
+        current.logto?.adminBootstrapConfigPath ??
+        defaults.adminBootstrapConfigPath,
+      customerBootstrapConfigPath:
+        input.customerBootstrapConfigPath ??
+        current.logto?.customerBootstrapConfigPath ??
+        defaults.customerBootstrapConfigPath,
+      bootstrapApplyState:
+        input.bootstrapApplyState ?? current.logto?.bootstrapApplyState ?? defaults.bootstrapApplyState,
+      lastProvisionError:
+        input.lastProvisionError === null
+          ? undefined
+          : input.lastProvisionError ?? current.logto?.lastProvisionError,
+    } satisfies NonNullable<StoreConfig["logto"]>;
+    const authStatus =
+      input.authStatus ??
+      (nextLogto.adminAppStatus === "configured" && nextLogto.customerAppStatus === "configured"
+        ? "configured"
+        : current.auth?.status ?? "pending_auth_setup");
+
+    return {
+      ...current,
+      authProvider: "logto",
+      customerAuthProvider: "logto",
+      logto: nextLogto,
+      auth: {
+        ...(current.auth ?? buildDefaultStoreAuthConfig(current.databaseMode)),
+        provider: "logto",
+        status: authStatus,
+        mode: "logto_ready_placeholder",
+        requiredAction:
+          authStatus === "configured"
+            ? "logto_admin_and_customer_apps_configured"
+            : "configure_admin_and_customer_auth",
+        blocking: false,
+      },
+      readiness: {
+        ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+        auth: authStatus === "configured" ? "ready" : "pending",
+      },
+    };
+  });
 }
 
 export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdminDeploymentUpdateInput): StoreConfig {
