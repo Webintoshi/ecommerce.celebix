@@ -151,6 +151,8 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
   const analytics = asRecord(metadata.analytics);
   const logto = asRecord(metadata.logto);
   const umami = asRecord(metadata.umami);
+  const r2 = asRecord(metadata.r2);
+  const media = asRecord(metadata.media);
   const readiness = asRecord(metadata.readiness);
   const payments = asRecord(metadata.payments);
   const defaultAuth = buildDefaultStoreAuthConfig(databaseMode);
@@ -404,14 +406,86 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
     },
     r2: {
       status: row.r2_bucket_name ? "configured" : newStandardSelected ? "pending" : "skipped",
-      bucketName: row.r2_bucket_name ?? undefined,
-      publicUrl: row.r2_public_url ?? undefined,
-      managedDomain: row.r2_managed_domain ?? undefined,
+      bucketName: row.r2_bucket_name ?? readOptionalString(r2.bucketName) ?? undefined,
+      publicUrl: row.r2_public_url ?? readOptionalString(r2.publicUrl) ?? undefined,
+      managedDomain: row.r2_managed_domain ?? readOptionalString(r2.managedDomain) ?? undefined,
+      endpoint: readOptionalString(r2.endpoint) ?? undefined,
+      region: readOptionalString(r2.region) ?? "auto",
+      prefix: readOptionalString(r2.prefix) ?? `stores/${row.slug}/`,
+      uploadPrefix: readOptionalString(r2.uploadPrefix) ?? `stores/${row.slug}/uploads/`,
+      productImagesPrefix:
+        readOptionalString(r2.productImagesPrefix) ?? `stores/${row.slug}/products/`,
+      pageImagesPrefix: readOptionalString(r2.pageImagesPrefix) ?? `stores/${row.slug}/pages/`,
+      brandingPrefix: readOptionalString(r2.brandingPrefix) ?? `stores/${row.slug}/branding/`,
+      publicUrlTemplate:
+        readOptionalString(r2.publicUrlTemplate) ??
+        (row.r2_public_url ? `${row.r2_public_url.replace(/\/+$/, "")}/{key}` : undefined),
+      adminUploadStatus:
+        readOptionalString(r2.adminUploadStatus) === "configured" ||
+        readOptionalString(r2.adminUploadStatus) === "failed"
+          ? (readOptionalString(r2.adminUploadStatus) as "configured" | "failed")
+          : "pending",
+      storefrontReadStatus:
+        readOptionalString(r2.storefrontReadStatus) === "configured" ||
+        readOptionalString(r2.storefrontReadStatus) === "failed"
+          ? (readOptionalString(r2.storefrontReadStatus) as "configured" | "failed")
+          : "pending",
+      credentialsStatus:
+        readOptionalString(r2.credentialsStatus) === "configured" ||
+        readOptionalString(r2.credentialsStatus) === "not-required"
+          ? (readOptionalString(r2.credentialsStatus) as "configured" | "not-required")
+          : "pending-owner-env",
+      bootstrapConfigPath:
+        readOptionalString(r2.bootstrapConfigPath) ?? `infra/r2/bootstrap/generated/${row.slug}.storage.json`,
+      bootstrapApplyState:
+        readOptionalString(r2.bootstrapApplyState) === "applied" ||
+        readOptionalString(r2.bootstrapApplyState) === "failed"
+          ? (readOptionalString(r2.bootstrapApplyState) as "applied" | "failed")
+          : "pending",
+      noSupabaseStorage:
+        typeof r2.noSupabaseStorage === "boolean" ? Boolean(r2.noSupabaseStorage) : newStandardSelected,
       provisionedAt: readOptionalString(bootstrap.provisionedAt) ?? row.updated_at,
       lastProvisionError: readOptionalString(bootstrap.lastProvisionError) ?? undefined,
       provisioning:
         (readOptionalString(bootstrap.r2Provisioning) as "pending-owner-env" | "configured" | "failed" | null) ??
         (row.r2_bucket_name ? "configured" : "pending-owner-env"),
+    },
+    media: {
+      provider: "r2",
+      status: row.r2_bucket_name ? "configured" : newStandardSelected ? "pending" : "skipped",
+      publicBaseUrl:
+        row.r2_public_url ?? readOptionalString(media.publicBaseUrl) ?? readOptionalString(r2.publicUrl),
+      prefix: readOptionalString(media.prefix) ?? readOptionalString(r2.prefix) ?? `stores/${row.slug}/`,
+      uploadPrefix:
+        readOptionalString(media.uploadPrefix) ??
+        readOptionalString(r2.uploadPrefix) ??
+        `stores/${row.slug}/uploads/`,
+      productImagesPrefix:
+        readOptionalString(media.productImagesPrefix) ??
+        readOptionalString(r2.productImagesPrefix) ??
+        `stores/${row.slug}/products/`,
+      pageImagesPrefix:
+        readOptionalString(media.pageImagesPrefix) ??
+        readOptionalString(r2.pageImagesPrefix) ??
+        `stores/${row.slug}/pages/`,
+      brandingPrefix:
+        readOptionalString(media.brandingPrefix) ??
+        readOptionalString(r2.brandingPrefix) ??
+        `stores/${row.slug}/branding/`,
+      publicUrlTemplate:
+        readOptionalString(media.publicUrlTemplate) ?? readOptionalString(r2.publicUrlTemplate),
+      adminUploadStatus:
+        readOptionalString(media.adminUploadStatus) === "configured" ||
+        readOptionalString(media.adminUploadStatus) === "failed"
+          ? (readOptionalString(media.adminUploadStatus) as "configured" | "failed")
+          : "pending",
+      storefrontReadStatus:
+        readOptionalString(media.storefrontReadStatus) === "configured" ||
+        readOptionalString(media.storefrontReadStatus) === "failed"
+          ? (readOptionalString(media.storefrontReadStatus) as "configured" | "failed")
+          : "pending",
+      noSupabaseStorage:
+        typeof media.noSupabaseStorage === "boolean" ? Boolean(media.noSupabaseStorage) : newStandardSelected,
     },
     bootstrap: {
       createdAt: readOptionalString(bootstrap.createdAt) ?? row.created_at,

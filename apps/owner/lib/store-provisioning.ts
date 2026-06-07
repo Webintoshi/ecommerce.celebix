@@ -13,7 +13,6 @@ import {
   recordOwnerAuditLog,
   syncOwnerStoresAndMetrics,
   updateOwnerStoreBootstrapHealthAuthority,
-  updateOwnerStoreR2Authority,
   updateStoreManagementProfile,
 } from "@/lib/control-plane";
 import type { OwnerAuthContext } from "@/lib/owner-auth";
@@ -41,7 +40,10 @@ import {
   provisionUmamiForStore,
 } from "@/lib/umami-provisioning";
 import { isOwnerActionDisabled } from "@/lib/preview-mode";
-import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
+import {
+  getR2MediaBootstrapStatus,
+  provisionR2MediaForStore,
+} from "@/lib/r2-provisioning";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import {
   createDefaultProvisioningSteps,
@@ -222,14 +224,10 @@ export async function validateProvisioningEnvironmentReadiness(
   }
 
   try {
-    const status = await getR2BootstrapStatus();
-
-    if (!status.configured) {
-      errors.push(status.lastError || "R2 bootstrap authority eksik.");
-    }
+    getR2MediaBootstrapStatus();
   } catch (error) {
     errors.push(
-      `R2 bootstrap authority dogrulanamadi: ${
+      `R2 media config dogrulanamadi: ${
         error instanceof Error ? error.message : "bilinmeyen hata"
       }`,
     );
@@ -611,13 +609,10 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   });
 
   await runPreflightStep(tracker, "r2_preflight", async () => {
-    const status = await getR2BootstrapStatus();
-
-    if (!status.configured) {
-      throw new Error(status.lastError || "R2 bootstrap authority eksik.");
-    }
-
-    return "R2 bootstrap hazir.";
+    const status = getR2MediaBootstrapStatus();
+    return status.configured
+      ? "R2 media authority hazir."
+      : status.lastError || "R2 media config pending apply modunda hazirlanacak.";
   });
 
   await runPreflightStep(tracker, "coolify_preflight", async () => {
@@ -1113,14 +1108,9 @@ export async function runStoreProvisioningWorkflow(
       "r2_provision",
       async () => {
         const store = repairStoreConfig(input.slug);
-        const result = await provisionR2ForStore(store);
-        await updateOwnerStoreR2Authority(input.slug, {
-          bucketName: result.bucketName,
-          publicUrl: result.publicUrl,
-          managedDomain: result.managedDomain,
-        });
+        const result = await provisionR2MediaForStore(store);
         await syncOwnerStoresAndMetrics();
-        return `R2 bucket hazir: ${result.bucketName}`;
+        return `R2 media config hazirlandi: ${result.configPath}; bucket=${result.bucketName ? "configured" : "pending"}`;
       },
     ],
     [

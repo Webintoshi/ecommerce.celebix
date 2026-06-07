@@ -141,9 +141,11 @@ function getStorefrontHealth(store: DashboardStoreSummary) {
 function getProvisioningTone(state: DashboardStoreSummary["provisioning"]["state"]): OwnerTone {
   switch (state) {
     case "failed":
+    case "failed_storage":
       return "danger";
     case "pending_repair":
     case "pending_dns":
+    case "pending_storage":
     case "pending_auth":
     case "pending_analytics":
     case "pending_payment":

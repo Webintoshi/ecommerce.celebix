@@ -24,7 +24,9 @@ import {
   type StoreConfig,
   type DatabaseMode,
   type StoreLogtoConfig,
+  type StoreMediaConfig,
   type StorePaymentsConfig,
+  type StoreR2Config,
   type StoreUmamiConfig,
   type StorefrontStatus
 } from "@celebix/platform-config";
@@ -358,6 +360,8 @@ export interface DashboardStoreSummary {
   setup: StoreSetupSummary;
   logto?: StoreLogtoConfig | null;
   umami?: StoreUmamiConfig | null;
+  r2?: StoreR2Config | null;
+  media?: StoreMediaConfig | null;
   health: StoreHealthSummary;
   consistency: StoreConsistencySummary;
   provisioning: StoreProvisioningSummary;
@@ -3525,6 +3529,8 @@ async function buildDashboardStoreSummaries(
         setup,
         logto: storeConfig?.logto ?? null,
         umami: storeConfig?.umami ?? null,
+        r2: storeConfig?.r2 ?? null,
+        media: storeConfig?.media ?? null,
         provisioning,
         domainMigration,
         health,
@@ -4319,6 +4325,8 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     r2BucketName: storeRow.r2_bucket_name ?? storeConfig?.r2?.bucketName ?? null,
     r2PublicUrl: storeRow.r2_public_url ?? storeConfig?.r2?.publicUrl ?? null,
     r2ManagedDomain: storeRow.r2_managed_domain ?? storeConfig?.r2?.managedDomain ?? null,
+    r2: storeConfig?.r2 ?? null,
+    media: storeConfig?.media ?? null,
     bootstrap: normalizedBootstrap,
     storefront: normalizedStorefront,
     features: storeConfig?.features?.length ? storeConfig.features : metadataFeatures,

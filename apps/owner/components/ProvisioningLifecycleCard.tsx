@@ -218,13 +218,23 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
-  if (state === "pending_repair") {
+  if (state === "pending_repair" || state === "failed_storage") {
     return {
       eyebrow: "Teknik mola",
       title: "Kurulum takıldı ama akış kontrol altında",
       body: currentStepLabel
         ? `${currentStepLabel} adımında duraksama var. Owner panel onarım akışını ve kalan adımları buradan yönetiyor.`
         : "Kurulum zincirinde düzeltilmesi gereken bir adım var. Owner panel geri kalan adımları kaybetmeden onarım akışını sürdürüyor.",
+    };
+  }
+
+  if (state === "pending_storage") {
+    return {
+      eyebrow: "R2 medya beklemede",
+      title: "Medya depolama standardı hazırlanıyor",
+      body: currentStepLabel
+        ? `${currentStepLabel} adımı R2 bucket/public URL veya server-side credential authority bekliyor.`
+        : "R2 bucket, prefix ve public media URL metadata hazırlandı; canlı apply veya env authority bekleniyor.",
     };
   }
 
@@ -328,6 +338,9 @@ function getStatusLabel(status: ProvisioningStepStatus): string {
 
 function getFocusedLifecycleStepKey(state: ProvisioningState): ProvisioningStepKey | null {
   switch (state) {
+    case "pending_storage":
+    case "failed_storage":
+      return "r2_provision";
     case "pending_auth":
       return "auth_setup";
     case "pending_analytics":

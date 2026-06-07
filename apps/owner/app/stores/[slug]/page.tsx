@@ -167,6 +167,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const logtoCustomerRedirectCount = logto?.customerRedirectUris?.length ?? 0;
   const logtoCustomerLogoutCount = logto?.customerPostLogoutRedirectUris?.length ?? 0;
   const umami = store.umami;
+  const r2 = store.r2;
+  const media = store.media;
   const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
   const orphanedTargetCount = cleanupRuns.reduce(
     (total, run) =>
@@ -466,6 +468,47 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                 <span>Store scope</span>
                 <strong>{umami?.domain || store.storefrontDomain}</strong>
                 <p>{umami?.timezone || "Europe/Istanbul"}</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="R2 medya depolama"
+            copy="Yeni Standart mağazalarda ürün, sayfa ve marka görselleri R2 public media authority üzerinden okunur; Supabase Storage kullanılmaz."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Bucket / public URL</span>
+                <strong>{r2?.bucketName ? "Tanımlı" : "Pending"}</strong>
+                <p>{r2?.publicUrl || "R2 public base URL owner env/apply bekliyor."}</p>
+              </article>
+              <article>
+                <span>Mağaza prefix</span>
+                <strong>{r2?.prefix || media?.prefix || `stores/${store.slug}/`}</strong>
+                <p>Her mağaza kendi prefix scope'u içinde tutulur.</p>
+              </article>
+              <article>
+                <span>Ürün görselleri</span>
+                <strong>{media?.productImagesPrefix || r2?.productImagesPrefix || `stores/${store.slug}/products/`}</strong>
+                <p>{media?.publicUrlTemplate || r2?.publicUrlTemplate || "Public URL template pending."}</p>
+              </article>
+              <article>
+                <span>Sayfa / marka görselleri</span>
+                <strong>{media?.pageImagesPrefix || r2?.pageImagesPrefix || `stores/${store.slug}/pages/`}</strong>
+                <p>{media?.brandingPrefix || r2?.brandingPrefix || `stores/${store.slug}/branding/`}</p>
+              </article>
+              <article>
+                <span>Admin upload</span>
+                <strong>{media?.adminUploadStatus === "configured" ? "Server hazır" : "Pending"}</strong>
+                <p>R2 credential sadece server-side kullanılır; browser'a secret taşınmaz.</p>
+              </article>
+              <article>
+                <span>Vitrin okuma</span>
+                <strong>{media?.storefrontReadStatus === "configured" ? "Aktif" : "Pending"}</strong>
+                <p>{media?.noSupabaseStorage !== false ? "Supabase Storage kullanılmıyor." : "Legacy storage kontrol edilmeli."}</p>
               </article>
             </div>
           </OwnerSectionCard>

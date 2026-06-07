@@ -1,10 +1,14 @@
 import type { StoreConfig } from "@celebix/platform-config";
 import { provisionLogtoAppsForStore } from "@/lib/logto-provisioning";
+import { provisionR2MediaForStore } from "@/lib/r2-provisioning";
 import { provisionUmamiForStore } from "@/lib/umami-provisioning";
 
 export type NewStoreProvisioningHookKey =
   | "provisionLightPostgres"
   | "provisionR2"
+  | "configureAdminMediaUpload"
+  | "configureStorefrontMediaRead"
+  | "verifyR2Readiness"
   | "provisionLogtoAdminApp"
   | "provisionLogtoCustomerApp"
   | "configureStorefrontAuth"
@@ -31,7 +35,14 @@ export interface NewStoreProvisioningHookResult {
   message: string;
 }
 
-export type NewStoreSmokeArea = "database" | "storefront" | "admin" | "auth" | "analytics" | "checkout";
+export type NewStoreSmokeArea =
+  | "database"
+  | "storefront"
+  | "admin"
+  | "auth"
+  | "analytics"
+  | "media"
+  | "checkout";
 export type NewStoreSmokeExpectation = "http_200" | "http_307" | "runtime_ready" | "safe_state";
 
 export interface NewStoreSmokeChecklistItem {
@@ -54,7 +65,28 @@ export const NEW_STORE_STANDARD_PROVISIONING_HOOKS: NewStoreProvisioningHookDefi
     key: "provisionR2",
     label: "R2 bucket/prefix/media authority provisioning",
     status: "implemented",
-    createsLiveResource: true,
+    createsLiveResource: false,
+    nextPackage: "Package 5",
+  },
+  {
+    key: "configureAdminMediaUpload",
+    label: "Admin R2 media upload metadata",
+    status: "implemented",
+    createsLiveResource: false,
+    nextPackage: "Package 5",
+  },
+  {
+    key: "configureStorefrontMediaRead",
+    label: "Storefront R2 media read metadata",
+    status: "implemented",
+    createsLiveResource: false,
+    nextPackage: "Package 5",
+  },
+  {
+    key: "verifyR2Readiness",
+    label: "R2 storage readiness model",
+    status: "implemented",
+    createsLiveResource: false,
     nextPackage: "Package 5",
   },
   {
@@ -163,6 +195,14 @@ export const NEW_STORE_SMOKE_CHECKLIST: NewStoreSmokeChecklistItem[] = [
   { area: "analytics", key: "token_server_only", label: "Umami token never reaches browser", target: "server_token_authority", expectation: "safe_state" },
   { area: "analytics", key: "store_scope", label: "Umami website scoped to canonical store domain", target: "canonical_domain", expectation: "runtime_ready" },
   { area: "analytics", key: "admin_analytics", label: "Admin analytics safe state or data", target: "admin_analytics", expectation: "safe_state" },
+  { area: "media", key: "storage_provider_r2", label: "Storage provider is R2", target: "storageProvider", expectation: "runtime_ready" },
+  { area: "media", key: "bucket_prefix_metadata", label: "R2 bucket/prefix metadata exists", target: "r2.bucketName,r2.prefix", expectation: "runtime_ready" },
+  { area: "media", key: "admin_upload_safe_state", label: "Admin media upload is server-side or safely pending", target: "admin_media_upload", expectation: "safe_state" },
+  { area: "media", key: "server_credentials_only", label: "R2 credentials never reach browser", target: "r2_server_credentials", expectation: "safe_state" },
+  { area: "media", key: "storefront_public_url", label: "Storefront product image URL uses public R2 base", target: "media.publicUrlTemplate", expectation: "runtime_ready" },
+  { area: "media", key: "placeholder_image", label: "Missing product image falls back safely", target: "product_image_placeholder", expectation: "safe_state" },
+  { area: "media", key: "no_supabase_storage_url", label: "No Supabase Storage URL is emitted", target: "supabase.storage", expectation: "safe_state" },
+  { area: "media", key: "public_base_url_valid", label: "R2 public base URL is valid or pending", target: "r2.publicUrl", expectation: "safe_state" },
   { area: "checkout", key: "checkout_render", label: "Checkout page renders", target: "/odeme", expectation: "http_200" },
   { area: "checkout", key: "payment_gateway_visible", label: "Payment gateway visible", target: "payment_gateway", expectation: "runtime_ready" },
   { area: "checkout", key: "no_supabase_write", label: "No Supabase write path", target: "checkout_database_mode", expectation: "runtime_ready" },
@@ -181,7 +221,43 @@ export async function provisionLightPostgres(store: StoreConfig): Promise<NewSto
 }
 
 export async function provisionR2(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
-  return plannedHookResult("provisionR2", store);
+  const result = await provisionR2MediaForStore(store);
+  return {
+    key: "provisionR2",
+    status: "configured",
+    message: `R2 media config generated for ${store.slug}: ${result.configPath}`,
+  };
+}
+
+export async function configureAdminMediaUpload(
+  store: StoreConfig,
+): Promise<NewStoreProvisioningHookResult> {
+  const result = await provisionR2MediaForStore(store);
+  return {
+    key: "configureAdminMediaUpload",
+    status: "configured",
+    message: `Admin media upload metadata ready: ${result.prefix}uploads/`,
+  };
+}
+
+export async function configureStorefrontMediaRead(
+  store: StoreConfig,
+): Promise<NewStoreProvisioningHookResult> {
+  const result = await provisionR2MediaForStore(store);
+  return {
+    key: "configureStorefrontMediaRead",
+    status: "configured",
+    message: `Storefront media read metadata ready: ${result.config.media.publicUrlTemplate ?? "pending public base URL"}`,
+  };
+}
+
+export async function verifyR2Readiness(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
+  const result = await provisionR2MediaForStore(store);
+  return {
+    key: "verifyR2Readiness",
+    status: "configured",
+    message: `R2 readiness ${result.storageStatus}; Supabase Storage disabled for ${store.slug}.`,
+  };
 }
 
 export async function provisionLogtoAdminApp(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {

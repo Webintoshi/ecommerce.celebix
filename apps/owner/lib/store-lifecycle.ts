@@ -14,12 +14,14 @@ export type ProvisioningState =
   | "storefront_ready"
   | "smoke_ready"
   | "pending_dns"
+  | "pending_storage"
   | "pending_auth"
   | "pending_analytics"
   | "pending_payment"
   | "pending_smoke"
   | "ready"
   | "pending_repair"
+  | "failed_storage"
   | "failed";
 export type ProvisioningStepStatus =
   | "pending"
@@ -162,12 +164,14 @@ function normalizeProvisioningState(value: unknown): ProvisioningState {
     value === "storefront_ready" ||
     value === "smoke_ready" ||
     value === "pending_dns" ||
+    value === "pending_storage" ||
     value === "pending_auth" ||
     value === "pending_analytics" ||
     value === "pending_payment" ||
     value === "pending_smoke" ||
     value === "ready" ||
     value === "pending_repair" ||
+    value === "failed_storage" ||
     value === "failed"
     ? value
     : "provisioning";
@@ -521,6 +525,10 @@ export function deriveProvisioningState(
   );
 
   if (blockers.length > 0) {
+    if (blockers.some((step) => step.key === "r2_preflight" || step.key === "r2_provision")) {
+      return options.terminalFailure ? "failed_storage" : "pending_storage";
+    }
+
     return options.terminalFailure ? "failed" : "pending_repair";
   }
 

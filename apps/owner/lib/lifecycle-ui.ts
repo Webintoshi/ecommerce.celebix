@@ -26,12 +26,14 @@ const PROVISIONING_LABELS: Record<ProvisioningState, string> = {
   storefront_ready: "vitrin hazır",
   smoke_ready: "smoke hazır",
   pending_dns: "dns bekliyor",
+  pending_storage: "depolama bekliyor",
   pending_auth: "auth bekliyor",
   pending_analytics: "analytics bekliyor",
   pending_payment: "ödeme bekliyor",
   pending_smoke: "smoke bekliyor",
   ready: "hazır",
   pending_repair: "onarım aksiyonu",
+  failed_storage: "depolama arızası",
   failed: "kritik arıza",
 };
 
@@ -47,6 +49,7 @@ export function getProvisioningToneClass(state: ProvisioningState): string {
     case "smoke_ready":
       return "provisioning-tone-ready";
     case "pending_dns":
+    case "pending_storage":
       return "provisioning-tone-pending_dns";
     case "pending_auth":
       return "provisioning-tone-pending_auth";
@@ -57,6 +60,7 @@ export function getProvisioningToneClass(state: ProvisioningState): string {
     case "pending_smoke":
       return "provisioning-tone-pending_analytics";
     case "failed":
+    case "failed_storage":
       return "provisioning-tone-failed";
     case "pending_repair":
       return "provisioning-tone-pending_repair";
