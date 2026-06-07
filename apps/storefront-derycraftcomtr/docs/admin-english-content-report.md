@@ -2,6 +2,8 @@
 
 This report lists content that should be reviewed in the admin/content sources after the storefront UI has been converted to English. No live database content was changed.
 
+Verification note: this file is safe to touch for deployment pipeline checks because it does not affect storefront runtime behavior.
+
 | Entity type | Field name | Current source | Admin managed? | English content needed? | Suggested English wording |
 | --- | --- | --- | --- | --- | --- |
 | product | name, description, shortDescription | Product records | Yes | Yes | Keep product names brand-safe; translate descriptions into concise English product benefits. |
