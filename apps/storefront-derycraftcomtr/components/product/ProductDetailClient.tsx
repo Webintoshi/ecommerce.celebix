@@ -334,7 +334,7 @@ export function ProductDetailClient({
             </div>
 
             <div className="space-y-5">
-              <h1 className="text-[23px] font-semibold leading-[1.15] tracking-tight text-neutral-900 sm:text-[24px] lg:text-[26px]">
+              <h1 className="text-[20px] font-semibold leading-[1.12] tracking-tight text-neutral-900 sm:text-[22px] lg:text-[24px] xl:text-[26px]">
                 {product.name}
               </h1>
 
