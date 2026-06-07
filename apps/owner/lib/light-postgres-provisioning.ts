@@ -15,6 +15,7 @@ export interface LightPostgresProvisioningStatus {
   hasAdminDatabaseUrl: boolean;
   hasRuntimeDatabaseTemplate: boolean;
   hasStoreRolePasswordTemplate: boolean;
+  requirements: LightPostgresEnvRequirementStatus[];
   schemaProfile: "storefront_core";
   lastError?: string;
 }
@@ -42,6 +43,17 @@ export interface LightPostgresReadinessResult {
   runtimeConnectReady: boolean;
   nextRepairAction: string | null;
   message: string;
+}
+
+export interface LightPostgresEnvRequirementStatus {
+  key: string;
+  aliases: string[];
+  required: boolean;
+  scope: "owner" | "generated-runtime";
+  usedBy: string;
+  missingBehavior: string;
+  secret: boolean;
+  present: boolean;
 }
 
 export const LIGHT_POSTGRES_SCHEMA_PROFILE = "storefront_core" as const;
@@ -120,11 +132,74 @@ function getAdminDatabaseUrl(): string {
 }
 
 function getRuntimeDatabaseUrlTemplate(): string | null {
-  return process.env.LIGHT_POSTGRES_DATABASE_URL_TEMPLATE?.trim() || null;
+  return (
+    process.env.LIGHT_POSTGRES_RUNTIME_DATABASE_URL_TEMPLATE?.trim() ||
+    process.env.LIGHT_POSTGRES_DATABASE_URL_TEMPLATE?.trim() ||
+    null
+  );
 }
 
 function getStoreRolePasswordTemplate(): string | null {
   return process.env.LIGHT_POSTGRES_STORE_ROLE_PASSWORD_TEMPLATE?.trim() || null;
+}
+
+export function getLightPostgresEnvRequirementStatus(): LightPostgresEnvRequirementStatus[] {
+  return [
+    {
+      key: "LIGHT_POSTGRES_ADMIN_DATABASE_URL",
+      aliases: [],
+      required: true,
+      scope: "owner",
+      usedBy: "Owner preflight, CREATE DATABASE, schema bootstrap, readiness checks",
+      missingBehavior: "Create/provision preflight fails before store artifacts or DB resources are created.",
+      secret: true,
+      present: Boolean(process.env.LIGHT_POSTGRES_ADMIN_DATABASE_URL?.trim()),
+    },
+    {
+      key: "LIGHT_POSTGRES_RUNTIME_DATABASE_URL_TEMPLATE",
+      aliases: ["LIGHT_POSTGRES_DATABASE_URL_TEMPLATE"],
+      required: true,
+      scope: "owner",
+      usedBy: "Per-store runtime DATABASE_URL generation with ${database}, ${role}, ${password}",
+      missingBehavior: "Create/provision preflight fails before store artifacts or DB resources are created.",
+      secret: true,
+      present: Boolean(getRuntimeDatabaseUrlTemplate()),
+    },
+    {
+      key: "LIGHT_POSTGRES_STORE_ROLE_PASSWORD_TEMPLATE",
+      aliases: [],
+      required: true,
+      scope: "owner",
+      usedBy: "Per-store runtime role password generation",
+      missingBehavior: "Create/provision preflight fails before store artifacts or DB resources are created.",
+      secret: true,
+      present: Boolean(getStoreRolePasswordTemplate()),
+    },
+    {
+      key: "CELEBIX_LIGHT_POSTGRES_CLUSTER",
+      aliases: [],
+      required: false,
+      scope: "owner",
+      usedBy: "Display/metadata cluster label",
+      missingBehavior: "Falls back to celebix-light-postgres.",
+      secret: false,
+      present: Boolean(process.env.CELEBIX_LIGHT_POSTGRES_CLUSTER?.trim()),
+    },
+    {
+      key: "LIGHT_POSTGRES_DEFAULT_SSLMODE",
+      aliases: ["LIGHT_POSTGRES_DATABASE_SSLMODE", "DATABASE_SSLMODE"],
+      required: false,
+      scope: "generated-runtime",
+      usedBy: "Postgres SSL option resolution",
+      missingBehavior: "Falls back to platform default SSL mode.",
+      secret: false,
+      present: Boolean(
+        process.env.LIGHT_POSTGRES_DEFAULT_SSLMODE?.trim() ||
+          process.env.LIGHT_POSTGRES_DATABASE_SSLMODE?.trim() ||
+          process.env.DATABASE_SSLMODE?.trim(),
+      ),
+    },
+  ];
 }
 
 function escapeSqlLiteral(value: string): string {
@@ -1107,15 +1182,16 @@ function writeOptionalAdminEnvLocal(
 }
 
 export async function getLightPostgresBootstrapStatus(): Promise<LightPostgresProvisioningStatus> {
-  const hasAdminDatabaseUrl = Boolean(process.env.LIGHT_POSTGRES_ADMIN_DATABASE_URL?.trim());
-  const hasRuntimeDatabaseTemplate = Boolean(getRuntimeDatabaseUrlTemplate());
-  const hasStoreRolePasswordTemplate = Boolean(getStoreRolePasswordTemplate());
-  const configured = hasAdminDatabaseUrl && hasRuntimeDatabaseTemplate && hasStoreRolePasswordTemplate;
-  const missing = [
-    hasAdminDatabaseUrl ? null : "LIGHT_POSTGRES_ADMIN_DATABASE_URL",
-    hasRuntimeDatabaseTemplate ? null : "LIGHT_POSTGRES_DATABASE_URL_TEMPLATE",
-    hasStoreRolePasswordTemplate ? null : "LIGHT_POSTGRES_STORE_ROLE_PASSWORD_TEMPLATE",
-  ].filter((value): value is string => Boolean(value));
+  const requirements = getLightPostgresEnvRequirementStatus();
+  const hasAdminDatabaseUrl = requirements.find((entry) => entry.key === "LIGHT_POSTGRES_ADMIN_DATABASE_URL")?.present ?? false;
+  const hasRuntimeDatabaseTemplate = requirements.find((entry) => entry.key === "LIGHT_POSTGRES_RUNTIME_DATABASE_URL_TEMPLATE")?.present ?? false;
+  const hasStoreRolePasswordTemplate = requirements.find((entry) => entry.key === "LIGHT_POSTGRES_STORE_ROLE_PASSWORD_TEMPLATE")?.present ?? false;
+  const missing = requirements
+    .filter((entry) => entry.required && !entry.present)
+    .map((entry) =>
+      entry.aliases.length > 0 ? `${entry.key} veya ${entry.aliases.join("/")}` : entry.key,
+    );
+  const configured = missing.length === 0;
 
   return {
     configured,
@@ -1123,6 +1199,7 @@ export async function getLightPostgresBootstrapStatus(): Promise<LightPostgresPr
     hasAdminDatabaseUrl,
     hasRuntimeDatabaseTemplate,
     hasStoreRolePasswordTemplate,
+    requirements,
     schemaProfile: LIGHT_POSTGRES_SCHEMA_PROFILE,
     lastError: configured
       ? undefined

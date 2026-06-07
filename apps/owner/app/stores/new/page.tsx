@@ -23,6 +23,13 @@ export default async function NewStorePage() {
   const createStoreDisabledReason =
     getOwnerPreviewDisabledNotice("create_store", previewFlags) ?? undefined;
   const lightPostgresBootstrap = await getLightPostgresBootstrapStatus();
+  const missingLightPostgresRequirements = lightPostgresBootstrap.requirements
+    .filter((requirement) => requirement.required && !requirement.present)
+    .map((requirement) =>
+      requirement.aliases.length > 0
+        ? `${requirement.key} veya ${requirement.aliases.join("/")}`
+        : requirement.key,
+    );
 
   return (
     <>
@@ -94,6 +101,17 @@ export default async function NewStorePage() {
         </aside>
 
         <div className="owner-wizard-form-panel">
+          {missingLightPostgresRequirements.length > 0 ? (
+            <div className="owner-action-panel tone-danger">
+              <div className="card-title">light_postgres preflight eksik</div>
+              <p className="section-copy">
+                Yeni mağaza oluşturma başlamadan önce owner runtime env kontrolü
+                başarısız olur. Secret değerler gösterilmez; eksik key aileleri:
+                {" "}
+                {missingLightPostgresRequirements.join(", ")}
+              </p>
+            </div>
+          ) : null}
           <CreateStoreForm
             ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
             storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}
