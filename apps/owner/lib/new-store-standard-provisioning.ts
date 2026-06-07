@@ -1,5 +1,6 @@
 import type { StoreConfig } from "@celebix/platform-config";
 import { provisionLogtoAppsForStore } from "@/lib/logto-provisioning";
+import { provisionUmamiForStore } from "@/lib/umami-provisioning";
 
 export type NewStoreProvisioningHookKey =
   | "provisionLightPostgres"
@@ -94,21 +95,21 @@ export const NEW_STORE_STANDARD_PROVISIONING_HOOKS: NewStoreProvisioningHookDefi
   {
     key: "provisionUmamiWebsite",
     label: "Umami website record bootstrap",
-    status: "planned",
-    createsLiveResource: true,
+    status: "implemented",
+    createsLiveResource: false,
     nextPackage: "Package 4",
   },
   {
     key: "configureStorefrontTracking",
     label: "Storefront Umami tracking runtime config",
-    status: "planned",
+    status: "implemented",
     createsLiveResource: false,
     nextPackage: "Package 4",
   },
   {
     key: "configureAdminAnalytics",
     label: "Admin analytics endpoint/widget runtime config",
-    status: "planned",
+    status: "implemented",
     createsLiveResource: false,
     nextPackage: "Package 4",
   },
@@ -155,7 +156,12 @@ export const NEW_STORE_SMOKE_CHECKLIST: NewStoreSmokeChecklistItem[] = [
   { area: "auth", key: "no_localhost", label: "No localhost/0.0.0.0/:3000 callback URI", target: "logto_redirect_uris", expectation: "runtime_ready" },
   { area: "analytics", key: "script_loaded", label: "Umami script loaded", target: "umami_script", expectation: "runtime_ready" },
   { area: "analytics", key: "website_id", label: "Umami websiteId exists", target: "umami_website_id", expectation: "runtime_ready" },
+  { area: "analytics", key: "storefront_html_script", label: "Storefront HTML contains Umami script", target: "script[data-website-id]", expectation: "runtime_ready" },
   { area: "analytics", key: "api_send", label: "Umami api/send accepted", target: "umami_api_send", expectation: "runtime_ready" },
+  { area: "analytics", key: "admin_analytics_page", label: "Admin analytics page renders", target: "/admin/analizler", expectation: "http_200" },
+  { area: "analytics", key: "admin_analytics_summary", label: "Admin analytics summary endpoint", target: "/api/admin/analytics/summary", expectation: "http_200" },
+  { area: "analytics", key: "token_server_only", label: "Umami token never reaches browser", target: "server_token_authority", expectation: "safe_state" },
+  { area: "analytics", key: "store_scope", label: "Umami website scoped to canonical store domain", target: "canonical_domain", expectation: "runtime_ready" },
   { area: "analytics", key: "admin_analytics", label: "Admin analytics safe state or data", target: "admin_analytics", expectation: "safe_state" },
   { area: "checkout", key: "checkout_render", label: "Checkout page renders", target: "/odeme", expectation: "http_200" },
   { area: "checkout", key: "payment_gateway_visible", label: "Payment gateway visible", target: "payment_gateway", expectation: "runtime_ready" },
@@ -224,15 +230,30 @@ export async function verifyLogtoReadiness(store: StoreConfig): Promise<NewStore
 }
 
 export async function provisionUmamiWebsite(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
-  return plannedHookResult("provisionUmamiWebsite", store);
+  const result = await provisionUmamiForStore(store);
+  return {
+    key: "provisionUmamiWebsite",
+    status: "configured",
+    message: `Umami website config generated for ${store.slug}: ${result.configPath}`,
+  };
 }
 
 export async function configureStorefrontTracking(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
-  return plannedHookResult("configureStorefrontTracking", store);
+  const result = await provisionUmamiForStore(store);
+  return {
+    key: "configureStorefrontTracking",
+    status: "configured",
+    message: `Storefront Umami tracking metadata ready: ${result.scriptUrl}`,
+  };
 }
 
 export async function configureAdminAnalytics(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {
-  return plannedHookResult("configureAdminAnalytics", store);
+  const result = await provisionUmamiForStore(store);
+  return {
+    key: "configureAdminAnalytics",
+    status: "configured",
+    message: `Admin analytics summary metadata ready: ${result.adminSummaryEndpoint}`,
+  };
 }
 
 export async function runNewStoreSmoke(store: StoreConfig): Promise<NewStoreProvisioningHookResult> {

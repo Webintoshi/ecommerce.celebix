@@ -110,6 +110,9 @@ export interface StoreAuthConfig {
 export type StoreAnalyticsProvider = "umami";
 export type StoreAnalyticsStatus = "pending_analytics_setup" | "configured";
 export type StoreAnalyticsMode = "umami_ready_placeholder";
+export type StoreUmamiTrackingStatus = "pending" | "configured" | "failed";
+export type StoreUmamiBootstrapApplyState = "pending" | "applied" | "failed";
+export type StoreUmamiTokenStatus = "pending-owner-env" | "configured" | "not-required";
 
 export interface StoreAnalyticsConfig {
   provider: StoreAnalyticsProvider;
@@ -146,6 +149,21 @@ export interface StoreLogtoConfig {
 export interface StoreUmamiConfig {
   websiteStatus: StoreStandardResourceStatus;
   websiteId?: string | null;
+  websiteName?: string;
+  domain?: string;
+  canonicalDomain?: string;
+  host?: string;
+  apiUrl?: string;
+  scriptUrl?: string;
+  timezone?: string;
+  storefrontTrackingStatus?: StoreUmamiTrackingStatus;
+  adminAnalyticsStatus?: StoreUmamiTrackingStatus;
+  serverTokenStatus?: StoreUmamiTokenStatus;
+  adminSummaryEndpoint?: string;
+  metrics?: string[];
+  bootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreUmamiBootstrapApplyState;
+  lastProvisionError?: string;
 }
 
 export interface StoreReadinessConfig {
@@ -364,6 +382,27 @@ export interface StoreLogtoUpdateInput {
   authStatus?: StoreAuthStatus;
 }
 
+export interface StoreUmamiUpdateInput {
+  websiteStatus?: StoreStandardResourceStatus;
+  websiteId?: string | null;
+  websiteName?: string;
+  domain?: string;
+  canonicalDomain?: string;
+  host?: string;
+  apiUrl?: string;
+  scriptUrl?: string;
+  timezone?: string;
+  storefrontTrackingStatus?: StoreUmamiTrackingStatus;
+  adminAnalyticsStatus?: StoreUmamiTrackingStatus;
+  serverTokenStatus?: StoreUmamiTokenStatus;
+  adminSummaryEndpoint?: string;
+  metrics?: string[];
+  bootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreUmamiBootstrapApplyState;
+  lastProvisionError?: string | null;
+  analyticsStatus?: StoreAnalyticsStatus;
+}
+
 export interface StoreR2UpdateInput {
   bucketName: string;
   publicUrl: string;
@@ -501,6 +540,47 @@ function buildStoreLogtoConfig(input: {
     emailRecovery: input.databaseMode === "light_postgres" ? "pending" : "unavailable",
     adminBootstrapConfigPath: `infra/logto/bootstrap/generated/${input.slug}-admin.application.json`,
     customerBootstrapConfigPath: `infra/logto/bootstrap/generated/${input.slug}-customer.application.json`,
+    bootstrapApplyState: input.databaseMode === "light_postgres" ? "pending" : "applied",
+  };
+}
+
+function buildStoreUmamiConfig(input: {
+  databaseMode: DatabaseMode;
+  slug: string;
+  storeName: string;
+  storefrontDomain: string;
+}): StoreUmamiConfig {
+  const status: StoreStandardResourceStatus =
+    input.databaseMode === "light_postgres" ? "pending" : "skipped";
+  const canonicalDomain = ensureDomain(input.storefrontDomain);
+  const host = "https://analytics.celebix.co";
+  const scriptUrl = `${host}/script.js`;
+
+  return {
+    websiteStatus: status,
+    websiteId: null,
+    websiteName: `${input.storeName} Storefront`,
+    domain: canonicalDomain,
+    canonicalDomain,
+    host,
+    apiUrl: `${host}/api`,
+    scriptUrl,
+    timezone: "Europe/Istanbul",
+    storefrontTrackingStatus: input.databaseMode === "light_postgres" ? "pending" : "configured",
+    adminAnalyticsStatus: input.databaseMode === "light_postgres" ? "pending" : "configured",
+    serverTokenStatus: input.databaseMode === "light_postgres" ? "pending-owner-env" : "not-required",
+    adminSummaryEndpoint: "/api/admin/analytics/summary",
+    metrics: [
+      "activeUsers",
+      "visitorsToday",
+      "pageviewsToday",
+      "visitors7d",
+      "pageviews7d",
+      "topPages",
+      "topProducts",
+      "referrers",
+    ],
+    bootstrapConfigPath: `infra/umami/bootstrap/generated/${input.slug}.website.json`,
     bootstrapApplyState: input.databaseMode === "light_postgres" ? "pending" : "applied",
   };
 }
@@ -912,7 +992,12 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       storefrontDomain: input.domain,
       adminDomain,
     }),
-    umami: buildDefaultStoreUmamiConfig(),
+    umami: buildStoreUmamiConfig({
+      databaseMode,
+      slug: input.slug,
+      storeName: input.name,
+      storefrontDomain: input.domain,
+    }),
     readiness: buildDefaultStoreReadinessConfig(),
     payments: buildDefaultStorePaymentsConfig(),
     supabase: {
@@ -1406,7 +1491,12 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     bootstrapApplyState: config.logto?.bootstrapApplyState ?? defaultLogto.bootstrapApplyState,
     lastProvisionError: normalizeOptionalString(config.logto?.lastProvisionError),
   } satisfies NonNullable<StoreConfig["logto"]>;
-  const defaultUmami = buildDefaultStoreUmamiConfig();
+  const defaultUmami = buildStoreUmamiConfig({
+    databaseMode,
+    slug: config.slug,
+    storeName: config.name,
+    storefrontDomain: normalizedDomains.storefront,
+  });
   const normalizedUmami = {
     websiteStatus:
       config.umami?.websiteStatus ??
@@ -1415,6 +1505,27 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
       normalizeOptionalString(config.umami?.websiteId) ??
       normalizeOptionalString(config.analytics?.websiteId) ??
       null,
+    websiteName: normalizeOptionalString(config.umami?.websiteName) ?? defaultUmami.websiteName,
+    domain: normalizeOptionalString(config.umami?.domain) ?? defaultUmami.domain,
+    canonicalDomain:
+      normalizeOptionalString(config.umami?.canonicalDomain) ?? defaultUmami.canonicalDomain,
+    host: normalizeOptionalString(config.umami?.host) ?? defaultUmami.host,
+    apiUrl: normalizeOptionalString(config.umami?.apiUrl) ?? defaultUmami.apiUrl,
+    scriptUrl: normalizeOptionalString(config.umami?.scriptUrl) ?? defaultUmami.scriptUrl,
+    timezone: normalizeOptionalString(config.umami?.timezone) ?? defaultUmami.timezone,
+    storefrontTrackingStatus:
+      config.umami?.storefrontTrackingStatus ?? defaultUmami.storefrontTrackingStatus,
+    adminAnalyticsStatus: config.umami?.adminAnalyticsStatus ?? defaultUmami.adminAnalyticsStatus,
+    serverTokenStatus: config.umami?.serverTokenStatus ?? defaultUmami.serverTokenStatus,
+    adminSummaryEndpoint:
+      normalizeOptionalString(config.umami?.adminSummaryEndpoint) ??
+      defaultUmami.adminSummaryEndpoint,
+    metrics: config.umami?.metrics?.length ? config.umami.metrics : defaultUmami.metrics,
+    bootstrapConfigPath:
+      normalizeOptionalString(config.umami?.bootstrapConfigPath) ??
+      defaultUmami.bootstrapConfigPath,
+    bootstrapApplyState: config.umami?.bootstrapApplyState ?? defaultUmami.bootstrapApplyState,
+    lastProvisionError: normalizeOptionalString(config.umami?.lastProvisionError),
   } satisfies NonNullable<StoreConfig["umami"]>;
   const defaultReadiness = buildDefaultStoreReadinessConfig();
   const normalizedReadiness = {
@@ -1449,7 +1560,9 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
         : defaultReadiness.auth),
     analytics:
       config.readiness?.analytics ??
-      (normalizedAnalytics.status === "configured" ? "ready" : defaultReadiness.analytics),
+      (normalizedAnalytics.status === "configured" || normalizedUmami.websiteStatus === "configured"
+        ? "ready"
+        : defaultReadiness.analytics),
     admin:
       config.readiness?.admin ??
       (config.bootstrap?.adminDeploymentStatus === "configured" ? "ready" : defaultReadiness.admin),
@@ -2048,6 +2161,91 @@ export function updateStoreLogtoConfig(
       readiness: {
         ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
         auth: authStatus === "configured" ? "ready" : "pending",
+      },
+    };
+  });
+}
+
+export function updateStoreUmamiConfig(
+  slug: string,
+  input: StoreUmamiUpdateInput,
+): StoreConfig {
+  return updateStoreConfig(slug, (current) => {
+    const defaults = buildStoreUmamiConfig({
+      databaseMode: current.databaseMode,
+      slug: current.slug,
+      storeName: current.name,
+      storefrontDomain: current.domains.storefront,
+    });
+    const nextUmami = {
+      ...defaults,
+      ...(current.umami ?? {}),
+      websiteStatus: input.websiteStatus ?? current.umami?.websiteStatus ?? defaults.websiteStatus,
+      websiteId:
+        input.websiteId === null ? null : input.websiteId ?? current.umami?.websiteId ?? null,
+      websiteName: input.websiteName ?? current.umami?.websiteName ?? defaults.websiteName,
+      domain: input.domain ?? current.umami?.domain ?? defaults.domain,
+      canonicalDomain:
+        input.canonicalDomain ?? current.umami?.canonicalDomain ?? defaults.canonicalDomain,
+      host: input.host ?? current.umami?.host ?? defaults.host,
+      apiUrl: input.apiUrl ?? current.umami?.apiUrl ?? defaults.apiUrl,
+      scriptUrl: input.scriptUrl ?? current.umami?.scriptUrl ?? defaults.scriptUrl,
+      timezone: input.timezone ?? current.umami?.timezone ?? defaults.timezone,
+      storefrontTrackingStatus:
+        input.storefrontTrackingStatus ??
+        current.umami?.storefrontTrackingStatus ??
+        defaults.storefrontTrackingStatus,
+      adminAnalyticsStatus:
+        input.adminAnalyticsStatus ??
+        current.umami?.adminAnalyticsStatus ??
+        defaults.adminAnalyticsStatus,
+      serverTokenStatus:
+        input.serverTokenStatus ?? current.umami?.serverTokenStatus ?? defaults.serverTokenStatus,
+      adminSummaryEndpoint:
+        input.adminSummaryEndpoint ??
+        current.umami?.adminSummaryEndpoint ??
+        defaults.adminSummaryEndpoint,
+      metrics: input.metrics ?? current.umami?.metrics ?? defaults.metrics,
+      bootstrapConfigPath:
+        input.bootstrapConfigPath ??
+        current.umami?.bootstrapConfigPath ??
+        defaults.bootstrapConfigPath,
+      bootstrapApplyState:
+        input.bootstrapApplyState ?? current.umami?.bootstrapApplyState ?? defaults.bootstrapApplyState,
+      lastProvisionError:
+        input.lastProvisionError === null
+          ? undefined
+          : input.lastProvisionError ?? current.umami?.lastProvisionError,
+    } satisfies NonNullable<StoreConfig["umami"]>;
+    const analyticsStatus =
+      input.analyticsStatus ??
+      (nextUmami.websiteStatus === "configured" ? "configured" : current.analytics?.status ?? "pending_analytics_setup");
+
+    return {
+      ...current,
+      analyticsProvider: "umami",
+      umami: nextUmami,
+      analytics: {
+        ...(current.analytics ?? buildDefaultStoreAnalyticsConfig()),
+        provider: "umami",
+        status: analyticsStatus,
+        mode: "umami_ready_placeholder",
+        websiteId: nextUmami.websiteId ?? undefined,
+        requiredAction:
+          analyticsStatus === "configured"
+            ? "umami_website_and_tracking_configured"
+            : "configure_umami_website",
+        blocking: false,
+      },
+      lightPostgres: current.lightPostgres
+        ? {
+            ...current.lightPostgres,
+            umamiReady: true,
+          }
+        : current.lightPostgres,
+      readiness: {
+        ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+        analytics: analyticsStatus === "configured" ? "ready" : "pending",
       },
     };
   });

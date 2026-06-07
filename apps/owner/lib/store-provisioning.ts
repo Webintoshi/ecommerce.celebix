@@ -36,6 +36,10 @@ import {
   getLogtoBootstrapStatus,
   provisionLogtoAppsForStore,
 } from "@/lib/logto-provisioning";
+import {
+  getUmamiBootstrapStatus,
+  provisionUmamiForStore,
+} from "@/lib/umami-provisioning";
 import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
@@ -674,6 +678,19 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
       : status.lastError || "Logto config generation pending apply modunda calisacak.";
   });
 
+  await runPreflightStep(tracker, "analytics_setup", async () => {
+    const store = repairStoreConfig(input.slug);
+
+    if (store.databaseMode !== "light_postgres") {
+      return "Legacy analytics setup store runtime icinde ele alinir.";
+    }
+
+    const status = getUmamiBootstrapStatus();
+    return status.configured
+      ? "Umami token authority apply-ready durumda."
+      : status.lastError || "Umami config generation pending apply modunda calisacak.";
+  });
+
   await runPreflightStep(tracker, "generated_apps_toggle", async () => {
     if (!shouldAutoProvisionGeneratedApps()) {
       throw new Error("Generated app provisioning owner env tarafinda kapali.");
@@ -1198,15 +1215,10 @@ export async function runStoreProvisioningWorkflow(
         const store = repairStoreConfig(input.slug);
 
         if (store.databaseMode === "light_postgres") {
-          if (store.lightPostgres?.umamiReady === false) {
-            throw new Error("light_postgres store icin analytics hazirligi tamamlanmadi.");
-          }
+          const result = await provisionUmamiForStore(store);
+          await syncOwnerStoresAndMetrics();
 
-          if (isPendingAnalyticsSetup(store)) {
-            return "Umami-ready analytics placeholder owner authority icinde kayitli.";
-          }
-
-          return "Umami analytics authority hazir.";
+          return `Umami website config hazirlandi: ${result.configPath}; websiteId=${result.websiteId ? "configured" : "pending"}`;
         }
 
         return "Legacy analytics setup store runtime icinde ele alinir.";

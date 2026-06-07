@@ -166,6 +166,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const logtoAdminLogoutCount = logto?.adminPostLogoutRedirectUris?.length ?? 0;
   const logtoCustomerRedirectCount = logto?.customerRedirectUris?.length ?? 0;
   const logtoCustomerLogoutCount = logto?.customerPostLogoutRedirectUris?.length ?? 0;
+  const umami = store.umami;
   const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
   const orphanedTargetCount = cleanupRuns.reduce(
     (total, run) =>
@@ -424,6 +425,47 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
                 <span>Şifre sıfırlama</span>
                 <strong>{logto?.emailRecovery === "enabled" ? "Aktif" : "Bekliyor"}</strong>
                 <p>SMTP recovery connector hazır olunca akış açılır.</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="Umami analitik"
+            copy="Yeni Standart mağazalarda vitrin tracking ve admin analytics server-side token authority ile hazırlanır."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Website kaydı</span>
+                <strong>{umami?.websiteStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{umami?.bootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Website ID</span>
+                <strong>{umami?.websiteId ? "Tanımlı" : "Pending"}</strong>
+                <p>{umami?.canonicalDomain || store.storefrontDomain}</p>
+              </article>
+              <article>
+                <span>Storefront script</span>
+                <strong>{umami?.storefrontTrackingStatus === "configured" ? "Aktif" : "Hazırlanacak"}</strong>
+                <p>{umami?.scriptUrl || "https://analytics.celebix.co/script.js"}</p>
+              </article>
+              <article>
+                <span>Admin analytics</span>
+                <strong>{umami?.adminAnalyticsStatus === "configured" ? "Aktif" : "Pending"}</strong>
+                <p>{umami?.adminSummaryEndpoint || "/api/admin/analytics/summary"}</p>
+              </article>
+              <article>
+                <span>Token authority</span>
+                <strong>{umami?.serverTokenStatus === "configured" ? "Server hazır" : "Owner env bekliyor"}</strong>
+                <p>Token browser'a taşınmaz; admin özetleri server-side okunur.</p>
+              </article>
+              <article>
+                <span>Store scope</span>
+                <strong>{umami?.domain || store.storefrontDomain}</strong>
+                <p>{umami?.timezone || "Europe/Istanbul"}</p>
               </article>
             </div>
           </OwnerSectionCard>

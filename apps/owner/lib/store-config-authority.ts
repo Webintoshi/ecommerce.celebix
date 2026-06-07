@@ -308,6 +308,38 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       websiteId:
         readOptionalString(umami.websiteId) ??
         readOptionalString(analytics.websiteId),
+      websiteName: readOptionalString(umami.websiteName) ?? `${row.name} Storefront`,
+      domain: readOptionalString(umami.domain) ?? row.storefront_domain,
+      canonicalDomain: readOptionalString(umami.canonicalDomain) ?? row.storefront_domain,
+      host: readOptionalString(umami.host) ?? "https://analytics.celebix.co",
+      apiUrl: readOptionalString(umami.apiUrl) ?? "https://analytics.celebix.co/api",
+      scriptUrl: readOptionalString(umami.scriptUrl) ?? "https://analytics.celebix.co/script.js",
+      timezone: readOptionalString(umami.timezone) ?? "Europe/Istanbul",
+      storefrontTrackingStatus:
+        readOptionalString(umami.storefrontTrackingStatus) === "configured" ||
+        readOptionalString(umami.storefrontTrackingStatus) === "failed"
+          ? (readOptionalString(umami.storefrontTrackingStatus) as "configured" | "failed")
+          : "pending",
+      adminAnalyticsStatus:
+        readOptionalString(umami.adminAnalyticsStatus) === "configured" ||
+        readOptionalString(umami.adminAnalyticsStatus) === "failed"
+          ? (readOptionalString(umami.adminAnalyticsStatus) as "configured" | "failed")
+          : "pending",
+      serverTokenStatus:
+        readOptionalString(umami.serverTokenStatus) === "configured" ||
+        readOptionalString(umami.serverTokenStatus) === "not-required"
+          ? (readOptionalString(umami.serverTokenStatus) as "configured" | "not-required")
+          : "pending-owner-env",
+      adminSummaryEndpoint:
+        readOptionalString(umami.adminSummaryEndpoint) ?? "/api/admin/analytics/summary",
+      metrics: readStringArray(umami.metrics),
+      bootstrapConfigPath: readOptionalString(umami.bootstrapConfigPath) ?? undefined,
+      bootstrapApplyState:
+        readOptionalString(umami.bootstrapApplyState) === "applied" ||
+        readOptionalString(umami.bootstrapApplyState) === "failed"
+          ? (readOptionalString(umami.bootstrapApplyState) as "applied" | "failed")
+          : "pending",
+      lastProvisionError: readOptionalString(umami.lastProvisionError) ?? undefined,
     },
     readiness: {
       database:
