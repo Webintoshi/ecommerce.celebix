@@ -1,0 +1,29 @@
+{
+  "name": "DeryCraft Admin",
+  "description": "Central Logto template for the DeryCraft admin surface.",
+  "type": "Traditional",
+  "oidcClientMetadata": {
+    "redirectUris": [
+      "https://admin.derycraft.com.tr/callback"
+    ],
+    "postLogoutRedirectUris": [
+      "https://admin.derycraft.com.tr/admin/login",
+      "https://admin.derycraft.com.tr/admin/login?logged_out=1"
+    ]
+  },
+  "customClientMetadata": {
+    "corsAllowedOrigins": [
+      "https://admin.derycraft.com.tr"
+    ],
+    "refreshTokenTtlInDays": 14,
+    "alwaysIssueRefreshToken": true,
+    "rotateRefreshToken": true
+  },
+  "customData": {
+    "templateKey": "derycraft-admin-v1",
+    "celebixStoreSlug": "derycraftcomtr",
+    "celebixSurface": "admin",
+    "celebixBridgeMode": "store_membership_v1",
+    "celebixHostedAuthProfile": "admin_no_self_signup_v1"
+  }
+}
