@@ -30,7 +30,17 @@ export interface StoreRegistryEntry {
 
 export type DatabaseMode = "light_postgres" | "full_supabase";
 export type SupabaseProvider = "managed" | "self_hosted_coolify";
+export type StoreStorageProvider = "r2" | "supabase";
+export type StoreSupabaseStatus = "none" | "legacy" | "configured" | "failed";
+export type StoreStandardResourceStatus = "pending" | "configured" | "failed" | "skipped";
+export type StoreReadinessStatus = "pending" | "ready" | "failed";
 export type StoreProvisioningStatus = "pending-owner-env" | "configured" | "failed";
+export type StoreLightPostgresReadinessStatus = "pending" | "ready" | "failed";
+export type StoreLightPostgresRoleStatus =
+  | "pending-owner-env"
+  | "configured"
+  | "failed"
+  | "admin-shared";
 export type StorefrontStatus = "not_started" | "scaffolded" | "active";
 export type StorefrontRepoSyncStatus = "pending" | "synced" | "failed";
 export type StorefrontDeploymentStatus =
@@ -68,11 +78,26 @@ export interface StoreLightPostgresConfig {
   provisionedAt?: string;
   lastProvisionError?: string;
   umamiReady?: boolean;
+  roleName?: string;
+  roleStatus?: StoreLightPostgresRoleStatus;
+  schemaStatus?: StoreLightPostgresReadinessStatus;
+  seedStatus?: StoreLightPostgresReadinessStatus;
+  readinessStatus?: StoreLightPostgresReadinessStatus;
+  readinessCheckedAt?: string;
+  readinessRepairAction?: string;
+  missingTables?: string[];
+  missingSeedKeys?: string[];
+  missingOptionalModules?: string[];
+  missingPaymentGatewayKeys?: string[];
+  missingAuthBridgeTables?: string[];
+  lastReadinessError?: string;
 }
 
 export type StoreAuthProvider = "logto" | "supabase";
 export type StoreAuthStatus = "pending_auth_setup" | "configured";
 export type StoreAuthMode = "logto_ready_placeholder" | "legacy_supabase_auth";
+export type StoreLogtoConnectorStatus = "enabled" | "pending" | "unavailable";
+export type StoreLogtoBootstrapApplyState = "pending" | "applied" | "failed";
 
 export interface StoreAuthConfig {
   provider: StoreAuthProvider;
@@ -85,6 +110,12 @@ export interface StoreAuthConfig {
 export type StoreAnalyticsProvider = "umami";
 export type StoreAnalyticsStatus = "pending_analytics_setup" | "configured";
 export type StoreAnalyticsMode = "umami_ready_placeholder";
+export type StoreUmamiTrackingStatus = "pending" | "configured" | "failed";
+export type StoreUmamiBootstrapApplyState = "pending" | "applied" | "failed";
+export type StoreUmamiTokenStatus = "pending-owner-env" | "configured" | "not-required";
+export type StoreR2MediaStatus = "pending" | "configured" | "failed";
+export type StoreR2BootstrapApplyState = "pending" | "applied" | "failed";
+export type StoreR2CredentialStatus = "pending-owner-env" | "configured" | "not-required";
 
 export interface StoreAnalyticsConfig {
   provider: StoreAnalyticsProvider;
@@ -93,6 +124,139 @@ export interface StoreAnalyticsConfig {
   websiteId?: string;
   requiredAction?: string;
   blocking?: boolean;
+}
+
+export interface StoreLogtoConfig {
+  adminAppStatus: StoreStandardResourceStatus;
+  customerAppStatus: StoreStandardResourceStatus;
+  adminAppId?: string | null;
+  adminClientId?: string | null;
+  customerAppId?: string | null;
+  customerClientId?: string | null;
+  adminIssuer?: string;
+  customerIssuer?: string;
+  adminRedirectUris?: string[];
+  adminPostLogoutRedirectUris?: string[];
+  adminOrigins?: string[];
+  customerRedirectUris?: string[];
+  customerPostLogoutRedirectUris?: string[];
+  customerOrigins?: string[];
+  googleSignIn?: StoreLogtoConnectorStatus;
+  emailRecovery?: StoreLogtoConnectorStatus;
+  adminBootstrapConfigPath?: string;
+  customerBootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreLogtoBootstrapApplyState;
+  lastProvisionError?: string;
+}
+
+export interface StoreUmamiConfig {
+  websiteStatus: StoreStandardResourceStatus;
+  websiteId?: string | null;
+  websiteName?: string;
+  domain?: string;
+  canonicalDomain?: string;
+  host?: string;
+  apiUrl?: string;
+  scriptUrl?: string;
+  timezone?: string;
+  storefrontTrackingStatus?: StoreUmamiTrackingStatus;
+  adminAnalyticsStatus?: StoreUmamiTrackingStatus;
+  serverTokenStatus?: StoreUmamiTokenStatus;
+  adminSummaryEndpoint?: string;
+  metrics?: string[];
+  bootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreUmamiBootstrapApplyState;
+  lastProvisionError?: string;
+}
+
+export interface StoreR2Config {
+  status?: StoreStandardResourceStatus;
+  bucketName?: string | null;
+  publicUrl?: string | null;
+  managedDomain?: string | null;
+  endpoint?: string | null;
+  region?: string;
+  prefix?: string;
+  uploadPrefix?: string;
+  productImagesPrefix?: string;
+  pageImagesPrefix?: string;
+  brandingPrefix?: string;
+  publicUrlTemplate?: string | null;
+  adminUploadStatus?: StoreR2MediaStatus;
+  storefrontReadStatus?: StoreR2MediaStatus;
+  credentialsStatus?: StoreR2CredentialStatus;
+  bootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreR2BootstrapApplyState;
+  noSupabaseStorage?: boolean;
+  provisionedAt?: string;
+  lastProvisionError?: string;
+  provisioning?: StoreProvisioningStatus;
+}
+
+export interface StoreMediaConfig {
+  provider: "r2";
+  status: StoreStandardResourceStatus;
+  publicBaseUrl?: string | null;
+  prefix: string;
+  uploadPrefix: string;
+  productImagesPrefix: string;
+  pageImagesPrefix: string;
+  brandingPrefix: string;
+  publicUrlTemplate?: string | null;
+  adminUploadStatus: StoreR2MediaStatus;
+  storefrontReadStatus: StoreR2MediaStatus;
+  noSupabaseStorage: boolean;
+}
+
+export interface StoreReadinessConfig {
+  database: StoreReadinessStatus;
+  databaseSchema?: StoreReadinessStatus;
+  databaseSeed?: StoreReadinessStatus;
+  databaseSmoke?: StoreReadinessStatus;
+  storage: StoreReadinessStatus;
+  auth: StoreReadinessStatus;
+  analytics: StoreReadinessStatus;
+  admin: StoreReadinessStatus;
+  storefront: StoreReadinessStatus;
+  smoke: StoreReadinessStatus;
+}
+
+export type StoreSmokeStatus = "passed" | "failed" | "skipped" | "pending";
+export type StoreSmokeOverallStatus = "passed" | "failed" | "partial" | "pending";
+export type StoreSmokeCategory =
+  | "storefront"
+  | "admin"
+  | "auth"
+  | "database"
+  | "analytics"
+  | "media"
+  | "checkout"
+  | "optional_modules"
+  | "supabase_absence"
+  | "security";
+
+export interface StoreSmokeCheckResult {
+  id: string;
+  label: string;
+  category: StoreSmokeCategory;
+  status: StoreSmokeStatus;
+  expected?: string;
+  actual?: string;
+  url?: string;
+  statusCode?: number;
+  durationMs?: number;
+  errorCode?: string;
+  message?: string;
+  repairAction?: string;
+}
+
+export interface StoreSmokeReport {
+  storeSlug: string;
+  startedAt: string;
+  finishedAt?: string;
+  mode?: "plan" | "execute";
+  overallStatus: StoreSmokeOverallStatus;
+  checks: StoreSmokeCheckResult[];
 }
 
 export type StorePaymentStatus = "pending_payment_setup" | "configured";
@@ -143,6 +307,11 @@ export interface StoreConfig {
   slug: string;
   status: "draft" | "active" | "paused";
   databaseMode: DatabaseMode;
+  authProvider: StoreAuthProvider;
+  customerAuthProvider: StoreAuthProvider;
+  analyticsProvider: StoreAnalyticsProvider;
+  storageProvider: StoreStorageProvider;
+  supabaseStatus: StoreSupabaseStatus;
   theme: StoreThemeConfig;
   branding?: StoreBrandingConfig;
   domains: {
@@ -159,6 +328,10 @@ export interface StoreConfig {
   lightPostgres?: StoreLightPostgresConfig;
   auth?: StoreAuthConfig;
   analytics?: StoreAnalyticsConfig;
+  logto?: StoreLogtoConfig;
+  umami?: StoreUmamiConfig;
+  readiness?: StoreReadinessConfig;
+  smoke?: StoreSmokeReport;
   payments?: StorePaymentsConfig;
   supabase: {
     projectRef: string;
@@ -167,14 +340,8 @@ export interface StoreConfig {
     storage: string;
     dashboardUrl?: string;
   };
-  r2?: {
-    bucketName?: string;
-    publicUrl?: string;
-    managedDomain?: string;
-    provisionedAt?: string;
-    lastProvisionError?: string;
-    provisioning?: "pending-owner-env" | "configured" | "failed";
-  };
+  r2?: StoreR2Config;
+  media?: StoreMediaConfig;
   bootstrap?: {
     createdAt: string;
     envTemplatePath: string;
@@ -250,6 +417,64 @@ export interface StoreLightPostgresUpdateInput {
   provisioningStatus: StoreProvisioningStatus;
   lastProvisionError?: string;
   umamiReady?: boolean;
+  roleName?: string;
+  roleStatus?: StoreLightPostgresRoleStatus;
+  schemaStatus?: StoreLightPostgresReadinessStatus;
+  seedStatus?: StoreLightPostgresReadinessStatus;
+  readinessStatus?: StoreLightPostgresReadinessStatus;
+  readinessCheckedAt?: string;
+  readinessRepairAction?: string | null;
+  missingTables?: string[];
+  missingSeedKeys?: string[];
+  missingOptionalModules?: string[];
+  missingPaymentGatewayKeys?: string[];
+  missingAuthBridgeTables?: string[];
+  lastReadinessError?: string | null;
+}
+
+export interface StoreLogtoUpdateInput {
+  adminAppStatus?: StoreStandardResourceStatus;
+  customerAppStatus?: StoreStandardResourceStatus;
+  adminAppId?: string | null;
+  adminClientId?: string | null;
+  customerAppId?: string | null;
+  customerClientId?: string | null;
+  adminIssuer?: string;
+  customerIssuer?: string;
+  adminRedirectUris?: string[];
+  adminPostLogoutRedirectUris?: string[];
+  adminOrigins?: string[];
+  customerRedirectUris?: string[];
+  customerPostLogoutRedirectUris?: string[];
+  customerOrigins?: string[];
+  googleSignIn?: StoreLogtoConnectorStatus;
+  emailRecovery?: StoreLogtoConnectorStatus;
+  adminBootstrapConfigPath?: string;
+  customerBootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreLogtoBootstrapApplyState;
+  lastProvisionError?: string | null;
+  authStatus?: StoreAuthStatus;
+}
+
+export interface StoreUmamiUpdateInput {
+  websiteStatus?: StoreStandardResourceStatus;
+  websiteId?: string | null;
+  websiteName?: string;
+  domain?: string;
+  canonicalDomain?: string;
+  host?: string;
+  apiUrl?: string;
+  scriptUrl?: string;
+  timezone?: string;
+  storefrontTrackingStatus?: StoreUmamiTrackingStatus;
+  adminAnalyticsStatus?: StoreUmamiTrackingStatus;
+  serverTokenStatus?: StoreUmamiTokenStatus;
+  adminSummaryEndpoint?: string;
+  metrics?: string[];
+  bootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreUmamiBootstrapApplyState;
+  lastProvisionError?: string | null;
+  analyticsStatus?: StoreAnalyticsStatus;
 }
 
 export interface StoreR2UpdateInput {
@@ -257,7 +482,44 @@ export interface StoreR2UpdateInput {
   publicUrl: string;
   provisioningStatus: "configured" | "failed";
   managedDomain?: string;
+  endpoint?: string;
+  region?: string;
+  prefix?: string;
+  uploadPrefix?: string;
+  productImagesPrefix?: string;
+  pageImagesPrefix?: string;
+  brandingPrefix?: string;
+  publicUrlTemplate?: string;
+  adminUploadStatus?: StoreR2MediaStatus;
+  storefrontReadStatus?: StoreR2MediaStatus;
+  credentialsStatus?: StoreR2CredentialStatus;
+  bootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreR2BootstrapApplyState;
+  noSupabaseStorage?: boolean;
   lastProvisionError?: string;
+}
+
+export interface StoreR2MediaUpdateInput {
+  status?: StoreStandardResourceStatus;
+  provisioningStatus?: StoreProvisioningStatus;
+  bucketName?: string | null;
+  publicUrl?: string | null;
+  managedDomain?: string | null;
+  endpoint?: string | null;
+  region?: string;
+  prefix?: string;
+  uploadPrefix?: string;
+  productImagesPrefix?: string;
+  pageImagesPrefix?: string;
+  brandingPrefix?: string;
+  publicUrlTemplate?: string | null;
+  adminUploadStatus?: StoreR2MediaStatus;
+  storefrontReadStatus?: StoreR2MediaStatus;
+  credentialsStatus?: StoreR2CredentialStatus;
+  bootstrapConfigPath?: string;
+  bootstrapApplyState?: StoreR2BootstrapApplyState;
+  noSupabaseStorage?: boolean;
+  lastProvisionError?: string | null;
 }
 
 export interface StoreAdminDeploymentUpdateInput {
@@ -346,6 +608,161 @@ function resolveAdminDomain(storefrontDomain: string): string {
 
 export function getStoreAdminDomainForStorefrontDomain(storefrontDomain: string): string {
   return resolveAdminDomain(storefrontDomain);
+}
+
+function buildHttpsOrigin(domain: string): string {
+  return `https://${ensureDomain(domain)}`;
+}
+
+function buildStoreLogtoConfig(input: {
+  databaseMode: DatabaseMode;
+  slug: string;
+  storefrontDomain: string;
+  adminDomain: string;
+}): StoreLogtoConfig {
+  const status: StoreStandardResourceStatus =
+    input.databaseMode === "light_postgres" ? "pending" : "skipped";
+  const storefrontOrigin = buildHttpsOrigin(input.storefrontDomain);
+  const adminOrigin = buildHttpsOrigin(input.adminDomain);
+  const issuer = "https://auth.celebix.co/oidc";
+
+  return {
+    adminAppStatus: status,
+    customerAppStatus: status,
+    adminAppId: null,
+    adminClientId: null,
+    customerAppId: null,
+    customerClientId: null,
+    adminIssuer: issuer,
+    customerIssuer: issuer,
+    adminRedirectUris: [`${adminOrigin}/callback`],
+    adminPostLogoutRedirectUris: [
+      `${adminOrigin}/admin/login`,
+      `${adminOrigin}/admin/login?logged_out=1`,
+    ],
+    adminOrigins: [adminOrigin],
+    customerRedirectUris: [`${storefrontOrigin}/callback`],
+    customerPostLogoutRedirectUris: [
+      storefrontOrigin,
+      `${storefrontOrigin}/giris?next=/hesap&logged_out=1`,
+    ],
+    customerOrigins: [storefrontOrigin],
+    googleSignIn: input.databaseMode === "light_postgres" ? "pending" : "unavailable",
+    emailRecovery: input.databaseMode === "light_postgres" ? "pending" : "unavailable",
+    adminBootstrapConfigPath: `infra/logto/bootstrap/generated/${input.slug}-admin.application.json`,
+    customerBootstrapConfigPath: `infra/logto/bootstrap/generated/${input.slug}-customer.application.json`,
+    bootstrapApplyState: input.databaseMode === "light_postgres" ? "pending" : "applied",
+  };
+}
+
+function buildStoreUmamiConfig(input: {
+  databaseMode: DatabaseMode;
+  slug: string;
+  storeName: string;
+  storefrontDomain: string;
+}): StoreUmamiConfig {
+  const status: StoreStandardResourceStatus =
+    input.databaseMode === "light_postgres" ? "pending" : "skipped";
+  const canonicalDomain = ensureDomain(input.storefrontDomain);
+  const host = "https://analytics.celebix.co";
+  const scriptUrl = `${host}/script.js`;
+
+  return {
+    websiteStatus: status,
+    websiteId: null,
+    websiteName: `${input.storeName} Storefront`,
+    domain: canonicalDomain,
+    canonicalDomain,
+    host,
+    apiUrl: `${host}/api`,
+    scriptUrl,
+    timezone: "Europe/Istanbul",
+    storefrontTrackingStatus: input.databaseMode === "light_postgres" ? "pending" : "configured",
+    adminAnalyticsStatus: input.databaseMode === "light_postgres" ? "pending" : "configured",
+    serverTokenStatus: input.databaseMode === "light_postgres" ? "pending-owner-env" : "not-required",
+    adminSummaryEndpoint: "/api/admin/analytics/summary",
+    metrics: [
+      "activeUsers",
+      "visitorsToday",
+      "pageviewsToday",
+      "visitors7d",
+      "pageviews7d",
+      "topPages",
+      "topProducts",
+      "referrers",
+    ],
+    bootstrapConfigPath: `infra/umami/bootstrap/generated/${input.slug}.website.json`,
+    bootstrapApplyState: input.databaseMode === "light_postgres" ? "pending" : "applied",
+  };
+}
+
+function buildStoreR2Prefix(slug: string): string {
+  return `stores/${ensureSlug(slug)}/`;
+}
+
+function buildStoreR2Config(input: {
+  databaseMode: DatabaseMode;
+  slug: string;
+}): StoreR2Config {
+  const status: StoreStandardResourceStatus =
+    input.databaseMode === "light_postgres" ? "pending" : "skipped";
+  const prefix = buildStoreR2Prefix(input.slug);
+
+  return {
+    status,
+    bucketName: null,
+    publicUrl: null,
+    managedDomain: null,
+    endpoint: null,
+    region: "auto",
+    prefix,
+    uploadPrefix: `${prefix}uploads/`,
+    productImagesPrefix: `${prefix}products/`,
+    pageImagesPrefix: `${prefix}pages/`,
+    brandingPrefix: `${prefix}branding/`,
+    publicUrlTemplate: null,
+    adminUploadStatus: input.databaseMode === "light_postgres" ? "pending" : "configured",
+    storefrontReadStatus: input.databaseMode === "light_postgres" ? "pending" : "configured",
+    credentialsStatus:
+      input.databaseMode === "light_postgres" ? "pending-owner-env" : "not-required",
+    bootstrapConfigPath: `infra/r2/bootstrap/generated/${input.slug}.storage.json`,
+    bootstrapApplyState: input.databaseMode === "light_postgres" ? "pending" : "applied",
+    noSupabaseStorage: input.databaseMode === "light_postgres",
+    provisioning: input.databaseMode === "light_postgres" ? "pending-owner-env" : "configured",
+  };
+}
+
+function buildStoreMediaConfig(input: {
+  databaseMode: DatabaseMode;
+  slug: string;
+  r2?: StoreR2Config;
+}): StoreMediaConfig {
+  const r2 = input.r2 ?? buildStoreR2Config(input);
+
+  return {
+    provider: "r2",
+    status: input.databaseMode === "light_postgres" ? r2.status ?? "pending" : "skipped",
+    publicBaseUrl: r2.publicUrl ?? null,
+    prefix: r2.prefix ?? buildStoreR2Prefix(input.slug),
+    uploadPrefix: r2.uploadPrefix ?? `${buildStoreR2Prefix(input.slug)}uploads/`,
+    productImagesPrefix: r2.productImagesPrefix ?? `${buildStoreR2Prefix(input.slug)}products/`,
+    pageImagesPrefix: r2.pageImagesPrefix ?? `${buildStoreR2Prefix(input.slug)}pages/`,
+    brandingPrefix: r2.brandingPrefix ?? `${buildStoreR2Prefix(input.slug)}branding/`,
+    publicUrlTemplate: r2.publicUrlTemplate ?? null,
+    adminUploadStatus: r2.adminUploadStatus ?? "pending",
+    storefrontReadStatus: r2.storefrontReadStatus ?? "pending",
+    noSupabaseStorage: input.databaseMode === "light_postgres",
+  };
+}
+
+function buildDefaultStoreSmokeReport(slug: string): StoreSmokeReport {
+  return {
+    storeSlug: slug,
+    startedAt: new Date().toISOString(),
+    mode: "plan",
+    overallStatus: "pending",
+    checks: [],
+  };
 }
 
 function findRepoRoot(startDirectory = process.cwd()): string {
@@ -477,6 +894,38 @@ export function buildDefaultStoreAnalyticsConfig(): StoreAnalyticsConfig {
     mode: "umami_ready_placeholder",
     requiredAction: "configure_umami_website",
     blocking: false,
+  };
+}
+
+export function buildDefaultStoreLogtoConfig(
+  databaseMode: DatabaseMode = "light_postgres",
+): StoreLogtoConfig {
+  const status: StoreStandardResourceStatus = databaseMode === "light_postgres" ? "pending" : "skipped";
+
+  return {
+    adminAppStatus: status,
+    customerAppStatus: status,
+    adminAppId: null,
+    customerAppId: null,
+  };
+}
+
+export function buildDefaultStoreUmamiConfig(): StoreUmamiConfig {
+  return {
+    websiteStatus: "pending",
+    websiteId: null,
+  };
+}
+
+export function buildDefaultStoreReadinessConfig(): StoreReadinessConfig {
+  return {
+    database: "pending",
+    storage: "pending",
+    auth: "pending",
+    analytics: "pending",
+    admin: "pending",
+    storefront: "pending",
+    smoke: "pending",
   };
 }
 
@@ -664,12 +1113,21 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
   const storefrontAppDir = resolveStorefrontAppDirectory(input.slug);
   const deploymentBranches = getStoreDeploymentBranches(input.slug);
   const adminDomain = resolveAdminDomain(input.domain);
+  const r2Default = buildStoreR2Config({
+    databaseMode,
+    slug: input.slug,
+  });
 
   return {
     name: input.name,
     slug: input.slug,
     status: "draft",
     databaseMode,
+    authProvider: databaseMode === "full_supabase" ? "supabase" : "logto",
+    customerAuthProvider: databaseMode === "full_supabase" ? "supabase" : "logto",
+    analyticsProvider: "umami",
+    storageProvider: databaseMode === "full_supabase" ? "supabase" : "r2",
+    supabaseStatus: databaseMode === "full_supabase" ? "legacy" : "none",
     theme: {
       key: input.theme,
       label: input.theme[0].toUpperCase() + input.theme.slice(1),
@@ -704,10 +1162,28 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
       databaseName: input.slug,
       schemaProfile: "storefront_core",
       provisioning: databaseMode === "light_postgres" ? "pending-owner-env" : "configured",
+      roleStatus: databaseMode === "light_postgres" ? "pending-owner-env" : "configured",
+      schemaStatus: databaseMode === "light_postgres" ? "pending" : "ready",
+      seedStatus: databaseMode === "light_postgres" ? "pending" : "ready",
+      readinessStatus: databaseMode === "light_postgres" ? "pending" : "ready",
       umamiReady: true,
     },
     auth: buildDefaultStoreAuthConfig(databaseMode),
     analytics: buildDefaultStoreAnalyticsConfig(),
+    logto: buildStoreLogtoConfig({
+      databaseMode,
+      slug: input.slug,
+      storefrontDomain: input.domain,
+      adminDomain,
+    }),
+    umami: buildStoreUmamiConfig({
+      databaseMode,
+      slug: input.slug,
+      storeName: input.name,
+      storefrontDomain: input.domain,
+    }),
+    readiness: buildDefaultStoreReadinessConfig(),
+    smoke: buildDefaultStoreSmokeReport(input.slug),
     payments: buildDefaultStorePaymentsConfig(),
     supabase: {
       projectRef: "pending-owner-bootstrap",
@@ -718,9 +1194,12 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
           ? "separate-project-per-store"
           : "disabled-by-database-mode",
     },
-    r2: {
-      provisioning: "pending-owner-env"
-    },
+    r2: r2Default,
+    media: buildStoreMediaConfig({
+      databaseMode,
+      slug: input.slug,
+      r2: r2Default,
+    }),
     bootstrap: {
       createdAt: new Date().toISOString(),
       envTemplatePath: `stores/${input.slug}/admin.env.example`,
@@ -799,14 +1278,16 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
           `LIGHT_POSTGRES_DATABASE_SSLMODE=${lightPostgresSslMode}`,
           `DATABASE_SSLMODE=${lightPostgresSslMode}`,
           "NEXT_PUBLIC_RUNTIME_DATABASE_MODE=light_postgres",
-          "AUTH_SETUP_STATUS=blocked_auth_setup",
-          "NEXT_PUBLIC_AUTH_SETUP_STATUS=blocked_auth_setup",
+          "AUTH_SETUP_STATUS=pending_auth_setup",
+          "NEXT_PUBLIC_AUTH_SETUP_STATUS=pending_auth_setup",
         ];
 
   return [
     `STORE_SLUG=${config.slug}`,
     `DATABASE_MODE=${config.databaseMode}`,
     `CELEBIX_NEXT_BUILD_CPUS=${resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"])}`,
+    "GENERATED_APP_STANDARD=celebix_light_postgres_logto_umami_r2_v1",
+    "GENERATED_APP_TARGET=admin",
     "",
     "# Admin deployment blueprint",
     `# APP_NAME=${config.bootstrap?.adminDeploymentName ?? `${config.slug}-admin`}`,
@@ -823,6 +1304,23 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
     "# START_COMMAND=npm run start --workspace @celebix/admin",
     "",
     ...databaseEnvLines,
+    "",
+    `ADMIN_AUTH_PROVIDER=${config.authProvider}`,
+    `NEXT_PUBLIC_ADMIN_AUTH_PROVIDER=${config.authProvider}`,
+    `AUTH_STRATEGY=${config.databaseMode === "light_postgres" ? "logto_oidc_bridge_v1" : "legacy_supabase_auth"}`,
+    `NEXT_PUBLIC_AUTH_STRATEGY=${config.databaseMode === "light_postgres" ? "logto_oidc_bridge_v1" : "legacy_supabase_auth"}`,
+    `STORAGE_PROVIDER=${config.storageProvider}`,
+    `NEXT_PUBLIC_STORAGE_PROVIDER=${config.storageProvider}`,
+    `ANALYTICS_PROVIDER=${config.analyticsProvider}`,
+    `NEXT_PUBLIC_ANALYTICS_PROVIDER=${config.analyticsProvider}`,
+    `SUPABASE_STATUS=${config.supabaseStatus}`,
+    `NEXT_PUBLIC_SUPABASE_STATUS=${config.supabaseStatus}`,
+    `LOGTO_ISSUER=${config.logto?.adminIssuer || "https://auth.celebix.co/oidc"}`,
+    `LOGTO_CALLBACK_URL=https://${config.domains.admin}/callback`,
+    `LOGTO_POST_LOGOUT_REDIRECT_URL=https://${config.domains.admin}/admin/login`,
+    "LOGTO_ADMIN_APP_ID=configure-logto-admin-app-id",
+    "LOGTO_ADMIN_APP_SECRET=configure-logto-admin-app-secret",
+    "LOGTO_COOKIE_SECRET=configure-logto-cookie-secret",
     "",
     `NEXT_PUBLIC_STORE_DOMAIN=${config.domains.storefront}`,
     `NEXT_PUBLIC_ADMIN_DOMAIN=${config.domains.admin}`,
@@ -842,6 +1340,19 @@ function buildAdminEnvTemplate(config: StoreConfig): string {
     "R2_SECRET_ACCESS_KEY=your-r2-secret",
     "R2_BUCKET_NAME=your-r2-bucket",
     `R2_PUBLIC_URL=https://cdn.${config.domains.storefront}`,
+    `R2_PREFIX=${config.r2?.prefix || `stores/${config.slug}/`}`,
+    `R2_PRODUCT_IMAGES_PREFIX=${config.r2?.productImagesPrefix || `stores/${config.slug}/products/`}`,
+    `R2_PAGE_IMAGES_PREFIX=${config.r2?.pageImagesPrefix || `stores/${config.slug}/pages/`}`,
+    `R2_BRANDING_PREFIX=${config.r2?.brandingPrefix || `stores/${config.slug}/branding/`}`,
+    `UMAMI_BASE_URL=${config.umami?.host || "https://analytics.celebix.co"}`,
+    `UMAMI_SCRIPT_URL=${config.umami?.scriptUrl || "https://analytics.celebix.co/script.js"}`,
+    "UMAMI_WEBSITE_ID=configure-umami-website-id",
+    "OPTIONAL_MODULE_QUICK_ORDER_LINKS=disabled",
+    "OPTIONAL_MODULE_COUPONS=disabled",
+    "OPTIONAL_MODULE_DISCOUNTS=disabled",
+    "OPTIONAL_MODULE_LUCKY_WHEEL=disabled",
+    "OPTIONAL_MODULE_MARKETPLACE=disabled",
+    "OPTIONAL_MODULE_ACCOUNTING=disabled",
     ""
   ].join("\n");
 }
@@ -888,6 +1399,16 @@ function inferLightPostgresProvisioningStatus(
 function normalizeOptionalString(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function normalizeUnknownString(value: unknown): string | undefined {
+  return typeof value === "string" ? normalizeOptionalString(value) : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function normalizeOptionalPath(value: string | null | undefined): string | undefined {
@@ -1102,6 +1623,37 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     provisionedAt: config.lightPostgres?.provisionedAt,
     lastProvisionError: config.lightPostgres?.lastProvisionError,
     umamiReady: config.lightPostgres?.umamiReady ?? true,
+    roleName: config.lightPostgres?.roleName,
+    roleStatus:
+      config.lightPostgres?.roleStatus ??
+      (databaseMode === "full_supabase"
+        ? "configured"
+        : config.lightPostgres?.provisioning === "configured"
+        ? "admin-shared"
+        : "pending-owner-env"),
+    schemaStatus:
+      config.lightPostgres?.schemaStatus ??
+      (databaseMode === "full_supabase" || config.lightPostgres?.provisioning === "configured"
+        ? "ready"
+        : "pending"),
+    seedStatus:
+      config.lightPostgres?.seedStatus ??
+      (databaseMode === "full_supabase" || config.lightPostgres?.provisioning === "configured"
+        ? "ready"
+        : "pending"),
+    readinessStatus:
+      config.lightPostgres?.readinessStatus ??
+      (databaseMode === "full_supabase" || config.lightPostgres?.provisioning === "configured"
+        ? "ready"
+        : "pending"),
+    readinessCheckedAt: config.lightPostgres?.readinessCheckedAt,
+    readinessRepairAction: config.lightPostgres?.readinessRepairAction,
+    missingTables: config.lightPostgres?.missingTables ?? [],
+    missingSeedKeys: config.lightPostgres?.missingSeedKeys ?? [],
+    missingOptionalModules: config.lightPostgres?.missingOptionalModules ?? [],
+    missingPaymentGatewayKeys: config.lightPostgres?.missingPaymentGatewayKeys ?? [],
+    missingAuthBridgeTables: config.lightPostgres?.missingAuthBridgeTables ?? [],
+    lastReadinessError: config.lightPostgres?.lastReadinessError,
   } satisfies NonNullable<StoreConfig["lightPostgres"]>;
   const defaultAuth = buildDefaultStoreAuthConfig(databaseMode);
   const normalizedAuth = {
@@ -1126,6 +1678,269 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     requiredAction: config.analytics?.requiredAction ?? defaultAnalytics.requiredAction,
     blocking: config.analytics?.blocking ?? false,
   } satisfies NonNullable<StoreConfig["analytics"]>;
+  const defaultLogto = buildStoreLogtoConfig({
+    databaseMode,
+    slug: config.slug,
+    storefrontDomain: normalizedDomains.storefront,
+    adminDomain: normalizedDomains.admin,
+  });
+  const normalizedLogto = {
+    adminAppStatus: config.logto?.adminAppStatus ?? defaultLogto.adminAppStatus,
+    customerAppStatus: config.logto?.customerAppStatus ?? defaultLogto.customerAppStatus,
+    adminAppId: normalizeOptionalString(config.logto?.adminAppId) ?? null,
+    adminClientId: normalizeOptionalString(config.logto?.adminClientId) ?? null,
+    customerAppId: normalizeOptionalString(config.logto?.customerAppId) ?? null,
+    customerClientId: normalizeOptionalString(config.logto?.customerClientId) ?? null,
+    adminIssuer: normalizeOptionalString(config.logto?.adminIssuer) ?? defaultLogto.adminIssuer,
+    customerIssuer: normalizeOptionalString(config.logto?.customerIssuer) ?? defaultLogto.customerIssuer,
+    adminRedirectUris:
+      config.logto?.adminRedirectUris?.length ? config.logto.adminRedirectUris : defaultLogto.adminRedirectUris,
+    adminPostLogoutRedirectUris:
+      config.logto?.adminPostLogoutRedirectUris?.length
+        ? config.logto.adminPostLogoutRedirectUris
+        : defaultLogto.adminPostLogoutRedirectUris,
+    adminOrigins:
+      config.logto?.adminOrigins?.length ? config.logto.adminOrigins : defaultLogto.adminOrigins,
+    customerRedirectUris:
+      config.logto?.customerRedirectUris?.length ? config.logto.customerRedirectUris : defaultLogto.customerRedirectUris,
+    customerPostLogoutRedirectUris:
+      config.logto?.customerPostLogoutRedirectUris?.length
+        ? config.logto.customerPostLogoutRedirectUris
+        : defaultLogto.customerPostLogoutRedirectUris,
+    customerOrigins:
+      config.logto?.customerOrigins?.length ? config.logto.customerOrigins : defaultLogto.customerOrigins,
+    googleSignIn: config.logto?.googleSignIn ?? defaultLogto.googleSignIn,
+    emailRecovery: config.logto?.emailRecovery ?? defaultLogto.emailRecovery,
+    adminBootstrapConfigPath:
+      normalizeOptionalString(config.logto?.adminBootstrapConfigPath) ??
+      defaultLogto.adminBootstrapConfigPath,
+    customerBootstrapConfigPath:
+      normalizeOptionalString(config.logto?.customerBootstrapConfigPath) ??
+      defaultLogto.customerBootstrapConfigPath,
+    bootstrapApplyState: config.logto?.bootstrapApplyState ?? defaultLogto.bootstrapApplyState,
+    lastProvisionError: normalizeOptionalString(config.logto?.lastProvisionError),
+  } satisfies NonNullable<StoreConfig["logto"]>;
+  const defaultUmami = buildStoreUmamiConfig({
+    databaseMode,
+    slug: config.slug,
+    storeName: config.name,
+    storefrontDomain: normalizedDomains.storefront,
+  });
+  const normalizedUmami = {
+    websiteStatus:
+      config.umami?.websiteStatus ??
+      (normalizeOptionalString(config.analytics?.websiteId) ? "configured" : defaultUmami.websiteStatus),
+    websiteId:
+      normalizeOptionalString(config.umami?.websiteId) ??
+      normalizeOptionalString(config.analytics?.websiteId) ??
+      null,
+    websiteName: normalizeOptionalString(config.umami?.websiteName) ?? defaultUmami.websiteName,
+    domain: normalizeOptionalString(config.umami?.domain) ?? defaultUmami.domain,
+    canonicalDomain:
+      normalizeOptionalString(config.umami?.canonicalDomain) ?? defaultUmami.canonicalDomain,
+    host: normalizeOptionalString(config.umami?.host) ?? defaultUmami.host,
+    apiUrl: normalizeOptionalString(config.umami?.apiUrl) ?? defaultUmami.apiUrl,
+    scriptUrl: normalizeOptionalString(config.umami?.scriptUrl) ?? defaultUmami.scriptUrl,
+    timezone: normalizeOptionalString(config.umami?.timezone) ?? defaultUmami.timezone,
+    storefrontTrackingStatus:
+      config.umami?.storefrontTrackingStatus ?? defaultUmami.storefrontTrackingStatus,
+    adminAnalyticsStatus: config.umami?.adminAnalyticsStatus ?? defaultUmami.adminAnalyticsStatus,
+    serverTokenStatus: config.umami?.serverTokenStatus ?? defaultUmami.serverTokenStatus,
+    adminSummaryEndpoint:
+      normalizeOptionalString(config.umami?.adminSummaryEndpoint) ??
+      defaultUmami.adminSummaryEndpoint,
+    metrics: config.umami?.metrics?.length ? config.umami.metrics : defaultUmami.metrics,
+    bootstrapConfigPath:
+      normalizeOptionalString(config.umami?.bootstrapConfigPath) ??
+      defaultUmami.bootstrapConfigPath,
+    bootstrapApplyState: config.umami?.bootstrapApplyState ?? defaultUmami.bootstrapApplyState,
+    lastProvisionError: normalizeOptionalString(config.umami?.lastProvisionError),
+  } satisfies NonNullable<StoreConfig["umami"]>;
+  const defaultR2 = buildStoreR2Config({
+    databaseMode,
+    slug: config.slug,
+  });
+  const normalizedR2 = {
+    ...defaultR2,
+    ...(config.r2 ?? {}),
+    status:
+      config.r2?.status ??
+      (databaseMode === "light_postgres"
+        ? inferR2ProvisioningStatus(config) === "configured"
+          ? "configured"
+          : "pending"
+        : "skipped"),
+    bucketName: normalizeOptionalString(config.r2?.bucketName) ?? defaultR2.bucketName ?? null,
+    publicUrl: normalizeOptionalString(config.r2?.publicUrl) ?? defaultR2.publicUrl ?? null,
+    managedDomain:
+      normalizeOptionalString(config.r2?.managedDomain) ?? defaultR2.managedDomain ?? null,
+    endpoint: normalizeOptionalString(config.r2?.endpoint) ?? defaultR2.endpoint ?? null,
+    region: normalizeOptionalString(config.r2?.region) ?? defaultR2.region,
+    prefix: normalizeOptionalString(config.r2?.prefix) ?? defaultR2.prefix,
+    uploadPrefix: normalizeOptionalString(config.r2?.uploadPrefix) ?? defaultR2.uploadPrefix,
+    productImagesPrefix:
+      normalizeOptionalString(config.r2?.productImagesPrefix) ?? defaultR2.productImagesPrefix,
+    pageImagesPrefix:
+      normalizeOptionalString(config.r2?.pageImagesPrefix) ?? defaultR2.pageImagesPrefix,
+    brandingPrefix: normalizeOptionalString(config.r2?.brandingPrefix) ?? defaultR2.brandingPrefix,
+    publicUrlTemplate:
+      normalizeOptionalString(config.r2?.publicUrlTemplate) ??
+      (normalizeOptionalString(config.r2?.publicUrl)
+        ? `${normalizeOptionalString(config.r2?.publicUrl)!.replace(/\/+$/, "")}/{key}`
+        : defaultR2.publicUrlTemplate),
+    adminUploadStatus: config.r2?.adminUploadStatus ?? defaultR2.adminUploadStatus,
+    storefrontReadStatus: config.r2?.storefrontReadStatus ?? defaultR2.storefrontReadStatus,
+    credentialsStatus: config.r2?.credentialsStatus ?? defaultR2.credentialsStatus,
+    bootstrapConfigPath:
+      normalizeOptionalString(config.r2?.bootstrapConfigPath) ?? defaultR2.bootstrapConfigPath,
+    bootstrapApplyState: config.r2?.bootstrapApplyState ?? defaultR2.bootstrapApplyState,
+    noSupabaseStorage: config.r2?.noSupabaseStorage ?? defaultR2.noSupabaseStorage,
+    provisioning: inferR2ProvisioningStatus(config),
+    provisionedAt: normalizeOptionalString(config.r2?.provisionedAt) ?? undefined,
+    lastProvisionError: normalizeOptionalString(config.r2?.lastProvisionError) ?? undefined,
+  } satisfies StoreR2Config;
+  const defaultMedia = buildStoreMediaConfig({
+    databaseMode,
+    slug: config.slug,
+    r2: normalizedR2,
+  });
+  const normalizedMedia = {
+    ...defaultMedia,
+    ...(config.media ?? {}),
+    provider: "r2",
+    status: config.media?.status ?? normalizedR2.status ?? defaultMedia.status,
+    publicBaseUrl:
+      normalizeOptionalString(config.media?.publicBaseUrl) ?? normalizedR2.publicUrl ?? null,
+    prefix: normalizeOptionalString(config.media?.prefix) ?? normalizedR2.prefix ?? defaultMedia.prefix,
+    uploadPrefix:
+      normalizeOptionalString(config.media?.uploadPrefix) ??
+      normalizedR2.uploadPrefix ??
+      defaultMedia.uploadPrefix,
+    productImagesPrefix:
+      normalizeOptionalString(config.media?.productImagesPrefix) ??
+      normalizedR2.productImagesPrefix ??
+      defaultMedia.productImagesPrefix,
+    pageImagesPrefix:
+      normalizeOptionalString(config.media?.pageImagesPrefix) ??
+      normalizedR2.pageImagesPrefix ??
+      defaultMedia.pageImagesPrefix,
+    brandingPrefix:
+      normalizeOptionalString(config.media?.brandingPrefix) ??
+      normalizedR2.brandingPrefix ??
+      defaultMedia.brandingPrefix,
+    publicUrlTemplate:
+      normalizeOptionalString(config.media?.publicUrlTemplate) ??
+      normalizedR2.publicUrlTemplate ??
+      null,
+    adminUploadStatus:
+      config.media?.adminUploadStatus ?? normalizedR2.adminUploadStatus ?? defaultMedia.adminUploadStatus,
+    storefrontReadStatus:
+      config.media?.storefrontReadStatus ??
+      normalizedR2.storefrontReadStatus ??
+      defaultMedia.storefrontReadStatus,
+    noSupabaseStorage: config.media?.noSupabaseStorage ?? normalizedR2.noSupabaseStorage ?? true,
+  } satisfies StoreMediaConfig;
+  const defaultReadiness = buildDefaultStoreReadinessConfig();
+  const normalizedReadiness = {
+    database:
+      config.readiness?.database ??
+      (inferLightPostgresProvisioningStatus({
+        databaseMode,
+        lightPostgres: config.lightPostgres,
+      }) === "configured" || databaseMode === "full_supabase"
+        ? "ready"
+        : defaultReadiness.database),
+    databaseSchema:
+      config.readiness?.databaseSchema ??
+      (normalizedLightPostgres.schemaStatus === "ready" ? "ready" : defaultReadiness.database),
+    databaseSeed:
+      config.readiness?.databaseSeed ??
+      (normalizedLightPostgres.seedStatus === "ready" ? "ready" : defaultReadiness.database),
+    databaseSmoke:
+      config.readiness?.databaseSmoke ??
+      (normalizedLightPostgres.readinessStatus === "ready" ? "ready" : defaultReadiness.database),
+    storage:
+      config.readiness?.storage ??
+      (normalizedR2.provisioning === "configured" || databaseMode === "full_supabase"
+        ? "ready"
+        : defaultReadiness.storage),
+    auth:
+      config.readiness?.auth ??
+      (normalizedAuth.status === "configured" ||
+      (normalizedLogto.adminAppStatus === "configured" &&
+        normalizedLogto.customerAppStatus === "configured")
+        ? "ready"
+        : defaultReadiness.auth),
+    analytics:
+      config.readiness?.analytics ??
+      (normalizedAnalytics.status === "configured" || normalizedUmami.websiteStatus === "configured"
+        ? "ready"
+        : defaultReadiness.analytics),
+    admin:
+      config.readiness?.admin ??
+      (config.bootstrap?.adminDeploymentStatus === "configured" ? "ready" : defaultReadiness.admin),
+    storefront:
+      config.readiness?.storefront ??
+      (config.storefront?.deploymentStatus === "configured" ? "ready" : defaultReadiness.storefront),
+    smoke: config.readiness?.smoke ?? defaultReadiness.smoke,
+  } satisfies NonNullable<StoreConfig["readiness"]>;
+  const smokeRecord = asRecord(config.smoke);
+  const smokeChecks = Array.isArray(smokeRecord.checks)
+    ? smokeRecord.checks
+        .map((value) => asRecord(value))
+        .map((record) => {
+          const category = normalizeUnknownString(record.category);
+          const status = normalizeUnknownString(record.status);
+
+          return {
+            id: normalizeUnknownString(record.id) ?? "unknown",
+            label: normalizeUnknownString(record.label) ?? "Smoke check",
+            category:
+              category === "admin" ||
+              category === "auth" ||
+              category === "database" ||
+              category === "analytics" ||
+              category === "media" ||
+              category === "checkout" ||
+              category === "optional_modules" ||
+              category === "supabase_absence" ||
+              category === "security"
+                ? (category as StoreSmokeCategory)
+                : "storefront",
+            status:
+              status === "passed" || status === "failed" || status === "skipped"
+                ? (status as StoreSmokeStatus)
+                : "pending",
+            expected: normalizeUnknownString(record.expected) ?? undefined,
+            actual: normalizeUnknownString(record.actual) ?? undefined,
+            url: normalizeUnknownString(record.url) ?? undefined,
+            statusCode: typeof record.statusCode === "number" ? record.statusCode : undefined,
+            durationMs: typeof record.durationMs === "number" ? record.durationMs : undefined,
+            errorCode: normalizeUnknownString(record.errorCode) ?? undefined,
+            message: normalizeUnknownString(record.message) ?? undefined,
+            repairAction: normalizeUnknownString(record.repairAction) ?? undefined,
+          };
+        })
+    : [];
+  const smokeMode = normalizeUnknownString(smokeRecord.mode);
+  const smokeOverallStatus = normalizeUnknownString(smokeRecord.overallStatus);
+  const normalizedSmoke = {
+    storeSlug: normalizeUnknownString(smokeRecord.storeSlug) ?? config.slug,
+    startedAt: normalizeUnknownString(smokeRecord.startedAt) ?? new Date().toISOString(),
+    finishedAt: normalizeUnknownString(smokeRecord.finishedAt) ?? undefined,
+    mode:
+      smokeMode === "execute" ||
+      smokeMode === "plan"
+        ? (smokeMode as "plan" | "execute")
+        : "plan",
+    overallStatus:
+      smokeOverallStatus === "passed" ||
+      smokeOverallStatus === "failed" ||
+      smokeOverallStatus === "partial"
+        ? (smokeOverallStatus as StoreSmokeOverallStatus)
+        : "pending",
+    checks: smokeChecks,
+  } satisfies StoreSmokeReport;
   const defaultPayments = buildDefaultStorePaymentsConfig();
   const normalizedPayments = {
     status: config.payments?.status ?? defaultPayments.status,
@@ -1149,10 +1964,21 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
   return {
     ...config,
     databaseMode,
+    authProvider: config.authProvider ?? normalizedAuth.provider,
+    customerAuthProvider: config.customerAuthProvider ?? normalizedAuth.provider,
+    analyticsProvider: config.analyticsProvider ?? normalizedAnalytics.provider,
+    storageProvider:
+      config.storageProvider ?? (databaseMode === "full_supabase" ? "supabase" : "r2"),
+    supabaseStatus:
+      config.supabaseStatus ?? (databaseMode === "full_supabase" ? "legacy" : "none"),
     domains: normalizedDomains,
     lightPostgres: normalizedLightPostgres,
     auth: normalizedAuth,
     analytics: normalizedAnalytics,
+    logto: normalizedLogto,
+    umami: normalizedUmami,
+    readiness: normalizedReadiness,
+    smoke: normalizedSmoke,
     payments: normalizedPayments,
     supabase: {
       ...config.supabase,
@@ -1162,10 +1988,8 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
           ? config.supabase.storage || "separate-project-per-store"
           : "disabled-by-database-mode",
     },
-    r2: {
-      ...config.r2,
-      provisioning: inferR2ProvisioningStatus(config),
-    },
+    r2: normalizedR2,
+    media: normalizedMedia,
     bootstrap: normalizedBootstrap,
     storefront: normalizedStorefront,
   };
@@ -1470,6 +2294,10 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
   return updateStoreConfig(slug, (current) => ({
     ...current,
     databaseMode: "full_supabase",
+    authProvider: "supabase",
+    customerAuthProvider: "supabase",
+    storageProvider: "supabase",
+    supabaseStatus: input.provisioningStatus === "failed" ? "failed" : "configured",
     supabase: {
       ...current.supabase,
       projectRef: input.projectRef,
@@ -1515,6 +2343,11 @@ export function updateStoreLightPostgresConfig(
   return updateStoreConfig(slug, (current) => ({
     ...current,
     databaseMode: "light_postgres",
+    authProvider: "logto",
+    customerAuthProvider: "logto",
+    analyticsProvider: "umami",
+    storageProvider: "r2",
+    supabaseStatus: "none",
     lightPostgres: {
       cluster: input.cluster,
       databaseName: input.databaseName,
@@ -1526,6 +2359,46 @@ export function updateStoreLightPostgresConfig(
           : current.lightPostgres?.provisionedAt,
       lastProvisionError: input.lastProvisionError,
       umamiReady: input.umamiReady ?? current.lightPostgres?.umamiReady ?? true,
+      roleName: input.roleName ?? current.lightPostgres?.roleName,
+      roleStatus: input.roleStatus ?? current.lightPostgres?.roleStatus ?? "pending-owner-env",
+      schemaStatus:
+        input.schemaStatus ??
+        (input.provisioningStatus === "configured"
+          ? "ready"
+          : input.provisioningStatus === "failed"
+          ? "failed"
+          : current.lightPostgres?.schemaStatus ?? "pending"),
+      seedStatus:
+        input.seedStatus ??
+        (input.provisioningStatus === "configured"
+          ? "ready"
+          : input.provisioningStatus === "failed"
+          ? "failed"
+          : current.lightPostgres?.seedStatus ?? "pending"),
+      readinessStatus:
+        input.readinessStatus ??
+        (input.provisioningStatus === "configured"
+          ? "ready"
+          : input.provisioningStatus === "failed"
+          ? "failed"
+          : current.lightPostgres?.readinessStatus ?? "pending"),
+      readinessCheckedAt: input.readinessCheckedAt ?? current.lightPostgres?.readinessCheckedAt,
+      readinessRepairAction:
+        input.readinessRepairAction === null
+          ? undefined
+          : input.readinessRepairAction ?? current.lightPostgres?.readinessRepairAction,
+      missingTables: input.missingTables ?? current.lightPostgres?.missingTables ?? [],
+      missingSeedKeys: input.missingSeedKeys ?? current.lightPostgres?.missingSeedKeys ?? [],
+      missingOptionalModules:
+        input.missingOptionalModules ?? current.lightPostgres?.missingOptionalModules ?? [],
+      missingPaymentGatewayKeys:
+        input.missingPaymentGatewayKeys ?? current.lightPostgres?.missingPaymentGatewayKeys ?? [],
+      missingAuthBridgeTables:
+        input.missingAuthBridgeTables ?? current.lightPostgres?.missingAuthBridgeTables ?? [],
+      lastReadinessError:
+        input.lastReadinessError === null
+          ? undefined
+          : input.lastReadinessError ?? current.lightPostgres?.lastReadinessError,
     },
     bootstrap: {
       ...(current.bootstrap ?? {
@@ -1539,7 +2412,205 @@ export function updateStoreLightPostgresConfig(
       lastProvisionError: input.lastProvisionError,
       supabaseProvisioning: "configured",
     },
+    readiness: {
+      ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+      database: input.provisioningStatus === "configured" ? "ready" : input.provisioningStatus === "failed" ? "failed" : "pending",
+      databaseSchema:
+        input.schemaStatus === "ready"
+          ? "ready"
+          : input.schemaStatus === "failed" || input.provisioningStatus === "failed"
+          ? "failed"
+          : current.readiness?.databaseSchema ?? "pending",
+      databaseSeed:
+        input.seedStatus === "ready"
+          ? "ready"
+          : input.seedStatus === "failed" || input.provisioningStatus === "failed"
+          ? "failed"
+          : current.readiness?.databaseSeed ?? "pending",
+      databaseSmoke:
+        input.readinessStatus === "ready"
+          ? "ready"
+          : input.readinessStatus === "failed" || input.provisioningStatus === "failed"
+          ? "failed"
+          : current.readiness?.databaseSmoke ?? "pending",
+    },
   }));
+}
+
+export function updateStoreLogtoConfig(
+  slug: string,
+  input: StoreLogtoUpdateInput,
+): StoreConfig {
+  return updateStoreConfig(slug, (current) => {
+    const defaults = buildStoreLogtoConfig({
+      databaseMode: current.databaseMode,
+      slug: current.slug,
+      storefrontDomain: current.domains.storefront,
+      adminDomain: current.domains.admin,
+    });
+    const nextLogto = {
+      ...defaults,
+      ...(current.logto ?? {}),
+      adminAppStatus: input.adminAppStatus ?? current.logto?.adminAppStatus ?? defaults.adminAppStatus,
+      customerAppStatus:
+        input.customerAppStatus ?? current.logto?.customerAppStatus ?? defaults.customerAppStatus,
+      adminAppId:
+        input.adminAppId === null ? null : input.adminAppId ?? current.logto?.adminAppId ?? null,
+      adminClientId:
+        input.adminClientId === null ? null : input.adminClientId ?? current.logto?.adminClientId ?? null,
+      customerAppId:
+        input.customerAppId === null ? null : input.customerAppId ?? current.logto?.customerAppId ?? null,
+      customerClientId:
+        input.customerClientId === null
+          ? null
+          : input.customerClientId ?? current.logto?.customerClientId ?? null,
+      adminIssuer: input.adminIssuer ?? current.logto?.adminIssuer ?? defaults.adminIssuer,
+      customerIssuer: input.customerIssuer ?? current.logto?.customerIssuer ?? defaults.customerIssuer,
+      adminRedirectUris:
+        input.adminRedirectUris ?? current.logto?.adminRedirectUris ?? defaults.adminRedirectUris,
+      adminPostLogoutRedirectUris:
+        input.adminPostLogoutRedirectUris ??
+        current.logto?.adminPostLogoutRedirectUris ??
+        defaults.adminPostLogoutRedirectUris,
+      adminOrigins: input.adminOrigins ?? current.logto?.adminOrigins ?? defaults.adminOrigins,
+      customerRedirectUris:
+        input.customerRedirectUris ?? current.logto?.customerRedirectUris ?? defaults.customerRedirectUris,
+      customerPostLogoutRedirectUris:
+        input.customerPostLogoutRedirectUris ??
+        current.logto?.customerPostLogoutRedirectUris ??
+        defaults.customerPostLogoutRedirectUris,
+      customerOrigins:
+        input.customerOrigins ?? current.logto?.customerOrigins ?? defaults.customerOrigins,
+      googleSignIn: input.googleSignIn ?? current.logto?.googleSignIn ?? defaults.googleSignIn,
+      emailRecovery: input.emailRecovery ?? current.logto?.emailRecovery ?? defaults.emailRecovery,
+      adminBootstrapConfigPath:
+        input.adminBootstrapConfigPath ??
+        current.logto?.adminBootstrapConfigPath ??
+        defaults.adminBootstrapConfigPath,
+      customerBootstrapConfigPath:
+        input.customerBootstrapConfigPath ??
+        current.logto?.customerBootstrapConfigPath ??
+        defaults.customerBootstrapConfigPath,
+      bootstrapApplyState:
+        input.bootstrapApplyState ?? current.logto?.bootstrapApplyState ?? defaults.bootstrapApplyState,
+      lastProvisionError:
+        input.lastProvisionError === null
+          ? undefined
+          : input.lastProvisionError ?? current.logto?.lastProvisionError,
+    } satisfies NonNullable<StoreConfig["logto"]>;
+    const authStatus =
+      input.authStatus ??
+      (nextLogto.adminAppStatus === "configured" && nextLogto.customerAppStatus === "configured"
+        ? "configured"
+        : current.auth?.status ?? "pending_auth_setup");
+
+    return {
+      ...current,
+      authProvider: "logto",
+      customerAuthProvider: "logto",
+      logto: nextLogto,
+      auth: {
+        ...(current.auth ?? buildDefaultStoreAuthConfig(current.databaseMode)),
+        provider: "logto",
+        status: authStatus,
+        mode: "logto_ready_placeholder",
+        requiredAction:
+          authStatus === "configured"
+            ? "logto_admin_and_customer_apps_configured"
+            : "configure_admin_and_customer_auth",
+        blocking: false,
+      },
+      readiness: {
+        ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+        auth: authStatus === "configured" ? "ready" : "pending",
+      },
+    };
+  });
+}
+
+export function updateStoreUmamiConfig(
+  slug: string,
+  input: StoreUmamiUpdateInput,
+): StoreConfig {
+  return updateStoreConfig(slug, (current) => {
+    const defaults = buildStoreUmamiConfig({
+      databaseMode: current.databaseMode,
+      slug: current.slug,
+      storeName: current.name,
+      storefrontDomain: current.domains.storefront,
+    });
+    const nextUmami = {
+      ...defaults,
+      ...(current.umami ?? {}),
+      websiteStatus: input.websiteStatus ?? current.umami?.websiteStatus ?? defaults.websiteStatus,
+      websiteId:
+        input.websiteId === null ? null : input.websiteId ?? current.umami?.websiteId ?? null,
+      websiteName: input.websiteName ?? current.umami?.websiteName ?? defaults.websiteName,
+      domain: input.domain ?? current.umami?.domain ?? defaults.domain,
+      canonicalDomain:
+        input.canonicalDomain ?? current.umami?.canonicalDomain ?? defaults.canonicalDomain,
+      host: input.host ?? current.umami?.host ?? defaults.host,
+      apiUrl: input.apiUrl ?? current.umami?.apiUrl ?? defaults.apiUrl,
+      scriptUrl: input.scriptUrl ?? current.umami?.scriptUrl ?? defaults.scriptUrl,
+      timezone: input.timezone ?? current.umami?.timezone ?? defaults.timezone,
+      storefrontTrackingStatus:
+        input.storefrontTrackingStatus ??
+        current.umami?.storefrontTrackingStatus ??
+        defaults.storefrontTrackingStatus,
+      adminAnalyticsStatus:
+        input.adminAnalyticsStatus ??
+        current.umami?.adminAnalyticsStatus ??
+        defaults.adminAnalyticsStatus,
+      serverTokenStatus:
+        input.serverTokenStatus ?? current.umami?.serverTokenStatus ?? defaults.serverTokenStatus,
+      adminSummaryEndpoint:
+        input.adminSummaryEndpoint ??
+        current.umami?.adminSummaryEndpoint ??
+        defaults.adminSummaryEndpoint,
+      metrics: input.metrics ?? current.umami?.metrics ?? defaults.metrics,
+      bootstrapConfigPath:
+        input.bootstrapConfigPath ??
+        current.umami?.bootstrapConfigPath ??
+        defaults.bootstrapConfigPath,
+      bootstrapApplyState:
+        input.bootstrapApplyState ?? current.umami?.bootstrapApplyState ?? defaults.bootstrapApplyState,
+      lastProvisionError:
+        input.lastProvisionError === null
+          ? undefined
+          : input.lastProvisionError ?? current.umami?.lastProvisionError,
+    } satisfies NonNullable<StoreConfig["umami"]>;
+    const analyticsStatus =
+      input.analyticsStatus ??
+      (nextUmami.websiteStatus === "configured" ? "configured" : current.analytics?.status ?? "pending_analytics_setup");
+
+    return {
+      ...current,
+      analyticsProvider: "umami",
+      umami: nextUmami,
+      analytics: {
+        ...(current.analytics ?? buildDefaultStoreAnalyticsConfig()),
+        provider: "umami",
+        status: analyticsStatus,
+        mode: "umami_ready_placeholder",
+        websiteId: nextUmami.websiteId ?? undefined,
+        requiredAction:
+          analyticsStatus === "configured"
+            ? "umami_website_and_tracking_configured"
+            : "configure_umami_website",
+        blocking: false,
+      },
+      lightPostgres: current.lightPostgres
+        ? {
+            ...current.lightPostgres,
+            umamiReady: true,
+          }
+        : current.lightPostgres,
+      readiness: {
+        ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+        analytics: analyticsStatus === "configured" ? "ready" : "pending",
+      },
+    };
+  });
 }
 
 export function updateStoreAdminDeploymentConfig(slug: string, input: StoreAdminDeploymentUpdateInput): StoreConfig {
@@ -1629,16 +2700,159 @@ export function upsertStoreAdminEnvLocal(slug: string, entries: Record<string, s
 }
 
 export function updateStoreR2Config(slug: string, input: StoreR2UpdateInput): StoreConfig {
+  return updateStoreConfig(slug, (current) => {
+    const defaults = buildStoreR2Config({
+      databaseMode: current.databaseMode,
+      slug: current.slug,
+    });
+    const prefix = input.prefix ?? current.r2?.prefix ?? defaults.prefix;
+    const publicUrl = input.publicUrl;
+    const nextR2 = {
+      ...defaults,
+      ...(current.r2 ?? {}),
+      status: input.provisioningStatus === "configured" ? "configured" : "failed",
+      bucketName: input.bucketName,
+      publicUrl,
+      managedDomain: input.managedDomain ?? current.r2?.managedDomain ?? defaults.managedDomain,
+      endpoint: input.endpoint ?? current.r2?.endpoint ?? defaults.endpoint,
+      region: input.region ?? current.r2?.region ?? defaults.region,
+      prefix,
+      uploadPrefix: input.uploadPrefix ?? current.r2?.uploadPrefix ?? `${prefix}uploads/`,
+      productImagesPrefix:
+        input.productImagesPrefix ?? current.r2?.productImagesPrefix ?? `${prefix}products/`,
+      pageImagesPrefix: input.pageImagesPrefix ?? current.r2?.pageImagesPrefix ?? `${prefix}pages/`,
+      brandingPrefix: input.brandingPrefix ?? current.r2?.brandingPrefix ?? `${prefix}branding/`,
+      publicUrlTemplate:
+        input.publicUrlTemplate ??
+        current.r2?.publicUrlTemplate ??
+        `${publicUrl.replace(/\/+$/, "")}/{key}`,
+      adminUploadStatus:
+        input.adminUploadStatus ??
+        current.r2?.adminUploadStatus ??
+        (input.provisioningStatus === "configured" ? "configured" : "failed"),
+      storefrontReadStatus:
+        input.storefrontReadStatus ??
+        current.r2?.storefrontReadStatus ??
+        (input.provisioningStatus === "configured" ? "configured" : "failed"),
+      credentialsStatus:
+        input.credentialsStatus ??
+        current.r2?.credentialsStatus ??
+        (input.provisioningStatus === "configured" ? "configured" : "pending-owner-env"),
+      bootstrapConfigPath:
+        input.bootstrapConfigPath ?? current.r2?.bootstrapConfigPath ?? defaults.bootstrapConfigPath,
+      bootstrapApplyState:
+        input.bootstrapApplyState ??
+        current.r2?.bootstrapApplyState ??
+        (input.provisioningStatus === "configured" ? "applied" : "failed"),
+      noSupabaseStorage: input.noSupabaseStorage ?? current.r2?.noSupabaseStorage ?? true,
+      provisionedAt:
+        input.provisioningStatus === "configured" ? new Date().toISOString() : current.r2?.provisionedAt,
+      lastProvisionError: input.lastProvisionError,
+      provisioning: input.provisioningStatus,
+    } satisfies StoreR2Config;
+
+    return {
+      ...current,
+      storageProvider: "r2",
+      r2: nextR2,
+      media: buildStoreMediaConfig({
+        databaseMode: current.databaseMode,
+        slug: current.slug,
+        r2: nextR2,
+      }),
+      readiness: {
+        ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+        storage: input.provisioningStatus === "configured" ? "ready" : "failed",
+      },
+    };
+  });
+}
+
+export function updateStoreR2MediaConfig(
+  slug: string,
+  input: StoreR2MediaUpdateInput,
+): StoreConfig {
+  return updateStoreConfig(slug, (current) => {
+    const defaults = buildStoreR2Config({
+      databaseMode: current.databaseMode,
+      slug: current.slug,
+    });
+    const prefix = input.prefix ?? current.r2?.prefix ?? defaults.prefix;
+    const publicUrl = input.publicUrl === null ? null : input.publicUrl ?? current.r2?.publicUrl ?? null;
+    const nextR2 = {
+      ...defaults,
+      ...(current.r2 ?? {}),
+      status: input.status ?? current.r2?.status ?? defaults.status,
+      bucketName:
+        input.bucketName === null ? null : input.bucketName ?? current.r2?.bucketName ?? null,
+      publicUrl,
+      managedDomain:
+        input.managedDomain === null ? null : input.managedDomain ?? current.r2?.managedDomain ?? null,
+      endpoint: input.endpoint === null ? null : input.endpoint ?? current.r2?.endpoint ?? null,
+      region: input.region ?? current.r2?.region ?? defaults.region,
+      prefix,
+      uploadPrefix: input.uploadPrefix ?? current.r2?.uploadPrefix ?? `${prefix}uploads/`,
+      productImagesPrefix:
+        input.productImagesPrefix ?? current.r2?.productImagesPrefix ?? `${prefix}products/`,
+      pageImagesPrefix: input.pageImagesPrefix ?? current.r2?.pageImagesPrefix ?? `${prefix}pages/`,
+      brandingPrefix: input.brandingPrefix ?? current.r2?.brandingPrefix ?? `${prefix}branding/`,
+      publicUrlTemplate:
+        input.publicUrlTemplate === null
+          ? null
+          : input.publicUrlTemplate ??
+            current.r2?.publicUrlTemplate ??
+            (publicUrl ? `${publicUrl.replace(/\/+$/, "")}/{key}` : null),
+      adminUploadStatus:
+        input.adminUploadStatus ?? current.r2?.adminUploadStatus ?? defaults.adminUploadStatus,
+      storefrontReadStatus:
+        input.storefrontReadStatus ??
+        current.r2?.storefrontReadStatus ??
+        defaults.storefrontReadStatus,
+      credentialsStatus:
+        input.credentialsStatus ?? current.r2?.credentialsStatus ?? defaults.credentialsStatus,
+      bootstrapConfigPath:
+        input.bootstrapConfigPath ?? current.r2?.bootstrapConfigPath ?? defaults.bootstrapConfigPath,
+      bootstrapApplyState:
+        input.bootstrapApplyState ?? current.r2?.bootstrapApplyState ?? defaults.bootstrapApplyState,
+      noSupabaseStorage: input.noSupabaseStorage ?? current.r2?.noSupabaseStorage ?? true,
+      provisioning: input.provisioningStatus ?? current.r2?.provisioning ?? defaults.provisioning,
+      provisionedAt: current.r2?.provisionedAt,
+      lastProvisionError:
+        input.lastProvisionError === null
+          ? undefined
+          : input.lastProvisionError ?? current.r2?.lastProvisionError,
+    } satisfies StoreR2Config;
+
+    return {
+      ...current,
+      storageProvider: "r2",
+      r2: nextR2,
+      media: buildStoreMediaConfig({
+        databaseMode: current.databaseMode,
+        slug: current.slug,
+        r2: nextR2,
+      }),
+      readiness: {
+        ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+        storage: nextR2.status === "configured" ? "ready" : nextR2.status === "failed" ? "failed" : "pending",
+      },
+    };
+  });
+}
+
+export function updateStoreSmokeReport(slug: string, report: StoreSmokeReport): StoreConfig {
   return updateStoreConfig(slug, (current) => ({
     ...current,
-    r2: {
-      bucketName: input.bucketName,
-      publicUrl: input.publicUrl,
-      managedDomain: input.managedDomain ?? current.r2?.managedDomain,
-      provisionedAt: input.provisioningStatus === "configured" ? new Date().toISOString() : current.r2?.provisionedAt,
-      lastProvisionError: input.lastProvisionError,
-      provisioning: input.provisioningStatus
-    }
+    smoke: report,
+    readiness: {
+      ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+      smoke:
+        report.overallStatus === "passed"
+          ? "ready"
+          : report.overallStatus === "failed"
+          ? "failed"
+          : "pending",
+    },
   }));
 }
 

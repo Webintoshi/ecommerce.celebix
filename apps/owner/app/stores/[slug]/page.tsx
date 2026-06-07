@@ -161,6 +161,18 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const authSignal = setupSignals.find((signal) => signal.key === "auth");
   const analyticsSignal = setupSignals.find((signal) => signal.key === "analytics");
   const paymentSignal = setupSignals.find((signal) => signal.key === "payment");
+  const logto = store.logto;
+  const logtoAdminRedirectCount = logto?.adminRedirectUris?.length ?? 0;
+  const logtoAdminLogoutCount = logto?.adminPostLogoutRedirectUris?.length ?? 0;
+  const logtoCustomerRedirectCount = logto?.customerRedirectUris?.length ?? 0;
+  const logtoCustomerLogoutCount = logto?.customerPostLogoutRedirectUris?.length ?? 0;
+  const umami = store.umami;
+  const r2 = store.r2;
+  const media = store.media;
+  const smoke = store.smoke;
+  const smokePassedCount = smoke?.checks.filter((check) => check.status === "passed").length ?? 0;
+  const smokeFailedCount = smoke?.checks.filter((check) => check.status === "failed").length ?? 0;
+  const smokePendingCount = smoke?.checks.filter((check) => check.status === "pending").length ?? 0;
   const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
   const orphanedTargetCount = cleanupRuns.reduce(
     (total, run) =>
@@ -382,6 +394,168 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           repairDisabled={repairDisabled}
           repairDisabledReason={repairDisabledReason}
         />
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="Logto kimlik doğrulama"
+            copy="Yeni Standart mağazalarda admin ve müşteri giriş uygulamaları ayrı Logto config olarak hazırlanır."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Admin uygulaması</span>
+                <strong>{logto?.adminAppStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{logto?.adminBootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Müşteri uygulaması</span>
+                <strong>{logto?.customerAppStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{logto?.customerBootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Redirect URI</span>
+                <strong>{logtoAdminRedirectCount + logtoCustomerRedirectCount} kayıt</strong>
+                <p>Admin ve müşteri callback domainleri public HTTPS olarak tutulur.</p>
+              </article>
+              <article>
+                <span>Çıkış yönlendirmeleri</span>
+                <strong>{logtoAdminLogoutCount + logtoCustomerLogoutCount} kayıt</strong>
+                <p>Admin login ve müşteri hesap dönüşleri hazır.</p>
+              </article>
+              <article>
+                <span>Google ile giriş</span>
+                <strong>{logto?.googleSignIn === "enabled" ? "Aktif" : "Bekliyor"}</strong>
+                <p>Central connector hazır olunca customer app kullanabilir.</p>
+              </article>
+              <article>
+                <span>Şifre sıfırlama</span>
+                <strong>{logto?.emailRecovery === "enabled" ? "Aktif" : "Bekliyor"}</strong>
+                <p>SMTP recovery connector hazır olunca akış açılır.</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="Umami analitik"
+            copy="Yeni Standart mağazalarda vitrin tracking ve admin analytics server-side token authority ile hazırlanır."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Website kaydı</span>
+                <strong>{umami?.websiteStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{umami?.bootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Website ID</span>
+                <strong>{umami?.websiteId ? "Tanımlı" : "Pending"}</strong>
+                <p>{umami?.canonicalDomain || store.storefrontDomain}</p>
+              </article>
+              <article>
+                <span>Storefront script</span>
+                <strong>{umami?.storefrontTrackingStatus === "configured" ? "Aktif" : "Hazırlanacak"}</strong>
+                <p>{umami?.scriptUrl || "https://analytics.celebix.co/script.js"}</p>
+              </article>
+              <article>
+                <span>Admin analytics</span>
+                <strong>{umami?.adminAnalyticsStatus === "configured" ? "Aktif" : "Pending"}</strong>
+                <p>{umami?.adminSummaryEndpoint || "/api/admin/analytics/summary"}</p>
+              </article>
+              <article>
+                <span>Token authority</span>
+                <strong>{umami?.serverTokenStatus === "configured" ? "Server hazır" : "Owner env bekliyor"}</strong>
+                <p>Token browser'a taşınmaz; admin özetleri server-side okunur.</p>
+              </article>
+              <article>
+                <span>Store scope</span>
+                <strong>{umami?.domain || store.storefrontDomain}</strong>
+                <p>{umami?.timezone || "Europe/Istanbul"}</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="R2 medya depolama"
+            copy="Yeni Standart mağazalarda ürün, sayfa ve marka görselleri R2 public media authority üzerinden okunur; Supabase Storage kullanılmaz."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Bucket / public URL</span>
+                <strong>{r2?.bucketName ? "Tanımlı" : "Pending"}</strong>
+                <p>{r2?.publicUrl || "R2 public base URL owner env/apply bekliyor."}</p>
+              </article>
+              <article>
+                <span>Mağaza prefix</span>
+                <strong>{r2?.prefix || media?.prefix || `stores/${store.slug}/`}</strong>
+                <p>Her mağaza kendi prefix scope'u içinde tutulur.</p>
+              </article>
+              <article>
+                <span>Ürün görselleri</span>
+                <strong>{media?.productImagesPrefix || r2?.productImagesPrefix || `stores/${store.slug}/products/`}</strong>
+                <p>{media?.publicUrlTemplate || r2?.publicUrlTemplate || "Public URL template pending."}</p>
+              </article>
+              <article>
+                <span>Sayfa / marka görselleri</span>
+                <strong>{media?.pageImagesPrefix || r2?.pageImagesPrefix || `stores/${store.slug}/pages/`}</strong>
+                <p>{media?.brandingPrefix || r2?.brandingPrefix || `stores/${store.slug}/branding/`}</p>
+              </article>
+              <article>
+                <span>Admin upload</span>
+                <strong>{media?.adminUploadStatus === "configured" ? "Server hazır" : "Pending"}</strong>
+                <p>R2 credential sadece server-side kullanılır; browser'a secret taşınmaz.</p>
+              </article>
+              <article>
+                <span>Vitrin okuma</span>
+                <strong>{media?.storefrontReadStatus === "configured" ? "Aktif" : "Pending"}</strong>
+                <p>{media?.noSupabaseStorage !== false ? "Supabase Storage kullanılmıyor." : "Legacy storage kontrol edilmeli."}</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="New-store smoke"
+            copy="Package 7 smoke runner planı mağaza canlıya alınmadan önce runtime, auth, analytics, medya ve Supabase-free kontrollerini izler."
+            tone={smoke?.overallStatus === "failed" ? "danger" : smoke?.overallStatus === "passed" ? "success" : "accent"}
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Durum</span>
+                <strong>
+                  {smoke?.overallStatus === "passed"
+                    ? "Smoke geçti"
+                    : smoke?.overallStatus === "failed"
+                      ? "Smoke başarısız"
+                      : smoke?.overallStatus === "partial"
+                        ? "Kısmi"
+                        : "Smoke bekliyor"}
+                </strong>
+                <p>{smoke?.mode === "execute" ? "Execute sonucu" : "Plan mode; canlı request çalıştırılmadı."}</p>
+              </article>
+              <article>
+                <span>Check sayısı</span>
+                <strong>{smoke?.checks.length ?? 0}</strong>
+                <p>{smokePassedCount} geçti / {smokeFailedCount} fail / {smokePendingCount} pending</p>
+              </article>
+              <article>
+                <span>Son çalışma</span>
+                <strong>{smoke?.finishedAt ? formatDateTime(smoke.finishedAt) : "Bekliyor"}</strong>
+                <p>{smoke?.startedAt ? `Plan başlangıcı: ${formatDateTime(smoke.startedAt)}` : "Smoke runner henüz planlanmadı."}</p>
+              </article>
+              <article>
+                <span>Repair action</span>
+                <strong>{smokeFailedCount > 0 ? "Gerekli" : "Yok"}</strong>
+                <p>{smoke?.checks.find((check) => check.status === "failed")?.repairAction || "Fail oluşursa ilgili check repairAction alanı doldurulur."}</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
       </section>
 
       <section id="domain-deploy" className="store-detail-section">

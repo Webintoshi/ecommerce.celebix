@@ -218,13 +218,23 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
-  if (state === "pending_repair") {
+  if (state === "pending_repair" || state === "failed_storage" || state === "failed_smoke") {
     return {
       eyebrow: "Teknik mola",
       title: "Kurulum takıldı ama akış kontrol altında",
       body: currentStepLabel
         ? `${currentStepLabel} adımında duraksama var. Owner panel onarım akışını ve kalan adımları buradan yönetiyor.`
         : "Kurulum zincirinde düzeltilmesi gereken bir adım var. Owner panel geri kalan adımları kaybetmeden onarım akışını sürdürüyor.",
+    };
+  }
+
+  if (state === "pending_storage") {
+    return {
+      eyebrow: "R2 medya beklemede",
+      title: "Medya depolama standardı hazırlanıyor",
+      body: currentStepLabel
+        ? `${currentStepLabel} adımı R2 bucket/public URL veya server-side credential authority bekliyor.`
+        : "R2 bucket, prefix ve public media URL metadata hazırlandı; canlı apply veya env authority bekleniyor.",
     };
   }
 
@@ -265,6 +275,32 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
+  if (state === "pending_smoke") {
+    return {
+      eyebrow: "Smoke beklemede",
+      title: "Altyapı hazır, kabul smoke kuyruğu bekleniyor",
+      body:
+        "Postgres, Logto, Umami, R2 ve generated app authority tamamlandı. Owner panel mağazayı ready yapmadan önce smoke checklist sonucunu bekliyor.",
+    };
+  }
+
+  if (
+    state === "database_ready" ||
+    state === "storage_ready" ||
+    state === "auth_ready" ||
+    state === "analytics_ready" ||
+    state === "admin_ready" ||
+    state === "storefront_ready" ||
+    state === "smoke_ready"
+  ) {
+    return {
+      eyebrow: "Hazırlık tamamlanıyor",
+      title: `${storeName} standard adımlarında ilerliyor`,
+      body:
+        "Owner lifecycle Postgres, Logto, Umami, R2, admin, vitrin ve smoke aşamalarını ayrı ayrı izlemeye hazır.",
+    };
+  }
+
   if (state === "failed") {
     return {
       eyebrow: "Kritik duruş",
@@ -302,12 +338,19 @@ function getStatusLabel(status: ProvisioningStepStatus): string {
 
 function getFocusedLifecycleStepKey(state: ProvisioningState): ProvisioningStepKey | null {
   switch (state) {
+    case "pending_storage":
+    case "failed_storage":
+      return "r2_provision";
     case "pending_auth":
       return "auth_setup";
     case "pending_analytics":
       return "analytics_setup";
     case "pending_payment":
       return "payment_setup";
+    case "pending_smoke":
+    case "failed_smoke":
+    case "smoke_ready":
+      return null;
     default:
       return null;
   }

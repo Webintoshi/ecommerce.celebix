@@ -23,7 +23,12 @@ import {
   type StoreAuthConfig,
   type StoreConfig,
   type DatabaseMode,
+  type StoreLogtoConfig,
+  type StoreMediaConfig,
   type StorePaymentsConfig,
+  type StoreR2Config,
+  type StoreSmokeReport,
+  type StoreUmamiConfig,
   type StorefrontStatus
 } from "@celebix/platform-config";
 import type {
@@ -354,6 +359,11 @@ export interface DashboardStoreSummary {
   storeAdminCount: number;
   management: StoreManagementProfile;
   setup: StoreSetupSummary;
+  logto?: StoreLogtoConfig | null;
+  umami?: StoreUmamiConfig | null;
+  r2?: StoreR2Config | null;
+  media?: StoreMediaConfig | null;
+  smoke?: StoreSmokeReport | null;
   health: StoreHealthSummary;
   consistency: StoreConsistencySummary;
   provisioning: StoreProvisioningSummary;
@@ -2182,6 +2192,9 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
   const supabase = asRecord(current.supabase);
   const auth = asRecord(current.auth);
   const analytics = asRecord(current.analytics);
+  const logto = asRecord(current.logto);
+  const umami = asRecord(current.umami);
+  const readiness = asRecord(current.readiness);
   const payments = asRecord(current.payments);
   const mergedAdminDeploymentStatus =
     store.bootstrap?.adminDeploymentStatus === "configured"
@@ -2201,6 +2214,11 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
   return {
     ...current,
     databaseMode: store.databaseMode,
+    authProvider: store.authProvider,
+    customerAuthProvider: store.customerAuthProvider,
+    analyticsProvider: store.analyticsProvider,
+    storageProvider: store.storageProvider,
+    supabaseStatus: store.supabaseStatus,
     domains: store.domains,
     lightPostgres: store.lightPostgres ?? current.lightPostgres ?? null,
     bootstrap: {
@@ -2246,6 +2264,18 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
     analytics: {
       ...analytics,
       ...(store.analytics ?? {}),
+    },
+    logto: {
+      ...logto,
+      ...(store.logto ?? {}),
+    },
+    umami: {
+      ...umami,
+      ...(store.umami ?? {}),
+    },
+    readiness: {
+      ...readiness,
+      ...(store.readiness ?? {}),
     },
     payments: {
       ...payments,
@@ -3499,6 +3529,11 @@ async function buildDashboardStoreSummaries(
           storefrontStatus: resolveOwnerStorefrontStatus(store)
         }),
         setup,
+        logto: storeConfig?.logto ?? null,
+        umami: storeConfig?.umami ?? null,
+        r2: storeConfig?.r2 ?? null,
+        media: storeConfig?.media ?? null,
+        smoke: storeConfig?.smoke ?? null,
         provisioning,
         domainMigration,
         health,
@@ -4293,6 +4328,9 @@ export async function getStoreDetail(context: OwnerAuthContext, slug: string): P
     r2BucketName: storeRow.r2_bucket_name ?? storeConfig?.r2?.bucketName ?? null,
     r2PublicUrl: storeRow.r2_public_url ?? storeConfig?.r2?.publicUrl ?? null,
     r2ManagedDomain: storeRow.r2_managed_domain ?? storeConfig?.r2?.managedDomain ?? null,
+    r2: storeConfig?.r2 ?? null,
+    media: storeConfig?.media ?? null,
+    smoke: storeConfig?.smoke ?? null,
     bootstrap: normalizedBootstrap,
     storefront: normalizedStorefront,
     features: storeConfig?.features?.length ? storeConfig.features : metadataFeatures,

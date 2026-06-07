@@ -13,7 +13,6 @@ import {
   recordOwnerAuditLog,
   syncOwnerStoresAndMetrics,
   updateOwnerStoreBootstrapHealthAuthority,
-  updateOwnerStoreR2Authority,
   updateStoreManagementProfile,
 } from "@/lib/control-plane";
 import type { OwnerAuthContext } from "@/lib/owner-auth";
@@ -28,11 +27,23 @@ import {
   reserveGeneratedDeploymentWindow,
 } from "@/lib/generated-deployment-guard";
 import {
+  checkLightPostgresReadinessForStore,
   getLightPostgresBootstrapStatus,
   provisionLightPostgresForStore,
 } from "@/lib/light-postgres-provisioning";
+import {
+  getLogtoBootstrapStatus,
+  provisionLogtoAppsForStore,
+} from "@/lib/logto-provisioning";
+import {
+  getUmamiBootstrapStatus,
+  provisionUmamiForStore,
+} from "@/lib/umami-provisioning";
 import { isOwnerActionDisabled } from "@/lib/preview-mode";
-import { getR2BootstrapStatus, provisionR2ForStore } from "@/lib/r2-bootstrap";
+import {
+  getR2MediaBootstrapStatus,
+  provisionR2MediaForStore,
+} from "@/lib/r2-provisioning";
 import { scaffoldStorefrontApp } from "@/lib/storefront-scaffold";
 import {
   createDefaultProvisioningSteps,
@@ -213,14 +224,10 @@ export async function validateProvisioningEnvironmentReadiness(
   }
 
   try {
-    const status = await getR2BootstrapStatus();
-
-    if (!status.configured) {
-      errors.push(status.lastError || "R2 bootstrap authority eksik.");
-    }
+    getR2MediaBootstrapStatus();
   } catch (error) {
     errors.push(
-      `R2 bootstrap authority dogrulanamadi: ${
+      `R2 media config dogrulanamadi: ${
         error instanceof Error ? error.message : "bilinmeyen hata"
       }`,
     );
@@ -602,13 +609,10 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
   });
 
   await runPreflightStep(tracker, "r2_preflight", async () => {
-    const status = await getR2BootstrapStatus();
-
-    if (!status.configured) {
-      throw new Error(status.lastError || "R2 bootstrap authority eksik.");
-    }
-
-    return "R2 bootstrap hazir.";
+    const status = getR2MediaBootstrapStatus();
+    return status.configured
+      ? "R2 media authority hazir."
+      : status.lastError || "R2 media config pending apply modunda hazirlanacak.";
   });
 
   await runPreflightStep(tracker, "coolify_preflight", async () => {
@@ -654,6 +658,32 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
     }
 
     return `Starter source erisilebilir: ${sourceBase}`;
+  });
+
+  await runPreflightStep(tracker, "auth_setup", async () => {
+    const store = repairStoreConfig(input.slug);
+
+    if (store.databaseMode !== "light_postgres") {
+      return "Legacy Supabase auth store runtime icinde ele alinir.";
+    }
+
+    const status = getLogtoBootstrapStatus();
+    return status.configured
+      ? "Logto management authority apply-ready durumda."
+      : status.lastError || "Logto config generation pending apply modunda calisacak.";
+  });
+
+  await runPreflightStep(tracker, "analytics_setup", async () => {
+    const store = repairStoreConfig(input.slug);
+
+    if (store.databaseMode !== "light_postgres") {
+      return "Legacy analytics setup store runtime icinde ele alinir.";
+    }
+
+    const status = getUmamiBootstrapStatus();
+    return status.configured
+      ? "Umami token authority apply-ready durumda."
+      : status.lastError || "Umami config generation pending apply modunda calisacak.";
   });
 
   await runPreflightStep(tracker, "generated_apps_toggle", async () => {
@@ -800,6 +830,32 @@ async function reconcileProvisioningSummaryWithLiveState(
     store.supabase.url !== "configure-in-env"
   ) {
     markCompleted("supabase_provision", "Supabase authority canli durumda hazir.");
+  }
+
+  if (store.databaseMode === "light_postgres") {
+    if (store.lightPostgres?.readinessStatus === "ready") {
+      markCompleted("supabase_provision", "light_postgres schema, seed ve runtime role hazir.");
+    } else if (store.lightPostgres?.provisioning === "configured") {
+      try {
+        const readiness = await checkLightPostgresReadinessForStore(store);
+
+        if (readiness.ready) {
+          markCompleted("supabase_provision", readiness.message);
+        } else {
+          readinessError = readinessError ?? readiness.message;
+          markFailed("supabase_provision", readiness.message);
+          blockRemainingStepsAfter("supabase_provision", readiness.nextRepairAction ?? readiness.message);
+        }
+      } catch (error) {
+        const databaseError =
+          error instanceof Error
+            ? error.message
+            : "light_postgres readiness kontrolu basarisiz oldu.";
+        readinessError = readinessError ?? databaseError;
+        markFailed("supabase_provision", databaseError);
+        blockRemainingStepsAfter("supabase_provision", "light_postgres repair/retry gerekli.");
+      }
+    }
   }
 
   if (store.r2?.provisioning === "configured" && store.r2?.bucketName && store.r2?.publicUrl) {
@@ -1027,7 +1083,7 @@ export async function runStoreProvisioningWorkflow(
         if (store.databaseMode === "light_postgres") {
           const result = await provisionLightPostgresForStore(store);
           await syncOwnerStoresAndMetrics();
-          return `light_postgres provision edildi: ${result.cluster}/${result.databaseName}`;
+          return `light_postgres provision edildi: ${result.cluster}/${result.databaseName}; role=${result.roleName}; ${result.readiness.message}`;
         }
 
         const result = await provisionSupabaseForStore(store);
@@ -1052,14 +1108,9 @@ export async function runStoreProvisioningWorkflow(
       "r2_provision",
       async () => {
         const store = repairStoreConfig(input.slug);
-        const result = await provisionR2ForStore(store);
-        await updateOwnerStoreR2Authority(input.slug, {
-          bucketName: result.bucketName,
-          publicUrl: result.publicUrl,
-          managedDomain: result.managedDomain,
-        });
+        const result = await provisionR2MediaForStore(store);
         await syncOwnerStoresAndMetrics();
-        return `R2 bucket hazir: ${result.bucketName}`;
+        return `R2 media config hazirlandi: ${result.configPath}; bucket=${result.bucketName ? "configured" : "pending"}`;
       },
     ],
     [
@@ -1154,15 +1205,10 @@ export async function runStoreProvisioningWorkflow(
         const store = repairStoreConfig(input.slug);
 
         if (store.databaseMode === "light_postgres") {
-          if (store.lightPostgres?.umamiReady === false) {
-            throw new Error("light_postgres store icin analytics hazirligi tamamlanmadi.");
-          }
+          const result = await provisionUmamiForStore(store);
+          await syncOwnerStoresAndMetrics();
 
-          if (isPendingAnalyticsSetup(store)) {
-            return "Umami-ready analytics placeholder owner authority icinde kayitli.";
-          }
-
-          return "Umami analytics authority hazir.";
+          return `Umami website config hazirlandi: ${result.configPath}; websiteId=${result.websiteId ? "configured" : "pending"}`;
         }
 
         return "Legacy analytics setup store runtime icinde ele alinir.";
@@ -1174,11 +1220,10 @@ export async function runStoreProvisioningWorkflow(
         const store = repairStoreConfig(input.slug);
 
         if (store.databaseMode === "light_postgres") {
-          if (isPendingAuthSetup(store)) {
-            return "Logto-ready auth placeholder owner authority icinde kayitli.";
-          }
+          const result = await provisionLogtoAppsForStore(store);
+          await syncOwnerStoresAndMetrics();
 
-          return "Light Postgres auth authority hazir.";
+          return `Logto admin/customer app config hazirlandi: ${result.adminConfigPath}, ${result.customerConfigPath}`;
         }
 
         return "Supabase auth store ile birlikte hazir.";

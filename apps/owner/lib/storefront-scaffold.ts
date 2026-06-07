@@ -17,6 +17,10 @@ import {
 } from "../../../packages/platform-config/src/index";
 import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
+import {
+  buildGeneratedRuntimeEnv,
+  buildGeneratedRuntimeJson,
+} from "@/lib/generated-app-standard";
 
 interface StorefrontScaffoldResult {
   appDirectory: string;
@@ -273,12 +277,13 @@ function buildStorefrontExampleEnv(store: StoreConfig): Record<string, string> {
           LIGHT_POSTGRES_DATABASE_SSLMODE: lightPostgresSslMode,
           DATABASE_SSLMODE: lightPostgresSslMode,
           NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
-          AUTH_SETUP_STATUS: "blocked_auth_setup",
-          NEXT_PUBLIC_AUTH_SETUP_STATUS: "blocked_auth_setup",
+          AUTH_SETUP_STATUS: "pending_auth_setup",
+          NEXT_PUBLIC_AUTH_SETUP_STATUS: "pending_auth_setup",
         };
 
   return {
     ...buildStorefrontPublicEnv(store),
+    ...buildGeneratedRuntimeEnv(store, "storefront"),
     NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL: getConfiguredImageTransformationUrl(),
     ...databaseEnv,
     REDIS_URL: "redis://your-coolify-redis:6379",
@@ -598,11 +603,17 @@ export async function scaffoldStorefrontApp(slug: string): Promise<StorefrontSca
     serializeEnv(buildStorefrontExampleEnv(store)),
     "utf8",
   );
+  fs.writeFileSync(
+    path.join(appDirectory, "celebix.generated-runtime.json"),
+    buildGeneratedRuntimeJson(store, "storefront"),
+    "utf8",
+  );
 
   const adminEnvEntries = readExistingAdminEnvEntries(repoRoot, store);
   const envLocalEntries = {
     ...adminEnvEntries,
     ...buildStorefrontPublicEnv(store),
+    ...buildGeneratedRuntimeEnv(store, "storefront", adminEnvEntries),
   };
 
   if (store.databaseMode === "light_postgres") {
@@ -618,8 +629,8 @@ export async function scaffoldStorefrontApp(slug: string): Promise<StorefrontSca
     envLocalEntries.LIGHT_POSTGRES_DATABASE_SSLMODE = runtimeSslMode;
     envLocalEntries.DATABASE_SSLMODE = runtimeSslMode;
     envLocalEntries.NEXT_PUBLIC_RUNTIME_DATABASE_MODE = "light_postgres";
-    envLocalEntries.AUTH_SETUP_STATUS = "blocked_auth_setup";
-    envLocalEntries.NEXT_PUBLIC_AUTH_SETUP_STATUS = "blocked_auth_setup";
+    envLocalEntries.AUTH_SETUP_STATUS ||= "pending_auth_setup";
+    envLocalEntries.NEXT_PUBLIC_AUTH_SETUP_STATUS ||= envLocalEntries.AUTH_SETUP_STATUS;
 
     if (runtimeDatabaseUrl) {
       envLocalEntries.DATABASE_URL = runtimeDatabaseUrl;

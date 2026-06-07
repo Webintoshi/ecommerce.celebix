@@ -15,7 +15,6 @@ import {
   getOwnerPreviewFlags,
   isOwnerActionDisabled,
 } from "@/lib/preview-mode";
-import { getSupabaseBootstrapStatus } from "@/lib/supabase-bootstrap";
 
 export default async function NewStorePage() {
   requireSuperAdmin(await requireOwnerAuth("/stores/new"));
@@ -24,7 +23,13 @@ export default async function NewStorePage() {
   const createStoreDisabledReason =
     getOwnerPreviewDisabledNotice("create_store", previewFlags) ?? undefined;
   const lightPostgresBootstrap = await getLightPostgresBootstrapStatus();
-  const supabaseBootstrap = await getSupabaseBootstrapStatus();
+  const missingLightPostgresRequirements = lightPostgresBootstrap.requirements
+    .filter((requirement) => requirement.required && !requirement.present)
+    .map((requirement) =>
+      requirement.aliases.length > 0
+        ? `${requirement.key} veya ${requirement.aliases.join("/")}`
+        : requirement.key,
+    );
 
   return (
     <>
@@ -44,11 +49,12 @@ export default async function NewStorePage() {
         actions={
           <>
             <OwnerStatusChip tone={lightPostgresBootstrap.configured ? "success" : "warning"}>
-              Yeni Standart {lightPostgresBootstrap.configured ? "hazır" : "kontrol bekliyor"}
+              Postgres {lightPostgresBootstrap.configured ? "hazır" : "kontrol bekliyor"}
             </OwnerStatusChip>
-            <OwnerStatusChip tone={supabaseBootstrap.configured ? "legacy" : "ink"}>
-              Legacy {supabaseBootstrap.configured ? "hazır" : "ayrık"}
-            </OwnerStatusChip>
+            <OwnerStatusChip tone="success">Logto varsayılan</OwnerStatusChip>
+            <OwnerStatusChip tone="success">Umami varsayılan</OwnerStatusChip>
+            <OwnerStatusChip tone="success">R2 medya</OwnerStatusChip>
+            <OwnerStatusChip tone="ink">Supabase kullanılmıyor</OwnerStatusChip>
             {createStoreDisabled ? <OwnerStatusChip tone="warning">Yazma işlemleri kapalı</OwnerStatusChip> : null}
           </>
         }
@@ -77,15 +83,15 @@ export default async function NewStorePage() {
             <div>
               <div className="card-title">Kurulum rehberi</div>
               <p className="section-copy">
-                Teknik veritabanı modu ana seçim olmaktan çıkarıldı; Yeni Standart varsayılan,
-                Legacy akışı ise Advanced alanında tutulur.
+                Yeni mağaza akışı Postgres veritabanı, Logto kimlik doğrulama,
+                Umami analitik ve R2 medya depolama standardıyla açılır.
               </p>
             </div>
             <OwnerLifecycleStepper
               steps={[
                 { label: "Temel Bilgiler", detail: "Ad, slug ve marka dili", state: "current" },
                 { label: "Domain", detail: "Vitrin ve admin kimliği", state: "pending" },
-                { label: "Kurulum Standardı", detail: "Yeni Standart + R2", state: "pending" },
+                { label: "Kurulum Standardı", detail: "Postgres + Logto + Umami + R2", state: "pending" },
                 { label: "Admin Kullanıcı", detail: "Başlangıç erişimi", state: "pending" },
                 { label: "Ödeme ve Kargo Başlangıcı", detail: "Paket ve ticaret ayarı", state: "pending" },
                 { label: "Önizleme ve Onay", detail: "Son kontrol", state: "pending" },
@@ -95,6 +101,17 @@ export default async function NewStorePage() {
         </aside>
 
         <div className="owner-wizard-form-panel">
+          {missingLightPostgresRequirements.length > 0 ? (
+            <div className="owner-action-panel tone-danger">
+              <div className="card-title">light_postgres preflight eksik</div>
+              <p className="section-copy">
+                Yeni mağaza oluşturma başlamadan önce owner runtime env kontrolü
+                başarısız olur. Secret değerler gösterilmez; eksik key aileleri:
+                {" "}
+                {missingLightPostgresRequirements.join(", ")}
+              </p>
+            </div>
+          ) : null}
           <CreateStoreForm
             ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
             storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}

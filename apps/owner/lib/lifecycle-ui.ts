@@ -18,20 +18,39 @@ export interface SetupSignalDisplay {
 const PROVISIONING_LABELS: Record<ProvisioningState, string> = {
   running: "işleniyor",
   provisioning: "kuruluyor",
+  database_ready: "veritabanı hazır",
+  storage_ready: "depolama hazır",
+  auth_ready: "auth hazır",
+  analytics_ready: "analytics hazır",
+  admin_ready: "admin hazır",
+  storefront_ready: "vitrin hazır",
+  smoke_ready: "smoke hazır",
   pending_dns: "dns bekliyor",
+  pending_storage: "depolama bekliyor",
   pending_auth: "auth bekliyor",
   pending_analytics: "analytics bekliyor",
   pending_payment: "ödeme bekliyor",
+  pending_smoke: "smoke bekliyor",
   ready: "hazır",
   pending_repair: "onarım aksiyonu",
+  failed_storage: "depolama arızası",
+  failed_smoke: "smoke başarısız",
   failed: "kritik arıza",
 };
 
 export function getProvisioningToneClass(state: ProvisioningState): string {
   switch (state) {
     case "ready":
+    case "database_ready":
+    case "storage_ready":
+    case "auth_ready":
+    case "analytics_ready":
+    case "admin_ready":
+    case "storefront_ready":
+    case "smoke_ready":
       return "provisioning-tone-ready";
     case "pending_dns":
+    case "pending_storage":
       return "provisioning-tone-pending_dns";
     case "pending_auth":
       return "provisioning-tone-pending_auth";
@@ -39,7 +58,11 @@ export function getProvisioningToneClass(state: ProvisioningState): string {
       return "provisioning-tone-pending_analytics";
     case "pending_payment":
       return "provisioning-tone-pending_payment";
+    case "pending_smoke":
+      return "provisioning-tone-pending_analytics";
     case "failed":
+    case "failed_storage":
+    case "failed_smoke":
       return "provisioning-tone-failed";
     case "pending_repair":
       return "provisioning-tone-pending_repair";

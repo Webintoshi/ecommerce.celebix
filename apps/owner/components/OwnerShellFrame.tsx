@@ -147,7 +147,7 @@ function resolveTopbarContext(pathname: string) {
   }
 
   if (pathname === "/affiliates") {
-    return { eyebrow: "Satış Ortakları", title: "Affiliate Paneli" };
+    return { eyebrow: "Partnerler", title: "Affiliate Paneli" };
   }
 
   if (pathname === "/clients") {

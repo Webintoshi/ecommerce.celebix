@@ -192,12 +192,16 @@ export function CreateStoreForm({
               <span>Yeni Celebix Standardı</span>
             </div>
             <p>
-              Yeni mağazalar varsayılan olarak Yeni Standart, R2 medya zinciri ve generated admin/vitrin düzeniyle açılır.
-              Teknik veritabanı modu ana seçim değildir.
+              Yeni mağazalar varsayılan olarak Postgres veritabanı, Logto kimlik doğrulama,
+              Umami analitik, R2 medya depolama ve Build Server/GHCR yayın düzeniyle açılır.
             </p>
             <div className="actions compact-actions wrap stack-top-sm">
-              <span className="pill pill-success">Yeni Standart</span>
-              <span className="pill">R2 varsayılan</span>
+              <span className="pill pill-success">Postgres veritabanı</span>
+              <span className="pill pill-success">Logto kimlik doğrulama</span>
+              <span className="pill pill-success">Umami analitik</span>
+              <span className="pill">R2 medya depolama</span>
+              <span className="pill">Build Server / GHCR</span>
+              <span className="pill pill-ink">Supabase kullanılmıyor</span>
               <span className="pill provisioning-tone-pending_auth">Auth Kurulumu Bekleyen</span>
               <span className="pill provisioning-tone-pending_analytics">Analytics Kurulumu Bekleyen</span>
               <span className="pill provisioning-tone-pending_payment">Ödeme Kurulumu Bekleyen</span>
@@ -321,7 +325,7 @@ export function CreateStoreForm({
               <span>Mağaza <strong>{form.name || "Henüz girilmedi"}</strong></span>
               <span>Slug <strong>{branchSlugPreview}</strong></span>
               <span>Domain <strong>{form.domain || "Bekleniyor"}</strong></span>
-              <span>Standart <strong>{form.databaseMode === "full_supabase" ? "Legacy" : "Yeni Standart"}</strong></span>
+              <span>Standart <strong>{form.databaseMode === "full_supabase" ? "Legacy" : "Postgres + Logto + Umami + R2"}</strong></span>
               <span>Tema <strong>{form.theme}</strong></span>
               <span>Paket <strong>{form.packageDurationMonths || "1"} ay</strong></span>
             </div>
