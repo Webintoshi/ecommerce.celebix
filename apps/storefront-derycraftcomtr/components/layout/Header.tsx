@@ -271,7 +271,7 @@ export function Header({
       }`}
     >
       <div className="container-premium">
-        <div className="flex h-16 items-center lg:h-20">
+        <div className="flex h-16 items-center lg:grid lg:h-20 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
           <Link
             href={buildPath(ROUTES.home)}
             className="flex-shrink-0"
@@ -296,7 +296,7 @@ export function Header({
             )}
           </Link>
 
-          <nav className="hidden items-center gap-4 lg:ml-10 lg:flex lg:flex-1 xl:gap-6">
+          <nav className="hidden items-center justify-center gap-4 lg:flex xl:gap-6">
             {navigationCategories.map((category) => {
               const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
 
@@ -342,7 +342,15 @@ export function Header({
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:gap-4">
+          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:ml-0 lg:justify-self-end lg:gap-3">
+            <Link
+              href={buildPath(ROUTES.contact)}
+              className="group hidden items-center gap-2 rounded-full border border-[#18110B]/10 bg-white/90 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-[#18110B] shadow-[0_12px_28px_rgba(17,16,14,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#18110B]/20 hover:bg-[#F5EFE7] lg:inline-flex"
+            >
+              <span className="h-2 w-2 rounded-full bg-[#8A6B37] transition-transform duration-300 group-hover:scale-110" />
+              {copy.footerContact}
+            </Link>
+
             <button
               type="button"
               className="p-2"
