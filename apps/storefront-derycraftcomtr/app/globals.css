@@ -203,6 +203,17 @@ button, input, select, textarea {
   line-height: 1.12;
 }
 
+.store-product-title-pdp {
+  font-size: 15px !important;
+  line-height: 1.12 !important;
+}
+
+@media (min-width: 1024px) {
+  .store-product-title-pdp {
+    font-size: 26px !important;
+  }
+}
+
 /* === TEXT STYLES === */
 .text-balance {
   text-wrap: balance;
