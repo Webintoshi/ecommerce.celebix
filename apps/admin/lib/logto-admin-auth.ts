@@ -151,9 +151,11 @@ export function getLogtoCallbackUrl(): string {
   return normalizeUrl(readOptionalEnv("LOGTO_CALLBACK_URL") ?? `${STORE_RUNTIME.adminUrl}/callback`);
 }
 
-function getLogtoPostLogoutRedirectUrl(): string {
+function getLogtoPostLogoutRedirectUrl(postLogoutRedirectUrl?: string | null): string {
   return normalizeUrl(
-    readOptionalEnv("LOGTO_POST_LOGOUT_REDIRECT_URL") ?? `${STORE_RUNTIME.adminUrl}/admin/login`,
+    postLogoutRedirectUrl ??
+      readOptionalEnv("LOGTO_POST_LOGOUT_REDIRECT_URL") ??
+      `${STORE_RUNTIME.adminUrl}/admin/login`,
   );
 }
 
@@ -397,15 +399,23 @@ export async function fetchLogtoUserInfo(accessToken: string): Promise<LogtoUser
   return (await response.json()) as LogtoUserInfo;
 }
 
-export async function getLogtoLogoutRedirectUrl(idTokenHint: string | null) {
+export async function getLogtoLogoutRedirectUrl(
+  idTokenHint: string | null,
+  options?: {
+    postLogoutRedirectUrl?: string | null;
+  },
+) {
   const discovery = await getLogtoDiscoveryDocument();
 
   if (!discovery.end_session_endpoint) {
-    return getLogtoPostLogoutRedirectUrl();
+    return getLogtoPostLogoutRedirectUrl(options?.postLogoutRedirectUrl ?? null);
   }
 
   const url = new URL(discovery.end_session_endpoint);
-  url.searchParams.set("post_logout_redirect_uri", getLogtoPostLogoutRedirectUrl());
+  url.searchParams.set(
+    "post_logout_redirect_uri",
+    getLogtoPostLogoutRedirectUrl(options?.postLogoutRedirectUrl ?? null),
+  );
   url.searchParams.set("client_id", getLogtoAppId());
 
   if (idTokenHint) {

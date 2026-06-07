@@ -11,7 +11,6 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const authProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
   const isLogtoProvider = authProvider === "logto";
-  const logtoSignInHref = `/api/auth/sign-in?next=${encodeURIComponent(nextPath)}`;
   const hasBrowserSupabaseAuthEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
@@ -24,6 +23,7 @@ export default function AdminLoginPage() {
     [authUnavailable, isLogtoProvider],
   );
   const [nextPath, setNextPath] = useState("/admin");
+  const logtoSignInHref = `/api/auth/sign-in?next=${encodeURIComponent(nextPath)}`;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,12 +32,23 @@ export default function AdminLoginPage() {
     let mounted = true;
 
     const redirectIfAuthenticated = async () => {
+      const params =
+        typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const next =
         typeof window !== "undefined"
-          ? sanitizeInternalRedirectPath(new URLSearchParams(window.location.search).get("next"), "/admin")
+          ? sanitizeInternalRedirectPath(params?.get("next"), "/admin")
           : "/admin";
+      const loggedOut = params?.get("logged_out") === "1";
       if (mounted) {
         setNextPath(next);
+      }
+
+      if (loggedOut) {
+        try {
+          await getOptionalBrowserSupabaseClient()?.auth.signOut();
+        } catch (error) {
+          console.warn("Admin logout cleanup failed:", error);
+        }
       }
 
       const response = await fetch("/api/admin/me", {
