@@ -12,6 +12,10 @@ Yeni magaza acilis standardi artik `light_postgres` modudur.
   - store-per-database modeli
 - storage:
   - Cloudflare R2
+- auth:
+  - Logto admin/customer app authority
+- analytics:
+  - Umami website authority
 - deploy:
   - admin/storefront icin build-server + GHCR authority modeli
 - domains:
@@ -42,7 +46,8 @@ Yeni magaza acilis standardi artik `light_postgres` modudur.
 13. Admin/storefront Coolify payload'lari build-server/GHCR varsayilanlariyla hazirlanir.
 14. `analytics_setup` step'i Umami-ready metadata'sini dogrular.
 15. `auth_setup` step'i light-postgres store icin merkezi admin auth hazir degilse `blocked_auth_setup` yazar.
-16. Runtime consistency ayri health ekranindan izlenir.
+16. Smoke checklist modeli ready oncesi gate olarak ayrilir.
+17. Runtime consistency ayri health ekranindan izlenir.
 
 ## Database Mode Kurallari
 
@@ -127,6 +132,24 @@ Authority-only commitlerin owner veya musteri runtime'larini tetiklememesi hedef
 - Fail sonrasi downstream step'ler `blocked` yazilir.
 - `lastError` her zaman ilk blocking hatayi tasir.
 - Repair akisi `failed` ve `blocked` step'leri yeniden calistirabilir.
+- Yeni lifecycle state modeli `database_ready`, `storage_ready`, `auth_ready`, `analytics_ready`, `admin_ready`, `storefront_ready`, `smoke_ready`, `pending_smoke`, `ready`, `failed` ve bekleyen ara durumlari tanir.
+- `light_postgres` modunda Supabase yoklugu repair/fail sebebi degildir.
+
+## Package 1 Standard Authority Fields
+
+Yeni store config ve owner metadata su alanlari tasir:
+
+- `authProvider=logto`
+- `customerAuthProvider=logto`
+- `analyticsProvider=umami`
+- `storageProvider=r2`
+- `supabaseStatus=none`
+- `logto.adminAppStatus=pending`
+- `logto.customerAppStatus=pending`
+- `umami.websiteStatus=pending`
+- `umami.websiteId=null`
+- `r2.status=pending`
+- `readiness.database/storage/auth/analytics/admin/storefront/smoke=pending`
 
 ## Runtime Hazirlik Modeli
 

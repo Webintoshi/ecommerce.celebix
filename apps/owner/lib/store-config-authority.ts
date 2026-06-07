@@ -149,16 +149,25 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
     readOptionalString(bootstrap.adminDeploymentRuntimeUrl) ?? `https://${row.admin_domain}`;
   const auth = asRecord(metadata.auth);
   const analytics = asRecord(metadata.analytics);
+  const logto = asRecord(metadata.logto);
+  const umami = asRecord(metadata.umami);
+  const readiness = asRecord(metadata.readiness);
   const payments = asRecord(metadata.payments);
   const defaultAuth = buildDefaultStoreAuthConfig(databaseMode);
   const defaultAnalytics = buildDefaultStoreAnalyticsConfig();
   const defaultPayments = buildDefaultStorePaymentsConfig();
+  const newStandardSelected = databaseMode === "light_postgres";
 
   return {
     name: row.name,
     slug: row.slug,
     status: row.status,
     databaseMode,
+    authProvider: newStandardSelected ? "logto" : "supabase",
+    customerAuthProvider: newStandardSelected ? "logto" : "supabase",
+    analyticsProvider: "umami",
+    storageProvider: newStandardSelected ? "r2" : "supabase",
+    supabaseStatus: newStandardSelected ? "none" : "legacy",
     theme: {
       key: themeKey,
       label: themeLabel,
@@ -244,6 +253,71 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       blocking:
         typeof analytics.blocking === "boolean" ? Boolean(analytics.blocking) : false,
     },
+    logto: {
+      adminAppStatus:
+        readOptionalString(logto.adminAppStatus) === "configured" ||
+        readOptionalString(logto.adminAppStatus) === "failed"
+          ? (readOptionalString(logto.adminAppStatus) as "configured" | "failed")
+          : newStandardSelected
+            ? "pending"
+            : "skipped",
+      customerAppStatus:
+        readOptionalString(logto.customerAppStatus) === "configured" ||
+        readOptionalString(logto.customerAppStatus) === "failed"
+          ? (readOptionalString(logto.customerAppStatus) as "configured" | "failed")
+          : newStandardSelected
+            ? "pending"
+            : "skipped",
+      adminAppId: readOptionalString(logto.adminAppId),
+      customerAppId: readOptionalString(logto.customerAppId),
+    },
+    umami: {
+      websiteStatus:
+        readOptionalString(umami.websiteStatus) === "configured" ||
+        readOptionalString(umami.websiteStatus) === "failed"
+          ? (readOptionalString(umami.websiteStatus) as "configured" | "failed")
+          : "pending",
+      websiteId:
+        readOptionalString(umami.websiteId) ??
+        readOptionalString(analytics.websiteId),
+    },
+    readiness: {
+      database:
+        readOptionalString(readiness.database) === "ready" ||
+        readOptionalString(readiness.database) === "failed"
+          ? (readOptionalString(readiness.database) as "ready" | "failed")
+          : "pending",
+      storage:
+        readOptionalString(readiness.storage) === "ready" ||
+        readOptionalString(readiness.storage) === "failed"
+          ? (readOptionalString(readiness.storage) as "ready" | "failed")
+          : "pending",
+      auth:
+        readOptionalString(readiness.auth) === "ready" ||
+        readOptionalString(readiness.auth) === "failed"
+          ? (readOptionalString(readiness.auth) as "ready" | "failed")
+          : "pending",
+      analytics:
+        readOptionalString(readiness.analytics) === "ready" ||
+        readOptionalString(readiness.analytics) === "failed"
+          ? (readOptionalString(readiness.analytics) as "ready" | "failed")
+          : "pending",
+      admin:
+        readOptionalString(readiness.admin) === "ready" ||
+        readOptionalString(readiness.admin) === "failed"
+          ? (readOptionalString(readiness.admin) as "ready" | "failed")
+          : "pending",
+      storefront:
+        readOptionalString(readiness.storefront) === "ready" ||
+        readOptionalString(readiness.storefront) === "failed"
+          ? (readOptionalString(readiness.storefront) as "ready" | "failed")
+          : "pending",
+      smoke:
+        readOptionalString(readiness.smoke) === "ready" ||
+        readOptionalString(readiness.smoke) === "failed"
+          ? (readOptionalString(readiness.smoke) as "ready" | "failed")
+          : "pending",
+    },
     payments: {
       status:
         readOptionalString(payments.status) === "configured"
@@ -269,6 +343,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       dashboardUrl: readOptionalString(bootstrap.supabaseDashboardUrl) ?? undefined,
     },
     r2: {
+      status: row.r2_bucket_name ? "configured" : newStandardSelected ? "pending" : "skipped",
       bucketName: row.r2_bucket_name ?? undefined,
       publicUrl: row.r2_public_url ?? undefined,
       managedDomain: row.r2_managed_domain ?? undefined,

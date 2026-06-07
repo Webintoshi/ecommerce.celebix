@@ -21,6 +21,10 @@ Yeni store acilisinda varsayilan database mode artik `light_postgres`'tir.
 
 - default:
   - `light_postgres`
+- auth:
+  - Logto admin/customer placeholders
+- analytics:
+  - Umami website placeholder
 - legacy explicit:
   - `full_supabase`
 - storage:
@@ -33,6 +37,19 @@ Yeni store acilisinda varsayilan database mode artik `light_postgres`'tir.
 Bir agent yeni store create koduna dokunuyorsa ilk varsayim su olmalidir:
 
 - "Bu store full Supabase degil, light Postgres store-per-database ile acilacak"
+
+Package 1 standard fields live in `stores/<slug>/store.config.json` and owner metadata:
+
+- `authProvider=logto`
+- `customerAuthProvider=logto`
+- `analyticsProvider=umami`
+- `storageProvider=r2`
+- `supabaseStatus=none`
+- `logto.adminAppStatus=pending`
+- `logto.customerAppStatus=pending`
+- `umami.websiteStatus=pending`
+- `r2.status=pending`
+- `readiness.database/storage/auth/analytics/admin/storefront/smoke=pending`
 
 ## Source Of Truth
 

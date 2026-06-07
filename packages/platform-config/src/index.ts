@@ -30,6 +30,10 @@ export interface StoreRegistryEntry {
 
 export type DatabaseMode = "light_postgres" | "full_supabase";
 export type SupabaseProvider = "managed" | "self_hosted_coolify";
+export type StoreStorageProvider = "r2" | "supabase";
+export type StoreSupabaseStatus = "none" | "legacy" | "configured" | "failed";
+export type StoreStandardResourceStatus = "pending" | "configured" | "failed" | "skipped";
+export type StoreReadinessStatus = "pending" | "ready" | "failed";
 export type StoreProvisioningStatus = "pending-owner-env" | "configured" | "failed";
 export type StorefrontStatus = "not_started" | "scaffolded" | "active";
 export type StorefrontRepoSyncStatus = "pending" | "synced" | "failed";
@@ -95,6 +99,28 @@ export interface StoreAnalyticsConfig {
   blocking?: boolean;
 }
 
+export interface StoreLogtoConfig {
+  adminAppStatus: StoreStandardResourceStatus;
+  customerAppStatus: StoreStandardResourceStatus;
+  adminAppId?: string | null;
+  customerAppId?: string | null;
+}
+
+export interface StoreUmamiConfig {
+  websiteStatus: StoreStandardResourceStatus;
+  websiteId?: string | null;
+}
+
+export interface StoreReadinessConfig {
+  database: StoreReadinessStatus;
+  storage: StoreReadinessStatus;
+  auth: StoreReadinessStatus;
+  analytics: StoreReadinessStatus;
+  admin: StoreReadinessStatus;
+  storefront: StoreReadinessStatus;
+  smoke: StoreReadinessStatus;
+}
+
 export type StorePaymentStatus = "pending_payment_setup" | "configured";
 export type StorePaymentProvider = "bank_transfer" | "none";
 
@@ -143,6 +169,11 @@ export interface StoreConfig {
   slug: string;
   status: "draft" | "active" | "paused";
   databaseMode: DatabaseMode;
+  authProvider: StoreAuthProvider;
+  customerAuthProvider: StoreAuthProvider;
+  analyticsProvider: StoreAnalyticsProvider;
+  storageProvider: StoreStorageProvider;
+  supabaseStatus: StoreSupabaseStatus;
   theme: StoreThemeConfig;
   branding?: StoreBrandingConfig;
   domains: {
@@ -159,6 +190,9 @@ export interface StoreConfig {
   lightPostgres?: StoreLightPostgresConfig;
   auth?: StoreAuthConfig;
   analytics?: StoreAnalyticsConfig;
+  logto?: StoreLogtoConfig;
+  umami?: StoreUmamiConfig;
+  readiness?: StoreReadinessConfig;
   payments?: StorePaymentsConfig;
   supabase: {
     projectRef: string;
@@ -168,6 +202,7 @@ export interface StoreConfig {
     dashboardUrl?: string;
   };
   r2?: {
+    status?: StoreStandardResourceStatus;
     bucketName?: string;
     publicUrl?: string;
     managedDomain?: string;
@@ -480,6 +515,38 @@ export function buildDefaultStoreAnalyticsConfig(): StoreAnalyticsConfig {
   };
 }
 
+export function buildDefaultStoreLogtoConfig(
+  databaseMode: DatabaseMode = "light_postgres",
+): StoreLogtoConfig {
+  const status: StoreStandardResourceStatus = databaseMode === "light_postgres" ? "pending" : "skipped";
+
+  return {
+    adminAppStatus: status,
+    customerAppStatus: status,
+    adminAppId: null,
+    customerAppId: null,
+  };
+}
+
+export function buildDefaultStoreUmamiConfig(): StoreUmamiConfig {
+  return {
+    websiteStatus: "pending",
+    websiteId: null,
+  };
+}
+
+export function buildDefaultStoreReadinessConfig(): StoreReadinessConfig {
+  return {
+    database: "pending",
+    storage: "pending",
+    auth: "pending",
+    analytics: "pending",
+    admin: "pending",
+    storefront: "pending",
+    smoke: "pending",
+  };
+}
+
 export function buildDefaultStorePaymentsConfig(): StorePaymentsConfig {
   return {
     status: "pending_payment_setup",
@@ -670,6 +737,11 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     slug: input.slug,
     status: "draft",
     databaseMode,
+    authProvider: databaseMode === "full_supabase" ? "supabase" : "logto",
+    customerAuthProvider: databaseMode === "full_supabase" ? "supabase" : "logto",
+    analyticsProvider: "umami",
+    storageProvider: databaseMode === "full_supabase" ? "supabase" : "r2",
+    supabaseStatus: databaseMode === "full_supabase" ? "legacy" : "none",
     theme: {
       key: input.theme,
       label: input.theme[0].toUpperCase() + input.theme.slice(1),
@@ -708,6 +780,9 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     },
     auth: buildDefaultStoreAuthConfig(databaseMode),
     analytics: buildDefaultStoreAnalyticsConfig(),
+    logto: buildDefaultStoreLogtoConfig(databaseMode),
+    umami: buildDefaultStoreUmamiConfig(),
+    readiness: buildDefaultStoreReadinessConfig(),
     payments: buildDefaultStorePaymentsConfig(),
     supabase: {
       projectRef: "pending-owner-bootstrap",
@@ -719,6 +794,7 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
           : "disabled-by-database-mode",
     },
     r2: {
+      status: databaseMode === "light_postgres" ? "pending" : "skipped",
       provisioning: "pending-owner-env"
     },
     bootstrap: {
@@ -1126,6 +1202,52 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     requiredAction: config.analytics?.requiredAction ?? defaultAnalytics.requiredAction,
     blocking: config.analytics?.blocking ?? false,
   } satisfies NonNullable<StoreConfig["analytics"]>;
+  const defaultLogto = buildDefaultStoreLogtoConfig(databaseMode);
+  const normalizedLogto = {
+    adminAppStatus: config.logto?.adminAppStatus ?? defaultLogto.adminAppStatus,
+    customerAppStatus: config.logto?.customerAppStatus ?? defaultLogto.customerAppStatus,
+    adminAppId: normalizeOptionalString(config.logto?.adminAppId) ?? null,
+    customerAppId: normalizeOptionalString(config.logto?.customerAppId) ?? null,
+  } satisfies NonNullable<StoreConfig["logto"]>;
+  const defaultUmami = buildDefaultStoreUmamiConfig();
+  const normalizedUmami = {
+    websiteStatus:
+      config.umami?.websiteStatus ??
+      (normalizeOptionalString(config.analytics?.websiteId) ? "configured" : defaultUmami.websiteStatus),
+    websiteId:
+      normalizeOptionalString(config.umami?.websiteId) ??
+      normalizeOptionalString(config.analytics?.websiteId) ??
+      null,
+  } satisfies NonNullable<StoreConfig["umami"]>;
+  const defaultReadiness = buildDefaultStoreReadinessConfig();
+  const normalizedReadiness = {
+    database:
+      config.readiness?.database ??
+      (inferLightPostgresProvisioningStatus({
+        databaseMode,
+        lightPostgres: config.lightPostgres,
+      }) === "configured" || databaseMode === "full_supabase"
+        ? "ready"
+        : defaultReadiness.database),
+    storage:
+      config.readiness?.storage ??
+      (inferR2ProvisioningStatus(config) === "configured" || databaseMode === "full_supabase"
+        ? "ready"
+        : defaultReadiness.storage),
+    auth:
+      config.readiness?.auth ??
+      (normalizedAuth.status === "configured" ? "ready" : defaultReadiness.auth),
+    analytics:
+      config.readiness?.analytics ??
+      (normalizedAnalytics.status === "configured" ? "ready" : defaultReadiness.analytics),
+    admin:
+      config.readiness?.admin ??
+      (config.bootstrap?.adminDeploymentStatus === "configured" ? "ready" : defaultReadiness.admin),
+    storefront:
+      config.readiness?.storefront ??
+      (config.storefront?.deploymentStatus === "configured" ? "ready" : defaultReadiness.storefront),
+    smoke: config.readiness?.smoke ?? defaultReadiness.smoke,
+  } satisfies NonNullable<StoreConfig["readiness"]>;
   const defaultPayments = buildDefaultStorePaymentsConfig();
   const normalizedPayments = {
     status: config.payments?.status ?? defaultPayments.status,
@@ -1149,10 +1271,20 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
   return {
     ...config,
     databaseMode,
+    authProvider: config.authProvider ?? normalizedAuth.provider,
+    customerAuthProvider: config.customerAuthProvider ?? normalizedAuth.provider,
+    analyticsProvider: config.analyticsProvider ?? normalizedAnalytics.provider,
+    storageProvider:
+      config.storageProvider ?? (databaseMode === "full_supabase" ? "supabase" : "r2"),
+    supabaseStatus:
+      config.supabaseStatus ?? (databaseMode === "full_supabase" ? "legacy" : "none"),
     domains: normalizedDomains,
     lightPostgres: normalizedLightPostgres,
     auth: normalizedAuth,
     analytics: normalizedAnalytics,
+    logto: normalizedLogto,
+    umami: normalizedUmami,
+    readiness: normalizedReadiness,
     payments: normalizedPayments,
     supabase: {
       ...config.supabase,
@@ -1164,6 +1296,13 @@ function normalizeStoreConfig(config: StoreConfig): StoreConfig {
     },
     r2: {
       ...config.r2,
+      status:
+        config.r2?.status ??
+        (databaseMode === "light_postgres"
+          ? inferR2ProvisioningStatus(config) === "configured"
+            ? "configured"
+            : "pending"
+          : "skipped"),
       provisioning: inferR2ProvisioningStatus(config),
     },
     bootstrap: normalizedBootstrap,
@@ -1470,6 +1609,10 @@ export function updateStoreSupabaseConfig(slug: string, input: StoreSupabaseUpda
   return updateStoreConfig(slug, (current) => ({
     ...current,
     databaseMode: "full_supabase",
+    authProvider: "supabase",
+    customerAuthProvider: "supabase",
+    storageProvider: "supabase",
+    supabaseStatus: input.provisioningStatus === "failed" ? "failed" : "configured",
     supabase: {
       ...current.supabase,
       projectRef: input.projectRef,
@@ -1515,6 +1658,11 @@ export function updateStoreLightPostgresConfig(
   return updateStoreConfig(slug, (current) => ({
     ...current,
     databaseMode: "light_postgres",
+    authProvider: "logto",
+    customerAuthProvider: "logto",
+    analyticsProvider: "umami",
+    storageProvider: "r2",
+    supabaseStatus: "none",
     lightPostgres: {
       cluster: input.cluster,
       databaseName: input.databaseName,
@@ -1538,6 +1686,10 @@ export function updateStoreLightPostgresConfig(
         current.bootstrap?.adminDeployment ?? buildAdminDeploymentDefaults(slug),
       lastProvisionError: input.lastProvisionError,
       supabaseProvisioning: "configured",
+    },
+    readiness: {
+      ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+      database: input.provisioningStatus === "configured" ? "ready" : input.provisioningStatus === "failed" ? "failed" : "pending",
     },
   }));
 }
@@ -1632,13 +1784,18 @@ export function updateStoreR2Config(slug: string, input: StoreR2UpdateInput): St
   return updateStoreConfig(slug, (current) => ({
     ...current,
     r2: {
+      status: input.provisioningStatus === "configured" ? "configured" : "failed",
       bucketName: input.bucketName,
       publicUrl: input.publicUrl,
       managedDomain: input.managedDomain ?? current.r2?.managedDomain,
       provisionedAt: input.provisioningStatus === "configured" ? new Date().toISOString() : current.r2?.provisionedAt,
       lastProvisionError: input.lastProvisionError,
       provisioning: input.provisioningStatus
-    }
+    },
+    readiness: {
+      ...(current.readiness ?? buildDefaultStoreReadinessConfig()),
+      storage: input.provisioningStatus === "configured" ? "ready" : "failed",
+    },
   }));
 }
 

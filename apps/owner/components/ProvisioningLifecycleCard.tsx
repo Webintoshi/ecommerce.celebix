@@ -265,6 +265,32 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
+  if (state === "pending_smoke") {
+    return {
+      eyebrow: "Smoke beklemede",
+      title: "Altyapı hazır, kabul smoke kuyruğu bekleniyor",
+      body:
+        "Postgres, Logto, Umami, R2 ve generated app authority tamamlandı. Owner panel mağazayı ready yapmadan önce smoke checklist sonucunu bekliyor.",
+    };
+  }
+
+  if (
+    state === "database_ready" ||
+    state === "storage_ready" ||
+    state === "auth_ready" ||
+    state === "analytics_ready" ||
+    state === "admin_ready" ||
+    state === "storefront_ready" ||
+    state === "smoke_ready"
+  ) {
+    return {
+      eyebrow: "Hazırlık tamamlanıyor",
+      title: `${storeName} standard adımlarında ilerliyor`,
+      body:
+        "Owner lifecycle Postgres, Logto, Umami, R2, admin, vitrin ve smoke aşamalarını ayrı ayrı izlemeye hazır.",
+    };
+  }
+
   if (state === "failed") {
     return {
       eyebrow: "Kritik duruş",
@@ -308,6 +334,9 @@ function getFocusedLifecycleStepKey(state: ProvisioningState): ProvisioningStepK
       return "analytics_setup";
     case "pending_payment":
       return "payment_setup";
+    case "pending_smoke":
+    case "smoke_ready":
+      return null;
     default:
       return null;
   }

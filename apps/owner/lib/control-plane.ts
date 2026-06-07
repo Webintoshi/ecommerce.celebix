@@ -2182,6 +2182,9 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
   const supabase = asRecord(current.supabase);
   const auth = asRecord(current.auth);
   const analytics = asRecord(current.analytics);
+  const logto = asRecord(current.logto);
+  const umami = asRecord(current.umami);
+  const readiness = asRecord(current.readiness);
   const payments = asRecord(current.payments);
   const mergedAdminDeploymentStatus =
     store.bootstrap?.adminDeploymentStatus === "configured"
@@ -2201,6 +2204,11 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
   return {
     ...current,
     databaseMode: store.databaseMode,
+    authProvider: store.authProvider,
+    customerAuthProvider: store.customerAuthProvider,
+    analyticsProvider: store.analyticsProvider,
+    storageProvider: store.storageProvider,
+    supabaseStatus: store.supabaseStatus,
     domains: store.domains,
     lightPostgres: store.lightPostgres ?? current.lightPostgres ?? null,
     bootstrap: {
@@ -2246,6 +2254,18 @@ function mergeStoreMetadata(store: StoreConfig, existingMetadata: Record<string,
     analytics: {
       ...analytics,
       ...(store.analytics ?? {}),
+    },
+    logto: {
+      ...logto,
+      ...(store.logto ?? {}),
+    },
+    umami: {
+      ...umami,
+      ...(store.umami ?? {}),
+    },
+    readiness: {
+      ...readiness,
+      ...(store.readiness ?? {}),
     },
     payments: {
       ...payments,

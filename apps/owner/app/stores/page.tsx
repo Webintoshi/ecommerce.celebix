@@ -147,8 +147,16 @@ function getProvisioningTone(state: DashboardStoreSummary["provisioning"]["state
     case "pending_auth":
     case "pending_analytics":
     case "pending_payment":
+    case "pending_smoke":
       return "warning";
     case "ready":
+    case "database_ready":
+    case "storage_ready":
+    case "auth_ready":
+    case "analytics_ready":
+    case "admin_ready":
+    case "storefront_ready":
+    case "smoke_ready":
       return "success";
     case "running":
     case "provisioning":
