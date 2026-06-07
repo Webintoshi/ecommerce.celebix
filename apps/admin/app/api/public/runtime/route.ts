@@ -30,6 +30,16 @@ export async function GET() {
       : authProvider === "logto"
         ? "logto_oidc_bridge_v1"
         : "supabase_cookie_direct_v1";
+  const storageProvider = process.env.STORAGE_PROVIDER || process.env.NEXT_PUBLIC_STORAGE_PROVIDER || "supabase";
+  const analyticsProvider =
+    process.env.ANALYTICS_PROVIDER || process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER || "umami";
+  const supabaseStatus =
+    process.env.SUPABASE_STATUS ||
+    process.env.NEXT_PUBLIC_SUPABASE_STATUS ||
+    (runtime.databaseMode === "light_postgres" ? "none" : "configured");
+  const r2PublicUrl = process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_PUBLIC_URL || null;
+  const r2Prefix = process.env.R2_PREFIX || process.env.NEXT_PUBLIC_R2_PREFIX || null;
+  const umamiWebsiteId = process.env.UMAMI_WEBSITE_ID || process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID || null;
 
   if (authProvider !== "logto" && !authBlocked && (!hasPublicSupabaseAuth || !supabaseServerUrl)) {
     return NextResponse.json(
@@ -44,6 +54,26 @@ export async function GET() {
         adminUrl: runtime.adminUrl,
         authStrategy,
         authProvider,
+        storageProvider,
+        analyticsProvider,
+        supabaseStatus,
+        r2: {
+          publicUrl: r2PublicUrl,
+          prefix: r2Prefix,
+          adminUploadStatus: r2PublicUrl ? "configured" : "pending",
+        },
+        umami: {
+          websiteId: umamiWebsiteId,
+          adminAnalyticsStatus: umamiWebsiteId ? "configured" : "pending",
+        },
+        optionalModules: {
+          quick_order_links: process.env.OPTIONAL_MODULE_QUICK_ORDER_LINKS || "disabled",
+          coupons: process.env.OPTIONAL_MODULE_COUPONS || "disabled",
+          discounts: process.env.OPTIONAL_MODULE_DISCOUNTS || "disabled",
+          lucky_wheel: process.env.OPTIONAL_MODULE_LUCKY_WHEEL || "disabled",
+          marketplace: process.env.OPTIONAL_MODULE_MARKETPLACE || "disabled",
+          accounting: process.env.OPTIONAL_MODULE_ACCOUNTING || "disabled",
+        },
         authCookieName,
         supabaseUrl,
         supabaseServerUrl,
@@ -68,6 +98,26 @@ export async function GET() {
     adminUrl: runtime.adminUrl,
     authStrategy,
     authProvider,
+    storageProvider,
+    analyticsProvider,
+    supabaseStatus,
+    r2: {
+      publicUrl: r2PublicUrl,
+      prefix: r2Prefix,
+      adminUploadStatus: r2PublicUrl ? "configured" : "pending",
+    },
+    umami: {
+      websiteId: umamiWebsiteId,
+      adminAnalyticsStatus: umamiWebsiteId ? "configured" : "pending",
+    },
+    optionalModules: {
+      quick_order_links: process.env.OPTIONAL_MODULE_QUICK_ORDER_LINKS || "disabled",
+      coupons: process.env.OPTIONAL_MODULE_COUPONS || "disabled",
+      discounts: process.env.OPTIONAL_MODULE_DISCOUNTS || "disabled",
+      lucky_wheel: process.env.OPTIONAL_MODULE_LUCKY_WHEEL || "disabled",
+      marketplace: process.env.OPTIONAL_MODULE_MARKETPLACE || "disabled",
+      accounting: process.env.OPTIONAL_MODULE_ACCOUNTING || "disabled",
+    },
     authCookieName,
     supabaseUrl,
     supabaseServerUrl,

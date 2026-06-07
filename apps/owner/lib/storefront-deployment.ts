@@ -20,6 +20,7 @@ import { verifyStorefrontBranchState } from "@/lib/storefront-repo-sync";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { applyStorefrontAuthorityPatch } from "@/lib/store-config-authority";
 import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
+import { buildGeneratedRuntimeEnv } from "@/lib/generated-app-standard";
 
 export interface StorefrontDeploymentBlueprint {
   storeSlug: string;
@@ -270,6 +271,7 @@ async function buildEnvEntries(store: StoreConfig): Promise<Record<string, strin
     } = resolveLightPostgresDeploymentEnv(store, adminEnvEntries);
     const entries: Record<string, string> = {
       ...buildPublicEnvEntries(store),
+      ...buildGeneratedRuntimeEnv(store, "storefront", adminEnvEntries),
       DATABASE_MODE: "light_postgres",
       LIGHT_POSTGRES_DATABASE_NAME: runtimeDatabaseName,
       LIGHT_POSTGRES_DATABASE_SSLMODE: runtimeSslMode,
