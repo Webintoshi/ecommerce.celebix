@@ -107,7 +107,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {attributeGroups.map((group) => {
         const selectedValue = getSelectedValue(group.id);
         const showVisualSelector = isColor(group.name, group.values);

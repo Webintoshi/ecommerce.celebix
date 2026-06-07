@@ -286,6 +286,8 @@ export function ProductDetailClient({
       ? variant.originalPrice +
         (activeSchema ? customizationState.extraPrice : 0)
       : undefined;
+  const showFilledReviewStars =
+    (product.reviewCount || 0) === 0 && Math.floor(product.rating || 0) === 0;
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
@@ -333,7 +335,7 @@ export function ProductDetailClient({
               />
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-4">
               <h1 className="text-[20px] font-semibold leading-[1.12] tracking-tight text-neutral-900 sm:text-[22px] lg:text-[24px] xl:text-[26px]">
                 {product.name}
               </h1>
@@ -344,7 +346,7 @@ export function ProductDetailClient({
                     <Star
                       key={i}
                       className={`h-4 w-4 ${
-                        i < Math.floor(product.rating || 0)
+                        i < Math.floor(product.rating || 0) || showFilledReviewStars
                           ? "fill-[#8A6B37] text-[#8A6B37]"
                           : "fill-neutral-200 text-neutral-200"
                       }`}
