@@ -7,8 +7,6 @@ import {
   Star,
   Heart,
   Share2,
-  Minus,
-  Plus,
   ArrowLeft,
   Package,
   Clock,
@@ -97,7 +95,6 @@ export function ProductDetailClient({
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
-  const [quantity, setQuantity] = useState(1);
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] =
@@ -137,7 +134,6 @@ export function ProductDetailClient({
 
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
-    setQuantity(1);
     setOpenAccordions(new Set());
   }, [initialVariantIndex, initialProduct?.id]);
 
@@ -258,13 +254,7 @@ export function ProductDetailClient({
       return;
     }
 
-    addToCart(product, variant, quantity, customizationState.payload || undefined);
-  };
-
-  const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) =>
-      Math.max(1, Math.min(variant.stock || 10, prev + delta)),
-    );
+    addToCart(product, variant, 1, customizationState.payload || undefined);
   };
 
   const toggleWishlist = () => {
@@ -288,15 +278,6 @@ export function ProductDetailClient({
     }
   };
 
-  const getStockStatus = () => {
-    if (isOutOfStock) return { text: "Tükendi", color: "text-neutral-400" };
-    if (variant.stock <= 5) {
-      return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
-    }
-    return { text: "Stokta", color: "text-neutral-500" };
-  };
-
-  const stockStatus = getStockStatus();
   const displayPrice = activeSchema
     ? customizationState.finalPrice
     : variant.price;
@@ -353,19 +334,7 @@ export function ProductDetailClient({
             </div>
 
             <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                  {product.category}
-                </span>
-                <span className="h-px w-8 bg-neutral-300" />
-                {product.featured && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
-                    Öne Çıkan
-                  </span>
-                )}
-              </div>
-
-              <h1 className="store-product-title-detail tracking-tight text-neutral-900">
+              <h1 className="text-[23px] font-semibold leading-[1.15] tracking-tight text-neutral-900 sm:text-[24px] lg:text-[26px]">
                 {product.name}
               </h1>
 
@@ -387,25 +356,30 @@ export function ProductDetailClient({
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap sm:gap-3">
                 {displayOriginalPrice !== undefined && (
-                  <span className="text-sm text-neutral-400 line-through lg:text-base">
+                  <span className="shrink-0 text-sm text-neutral-400 line-through lg:text-base">
                     {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
-                <span className="text-3xl tracking-tight text-neutral-900 lg:text-4xl">
+                <span className="shrink-0 text-[30px] tracking-tight text-neutral-900 lg:text-[34px]">
                   {formatPrice(displayPrice)}
                 </span>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
                 {discountPercent > 0 && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+                  <span className="shrink-0 rounded-full bg-neutral-900 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
                     %{discountPercent} İndirim
                   </span>
                 )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {product.featured && (
+                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
+                    Öne Çıkan
+                  </span>
+                )}
                 {product.new && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
                     Yeni
                   </span>
                 )}
@@ -450,53 +424,13 @@ export function ProductDetailClient({
               ) : null}
 
               <div className="space-y-5 border-y border-neutral-200 py-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        isOutOfStock
-                          ? "bg-neutral-300"
-                          : variant.stock <= 5
-                            ? "bg-amber-500"
-                            : "bg-green-500"
-                      }`}
-                    />
-                    <span className={`text-sm ${stockStatus.color}`}>
-                      {stockStatus.text}
-                    </span>
-                  </div>
-                  {activeSchema && customizationState.extraPrice > 0 && (
-                    <p className="text-sm text-neutral-500">
-                      +{formatPrice(customizationState.extraPrice)} kişiselleştirme
-                    </p>
-                  )}
-                </div>
+                {activeSchema && customizationState.extraPrice > 0 && (
+                  <p className="text-sm text-neutral-500">
+                    +{formatPrice(customizationState.extraPrice)} kişiselleştirme eklendi
+                  </p>
+                )}
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
-                      Adet
-                    </span>
-                    <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
-                      <button
-                        onClick={() => handleQuantityChange(-1)}
-                        disabled={quantity <= 1}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <Minus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
-                      </button>
-                      <span className="w-10 text-center text-base font-medium text-neutral-900">
-                        {quantity}
-                      </span>
-                      <button
-                        onClick={() => handleQuantityChange(1)}
-                        disabled={quantity >= (variant.stock || 10)}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <Plus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
-                      </button>
-                    </div>
-                  </div>
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}

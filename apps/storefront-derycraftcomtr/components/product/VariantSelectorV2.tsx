@@ -44,7 +44,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
           {currentVariant?.name ? (
             <>
               <span className="text-gray-400">-</span>
-              <span className="text-sm font-medium text-neutral-500">
+              <span className="rounded-full bg-[#8A6B37]/10 px-2.5 py-1 text-sm font-semibold text-neutral-700">
                 {currentVariant.name}
               </span>
             </>
@@ -121,7 +121,9 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
               {selectedValue ? (
                 <>
                   <span className="text-gray-400">-</span>
-                  <span className="text-sm font-medium text-neutral-500">{selectedValue}</span>
+                  <span className="rounded-full bg-[#8A6B37]/10 px-2.5 py-1 text-sm font-semibold text-neutral-700">
+                    {selectedValue}
+                  </span>
                 </>
               ) : null}
             </div>

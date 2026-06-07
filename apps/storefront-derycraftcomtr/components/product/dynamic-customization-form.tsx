@@ -444,6 +444,11 @@ function FormField({
     "--mobile-image-select-columns": `repeat(${imageSelectColumnCount}, minmax(56px, 72px))`,
     "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
   } as CSSProperties;
+  const hasSelectedValue =
+    value !== undefined &&
+    value !== null &&
+    value !== "" &&
+    (!Array.isArray(value) || value.length > 0);
 
   const gridClass = {
     full: "w-full",
@@ -460,7 +465,8 @@ function FormField({
           <Select value={String(value || "")} onValueChange={onChange}>
             <SelectTrigger
               className={cn(
-                "rounded-2xl border-neutral-200 bg-white",
+                "rounded-2xl border-neutral-200 bg-white text-neutral-900",
+                hasSelectedValue && "border-[#8A6B37]/40 bg-[#8A6B37]/[0.05]",
                 showError && "border-rose-400"
               )}
             >
@@ -506,7 +512,7 @@ function FormField({
                   className={cn(
                     "flex cursor-pointer items-center justify-center rounded-full border px-4 py-2 text-sm transition-all",
                     "border-neutral-200 bg-white hover:border-neutral-300",
-                    "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#8A6B37]/10",
+                    "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#8A6B37]/12 peer-data-[state=checked]:font-semibold peer-data-[state=checked]:text-neutral-900 peer-data-[state=checked]:shadow-[0_0_0_1px_rgba(138,107,55,0.08)]",
                     showError && "border-rose-300"
                   )}
                 >
@@ -542,7 +548,7 @@ function FormField({
                 className={cn(
                   "relative h-full w-full min-w-0 overflow-hidden rounded-xl border transition-all md:max-w-none",
                   value === option.value
-                    ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/30"
+                    ? "border-[#8A6B37] bg-[#8A6B37]/[0.04] ring-1 ring-[#8A6B37]/30 shadow-sm"
                     : "border-neutral-200 hover:border-neutral-300",
                   showError && "border-rose-300"
                 )}
@@ -568,12 +574,27 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div className="p-1.5 text-left sm:p-3">
-                  <p className="break-words text-[9px] font-medium leading-tight text-neutral-900 sm:text-xs">
+                <div
+                  className={cn(
+                    "p-1.5 text-left sm:p-3",
+                    value === option.value && "bg-[#8A6B37]/[0.06]"
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "break-words text-[9px] font-medium leading-tight text-neutral-900 sm:text-xs",
+                      value === option.value && "font-semibold text-neutral-950"
+                    )}
+                  >
                     {option.label}
                   </p>
                   {option.price_adjustment > 0 && (
-                    <p className="text-[9px] text-emerald-600">
+                    <p
+                      className={cn(
+                        "text-[9px] text-emerald-600",
+                        value === option.value && "font-medium"
+                      )}
+                    >
                       +{formatPrice(option.price_adjustment)}
                     </p>
                   )}
@@ -640,7 +661,12 @@ function FormField({
       )}
 
       {step.type === "checkbox" && (
-        <div className="flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3">
+        <div
+          className={cn(
+            "flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 transition-colors",
+            Boolean(value) && "border-[#8A6B37]/35 bg-[#8A6B37]/[0.05]"
+          )}
+        >
           <Checkbox
             id={step.key}
             checked={Boolean(value)}
