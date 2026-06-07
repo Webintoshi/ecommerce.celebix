@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listMarketplaceListings } from "@/lib/db/marketplaces";
 import { getMarketplaceProviderOrResponse } from "@/app/api/admin/marketplace-integrations/_shared";
+import {
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 interface Params {
   params: Promise<{ provider: string }>;
@@ -19,6 +23,14 @@ export async function GET(request: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true, listings });
   } catch (error) {
     console.error("Marketplace listings error:", error);
+    if (isOptionalAdminModuleUnavailable("marketplace", error)) {
+      return NextResponse.json({
+        success: true,
+        listings: [],
+        ...getOptionalAdminModuleState("marketplace"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,

@@ -4,6 +4,10 @@ import { createServerClient } from "@/lib/supabase";
 import { enforceMarketplaceRateLimit, getMarketplaceProviderOrResponse } from "@/app/api/admin/marketplace-integrations/_shared";
 import { isRedisLockError } from "@/lib/redis";
 import { syncGoogleMerchantCatalogSnapshot } from "@/lib/google-merchant";
+import {
+  getOptionalAdminModuleFailurePayload,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 interface Params {
   params: Promise<{ provider: string }>;
@@ -61,6 +65,13 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true, summary });
   } catch (error) {
     console.error("Marketplace manual sync error:", error);
+    if (isOptionalAdminModuleUnavailable("marketplace", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("marketplace"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

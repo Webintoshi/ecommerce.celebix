@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApiAuth } from "@/lib/admin-api-auth";
 import { createQuickOrderLink, listQuickOrderLinks } from "@/lib/db/quick-order-links";
+import {
+  getOptionalAdminModuleFailurePayload,
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 export const runtime = "nodejs";
 
@@ -54,6 +59,14 @@ export async function GET() {
     return NextResponse.json({ success: true, links });
   } catch (error) {
     console.error("Quick order links list failed:", error);
+    if (isOptionalAdminModuleUnavailable("quick_order_links", error)) {
+      return NextResponse.json({
+        success: true,
+        links: [],
+        ...getOptionalAdminModuleState("quick_order_links"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -89,6 +102,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, link }, { status: 201 });
   } catch (error) {
     console.error("Quick order link create failed:", error);
+    if (isOptionalAdminModuleUnavailable("quick_order_links", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("quick_order_links"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

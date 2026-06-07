@@ -13,6 +13,11 @@ import {
   luckyWheelPrizeUpdateSchema,
   luckyWheelPrizesReplaceSchema,
 } from "@/app/api/admin/discounts/lucky-wheel/_shared";
+import {
+  getOptionalAdminModuleFailurePayload,
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,6 +29,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, prizes });
   } catch (error) {
     console.error("Lucky wheel prizes GET error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json({
+        success: true,
+        prizes: [],
+        ...getOptionalAdminModuleState("lucky_wheel"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -64,6 +77,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, prize, mode: "create" });
   } catch (error) {
     console.error("Lucky wheel prizes POST error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("lucky_wheel"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -97,6 +117,13 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, prize });
   } catch (error) {
     console.error("Lucky wheel prizes PUT error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("lucky_wheel"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -122,6 +149,13 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Lucky wheel prizes DELETE error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("lucky_wheel"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

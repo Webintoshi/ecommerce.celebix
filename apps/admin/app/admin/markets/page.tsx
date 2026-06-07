@@ -24,6 +24,8 @@ import {
   N11Logo,
   TrendyolLogo,
 } from "@/components/marketplace/marketplace-logos";
+import { OptionalModuleDisabledCard } from "@/components/admin/OptionalModuleDisabledCard";
+import type { OptionalAdminModuleState } from "@/lib/optional-admin-modules";
 import { cn } from "@/lib/utils";
 import type {
   MarketplaceIntegrationView,
@@ -142,6 +144,8 @@ function ProviderLogo({
 export default function MarketsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [featureDisabled, setFeatureDisabled] =
+    useState<OptionalAdminModuleState | null>(null);
   const [integrations, setIntegrations] = useState<MarketplaceIntegrationView[]>([]);
   const [forms, setForms] = useState<Record<string, ProviderFormState>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -155,11 +159,25 @@ export default function MarketsPage() {
     setError(null);
     try {
       const response = await fetch("/api/admin/marketplace-integrations", { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as {
+        success: boolean;
+        error?: string;
+        integrations?: MarketplaceIntegrationView[];
+      } & Partial<OptionalAdminModuleState>;
       if (!response.ok || !result.success) {
         throw new Error(result?.error || "Pazaryeri entegrasyonları alınamadı.");
       }
 
+      if (result.featureDisabled) {
+        setFeatureDisabled(result as OptionalAdminModuleState);
+        setIntegrations([]);
+        setForms({});
+        setView("list");
+        setSelectedProvider(null);
+        return;
+      }
+
+      setFeatureDisabled(null);
       const list = (result.integrations || []) as MarketplaceIntegrationView[];
       setIntegrations(list);
       setForms((current) => {
@@ -170,6 +188,7 @@ export default function MarketsPage() {
         return next;
       });
     } catch (fetchError) {
+      setFeatureDisabled(null);
       setError(fetchError instanceof Error ? fetchError.message : "Entegrasyonlar yüklenemedi.");
     } finally {
       setLoading(false);
@@ -359,68 +378,76 @@ export default function MarketsPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {sortedIntegrations.map((integration) => {
-            const providerId = integration.provider.id;
-            const isConnected = integration.connection?.status === "active";
-            const hasError = integration.connection?.status === "error";
-            const colorStyle = PROVIDER_COLORS[providerId] || { bg: "bg-gray-100", text: "text-gray-700" };
+        {featureDisabled ? (
+          <OptionalModuleDisabledCard
+            title={featureDisabled.title}
+            message={featureDisabled.message}
+            detail={featureDisabled.detail}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {sortedIntegrations.map((integration) => {
+              const providerId = integration.provider.id;
+              const isConnected = integration.connection?.status === "active";
+              const hasError = integration.connection?.status === "error";
+              const colorStyle = PROVIDER_COLORS[providerId] || { bg: "bg-gray-100", text: "text-gray-700" };
 
-            return (
-              <button
-                key={providerId}
-                onClick={() => openDetail(providerId)}
-                className={cn(
-                  "rounded-[28px] border bg-white/92 p-5 text-left shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]",
-                  isConnected
-                    ? "border-emerald-200 hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]"
-                    : hasError
-                      ? "border-rose-200 hover:shadow-[0_24px_55px_rgba(244,63,94,0.12)]"
-                      : "border-[var(--admin-border)] hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)]"
-                )}
-              >
-                <div className="flex items-start gap-4">
-                  <ProviderLogo
-                    provider={integration.provider}
-                    size={56}
-                    colorStyle={colorStyle}
-                    className="h-14 w-14"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{integration.provider.name}</h3>
-                      {isConnected && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                    </div>
-                    <p className="line-clamp-2 text-sm leading-6 text-[#7d6959]">{integration.provider.description}</p>
+              return (
+                <button
+                  key={providerId}
+                  onClick={() => openDetail(providerId)}
+                  className={cn(
+                    "rounded-[28px] border bg-white/92 p-5 text-left shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]",
+                    isConnected
+                      ? "border-emerald-200 hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]"
+                      : hasError
+                        ? "border-rose-200 hover:shadow-[0_24px_55px_rgba(244,63,94,0.12)]"
+                        : "border-[var(--admin-border)] hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)]"
+                  )}
+                >
+                  <div className="flex items-start gap-4">
+                    <ProviderLogo
+                      provider={integration.provider}
+                      size={56}
+                      colorStyle={colorStyle}
+                      className="h-14 w-14"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{integration.provider.name}</h3>
+                        {isConnected && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                      </div>
+                      <p className="line-clamp-2 text-sm leading-6 text-[#7d6959]">{integration.provider.description}</p>
 
-                    <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      <ConnectionBadge isConnected={isConnected} hasError={hasError} />
+                      <div className="mt-3 flex items-center gap-2 flex-wrap">
+                        <ConnectionBadge isConnected={isConnected} hasError={hasError} />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-4 border-t border-[var(--admin-border)] pt-4">
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Bekleyen</p>
-                      <p className="mt-1 font-semibold text-[var(--admin-heading)]">{integration.queueStats.queued}</p>
-                    </div>
-                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Listing</p>
-                      <p className="mt-1 font-semibold text-[var(--admin-heading)]">{integration.listingStats.total}</p>
-                    </div>
-                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Hatali</p>
-                      <p className={cn("mt-1 font-semibold", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[var(--admin-heading)]")}>
-                        {integration.queueStats.failed}
-                      </p>
+                  <div className="mt-4 border-t border-[var(--admin-border)] pt-4">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Bekleyen</p>
+                        <p className="mt-1 font-semibold text-[var(--admin-heading)]">{integration.queueStats.queued}</p>
+                      </div>
+                      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Listing</p>
+                        <p className="mt-1 font-semibold text-[var(--admin-heading)]">{integration.listingStats.total}</p>
+                      </div>
+                      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Hatali</p>
+                        <p className={cn("mt-1 font-semibold", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[var(--admin-heading)]")}>
+                          {integration.queueStats.failed}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
         </div>
       </div>
     );

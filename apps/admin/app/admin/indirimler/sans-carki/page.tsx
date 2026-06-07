@@ -18,6 +18,8 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
+import { OptionalModuleDisabledCard } from "@/components/admin/OptionalModuleDisabledCard";
+import type { OptionalAdminModuleState } from "@/lib/optional-admin-modules";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { LuckyWheelConfig, LuckyWheelPrize, LuckyWheelSpin, LuckyWheelStats } from "@/types/lucky-wheel";
@@ -94,6 +96,7 @@ function createDefaultPrize(order: number): PrizeDraft {
 export default function LuckyWheelAdminPage() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("config");
   const [loading, setLoading] = useState(true);
+  const [featureDisabled, setFeatureDisabled] = useState<OptionalAdminModuleState | null>(null);
   const [saving, setSaving] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [config, setConfig] = useState<LuckyWheelConfig>(defaultConfig());
@@ -125,6 +128,20 @@ export default function LuckyWheelAdminPage() {
         spinsResponse.json(),
       ]);
 
+      const disabledResult = [configResult, prizesResult, spinsResult].find(
+        (result) => result?.featureDisabled,
+      ) as Partial<OptionalAdminModuleState> | undefined;
+
+      if (disabledResult?.featureDisabled) {
+        setFeatureDisabled(disabledResult as OptionalAdminModuleState);
+        setConfig(defaultConfig());
+        setPrizes([]);
+        setSpins([]);
+        setStats(null);
+        setSimulationSummary("");
+        return;
+      }
+
       if (!configResponse.ok || !configResult.success) {
         throw new Error(configResult?.error || "Şans çarkı konfigürasyonu alınamadı.");
       }
@@ -138,10 +155,12 @@ export default function LuckyWheelAdminPage() {
       if (configResult.config) {
         setConfig(configResult.config as LuckyWheelConfig);
       }
+      setFeatureDisabled(null);
       setPrizes((prizesResult.prizes || []) as PrizeDraft[]);
       setSpins((spinsResult.spins || []) as LuckyWheelSpin[]);
       setStats((spinsResult.stats || null) as LuckyWheelStats | null);
     } catch (error) {
+      setFeatureDisabled(null);
       toast.error(error instanceof Error ? error.message : "Veriler yüklenemedi.");
     } finally {
       setLoading(false);
@@ -269,6 +288,26 @@ export default function LuckyWheelAdminPage() {
     return (
       <div className="flex min-h-[420px] items-center justify-center">
         <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (featureDisabled) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Şans Çarkı Yönetimi</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Müşterileriniz için eğlenceli bir kazanma deneyimi oluşturun
+            </p>
+          </div>
+          <OptionalModuleDisabledCard
+            title={featureDisabled.title}
+            message={featureDisabled.message}
+            detail={featureDisabled.detail}
+          />
+        </div>
       </div>
     );
   }

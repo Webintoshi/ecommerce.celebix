@@ -3,6 +3,11 @@ import { z } from "zod";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCoupon, getCouponById, updateCoupon } from "@/lib/db/coupons";
 import {
+  getOptionalAdminModuleFailurePayload,
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
+import {
   CouponMetadata,
   getCouponMetadataMap,
   mergeCouponWithMetadata,
@@ -66,6 +71,14 @@ export async function GET(_: NextRequest, context: RouteParams) {
     return NextResponse.json({ success: true, discount });
   } catch (error) {
     console.error("Error fetching discount:", error);
+    if (isOptionalAdminModuleUnavailable("coupons", error)) {
+      return NextResponse.json({
+        success: true,
+        discount: null,
+        ...getOptionalAdminModuleState("coupons"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -133,6 +146,13 @@ export async function PUT(request: NextRequest, context: RouteParams) {
     return NextResponse.json({ success: true, discount });
   } catch (error) {
     console.error("Error updating discount:", error);
+    if (isOptionalAdminModuleUnavailable("coupons", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("coupons"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -156,6 +176,13 @@ export async function DELETE(_: NextRequest, context: RouteParams) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting discount:", error);
+    if (isOptionalAdminModuleUnavailable("coupons", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("coupons"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -165,4 +192,3 @@ export async function DELETE(_: NextRequest, context: RouteParams) {
     );
   }
 }
-

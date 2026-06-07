@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { OptionalModuleDisabledCard } from "@/components/admin/OptionalModuleDisabledCard";
 import { DiscountForm } from "@/components/admin/discount-form";
+import type { OptionalAdminModuleState } from "@/lib/optional-admin-modules";
 import { AdminDiscount, AdminDiscountPayload } from "@/types/discount";
 
 export default function EditDiscountPage() {
@@ -16,6 +18,7 @@ export default function EditDiscountPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [featureDisabled, setFeatureDisabled] = useState<OptionalAdminModuleState | null>(null);
 
   const loadDiscount = async () => {
     setLoading(true);
@@ -23,14 +26,26 @@ export default function EditDiscountPage() {
 
     try {
       const response = await fetch(`/api/admin/discounts/${id}`, { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as {
+        success: boolean;
+        error?: string;
+        discount?: AdminDiscount | null;
+      } & Partial<OptionalAdminModuleState>;
 
       if (!response.ok || !result.success) {
         throw new Error(result?.error || "İndirim bulunamadı.");
       }
 
+      if (result.featureDisabled) {
+        setFeatureDisabled(result as OptionalAdminModuleState);
+        setDiscount(null);
+        return;
+      }
+
+      setFeatureDisabled(null);
       setDiscount(result.discount as AdminDiscount);
     } catch (loadError) {
+      setFeatureDisabled(null);
       setError(loadError instanceof Error ? loadError.message : "İndirim yüklenemedi.");
     } finally {
       setLoading(false);
@@ -80,9 +95,17 @@ export default function EditDiscountPage() {
             <ArrowLeft className="w-4 h-4" />
             İndirim listesine dön
           </Link>
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error || "İndirim bulunamadı."}
-          </div>
+          {featureDisabled ? (
+            <OptionalModuleDisabledCard
+              title={featureDisabled.title}
+              message={featureDisabled.message}
+              detail={featureDisabled.detail}
+            />
+          ) : (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error || "İndirim bulunamadı."}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -106,4 +129,3 @@ export default function EditDiscountPage() {
     </div>
   );
 }
-

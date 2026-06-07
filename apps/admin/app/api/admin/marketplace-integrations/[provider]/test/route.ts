@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { testMarketplaceConnection } from "@/lib/db/marketplaces";
 import { enforceMarketplaceRateLimit, getMarketplaceProviderOrResponse } from "@/app/api/admin/marketplace-integrations/_shared";
+import {
+  getOptionalAdminModuleFailurePayload,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 interface Params {
   params: Promise<{ provider: string }>;
@@ -23,6 +27,13 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true, result });
   } catch (error) {
     console.error("Marketplace test error:", error);
+    if (isOptionalAdminModuleUnavailable("marketplace", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("marketplace"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

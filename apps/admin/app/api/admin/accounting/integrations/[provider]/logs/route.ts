@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAccountingProvider } from "@/lib/accounting-providers";
 import { getProviderSyncLogs } from "@/lib/db/accounting";
+import {
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 interface Params {
   params: Promise<{ provider: string }>;
@@ -18,6 +22,14 @@ export async function GET(request: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true, logs });
   } catch (error) {
     console.error("Accounting sync logs error:", error);
+    if (isOptionalAdminModuleUnavailable("accounting", error)) {
+      return NextResponse.json({
+        success: true,
+        logs: [],
+        ...getOptionalAdminModuleState("accounting"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -27,4 +39,3 @@ export async function GET(request: NextRequest, { params }: Params) {
     );
   }
 }
-

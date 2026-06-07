@@ -19,6 +19,7 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
+import { OptionalModuleDisabledCard } from "@/components/admin/OptionalModuleDisabledCard";
 import type { AccountingOverviewData } from "@/types/accounting";
 import {
   Dialog,
@@ -28,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { OptionalAdminModuleState } from "@/lib/optional-admin-modules";
 import { cn } from "@/lib/utils";
 
 function formatCurrency(value: number) {
@@ -78,6 +80,8 @@ export default function MuhasebePage() {
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<AccountingOverviewData>(EMPTY_OVERVIEW);
   const [error, setError] = useState<string | null>(null);
+  const [featureDisabled, setFeatureDisabled] =
+    useState<OptionalAdminModuleState | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [invoiceOrderId, setInvoiceOrderId] = useState("");
@@ -87,12 +91,25 @@ export default function MuhasebePage() {
     setError(null);
     try {
       const response = await fetch("/api/admin/accounting/overview", { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as {
+        success: boolean;
+        error?: string;
+        overview?: AccountingOverviewData;
+      } & Partial<OptionalAdminModuleState>;
       if (!response.ok || !result.success) {
         throw new Error(result?.error || "Muhasebe verileri alinamadi.");
       }
+
+      if (result.featureDisabled) {
+        setFeatureDisabled(result as OptionalAdminModuleState);
+        setOverview(EMPTY_OVERVIEW);
+        return;
+      }
+
+      setFeatureDisabled(null);
       setOverview(result.overview as AccountingOverviewData);
     } catch (fetchError) {
+      setFeatureDisabled(null);
       setError(fetchError instanceof Error ? fetchError.message : "Muhasebe verileri yuklenemedi.");
     } finally {
       setLoading(false);
@@ -175,6 +192,53 @@ export default function MuhasebePage() {
 
   const hasErrors = overview.syncStatus.failedQueue > 0;
   const hasPending = overview.syncStatus.pendingQueue > 0;
+
+  if (featureDisabled) {
+    return (
+      <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+          <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
+                Muhasebe
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={fetchOverview}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] disabled:opacity-60"
+                >
+                  <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                  Yenile
+                </button>
+                <Link
+                  href="/admin/muhasebe/fatura-entegrasyonu"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+                >
+                  <ReceiptText className="h-4 w-4" />
+                  Entegrasyonlar
+                </Link>
+              </div>
+            </div>
+            <div className="hidden" />
+          </section>
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {error}
+            </div>
+          )}
+
+          <OptionalModuleDisabledCard
+            title={featureDisabled.title}
+            message={featureDisabled.message}
+            detail={featureDisabled.detail}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">

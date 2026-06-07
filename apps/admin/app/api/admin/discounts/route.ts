@@ -3,6 +3,11 @@ import { z } from "zod";
 import { createServerClient } from "@/lib/supabase";
 import { createCoupon, getAllCoupons } from "@/lib/db/coupons";
 import {
+  getOptionalAdminModuleFailurePayload,
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
+import {
   CouponMetadata,
   getCouponMetadataMap,
   mergeCouponWithMetadata,
@@ -69,6 +74,14 @@ export async function GET() {
     return NextResponse.json({ success: true, discounts });
   } catch (error) {
     console.error("Error fetching discounts:", error);
+    if (isOptionalAdminModuleUnavailable("coupons", error)) {
+      return NextResponse.json({
+        success: true,
+        discounts: [],
+        ...getOptionalAdminModuleState("coupons"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -139,6 +152,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, discount });
   } catch (error) {
     console.error("Error creating discount:", error);
+    if (isOptionalAdminModuleUnavailable("coupons", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("coupons"),
+        { status: 501 },
+      );
+    }
+
     const message = error instanceof Error ? error.message : "İndirim oluşturulamadı.";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
@@ -169,6 +189,13 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting discounts:", error);
+    if (isOptionalAdminModuleUnavailable("coupons", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("coupons"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -178,4 +205,3 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
-

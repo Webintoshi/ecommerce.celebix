@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, simulateLuckyWheel } from "@/lib/lucky-wheel";
 import { enforceLuckyWheelAdminRateLimit, luckyWheelSimulateSchema } from "@/app/api/admin/discounts/lucky-wheel/_shared";
+import {
+  getOptionalAdminModuleFailurePayload,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +29,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, simulation });
   } catch (error) {
     console.error("Lucky wheel simulate POST error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("lucky_wheel"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

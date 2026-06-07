@@ -3,6 +3,10 @@ import { runMarketplaceSync } from "@/lib/db/marketplaces";
 import { marketplaceManualSyncSchema } from "@/app/api/admin/marketplace-integrations/_shared";
 import { isMarketplaceProvider } from "@/lib/marketplace-providers";
 import { isRedisLockError } from "@/lib/redis";
+import {
+  getOptionalAdminModuleFailurePayload,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 async function handleSyncRun(request: NextRequest, body?: unknown) {
   const parsedBody = marketplaceManualSyncSchema.safeParse(body || {});
@@ -40,6 +44,13 @@ export async function GET(request: NextRequest) {
     return handleSyncRun(request, { provider, forceOrders, forceReconciliation });
   } catch (error) {
     console.error("Marketplace scheduled sync error:", error);
+    if (isOptionalAdminModuleUnavailable("marketplace", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("marketplace"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -56,6 +67,13 @@ export async function POST(request: NextRequest) {
     return handleSyncRun(request, body);
   } catch (error) {
     console.error("Marketplace manual sync run error:", error);
+    if (isOptionalAdminModuleUnavailable("marketplace", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("marketplace"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

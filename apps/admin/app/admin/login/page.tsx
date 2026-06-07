@@ -7,9 +7,29 @@ import { toast } from "sonner";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
 
+function resolveLoginErrorMessage(searchParams: URLSearchParams) {
+  if (searchParams.get("blocked_auth_setup") === "1") {
+    return "Yönetici girişi şu anda hazır değil. Lütfen daha sonra tekrar deneyin.";
+  }
+
+  switch (searchParams.get("error")) {
+    case "unauthorized":
+      return "Bu panel için yetkiniz bulunmuyor.";
+    case "invalid_callback":
+    case "login_failed":
+      return "Giriş oturumu tamamlanamadı. Lütfen tekrar deneyin.";
+    case "provider_disabled":
+      return "Giriş servisi şu anda kullanılamıyor.";
+    default:
+      return null;
+  }
+}
+
 export default function AdminLoginPage() {
   const router = useRouter();
-  const authProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
+  const envAuthProvider =
+    process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto" ? "logto" : "supabase";
+  const [authProvider, setAuthProvider] = useState<"logto" | "supabase">(envAuthProvider);
   const isLogtoProvider = authProvider === "logto";
   const hasBrowserSupabaseAuthEnv = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -27,20 +47,19 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
     const redirectIfAuthenticated = async () => {
-      const params =
-        typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-      const next =
-        typeof window !== "undefined"
-          ? sanitizeInternalRedirectPath(params?.get("next"), "/admin")
-          : "/admin";
-      const loggedOut = params?.get("logged_out") === "1";
+      const searchParams =
+        typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+      const next = sanitizeInternalRedirectPath(searchParams.get("next"), "/admin");
+      const loggedOut = searchParams.get("logged_out") === "1";
       if (mounted) {
         setNextPath(next);
+        setErrorMessage(resolveLoginErrorMessage(searchParams));
       }
 
       if (loggedOut) {
@@ -58,6 +77,23 @@ export default function AdminLoginPage() {
 
       if (mounted && response?.ok) {
         router.replace(next);
+      }
+
+      const runtimeResponse = await fetch("/api/public/runtime", {
+        credentials: "same-origin",
+        cache: "no-store",
+      }).catch(() => null);
+
+      const runtimePayload = runtimeResponse?.ok
+        ? await runtimeResponse.json().catch(() => null)
+        : null;
+      const runtimeAuthStrategy =
+        typeof runtimePayload?.authStrategy === "string" ? runtimePayload.authStrategy : null;
+
+      if (mounted && runtimeAuthStrategy === "supabase_cookie_direct_v1") {
+        setAuthProvider("supabase");
+      } else if (mounted && runtimeAuthStrategy?.includes("logto")) {
+        setAuthProvider("logto");
       }
     };
 
@@ -78,7 +114,8 @@ export default function AdminLoginPage() {
     }
 
     if (authBlocked || !hasBrowserSupabaseAuthEnv || !supabase) {
-      toast.error("Bu store icin admin auth kurulumu henuz tamamlanmadi.");
+      setErrorMessage("Yönetici girişi bu mağaza için henüz hazır değil.");
+      toast.error("Yönetici girişi bu mağaza için henüz hazır değil.");
       return;
     }
     setLoading(true);
@@ -96,12 +133,14 @@ export default function AdminLoginPage() {
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        setErrorMessage(payload.error || "Giriş yapılamadı.");
         toast.error(`Giriş başarısız: ${payload.error || "Giriş yapılamadı."}`);
         return;
       }
 
       const session = payload.session;
       if (!session?.access_token || !session?.refresh_token) {
+        setErrorMessage("Giriş oturumu oluşturulamadı.");
         toast.error("Giriş oturumu oluşturulamadı.");
         return;
       }
@@ -112,15 +151,18 @@ export default function AdminLoginPage() {
       });
 
       if (sessionError) {
+        setErrorMessage(sessionError.message);
         toast.error(sessionError.message);
         return;
       }
 
+      setErrorMessage(null);
       toast.success("Giriş yapıldı.");
       router.replace(nextPath);
       router.refresh();
     } catch (error) {
       console.error("Admin login error:", error);
+      setErrorMessage("Beklenmeyen bir hata oluştu.");
       toast.error("Beklenmeyen bir hata oluştu.");
     } finally {
       setLoading(false);
@@ -160,11 +202,15 @@ export default function AdminLoginPage() {
             {authUnavailable ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
                 {authBlocked
-                  ? "Admin uygulamasi olustu ancak bu yeni light_postgres store icin giris kimligi henuz tamamlanmadi."
-                  : "Bu ortamda admin auth degiskenleri henuz tanimli olmadigi icin giris gecici olarak pasif."}{" "}
-                Owner provisioning bu adimi acikca
-                <code className="mx-1 rounded bg-amber-100 px-1.5 py-0.5 text-[12px]">blocked_auth_setup</code>
-                olarak isaretler.
+                  ? "Yönetici girişi bu mağaza için henüz hazır değil."
+                  : "Bu ortamda giriş kurulumu henüz tamamlanmadığı için panel girişi geçici olarak pasif."}{" "}
+                Kurulum tamamlandığında bu ekran otomatik olarak yeniden kullanılabilir olacak.
+              </div>
+            ) : null}
+
+            {errorMessage ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-900">
+                {errorMessage}
               </div>
             ) : null}
 

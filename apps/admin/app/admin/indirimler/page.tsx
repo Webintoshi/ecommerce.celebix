@@ -16,6 +16,8 @@ import {
   BarChart3,
   PencilLine,
 } from "lucide-react";
+import { OptionalModuleDisabledCard } from "@/components/admin/OptionalModuleDisabledCard";
+import type { OptionalAdminModuleState } from "@/lib/optional-admin-modules";
 import { cn } from "@/lib/utils";
 import { AdminDiscount, DiscountStatus, DiscountType } from "@/types/discount";
 
@@ -57,6 +59,7 @@ const INPUT_CLASS =
   "w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
 
 export default function DiscountsPage() {
+  const [featureDisabled, setFeatureDisabled] = useState<OptionalAdminModuleState | null>(null);
   const [discounts, setDiscounts] = useState<AdminDiscount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,14 +74,26 @@ export default function DiscountsPage() {
 
     try {
       const response = await fetch("/api/admin/discounts", { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as {
+        success: boolean;
+        error?: string;
+        discounts?: AdminDiscount[];
+      } & Partial<OptionalAdminModuleState>;
 
       if (!response.ok || !result.success) {
         throw new Error(result?.error || "Indirimler alinamadi.");
       }
 
+      if (result.featureDisabled) {
+        setFeatureDisabled(result as OptionalAdminModuleState);
+        setDiscounts([]);
+        return;
+      }
+
+      setFeatureDisabled(null);
       setDiscounts((result.discounts || []) as AdminDiscount[]);
     } catch (loadError) {
+      setFeatureDisabled(null);
       setError(loadError instanceof Error ? loadError.message : "Indirimler yuklenemedi.");
     } finally {
       setLoading(false);
@@ -259,13 +274,20 @@ export default function DiscountsPage() {
                 <TicketPercent className="h-4 w-4" />
                 Sans Carki
               </Link>
-              <Link
-                href="/admin/indirimler/yeni"
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
-              >
-                <Plus className="h-4 w-4" />
-                Yeni Indirim
-              </Link>
+              {featureDisabled ? (
+                <span className="inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800">
+                  <Plus className="h-4 w-4" />
+                  Modül Kapalı
+                </span>
+              ) : (
+                <Link
+                  href="/admin/indirimler/yeni"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Yeni Indirim
+                </Link>
+              )}
             </div>
           </div>
           <div className="hidden" />
@@ -273,16 +295,24 @@ export default function DiscountsPage() {
 
         {error && <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-          <StatCard title="Toplam" value={stats.total} icon={Layers3} tone="from-white to-white text-[var(--admin-accent)] border-[var(--admin-border)]" />
-          <StatCard title="Aktif" value={stats.active} icon={CheckCircle2} tone="from-[#ecfdf3] to-white text-emerald-600 border-emerald-200" />
-          <StatCard title="Planli" value={stats.scheduled} icon={CalendarClock} tone="from-white to-white text-amber-600 border-amber-200" />
-          <StatCard title="Suresi Dolan" value={stats.expired} icon={XCircle} tone="from-white to-white text-rose-600 border-rose-200" />
-          <StatCard title="Taslak" value={stats.draft} icon={PencilLine} tone="from-[#f7f1eb] to-white text-stone-600 border-stone-200" />
-          <StatCard title="Toplam Kullanim" value={stats.totalUsage} icon={BarChart3} tone="from-white to-white text-[var(--admin-accent-hover)] border-[var(--admin-border)]" />
-        </div>
+        {featureDisabled ? (
+          <OptionalModuleDisabledCard
+            title={featureDisabled.title}
+            message={featureDisabled.message}
+            detail={featureDisabled.detail}
+          />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+              <StatCard title="Toplam" value={stats.total} icon={Layers3} tone="from-white to-white text-[var(--admin-accent)] border-[var(--admin-border)]" />
+              <StatCard title="Aktif" value={stats.active} icon={CheckCircle2} tone="from-[#ecfdf3] to-white text-emerald-600 border-emerald-200" />
+              <StatCard title="Planli" value={stats.scheduled} icon={CalendarClock} tone="from-white to-white text-amber-600 border-amber-200" />
+              <StatCard title="Suresi Dolan" value={stats.expired} icon={XCircle} tone="from-white to-white text-rose-600 border-rose-200" />
+              <StatCard title="Taslak" value={stats.draft} icon={PencilLine} tone="from-[#f7f1eb] to-white text-stone-600 border-stone-200" />
+              <StatCard title="Toplam Kullanim" value={stats.totalUsage} icon={BarChart3} tone="from-white to-white text-[var(--admin-accent-hover)] border-[var(--admin-border)]" />
+            </div>
 
-        <section className="rounded-[30px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:p-5">
+            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:p-5">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--admin-text-muted)]" />
@@ -437,6 +467,8 @@ export default function DiscountsPage() {
             </div>
           )}
         </section>
+          </>
+        )}
       </div>
     </div>
   );

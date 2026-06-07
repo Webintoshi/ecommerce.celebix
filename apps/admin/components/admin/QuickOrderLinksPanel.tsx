@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Copy, ExternalLink, Link2, Loader2, Mail, MapPin, Package, Plus, RefreshCw, Search, ShieldCheck, ShoppingBag, Trash2, User, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { OptionalModuleDisabledCard } from "@/components/admin/OptionalModuleDisabledCard";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
+import type { OptionalAdminModuleState } from "@/lib/optional-admin-modules";
 import { buildStorefrontUrl } from "@/lib/store-runtime";
 
 type ProductVariantRecord = {
@@ -117,6 +119,7 @@ function makeLineId(productId: string, variantId: string) {
 }
 
 export function QuickOrderLinksPanel() {
+  const [featureDisabled, setFeatureDisabled] = useState<OptionalAdminModuleState | null>(null);
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -196,9 +199,18 @@ export function QuickOrderLinksPanel() {
       const response = await fetchAdminJson<{
         success: boolean;
         links: QuickOrderLinkRecord[];
-      }>("/api/admin/quick-order-links", { timeoutMs: 15000 });
+      } & Partial<OptionalAdminModuleState>>("/api/admin/quick-order-links", { timeoutMs: 15000 });
+
+      if (response.featureDisabled) {
+        setFeatureDisabled(response as OptionalAdminModuleState);
+        setLinks([]);
+        return;
+      }
+
+      setFeatureDisabled(null);
       setLinks(response.links || []);
     } catch (error) {
+      setFeatureDisabled(null);
       toast.error(error instanceof Error ? error.message : "Hizli siparis linkleri yuklenemedi.");
     } finally {
       setLinksLoading(false);
@@ -382,6 +394,16 @@ export function QuickOrderLinksPanel() {
 
   function quickOrderUrl(token: string) {
     return buildStorefrontUrl(`/odeme/hizli/${token}`);
+  }
+
+  if (featureDisabled) {
+    return (
+      <OptionalModuleDisabledCard
+        title={featureDisabled.title}
+        message={featureDisabled.message}
+        detail={featureDisabled.detail}
+      />
+    );
   }
 
   return (
@@ -812,5 +834,3 @@ export function QuickOrderLinksPanel() {
     </div>
   );
 }
-
-

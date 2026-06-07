@@ -996,7 +996,7 @@ function createLightPostgresCompatClient(options = {}) {
   }
   const poolPromise = getPool(connectionString, sslMode);
   const authError = createCompatError(
-    hasSupabaseAuthEnv(env) ? "Bu runtime Supabase auth yerine light_postgres veri uyumluluk modunda calisiyor." : "Admin auth bu store icin henuz kurulmedi. blocked_auth_setup aktif.",
+    hasSupabaseAuthEnv(env) ? "Bu magaza icin yonetici girisi alternatif kimlik altyapisiyla yonetiliyor." : "Yonetici girisi bu magaza icin henuz hazir degil.",
     "blocked_auth_setup"
   );
   return {

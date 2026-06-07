@@ -9,6 +9,11 @@ import {
   simulateLuckyWheel,
 } from "@/lib/lucky-wheel";
 import { requireAdminApiAuth } from "@/lib/admin-api-auth";
+import {
+  getOptionalAdminModuleFailurePayload,
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 const DEPRECATION_MESSAGE = "Bu endpoint deprecate edildi. /api/admin/discounts/lucky-wheel/* endpointlerini kullanın.";
 
@@ -42,6 +47,39 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Deprecated lucky wheel admin GET error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      const action = request.nextUrl.searchParams.get("action");
+      if (action === "stats") {
+        return NextResponse.json({
+          success: true,
+          deprecated: true,
+          deprecationMessage: DEPRECATION_MESSAGE,
+          spins: [],
+          stats: null,
+          ...getOptionalAdminModuleState("lucky_wheel"),
+        });
+      }
+
+      if (action === "prizes") {
+        return NextResponse.json({
+          success: true,
+          deprecated: true,
+          deprecationMessage: DEPRECATION_MESSAGE,
+          prizes: [],
+          ...getOptionalAdminModuleState("lucky_wheel"),
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        deprecated: true,
+        deprecationMessage: DEPRECATION_MESSAGE,
+        configs: [],
+        config: null,
+        ...getOptionalAdminModuleState("lucky_wheel"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -119,6 +157,17 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("Deprecated lucky wheel admin POST error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json(
+        {
+          deprecated: true,
+          deprecationMessage: DEPRECATION_MESSAGE,
+          ...getOptionalAdminModuleFailurePayload("lucky_wheel"),
+        },
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

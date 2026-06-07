@@ -18,7 +18,9 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { OptionalModuleDisabledCard } from "@/components/admin/OptionalModuleDisabledCard";
 import type { AccountingIntegrationView, AccountingProvider } from "@/types/accounting";
+import type { OptionalAdminModuleState } from "@/lib/optional-admin-modules";
 
 type ProviderStyle = { bg: string; text: string; abbr: string; color: string };
 const PROVIDER_STYLES: Record<string, ProviderStyle> = {
@@ -134,6 +136,8 @@ type View = "list" | "detail";
 export default function AccountingIntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [featureDisabled, setFeatureDisabled] =
+    useState<OptionalAdminModuleState | null>(null);
   const [integrations, setIntegrations] = useState<AccountingIntegrationView[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<AccountingIntegrationView | null>(null);
   const [view, setView] = useState<View>("list");
@@ -155,13 +159,28 @@ export default function AccountingIntegrationsPage() {
     setError(null);
     try {
       const response = await fetch("/api/admin/accounting/integrations", { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as {
+        success: boolean;
+        error?: string;
+        integrations?: AccountingIntegrationView[];
+      } & Partial<OptionalAdminModuleState>;
       if (!response.ok || !result.success) {
         throw new Error(result?.error || "Entegrasyon listesi alınamadı.");
       }
+
+      if (result.featureDisabled) {
+        setFeatureDisabled(result as OptionalAdminModuleState);
+        setIntegrations([]);
+        setSelectedProvider(null);
+        setView("list");
+        return;
+      }
+
+      setFeatureDisabled(null);
       const list = (result.integrations || []) as AccountingIntegrationView[];
       setIntegrations(list);
     } catch (fetchError) {
+      setFeatureDisabled(null);
       setError(fetchError instanceof Error ? fetchError.message : "Entegrasyonlar yüklenemedi.");
     } finally {
       setLoading(false);
@@ -350,94 +369,104 @@ export default function AccountingIntegrationsPage() {
             </div>
           )}
 
-          <section className="space-y-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <SectionPill>Sağlayıcı listesi</SectionPill>
-                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">Muhasebe programları</h2>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {sortedIntegrations.map((integration) => {
-                const isConnected = integration.connection?.status === "active";
-                const hasError = integration.connection?.status === "error";
-                const style = PROVIDER_STYLES[integration.provider.id] || { bg: "bg-gray-100", text: "text-gray-700", abbr: "?", color: "gray" };
-
-                return (
-                  <button
-                    key={integration.provider.id}
-                    onClick={() => handleSelectProvider(integration)}
-                    className="group text-left rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-                  >
-                    <div className="flex items-start gap-4">
-                      <AccountingProviderLogo
-                        providerId={integration.provider.id}
-                        providerName={integration.provider.name}
-                        providerStyle={style}
-                        size={56}
-                        className="h-14 w-14 shrink-0 border border-[#f0e3d7] shadow-sm"
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{integration.provider.name}</h3>
-                            <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#8f7765]">{integration.provider.description}</p>
-                          </div>
-                          {isConnected && <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-500" />}
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          <StatusBadge connected={isConnected} error={!!hasError} />
-                          {isConnected && integration.queueStats.queued > 0 && (
-                            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                              {integration.queueStats.queued} bekliyor
-                            </span>
-                          )}
-                          {isConnected && integration.queueStats.failed > 0 && (
-                            <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-                              {integration.queueStats.failed} hata
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-5 rounded-[22px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[#7f6858]">
-                          {integration.connection?.lastSyncAt ? (
-                            <span>Son senkron: {new Date(integration.connection.lastSyncAt).toLocaleString("tr-TR")}</span>
-                          ) : (
-                            <span>Henüz senkron geçmişi oluşmadı.</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-blue-100 bg-blue-50 text-blue-600">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <SectionPill>Kurulum akışı</SectionPill>
-                <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Nasıl çalışır?</h3>
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                  {["Kullandığınız muhasebe programını seçin.", "API bilgilerini ve alan eşlemelerini tamamlayın.", "Bağlantıyı test edip senkronizasyonu başlatın."].map((item, index) => (
-                    <div key={item} className="rounded-[22px] border border-[#f0e3d7] bg-[#fcf8f3] p-4 text-sm leading-6 text-[#6f594c]">
-                      <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent-hover)]">
-                        {index + 1}
-                      </div>
-                      {item}
-                    </div>
-                  ))}
+          {featureDisabled ? (
+            <OptionalModuleDisabledCard
+              title={featureDisabled.title}
+              message={featureDisabled.message}
+              detail={featureDisabled.detail}
+            />
+          ) : (
+            <>
+              <section className="space-y-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <SectionPill>Sağlayıcı listesi</SectionPill>
+                    <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">Muhasebe programları</h2>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </section>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {sortedIntegrations.map((integration) => {
+                    const isConnected = integration.connection?.status === "active";
+                    const hasError = integration.connection?.status === "error";
+                    const style = PROVIDER_STYLES[integration.provider.id] || { bg: "bg-gray-100", text: "text-gray-700", abbr: "?", color: "gray" };
+
+                    return (
+                      <button
+                        key={integration.provider.id}
+                        onClick={() => handleSelectProvider(integration)}
+                        className="group text-left rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                      >
+                        <div className="flex items-start gap-4">
+                          <AccountingProviderLogo
+                            providerId={integration.provider.id}
+                            providerName={integration.provider.name}
+                            providerStyle={style}
+                            size={56}
+                            className="h-14 w-14 shrink-0 border border-[#f0e3d7] shadow-sm"
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{integration.provider.name}</h3>
+                                <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#8f7765]">{integration.provider.description}</p>
+                              </div>
+                              {isConnected && <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-500" />}
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap items-center gap-2">
+                              <StatusBadge connected={isConnected} error={!!hasError} />
+                              {isConnected && integration.queueStats.queued > 0 && (
+                                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                                  {integration.queueStats.queued} bekliyor
+                                </span>
+                              )}
+                              {isConnected && integration.queueStats.failed > 0 && (
+                                <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                                  {integration.queueStats.failed} hata
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-5 rounded-[22px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[#7f6858]">
+                              {integration.connection?.lastSyncAt ? (
+                                <span>Son senkron: {new Date(integration.connection.lastSyncAt).toLocaleString("tr-TR")}</span>
+                              ) : (
+                                <span>Henüz senkron geçmişi oluşmadı.</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-blue-100 bg-blue-50 text-blue-600">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <SectionPill>Kurulum akışı</SectionPill>
+                    <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Nasıl çalışır?</h3>
+                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                      {["Kullandığınız muhasebe programını seçin.", "API bilgilerini ve alan eşlemelerini tamamlayın.", "Bağlantıyı test edip senkronizasyonu başlatın."].map((item, index) => (
+                        <div key={item} className="rounded-[22px] border border-[#f0e3d7] bg-[#fcf8f3] p-4 text-sm leading-6 text-[#6f594c]">
+                          <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent-hover)]">
+                            {index + 1}
+                          </div>
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </div>
     );

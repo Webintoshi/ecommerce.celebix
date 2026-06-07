@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, listLuckyWheelSpins } from "@/lib/lucky-wheel";
 import { enforceLuckyWheelAdminRateLimit } from "@/app/api/admin/discounts/lucky-wheel/_shared";
+import {
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,6 +19,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, spins, stats });
   } catch (error) {
     console.error("Lucky wheel spins GET error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json({
+        success: true,
+        spins: [],
+        stats: null,
+        ...getOptionalAdminModuleState("lucky_wheel"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,

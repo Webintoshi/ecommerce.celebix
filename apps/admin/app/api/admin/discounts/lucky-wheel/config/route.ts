@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLuckyWheelAdminConfig, saveLuckyWheelConfig, DEFAULT_LUCKY_WHEEL_CONFIG_ID } from "@/lib/lucky-wheel";
 import { enforceLuckyWheelAdminRateLimit, luckyWheelConfigSchema } from "@/app/api/admin/discounts/lucky-wheel/_shared";
+import {
+  getOptionalAdminModuleFailurePayload,
+  getOptionalAdminModuleState,
+  isOptionalAdminModuleUnavailable,
+} from "@/lib/optional-admin-modules";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,6 +17,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, config });
   } catch (error) {
     console.error("Lucky wheel config GET error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json({
+        success: true,
+        config: null,
+        ...getOptionalAdminModuleState("lucky_wheel"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -44,6 +57,13 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, config });
   } catch (error) {
     console.error("Lucky wheel config PUT error:", error);
+    if (isOptionalAdminModuleUnavailable("lucky_wheel", error)) {
+      return NextResponse.json(
+        getOptionalAdminModuleFailurePayload("lucky_wheel"),
+        { status: 501 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
