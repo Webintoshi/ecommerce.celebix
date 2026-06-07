@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CreditCard,
@@ -16,7 +17,9 @@ import {
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { buildProtectedSignInBridgePath } from "@/lib/customer-auth-links";
+import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
+import { isLogtoCustomerAuthEnabled } from "@/lib/customer-auth-provider";
+import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 
 type AccountAddress = {
   id: string;
@@ -96,19 +99,26 @@ function getStatusClasses(status: string) {
 }
 
 export default function AccountPage() {
+  const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
+  const logtoCustomerAuthEnabled = isLogtoCustomerAuthEnabled();
   const [account, setAccount] = useState<AccountPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const protectedSignInHref = buildProtectedSignInBridgePath("/hesap");
 
   useEffect(() => {
+    if (authMigrationRequired) {
+      setLoading(false);
+      return;
+    }
+
     if (authLoading) {
       return;
     }
 
     if (!user) {
-      window.location.replace(protectedSignInHref);
+      router.push("/giris?next=/hesap");
       return;
     }
 
@@ -131,7 +141,7 @@ export default function AccountPage() {
 
         if (!response.ok) {
           if (response.status === 401) {
-            window.location.replace(protectedSignInHref);
+            router.push("/giris?next=/hesap");
             return;
           }
 
@@ -162,7 +172,7 @@ export default function AccountPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, protectedSignInHref, user]);
+  }, [authLoading, authMigrationRequired, router, user]);
 
   const customer = account?.customer ?? null;
   const addresses = customer?.addresses ?? [];
@@ -175,6 +185,21 @@ export default function AccountPage() {
     const fullName = [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
     return fullName || customer.email || user?.email || "Musteri";
   }, [customer, user]);
+  const logoutHref = useMemo(
+    () => `/api/auth/sign-out?next=${encodeURIComponent("/giris?next=/hesap&logged_out=1")}`,
+    [],
+  );
+
+  if (authMigrationRequired) {
+    return (
+      <CustomerAuthMigrationNotice
+        title="Musteri hesabim sayfasi gecici olarak pasif"
+        description="DeryCraft 2 light_postgres provasinda musteri auth ve hesap gecmisi Supabase'e geri donmesin diye bu yuzey kontrollu olarak kapatildi. Mevcut rehearsal kapsami misafir siparis ve light_postgres commerce akisina odaklanir."
+        primaryHref="/"
+        primaryLabel="Magazaya don"
+      />
+    );
+  }
 
   if (authLoading || loading) {
     return (
@@ -213,14 +238,24 @@ export default function AccountPage() {
               <p className="mt-2 text-white/80">Hos geldiniz, {displayName}</p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
-            >
-              <LogOut className="h-4 w-4" />
-              Oturumu Kapat
-            </button>
+            {logtoCustomerAuthEnabled ? (
+              <a
+                href={logoutHref}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
+              >
+                <LogOut className="h-4 w-4" />
+                Oturumu Kapat
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
+              >
+                <LogOut className="h-4 w-4" />
+                Oturumu Kapat
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -350,15 +385,15 @@ export default function AccountPage() {
                   <MapPin className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Kayıtlı Adresler</h2>
-                  <p className="text-sm text-gray-500">Ödeme sırasında kullanılan teslimat adresleri</p>
+                  <h2 className="text-xl font-bold text-gray-900">Kayitli Adresler</h2>
+                  <p className="text-sm text-gray-500">Checkout sirasinda kullanilan teslimat adresleri</p>
                 </div>
               </div>
 
               {addresses.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-sm text-gray-500">
-                  Henüz kayıtlı adres bulunmuyor. İlk siparişinizden sonra teslimat adresiniz burada
-                  görünür.
+                  Henüz kayitli adres bulunmuyor. Ilk siparisinizden sonra teslimat adresiniz burada
+                  gorunur.
                 </div>
               ) : (
                 <div className="space-y-3">

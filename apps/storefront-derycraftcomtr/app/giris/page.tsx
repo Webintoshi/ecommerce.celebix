@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Chrome, Shield, UserRound } from "lucide-react";
 import { motion } from "framer-motion";
+import { CustomerAuthMigrationNotice } from "@/components/auth/CustomerAuthMigrationNotice";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
+import { getOptionalBrowserSupabaseClient } from "@/lib/supabase-browser";
+import { isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
 
 function sanitizeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -33,18 +36,61 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
+  const authMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   const [submitting, setSubmitting] = useState<"email" | "google" | null>(null);
   const showLogoImage =
     typeof SITE_LOGO_PATH === "string" &&
     !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
   const nextPath = useMemo(() => sanitizeNextPath(searchParams.get("next")), [searchParams]);
   const errorMessage = resolveErrorMessage(searchParams.get("error"));
+  const loggedOut = searchParams.get("logged_out") === "1";
+  const [logoutCleanupDone, setLogoutCleanupDone] = useState(!loggedOut);
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loggedOut) {
+      setLogoutCleanupDone(true);
+      return;
+    }
+
+    let active = true;
+
+    const cleanup = async () => {
+      try {
+        await getOptionalBrowserSupabaseClient()?.auth.signOut();
+      } catch (error) {
+        console.warn("Storefront logout cleanup failed:", error);
+      } finally {
+        if (active) {
+          setLogoutCleanupDone(true);
+        }
+      }
+    };
+
+    void cleanup();
+
+    return () => {
+      active = false;
+    };
+  }, [loggedOut]);
+
+  useEffect(() => {
+    if (!logoutCleanupDone) {
+      return;
+    }
+
+    if (!authMigrationRequired && !loading && user) {
       router.push(nextPath);
     }
-  }, [loading, nextPath, router, user]);
+  }, [authMigrationRequired, loading, logoutCleanupDone, nextPath, router, user]);
+
+  if (authMigrationRequired) {
+    return (
+      <CustomerAuthMigrationNotice
+        title="Musteri girisi gecici olarak pasif"
+        description="DeryCraft 2 light_postgres provasinda musteri auth yuzeyi Supabase'e geri donmesin diye giris akisi kontrollu olarak kapatildi. Siparis akisi misafir odeme ile devam eder."
+      />
+    );
+  }
 
   const openLogtoFlow = (mode: "email" | "google") => {
     setSubmitting(mode);

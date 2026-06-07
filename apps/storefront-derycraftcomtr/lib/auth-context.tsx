@@ -262,7 +262,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (logtoCustomerAuthEnabled) {
       setSession(null);
       setUser(null);
-      window.location.assign("/api/auth/sign-out");
+      window.location.assign(
+        `/api/auth/sign-out?next=${encodeURIComponent("/giris?next=/hesap&logged_out=1")}`,
+      );
       return { error: null };
     }
 
