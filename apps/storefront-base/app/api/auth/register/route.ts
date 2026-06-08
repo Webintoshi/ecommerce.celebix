@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isLightPostgresRuntime } from "@celebix/platform-config/src/light-postgres-runtime";
 import { createServerClient } from "@/lib/supabase";
 
 type RegisterBody = {
@@ -9,6 +10,16 @@ type RegisterBody = {
 
 export async function POST(request: Request) {
   try {
+    if (isLightPostgresRuntime(process.env)) {
+      return NextResponse.json(
+        {
+          error: "Customer Logto auth kurulumu henuz tamamlanmadi.",
+          code: "pending_auth_setup",
+        },
+        { status: 503 },
+      );
+    }
+
     const { email, password, metadata }: RegisterBody = await request.json();
 
     if (!email || !password) {

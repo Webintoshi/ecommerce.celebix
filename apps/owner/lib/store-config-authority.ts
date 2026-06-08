@@ -15,6 +15,7 @@ import {
   buildDefaultStoreAuthConfig,
   buildDefaultStorePaymentsConfig,
   applyStorefrontAuthorityPatchToConfig,
+  getDefaultAdminDeploymentBranch,
   getExpectedStorefrontAppDir,
   resolveAuthorityRepositoryBranch,
   resolveStorefrontRepositoryBranch,
@@ -498,7 +499,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       adminDeploymentProvider: "coolify",
       adminDeploymentName: readOptionalString(bootstrap.adminDeploymentName) ?? `${row.slug}-admin`,
       adminDeploymentBranch:
-        readOptionalString(bootstrap.adminDeploymentBranch) ?? resolveAuthorityRepositoryBranch(),
+        readOptionalString(bootstrap.adminDeploymentBranch) ?? getDefaultAdminDeploymentBranch(row.slug),
       adminDeploymentRuntimeUrl: adminRuntimeUrl,
       adminDeploymentResourceId: readOptionalString(bootstrap.adminDeploymentResourceId) ?? undefined,
       adminDeploymentStatus:

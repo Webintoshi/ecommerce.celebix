@@ -8,10 +8,38 @@ type LightPostgresCompatModule = {
     }) => unknown;
 };
 
+type RuntimeRequire = (id: string) => unknown;
+
+function getServerRuntimeRequire(): RuntimeRequire {
+    if (typeof window !== "undefined") {
+        throw new Error("light_postgres compat client is only available on the server.");
+    }
+
+    const cjsRequire = Function("return typeof require === 'function' ? require : undefined")() as
+        | RuntimeRequire
+        | undefined;
+
+    if (cjsRequire) {
+        return cjsRequire;
+    }
+
+    const getBuiltinModule = (globalThis as { process?: NodeJS.Process & {
+        getBuiltinModule?: (id: string) => { createRequire?: (url: string) => RuntimeRequire };
+    } }).process?.getBuiltinModule;
+    const moduleBuiltin = getBuiltinModule?.("node:module") ?? getBuiltinModule?.("module");
+    const createRuntimeRequire = moduleBuiltin?.createRequire;
+
+    if (!createRuntimeRequire) {
+        throw new Error("Node createRequire is not available for light_postgres compat runtime.");
+    }
+
+    return createRuntimeRequire(import.meta.url);
+}
+
 function createLightPostgresServerCompatClient() {
-    const runtimeRequire = (0, eval)("require") as (id: string) => unknown;
+    const runtimeRequire = getServerRuntimeRequire();
     const compatModule = runtimeRequire(
-        "@celebix/platform-config/src/light-postgres-compat",
+        "@celebix/platform-config/src/light-postgres-compat.cjs",
     ) as LightPostgresCompatModule;
 
     return compatModule.createLightPostgresCompatClient({

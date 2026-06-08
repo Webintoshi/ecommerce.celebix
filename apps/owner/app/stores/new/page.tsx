@@ -1,5 +1,5 @@
 import {
-  getDefaultAdminDeploymentBranch,
+  getAdminDeploymentBranchPrefix,
   getStorefrontDeploymentBranchPrefix,
 } from "@/lib/platform-config-owner";
 import { CreateStoreForm } from "@/components/CreateStoreForm";
@@ -113,7 +113,7 @@ export default async function NewStorePage() {
             </div>
           ) : null}
           <CreateStoreForm
-            ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
+            adminDeploymentBranchPrefix={getAdminDeploymentBranchPrefix()}
             storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}
             disabled={createStoreDisabled}
             disabledReason={createStoreDisabledReason}

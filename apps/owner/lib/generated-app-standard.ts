@@ -1,6 +1,9 @@
 import "server-only";
 
-import type { StoreConfig } from "@celebix/platform-config";
+import {
+  getDefaultAdminDeploymentBranch,
+  type StoreConfig,
+} from "@celebix/platform-config";
 
 export type GeneratedAppTarget = "admin" | "storefront";
 
@@ -93,7 +96,7 @@ export function buildGeneratedRuntimeStandard(
       buildServer: deployment?.buildServer ?? "celebix-build-01",
       branch:
         target === "admin"
-          ? store.bootstrap?.adminDeploymentBranch ?? store.bootstrap?.authorityBranch ?? "deploy/owner"
+          ? store.bootstrap?.adminDeploymentBranch ?? getDefaultAdminDeploymentBranch(store.slug)
           : store.storefront?.deploymentBranch ?? `deploy/storefront/${store.slug}`,
       workspace: target === "admin" ? "@celebix/admin" : store.storefront?.packageName ?? `@celebix/storefront-${store.slug}`,
     },

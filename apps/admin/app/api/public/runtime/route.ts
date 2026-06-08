@@ -27,8 +27,11 @@ export async function GET() {
   const hasPublicSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey && authCookieName);
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
   const logtoIssuer = authProvider === "logto" ? getOptionalLogtoIssuer() : null;
+  const authPending = runtime.authSetupStatus === "pending_auth_setup";
   const authStrategy =
-    authBlocked
+    authPending
+      ? "pending_auth_setup"
+      : authBlocked
       ? "blocked_auth_setup"
       : authProvider === "logto"
         ? "logto_oidc_bridge_v1"

@@ -22,7 +22,7 @@ interface CreateStorePayload {
 }
 
 interface CreateStoreFormProps {
-  ownerDeploymentBranch: string;
+  adminDeploymentBranchPrefix: string;
   storefrontBranchPrefix: string;
   disabled?: boolean;
   disabledReason?: string;
@@ -72,7 +72,7 @@ function slugify(value: string): string {
 }
 
 export function CreateStoreForm({
-  ownerDeploymentBranch,
+  adminDeploymentBranchPrefix,
   storefrontBranchPrefix,
   disabled = false,
   disabledReason,
@@ -128,6 +128,7 @@ export function CreateStoreForm({
   }
 
   const branchSlugPreview = form.slug || slugify(form.name) || "store-slug";
+  const adminBranchPreview = `${adminDeploymentBranchPrefix}/${branchSlugPreview}`;
   const storefrontBranchPreview = `${storefrontBranchPrefix}/${branchSlugPreview}`;
   const legacyModeVisible = showLegacyOptions || form.databaseMode === "full_supabase";
 
@@ -332,7 +333,7 @@ export function CreateStoreForm({
             <details className="owner-technical-details">
               <summary>Teknik branch planı</summary>
               <div className="meta-pairs">
-                <span>Owner/Admin branch: <strong>{ownerDeploymentBranch}</strong></span>
+                <span>Admin branch: <strong>{adminBranchPreview}</strong></span>
                 <span>Vitrin branch: <strong>{storefrontBranchPreview}</strong></span>
               </div>
             </details>

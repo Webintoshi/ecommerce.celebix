@@ -48,6 +48,8 @@ export default async function RootLayout({
   ]);
   const gtmId = codeIntegrations.googleTagManagerId || STOREFRONT_RUNTIME.gtmId;
   const metaPixelId = codeIntegrations.metaPixelId;
+  const umamiScriptUrl = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL || process.env.UMAMI_SCRIPT_URL;
+  const umamiWebsiteId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID || process.env.UMAMI_WEBSITE_ID;
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
   const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
@@ -81,6 +83,14 @@ export default async function RootLayout({
                 `(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');` +
                 `fbq('init', '${metaPixelId}');fbq('track', 'PageView');`,
             }}
+          />
+        ) : null}
+        {umamiScriptUrl && umamiWebsiteId ? (
+          <Script
+            id="celebix-umami"
+            src={umamiScriptUrl}
+            data-website-id={umamiWebsiteId}
+            strategy="afterInteractive"
           />
         ) : null}
         <CodeIntegrationMarkup html={codeIntegrations.customHeadHtml} />

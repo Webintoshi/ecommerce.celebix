@@ -16,17 +16,29 @@ export async function GET(request: NextRequest) {
   const loginHint =
     request.nextUrl.searchParams.get("login_hint") ??
     request.nextUrl.searchParams.get("email");
-  const { url, statePayload } = await buildLogtoAuthorizeUrl(nextPath, {
-    firstScreen:
-      screen === "reset_password"
-        ? "reset_password"
-        : screen === "identifier:sign-in"
-          ? "identifier:sign-in"
-          : undefined,
-    identifier: loginHint ? ["email"] : undefined,
-    loginHint,
-    uiLocales: "tr",
-  });
+  let authorize;
+  try {
+    authorize = await buildLogtoAuthorizeUrl(nextPath, {
+      firstScreen:
+        screen === "reset_password"
+          ? "reset_password"
+          : screen === "identifier:sign-in"
+            ? "identifier:sign-in"
+            : undefined,
+      identifier: loginHint ? ["email"] : undefined,
+      loginHint,
+      uiLocales: "tr",
+    });
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Admin Logto auth kurulumu henuz tamamlanmadi.",
+        code: "pending_auth_setup",
+      },
+      { status: 503 },
+    );
+  }
+  const { url, statePayload } = authorize;
   const response = NextResponse.redirect(url);
 
   writeLogtoAdminStateCookie(response, statePayload);

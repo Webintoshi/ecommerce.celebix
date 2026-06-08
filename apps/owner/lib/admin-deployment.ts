@@ -429,7 +429,16 @@ export async function getStoreAdminDeploymentBlueprint(
         envEntries.LIGHT_POSTGRES_DATABASE_URL &&
           envEntries.LIGHT_POSTGRES_DATABASE_NAME &&
           envEntries.NEXT_PUBLIC_STORE_DOMAIN &&
-          envEntries.NEXT_PUBLIC_ADMIN_DOMAIN,
+          envEntries.NEXT_PUBLIC_ADMIN_DOMAIN &&
+          (
+            store.authProvider !== "logto" ||
+            (
+              envEntries.AUTH_SETUP_STATUS === "logto_stable" &&
+              envEntries.LOGTO_ISSUER &&
+              envEntries.LOGTO_ADMIN_APP_ID &&
+              envEntries.LOGTO_COOKIE_SECRET
+            )
+          ),
       )
     : Boolean(
         envEntries.NEXT_PUBLIC_SUPABASE_URL &&
@@ -443,8 +452,21 @@ export async function getStoreAdminDeploymentBlueprint(
       buildServer.trim(),
   );
 
+  const missingLogtoAuthority =
+    store.databaseMode === "light_postgres" &&
+    store.authProvider === "logto" &&
+    !(
+      envEntries.AUTH_SETUP_STATUS === "logto_stable" &&
+      envEntries.LOGTO_ISSUER &&
+      envEntries.LOGTO_ADMIN_APP_ID &&
+      envEntries.LOGTO_COOKIE_SECRET
+    );
   let status: "pending-owner-env" | "prepared" | "configured" | "failed" = hasRequiredEnv ? "prepared" : "pending-owner-env";
-  let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
+  let runtimeMessage: string | null = hasRequiredEnv
+    ? null
+    : missingLogtoAuthority
+      ? "Admin Logto authority pending; admin deploy beklemede."
+      : "Admin deployment authority henuz yazilmamis.";
   let runtimeConsistent = false;
 
   if (!buildServerReady) {

@@ -1134,6 +1134,36 @@ export async function runStoreProvisioningWorkflow(
       },
     ],
     [
+      "auth_setup",
+      async () => {
+        const store = repairStoreConfig(input.slug);
+
+        if (store.databaseMode === "light_postgres") {
+          const result = await provisionLogtoAppsForStore(store);
+          await syncOwnerStoresAndMetrics();
+
+          return `Logto admin/customer app config hazirlandi: ${result.adminConfigPath}, ${result.customerConfigPath}`;
+        }
+
+        return "Supabase auth store ile birlikte hazir.";
+      },
+    ],
+    [
+      "analytics_setup",
+      async () => {
+        const store = repairStoreConfig(input.slug);
+
+        if (store.databaseMode === "light_postgres") {
+          const result = await provisionUmamiForStore(store);
+          await syncOwnerStoresAndMetrics();
+
+          return `Umami website config hazirlandi: ${result.configPath}; websiteId=${result.websiteId ? "configured" : "pending"}`;
+        }
+
+        return "Legacy analytics setup store runtime icinde ele alinir.";
+      },
+    ],
+    [
       "storefront_blueprint",
       async () => {
         const blueprint = await prepareStorefrontDeployment(input.slug);
@@ -1197,36 +1227,6 @@ export async function runStoreProvisioningWorkflow(
         }
 
         return deployment.message || "Admin runtime dogrulandi.";
-      },
-    ],
-    [
-      "analytics_setup",
-      async () => {
-        const store = repairStoreConfig(input.slug);
-
-        if (store.databaseMode === "light_postgres") {
-          const result = await provisionUmamiForStore(store);
-          await syncOwnerStoresAndMetrics();
-
-          return `Umami website config hazirlandi: ${result.configPath}; websiteId=${result.websiteId ? "configured" : "pending"}`;
-        }
-
-        return "Legacy analytics setup store runtime icinde ele alinir.";
-      },
-    ],
-    [
-      "auth_setup",
-      async () => {
-        const store = repairStoreConfig(input.slug);
-
-        if (store.databaseMode === "light_postgres") {
-          const result = await provisionLogtoAppsForStore(store);
-          await syncOwnerStoresAndMetrics();
-
-          return `Logto admin/customer app config hazirlandi: ${result.adminConfigPath}, ${result.customerConfigPath}`;
-        }
-
-        return "Supabase auth store ile birlikte hazir.";
       },
     ],
     [

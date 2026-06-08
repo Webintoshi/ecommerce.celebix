@@ -967,8 +967,17 @@ export function getStorefrontDeploymentBranchPrefix(): string {
   );
 }
 
-export function getDefaultAdminDeploymentBranch(): string {
-  return getOwnerRepositoryBranch();
+export function getAdminDeploymentBranchPrefix(): string {
+  return (
+    normalizeRepositoryBranch(process.env.COOLIFY_ADMIN_REPOSITORY_BRANCH_PREFIX) ||
+    normalizeRepositoryBranch(process.env.CELEBIX_ADMIN_BRANCH_PREFIX) ||
+    "deploy/admin"
+  );
+}
+
+export function getDefaultAdminDeploymentBranch(slug: string): string {
+  const normalizedSlug = ensureSlug(slug);
+  return `${getAdminDeploymentBranchPrefix()}/${normalizedSlug}`;
 }
 
 export function getDefaultStorefrontDeploymentBranch(slug: string): string {
@@ -992,7 +1001,7 @@ export function getStoreDeploymentBranches(
     ownerBranch,
     adminBranch:
       normalizeRepositoryBranch(input?.bootstrap?.adminDeploymentBranch) ||
-      getDefaultAdminDeploymentBranch(),
+      getDefaultAdminDeploymentBranch(slug),
     storefrontBranch:
       normalizeRepositoryBranch(input?.storefront?.deploymentBranch) ||
       getDefaultStorefrontDeploymentBranch(slug),
@@ -1002,6 +1011,9 @@ export function getStoreDeploymentBranches(
 function resolveDefaultRepositoryBranch(kind: "admin" | "storefront", slug?: string): string {
   if (kind === "storefront" && slug) {
     return getDefaultStorefrontDeploymentBranch(slug);
+  }
+  if (kind === "admin" && slug) {
+    return getDefaultAdminDeploymentBranch(slug);
   }
 
   const kindSpecific =

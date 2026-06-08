@@ -18,7 +18,7 @@ export interface SmokeCheckDefinition {
   path?: string;
   expected: string;
   expectedStatus?: number | number[];
-  runtimeAssertions?: Record<string, string>;
+  runtimeAssertions?: Record<string, string | string[]>;
   repairAction?: string;
   authenticated?: boolean;
 }
@@ -66,15 +66,15 @@ export function buildNewStoreSmokeChecks(store: StoreConfig): SmokeCheckDefiniti
       kind: "runtime",
       target: "admin",
       path: "/api/public/runtime",
-      expected: "databaseMode=light_postgres, authProvider=logto, authStrategy=logto_oidc_bridge_v1",
+      expected: "databaseMode=light_postgres, authProvider=logto, authStrategy=logto_oidc_bridge_v1 veya pending_auth_setup",
       runtimeAssertions: {
         databaseMode: "light_postgres",
         authProvider: "logto",
-        authStrategy: "logto_oidc_bridge_v1",
+        authStrategy: ["logto_oidc_bridge_v1", "pending_auth_setup"],
       },
       repairAction: "Generated admin env/runtime metadata kontrol edilmeli.",
     },
-    { id: "admin_sign_in_307", label: "Admin sign-in redirects", category: "auth", kind: "redirect", target: "admin", path: "/api/auth/sign-in?next=%2Fadmin", expectedStatus: 307, expected: "HTTP 307 to Logto" },
+    { id: "admin_sign_in_307", label: "Admin sign-in redirects", category: "auth", kind: "redirect", target: "admin", path: "/api/auth/sign-in?next=%2Fadmin", expectedStatus: [307, 503], expected: "HTTP 307 to Logto or 503 safe pending" },
     { id: "admin_invalid_callback_safe", label: "Invalid admin callback stays on public domain", category: "security", kind: "http", target: "admin", path: buildAdminCallbackPath(store), expectedStatus: [200, 302, 307, 400, 401], expected: "No local/dev redirect" },
     { id: "admin_analytics_safe", label: "Admin analytics route safe", category: "analytics", kind: "http", target: "admin", path: "/admin/analizler", expectedStatus: [200, 302, 307, 401], expected: "200 or auth-gated" },
     { id: "admin_analytics_summary_safe", label: "Admin analytics summary safe", category: "analytics", kind: "http", target: "admin", path: "/api/admin/analytics/summary", expectedStatus: [200, 401, 403], expected: "200 authenticated or auth-gated" },

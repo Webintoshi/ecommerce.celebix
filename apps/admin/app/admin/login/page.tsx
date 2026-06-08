@@ -17,7 +17,10 @@ export default function AdminLoginPage() {
   const authBlocked =
     process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE === "light_postgres" &&
     process.env.NEXT_PUBLIC_AUTH_SETUP_STATUS === "blocked_auth_setup";
-  const authUnavailable = authBlocked || (!isLogtoProvider && !hasBrowserSupabaseAuthEnv);
+  const authPending =
+    process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE === "light_postgres" &&
+    process.env.NEXT_PUBLIC_AUTH_SETUP_STATUS === "pending_auth_setup";
+  const authUnavailable = authBlocked || authPending || (!isLogtoProvider && !hasBrowserSupabaseAuthEnv);
   const supabase = useMemo(
     () => (authUnavailable || isLogtoProvider ? null : getOptionalBrowserSupabaseClient()),
     [authUnavailable, isLogtoProvider],
@@ -161,9 +164,13 @@ export default function AdminLoginPage() {
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
                 {authBlocked
                   ? "Admin uygulamasi olustu ancak bu yeni light_postgres store icin giris kimligi henuz tamamlanmadi."
+                  : authPending
+                    ? "Logto admin uygulamasi henuz apply edilmedigi icin giris gecici olarak beklemede."
                   : "Bu ortamda admin auth degiskenleri henuz tanimli olmadigi icin giris gecici olarak pasif."}{" "}
                 Owner provisioning bu adimi acikca
-                <code className="mx-1 rounded bg-amber-100 px-1.5 py-0.5 text-[12px]">blocked_auth_setup</code>
+                <code className="mx-1 rounded bg-amber-100 px-1.5 py-0.5 text-[12px]">
+                  {authPending ? "pending_auth_setup" : "blocked_auth_setup"}
+                </code>
                 olarak isaretler.
               </div>
             ) : null}

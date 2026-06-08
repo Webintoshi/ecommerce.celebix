@@ -172,8 +172,8 @@ async function runRuntimeCheck(
     });
     const payload = (await response.json()) as unknown;
     const mismatches = Object.entries(definition.runtimeAssertions ?? {}).filter(([path, expected]) => {
-      const actual = readPath(payload, path);
-      return String(actual ?? "") !== expected;
+      const actual = String(readPath(payload, path) ?? "");
+      return Array.isArray(expected) ? !expected.includes(actual) : actual !== expected;
     });
     const passed = response.ok && mismatches.length === 0;
 
