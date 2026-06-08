@@ -35,6 +35,13 @@
     "status": "draft"
   },
   {
+    "slug": "atlas-lpg-smoke-20260608-0441",
+    "name": "Atlas LPG Smoke Test",
+    "domain": "atlas-lpg-smoke-20260608-0441.celebix.site",
+    "theme": "atelier",
+    "status": "draft"
+  },
+  {
     "slug": "butik-waya",
     "name": "Butik Waya",
     "domain": "celebix.site",
