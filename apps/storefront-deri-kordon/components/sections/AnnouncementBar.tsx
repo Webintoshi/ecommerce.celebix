@@ -19,8 +19,10 @@ const DEFAULT_SETTINGS: AnnouncementSettings = {
   link: "/kampanyalar",
   linkText: "Hemen Kesfet",
   enabled: true,
-  backgroundColor: "#7B1113",
+  backgroundColor: "#0F1626",
 };
+
+const DISMISS_STORAGE_KEY = "derycraft-announcement-dismissed";
 
 function normalizeAnnouncementColor(value?: string) {
   const normalized = (value || "").trim();
@@ -42,14 +44,23 @@ function getAnnouncementTextColor(hexColor: string) {
   const blue = parseInt(color.slice(5, 7), 16);
   const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
 
-  return brightness > 150 ? "#0B1120" : "#FFFFFF";
+  return brightness > 150 ? "#0F1626" : "#FFFFFF";
 }
 
 export function AnnouncementBar() {
   const [settings, setSettings] = useState<AnnouncementSettings>(DEFAULT_SETTINGS);
   const [isVisible, setIsVisible] = useState(true);
-  const [loading, setLoading] = useState(true);
   const { locale, internalPathname } = useStorefrontRoute();
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(DISMISS_STORAGE_KEY) === "1") {
+        setIsVisible(false);
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+  }, []);
 
   useEffect(() => {
     async function fetchSettings() {
@@ -64,15 +75,13 @@ export function AnnouncementBar() {
         setSettings({ ...DEFAULT_SETTINGS, ...payload.announcementSettings });
       } catch (error) {
         console.error("Failed to fetch announcement settings:", error);
-      } finally {
-        setLoading(false);
       }
     }
 
     void fetchSettings();
   }, []);
 
-  if (!isVisible || !settings.enabled || loading || internalPathname.startsWith("/admin")) {
+  if (!isVisible || !settings.enabled || internalPathname.startsWith("/admin")) {
     return null;
   }
 
@@ -82,53 +91,53 @@ export function AnnouncementBar() {
       : settings.link;
   const backgroundColor = normalizeAnnouncementColor(settings.backgroundColor);
   const textColor = getAnnouncementTextColor(backgroundColor);
-  const isDarkTheme = textColor === "#FFFFFF";
-  const buttonClass = isDarkTheme
-    ? "bg-white/12 hover:bg-white/20 text-white"
-    : "bg-[#0B1120]/10 hover:bg-[#0B1120]/15 text-[#0B1120]";
-  const closeButtonClass = isDarkTheme
-    ? "text-white/70 hover:text-white hover:bg-white/10"
-    : "text-[#0B1120]/70 hover:text-[#0B1120] hover:bg-[#0B1120]/8";
-  const shimmerOverlay = isDarkTheme
-    ? "linear-gradient(45deg,transparent 25%,rgba(255,255,255,0.08) 50%,transparent 75%,transparent 100%)"
-    : "linear-gradient(45deg,transparent 25%,rgba(11,17,32,0.05) 50%,transparent 75%,transparent 100%)";
+
+  function handleDismiss() {
+    setIsVisible(false);
+    try {
+      sessionStorage.setItem(DISMISS_STORAGE_KEY, "1");
+    } catch {
+      // sessionStorage unavailable
+    }
+  }
 
   return (
-    <div className="relative" style={{ backgroundColor }}>
-      <div
-        className="absolute inset-0 bg-[length:250%_250%] animate-[shimmer_3s_ease-in-out_infinite]"
-        style={{ backgroundImage: shimmerOverlay }}
-      />
-
-      <div className="container mx-auto px-4 py-2.5 relative">
-        <div className="flex items-center justify-center">
-          <p className="text-xs sm:text-sm text-center font-medium tracking-wide" style={{ color: textColor }}>
-            <span className="relative">
-              <span className="relative z-10">{settings.message}</span>
-              <span
-                className="absolute inset-0 blur-sm scale-110 animate-pulse"
-                style={{ backgroundColor: isDarkTheme ? "rgba(255,255,255,0.18)" : "rgba(11,17,32,0.08)" }}
-              />
-            </span>
-            {announcementHref && settings.linkText ? (
+    <div
+      className="relative z-50 border-b border-white/8"
+      style={{ backgroundColor }}
+      role="region"
+      aria-label="Duyuru"
+    >
+      <div className="mx-auto flex h-9 max-w-[1500px] items-center justify-center px-11 sm:h-10 sm:px-14">
+        <p
+          className="text-center font-sans text-[10px] font-medium uppercase leading-snug tracking-[0.14em] sm:text-[11px] sm:tracking-[0.18em]"
+          style={{ color: textColor }}
+        >
+          <span>{settings.message}</span>
+          {announcementHref && settings.linkText ? (
+            <>
+              <span className="mx-2.5 hidden opacity-35 sm:inline" aria-hidden>
+                |
+              </span>
               <Link
                 href={announcementHref}
-                className={`ml-2 inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${buttonClass}`}
+                className="mt-1 inline-block underline decoration-1 underline-offset-[3px] transition-opacity hover:opacity-75 sm:mt-0 sm:inline"
               >
                 {settings.linkText}
-                <span className="text-xs animate-[bounce_1s_ease-in-out_infinite]">→</span>
               </Link>
-            ) : null}
-          </p>
-        </div>
+            </>
+          ) : null}
+        </p>
       </div>
 
       <button
-        onClick={() => setIsVisible(false)}
-        className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 transition-all duration-200 hover:rotate-90 sm:right-4 ${closeButtonClass}`}
-        aria-label="Kapat"
+        type="button"
+        onClick={handleDismiss}
+        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 opacity-50 transition-opacity hover:opacity-100 sm:right-4"
+        style={{ color: textColor }}
+        aria-label="Duyuruyu kapat"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="h-3 w-3" strokeWidth={1.5} />
       </button>
     </div>
   );
