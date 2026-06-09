@@ -129,7 +129,7 @@ function ProductCardPrice({
       {originalPrice ? (
         <span className="font-serif text-xs text-neutral-400 line-through">{formatPrice(originalPrice)}</span>
       ) : null}
-      <p className="font-serif text-[13px] text-neutral-800 sm:text-sm">{formatPrice(displayPrice)}</p>
+      <p className="font-serif text-[11px] font-normal text-neutral-700 sm:text-[12px]">{formatPrice(displayPrice)}</p>
     </div>
   );
 }
@@ -157,7 +157,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
                 src={primaryImage}
                 alt={product.name}
                 fill
-                className="object-cover scale-[1.14] transition-transform duration-700 group-hover:scale-[1.2]"
+                className="object-contain p-1.5 transition-transform duration-700 group-hover:scale-[1.03]"
                 unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
@@ -167,7 +167,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             )}
           </div>
           <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <h3 className="font-serif text-[13px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-[14px]">
+            <h3 className="font-serif text-[11px] font-normal leading-[1.4] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[12px]">
               {product.name}
             </h3>
             <ProductCardRating product={product} className="justify-start" />
@@ -192,7 +192,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               src={primaryImage}
               alt={product.name}
               fill
-              className="object-cover scale-[1.18] transition-transform duration-700 ease-out group-hover:scale-[1.24]"
+              className="object-contain p-2 transition-transform duration-700 ease-out group-hover:scale-[1.03] sm:p-3"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               unoptimized={usesProxiedPrimaryImage}
             />
@@ -204,7 +204,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         </div>
 
         <div className="flex flex-1 flex-col items-center px-0.5 text-center">
-          <h3 className="line-clamp-2 font-serif text-[12px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-[13px]">
+          <h3 className="line-clamp-2 font-serif text-[10px] font-normal leading-[1.45] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[11px]">
             {product.name}
           </h3>
 
