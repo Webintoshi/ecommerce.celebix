@@ -49,7 +49,7 @@ const ENGLISH_FOOTER_COPY: FooterLocaleCopy = {
     { name: "Contact", href: "/iletisim" },
   ],
   rights: "All rights reserved.",
-  partnerLabel: "Digital Growth Partner",
+  partnerLabel: "E-commerce infrastructure by",
 };
 
 const TURKISH_FOOTER_COPY: FooterLocaleCopy = {
@@ -65,8 +65,11 @@ const TURKISH_FOOTER_COPY: FooterLocaleCopy = {
     { name: "İletişim", href: "/iletisim" },
   ],
   rights: "Tüm hakları saklıdır.",
-  partnerLabel: "Dijital Büyüme Partneri",
+  partnerLabel: "E-ticaret altyapısı",
 };
+
+const CELEBIX_SITE_URL = "https://celebix.net/";
+const CELEBIX_LOGO_URL = "https://celebix.net/Logo/koyu%20logo.svg";
 
 const FOOTER_COPY: Record<StorefrontLocale, FooterLocaleCopy> = {
   tr: TURKISH_FOOTER_COPY,
@@ -297,21 +300,24 @@ export function Footer({ categoryLinks }: { categoryLinks: StorefrontFooterCateg
       </div>
 
       <div className="border-t border-gray-800">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
-          <p className="text-xs text-gray-500">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 px-6 py-6 lg:flex-row lg:px-8">
+          <p className="text-center text-xs text-gray-500 lg:text-left">
             © {currentYear} {storeInfo?.name || SITE_NAME}. {copy.rights}
           </p>
           <a
-            href="https://celebix.co"
+            href={CELEBIX_SITE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-white"
+            className="group flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2.5 text-gray-400 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+            aria-label="Celebix"
           >
-            <span className="text-[10px] uppercase tracking-[0.2em]">{copy.partnerLabel}</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-gray-500 transition-colors group-hover:text-gray-300">
+              {copy.partnerLabel}
+            </span>
             <img
-              src="https://celebix.co/Logo/koyu%20logo.svg"
+              src={CELEBIX_LOGO_URL}
               alt="Celebix"
-              className="h-6 w-auto brightness-0 invert"
+              className="h-5 w-auto brightness-0 invert opacity-80 transition-opacity group-hover:opacity-100"
             />
           </a>
         </div>
