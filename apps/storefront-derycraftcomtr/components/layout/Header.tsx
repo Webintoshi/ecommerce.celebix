@@ -19,6 +19,50 @@ import {
   getLocalizedCategoryLabel,
   getLocalizedCopy,
 } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+
+const NAV_LINK_CLASS =
+  "group/nav relative inline-flex items-center gap-1.5 px-0.5 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-600 transition-colors duration-200 hover:text-neutral-950";
+
+const NAV_UNDERLINE_CLASS =
+  "after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover/nav:after:w-full";
+
+function HeaderIconButton({
+  className,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-neutral-700 transition-all duration-200 hover:border-neutral-200/80 hover:bg-white hover:text-neutral-950",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+function HeaderIconLink({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof Link>) {
+  return (
+    <Link
+      className={cn(
+        "relative hidden h-10 w-10 items-center justify-center rounded-full border border-transparent text-neutral-700 transition-all duration-200 hover:border-neutral-200/80 hover:bg-white hover:text-neutral-950 sm:inline-flex",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export function Header({
   navigationCategories,
@@ -276,14 +320,15 @@ export function Header({
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${
+      className={cn(
+        "sticky top-0 z-50 transition-all duration-300",
         isScrolled
-          ? "border-b border-neutral-200 bg-[#F8F8F8F8]/95 backdrop-blur-sm"
-          : "bg-[#F8F8F8F8]"
-      }`}
+          ? "border-b border-neutral-200/80 bg-[#F8F8F8F8]/92 shadow-[0_10px_30px_rgba(15,23,42,0.05)] backdrop-blur-md"
+          : "bg-[#F8F8F8F8]",
+      )}
     >
       <div className="container-premium">
-        <div className="flex h-16 items-center lg:grid lg:h-20 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
+        <div className="flex h-[4.25rem] items-center lg:grid lg:h-[5.25rem] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
           <Link
             href={buildPath(ROUTES.home)}
             className="flex-shrink-0"
@@ -308,7 +353,7 @@ export function Header({
             )}
           </Link>
 
-          <nav className="hidden items-center justify-center gap-4 lg:flex xl:gap-6">
+          <nav className="hidden items-center justify-center gap-5 lg:flex xl:gap-7">
             {navigationCategories.map((category) => {
               const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
 
@@ -317,31 +362,34 @@ export function Header({
                   <Link
                     key={category.id}
                     href={buildPath(ROUTES.category(category.slug))}
-                    className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className={cn(NAV_LINK_CLASS, NAV_UNDERLINE_CLASS)}
                   >
-                    {localizedCategoryName}
+                    <span>{localizedCategoryName}</span>
                   </Link>
                 );
               }
 
               return (
-                <div key={category.id} className="group relative">
+                <div key={category.id} className="group/menu relative">
                   <Link
                     href={buildPath(ROUTES.category(category.slug))}
-                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className={cn(NAV_LINK_CLASS, NAV_UNDERLINE_CLASS)}
                   >
-                    {localizedCategoryName}
-                    <ChevronDown className="h-4 w-4" />
+                    <span>{localizedCategoryName}</span>
+                    <ChevronDown
+                      className="h-3 w-3 shrink-0 text-neutral-400 transition-transform duration-200 group-hover/menu:rotate-180 group-hover/menu:text-neutral-700"
+                      strokeWidth={1.75}
+                    />
                   </Link>
 
-                  <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                    <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-                      <div className="space-y-1">
+                  <div className="pointer-events-none absolute left-1/2 top-full z-30 w-80 -translate-x-1/2 pt-5 opacity-0 transition-all duration-200 group-hover/menu:pointer-events-auto group-hover/menu:opacity-100 group-focus-within/menu:pointer-events-auto group-focus-within/menu:opacity-100">
+                    <div className="overflow-hidden rounded-[1.5rem] border border-neutral-200/90 bg-white p-2 shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+                      <div className="space-y-0.5">
                         {category.children.map((subcategory) => (
                           <Link
                             key={subcategory.id}
                             href={buildPath(ROUTES.category(subcategory.slug))}
-                            className="block rounded-2xl px-4 py-3 text-sm text-neutral-700 transition-colors hover:bg-white/80 hover:text-neutral-950"
+                            className="block rounded-[1rem] px-4 py-3 text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-950"
                           >
                             {subcategory.name}
                           </Link>
@@ -354,48 +402,41 @@ export function Header({
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:ml-0 lg:justify-self-end lg:gap-3">
-            <button
-              type="button"
-              className="p-2"
-              aria-label={copy.searchLabel}
-              onClick={() => setIsSearchOpen(true)}
-            >
-              <Search className="h-5 w-5 text-neutral-600" />
-            </button>
+          <div className="ml-auto flex items-center gap-0.5 sm:gap-1 lg:ml-0 lg:justify-self-end lg:gap-1.5">
+            <HeaderIconButton aria-label={copy.searchLabel} onClick={() => setIsSearchOpen(true)}>
+              <Search className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </HeaderIconButton>
 
             {isAuthenticated ? (
-              <Link href={buildPath("/hesap")} className="hidden p-2 sm:block">
-                <User className="h-5 w-5 text-neutral-600" />
-              </Link>
+              <HeaderIconLink href={buildPath("/hesap")} aria-label="Hesabım">
+                <User className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              </HeaderIconLink>
             ) : (
-              <a href={CUSTOMER_AUTH_URLS.signIn} className="hidden p-2 sm:block">
-                <User className="h-5 w-5 text-neutral-600" />
+              <a
+                href={CUSTOMER_AUTH_URLS.signIn}
+                aria-label="Giriş yap"
+                className="relative hidden h-10 w-10 items-center justify-center rounded-full border border-transparent text-neutral-700 transition-all duration-200 hover:border-neutral-200/80 hover:bg-white hover:text-neutral-950 sm:inline-flex"
+              >
+                <User className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </a>
             )}
 
-            <button
-              type="button"
-              className="relative p-2"
-              aria-label={copy.cartLabel}
-              onClick={() => setIsCartOpen(true)}
-            >
-              <ShoppingBag className="h-5 w-5 text-neutral-600" />
+            <HeaderIconButton aria-label={copy.cartLabel} onClick={() => setIsCartOpen(true)}>
+              <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.75} />
               {cartItemCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white">
+                <span className="absolute right-1.5 top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-medium leading-none text-white">
                   {cartItemCount}
                 </span>
               ) : null}
-            </button>
+            </HeaderIconButton>
 
-            <button
-              className="-mr-2 rounded-full p-2 lg:hidden"
+            <HeaderIconButton
+              className="lg:hidden"
               onClick={() => setIsMenuOpen(true)}
               aria-label={copy.menuLabel}
-              type="button"
             >
-              <Menu className="h-5 w-5 text-neutral-800" />
-            </button>
+              <Menu className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </HeaderIconButton>
           </div>
         </div>
       </div>
