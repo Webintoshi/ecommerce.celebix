@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
-import { resolveStorefrontAssetUrl, resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import type { HomepageTestimonial } from "@/lib/homepage";
 import { TESTIMONIALS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const AUTO_PLAY_INTERVAL = 5000;
-const PROOF_IMAGE_WIDTH = 480;
+const PROOF_IMAGE_WIDTH = 640;
 
 type TestimonialItem = {
   id: string;
@@ -37,37 +35,14 @@ function ProofImageWithFallback({
   src,
   alt,
   className,
-  sizes,
 }: {
   src?: string | null;
   alt: string;
   className?: string;
-  sizes: string;
 }) {
-  const normalizedSrc = withProofImageWidth(src || "");
-  const proxiedSource = resolveStorefrontAssetUrl(normalizedSrc);
-  const directSource = resolveStorefrontDirectAssetUrl(normalizedSrc);
-  const [currentSource, setCurrentSource] = useState(proxiedSource || directSource || "");
-  const [usedFallback, setUsedFallback] = useState(false);
-  const [error, setError] = useState(false);
+  const displaySrc = withProofImageWidth(src || "");
 
-  useEffect(() => {
-    setCurrentSource(proxiedSource || directSource || "");
-    setUsedFallback(false);
-    setError(false);
-  }, [directSource, proxiedSource]);
-
-  const handleError = () => {
-    if (!usedFallback && directSource && directSource !== currentSource) {
-      setCurrentSource(directSource);
-      setUsedFallback(true);
-      return;
-    }
-
-    setError(true);
-  };
-
-  if (error || !currentSource) {
+  if (!displaySrc) {
     return (
       <div
         className={cn(
@@ -81,37 +56,34 @@ function ProofImageWithFallback({
   }
 
   return (
-    <div className={cn("relative h-full w-full", className)}>
-      <Image
-        src={currentSource}
-        alt={alt}
-        fill
-        className="object-cover"
-        sizes={sizes}
-        onError={handleError}
-      />
-    </div>
+    <img
+      src={displaySrc}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className={cn("h-full w-full object-cover", className)}
+    />
   );
+}
+
+function mapConstantTestimonials(): TestimonialItem[] {
+  return TESTIMONIALS.map((item) => ({
+    id: String(item.id),
+    name: item.name,
+    verified: true,
+    rating: item.rating,
+    content: item.text,
+    title: item.title ?? null,
+    proofImages: item.proofImages?.length ? item.proofImages : [],
+  }));
 }
 
 function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[] {
   if (!Array.isArray(items) || items.length === 0) {
-    return TESTIMONIALS.map((item) => ({
-      id: String(item.id),
-      name: item.name,
-      verified: true,
-      rating: item.rating,
-      content: item.text,
-      title: item.title ?? null,
-      proofImages: item.proofImages?.length
-        ? item.proofImages
-        : item.image
-          ? [item.image]
-          : [],
-    }));
+    return mapConstantTestimonials();
   }
 
-  return items
+  const fromApi = items
     .filter((item) => item.body && item.name)
     .map((item) => ({
       id: item.id,
@@ -127,6 +99,12 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
             ? [item.image]
             : [],
     }));
+
+  if (fromApi.length === 0 || fromApi.every((item) => item.proofImages.length === 0)) {
+    return mapConstantTestimonials();
+  }
+
+  return fromApi;
 }
 
 function RatingStars({
@@ -175,12 +153,11 @@ function ProofGallery({ review }: { review: TestimonialItem }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="relative min-h-[220px] flex-1 overflow-hidden bg-neutral-100 sm:min-h-[260px]">
+      <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 sm:aspect-square">
         <ProofImageWithFallback
           src={activeImage}
           alt={`${review.name} yorum görseli`}
           className="absolute inset-0"
-          sizes="(max-width: 1024px) 100vw, 280px"
         />
       </div>
 
@@ -203,7 +180,6 @@ function ProofGallery({ review }: { review: TestimonialItem }) {
                 src={image}
                 alt={`${review.name} yorum görseli ${index + 1}`}
                 className="absolute inset-0"
-                sizes="96px"
               />
             </button>
           ))}
