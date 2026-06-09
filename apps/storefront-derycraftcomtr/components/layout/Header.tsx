@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { ROUTES, SITE_NAME, SITE_LOGO_PATH } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { CUSTOMER_AUTH_URLS } from "@/lib/customer-auth-links";
@@ -14,6 +13,14 @@ import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
+import {
+  HeaderIconAccount,
+  HeaderIconBag,
+  HeaderIconChevron,
+  HeaderIconClose,
+  HeaderIconMenu,
+  HeaderIconSearch,
+} from "@/components/layout/HeaderIcons";
 import type { StorefrontNavigationCategory } from "@/lib/storefront-navigation";
 import {
   getLocalizedCategoryLabel,
@@ -22,12 +29,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const NAV_LINK_CLASS =
-  "group/nav relative inline-flex items-center gap-1.5 px-0.5 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-600 transition-colors duration-200 hover:text-neutral-950";
+  "inline-flex items-center gap-1.5 font-serif text-[11px] uppercase tracking-[0.16em] text-neutral-900 transition-opacity hover:opacity-55 sm:text-[12px] lg:tracking-[0.18em]";
 
-const NAV_UNDERLINE_CLASS =
-  "after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover/nav:after:w-full";
-
-function HeaderIconButton({
+function UtilityIconButton({
   className,
   children,
   ...props
@@ -36,31 +40,13 @@ function HeaderIconButton({
     <button
       type="button"
       className={cn(
-        "relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-neutral-700 transition-all duration-200 hover:border-neutral-200/80 hover:bg-white hover:text-neutral-950",
+        "relative inline-flex items-center justify-center p-1 text-neutral-900 transition-opacity hover:opacity-55",
         className,
       )}
       {...props}
     >
       {children}
     </button>
-  );
-}
-
-function HeaderIconLink({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof Link>) {
-  return (
-    <Link
-      className={cn(
-        "relative hidden h-10 w-10 items-center justify-center rounded-full border border-transparent text-neutral-700 transition-all duration-200 hover:border-neutral-200/80 hover:bg-white hover:text-neutral-950 sm:inline-flex",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </Link>
   );
 }
 
@@ -74,6 +60,8 @@ export function Header({
   const [activeMobileCategoryId, setActiveMobileCategoryId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [openMegaMenuId, setOpenMegaMenuId] = useState<string | null>(null);
+  const megaMenuCloseTimer = useRef<number | null>(null);
   const { getTotalItems, setIsOpen: setIsCartOpen } = useCart();
   const { user, signOut } = useAuth();
   const { storeInfo } = useStoreInfo();
@@ -91,6 +79,9 @@ export function Header({
     : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
+  const activeMegaMenu = navigationCategories.find(
+    (category) => category.id === openMegaMenuId && category.children.length > 0,
+  );
 
   useEffect(() => {
     setIsClient(true);
@@ -98,7 +89,7 @@ export function Header({
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 12);
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -137,6 +128,7 @@ export function Header({
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setIsSearchOpen(true);
+        setOpenMegaMenuId(null);
       }
     };
 
@@ -144,7 +136,30 @@ export function Header({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (isSearchOpen) {
+      setOpenMegaMenuId(null);
+    }
+  }, [isSearchOpen]);
+
   const closeMenu = () => setIsMenuOpen(false);
+
+  const openMegaMenu = (categoryId: string) => {
+    if (megaMenuCloseTimer.current) {
+      window.clearTimeout(megaMenuCloseTimer.current);
+      megaMenuCloseTimer.current = null;
+    }
+    setOpenMegaMenuId(categoryId);
+  };
+
+  const scheduleMegaMenuClose = () => {
+    if (megaMenuCloseTimer.current) {
+      window.clearTimeout(megaMenuCloseTimer.current);
+    }
+    megaMenuCloseTimer.current = window.setTimeout(() => {
+      setOpenMegaMenuId(null);
+    }, 120);
+  };
 
   const navigateToCustomerAuth = (href: string) => {
     closeMenu();
@@ -155,6 +170,12 @@ export function Header({
     setActiveMobileCategoryId((current) => (current === categoryId ? null : categoryId));
   };
 
+  const openSearch = () => {
+    setIsSearchOpen(true);
+    setOpenMegaMenuId(null);
+    closeMenu();
+  };
+
   const mobileMenu = isClient
     ? createPortal(
         <AnimatePresence>
@@ -163,7 +184,7 @@ export function Header({
               <motion.button
                 type="button"
                 aria-label="Menüyü kapat"
-                className="fixed inset-0 z-[130] bg-black/55 lg:hidden"
+                className="fixed inset-0 z-[130] bg-black/50 lg:hidden"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -175,10 +196,10 @@ export function Header({
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ duration: 0.24, ease: "easeOut" }}
-                className="fixed inset-y-0 right-0 z-[140] flex w-[min(100vw-28px,24rem)] flex-col overflow-hidden rounded-l-[2rem] bg-white text-[#11100E] shadow-[0_22px_60px_rgba(0,0,0,0.24)] lg:hidden"
+                className="fixed inset-y-0 right-0 z-[140] flex w-[min(100vw-28px,24rem)] flex-col overflow-hidden bg-white text-neutral-900 shadow-[0_22px_60px_rgba(0,0,0,0.2)] lg:hidden"
                 aria-label="Mobil menü"
               >
-                <div className="flex items-center justify-between px-6 pb-5 pt-6">
+                <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-5">
                   <Link href={buildPath(ROUTES.home)} aria-label={logoAlt} onClick={closeMenu}>
                     {logoSrc ? (
                       <div className="relative h-8 w-[112px]">
@@ -192,33 +213,48 @@ export function Header({
                         />
                       </div>
                     ) : (
-                      <span className="font-serif text-3xl font-semibold text-[#11100E]">{logoAlt}</span>
+                      <span className="font-serif text-2xl text-neutral-900">{logoAlt}</span>
                     )}
                   </Link>
 
                   <button
                     type="button"
                     onClick={closeMenu}
-                    className="rounded-full p-2 text-[#11100E]"
+                    className="p-1 text-neutral-900"
                     aria-label="Menüyü kapat"
                   >
-                    <X className="h-7 w-7" />
+                    <HeaderIconClose size={24} />
+                  </button>
+                </div>
+
+                <div className="border-b border-neutral-200 px-6 py-4">
+                  <button
+                    type="button"
+                    onClick={openSearch}
+                    className="flex w-full items-center justify-between border border-neutral-900/15 bg-neutral-50 px-4 py-3 text-left"
+                  >
+                    <span className="font-sans text-sm text-neutral-500">Mağazada ara</span>
+                    <HeaderIconSearch size={20} />
                   </button>
                 </div>
 
                 <nav className="flex-1 overflow-y-auto px-6 pb-40">
                   {navigationCategories.map((category) => {
-                    const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
+                    const localizedCategoryName = getLocalizedCategoryLabel(
+                      category.slug,
+                      category.name,
+                      locale,
+                    );
                     const drawerLabel = localizedCategoryName.toLocaleUpperCase("tr");
                     const isExpanded = activeMobileCategoryId === category.id;
                     const hasChildren = category.children.length > 0;
 
                     return (
-                      <div key={category.id} className="border-b border-[#11100E]/12">
+                      <div key={category.id} className="border-b border-neutral-200/80">
                         <div className="flex items-center gap-3 py-5">
                           <Link
                             href={buildPath(ROUTES.category(category.slug))}
-                            className="flex-1 text-[1.05rem] font-black leading-none text-[#11100E] transition-colors hover:text-[#6E5139]"
+                            className="flex-1 font-serif text-[15px] uppercase tracking-[0.12em] text-neutral-900"
                             onClick={closeMenu}
                           >
                             {drawerLabel}
@@ -228,14 +264,12 @@ export function Header({
                             <button
                               type="button"
                               onClick={() => toggleMobileCategory(category.id)}
-                              className="rounded-full p-1 text-[#BDBDBD]"
+                              className="p-1 text-neutral-400"
                               aria-label={`${drawerLabel} alt kategorilerini ${isExpanded ? "kapat" : "aç"}`}
                               aria-expanded={isExpanded}
                             >
-                              <ChevronDown
-                                className={`h-6 w-6 transition-transform ${
-                                  isExpanded ? "rotate-0 text-[#11100E]" : "-rotate-90"
-                                }`}
+                              <HeaderIconChevron
+                                className={cn("transition-transform", isExpanded ? "rotate-180" : "")}
                               />
                             </button>
                           ) : null}
@@ -250,12 +284,12 @@ export function Header({
                               transition={{ duration: 0.18, ease: "easeOut" }}
                               className="overflow-hidden"
                             >
-                              <div className="space-y-1 pb-4 pl-2">
+                              <div className="space-y-1 pb-4 pl-1">
                                 {category.children.map((subcategory) => (
                                   <Link
                                     key={subcategory.id}
                                     href={buildPath(ROUTES.category(subcategory.slug))}
-                                    className="block rounded-2xl px-3 py-2 text-[0.95rem] font-medium text-[#5E5A55] transition-colors hover:bg-[#F7F3EE] hover:text-[#11100E]"
+                                    className="block px-2 py-2 font-sans text-sm text-neutral-600 transition-colors hover:text-neutral-900"
                                     onClick={closeMenu}
                                   >
                                     {subcategory.name}
@@ -270,12 +304,12 @@ export function Header({
                   })}
                 </nav>
 
-                <div className="mt-auto border-t border-black bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-5">
+                <div className="mt-auto border-t border-neutral-200 bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-5">
                   {isAuthenticated ? (
                     <div className="grid grid-cols-2 gap-3">
                       <Link
                         href={buildPath("/hesap")}
-                        className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
+                        className="inline-flex min-h-12 items-center justify-center border border-neutral-900 px-4 font-serif text-sm uppercase tracking-[0.12em] text-neutral-900"
                         onClick={closeMenu}
                       >
                         Hesabım
@@ -286,23 +320,23 @@ export function Header({
                           closeMenu();
                           void signOut();
                         }}
-                        className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
+                        className="inline-flex min-h-12 items-center justify-center bg-neutral-900 px-4 font-serif text-sm uppercase tracking-[0.12em] text-white"
                       >
-                        Çıkış Yap
+                        Çıkış
                       </button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        className="inline-flex min-h-14 items-center justify-center rounded-full bg-black px-5 text-lg font-black text-white"
+                        className="inline-flex min-h-12 items-center justify-center bg-neutral-900 px-4 font-serif text-sm uppercase tracking-[0.12em] text-white"
                         onClick={() => navigateToCustomerAuth(CUSTOMER_AUTH_URLS.register)}
                       >
                         Kayıt Ol
                       </button>
                       <button
                         type="button"
-                        className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-black px-5 text-lg font-black text-black"
+                        className="inline-flex min-h-12 items-center justify-center border border-neutral-900 px-4 font-serif text-sm uppercase tracking-[0.12em] text-neutral-900"
                         onClick={() => navigateToCustomerAuth(CUSTOMER_AUTH_URLS.signIn)}
                       >
                         Giriş Yap
@@ -321,133 +355,169 @@ export function Header({
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-all duration-300",
-        isScrolled
-          ? "border-b border-neutral-200/80 bg-[#F8F8F8F8]/92 shadow-[0_10px_30px_rgba(15,23,42,0.05)] backdrop-blur-md"
-          : "bg-[#F8F8F8F8]",
+        "relative sticky top-0 z-50 bg-white transition-shadow duration-300",
+        isScrolled && "shadow-[0_1px_0_rgba(0,0,0,0.06)]",
       )}
+      onMouseLeave={scheduleMegaMenuClose}
     >
       <div className="container-premium">
-        <div className="flex h-[4.25rem] items-center lg:grid lg:h-[5.25rem] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
+        <div className="flex h-[4.5rem] items-center lg:grid lg:h-[5.5rem] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
           <Link
             href={buildPath(ROUTES.home)}
             className="flex-shrink-0"
             aria-label={logoAlt}
           >
             {logoSrc ? (
-              <div className="relative h-7 w-[94px] sm:h-8 sm:w-[104px] lg:h-8 lg:w-[112px]">
+              <div className="relative h-8 w-[100px] sm:h-9 sm:w-[112px] lg:h-9 lg:w-[124px]">
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
                   fill
                   priority
                   className="object-contain object-left"
-                  sizes="(max-width: 640px) 92px, (max-width: 1024px) 104px, 112px"
+                  sizes="(max-width: 640px) 100px, 124px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
             ) : (
-              <span className="font-serif text-base font-medium text-neutral-900 lg:text-lg">
-                {logoAlt}
-              </span>
+              <span className="font-serif text-lg text-neutral-900 lg:text-xl">{logoAlt}</span>
             )}
           </Link>
 
-          <nav className="hidden items-center justify-center gap-5 lg:flex xl:gap-7">
+          <nav
+            className="hidden items-center justify-center gap-4 lg:flex xl:gap-6"
+            onMouseEnter={() => {
+              if (megaMenuCloseTimer.current) {
+                window.clearTimeout(megaMenuCloseTimer.current);
+              }
+            }}
+          >
             {navigationCategories.map((category) => {
-              const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
+              const localizedCategoryName = getLocalizedCategoryLabel(
+                category.slug,
+                category.name,
+                locale,
+              );
+              const hasChildren = category.children.length > 0;
+              const isMegaOpen = openMegaMenuId === category.id;
 
-              if (category.children.length === 0) {
+              if (!hasChildren) {
                 return (
                   <Link
                     key={category.id}
                     href={buildPath(ROUTES.category(category.slug))}
-                    className={cn(NAV_LINK_CLASS, NAV_UNDERLINE_CLASS)}
+                    className={NAV_LINK_CLASS}
                   >
-                    <span>{localizedCategoryName}</span>
+                    {localizedCategoryName.toLocaleUpperCase("tr")}
                   </Link>
                 );
               }
 
               return (
-                <div key={category.id} className="group/menu relative">
+                <div
+                  key={category.id}
+                  className="relative"
+                  onMouseEnter={() => openMegaMenu(category.id)}
+                >
                   <Link
                     href={buildPath(ROUTES.category(category.slug))}
-                    className={cn(NAV_LINK_CLASS, NAV_UNDERLINE_CLASS)}
+                    className={cn(NAV_LINK_CLASS, isMegaOpen && "opacity-55")}
                   >
-                    <span>{localizedCategoryName}</span>
-                    <ChevronDown
-                      className="h-3 w-3 shrink-0 text-neutral-400 transition-transform duration-200 group-hover/menu:rotate-180 group-hover/menu:text-neutral-700"
-                      strokeWidth={1.75}
+                    {localizedCategoryName.toLocaleUpperCase("tr")}
+                    <HeaderIconChevron
+                      className={cn("transition-transform", isMegaOpen && "rotate-180")}
                     />
                   </Link>
-
-                  <div className="pointer-events-none absolute left-1/2 top-full z-30 w-80 -translate-x-1/2 pt-5 opacity-0 transition-all duration-200 group-hover/menu:pointer-events-auto group-hover/menu:opacity-100 group-focus-within/menu:pointer-events-auto group-focus-within/menu:opacity-100">
-                    <div className="overflow-hidden rounded-[1.5rem] border border-neutral-200/90 bg-white p-2 shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
-                      <div className="space-y-0.5">
-                        {category.children.map((subcategory) => (
-                          <Link
-                            key={subcategory.id}
-                            href={buildPath(ROUTES.category(subcategory.slug))}
-                            className="block rounded-[1rem] px-4 py-3 text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-950"
-                          >
-                            {subcategory.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               );
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-0.5 sm:gap-1 lg:ml-0 lg:justify-self-end lg:gap-1.5">
-            <HeaderIconButton aria-label={copy.searchLabel} onClick={() => setIsSearchOpen(true)}>
-              <Search className="h-[18px] w-[18px]" strokeWidth={1.75} />
-            </HeaderIconButton>
-
+          <div className="ml-auto flex items-center gap-4 sm:gap-5 lg:ml-0 lg:justify-self-end lg:gap-6">
             {isAuthenticated ? (
-              <HeaderIconLink href={buildPath("/hesap")} aria-label="Hesabım">
-                <User className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              </HeaderIconLink>
+              <Link
+                href={buildPath("/hesap")}
+                className="hidden p-1 text-neutral-900 transition-opacity hover:opacity-55 sm:inline-flex"
+                aria-label="Hesabım"
+              >
+                <HeaderIconAccount />
+              </Link>
             ) : (
               <a
                 href={CUSTOMER_AUTH_URLS.signIn}
                 aria-label="Giriş yap"
-                className="relative hidden h-10 w-10 items-center justify-center rounded-full border border-transparent text-neutral-700 transition-all duration-200 hover:border-neutral-200/80 hover:bg-white hover:text-neutral-950 sm:inline-flex"
+                className="hidden p-1 text-neutral-900 transition-opacity hover:opacity-55 sm:inline-flex"
               >
-                <User className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                <HeaderIconAccount />
               </a>
             )}
 
-            <HeaderIconButton aria-label={copy.cartLabel} onClick={() => setIsCartOpen(true)}>
-              <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            <UtilityIconButton aria-label={copy.searchLabel} onClick={openSearch}>
+              <HeaderIconSearch />
+            </UtilityIconButton>
+
+            <UtilityIconButton aria-label={copy.cartLabel} onClick={() => setIsCartOpen(true)}>
+              <HeaderIconBag />
               {cartItemCount > 0 ? (
-                <span className="absolute right-1.5 top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-medium leading-none text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-medium leading-none text-white">
                   {cartItemCount}
                 </span>
               ) : null}
-            </HeaderIconButton>
+            </UtilityIconButton>
 
-            <HeaderIconButton
+            <UtilityIconButton
               className="lg:hidden"
-              onClick={() => setIsMenuOpen(true)}
+              onClick={() => {
+                setIsSearchOpen(false);
+                setIsMenuOpen(true);
+              }}
               aria-label={copy.menuLabel}
             >
-              <Menu className="h-[18px] w-[18px]" strokeWidth={1.75} />
-            </HeaderIconButton>
+              <HeaderIconMenu />
+            </UtilityIconButton>
           </div>
         </div>
       </div>
-
-      {mobileMenu}
 
       <HeaderSearchOverlay
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         resolveImageSrc={resolveStorefrontAssetUrl}
       />
+
+      <AnimatePresence>
+        {activeMegaMenu && !isSearchOpen ? (
+          <motion.div
+            key={activeMegaMenu.id}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="absolute left-0 right-0 top-full border-t border-neutral-200 bg-white shadow-[0_24px_48px_rgba(15,23,42,0.08)]"
+            onMouseEnter={() => openMegaMenu(activeMegaMenu.id)}
+            onMouseLeave={scheduleMegaMenuClose}
+          >
+            <div className="container-premium py-8">
+              <p className="mb-5 font-serif text-[11px] uppercase tracking-[0.22em] text-neutral-400">
+                {getLocalizedCategoryLabel(activeMegaMenu.slug, activeMegaMenu.name, locale)}
+              </p>
+              <div className="grid gap-x-10 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                {activeMegaMenu.children.map((subcategory) => (
+                  <Link
+                    key={subcategory.id}
+                    href={buildPath(ROUTES.category(subcategory.slug))}
+                    className="font-serif text-sm text-neutral-800 transition-opacity hover:opacity-55"
+                  >
+                    {subcategory.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {mobileMenu}
     </header>
   );
 }
