@@ -54,15 +54,13 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
           />
         </picture>
 
-        <div className="absolute inset-0 z-10 flex items-end pb-10 sm:items-center sm:pb-0">
-          <div className="container-premium w-full">
-            <Link
-              href={ROUTES.products}
-              className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-semibold tracking-[0.04em] text-neutral-900 transition-colors hover:bg-neutral-100"
-            >
-              Hemen Keşfet
-            </Link>
-          </div>
+        <div className="absolute inset-0 z-10 flex items-end justify-center pb-10 md:pb-14">
+          <Link
+            href={ROUTES.products}
+            className="inline-flex min-w-[200px] items-center justify-center border border-white/90 bg-transparent px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition-colors hover:bg-white hover:text-neutral-900"
+          >
+            Hemen Keşfet
+          </Link>
         </div>
       </div>
     </section>

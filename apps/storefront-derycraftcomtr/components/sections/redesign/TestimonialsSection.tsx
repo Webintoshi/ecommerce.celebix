@@ -9,6 +9,7 @@ import { TESTIMONIALS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const AUTO_PLAY_INTERVAL = 5000;
+const PROOF_IMAGE_WIDTH = 480;
 
 type TestimonialItem = {
   id: string;
@@ -16,20 +17,36 @@ type TestimonialItem = {
   verified: boolean;
   rating: number;
   content: string;
-  image?: string | null;
+  title?: string | null;
+  proofImages: string[];
 };
 
-function ImageWithFallback({
+function withProofImageWidth(src: string) {
+  if (!src) {
+    return src;
+  }
+
+  if (src.includes("images.celebix.co") && src.includes("width=")) {
+    return src.replace(/width=\d+/i, `width=${PROOF_IMAGE_WIDTH}`);
+  }
+
+  return src;
+}
+
+function ProofImageWithFallback({
   src,
   alt,
-  fallback,
+  className,
+  sizes,
 }: {
   src?: string | null;
   alt: string;
-  fallback: string;
+  className?: string;
+  sizes: string;
 }) {
-  const proxiedSource = resolveStorefrontAssetUrl(src || "");
-  const directSource = resolveStorefrontDirectAssetUrl(src || "");
+  const normalizedSrc = withProofImageWidth(src || "");
+  const proxiedSource = resolveStorefrontAssetUrl(normalizedSrc);
+  const directSource = resolveStorefrontDirectAssetUrl(normalizedSrc);
   const [currentSource, setCurrentSource] = useState(proxiedSource || directSource || "");
   const [usedFallback, setUsedFallback] = useState(false);
   const [error, setError] = useState(false);
@@ -52,33 +69,29 @@ function ImageWithFallback({
 
   if (error || !currentSource) {
     return (
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
-        {fallback}
+      <div
+        className={cn(
+          "flex items-center justify-center bg-neutral-100 text-xs font-medium uppercase tracking-[0.18em] text-neutral-400",
+          className,
+        )}
+      >
+        Görsel
       </div>
     );
   }
 
   return (
-    <div className="relative h-20 w-20 overflow-hidden rounded-full">
+    <div className={cn("relative h-full w-full", className)}>
       <Image
         src={currentSource}
         alt={alt}
         fill
         className="object-cover"
-        sizes="80px"
+        sizes={sizes}
         onError={handleError}
       />
     </div>
   );
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("");
 }
 
 function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[] {
@@ -89,7 +102,12 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
       verified: true,
       rating: item.rating,
       content: item.text,
-      image: item.image,
+      title: item.title ?? null,
+      proofImages: item.proofImages?.length
+        ? item.proofImages
+        : item.image
+          ? [item.image]
+          : [],
     }));
   }
 
@@ -101,7 +119,13 @@ function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[]
       verified: true,
       rating: Math.max(1, Math.min(5, item.rating || 5)),
       content: item.body,
-      image: item.image,
+      title: item.title ?? null,
+      proofImages:
+        item.proofImages && item.proofImages.length > 0
+          ? item.proofImages
+          : item.image
+            ? [item.image]
+            : [],
     }));
 }
 
@@ -136,70 +160,113 @@ function VerifiedBadge() {
   );
 }
 
-function DesktopTestimonialCard({ review }: { review: TestimonialItem }) {
+function ProofGallery({ review }: { review: TestimonialItem }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const images = review.proofImages;
+  const activeImage = images[activeIndex] || images[0];
+
+  if (!activeImage) {
+    return (
+      <div className="flex h-full min-h-[220px] items-center justify-center bg-neutral-100 text-xs font-medium uppercase tracking-[0.18em] text-neutral-400 sm:min-h-full">
+        Görsel kanıt
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full overflow-hidden rounded-[30px] border border-[#ebe2d6] bg-white shadow-[0_22px_48px_-32px_rgba(55,38,16,0.3)]">
-      <div className="flex w-32 flex-shrink-0 items-center justify-center bg-[linear-gradient(180deg,#faf6ef_0%,#f3ece0_100%)] sm:w-40 lg:w-48">
-        <ImageWithFallback
-          src={review.image}
-          alt={review.name}
-          fallback={getInitials(review.name)}
+    <div className="flex h-full flex-col">
+      <div className="relative min-h-[220px] flex-1 overflow-hidden bg-neutral-100 sm:min-h-[260px]">
+        <ProofImageWithFallback
+          src={activeImage}
+          alt={`${review.name} yorum görseli`}
+          className="absolute inset-0"
+          sizes="(max-width: 1024px) 100vw, 280px"
         />
       </div>
 
-      <div className="flex flex-1 flex-col justify-center p-5 sm:p-6">
-        <div className="mb-3">
-          <RatingStars rating={review.rating} />
+      {images.length > 1 ? (
+        <div className="grid grid-cols-3 gap-1 border-t border-neutral-200/80 bg-white p-1">
+          {images.slice(0, 3).map((image, index) => (
+            <button
+              key={`${review.id}-proof-${index}`}
+              type="button"
+              onClick={() => setActiveIndex(index)}
+              className={cn(
+                "relative aspect-[4/3] overflow-hidden rounded-md border transition-colors",
+                index === activeIndex
+                  ? "border-[#8A6B37]"
+                  : "border-transparent opacity-70 hover:opacity-100",
+              )}
+              aria-label={`${review.name} görsel ${index + 1}`}
+            >
+              <ProofImageWithFallback
+                src={image}
+                alt={`${review.name} yorum görseli ${index + 1}`}
+                className="absolute inset-0"
+                sizes="96px"
+              />
+            </button>
+          ))}
         </div>
+      ) : null}
+    </div>
+  );
+}
 
-        <div className="mb-3 flex flex-wrap items-center gap-2 gap-y-1">
+function DesktopTestimonialCard({ review }: { review: TestimonialItem }) {
+  return (
+    <article className="flex h-full overflow-hidden rounded-[24px] border border-neutral-200 bg-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)]">
+      <div className="w-[38%] max-w-[280px] shrink-0 border-r border-neutral-200/80">
+        <ProofGallery review={review} />
+      </div>
+
+      <div className="flex flex-1 flex-col justify-center p-5 sm:p-6">
+        <RatingStars rating={review.rating} />
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 gap-y-1">
           <span className="text-sm font-semibold uppercase tracking-[0.08em] text-neutral-900">
             {review.name}
           </span>
           {review.verified ? <VerifiedBadge /> : null}
         </div>
 
-        <p className="text-sm leading-7 text-neutral-600">{review.content}</p>
+        {review.title ? (
+          <p className="mt-2 text-sm font-medium text-neutral-800">{review.title}</p>
+        ) : null}
+
+        <p className="mt-3 text-sm leading-7 text-neutral-600">{review.content}</p>
       </div>
-    </div>
+    </article>
   );
 }
 
 function MobileTestimonialCard({ review }: { review: TestimonialItem }) {
   return (
-    <article className="relative min-w-[86%] max-w-[86%] snap-center overflow-hidden rounded-[28px] border border-[#ebe2d6] bg-[linear-gradient(180deg,#fffdfa_0%,#ffffff_100%)] p-5 shadow-[0_22px_48px_-32px_rgba(55,38,16,0.34)]">
-      <div className="pointer-events-none absolute right-4 top-2 text-[4rem] leading-none text-[#8A6B37]/10">
-        &quot;
-      </div>
+    <article className="min-w-[88%] max-w-[88%] snap-center overflow-hidden rounded-[24px] border border-neutral-200 bg-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)]">
+      <ProofGallery review={review} />
 
-      <div className="flex items-start gap-4">
-        <div className="rounded-[24px] bg-[linear-gradient(180deg,#faf6ef_0%,#f3ece0_100%)] p-2.5">
-          <ImageWithFallback
-            src={review.image}
-            alt={review.name}
-            fallback={getInitials(review.name)}
-          />
+      <div className="p-5">
+        <RatingStars rating={review.rating} iconClassName="h-4 w-4" />
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 gap-y-1">
+          <span className="text-sm font-semibold uppercase tracking-[0.08em] text-neutral-900">
+            {review.name}
+          </span>
+          {review.verified ? <VerifiedBadge /> : null}
         </div>
 
-        <div className="min-w-0 flex-1 pt-1">
-          <RatingStars rating={review.rating} iconClassName="h-4 w-4" />
+        {review.title ? (
+          <p className="mt-2 text-sm font-medium text-neutral-800">{review.title}</p>
+        ) : null}
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 gap-y-1">
-            <span className="text-sm font-semibold uppercase tracking-[0.08em] text-neutral-900">
-              {review.name}
-            </span>
-            {review.verified ? <VerifiedBadge /> : null}
-          </div>
-        </div>
+        <p className="mt-3 text-[0.95rem] leading-7 text-neutral-700">{review.content}</p>
       </div>
-
-      <p className="mt-5 text-[0.95rem] leading-7 text-neutral-700">{review.content}</p>
     </article>
   );
 }
 
 export function TestimonialsSection({
-  heading = "Müşteri Yorumları",
+  heading = "Güncel Yorumlar",
   countLabel = "1581 değerlendirmeden",
   items,
 }: {
@@ -243,11 +310,13 @@ export function TestimonialsSection({
   }
 
   return (
-    <section className="bg-neutral-50 py-16 lg:py-20">
+    <section className="bg-[#F8F8F8F8] py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-8 text-center lg:mb-10">
-          <h2 className="mb-2 text-[1.8rem] font-medium text-neutral-900 lg:text-[2.1rem]">{heading}</h2>
-          <p className="text-sm text-neutral-500">{countLabel}</p>
+          <h2 className="font-serif text-[1.8rem] font-medium text-neutral-900 lg:text-[2.1rem]">
+            {heading}
+          </h2>
+          <p className="mt-2 text-sm text-neutral-500">{countLabel}</p>
         </div>
 
         <div className="lg:hidden">
@@ -289,7 +358,7 @@ export function TestimonialsSection({
                 type="button"
                 onClick={prevSlide}
                 className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:-translate-x-6"
-                aria-label="Onceki"
+                aria-label="Önceki"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>

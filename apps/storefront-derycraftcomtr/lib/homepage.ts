@@ -104,6 +104,7 @@ export interface HomepageTestimonial {
   rating: number;
   body: string;
   image?: string | null;
+  proofImages?: string[];
   title?: string | null;
 }
 
@@ -631,6 +632,7 @@ async function fetchHomepageTestimonials(supabase: StorefrontServerClient | null
       rating: Number(review.rating || 0),
       body: review.body || "",
       title: review.title || null,
+      proofImages: Array.isArray(review.image_urls) ? review.image_urls : [],
       image:
         Array.isArray(review.image_urls) && review.image_urls.length > 0
           ? review.image_urls[0]
