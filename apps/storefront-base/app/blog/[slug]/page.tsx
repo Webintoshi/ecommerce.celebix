@@ -1,10 +1,37 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BlogArticlePage } from "@/components/blog/BlogArticlePage";
 import { getRelatedPosts, mapBlogRow, mapBlogRows } from "@/lib/blog-content";
 import { getPostBySlug, getPublishedPosts } from "@/lib/db/blog";
+import { getRequestLocale } from "@/lib/request-locale";
+import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const locale = await getRequestLocale();
+  const row = await getPostBySlug(slug);
+
+  if (!row) {
+    notFound();
+  }
+
+  const post = mapBlogRow(row);
+  return buildStorePageMetadata({
+    locale,
+    pathname: `/blog/${slug}`,
+    title: post.title,
+    description: post.excerpt || "",
+    image: post.coverImage || null,
+    type: "article",
+  });
+}
 
 export default async function BlogPostPage({
   params,

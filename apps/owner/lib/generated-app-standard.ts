@@ -14,7 +14,7 @@ export interface GeneratedRuntimeStandard {
   databaseMode: StoreConfig["databaseMode"];
   authProvider: StoreConfig["authProvider"];
   customerAuthProvider: StoreConfig["customerAuthProvider"];
-  authStrategy: "logto_oidc_bridge_v1" | "legacy_supabase_auth";
+  authStrategy: "logto_oidc_bridge_v1" | "pending_auth_setup" | "legacy_supabase_auth";
   storageProvider: StoreConfig["storageProvider"];
   analyticsProvider: StoreConfig["analyticsProvider"];
   supabaseStatus: StoreConfig["supabaseStatus"];
@@ -61,6 +61,19 @@ function buildLogtoStatus(store: StoreConfig, target: GeneratedAppTarget): "logt
   return hasTargetClient ? "logto_stable" : "pending_auth_setup";
 }
 
+function buildAuthStrategy(
+  store: StoreConfig,
+  target: GeneratedAppTarget,
+): GeneratedRuntimeStandard["authStrategy"] {
+  if (store.databaseMode !== "light_postgres") {
+    return "legacy_supabase_auth";
+  }
+
+  return buildLogtoStatus(store, target) === "logto_stable"
+    ? "logto_oidc_bridge_v1"
+    : "pending_auth_setup";
+}
+
 export function buildGeneratedRuntimeStandard(
   store: StoreConfig,
   target: GeneratedAppTarget,
@@ -75,8 +88,7 @@ export function buildGeneratedRuntimeStandard(
     databaseMode: store.databaseMode,
     authProvider: store.authProvider,
     customerAuthProvider: store.customerAuthProvider,
-    authStrategy:
-      store.databaseMode === "light_postgres" ? "logto_oidc_bridge_v1" : "legacy_supabase_auth",
+    authStrategy: buildAuthStrategy(store, target),
     storageProvider: store.storageProvider,
     analyticsProvider: store.analyticsProvider,
     supabaseStatus: store.supabaseStatus,

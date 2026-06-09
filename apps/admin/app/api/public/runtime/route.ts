@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminAuthProvider } from "@/lib/admin-auth-provider";
 import {
+  hasConfiguredLogtoAdminAppId,
   getOptionalLogtoIssuer,
   LOGTO_ADMIN_SESSION_COOKIE_NAME,
 } from "@/lib/logto-admin-auth";
@@ -27,7 +28,10 @@ export async function GET() {
   const hasPublicSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey && authCookieName);
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
   const logtoIssuer = authProvider === "logto" ? getOptionalLogtoIssuer() : null;
-  const authPending = runtime.authSetupStatus === "pending_auth_setup";
+  const hasLogtoAdminAppId = authProvider === "logto" ? hasConfiguredLogtoAdminAppId() : false;
+  const authPending =
+    runtime.authSetupStatus === "pending_auth_setup" ||
+    (authProvider === "logto" && !hasLogtoAdminAppId);
   const authStrategy =
     authPending
       ? "pending_auth_setup"
@@ -36,6 +40,7 @@ export async function GET() {
       : authProvider === "logto"
         ? "logto_oidc_bridge_v1"
         : "supabase_cookie_direct_v1";
+  const effectiveAuthSetupStatus = authPending ? "pending_auth_setup" : runtime.authSetupStatus;
 
   if (authProvider !== "logto" && !authBlocked && (!hasPublicSupabaseAuth || !supabaseServerUrl)) {
     return NextResponse.json(
@@ -43,7 +48,7 @@ export async function GET() {
         slug: runtime.slug,
         name: runtime.name,
         databaseMode: runtime.databaseMode,
-        authSetupStatus: runtime.authSetupStatus,
+        authSetupStatus: effectiveAuthSetupStatus,
         storefrontDomain: runtime.storefrontDomain,
         adminDomain: runtime.adminDomain,
         storefrontUrl: runtime.storefrontUrl,
@@ -67,7 +72,7 @@ export async function GET() {
     slug: runtime.slug,
     name: runtime.name,
     databaseMode: runtime.databaseMode,
-    authSetupStatus: runtime.authSetupStatus,
+    authSetupStatus: effectiveAuthSetupStatus,
     storefrontDomain: runtime.storefrontDomain,
     adminDomain: runtime.adminDomain,
     storefrontUrl: runtime.storefrontUrl,

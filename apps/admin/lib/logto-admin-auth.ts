@@ -75,6 +75,13 @@ type LogtoAdminStatePayload = SignedCookiePayload & {
   issuedAt: string;
 };
 
+type LogtoAuthorizeOptions = {
+  firstScreen?: "reset_password" | "identifier:sign-in";
+  identifier?: string[];
+  loginHint?: string | null;
+  uiLocales?: string;
+};
+
 function readRequiredEnv(name: string, value: string | undefined): string {
   const normalized = value?.trim().replace(/^["']|["']$/g, "");
 
@@ -96,6 +103,15 @@ function readOptionalEnv(...names: string[]): string | null {
   return null;
 }
 
+function isPlaceholderLogtoValue(value: string | null | undefined): boolean {
+  return Boolean(value?.trim().toLowerCase().startsWith("placeholder-"));
+}
+
+export function hasConfiguredLogtoAdminAppId(): boolean {
+  const appId = readOptionalEnv("LOGTO_ADMIN_APP_ID", "LOGTO_APP_ID");
+  return Boolean(appId && !isPlaceholderLogtoValue(appId));
+}
+
 function normalizeUrl(value: string): string {
   const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`;
   return new URL(normalized).toString().replace(/\/$/, "");
@@ -106,9 +122,14 @@ function getCookieSigningSecret() {
 }
 
 function getLogtoAppId() {
+  const appId = readOptionalEnv("LOGTO_ADMIN_APP_ID", "LOGTO_APP_ID");
+  if (isPlaceholderLogtoValue(appId)) {
+    throw new Error("LOGTO_ADMIN_APP_ID is not configured");
+  }
+
   return readRequiredEnv(
     "LOGTO_ADMIN_APP_ID",
-    readOptionalEnv("LOGTO_ADMIN_APP_ID", "LOGTO_APP_ID") ?? undefined,
+    appId ?? undefined,
   );
 }
 
@@ -340,7 +361,10 @@ export async function getLogtoDiscoveryDocument(): Promise<LogtoDiscoveryDocumen
   return (await response.json()) as LogtoDiscoveryDocument;
 }
 
-export async function buildLogtoAuthorizeUrl(nextPath: string) {
+export async function buildLogtoAuthorizeUrl(
+  nextPath: string,
+  options: LogtoAuthorizeOptions = {},
+) {
   const discovery = await getLogtoDiscoveryDocument();
   const statePayload = createLogtoAdminStatePayload(nextPath);
   const url = new URL(discovery.authorization_endpoint);
@@ -349,6 +373,18 @@ export async function buildLogtoAuthorizeUrl(nextPath: string) {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid profile email");
   url.searchParams.set("state", statePayload.state);
+  if (options.firstScreen) {
+    url.searchParams.set("first_screen", options.firstScreen);
+  }
+  if (options.identifier?.length) {
+    url.searchParams.set("identifier", options.identifier.join(" "));
+  }
+  if (options.loginHint) {
+    url.searchParams.set("login_hint", options.loginHint);
+  }
+  if (options.uiLocales) {
+    url.searchParams.set("ui_locales", options.uiLocales);
+  }
 
   return {
     url,
