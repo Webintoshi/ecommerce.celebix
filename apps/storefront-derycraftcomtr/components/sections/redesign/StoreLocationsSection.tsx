@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Clock3, MapPin } from "lucide-react";
+import { ArrowUpRight, Clock3, MapPin, Phone } from "lucide-react";
 import {
   resolveStorefrontAssetUrl,
   resolveStorefrontDirectAssetUrl,
@@ -32,7 +32,7 @@ function LocationImage({
   const imageSource = proxiedSource || directSource;
 
   if (!imageSource) {
-    return <div className={cn("h-full w-full bg-neutral-200", className)} />;
+    return <div className={cn("h-full w-full bg-[#E7DED3]", className)} />;
   }
 
   return (
@@ -42,87 +42,123 @@ function LocationImage({
       fill
       priority={priority}
       unoptimized
-      sizes="(min-width: 1024px) 50vw, 100vw"
+      sizes="(min-width: 1280px) 28vw, (min-width: 768px) 40vw, 90vw"
       className={cn("object-cover transition duration-700 group-hover:scale-[1.03]", className)}
     />
   );
 }
 
-function StoreLocationCard({
-  store,
+function GalleryTile({
+  src,
+  alt,
+  city,
   priority = false,
-  featured = false,
+  className,
 }: {
-  store: StoreLocation;
+  src: string;
+  alt: string;
+  city: string;
   priority?: boolean;
-  featured?: boolean;
+  className?: string;
 }) {
-  const heroImage = store.images[0];
-  const detailImages = store.images.slice(1, 3);
-
   return (
-    <article
-      className={cn(
-        "group flex h-full flex-col overflow-hidden rounded-[2rem] border border-neutral-200/90 bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.14)]",
-        featured && "lg:min-h-[720px]",
-      )}
-    >
-      <div
-        className={cn(
-          "relative overflow-hidden",
-          featured ? "aspect-[16/11] lg:aspect-auto lg:min-h-[360px] lg:flex-1" : "aspect-[16/11]",
-        )}
-      >
-        <LocationImage
-          src={heroImage}
-          alt={store.name}
-          priority={priority}
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/75 via-neutral-950/15 to-neutral-950/5" />
-        <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-          <p className="text-[10px] font-medium uppercase tracking-[0.34em] text-white/70">
-            {store.badge}
-          </p>
-          <h3 className="mt-3 font-serif text-[1.75rem] leading-tight text-white sm:text-[2rem]">
-            {store.name}
-          </h3>
+    <div className={cn("group relative overflow-hidden bg-[#E7DED3]", className)}>
+      <div className="relative aspect-[4/5] sm:aspect-[5/6]">
+        <LocationImage src={src} alt={alt} priority={priority} />
+        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/45 via-neutral-950/5 to-transparent" />
+        <div className="absolute bottom-4 left-4">
+          <span className="inline-flex items-center rounded-full border border-white/25 bg-white/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-800 backdrop-blur-sm">
+            {city}
+          </span>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {detailImages.length > 0 ? (
-        <div className={cn("grid gap-px bg-neutral-200/80", detailImages.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
-          {detailImages.map((image, index) => (
-            <div key={`${store.id}-detail-${index}`} className="relative aspect-[16/10] overflow-hidden bg-neutral-100">
-              <LocationImage src={image} alt={`${store.name} görünüm ${index + 2}`} />
+function StorePanel({
+  store,
+  index,
+  priority = false,
+}: {
+  store: StoreLocation;
+  index: number;
+  priority?: boolean;
+}) {
+  const heroImage = store.images[0];
+
+  return (
+    <article className="group flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-[#E5D9CA] bg-[#FBF8F4] shadow-[0_20px_50px_-36px_rgba(62,42,24,0.35)]">
+      <div className="grid flex-1 md:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+        <div className="relative min-h-[240px] overflow-hidden bg-[#E7DED3] sm:min-h-[280px] md:min-h-[340px]">
+          <LocationImage
+            src={heroImage}
+            alt={store.name}
+            priority={priority}
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/30 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-[#FBF8F4]/20" />
+        </div>
+
+        <div className="flex flex-col justify-between p-6 sm:p-8">
+          <div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#8B6914]">
+                  {store.badge}
+                </p>
+                <h3 className="mt-2 font-serif text-[1.65rem] leading-tight text-neutral-950 sm:text-[1.85rem]">
+                  {store.name}
+                </h3>
+              </div>
+              <span className="font-serif text-3xl leading-none text-[#E5D9CA]">
+                {String(index + 1).padStart(2, "0")}
+              </span>
             </div>
-          ))}
-        </div>
-      ) : null}
 
-      <div className="flex flex-1 flex-col p-6 sm:p-8">
-        <p className="text-sm leading-7 text-neutral-600">{store.summary}</p>
-
-        <div className="mt-6 space-y-3 border-t border-neutral-100 pt-6">
-          <div className="flex items-center gap-3 text-sm text-neutral-700">
-            <Clock3 className="size-4 shrink-0 text-neutral-400" strokeWidth={1.75} />
-            <span>{store.hours}</span>
+            <p className="mt-5 text-sm leading-7 text-neutral-600">{store.summary}</p>
           </div>
-          <div className="flex items-start gap-3 text-sm leading-6 text-neutral-500">
-            <MapPin className="mt-0.5 size-4 shrink-0 text-neutral-400" strokeWidth={1.75} />
-            <span>{store.address}</span>
+
+          <div className="mt-8 space-y-4 border-t border-[#E5D9CA]/80 pt-6">
+            <div className="flex items-center gap-3 text-sm text-neutral-700">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5D9CA] bg-white text-[#8B6914]">
+                <Clock3 className="size-4" strokeWidth={1.75} />
+              </span>
+              <span>{store.hours}</span>
+            </div>
+
+            <div className="flex items-start gap-3 text-sm leading-6 text-neutral-600">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5D9CA] bg-white text-[#8B6914]">
+                <MapPin className="size-4" strokeWidth={1.75} />
+              </span>
+              <span>{store.address}</span>
+            </div>
+
+            {store.phone ? (
+              <a
+                href={`tel:${store.phone.replace(/\s|\(|\)|-/g, "")}`}
+                className="flex items-center gap-3 text-sm text-neutral-700 transition-colors hover:text-neutral-950"
+              >
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5D9CA] bg-white text-[#8B6914]">
+                  <Phone className="size-4" strokeWidth={1.75} />
+                </span>
+                <span>{store.phone}</span>
+              </a>
+            ) : null}
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center gap-4">
+            <a
+              href={store.mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 border-b border-neutral-900 pb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-900 transition-colors hover:border-[#8B6914] hover:text-[#8B6914]"
+            >
+              Yol tarifi al
+              <ArrowUpRight className="size-4" strokeWidth={1.75} />
+            </a>
           </div>
         </div>
-
-        <a
-          href={store.mapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-8 inline-flex w-fit items-center gap-2 text-sm font-medium text-neutral-900 transition-colors hover:text-neutral-600"
-        >
-          <span>Yol tarifi al</span>
-          <ArrowUpRight className="size-4" strokeWidth={1.75} />
-        </a>
       </div>
     </article>
   );
@@ -135,32 +171,51 @@ export function StoreLocationsSection({
   linkLabel = "Tüm şubeleri gör",
   storesHref,
 }: StoreLocationsSectionProps) {
-  const [featuredStore, secondaryStore] = STORE_LOCATIONS;
+  const galleryImages = STORE_LOCATIONS.flatMap((store) =>
+    store.images.map((image, imageIndex) => ({
+      id: `${store.id}-${imageIndex}`,
+      src: image,
+      alt: `${store.name} görünüm ${imageIndex + 1}`,
+      city: store.city,
+    })),
+  ).slice(0, 4);
 
   return (
     <section className="bg-[#F8F8F8F8] py-16 sm:py-20 lg:py-24">
       <div className="container-premium">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[11px] font-medium uppercase tracking-[0.34em] text-neutral-500">
-            {eyebrow}
-          </p>
-          <h2 className="mt-4 font-serif text-[2rem] font-medium tracking-tight text-neutral-900 sm:text-[2.5rem]">
-            {heading}
-          </h2>
-          <p className="mt-4 text-sm leading-7 text-neutral-500 sm:text-[15px]">{description}</p>
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-end lg:gap-10">
+          <div className="lg:col-span-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8B6914]">
+              {eyebrow}
+            </p>
+            <h2 className="mt-4 font-serif text-[2rem] font-medium leading-[1.08] tracking-tight text-neutral-950 sm:text-[2.45rem]">
+              {heading}
+            </h2>
+          </div>
+          <div className="lg:col-span-7">
+            <p className="max-w-2xl text-sm leading-7 text-neutral-600 sm:text-[15px] lg:ml-auto">
+              {description}
+            </p>
+          </div>
         </div>
 
-        <div className="mt-12 grid gap-6 lg:mt-14 lg:grid-cols-12 lg:gap-8">
-          {featuredStore ? (
-            <div className="lg:col-span-7">
-              <StoreLocationCard store={featuredStore} priority featured />
-            </div>
-          ) : null}
-          {secondaryStore ? (
-            <div className="lg:col-span-5">
-              <StoreLocationCard store={secondaryStore} />
-            </div>
-          ) : null}
+        <div className="mt-10 grid grid-cols-2 gap-2 sm:mt-12 sm:gap-3 lg:grid-cols-4 lg:gap-4">
+          {galleryImages.map((image, index) => (
+            <GalleryTile
+              key={image.id}
+              src={image.src}
+              alt={image.alt}
+              city={image.city}
+              priority={index < 2}
+              className={cn(index === 0 && "lg:rounded-tl-[1.25rem]", index === 3 && "lg:rounded-br-[1.25rem]")}
+            />
+          ))}
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:mt-10 lg:grid-cols-2 lg:gap-8">
+          {STORE_LOCATIONS.map((store, index) => (
+            <StorePanel key={store.id} store={store} index={index} priority={index === 0} />
+          ))}
         </div>
 
         <div className="mt-12 flex justify-center lg:mt-14">
