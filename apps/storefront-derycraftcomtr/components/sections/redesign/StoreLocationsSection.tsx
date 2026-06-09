@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Clock3, MapPin, Phone } from "lucide-react";
+import { ArrowUpRight, Clock3, Mail, MapPin, Phone } from "lucide-react";
 import { STORE_LOCATIONS, type StoreLocation } from "@/lib/store-locations";
 import { StoreLocationImageCarousel } from "@/components/sections/redesign/StoreLocationImageCarousel";
 
@@ -11,7 +11,7 @@ interface StoreLocationsSectionProps {
   storesHref: string;
 }
 
-function StorePanel({
+export function StoreLocationPanel({
   store,
   index,
   priority = false,
@@ -75,6 +75,18 @@ function StorePanel({
                 <span>{store.phone}</span>
               </a>
             ) : null}
+
+            {store.email ? (
+              <a
+                href={`mailto:${store.email}`}
+                className="flex items-center gap-3 text-sm text-neutral-700 transition-colors hover:text-neutral-950"
+              >
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5D9CA] bg-white text-[#8B6914]">
+                  <Mail className="size-4" strokeWidth={1.75} />
+                </span>
+                <span>{store.email}</span>
+              </a>
+            ) : null}
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -122,7 +134,7 @@ export function StoreLocationsSection({
 
         <div className="mt-10 grid gap-6 lg:mt-12 lg:grid-cols-2 lg:gap-8">
           {STORE_LOCATIONS.map((store, index) => (
-            <StorePanel key={store.id} store={store} index={index} priority={index === 0} />
+            <StoreLocationPanel key={store.id} store={store} index={index} priority={index === 0} />
           ))}
         </div>
 

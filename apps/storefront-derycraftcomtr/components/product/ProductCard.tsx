@@ -167,7 +167,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             )}
           </div>
           <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <h3 className="font-serif text-[11px] font-normal leading-[1.4] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[12px]">
+            <h3 className="line-clamp-2 font-serif text-[10px] font-normal leading-[1.45] tracking-[0.01em] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[11px]">
               {product.name}
             </h3>
             <ProductCardRating product={product} className="justify-start" />
@@ -204,7 +204,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         </div>
 
         <div className="flex flex-1 flex-col items-center px-0.5 text-center">
-          <h3 className="line-clamp-2 font-serif text-[10px] font-normal leading-[1.45] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[11px]">
+          <h3 className="line-clamp-2 px-0.5 font-serif text-[10px] font-normal leading-[1.45] tracking-[0.01em] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[11px]">
             {product.name}
           </h3>
 

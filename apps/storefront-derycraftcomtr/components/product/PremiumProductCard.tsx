@@ -164,7 +164,7 @@ export function PremiumProductCard({ product }: PremiumProductCardProps) {
       </div>
 
       {/* Product Name - Below image */}
-      <h3 className="store-product-title mb-2 text-center text-neutral-900 group-hover:text-neutral-600 transition-colors">
+      <h3 className="mb-2 line-clamp-2 px-0.5 text-center font-serif text-[10px] font-normal leading-[1.45] tracking-[0.01em] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[11px]">
         {product.name}
       </h3>
       
