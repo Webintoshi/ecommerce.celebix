@@ -96,36 +96,72 @@ function readOptionalEnv(...names: string[]): string | null {
   return null;
 }
 
+function isPlaceholderLogtoValue(value: string | null | undefined): boolean {
+  const normalized = value?.trim().toLowerCase() ?? "";
+
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.startsWith("placeholder-") ||
+    normalized.startsWith("configure-") ||
+    normalized === "configure-in-env" ||
+    normalized.includes("placeholder")
+  );
+}
+
+function readConfiguredOptionalEnv(...names: string[]): string | null {
+  const value = readOptionalEnv(...names);
+  return value && !isPlaceholderLogtoValue(value) ? value : null;
+}
+
 function normalizeUrl(value: string): string {
   const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`;
   return new URL(normalized).toString().replace(/\/$/, "");
 }
 
 function getCookieSigningSecret() {
-  return readRequiredEnv("LOGTO_COOKIE_SECRET", process.env.LOGTO_COOKIE_SECRET);
+  return readRequiredEnv(
+    "LOGTO_COOKIE_SECRET",
+    readConfiguredOptionalEnv("LOGTO_COOKIE_SECRET") ?? undefined,
+  );
+}
+
+export function hasConfiguredLogtoAdminAppId(): boolean {
+  return Boolean(readConfiguredOptionalEnv("LOGTO_ADMIN_APP_ID", "LOGTO_APP_ID"));
+}
+
+export function hasConfiguredLogtoAdminAuth(): boolean {
+  return Boolean(
+    getOptionalLogtoIssuer() &&
+      readConfiguredOptionalEnv("LOGTO_ADMIN_APP_ID", "LOGTO_APP_ID") &&
+      readConfiguredOptionalEnv("LOGTO_ADMIN_APP_SECRET", "LOGTO_APP_SECRET") &&
+      readConfiguredOptionalEnv("LOGTO_COOKIE_SECRET"),
+  );
 }
 
 function getLogtoAppId() {
   return readRequiredEnv(
     "LOGTO_ADMIN_APP_ID",
-    readOptionalEnv("LOGTO_ADMIN_APP_ID", "LOGTO_APP_ID") ?? undefined,
+    readConfiguredOptionalEnv("LOGTO_ADMIN_APP_ID", "LOGTO_APP_ID") ?? undefined,
   );
 }
 
 function getLogtoAppSecret() {
   return readRequiredEnv(
     "LOGTO_ADMIN_APP_SECRET",
-    readOptionalEnv("LOGTO_ADMIN_APP_SECRET", "LOGTO_APP_SECRET") ?? undefined,
+    readConfiguredOptionalEnv("LOGTO_ADMIN_APP_SECRET", "LOGTO_APP_SECRET") ?? undefined,
   );
 }
 
 export function getOptionalLogtoIssuer(): string | null {
-  const explicitIssuer = readOptionalEnv("LOGTO_ISSUER");
+  const explicitIssuer = readConfiguredOptionalEnv("LOGTO_ISSUER");
   if (explicitIssuer) {
     return normalizeUrl(explicitIssuer);
   }
 
-  const endpoint = readOptionalEnv("LOGTO_ENDPOINT");
+  const endpoint = readConfiguredOptionalEnv("LOGTO_ENDPOINT");
   if (!endpoint) {
     return null;
   }

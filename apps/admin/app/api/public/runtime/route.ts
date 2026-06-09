@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getAdminAuthProvider } from "@/lib/admin-auth-provider";
-import { getOptionalLogtoIssuer, LOGTO_ADMIN_SESSION_COOKIE_NAME } from "@/lib/logto-admin-auth";
+import {
+  getOptionalLogtoIssuer,
+  hasConfiguredLogtoAdminAuth,
+  LOGTO_ADMIN_SESSION_COOKIE_NAME,
+} from "@/lib/logto-admin-auth";
 import { getStoreRuntime } from "@/lib/store-runtime";
 import {
   getOptionalSupabaseAnonKey,
@@ -24,8 +28,14 @@ export async function GET() {
   const hasPublicSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey && authCookieName);
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
   const logtoIssuer = authProvider === "logto" ? getOptionalLogtoIssuer() : null;
+  const authPending =
+    runtime.authSetupStatus === "pending_auth_setup" ||
+    (authProvider === "logto" && !hasConfiguredLogtoAdminAuth());
+  const effectiveAuthSetupStatus = authPending ? "pending_auth_setup" : runtime.authSetupStatus;
   const authStrategy =
-    authBlocked
+    authPending
+      ? "pending_auth_setup"
+      : authBlocked
       ? "blocked_auth_setup"
       : authProvider === "logto"
         ? "logto_oidc_bridge_v1"
@@ -37,7 +47,7 @@ export async function GET() {
         slug: runtime.slug,
         name: runtime.name,
         databaseMode: runtime.databaseMode,
-        authSetupStatus: runtime.authSetupStatus,
+        authSetupStatus: effectiveAuthSetupStatus,
         storefrontDomain: runtime.storefrontDomain,
         adminDomain: runtime.adminDomain,
         storefrontUrl: runtime.storefrontUrl,
@@ -61,7 +71,7 @@ export async function GET() {
     slug: runtime.slug,
     name: runtime.name,
     databaseMode: runtime.databaseMode,
-    authSetupStatus: runtime.authSetupStatus,
+    authSetupStatus: effectiveAuthSetupStatus,
     storefrontDomain: runtime.storefrontDomain,
     adminDomain: runtime.adminDomain,
     storefrontUrl: runtime.storefrontUrl,
@@ -74,6 +84,6 @@ export async function GET() {
     logtoIssuer,
     hasServiceRoleKey,
     deploymentMarker: process.env.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null,
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
   });
 }

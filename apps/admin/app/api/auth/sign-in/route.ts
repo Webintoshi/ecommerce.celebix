@@ -12,10 +12,20 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("next"),
     "/admin",
   );
-  const { url, statePayload } = await buildLogtoAuthorizeUrl(nextPath);
-  const response = NextResponse.redirect(url);
+  try {
+    const { url, statePayload } = await buildLogtoAuthorizeUrl(nextPath);
+    const response = NextResponse.redirect(url);
 
-  writeLogtoAdminStateCookie(response, statePayload);
+    writeLogtoAdminStateCookie(response, statePayload);
 
-  return response;
+    return response;
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Admin Logto auth kurulumu henuz tamamlanmadi.",
+        code: "pending_auth_setup",
+      },
+      { status: 503 },
+    );
+  }
 }

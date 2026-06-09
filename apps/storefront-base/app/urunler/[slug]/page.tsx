@@ -238,7 +238,7 @@ export default async function ProductDetailPage({
   }
 
   if (!product) {
-    product = getProductBySlug(baseSlug);
+    product = await getProductBySlug(baseSlug);
   }
 
   if (!product) {

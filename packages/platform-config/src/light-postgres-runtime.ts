@@ -1,5 +1,5 @@
 export type RuntimeDatabaseMode = "light_postgres" | "full_supabase";
-export type RuntimeAuthSetupStatus = "configured" | "blocked_auth_setup";
+export type RuntimeAuthSetupStatus = "configured" | "blocked_auth_setup" | "pending_auth_setup";
 
 type RuntimeKeyGroups = {
   mode?: string[];
@@ -55,9 +55,32 @@ function normalizeDatabaseMode(value: string | null | undefined): RuntimeDatabas
 }
 
 function normalizeAuthStatus(value: string | null | undefined): RuntimeAuthSetupStatus {
-  return value?.trim().toLowerCase() === "blocked_auth_setup"
-    ? "blocked_auth_setup"
-    : "configured";
+  const normalized = value?.trim().toLowerCase();
+
+  if (normalized === "blocked_auth_setup") {
+    return "blocked_auth_setup";
+  }
+
+  if (normalized === "pending_auth_setup") {
+    return "pending_auth_setup";
+  }
+
+  return "configured";
+}
+
+function isPlaceholderAuthorityValue(value: string | null | undefined): boolean {
+  const normalized = value?.trim().toLowerCase() ?? "";
+
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.startsWith("placeholder-") ||
+    normalized.startsWith("configure-") ||
+    normalized === "configure-in-env" ||
+    normalized.includes("placeholder")
+  );
 }
 
 export function resolveRuntimeDatabaseMode(
@@ -129,6 +152,29 @@ export function hasSupabaseAuthEnv(
   return hasSupabasePublicAuthEnv(env) && hasSupabaseServiceRoleEnv(env);
 }
 
+export function hasLogtoRuntimeAuthEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const provider =
+    env.ADMIN_AUTH_PROVIDER?.trim().toLowerCase() ||
+    env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER?.trim().toLowerCase() ||
+    env.CUSTOMER_AUTH_PROVIDER?.trim().toLowerCase() ||
+    env.NEXT_PUBLIC_CUSTOMER_AUTH_PROVIDER?.trim().toLowerCase();
+
+  if (provider !== "logto") {
+    return false;
+  }
+
+  const issuer = env.LOGTO_ISSUER?.trim() || env.LOGTO_CUSTOMER_ISSUER?.trim();
+  const appId =
+    env.LOGTO_ADMIN_APP_ID?.trim() ||
+    env.LOGTO_APP_ID?.trim() ||
+    env.LOGTO_CUSTOMER_APP_ID?.trim() ||
+    env.NEXT_PUBLIC_LOGTO_CUSTOMER_APP_ID?.trim();
+
+  return Boolean(issuer && appId && !isPlaceholderAuthorityValue(appId));
+}
+
 export function resolveRuntimeAuthSetupStatus(
   env: NodeJS.ProcessEnv = process.env,
   overrides: RuntimeKeyGroups = {},
@@ -137,11 +183,15 @@ export function resolveRuntimeAuthSetupStatus(
     readEnvValue(env, overrides.authStatus ?? DEFAULT_AUTH_STATUS_KEYS),
   );
 
-  if (explicit === "blocked_auth_setup") {
+  if (explicit === "blocked_auth_setup" || explicit === "pending_auth_setup") {
     return explicit;
   }
 
-  if (isLightPostgresRuntime(env, overrides) && !hasSupabaseAuthEnv(env)) {
+  if (
+    isLightPostgresRuntime(env, overrides) &&
+    !hasSupabaseAuthEnv(env) &&
+    !hasLogtoRuntimeAuthEnv(env)
+  ) {
     return "blocked_auth_setup";
   }
 
