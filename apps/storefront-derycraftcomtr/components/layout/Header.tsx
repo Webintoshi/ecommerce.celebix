@@ -29,7 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const NAV_LINK_CLASS =
-  "inline-flex items-center gap-1.5 font-serif text-[11px] uppercase tracking-[0.16em] text-neutral-900 transition-opacity hover:opacity-55 sm:text-[12px] lg:tracking-[0.18em]";
+  "inline-flex items-center gap-1.5 font-serif text-[13px] uppercase tracking-[0.16em] text-neutral-950 transition-opacity hover:opacity-55 sm:text-[14px] lg:tracking-[0.18em]";
 
 function UtilityIconButton({
   className,
@@ -40,7 +40,7 @@ function UtilityIconButton({
     <button
       type="button"
       className={cn(
-        "relative inline-flex items-center justify-center p-1 text-neutral-900 transition-opacity hover:opacity-55",
+        "relative inline-flex items-center justify-center p-1 text-neutral-950 transition-opacity hover:opacity-55",
         className,
       )}
       {...props}
@@ -79,10 +79,6 @@ export function Header({
     : resolveStorefrontAssetUrl(storeInfo?.logoUrl || SITE_LOGO_PATH);
   const logoAlt = storeInfo?.name || SITE_NAME;
   const usesProxiedLogo = isProxiedStorefrontAssetUrl(logoSrc);
-  const activeMegaMenu = navigationCategories.find(
-    (category) => category.id === openMegaMenuId && category.children.length > 0,
-  );
-
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -418,6 +414,7 @@ export function Header({
                   key={category.id}
                   className="relative"
                   onMouseEnter={() => openMegaMenu(category.id)}
+                  onMouseLeave={scheduleMegaMenuClose}
                 >
                   <Link
                     href={buildPath(ROUTES.category(category.slug))}
@@ -425,9 +422,36 @@ export function Header({
                   >
                     {localizedCategoryName.toLocaleUpperCase("tr")}
                     <HeaderIconChevron
+                      size={14}
                       className={cn("transition-transform", isMegaOpen && "rotate-180")}
                     />
                   </Link>
+
+                  <AnimatePresence>
+                    {isMegaOpen && !isSearchOpen ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        transition={{ duration: 0.16, ease: "easeOut" }}
+                        className="absolute left-1/2 top-full z-30 w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 pt-3"
+                      >
+                        <div className="overflow-hidden border border-neutral-200/90 bg-white py-2 shadow-[0_18px_40px_rgba(15,23,42,0.1)]">
+                          <div className="flex flex-col">
+                            {category.children.map((subcategory) => (
+                              <Link
+                                key={subcategory.id}
+                                href={buildPath(ROUTES.category(subcategory.slug))}
+                                className="px-5 py-2.5 font-serif text-[13px] leading-snug text-neutral-800 transition-colors hover:bg-neutral-50 hover:text-neutral-950"
+                              >
+                                {subcategory.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
                 </div>
               );
             })}
@@ -437,27 +461,27 @@ export function Header({
             {isAuthenticated ? (
               <Link
                 href={buildPath("/hesap")}
-                className="hidden p-1 text-neutral-900 transition-opacity hover:opacity-55 sm:inline-flex"
+                className="hidden p-1 text-neutral-950 transition-opacity hover:opacity-55 sm:inline-flex"
                 aria-label="Hesabım"
               >
-                <HeaderIconAccount />
+                <HeaderIconAccount size={24} />
               </Link>
             ) : (
               <a
                 href={CUSTOMER_AUTH_URLS.signIn}
                 aria-label="Giriş yap"
-                className="hidden p-1 text-neutral-900 transition-opacity hover:opacity-55 sm:inline-flex"
+                className="hidden p-1 text-neutral-950 transition-opacity hover:opacity-55 sm:inline-flex"
               >
-                <HeaderIconAccount />
+                <HeaderIconAccount size={24} />
               </a>
             )}
 
             <UtilityIconButton aria-label={copy.searchLabel} onClick={openSearch}>
-              <HeaderIconSearch />
+              <HeaderIconSearch size={24} />
             </UtilityIconButton>
 
             <UtilityIconButton aria-label={copy.cartLabel} onClick={() => setIsCartOpen(true)}>
-              <HeaderIconBag />
+              <HeaderIconBag size={24} />
               {cartItemCount > 0 ? (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-medium leading-none text-white">
                   {cartItemCount}
@@ -473,7 +497,7 @@ export function Header({
               }}
               aria-label={copy.menuLabel}
             >
-              <HeaderIconMenu />
+              <HeaderIconMenu size={24} />
             </UtilityIconButton>
           </div>
         </div>
@@ -484,38 +508,6 @@ export function Header({
         onClose={() => setIsSearchOpen(false)}
         resolveImageSrc={resolveStorefrontAssetUrl}
       />
-
-      <AnimatePresence>
-        {activeMegaMenu && !isSearchOpen ? (
-          <motion.div
-            key={activeMegaMenu.id}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="absolute left-0 right-0 top-full border-t border-neutral-200 bg-white shadow-[0_24px_48px_rgba(15,23,42,0.08)]"
-            onMouseEnter={() => openMegaMenu(activeMegaMenu.id)}
-            onMouseLeave={scheduleMegaMenuClose}
-          >
-            <div className="container-premium py-8">
-              <p className="mb-5 font-serif text-[11px] uppercase tracking-[0.22em] text-neutral-400">
-                {getLocalizedCategoryLabel(activeMegaMenu.slug, activeMegaMenu.name, locale)}
-              </p>
-              <div className="grid gap-x-10 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-                {activeMegaMenu.children.map((subcategory) => (
-                  <Link
-                    key={subcategory.id}
-                    href={buildPath(ROUTES.category(subcategory.slug))}
-                    className="font-serif text-sm text-neutral-800 transition-opacity hover:opacity-55"
-                  >
-                    {subcategory.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
 
       {mobileMenu}
     </header>
