@@ -3,7 +3,7 @@
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartWrapper } from "@/components/cart/CartWrapper";
-import { AnnouncementBar } from "@/components/sections/AnnouncementBar";
+import { DerycraftTopBar } from "@/components/sections/derycraft/DerycraftTopBar";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
@@ -16,7 +16,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen flex-col bg-[#F8F8F8F8]">
         {!isAdmin && !isAuthPage && (
           <>
-            <AnnouncementBar />
+            <DerycraftTopBar />
             <Header />
           </>
         )}
