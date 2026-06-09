@@ -14,11 +14,17 @@ function Skeleton({
 
 function ProductCardSkeleton() {
   return (
-    <div className="rounded-lg border bg-white p-4 space-y-3">
-      <Skeleton className="h-48 w-full rounded-md" />
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-4 w-1/2" />
-      <Skeleton className="h-8 w-full" />
+    <div className="space-y-4">
+      <Skeleton className="aspect-[4/5] w-full rounded-none bg-neutral-100 sm:aspect-square" />
+      <div className="mx-auto flex w-[85%] flex-col items-center gap-2">
+        <Skeleton className="h-4 w-full bg-neutral-100" />
+        <Skeleton className="h-3.5 w-16 bg-neutral-100" />
+        <div className="mt-1 flex gap-1.5">
+          <Skeleton className="h-3.5 w-3.5 rounded-full bg-neutral-100" />
+          <Skeleton className="h-3.5 w-3.5 rounded-full bg-neutral-100" />
+          <Skeleton className="h-3.5 w-3.5 rounded-full bg-neutral-100" />
+        </div>
+      </div>
     </div>
   )
 }

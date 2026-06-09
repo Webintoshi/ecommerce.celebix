@@ -688,7 +688,7 @@ export function ProductDetailClient({
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-8">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
               <Suspense fallback={null}>
                 {relatedProducts.map((p, index) => (
                   <ProductCard key={p.id} product={p} index={index} />

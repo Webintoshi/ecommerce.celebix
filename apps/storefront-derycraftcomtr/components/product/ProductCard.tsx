@@ -6,7 +6,7 @@ import { Star } from "lucide-react";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { getProductCardSwatches } from "@/lib/variant-selection";
 import { Product } from "@/types/product";
 
@@ -18,7 +18,7 @@ interface ProductCardProps {
 
 function getResolvedProductImages(product: Product) {
   const legacyImagesV2 = Array.isArray(
-    (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2
+    (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2,
   )
     ? (
         (product as Product & { images_v2?: Array<string | { url?: string }> }).images_v2 ?? []
@@ -34,21 +34,21 @@ function getResolvedProductImages(product: Product) {
     .filter((image) => image.length > 0);
 }
 
-function ProductCardSwatches({ product }: { product: Product }) {
-  const swatches = getProductCardSwatches(product.variants ?? [], 4);
+function ProductCardSwatches({ product, className }: { product: Product; className?: string }) {
+  const swatches = getProductCardSwatches(product.variants ?? [], 6);
 
   if (swatches.length === 0) {
     return null;
   }
 
   return (
-    <div className="mt-2 flex items-center justify-center gap-2">
+    <div className={cn("mt-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2", className)}>
       {swatches.map((swatch) => (
         <span
           key={swatch.key}
           title={swatch.value}
           aria-label={swatch.value}
-          className="relative h-4 w-4 overflow-hidden rounded-full border border-neutral-300 bg-neutral-100"
+          className="relative h-3.5 w-3.5 overflow-hidden rounded-full border border-neutral-200/90 bg-white ring-1 ring-transparent sm:h-4 sm:w-4"
         >
           {swatch.image_url ? (
             <img
@@ -67,7 +67,7 @@ function ProductCardSwatches({ product }: { product: Product }) {
   );
 }
 
-function ProductCardRating({ product }: { product: Product }) {
+function ProductCardRating({ product, className }: { product: Product; className?: string }) {
   const rating = Number(product.rating || 0);
 
   if (!Number.isFinite(rating) || rating <= 0) {
@@ -77,17 +77,47 @@ function ProductCardRating({ product }: { product: Product }) {
   const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
 
   return (
-    <div className="mt-2 flex items-center justify-center gap-0.5">
+    <div className={cn("mt-2 flex items-center justify-center gap-0.5", className)}>
       {Array.from({ length: 5 }).map((_, index) => (
         <Star
           key={`${product.id}-rating-${index}`}
-          className={`h-3.5 w-3.5 ${
+          className={cn(
+            "h-3 w-3 sm:h-3.5 sm:w-3.5",
             index < filledStars
-              ? "fill-[#8A6B37] text-[#8A6B37]"
-              : "fill-neutral-200 text-neutral-200"
-          }`}
+              ? "fill-[#8B6914] text-[#8B6914]"
+              : "fill-neutral-200 text-neutral-200",
+          )}
+          strokeWidth={1.5}
         />
       ))}
+    </div>
+  );
+}
+
+function ProductCardPrice({
+  displayPrice,
+  originalPrice,
+  align = "center",
+}: {
+  displayPrice?: number;
+  originalPrice?: number;
+  align?: "center" | "start";
+}) {
+  if (typeof displayPrice !== "number") {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        "mt-2 flex flex-wrap items-baseline gap-2",
+        align === "center" ? "justify-center" : "justify-start",
+      )}
+    >
+      {originalPrice ? (
+        <span className="font-serif text-xs text-neutral-400 line-through">{formatPrice(originalPrice)}</span>
+      ) : null}
+      <p className="font-serif text-sm text-neutral-800 sm:text-[15px]">{formatPrice(displayPrice)}</p>
     </div>
   );
 }
@@ -108,38 +138,33 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   if (viewMode === "list") {
     return (
       <Link href={productHref} className="group block">
-        <div className="flex gap-6 bg-white p-4">
-          <div className="relative h-40 w-32 flex-shrink-0 overflow-hidden">
+        <div className="flex gap-5 bg-white p-4 sm:gap-6 sm:p-5">
+          <div className="relative h-36 w-28 shrink-0 overflow-hidden bg-white sm:h-40 sm:w-32">
             {primaryImage ? (
               <Image
                 src={primaryImage}
                 alt={product.name}
                 fill
-                className="object-cover"
+                className="object-contain p-1 transition-transform duration-700 group-hover:scale-[1.03]"
                 unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-sm text-neutral-400">
+              <div className="flex h-full w-full items-center justify-center bg-neutral-50 text-sm text-neutral-400">
                 Görsel yok
               </div>
             )}
           </div>
-          <div className="flex flex-1 flex-col justify-center">
-            <h3 className="store-product-title text-neutral-900 transition-colors group-hover:text-neutral-600">
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
+            <h3 className="font-serif text-[15px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-base">
               {product.name}
             </h3>
-            <ProductCardRating product={product} />
-            {typeof displayPrice === "number" ? (
-              <div className="mt-1 flex items-baseline gap-2">
-                {originalPrice ? (
-                  <span className="text-xs text-neutral-400 line-through">
-                    {formatPrice(originalPrice)}
-                  </span>
-                ) : null}
-                <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
-              </div>
-            ) : null}
-            <ProductCardSwatches product={product} />
+            <ProductCardRating product={product} className="justify-start" />
+            <ProductCardPrice
+              displayPrice={displayPrice}
+              originalPrice={originalPrice}
+              align="start"
+            />
+            <ProductCardSwatches product={product} className="justify-start" />
           </div>
         </div>
       </Link>
@@ -147,42 +172,37 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   }
 
   return (
-    <Link href={productHref} className="group block">
-      <div className="relative mb-3 aspect-square overflow-hidden bg-neutral-100">
-        {primaryImage ? (
-          <Image
-            src={primaryImage}
-            alt={product.name}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            unoptimized={usesProxiedPrimaryImage}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-sm text-neutral-400">
-            Görsel yok
-          </div>
-        )}
-      </div>
-
-      <h3 className="store-product-title line-clamp-2 text-center text-neutral-900 transition-colors group-hover:text-neutral-600">
-        {product.name}
-      </h3>
-
-      <ProductCardRating product={product} />
-
-      {typeof displayPrice === "number" ? (
-        <div className="mt-1 flex items-baseline justify-center gap-2">
-          {originalPrice ? (
-            <span className="text-xs text-neutral-400 line-through">
-              {formatPrice(originalPrice)}
-            </span>
-          ) : null}
-          <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
+    <Link href={productHref} className="group block h-full">
+      <article className="flex h-full flex-col">
+        <div className="relative mb-4 aspect-[4/5] overflow-hidden bg-white sm:mb-5 sm:aspect-square">
+          {primaryImage ? (
+            <Image
+              src={primaryImage}
+              alt={product.name}
+              fill
+              className="object-contain p-3 transition-transform duration-700 ease-out group-hover:scale-[1.03] sm:p-5"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              unoptimized={usesProxiedPrimaryImage}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-neutral-50 text-sm text-neutral-400">
+              Görsel yok
+            </div>
+          )}
         </div>
-      ) : null}
 
-      <ProductCardSwatches product={product} />
+        <div className="flex flex-1 flex-col items-center px-1 text-center">
+          <h3 className="line-clamp-2 font-serif text-[14px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-[15px] lg:text-base">
+            {product.name}
+          </h3>
+
+          <ProductCardPrice displayPrice={displayPrice} originalPrice={originalPrice} />
+
+          <ProductCardRating product={product} />
+
+          <ProductCardSwatches product={product} />
+        </div>
+      </article>
     </Link>
   );
 }

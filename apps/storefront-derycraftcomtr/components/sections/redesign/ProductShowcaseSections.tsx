@@ -244,7 +244,7 @@ export function ProductShowcaseSections({
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
               {group.products.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

@@ -88,7 +88,7 @@ export default function CollectionProductsClient({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-6 lg:grid-cols-3 lg:gap-8">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-12">
         {displayedProducts.map((product, index) => (
           <ProductCard key={product.id} product={product} index={index} />
         ))}

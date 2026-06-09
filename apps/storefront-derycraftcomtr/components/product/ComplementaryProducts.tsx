@@ -20,7 +20,7 @@ export function ComplementaryProducts({ title, products, loading }: Complementar
             <div className="h-8 w-64 bg-[#F3E0E1] rounded-lg animate-pulse" />
             <div className="h-6 w-24 bg-[#F3E0E1] rounded-lg animate-pulse" />
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
@@ -48,7 +48,7 @@ export function ComplementaryProducts({ title, products, loading }: Complementar
             <ChevronRight className="w-5 h-5" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
           {products.slice(0, 4).map((product, index) => (
             <ProductCard key={product.id} product={product} index={index} />
           ))}
