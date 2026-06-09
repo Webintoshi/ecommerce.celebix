@@ -3,6 +3,17 @@ import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-
 import { isLogtoAdminAuthEnabled } from "@/lib/admin-auth-provider";
 import { buildLogtoAuthorizeUrl, writeLogtoAdminStateCookie } from "@/lib/logto-admin-auth";
 
+function isPlaceholderClientId(value: string | null): boolean {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return (
+    !normalized ||
+    normalized.startsWith("placeholder-") ||
+    normalized.startsWith("configure-") ||
+    normalized === "configure-in-env" ||
+    normalized.includes("placeholder")
+  );
+}
+
 export async function GET(request: NextRequest) {
   if (!isLogtoAdminAuthEnabled()) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
@@ -38,6 +49,18 @@ export async function GET(request: NextRequest) {
       { status: 503 },
     );
   }
+
+  const clientId = authorize.url.searchParams.get("client_id");
+  if (isPlaceholderClientId(clientId)) {
+    return NextResponse.json(
+      {
+        error: "Admin Logto auth kurulumu henuz tamamlanmadi.",
+        code: "pending_auth_setup",
+      },
+      { status: 503 },
+    );
+  }
+
   const { url, statePayload } = authorize;
   const response = NextResponse.redirect(url);
 
