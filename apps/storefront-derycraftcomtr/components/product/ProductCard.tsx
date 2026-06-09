@@ -34,21 +34,25 @@ function getResolvedProductImages(product: Product) {
     .filter((image) => image.length > 0);
 }
 
-function ProductCardSwatches({ product, className }: { product: Product; className?: string }) {
-  const swatches = getProductCardSwatches(product.variants ?? [], 6);
+const MAX_VISIBLE_SWATCHES = 3;
 
-  if (swatches.length === 0) {
+function ProductCardSwatches({ product, className }: { product: Product; className?: string }) {
+  const allSwatches = getProductCardSwatches(product.variants ?? [], 24);
+  const visibleSwatches = allSwatches.slice(0, MAX_VISIBLE_SWATCHES);
+  const showMoreIndicator = allSwatches.length >= 4;
+
+  if (allSwatches.length === 0) {
     return null;
   }
 
   return (
-    <div className={cn("mt-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2", className)}>
-      {swatches.map((swatch) => (
+    <div className={cn("mt-2.5 flex items-center justify-center gap-1.5", className)}>
+      {visibleSwatches.map((swatch) => (
         <span
           key={swatch.key}
           title={swatch.value}
           aria-label={swatch.value}
-          className="relative h-3.5 w-3.5 overflow-hidden rounded-full border border-neutral-200/90 bg-white ring-1 ring-transparent sm:h-4 sm:w-4"
+          className="relative h-3.5 w-3.5 overflow-hidden rounded-full sm:h-4 sm:w-4"
         >
           {swatch.image_url ? (
             <img
@@ -59,10 +63,18 @@ function ProductCardSwatches({ product, className }: { product: Product; classNa
           ) : swatch.color_code ? (
             <span className="block h-full w-full" style={{ backgroundColor: swatch.color_code }} />
           ) : (
-            <span className="block h-full w-full bg-neutral-200" />
+            <span className="block h-full w-full bg-neutral-300" />
           )}
         </span>
       ))}
+      {showMoreIndicator ? (
+        <span
+          className="font-sans text-[10px] font-medium tracking-wide text-neutral-500"
+          aria-label={`${allSwatches.length} renk seçeneği`}
+        >
+          4+
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -117,7 +129,7 @@ function ProductCardPrice({
       {originalPrice ? (
         <span className="font-serif text-xs text-neutral-400 line-through">{formatPrice(originalPrice)}</span>
       ) : null}
-      <p className="font-serif text-sm text-neutral-800 sm:text-[15px]">{formatPrice(displayPrice)}</p>
+      <p className="font-serif text-[13px] text-neutral-800 sm:text-sm">{formatPrice(displayPrice)}</p>
     </div>
   );
 }
@@ -139,13 +151,13 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
     return (
       <Link href={productHref} className="group block">
         <div className="flex gap-5 bg-white p-4 sm:gap-6 sm:p-5">
-          <div className="relative h-36 w-28 shrink-0 overflow-hidden bg-white sm:h-40 sm:w-32">
+          <div className="relative h-36 w-28 shrink-0 overflow-hidden sm:h-40 sm:w-32">
             {primaryImage ? (
               <Image
                 src={primaryImage}
                 alt={product.name}
                 fill
-                className="object-contain p-1 transition-transform duration-700 group-hover:scale-[1.03]"
+                className="object-cover scale-[1.14] transition-transform duration-700 group-hover:scale-[1.2]"
                 unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
@@ -155,7 +167,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             )}
           </div>
           <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <h3 className="font-serif text-[15px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-base">
+            <h3 className="font-serif text-[13px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-[14px]">
               {product.name}
             </h3>
             <ProductCardRating product={product} className="justify-start" />
@@ -174,25 +186,25 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   return (
     <Link href={productHref} className="group block h-full">
       <article className="flex h-full flex-col">
-        <div className="relative mb-4 aspect-[4/5] overflow-hidden bg-white sm:mb-5 sm:aspect-square">
+        <div className="relative mb-3 aspect-[4/5] overflow-hidden sm:mb-4 sm:aspect-square">
           {primaryImage ? (
             <Image
               src={primaryImage}
               alt={product.name}
               fill
-              className="object-contain p-3 transition-transform duration-700 ease-out group-hover:scale-[1.03] sm:p-5"
+              className="object-cover scale-[1.18] transition-transform duration-700 ease-out group-hover:scale-[1.24]"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               unoptimized={usesProxiedPrimaryImage}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-neutral-50 text-sm text-neutral-400">
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-neutral-400">
               Görsel yok
             </div>
           )}
         </div>
 
-        <div className="flex flex-1 flex-col items-center px-1 text-center">
-          <h3 className="line-clamp-2 font-serif text-[14px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-[15px] lg:text-base">
+        <div className="flex flex-1 flex-col items-center px-0.5 text-center">
+          <h3 className="line-clamp-2 font-serif text-[12px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-[13px]">
             {product.name}
           </h3>
 
