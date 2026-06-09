@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("next"),
     "/giris?next=/hesap&logged_out=1",
   );
-  const fallbackUrl = new URL(nextPath, request.url);
+  const fallbackUrl = new URL(nextPath, STOREFRONT_RUNTIME.siteUrl);
 
   if (!isLogtoCustomerAuthEnabled()) {
     return NextResponse.redirect(fallbackUrl);

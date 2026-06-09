@@ -78,6 +78,7 @@ function isUnsafePublicRedirectUrl(value: string): boolean {
     return (
       parsed.protocol !== "https:" ||
       parsed.port === "3000" ||
+      parsed.port === "3400" ||
       hostname === "localhost" ||
       hostname === "0.0.0.0" ||
       hostname === "127.0.0.1"

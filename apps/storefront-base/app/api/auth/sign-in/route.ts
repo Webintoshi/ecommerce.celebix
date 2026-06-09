@@ -8,6 +8,7 @@ import {
   type LogtoFirstScreen,
   type LogtoIdentifier,
 } from "@/lib/logto-customer-auth";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const ALLOWED_FIRST_SCREENS = new Set([
   "sign_in",
@@ -64,7 +65,7 @@ function pendingAuthResponse(reason: string) {
 
 export async function GET(request: NextRequest) {
   if (!isLogtoCustomerAuthEnabled()) {
-    return NextResponse.redirect(new URL("/giris", request.url));
+    return NextResponse.redirect(new URL("/giris", STOREFRONT_RUNTIME.siteUrl));
   }
 
   const setup = resolveLogtoCustomerAuthConfig();
