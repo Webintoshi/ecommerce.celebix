@@ -33,6 +33,7 @@ import {
   CustomizationSchema,
   CustomizationStep,
 } from "@/types/product-customization";
+import { PDP_BADGE, PDP_PRIMARY_BUTTON } from "@/lib/pdp-ui";
 import { formatPrice } from "@/lib/utils";
 
 const ProductCard = React.lazy(() =>
@@ -368,7 +369,7 @@ export function ProductDetailClient({
                   {formatPrice(displayPrice)}
                 </span>
                 {discountPercent > 0 && (
-                  <span className="shrink-0 rounded-full bg-neutral-900 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
+                  <span className={`shrink-0 bg-[#12100D] text-white ${PDP_BADGE}`}>
                     %{discountPercent} İndirim
                   </span>
                 )}
@@ -376,17 +377,13 @@ export function ProductDetailClient({
 
               <div className="flex flex-wrap gap-2">
                 {product.featured && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
-                    Öne Çıkan
-                  </span>
+                  <span className={`bg-[#12100D] text-white ${PDP_BADGE}`}>Öne Çıkan</span>
                 )}
                 {product.new && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
-                    Yeni
-                  </span>
+                  <span className={`bg-[#12100D] text-white ${PDP_BADGE}`}>Yeni</span>
                 )}
                 {product.vegan && (
-                  <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[10px] font-medium text-neutral-900">
+                  <span className={`border border-[#E8DFD3] bg-white text-[#12100D] ${PDP_BADGE}`}>
                     Vegan
                   </span>
                 )}
@@ -436,15 +433,7 @@ export function ProductDetailClient({
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
-                    className={`
-                      min-w-[220px] flex-1 rounded-full py-3.5 text-sm font-medium uppercase tracking-wide transition-all duration-300
-                      flex items-center justify-center gap-2
-                      ${
-                        isOutOfStock || isSchemaLoading
-                          ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
-                      }
-                    `}
+                    className={`min-w-[220px] flex-1 ${PDP_PRIMARY_BUTTON}`}
                   >
                     <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
                     {isSchemaLoading

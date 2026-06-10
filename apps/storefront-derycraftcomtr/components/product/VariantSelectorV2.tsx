@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { getOrderedVariantAttributeGroups } from "@/lib/variant-selection";
+import { PDP_SELECTED_VALUE_CHIP, pdpOptionButtonClass } from "@/lib/pdp-ui";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -44,9 +45,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
           {currentVariant?.name ? (
             <>
               <span className="text-gray-400">-</span>
-              <span className="rounded-full bg-[#8A6B37]/10 px-2.5 py-1 text-sm font-semibold text-neutral-700">
-                {currentVariant.name}
-              </span>
+              <span className={PDP_SELECTED_VALUE_CHIP}>{currentVariant.name}</span>
             </>
           ) : null}
         </div>
@@ -62,14 +61,10 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                 type="button"
                 onClick={() => !isOutOfStock && onSelect(index)}
                 disabled={isOutOfStock}
-                className={cn(
-                  "relative rounded-full border px-4 py-2 text-xs font-medium transition-all duration-200",
-                  isSelected
-                    ? "border-[#8A6B37] bg-[#8A6B37] text-white"
-                    : isOutOfStock
-                      ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                      : "border-gray-300 bg-white text-[#8A6B37] hover:border-[#8A6B37]",
-                )}
+                className={pdpOptionButtonClass({
+                  selected: isSelected,
+                  disabled: isOutOfStock,
+                })}
               >
                 {isSelected ? <Check className="mr-1 inline h-4 w-4" /> : null}
                 {variant?.name || `Varyant ${index + 1}`}
@@ -121,9 +116,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
               {selectedValue ? (
                 <>
                   <span className="text-gray-400">-</span>
-                  <span className="rounded-full bg-[#8A6B37]/10 px-2.5 py-1 text-sm font-semibold text-neutral-700">
-                    {selectedValue}
-                  </span>
+                  <span className={PDP_SELECTED_VALUE_CHIP}>{selectedValue}</span>
                 </>
               ) : null}
             </div>
@@ -183,14 +176,10 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       type="button"
                       onClick={() => !isOutOfStock && handleSelect(group.id, value.value)}
                       disabled={isOutOfStock}
-                      className={cn(
-                        "relative rounded-full border px-4 py-2 text-xs font-medium transition-all duration-200",
-                        isSelected
-                          ? "border-[#8A6B37] bg-[#8A6B37] text-white"
-                          : isOutOfStock
-                            ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                            : "border-gray-300 bg-white text-[#8A6B37] hover:border-[#8A6B37]",
-                      )}
+                      className={pdpOptionButtonClass({
+                        selected: isSelected,
+                        disabled: isOutOfStock,
+                      })}
                     >
                       {isSelected ? <Check className="mr-1 inline h-4 w-4" /> : null}
                       {value.value}

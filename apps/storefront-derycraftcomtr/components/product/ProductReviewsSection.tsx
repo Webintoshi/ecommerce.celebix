@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Camera, Loader2, Star, UploadCloud, X } from "lucide-react";
 import { MAX_PRODUCT_REVIEW_IMAGES } from "@celebix/platform-config/src/product-reviews";
 import { resolveStorefrontAssetUrl, resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
+import { PDP_OUTLINE_BUTTON, PDP_PRIMARY_BUTTON } from "@/lib/pdp-ui";
 import type { ProductReview } from "@/types/product";
 
 type ProductReviewsSectionProps = {
@@ -426,7 +427,7 @@ export function ProductReviewsSection({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading || uploadedImages.length >= MAX_PRODUCT_REVIEW_IMAGES}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                className={PDP_OUTLINE_BUTTON}
               >
                 {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
                 Görsel Seç
@@ -475,7 +476,7 @@ export function ProductReviewsSection({
               type="button"
               onClick={handleSubmit}
               disabled={isPending || isUploading}
-              className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-[#8A6B37] px-6 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-[#755a2d] disabled:cursor-not-allowed disabled:opacity-50"
+              className={`min-w-[180px] ${PDP_PRIMARY_BUTTON}`}
             >
               {isPending ? "Gönderiliyor..." : "Yorumu Gönder"}
             </button>

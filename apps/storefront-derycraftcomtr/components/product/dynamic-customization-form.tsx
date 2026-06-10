@@ -510,10 +510,10 @@ function FormField({
                 <Label
                   htmlFor={`${step.key}-${option.value}`}
                   className={cn(
-                    "flex cursor-pointer items-center justify-center rounded-full border px-4 py-2 text-sm transition-all",
-                    "border-neutral-200 bg-white hover:border-neutral-300",
-                    "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#8A6B37]/12 peer-data-[state=checked]:font-semibold peer-data-[state=checked]:text-neutral-900 peer-data-[state=checked]:shadow-[0_0_0_1px_rgba(138,107,55,0.08)]",
-                    showError && "border-rose-300"
+                    "flex cursor-pointer items-center justify-center border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors",
+                    "border-[#E8DFD3] bg-white text-[#12100D] hover:border-[#C4A062]",
+                    "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#8A6B37] peer-data-[state=checked]:text-white",
+                    showError && "border-rose-300",
                   )}
                 >
                   {option.label}
@@ -546,7 +546,7 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative h-full w-full min-w-0 overflow-hidden rounded-xl border transition-all md:max-w-none",
+                  "relative h-full w-full min-w-0 overflow-hidden border transition-colors md:max-w-none",
                   value === option.value
                     ? "border-[#8A6B37] bg-[#8A6B37]/[0.04] ring-1 ring-[#8A6B37]/30 shadow-sm"
                     : "border-neutral-200 hover:border-neutral-300",
