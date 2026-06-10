@@ -5,6 +5,7 @@ import {
   type StoreConfig,
 } from "@celebix/platform-config";
 import {
+  buildUmamiWebsiteConfig,
   buildUmamiWebsiteConfigForStore,
   getUmamiAuthorityRequirements,
   resolveUmamiWebsiteReadinessStatus,
@@ -124,6 +125,23 @@ async function umamiFetch(
   } catch {
     return null;
   }
+}
+
+export async function validateUmamiManagementAuthority(): Promise<void> {
+  const status = getUmamiBootstrapStatus();
+
+  if (!status.configured) {
+    throw new Error(status.lastError || "Umami live apply token authority eksik.");
+  }
+
+  const probeConfig: GeneratedUmamiWebsiteConfig = buildUmamiWebsiteConfig({
+    storeSlug: "authority-probe",
+    storeName: "Authority Probe",
+    storefrontDomain: "authority-probe.celebix.site",
+    canonicalDomain: "authority-probe.celebix.site",
+    environment: "production",
+  });
+  await umamiFetch(probeConfig, "/websites");
 }
 
 function normalizeCollection(payload: unknown): Record<string, unknown>[] {

@@ -191,6 +191,45 @@ async function logtoFetch(pathname: string, init: RequestInit = {}): Promise<unk
   }
 }
 
+async function readLogtoErrorSummary(response: Response): Promise<string> {
+  try {
+    const payload = asRecord(await response.json());
+    const data = asRecord(payload.data);
+    const code = readOptionalString(payload.code);
+    const dataCode = readOptionalString(data.code);
+    const claim = readOptionalString(data.claim);
+
+    if (response.status === 401 && claim) {
+      return `HTTP 401 (${claim} claim rejected)`;
+    }
+
+    if (code || dataCode) {
+      return `HTTP ${response.status} (${[code, dataCode].filter(Boolean).join(" / ")})`;
+    }
+  } catch {
+    // Keep the validation error generic; secrets and token payloads must never be surfaced.
+  }
+
+  return `HTTP ${response.status}`;
+}
+
+export async function validateLogtoManagementAuthority(): Promise<void> {
+  const status = getLogtoBootstrapStatus();
+
+  if (!status.configured) {
+    throw new Error(status.lastError || "Logto live apply authority eksik.");
+  }
+
+  const response = await fetch(buildLogtoApiUrl("/applications"), {
+    headers: getLogtoHeaders(),
+  });
+
+  if (!response.ok) {
+    const summary = await readLogtoErrorSummary(response);
+    throw new Error(`Logto management authority dogrulanamadi: ${summary}`);
+  }
+}
+
 function normalizeCollection(payload: unknown): Record<string, unknown>[] {
   if (Array.isArray(payload)) {
     return payload.filter((entry): entry is Record<string, unknown> =>

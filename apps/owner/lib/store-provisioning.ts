@@ -34,10 +34,12 @@ import {
 import {
   getLogtoBootstrapStatus,
   provisionLogtoAppsForStore,
+  validateLogtoManagementAuthority,
 } from "@/lib/logto-provisioning";
 import {
   getUmamiBootstrapStatus,
   provisionUmamiForStore,
+  validateUmamiManagementAuthority,
 } from "@/lib/umami-provisioning";
 import { isOwnerActionDisabled } from "@/lib/preview-mode";
 import {
@@ -679,7 +681,9 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
       throw new Error(status.lastError || "Logto live apply authority eksik.");
     }
 
-    return "Logto management authority apply-ready durumda.";
+    await validateLogtoManagementAuthority();
+
+    return "Logto management authority live-validated apply-ready durumda.";
   });
 
   await runPreflightStep(tracker, "analytics_preflight", async () => {
@@ -695,7 +699,9 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
       throw new Error(status.lastError || "Umami live apply token authority eksik.");
     }
 
-    return "Umami token authority apply-ready durumda.";
+    await validateUmamiManagementAuthority();
+
+    return "Umami token authority live-validated apply-ready durumda.";
   });
 
   await runPreflightStep(tracker, "generated_apps_toggle", async () => {
