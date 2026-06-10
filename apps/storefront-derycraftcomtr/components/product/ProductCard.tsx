@@ -127,9 +127,11 @@ function ProductCardPrice({
       )}
     >
       {originalPrice ? (
-        <span className="font-serif text-xs text-neutral-400 line-through">{formatPrice(originalPrice)}</span>
+        <span className="store-product-price-compare text-neutral-400 line-through">
+          {formatPrice(originalPrice)}
+        </span>
       ) : null}
-      <p className="font-serif text-[11px] font-normal text-neutral-700 sm:text-[12px]">{formatPrice(displayPrice)}</p>
+      <p className="store-product-price text-neutral-700">{formatPrice(displayPrice)}</p>
     </div>
   );
 }
@@ -167,7 +169,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             )}
           </div>
           <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <h3 className="line-clamp-2 font-serif text-[10px] font-normal leading-[1.45] tracking-[0.01em] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[11px]">
+            <h3 className="store-product-title line-clamp-2 text-neutral-800 transition-colors group-hover:text-neutral-600">
               {product.name}
             </h3>
             <ProductCardRating product={product} className="justify-start" />
@@ -204,7 +206,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
         </div>
 
         <div className="flex flex-1 flex-col items-center px-0.5 text-center">
-          <h3 className="line-clamp-2 px-0.5 font-serif text-[10px] font-normal leading-[1.45] tracking-[0.01em] text-neutral-800 transition-colors group-hover:text-neutral-600 sm:text-[11px]">
+          <h3 className="store-product-title line-clamp-2 px-0.5 text-neutral-800 transition-colors group-hover:text-neutral-600">
             {product.name}
           </h3>
 

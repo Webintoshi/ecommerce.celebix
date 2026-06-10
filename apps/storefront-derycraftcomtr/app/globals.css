@@ -190,17 +190,25 @@ button, input, select, textarea {
 }
 
 .store-product-title {
-  font-family: var(--store-font-heading);
-  font-size: 10px;
+  font-family: var(--store-font-body);
+  font-size: 14px !important;
   font-weight: 400;
   line-height: 1.45;
   letter-spacing: 0.01em;
 }
 
-@media (min-width: 640px) {
-  .store-product-title {
-    font-size: 11px;
-  }
+.store-product-price {
+  font-family: var(--store-font-body);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.store-product-price-compare {
+  font-family: var(--store-font-body);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
 }
 
 .store-product-title-detail {
