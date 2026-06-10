@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Lock } from "lucide-react";
 import { formatPrice, cn } from "@/lib/utils";
 import type { CartItem } from "@/types/cart";
@@ -23,6 +24,8 @@ type CheckoutOrderSummaryProps = {
   appliedCoupon: AppliedCoupon | null;
   couponError: string;
   isApplyingCoupon: boolean;
+  freeShippingRemaining?: number;
+  freeShippingProgress?: number;
   onCouponInputChange: (value: string) => void;
   onApplyCoupon: () => void;
   onRemoveCoupon: () => void;
@@ -39,10 +42,15 @@ export function CheckoutOrderSummary({
   appliedCoupon,
   couponError,
   isApplyingCoupon,
+  freeShippingRemaining = 0,
+  freeShippingProgress = 0,
   onCouponInputChange,
   onApplyCoupon,
   onRemoveCoupon,
 }: CheckoutOrderSummaryProps) {
+  const showFreeShippingNudge =
+    resolvedShippingCost > 0 && freeShippingRemaining > 0;
+
   return (
     <div className="space-y-5">
       <div>
@@ -53,6 +61,24 @@ export function CheckoutOrderSummary({
       </div>
 
       <div className="space-y-6">
+        {showFreeShippingNudge ? (
+          <div className="rounded-xl border border-[#E8DFD3] bg-white px-4 py-3.5">
+            <p className="text-[11px] leading-5 text-neutral-600 sm:text-xs">
+              Ücretsiz kargo için{" "}
+              <span className="font-semibold text-[#8A6B37]">
+                {formatPrice(freeShippingRemaining)}
+              </span>{" "}
+              daha ekleyin
+            </p>
+            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#E8DFD3]">
+              <div
+                className="h-full rounded-full bg-[#8A6B37] transition-all duration-500"
+                style={{ width: `${freeShippingProgress}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
+
         <div className="max-h-[340px] space-y-3 overflow-y-auto pr-1">
           {items.map((item) => {
             const itemImage = getCartItemDisplayImage(item.product, item.variant);
@@ -177,9 +203,24 @@ export function CheckoutOrderSummary({
           ) : null}
         </div>
 
-        <div className="flex items-center justify-center gap-2 text-[10px] text-neutral-400">
-          <Lock className="h-3 w-3" />
-          <span>256-bit SSL ile güvenli ödeme</span>
+        <div className="space-y-3 border-t border-[#E8DFD3] pt-4">
+          <div className="flex items-center justify-center gap-2 text-[10px] text-neutral-400">
+            <Lock className="h-3 w-3" />
+            <span>256-bit SSL ile güvenli ödeme</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-neutral-500">
+            <Link href="/kargo" className="transition-colors hover:text-[#8A6B37]">
+              Kargo bilgisi
+            </Link>
+            <span className="text-[#E8DFD3]">·</span>
+            <Link href="/iade" className="transition-colors hover:text-[#8A6B37]">
+              İade politikası
+            </Link>
+            <span className="text-[#E8DFD3]">·</span>
+            <Link href="/sss" className="transition-colors hover:text-[#8A6B37]">
+              SSS
+            </Link>
+          </div>
         </div>
       </div>
     </div>

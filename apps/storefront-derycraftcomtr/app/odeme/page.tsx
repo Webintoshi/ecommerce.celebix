@@ -7,7 +7,7 @@ import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
 import { isLogtoCustomerAuthEnabled } from "@/lib/customer-auth-provider";
 import { formatPrice, cn } from "@/lib/utils";
-import { TURKISH_CITIES, SHIPPING_THRESHOLD } from "@/lib/constants";
+import { TURKISH_CITIES } from "@/lib/constants";
 import { getActivePaymentGateways } from "@/lib/payments";
 import { fetchShippingRatesForLocation, getResolvedShippingPrice } from "@/lib/shipping";
 import { PaymentGatewayConfig } from "@/types/payment";
@@ -34,6 +34,13 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckoutStepIndicator } from "@/components/checkout/CheckoutStepIndicator";
 import { CheckoutOrderSummary } from "@/components/checkout/CheckoutOrderSummary";
+import { CheckoutTrustStrip } from "@/components/checkout/CheckoutTrustStrip";
+import { CheckoutDeliveryRecap } from "@/components/checkout/CheckoutDeliveryRecap";
+import { CheckoutMobileSummary } from "@/components/checkout/CheckoutMobileSummary";
+import { useStoreInfo } from "@/lib/store-info-context";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+import { getCheckoutPaymentLogo } from "@/lib/checkout-payment-logos";
 import {
   checkoutCardClass,
   checkoutFieldClass,
@@ -72,8 +79,20 @@ type AccountCustomerSnapshot = {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotal, shipping: cartShipping, clearCart } = useCart();
+  const {
+    items,
+    subtotal,
+    shipping: cartShipping,
+    clearCart,
+    freeShippingRemaining,
+    freeShippingProgress,
+  } = useCart();
   const { user } = useAuth();
+  const { storeInfo } = useStoreInfo();
+  const checkoutLogoSrc = resolveStorefrontAssetUrl(
+    storeInfo?.logoUrl || STOREFRONT_RUNTIME.logoPath,
+  );
+  const checkoutStoreName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const customerAuthMigrationRequired = isStorefrontCustomerAuthMigrationRequired();
   const logtoCustomerAuthEnabled = isLogtoCustomerAuthEnabled();
   const abandonedCartDisabled = isStorefrontAbandonedCartDisabled();
@@ -237,10 +256,6 @@ export default function CheckoutPage() {
     }
     if (!shippingInfo.phone) {
       toast.error("Telefon numarası zorunludur.");
-      return;
-    }
-    if (false) {
-      toast.error("Adres ve Şehir alanları zorunludur.");
       return;
     }
     if (!shippingInfo.address || !shippingInfo.city || !shippingInfo.district) {
@@ -484,13 +499,56 @@ export default function CheckoutPage() {
     );
   }
 
+  const orderSummaryProps = {
+    items,
+    subtotal,
+    resolvedShippingCost,
+    discountAmount,
+    finalTotal,
+    selectedShippingRate,
+    couponInput,
+    appliedCoupon,
+    couponError,
+    isApplyingCoupon,
+    freeShippingRemaining,
+    freeShippingProgress,
+    onCouponInputChange: setCouponInput,
+    onApplyCoupon: handleApplyCoupon,
+    onRemoveCoupon: removeCoupon,
+  };
+
   return (
-    <div className="min-h-screen bg-[#FAF7F2] pb-16">
+    <div
+      className={cn(
+        "min-h-screen bg-[#FAF7F2]",
+        currentStep === 2 ? "pb-28 lg:pb-16" : "pb-16",
+      )}
+    >
       <header className="border-b border-[#E8DFD3] bg-white">
-        <div className="container-premium flex justify-end py-4 sm:py-5">
+        <div className="container-premium grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-4 sm:py-5">
+          <Link
+            href="/sepet"
+            className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500 transition-colors hover:text-[#8A6B37]"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Sepete dön</span>
+          </Link>
+
+          <Link href="/" className="justify-self-center" aria-label={checkoutStoreName}>
+            {checkoutLogoSrc ? (
+              <img
+                src={checkoutLogoSrc}
+                alt={checkoutStoreName}
+                className="mx-auto h-8 w-auto max-w-[140px] object-contain sm:h-9"
+              />
+            ) : (
+              <span className="font-serif text-xl text-[#12100D]">{checkoutStoreName}</span>
+            )}
+          </Link>
+
           <nav
             aria-label="Ödeme adımları"
-            className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500"
+            className="flex items-center justify-end gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500"
           >
             <Link href="/sepet" className="transition-colors hover:text-[#8A6B37]">
               Sepet
@@ -501,9 +559,13 @@ export default function CheckoutPage() {
         </div>
       </header>
 
+      <CheckoutTrustStrip />
+
       <main className="container-premium py-8 sm:py-10 lg:py-12">
         <div className="mx-auto grid max-w-6xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-10">
           <div className="space-y-6">
+            <CheckoutMobileSummary {...orderSummaryProps} />
+
             <CheckoutStepIndicator
               currentStep={currentStep as 1 | 2}
               onDeliveryClick={() => currentStep === 2 && setCurrentStep(1)}
@@ -868,47 +930,63 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
+                  <CheckoutDeliveryRecap
+                    contactEmail={contactEmail}
+                    shippingInfo={shippingInfo}
+                    selectedShippingRate={selectedShippingRate}
+                    resolvedShippingCost={resolvedShippingCost}
+                    onEdit={() => setCurrentStep(1)}
+                  />
+
                   <div className="space-y-4">
-                    {paymentGateways.map((gateway) => (
-                      <label
-                        key={gateway.id}
-                        onClick={() => setSelectedPaymentMethod(gateway.id)}
-                        className={cn(
-                          "flex cursor-pointer items-center gap-4 rounded-xl border bg-white p-4 transition-all",
-                          selectedPaymentMethod === gateway.id
-                            ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/15"
-                            : "border-[#E8DFD3] hover:border-[#C4A062]",
-                        )}
-                      >
-                        <div
+                    {paymentGateways.map((gateway) => {
+                      const paymentLogo = getCheckoutPaymentLogo(gateway.gateway);
+
+                      return (
+                        <label
+                          key={gateway.id}
+                          onClick={() => setSelectedPaymentMethod(gateway.id)}
                           className={cn(
-                            "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                            "flex cursor-pointer items-center gap-4 rounded-xl border bg-white p-4 transition-all",
                             selectedPaymentMethod === gateway.id
-                              ? "border-[#8A6B37]"
-                              : "border-[#E8DFD3]",
+                              ? "border-[#8A6B37] ring-1 ring-[#8A6B37]/15"
+                              : "border-[#E8DFD3] hover:border-[#C4A062]",
                           )}
                         >
-                          {selectedPaymentMethod === gateway.id ? (
-                            <div className="h-2.5 w-2.5 rounded-full bg-[#8A6B37]" />
+                          <div
+                            className={cn(
+                              "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                              selectedPaymentMethod === gateway.id
+                                ? "border-[#8A6B37]"
+                                : "border-[#E8DFD3]",
+                            )}
+                          >
+                            {selectedPaymentMethod === gateway.id ? (
+                              <div className="h-2.5 w-2.5 rounded-full bg-[#8A6B37]" />
+                            ) : null}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-[#12100D]">
+                              {gateway.name}
+                            </span>
+                            <span className="text-xs text-neutral-500">{gateway.description}</span>
+                          </div>
+                          {paymentLogo ? (
+                            <img
+                              src={paymentLogo}
+                              alt=""
+                              className="h-8 w-8 shrink-0 object-contain"
+                            />
+                          ) : gateway.gateway === "bank_transfer" ? (
+                            <Building2 className="h-5 w-5 shrink-0 text-[#8A6B37]" />
+                          ) : gateway.gateway === "cod" ? (
+                            <Truck className="h-5 w-5 shrink-0 text-[#8A6B37]" />
+                          ) : isCardLikeGateway(gateway.gateway) ? (
+                            <CreditCard className="h-5 w-5 shrink-0 text-[#8A6B37]" />
                           ) : null}
-                        </div>
-                        <div className="flex-1">
-                          <span className="block text-sm font-semibold text-[#12100D]">
-                            {gateway.name}
-                          </span>
-                          <span className="text-xs text-neutral-500">{gateway.description}</span>
-                        </div>
-                        {gateway.gateway === "bank_transfer" ? (
-                          <Building2 className="h-5 w-5 text-[#8A6B37]" />
-                        ) : null}
-                        {gateway.gateway === "cod" ? (
-                          <Truck className="h-5 w-5 text-[#8A6B37]" />
-                        ) : null}
-                        {isCardLikeGateway(gateway.gateway) ? (
-                          <CreditCard className="h-5 w-5 text-[#8A6B37]" />
-                        ) : null}
-                      </label>
-                    ))}
+                        </label>
+                      );
+                    })}
                   </div>
 
                   {paymentGateways.find((g) => g.id === selectedPaymentMethod)?.gateway ===
@@ -1006,28 +1084,44 @@ export default function CheckoutPage() {
 
           </div>
 
-          <aside className="lg:sticky lg:top-8 lg:self-start">
+          <aside className="hidden lg:sticky lg:top-8 lg:block lg:self-start">
             <div className="rounded-[1.75rem] border border-[#E8DFD3] bg-[#FBF8F4] px-5 py-6 sm:px-6 sm:py-8">
-              <CheckoutOrderSummary
-                items={items}
-                subtotal={subtotal}
-                resolvedShippingCost={resolvedShippingCost}
-                discountAmount={discountAmount}
-                finalTotal={finalTotal}
-                selectedShippingRate={selectedShippingRate}
-                couponInput={couponInput}
-                appliedCoupon={appliedCoupon}
-                couponError={couponError}
-                isApplyingCoupon={isApplyingCoupon}
-                onCouponInputChange={setCouponInput}
-                onApplyCoupon={handleApplyCoupon}
-                onRemoveCoupon={removeCoupon}
-              />
+              <CheckoutOrderSummary {...orderSummaryProps} />
             </div>
           </aside>
 
         </div>
       </main>
+
+      {currentStep === 2 ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E8DFD3] bg-white/95 px-4 py-3 backdrop-blur-sm lg:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex max-w-6xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                Toplam
+              </p>
+              <p className="font-serif text-xl font-semibold text-[#12100D]">
+                {formatPrice(finalTotal)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCompleteOrder}
+              disabled={isSubmitting}
+              className={cn(checkoutPrimaryButtonClass, "h-12 w-auto min-w-[160px] px-5")}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Lock className="h-4 w-4" />
+                  Öde
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ export const checkoutCardClass =
   "rounded-[1.75rem] border border-[#E8DFD3] bg-white";
 
 export const checkoutPrimaryButtonClass =
-  "inline-flex h-12 w-full items-center justify-center gap-2 border border-[#12100D] bg-[#12100D] text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:border-[#3D342C] hover:bg-[#3D342C] disabled:opacity-60";
+  "inline-flex h-12 w-full items-center justify-center gap-2 border border-[#8A6B37] bg-[#8A6B37] text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:border-[#755a2d] hover:bg-[#755a2d] disabled:opacity-60";
 
 export const checkoutSecondaryButtonClass =
   "inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#E8DFD3] bg-white text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-700 transition-colors hover:border-[#C4A062] hover:text-[#12100D]";
