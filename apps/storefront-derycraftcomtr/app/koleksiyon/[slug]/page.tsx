@@ -1,5 +1,4 @@
 import { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
@@ -80,6 +79,19 @@ interface DBProduct {
 }
 
 type ResolvedLocaleRouting = Awaited<ReturnType<typeof getLocaleRoutingConfig>>;
+
+function normalizeCategoryText(value: string) {
+  return value.trim().toLocaleLowerCase("tr-TR").replace(/\s+/g, " ");
+}
+
+function shouldShowCategoryDescription(name: string, description?: string | null) {
+  const trimmed = description?.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return normalizeCategoryText(trimmed) !== normalizeCategoryText(name);
+}
 
 function buildAbsoluteUrl(
   path: string,
@@ -605,52 +617,33 @@ export default async function CollectionPage({
         />
       ) : null}
 
-      <nav className="border-b border-neutral-200 bg-white" aria-label="Breadcrumb">
-        <div className="container-premium py-3">
-          <ol className="flex items-center gap-2 text-sm text-neutral-500">
-            <li>
-              <Link
-                href={buildLocalizedPath("/", locale, routing)}
-                className="transition-colors hover:text-neutral-900"
-              >
-                {copy.breadcrumbHome}
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li>
-              <Link
-                href={buildLocalizedPath("/urunler", locale, routing)}
-                className="transition-colors hover:text-neutral-900"
-              >
-                {copy.breadcrumbProducts}
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li className="font-medium text-neutral-900" aria-current="page">
-              {translatedCategory.name}
-            </li>
-          </ol>
-        </div>
-      </nav>
-
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="container-premium py-10 md:py-12">
-          <h1 className="store-product-title-detail mb-3 text-neutral-900">{translatedCategory.name}</h1>
-          {translatedCategory.description ? (
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-600 md:text-lg">
-              {translatedCategory.description}
-            </p>
-          ) : null}
-          <p className="mt-3 text-sm text-neutral-500">{products.length} urun</p>
+      <section className="bg-[#F8F8F8]">
+        <div className="container-premium px-4 py-10 text-center sm:px-6 sm:py-12 md:py-14">
+          <h1 className="font-serif text-2xl font-semibold uppercase tracking-[0.14em] text-[#12100D] sm:text-3xl md:text-[2rem]">
+            {translatedCategory.name}
+          </h1>
         </div>
       </section>
 
-      <main className="container-premium py-10 md:py-12">
+      <main className="container-premium px-4 pb-10 sm:px-6 sm:pb-12 md:pb-14">
         <CollectionProductsClient products={products} />
       </main>
 
+      {shouldShowCategoryDescription(
+        translatedCategory.name,
+        translatedCategory.description,
+      ) ? (
+        <section className="border-t border-[#E8DFD3] bg-[#F8F8F8]">
+          <div className="container-premium px-4 py-10 sm:px-6 sm:py-12">
+            <p className="mx-auto max-w-3xl text-center text-sm leading-7 text-[#6B5F54] sm:text-[0.94rem]">
+              {translatedCategory.description?.trim()}
+            </p>
+          </div>
+        </section>
+      ) : null}
+
       {translatedCategory.faq && translatedCategory.faq.length > 0 ? (
-        <section className="mt-2 border-t border-neutral-200 bg-white">
+        <section className="border-t border-[#E8DFD3] bg-[#F8F8F8]">
           <div className="container-premium py-12">
             <h2 className="mb-6 text-2xl font-semibold tracking-tight text-neutral-900">
               {copy.faqHeading}

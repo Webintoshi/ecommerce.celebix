@@ -101,11 +101,9 @@ export default function CollectionProductsClient({
             <span className="text-sm">Yukleniyor...</span>
           </div>
         )}
-        {!hasMore && displayedProducts.length > 0 && (
-          <p className="text-sm text-neutral-400">
-            Tum urunler goruntulendi ({products.length} urun)
-          </p>
-        )}
+        {!hasMore && displayedProducts.length > 0 ? (
+          <p className="text-sm text-neutral-400">Tüm ürünler görüntülendi</p>
+        ) : null}
       </div>
     </div>
   );
