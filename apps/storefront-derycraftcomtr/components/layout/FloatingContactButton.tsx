@@ -19,6 +19,7 @@ import {
   type FloatingContactChannelType,
 } from "@celebix/platform-config/src/floating-contact";
 import {
+  FloatingFaqChatIcon,
   FloatingIconClose,
   FloatingIconFaq,
   FloatingIconForm,
@@ -85,6 +86,7 @@ function FloatingActionButton({
         aria-label={label}
         className={sharedClassName}
         style={style}
+        onClick={onClick}
       >
         {children}
       </a>
@@ -107,7 +109,8 @@ function FloatingActionButton({
 export function FloatingContactButton() {
   const { storeInfo } = useStoreInfo();
   const { buildPath } = useStorefrontRoute();
-  const [isFaqOpen, setIsFaqOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isFaqPanelOpen, setIsFaqPanelOpen] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [faqItems, setFaqItems] = useState<FloatingFaqItem[]>(DEFAULT_FLOATING_FAQ_ITEMS);
   const prefersReducedMotion = useReducedMotion();
@@ -148,8 +151,26 @@ export function FloatingContactButton() {
     : { duration: 0.34, ease: [0.22, 1, 0.36, 1] as const };
 
   const closeFaqPanel = useCallback(() => {
-    setIsFaqOpen(false);
+    setIsFaqPanelOpen(false);
     setOpenFaqIndex(null);
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setIsMenuOpen(false);
+  }, []);
+
+  const toggleMainButton = useCallback(() => {
+    if (isFaqPanelOpen) {
+      closeFaqPanel();
+      return;
+    }
+
+    setIsMenuOpen((current) => !current);
+  }, [closeFaqPanel, isFaqPanelOpen]);
+
+  const openFaqPanel = useCallback(() => {
+    setIsMenuOpen(false);
+    setIsFaqPanelOpen(true);
   }, []);
 
   useEffect(() => {
@@ -176,7 +197,7 @@ export function FloatingContactButton() {
   }, []);
 
   useEffect(() => {
-    if (!isFaqOpen) {
+    if (!isFaqPanelOpen) {
       return;
     }
 
@@ -188,10 +209,10 @@ export function FloatingContactButton() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [closeFaqPanel, isFaqOpen]);
+  }, [closeFaqPanel, isFaqPanelOpen]);
 
   useEffect(() => {
-    if (!isFaqOpen) {
+    if (!isFaqPanelOpen) {
       return;
     }
 
@@ -201,7 +222,7 @@ export function FloatingContactButton() {
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [isFaqOpen]);
+  }, [isFaqPanelOpen]);
 
   if (!settings.enabled) {
     return null;
@@ -229,7 +250,19 @@ export function FloatingContactButton() {
   return (
     <>
       <AnimatePresence>
-        {isFaqOpen ? (
+        {isMenuOpen && !isFaqPanelOpen ? (
+          <motion.button
+            type="button"
+            aria-label="Menüyü kapat"
+            className="fixed inset-0 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={transition}
+            onClick={closeMenu}
+          />
+        ) : null}
+        {isFaqPanelOpen ? (
           <motion.button
             type="button"
             aria-label="SSS panelini kapat"
@@ -248,7 +281,7 @@ export function FloatingContactButton() {
       >
         <div className={`pointer-events-auto flex flex-col gap-3 ${alignClass}`}>
           <AnimatePresence>
-            {isFaqOpen ? (
+            {isFaqPanelOpen ? (
               <motion.section
                 id="floating-faq-panel"
                 key="floating-faq-panel"
@@ -376,38 +409,105 @@ export function FloatingContactButton() {
               isBottomPosition ? "order-2" : "order-1"
             }`}
           >
-            {channels.map((channel) => {
-              const label = channel.label || getFloatingContactDefaultLabel(channel.type);
-              const external = isFloatingContactExternalHref(channel.resolvedHref);
-              const channelStyle = CHANNEL_ICON_STYLES[channel.type];
+            <AnimatePresence>
+              {isMenuOpen && !isFaqPanelOpen
+                ? channels.map((channel, index) => {
+                    const label =
+                      channel.label || getFloatingContactDefaultLabel(channel.type);
+                    const external = isFloatingContactExternalHref(channel.resolvedHref);
+                    const channelStyle = CHANNEL_ICON_STYLES[channel.type];
 
-              return (
-                <FloatingActionButton
-                  key={channel.type}
-                  href={channel.resolvedHref}
-                  external={external}
-                  label={label}
+                    return (
+                      <motion.div
+                        key={channel.type}
+                        initial={{ opacity: 0, y: isBottomPosition ? 12 : -12, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: isBottomPosition ? 8 : -8, scale: 0.92 }}
+                        transition={{
+                          ...transition,
+                          delay: prefersReducedMotion ? 0 : index * 0.05,
+                        }}
+                      >
+                        <FloatingActionButton
+                          href={channel.resolvedHref}
+                          external={external}
+                          label={label}
+                          onClick={closeMenu}
+                        >
+                          <span className={channelStyle.iconClassName}>{channelStyle.icon}</span>
+                        </FloatingActionButton>
+                      </motion.div>
+                    );
+                  })
+                : null}
+              {isMenuOpen && !isFaqPanelOpen ? (
+                <motion.div
+                  key="floating-faq-trigger"
+                  initial={{ opacity: 0, y: isBottomPosition ? 12 : -12, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: isBottomPosition ? 8 : -8, scale: 0.92 }}
+                  transition={{
+                    ...transition,
+                    delay: prefersReducedMotion ? 0 : channels.length * 0.05,
+                  }}
                 >
-                  <span className={channelStyle.iconClassName}>{channelStyle.icon}</span>
-                </FloatingActionButton>
-              );
-            })}
+                  <FloatingActionButton
+                    label="Sıkça sorulan soruları aç"
+                    onClick={openFaqPanel}
+                    className="border-transparent bg-[#8A6B37] text-white hover:bg-[#755a2d]"
+                    style={{
+                      backgroundColor: buttonColor,
+                      boxShadow: `0 8px 24px ${buttonShadow}`,
+                    }}
+                  >
+                    <FloatingIconFaq size={22} />
+                  </FloatingActionButton>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
 
-            <FloatingActionButton
-              label={isFaqOpen ? "SSS panelini kapat" : "Sıkça sorulan soruları aç"}
-              onClick={() => setIsFaqOpen((current) => !current)}
-              className="border-transparent bg-[#8A6B37] text-white hover:bg-[#755a2d]"
+            <motion.button
+              type="button"
+              onClick={toggleMainButton}
+              whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
+              aria-expanded={isMenuOpen || isFaqPanelOpen}
+              aria-controls="floating-faq-panel"
+              aria-label={
+                isMenuOpen || isFaqPanelOpen
+                  ? "Yardım menüsünü kapat"
+                  : "Yardım menüsünü aç"
+              }
+              className="relative grid h-[64px] w-[64px] place-items-center rounded-full border border-transparent text-white transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#12100D]/25 focus-visible:ring-offset-2"
               style={{
-                backgroundColor: isFaqOpen ? buttonHoverColor : buttonColor,
+                backgroundColor:
+                  isMenuOpen || isFaqPanelOpen ? buttonHoverColor : buttonColor,
                 boxShadow: `0 8px 24px ${buttonShadow}`,
               }}
             >
-              {isFaqOpen ? (
-                <FloatingIconClose size={20} />
-              ) : (
-                <FloatingIconFaq size={22} />
-              )}
-            </FloatingActionButton>
+              <AnimatePresence mode="wait" initial={false}>
+                {isMenuOpen || isFaqPanelOpen ? (
+                  <motion.span
+                    key="close"
+                    initial={{ opacity: 0, rotate: -45, scale: 0.85 }}
+                    animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                    exit={{ opacity: 0, rotate: 45, scale: 0.85 }}
+                    transition={{ duration: prefersReducedMotion ? 0.01 : 0.22 }}
+                  >
+                    <FloatingIconClose size={22} />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="open"
+                    initial={{ opacity: 0, scale: 0.88 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.88 }}
+                    transition={{ duration: prefersReducedMotion ? 0.01 : 0.22 }}
+                  >
+                    <FloatingFaqChatIcon size={32} />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
           </div>
         </div>
       </div>
