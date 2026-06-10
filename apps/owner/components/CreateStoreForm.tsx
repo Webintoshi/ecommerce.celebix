@@ -81,6 +81,7 @@ export function CreateStoreForm({
   const [form, setForm] = useState(INITIAL_STATE);
   const [error, setError] = useState<string | null>(null);
   const [showLegacyOptions, setShowLegacyOptions] = useState(false);
+  const [isSlugDirty, setIsSlugDirty] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -92,11 +93,12 @@ export function CreateStoreForm({
     setForm((current) => ({
       ...current,
       name: nextName,
-      slug: current.slug ? current.slug : slugify(nextName),
+      slug: isSlugDirty ? current.slug : slugify(nextName),
     }));
   }
 
   function handleSlugChange(event: ChangeEvent<HTMLInputElement>) {
+    setIsSlugDirty(true);
     updateField("slug", slugify(event.target.value));
   }
 
