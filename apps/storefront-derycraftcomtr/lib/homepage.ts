@@ -136,6 +136,80 @@ const HOMEPAGE_CATEGORY_ORDER = [
   { slug: "gunluk-yasam", name: "Günlük Yaşam" },
 ] as const;
 
+const HOMEPAGE_CATEGORY_SLUGS = HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug);
+
+function sortCategoriesByHomepageSlugOrder<T extends { slug?: string | null }>(
+  categories: T[],
+  orderedSlugs: readonly string[] = HOMEPAGE_CATEGORY_SLUGS,
+): T[] {
+  return [...categories]
+    .filter((category) => category.slug && orderedSlugs.includes(category.slug))
+    .sort((left, right) => {
+      const leftPriority = orderedSlugs.indexOf(left.slug!);
+      const rightPriority = orderedSlugs.indexOf(right.slug!);
+      return leftPriority - rightPriority;
+    });
+}
+
+function appendMissingHomepageCategories<T extends { slug?: string | null; parent_id?: string | null }>(
+  categories: T[],
+  catalog: T[],
+): T[] {
+  const merged = [...categories];
+  const seenSlugs = new Set(
+    merged.map((category) => category.slug).filter((slug): slug is string => Boolean(slug)),
+  );
+
+  for (const entry of HOMEPAGE_CATEGORY_ORDER) {
+    if (seenSlugs.has(entry.slug)) {
+      continue;
+    }
+
+    const extraCategory = catalog.find((category) => category.slug === entry.slug);
+    if (!extraCategory) {
+      continue;
+    }
+
+    merged.push(extraCategory);
+    seenSlugs.add(entry.slug);
+  }
+
+  return merged.slice(0, HOMEPAGE_CATEGORY_SLUGS.length);
+}
+
+function sortCategoriesByCatalogOrder<
+  T extends {
+    name?: string | null;
+    sort_order?: number | null;
+    created_at?: string | null;
+  },
+>(categories: T[]): T[] {
+  return [...categories].sort((left, right) => {
+    const leftCreatedAt =
+      typeof left.created_at === "string" ? Date.parse(left.created_at) : Number.NaN;
+    const rightCreatedAt =
+      typeof right.created_at === "string" ? Date.parse(right.created_at) : Number.NaN;
+    const hasCreatedAtOrdering =
+      Number.isFinite(leftCreatedAt) || Number.isFinite(rightCreatedAt);
+
+    if (hasCreatedAtOrdering && leftCreatedAt !== rightCreatedAt) {
+      return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
+        (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
+    }
+
+    const leftSortOrder =
+      typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
+    const rightSortOrder =
+      typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
+
+    if (leftSortOrder !== rightSortOrder) {
+      return leftSortOrder - rightSortOrder;
+    }
+
+    return String(left.name ?? "").localeCompare(String(right.name ?? ""), "tr");
+  });
+}
+
 function normalizeHeroSlides(payload: unknown): HomepageHeroBanner[] {
   const rawSlides = Array.isArray(payload)
     ? (payload as RawHeroSlide[])
@@ -236,37 +310,39 @@ function normalizePromoBanners(payload: unknown) {
 async function fetchHomepageCategories(supabase: StorefrontServerClient | null) {
   const lightPostgresCategories = await maybeListStorefrontCategories();
   if (lightPostgresCategories !== undefined) {
-    return [...lightPostgresCategories]
-      .filter((category) => category.parent_id === null)
-      .sort((left, right) => {
-        const leftCreatedAt =
-          typeof left.created_at === "string" ? Date.parse(left.created_at) : Number.NaN;
-        const rightCreatedAt =
-          typeof right.created_at === "string" ? Date.parse(right.created_at) : Number.NaN;
-        const hasCreatedAtOrdering =
-          Number.isFinite(leftCreatedAt) || Number.isFinite(rightCreatedAt);
+    const parentCategories = sortCategoriesByCatalogOrder(
+      lightPostgresCategories.filter((category) => category.parent_id === null),
+    );
 
-        if (hasCreatedAtOrdering && leftCreatedAt !== rightCreatedAt) {
-          return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
-            (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
-        }
-
-        const leftSortOrder =
-          typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
-        const rightSortOrder =
-          typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
-
-        if (leftSortOrder !== rightSortOrder) {
-          return leftSortOrder - rightSortOrder;
-        }
-
-      return String(left.name ?? "").localeCompare(String(right.name ?? ""), "tr");
-    })
-    .slice(0, 6);
+    return appendMissingHomepageCategories(parentCategories, lightPostgresCategories);
   }
 
   if (!supabase) {
     return [];
+  }
+
+  const catalogQuery = await runCategoriesQuery((includeIsActiveFilter) => {
+    let query = supabase.from("categories").select("*");
+
+    if (includeIsActiveFilter) {
+      query = query.eq("is_active", true);
+    }
+
+    return query;
+  });
+
+  if (catalogQuery.error) {
+    throw catalogQuery.error;
+  }
+
+  const catalog = catalogQuery.data ?? [];
+  const parentCategories = sortCategoriesByCatalogOrder(
+    catalog.filter((category) => category.parent_id === null),
+  );
+  const homepageCategories = appendMissingHomepageCategories(parentCategories, catalog);
+
+  if (homepageCategories.length > 0) {
+    return homepageCategories;
   }
 
   const result = await runCategoriesQuery((includeIsActiveFilter) => {
@@ -286,32 +362,7 @@ async function fetchHomepageCategories(supabase: StorefrontServerClient | null) 
     throw result.error;
   }
 
-  return [...(result.data ?? [])]
-    .sort((left, right) => {
-      const leftCreatedAt =
-        typeof left.created_at === "string" ? Date.parse(left.created_at) : Number.NaN;
-      const rightCreatedAt =
-        typeof right.created_at === "string" ? Date.parse(right.created_at) : Number.NaN;
-      const hasCreatedAtOrdering =
-        Number.isFinite(leftCreatedAt) || Number.isFinite(rightCreatedAt);
-
-      if (hasCreatedAtOrdering && leftCreatedAt !== rightCreatedAt) {
-        return (Number.isFinite(rightCreatedAt) ? rightCreatedAt : -Infinity) -
-          (Number.isFinite(leftCreatedAt) ? leftCreatedAt : -Infinity);
-      }
-
-      const leftSortOrder =
-        typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
-      const rightSortOrder =
-        typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
-
-      if (leftSortOrder !== rightSortOrder) {
-        return leftSortOrder - rightSortOrder;
-      }
-
-      return String(left.name ?? "").localeCompare(String(right.name ?? ""), "tr");
-    })
-    .slice(0, 6);
+  return sortCategoriesByCatalogOrder(result.data ?? []).slice(0, 6);
 }
 
 async function fetchHomepageCategoriesWithCuration(
