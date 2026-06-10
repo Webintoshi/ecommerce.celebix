@@ -11,6 +11,35 @@ function iconSize(size: number) {
   return { width: size, height: size };
 }
 
+export const FLOATING_MENU_BUTTON_SIZE = 56;
+export const FLOATING_MENU_BUTTON_CLASS = "h-14 w-14";
+
+export function FloatingMenuWhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <img
+      src="/floating-whatsapp-icon.png"
+      alt=""
+      aria-hidden="true"
+      width={FLOATING_MENU_BUTTON_SIZE}
+      height={FLOATING_MENU_BUTTON_SIZE}
+      className={cn("h-full w-full rounded-full object-cover", className)}
+    />
+  );
+}
+
+export function FloatingMenuFaqIcon({ className }: { className?: string }) {
+  return (
+    <img
+      src="/floating-faq-icon.png"
+      alt=""
+      aria-hidden="true"
+      width={FLOATING_MENU_BUTTON_SIZE}
+      height={FLOATING_MENU_BUTTON_SIZE}
+      className={cn("h-full w-full object-contain", className)}
+    />
+  );
+}
+
 export function FloatingFaqChatIcon({ className, size = 30 }: IconProps) {
   return (
     <img

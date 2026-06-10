@@ -19,12 +19,13 @@ import {
   type FloatingContactChannelType,
 } from "@celebix/platform-config/src/floating-contact";
 import {
+  FLOATING_MENU_BUTTON_CLASS,
   FloatingFaqChatIcon,
   FloatingIconClose,
-  FloatingIconFaq,
   FloatingIconForm,
   FloatingIconInstagram,
-  FloatingIconWhatsApp,
+  FloatingMenuFaqIcon,
+  FloatingMenuWhatsAppIcon,
 } from "@/components/layout/FloatingContactIcons";
 import { cn } from "@/lib/utils";
 
@@ -37,23 +38,18 @@ const POSITION_CLASSES = {
 
 const FLOATING_BUTTON_COLOR = "#8A6B37";
 
-const CHANNEL_ICON_STYLES: Record<
-  FloatingContactChannelType,
-  { icon: ReactNode; iconClassName: string }
-> = {
-  whatsapp: {
-    icon: <FloatingIconWhatsApp size={20} />,
-    iconClassName: "text-[#1A9E55]",
-  },
-  instagram: {
-    icon: <FloatingIconInstagram size={20} />,
-    iconClassName: "text-[#C13584]",
-  },
-  form: {
-    icon: <FloatingIconForm size={20} />,
-    iconClassName: "text-[#8A6B37]",
-  },
-};
+function getChannelMenuIcon(type: FloatingContactChannelType) {
+  switch (type) {
+    case "whatsapp":
+      return <FloatingMenuWhatsAppIcon />;
+    case "instagram":
+      return <FloatingIconInstagram size={24} className="text-[#C13584]" />;
+    case "form":
+      return <FloatingIconForm size={24} className="text-[#8A6B37]" />;
+    default:
+      return null;
+  }
+}
 
 function FloatingActionButton({
   children,
@@ -63,6 +59,7 @@ function FloatingActionButton({
   onClick,
   href,
   external,
+  variant = "surface",
 }: {
   children: ReactNode;
   className?: string;
@@ -71,9 +68,14 @@ function FloatingActionButton({
   onClick?: () => void;
   href?: string;
   external?: boolean;
+  variant?: "surface" | "image" | "brand";
 }) {
   const sharedClassName = cn(
-    "grid h-12 w-12 place-items-center rounded-full border border-[#E8DFD3] bg-white text-[#12100D] shadow-[0_8px_24px_rgba(18,16,13,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(18,16,13,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A6B37]/30 focus-visible:ring-offset-2",
+    "grid place-items-center rounded-full shadow-[0_8px_24px_rgba(18,16,13,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(18,16,13,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A6B37]/30 focus-visible:ring-offset-2",
+    FLOATING_MENU_BUTTON_CLASS,
+    variant === "image" && "overflow-hidden border-0 bg-transparent p-0",
+    variant === "brand" && "border-0 bg-[#8A6B37] p-2.5 text-white",
+    variant === "surface" && "border border-[#E8DFD3] bg-white text-[#12100D]",
     className,
   );
 
@@ -415,8 +417,6 @@ export function FloatingContactButton() {
                     const label =
                       channel.label || getFloatingContactDefaultLabel(channel.type);
                     const external = isFloatingContactExternalHref(channel.resolvedHref);
-                    const channelStyle = CHANNEL_ICON_STYLES[channel.type];
-
                     return (
                       <motion.div
                         key={channel.type}
@@ -433,8 +433,9 @@ export function FloatingContactButton() {
                           external={external}
                           label={label}
                           onClick={closeMenu}
+                          variant={channel.type === "whatsapp" ? "image" : "surface"}
                         >
-                          <span className={channelStyle.iconClassName}>{channelStyle.icon}</span>
+                          {getChannelMenuIcon(channel.type)}
                         </FloatingActionButton>
                       </motion.div>
                     );
@@ -454,13 +455,13 @@ export function FloatingContactButton() {
                   <FloatingActionButton
                     label="Sıkça sorulan soruları aç"
                     onClick={openFaqPanel}
-                    className="border-transparent bg-[#8A6B37] text-white hover:bg-[#755a2d]"
+                    variant="brand"
                     style={{
                       backgroundColor: buttonColor,
                       boxShadow: `0 8px 24px ${buttonShadow}`,
                     }}
                   >
-                    <FloatingIconFaq size={22} />
+                    <FloatingMenuFaqIcon />
                   </FloatingActionButton>
                 </motion.div>
               ) : null}
