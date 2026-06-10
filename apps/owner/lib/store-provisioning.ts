@@ -224,7 +224,11 @@ export async function validateProvisioningEnvironmentReadiness(
   }
 
   try {
-    getR2MediaBootstrapStatus();
+    const r2Status = getR2MediaBootstrapStatus();
+
+    if (!r2Status.configured) {
+      errors.push(r2Status.lastError || "R2 media config authority eksik.");
+    }
   } catch (error) {
     errors.push(
       `R2 media config dogrulanamadi: ${
@@ -700,6 +704,15 @@ function getPreflightBlockers(summary: ProvisioningSummary): ProvisioningStepSum
   return getProvisioningBlockers(summary).filter((step) => preflightKeys.has(step.key));
 }
 
+async function syncOwnerStoresAndMetricsBestEffort(context: string): Promise<void> {
+  try {
+    await syncOwnerStoresAndMetrics();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "bilinmeyen hata";
+    console.warn(`Owner metrics sync skipped after ${context}: ${message}`);
+  }
+}
+
 function updateSummaryStep(
   steps: ProvisioningStepSummary[],
   key: ProvisioningStepKey,
@@ -1082,12 +1095,12 @@ export async function runStoreProvisioningWorkflow(
 
         if (store.databaseMode === "light_postgres") {
           const result = await provisionLightPostgresForStore(store);
-          await syncOwnerStoresAndMetrics();
+          await syncOwnerStoresAndMetricsBestEffort("light_postgres provisioning");
           return `light_postgres provision edildi: ${result.cluster}/${result.databaseName}; role=${result.roleName}; ${result.readiness.message}`;
         }
 
         const result = await provisionSupabaseForStore(store);
-        await syncOwnerStoresAndMetrics();
+        await syncOwnerStoresAndMetricsBestEffort("Supabase provisioning");
         return `${result.provider} Supabase provision edildi: ${result.projectRef}`;
       },
     ],
@@ -1109,7 +1122,7 @@ export async function runStoreProvisioningWorkflow(
       async () => {
         const store = repairStoreConfig(input.slug);
         const result = await provisionR2MediaForStore(store);
-        await syncOwnerStoresAndMetrics();
+        await syncOwnerStoresAndMetricsBestEffort("R2 provisioning");
         return `R2 media config hazirlandi: ${result.configPath}; bucket=${result.bucketName ? "configured" : "pending"}`;
       },
     ],
@@ -1140,7 +1153,7 @@ export async function runStoreProvisioningWorkflow(
 
         if (store.databaseMode === "light_postgres") {
           const result = await provisionLogtoAppsForStore(store);
-          await syncOwnerStoresAndMetrics();
+          await syncOwnerStoresAndMetricsBestEffort("Logto provisioning");
 
           return `Logto admin/customer app config hazirlandi: ${result.adminConfigPath}, ${result.customerConfigPath}`;
         }
@@ -1155,7 +1168,7 @@ export async function runStoreProvisioningWorkflow(
 
         if (store.databaseMode === "light_postgres") {
           const result = await provisionUmamiForStore(store);
-          await syncOwnerStoresAndMetrics();
+          await syncOwnerStoresAndMetricsBestEffort("Umami provisioning");
 
           return `Umami website config hazirlandi: ${result.configPath}; websiteId=${result.websiteId ? "configured" : "pending"}`;
         }
@@ -1280,7 +1293,7 @@ export async function runStoreProvisioningWorkflow(
     }
   }
 
-  await syncOwnerStoresAndMetrics();
+    await syncOwnerStoresAndMetricsBestEffort("store provisioning workflow");
     const result = await tracker.finalize();
 
     await recordOwnerAuditLog({
