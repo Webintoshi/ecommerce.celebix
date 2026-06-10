@@ -27,7 +27,6 @@ type FooterLocaleCopy = {
   newsletterSuccess: string;
   aboutLinks: Array<{ name: string; href: string }>;
   rights: string;
-  partnerLabel: string;
 };
 
 const LOCALE_SWITCH_OPTIONS: Array<{
@@ -63,7 +62,6 @@ const ENGLISH_FOOTER_COPY: FooterLocaleCopy = {
     { name: "Contact", href: "/iletisim" },
   ],
   rights: "All rights reserved.",
-  partnerLabel: "E-commerce infrastructure",
 };
 
 const TURKISH_FOOTER_COPY: FooterLocaleCopy = {
@@ -86,7 +84,6 @@ const TURKISH_FOOTER_COPY: FooterLocaleCopy = {
     { name: "İletişim", href: "/iletisim" },
   ],
   rights: "Tüm hakları saklıdır.",
-  partnerLabel: "E-ticaret altyapısı",
 };
 
 const CELEBIX_SITE_URL = "https://celebix.net/";
@@ -423,17 +420,13 @@ export function Footer({ categoryLinks }: { categoryLinks: StorefrontFooterCateg
             href={CELEBIX_SITE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-2.5 text-white/38 transition-colors hover:text-white/70"
+            className="group inline-flex items-center"
             aria-label="Celebix"
           >
-            <span className="text-[9px] font-medium uppercase tracking-[0.26em]">
-              {copy.partnerLabel}
-            </span>
-            <span className="h-3 w-px bg-white/15" aria-hidden="true" />
             <img
               src={CELEBIX_LOGO_URL}
               alt="Celebix"
-              className="h-4 w-auto brightness-0 invert opacity-70 transition-opacity group-hover:opacity-100"
+              className="h-6 w-auto brightness-0 invert opacity-75 transition-opacity group-hover:opacity-100 sm:h-7"
             />
           </a>
         </div>
