@@ -28,6 +28,8 @@ import {
   EyeOff,
   ShoppingBag,
   ArrowLeft,
+  CircleUser,
+  ArrowUpRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckoutStepIndicator } from "@/components/checkout/CheckoutStepIndicator";
@@ -39,7 +41,6 @@ import {
   checkoutPrimaryButtonClass,
   checkoutSecondaryButtonClass,
 } from "@/lib/checkout-ui";
-import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 type AppliedCoupon = {
   code: string;
@@ -486,20 +487,17 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-[#FAF7F2] pb-16">
       <header className="border-b border-[#E8DFD3] bg-white">
-        <div className="container-premium flex items-center justify-between gap-4 py-5 sm:py-6">
-          <Link
-            href="/"
-            className="font-serif text-xl font-medium tracking-tight text-[#12100D] sm:text-2xl"
+        <div className="container-premium flex justify-end py-4 sm:py-5">
+          <nav
+            aria-label="Ödeme adımları"
+            className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500"
           >
-            {STOREFRONT_RUNTIME.name}
-          </Link>
-          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500">
             <Link href="/sepet" className="transition-colors hover:text-[#8A6B37]">
               Sepet
             </Link>
             <ChevronRight className="h-3.5 w-3.5 text-[#E8DFD3]" />
             <span className="text-[#12100D]">Ödeme</span>
-          </div>
+          </nav>
         </div>
       </header>
 
@@ -751,12 +749,26 @@ export default function CheckoutPage() {
                     )}
 
                     {!user && !customerAuthMigrationRequired && logtoCustomerAuthEnabled && (
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-900">
-                        Hesap olusturmak zorunlu degil. Isterseniz siparisinizi misafir olarak tamamlayabilir veya{" "}
-                        <a href={CUSTOMER_AUTH_URLS.register} className="font-semibold underline">
-                          hesap olusturma ekranina
-                        </a>{" "}
-                        gecebilirsiniz.
+                      <div className="flex gap-4 rounded-xl border border-[#E8DFD3] bg-[#FBF8F4] p-4 sm:p-5">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#E8DFD3] bg-white text-[#8A6B37]">
+                          <CircleUser className="h-5 w-5" strokeWidth={1.75} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-[#12100D]">
+                            Misafir olarak devam edebilirsiniz
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-neutral-600">
+                            Hesap oluşturmak zorunlu değil. Siparişinizi misafir olarak tamamlayabilir
+                            veya hesabınızı bir sonraki adımda oluşturabilirsiniz.
+                          </p>
+                          <a
+                            href={CUSTOMER_AUTH_URLS.register}
+                            className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8A6B37] transition-colors hover:text-[#755a2d]"
+                          >
+                            Hesap oluştur
+                            <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          </a>
+                        </div>
                       </div>
                     )}
 

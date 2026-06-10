@@ -66,3 +66,19 @@ export function getPrimaryResolvedProductImage(
 ) {
   return getResolvedProductImages(product, variant)[0] ?? "";
 }
+
+/** Cart/checkout thumbnails: product gallery first, swatch textures excluded. */
+export function getCartItemDisplayImage(
+  product: ProductWithLegacyImages,
+  variant?: ProductVariant | null,
+) {
+  const variantImages: string[] = Array.isArray(variant?.images) ? variant.images : [];
+  const productImages: string[] =
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images
+      : getLegacyProductImages(product);
+
+  return (
+    collectImageUrls([...productImages, ...variantImages])[0] ?? ""
+  );
+}

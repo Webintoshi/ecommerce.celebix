@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { SHIPPING_THRESHOLD as SHIPPING_THRESHOLD_FALLBACK } from "@/lib/constants";
-import { getPrimaryResolvedProductImage } from "@/lib/product-images";
+import { getCartItemDisplayImage } from "@/lib/product-images";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
 import { formatPrice, cn } from "@/lib/utils";
 
@@ -38,7 +38,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
     freeShippingRemaining ?? effectiveShippingThreshold - subtotal,
   );
   const lastAddedItemImage = lastAddedItem
-    ? getPrimaryResolvedProductImage(lastAddedItem.product, lastAddedItem.variant)
+    ? getCartItemDisplayImage(lastAddedItem.product, lastAddedItem.variant)
     : "";
 
   useEffect(() => {
@@ -177,7 +177,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 </div>
               ) : (
                 items.map((item) => {
-                  const itemImage = getPrimaryResolvedProductImage(
+                  const itemImage = getCartItemDisplayImage(
                     item.product,
                     item.variant,
                   );

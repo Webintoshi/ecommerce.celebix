@@ -4,7 +4,7 @@ import { Lock } from "lucide-react";
 import { formatPrice, cn } from "@/lib/utils";
 import type { CartItem } from "@/types/cart";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
-import { getPrimaryResolvedProductImage } from "@/lib/product-images";
+import { getCartItemDisplayImage } from "@/lib/product-images";
 import { ShippingRate } from "@/lib/shipping-storage";
 
 type AppliedCoupon = {
@@ -55,7 +55,7 @@ export function CheckoutOrderSummary({
       <div className="space-y-6">
         <div className="max-h-[340px] space-y-3 overflow-y-auto pr-1">
           {items.map((item) => {
-            const itemImage = getPrimaryResolvedProductImage(item.product, item.variant);
+            const itemImage = getCartItemDisplayImage(item.product, item.variant);
 
             return (
               <div
