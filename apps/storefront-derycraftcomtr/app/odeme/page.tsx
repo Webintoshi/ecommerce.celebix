@@ -607,6 +607,21 @@ export default function CheckoutPage() {
                           className={checkoutFieldClass}
                         />
                       </div>
+
+                      {!user && !customerAuthMigrationRequired && logtoCustomerAuthEnabled ? (
+                        <label className="flex cursor-pointer items-center gap-3 pt-1">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5 shrink-0 cursor-pointer rounded border-[#E8DFD3] text-[#8A6B37] focus:ring-[#8A6B37]"
+                            onChange={() => {
+                              window.location.href = buildRegisterBridgePath("/odeme");
+                            }}
+                          />
+                          <span className="text-sm text-[#12100D]">
+                            Ücretsiz Hesap Oluşturmak istiyorum.
+                          </span>
+                        </label>
+                      ) : null}
                     </section>
 
                     <section className="space-y-4">
@@ -803,21 +818,6 @@ export default function CheckoutPage() {
                         Musteri hesabi olusturma bu light_postgres provasinda gecici olarak pasif. Siparisiniz
                         misafir odeme olarak tamamlanir.
                       </div>
-                    )}
-
-                    {!user && !customerAuthMigrationRequired && logtoCustomerAuthEnabled && (
-                      <label className="flex cursor-pointer items-center gap-3">
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 shrink-0 cursor-pointer rounded border-[#E8DFD3] text-[#8A6B37] focus:ring-[#8A6B37]"
-                          onChange={() => {
-                            window.location.href = buildRegisterBridgePath("/odeme");
-                          }}
-                        />
-                        <span className="text-sm text-[#12100D]">
-                          Ücretsiz Hesap Oluşturmak istiyorum.
-                        </span>
-                      </label>
                     )}
 
                     <section className="space-y-4">
