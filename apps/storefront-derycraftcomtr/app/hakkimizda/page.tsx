@@ -39,9 +39,11 @@ export default async function AboutPage() {
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
             {profile.name}
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {managedPage?.plainText || profile.tagline}
-          </p>
+          {!managedPage?.contentHtml && profile.tagline ? (
+            <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
+              {profile.tagline}
+            </p>
+          ) : null}
         </div>
       </section>
 
