@@ -294,33 +294,37 @@ export function ProductDetailClient({
     <div className="min-h-screen bg-[#F8F8F8]">
       <div className="border-b border-neutral-200 bg-[#F8F8F8]">
         <div className="container-premium">
-          <div className="flex items-center gap-3 py-4 text-sm">
+          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3 sm:py-4">
             <Link
-                  href={buildPath("/urunler")}
-              className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
+              href={buildPath("/urunler")}
+              className="inline-flex min-h-11 items-center gap-2 self-start text-sm text-neutral-500 transition-colors hover:text-neutral-900"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
+              <span className="sm:hidden">Geri</span>
             </Link>
-            <div className="ml-auto flex items-center gap-2 text-neutral-400">
+            <nav
+              aria-label="Breadcrumb"
+              className="flex min-w-0 items-center gap-1.5 overflow-x-auto text-xs text-neutral-400 [scrollbar-width:none] sm:ml-auto sm:gap-2 sm:text-sm [&::-webkit-scrollbar]:hidden"
+            >
               <Link
-                  href={buildPath("/")}
-                className="transition-colors hover:text-neutral-600"
+                href={buildPath("/")}
+                className="shrink-0 transition-colors hover:text-neutral-600"
               >
                 Ana Sayfa
               </Link>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
               <Link
-                  href={buildPath("/urunler")}
-                className="transition-colors hover:text-neutral-600"
+                href={buildPath("/urunler")}
+                className="shrink-0 transition-colors hover:text-neutral-600"
               >
                 Ürünler
               </Link>
-              <ChevronRight className="w-4 h-4" />
-              <span className="max-w-[150px] truncate font-medium text-neutral-900">
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+              <span className="min-w-0 truncate font-medium text-neutral-900">
                 {product.name}
               </span>
-            </div>
+            </nav>
           </div>
         </div>
       </div>

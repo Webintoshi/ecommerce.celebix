@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fragment, type CSSProperties } from "react";
 import Script from "next/script";
 import "./globals.css";
@@ -28,6 +28,12 @@ import {
 } from "@celebix/platform-config/src/typography";
 
 export const dynamic = "force-dynamic";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -139,7 +145,7 @@ export default async function RootLayout({
                       <LayoutWrapper navigationCategories={navigationCategories}>
                         {children}
                         <FloatingContactButton />
-                        <Toaster position="top-right" theme="light" />
+                        <Toaster position="top-center" theme="light" richColors closeButton />
                       </LayoutWrapper>
                     </QuickViewProvider>
                   </WishlistProvider>

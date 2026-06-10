@@ -285,7 +285,7 @@ export function TestimonialsSection({
         </div>
 
         <div className="lg:hidden">
-          <div className="-mx-5 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex snap-x snap-mandatory gap-4 pb-2">
               {testimonials.map((review) => (
                 <MobileTestimonialCard key={review.id} review={review} />

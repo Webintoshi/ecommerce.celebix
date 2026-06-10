@@ -30,8 +30,10 @@ import {
 import { cn } from "@/lib/utils";
 
 const POSITION_CLASSES = {
-  "bottom-right": "bottom-5 right-4 sm:bottom-7 sm:right-7",
-  "bottom-left": "bottom-5 left-4 sm:bottom-7 sm:left-7",
+  "bottom-right":
+    "bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] sm:bottom-7 sm:right-7",
+  "bottom-left":
+    "bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] sm:bottom-7 sm:left-7",
   "top-right": "top-24 right-6",
   "top-left": "top-24 left-6",
 } as const;

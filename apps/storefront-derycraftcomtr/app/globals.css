@@ -251,13 +251,14 @@ button, input, select, textarea {
 }
 
 .store-product-title-pdp {
-  font-size: 15px !important;
-  line-height: 1.12 !important;
+  font-size: clamp(1.125rem, 3.5vw + 0.65rem, 1.625rem) !important;
+  line-height: 1.15 !important;
 }
 
 @media (min-width: 1024px) {
   .store-product-title-pdp {
     font-size: 26px !important;
+    line-height: 1.12 !important;
   }
 }
 
@@ -464,4 +465,31 @@ button, input, select, textarea {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* === MOBILE & TOUCH === */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@supports (padding: max(0px)) {
+  .safe-area-pb {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 767px) {
+  .input-mobile-safe,
+  .input-premium,
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="search"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }

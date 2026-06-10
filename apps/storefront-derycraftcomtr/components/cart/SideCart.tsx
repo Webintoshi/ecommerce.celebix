@@ -8,6 +8,7 @@ import { useCart } from "@/lib/cart-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { SHIPPING_THRESHOLD as SHIPPING_THRESHOLD_FALLBACK } from "@/lib/constants";
 import { getCartItemDisplayImage } from "@/lib/product-images";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
 import { formatPrice, cn } from "@/lib/utils";
 
@@ -40,6 +41,8 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
   const lastAddedItemImage = lastAddedItem
     ? getCartItemDisplayImage(lastAddedItem.product, lastAddedItem.variant)
     : "";
+
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -98,7 +101,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
               </div>
               <button
                 onClick={onClose}
-                className="grid h-9 w-9 place-items-center rounded-full border border-[#E8DFD3] bg-white text-neutral-600 transition-colors hover:border-[#C4A062] hover:text-[#12100D]"
+                className="grid h-11 w-11 place-items-center rounded-full border border-[#E8DFD3] bg-white text-neutral-600 transition-colors hover:border-[#C4A062] hover:text-[#12100D]"
                 aria-label="Kapat"
               >
                 <X className="h-4 w-4" />

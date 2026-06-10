@@ -225,19 +225,19 @@ export function ProductShowcaseSections({
       {effectiveGroups.map((group) => (
         <section key={group.id} className="bg-[#F8F8F8F8] py-16 lg:py-20">
           <div className="container-premium">
-            <div className="mb-12 flex items-end justify-between gap-6">
-              <div>
+            <div className="mb-8 flex items-end justify-between gap-4 sm:mb-12 sm:gap-6">
+              <div className="min-w-0 flex-1">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
                   {group.subtitle}
                 </span>
-                <h2 className="text-[1.8rem] font-bold text-neutral-900 sm:text-[2.15rem]">
+                <h2 className="text-[1.55rem] font-bold text-neutral-900 sm:text-[2.15rem]">
                   {group.title}
                 </h2>
               </div>
 
               <Link
                 href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
-                className="group hidden items-center gap-2 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:inline-flex"
+                className="group inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:gap-2 sm:text-sm"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

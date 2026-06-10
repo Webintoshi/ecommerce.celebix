@@ -433,7 +433,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          style={{ touchAction: 'pan-y' }}
+          style={{ touchAction: "pan-x pinch-zoom" }}
         >
           {/* Loading placeholder */}
           {currentStatus === 'loading' && (
@@ -485,15 +485,24 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
           {/* Dots indicator */}
           {displayImages.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1">
               {displayImages.map((_, index) => (
                 <button
                   key={index}
-                  onClick={(e) => { e.stopPropagation(); setSelectedIndex(index); }}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    index === selectedIndex ? 'bg-primary w-4' : 'bg-neutral-300'
-                  }`}
-                />
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedIndex(index);
+                  }}
+                  className="flex h-11 w-11 items-center justify-center"
+                  aria-label={`Görsel ${index + 1}`}
+                >
+                  <span
+                    className={`block rounded-full transition-all ${
+                      index === selectedIndex ? "h-2 w-5 bg-primary" : "h-2 w-2 bg-neutral-300"
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           )}

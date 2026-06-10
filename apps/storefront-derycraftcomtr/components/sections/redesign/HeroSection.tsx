@@ -39,7 +39,7 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
 
   return (
     <section className="relative w-full overflow-hidden">
-      <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9] max-h-[900px]">
+      <div className="relative w-full aspect-[4/5] sm:aspect-[4/5] md:aspect-[16/9] lg:aspect-[21/9] max-h-[min(85vh,900px)]">
         <picture className="absolute inset-0 block h-full w-full">
           <source media="(max-width: 767px)" srcSet={mobileSrc} />
           <source media="(min-width: 768px)" srcSet={desktopSrc} />

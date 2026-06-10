@@ -40,7 +40,7 @@ function UtilityIconButton({
     <button
       type="button"
       className={cn(
-        "relative inline-flex items-center justify-center p-1 text-neutral-950 transition-opacity hover:opacity-55",
+        "relative inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-neutral-950 transition-opacity hover:opacity-55",
         className,
       )}
       {...props}

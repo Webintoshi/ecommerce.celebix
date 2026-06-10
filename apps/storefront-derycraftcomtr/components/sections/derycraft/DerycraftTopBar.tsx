@@ -133,11 +133,11 @@ export function DerycraftTopBar() {
       <button
         type="button"
         onClick={handleDismiss}
-        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 opacity-50 transition-opacity hover:opacity-100 sm:right-4"
+        className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md opacity-50 transition-opacity hover:opacity-100 sm:right-3"
         style={{ color: textColor }}
         aria-label="Duyuruyu kapat"
       >
-        <X className="h-3 w-3" strokeWidth={1.5} />
+        <X className="h-4 w-4" strokeWidth={1.5} />
       </button>
     </div>
   );
