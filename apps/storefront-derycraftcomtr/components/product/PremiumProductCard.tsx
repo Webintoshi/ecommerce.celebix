@@ -170,7 +170,7 @@ export function PremiumProductCard({ product }: PremiumProductCardProps) {
       
       {/* Color Variants - Small circular buttons like Roarcraft */}
       {uniqueColors.length > 0 && (
-        <div className="flex items-center justify-center gap-1.5">
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2">
           {uniqueColors.map((variant, index) => {
             const colorHex = getColorHex(variant.name);
             const isLightColor = colorHex.toLowerCase() === "#ffffff" || 
@@ -182,7 +182,7 @@ export function PremiumProductCard({ product }: PremiumProductCardProps) {
               <div
                 key={variant.id || index}
                 className={`
-                  w-5 h-5 rounded-full border 
+                  h-5 w-5 rounded-full border md:h-[22px] md:w-[22px] lg:h-6 lg:w-6
                   ${isLightColor ? "border-neutral-300" : "border-transparent"}
                   transition-transform duration-200
                   hover:scale-110

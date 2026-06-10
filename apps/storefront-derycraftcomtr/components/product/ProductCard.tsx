@@ -46,13 +46,13 @@ function ProductCardSwatches({ product, className }: { product: Product; classNa
   }
 
   return (
-    <div className={cn("mt-2.5 flex items-center justify-center gap-1.5", className)}>
+    <div className={cn("mt-2.5 flex items-center justify-center gap-1.5 sm:gap-2", className)}>
       {visibleSwatches.map((swatch) => (
         <span
           key={swatch.key}
           title={swatch.value}
           aria-label={swatch.value}
-          className="relative h-3.5 w-3.5 overflow-hidden rounded-full sm:h-4 sm:w-4"
+          className="relative h-3.5 w-3.5 overflow-hidden rounded-full sm:h-4 sm:w-4 md:h-[18px] md:w-[18px] lg:h-5 lg:w-5"
         >
           {swatch.image_url ? (
             <img
@@ -69,7 +69,7 @@ function ProductCardSwatches({ product, className }: { product: Product; classNa
       ))}
       {showMoreIndicator ? (
         <span
-          className="font-sans text-[10px] font-medium tracking-wide text-neutral-500"
+          className="font-sans text-[10px] font-medium tracking-wide text-neutral-500 sm:text-[11px] lg:text-xs"
           aria-label={`${allSwatches.length} renk seçeneği`}
         >
           4+
