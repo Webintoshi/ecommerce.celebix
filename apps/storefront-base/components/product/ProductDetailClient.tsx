@@ -11,14 +11,8 @@ import {
   Minus,
   Plus,
   ArrowLeft,
-  Package,
-  Clock,
-  BadgeCheck,
-  Hammer,
   ChevronRight,
-  ChevronDown,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   isProxiedStorefrontAssetUrl,
   resolveStorefrontAssetUrl,
@@ -28,7 +22,8 @@ import { ImageGallery } from "@/components/product/ImageGallery";
 import { PersonalizationPreview } from "@/components/product/PersonalizationPreview";
 import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
-import { ProductFeatures } from "@/components/product/ProductFeatures";
+import { ProductTrustStrip } from "@/components/product/ProductTrustStrip";
+import { ProductPdpTrustAccordions } from "@/components/product/ProductPdpTrustAccordions";
 import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
@@ -104,7 +99,6 @@ export function ProductDetailClient({
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] =
     useState<ResolvedCustomizationSchema | null>(null);
@@ -124,13 +118,6 @@ export function ProductDetailClient({
 
   const { addToCart } = useCart();
   const { locale, buildPath } = useStorefrontRoute();
-
-  const toggleAccordion = (id: string) => {
-    const next = new Set(openAccordions);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setOpenAccordions(next);
-  };
 
   useEffect(() => {
     setProduct(initialProduct);
@@ -159,7 +146,6 @@ export function ProductDetailClient({
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
     setQuantity(1);
-    setOpenAccordions(new Set());
   }, [initialVariantIndex, initialProduct?.id]);
 
   useEffect(() => {
@@ -570,133 +556,9 @@ export function ProductDetailClient({
                 productName={product.name}
               />
 
-              <div className="border-t border-neutral-200 pt-1">
-                {[
-                  {
-                    id: "features",
-                    label: "Ürün Detayları",
-                    content: <ProductFeatures product={product} />,
-                  },
-                  {
-                    id: "specs",
-                    label: "Özellikler",
-                    content: (
-                      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Malzeme
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Premium Full-Grain Deri
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              İşçilik
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Üretim Süresi
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              3-5 İş Günü
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Garanti
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              2 Yıl
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    id: "shipping",
-                    label: "Kargo & İade",
-                    content: (
-                      <div className="space-y-4 text-sm text-neutral-600">
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Kargo Bilgileri
-                          </h4>
-                          <p>
-                            Siparişleriniz 3-5 iş günü içerisinde kargoya verilir.
-                            500 TL ve üzeri siparişlerde kargo ücretsizdir.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            İade Politikası
-                          </h4>
-                          <p>
-                            Ürünleri teslim aldıktan sonra 14 gün içinde koşulsuz
-                            iade edebilirsiniz. Ürünün kullanılmamış ve orijinal
-                            ambalajında olması gerekmektedir.
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="mb-1 font-medium text-neutral-900">
-                            Özel Siparişler
-                          </h4>
-                          <p>
-                            Özel ölçü ve kişiselleştirme taleplerinde üretim süresi
-                            7-10 iş gününe uzayabilir.
-                          </p>
-                        </div>
-                      </div>
-                    ),
-                  },
-                ].map((item) => {
-                  const isOpen = openAccordions.has(item.id);
-                  return (
-                    <div key={item.id} className="border-b border-neutral-200">
-                      <button
-                        onClick={() => toggleAccordion(item.id)}
-                        className="flex w-full items-center justify-between py-4 text-sm font-medium uppercase tracking-wide text-neutral-900"
-                      >
-                        {item.label}
-                        <ChevronDown
-                          className={`h-4 w-4 text-neutral-500 transition-transform ${
-                            isOpen ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
-                      <AnimatePresence initial={false}>
-                        {isOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pb-5">{item.content}</div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </div>
+              <ProductTrustStrip />
+
+              <ProductPdpTrustAccordions product={product} />
 
               {product.sku && (
                 <p className="text-xs text-neutral-400">
