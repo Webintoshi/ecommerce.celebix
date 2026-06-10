@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   CartCustomizationPayload,
   CustomizationSchema,
@@ -134,7 +134,7 @@ function OptionImage({
       src={currentSource}
       alt={alt}
       fill
-      sizes="(max-width: 768px) 52px, 64px"
+      sizes="(max-width: 640px) 160px, 96px"
       className={className}
       onError={handleError}
     />
@@ -386,14 +386,14 @@ export function DynamicCustomizationForm({
   }
 
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn("space-y-5 sm:space-y-6", className)}>
       {schema.description && (
         <p className="text-sm leading-relaxed text-[#6B5F54]">
           {schema.description}
         </p>
       )}
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5 sm:gap-6">
         {visibleSteps.map((step) => (
           <FormField
             key={step.id}
@@ -473,26 +473,25 @@ function FormField({
     <p className="mt-1 text-xs text-rose-600">Bu alan zorunludur</p>
   );
 
-  const imageAspectRatioClass =
-    IMAGE_ASPECT_RATIO_CLASS[step.style_config?.image_aspect_ratio || "1:1"];
   const imageFitMode = step.style_config?.image_fit_mode || "contain";
   const imageFitModeClass =
     imageFitMode === "cover" ? "object-cover" : "object-contain";
   const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3.5";
   const imageSelectColumnCount = Math.min(Math.max(step.options?.length || 1, 1), 4);
-  const imageSelectTileWidth =
-    imageSelectColumnCount >= 4
-      ? 64
-      : imageSelectColumnCount === 3
-        ? 72
-        : imageSelectColumnCount === 2
-          ? 80
-          : 88;
-  const mobileImageSelectTileWidth = Math.min(imageSelectTileWidth, 58);
-  const imageSelectGridStyle = {
-    "--mobile-image-select-columns": `repeat(${imageSelectColumnCount}, ${mobileImageSelectTileWidth}px)`,
-    "--image-select-columns": `repeat(${imageSelectColumnCount}, ${imageSelectTileWidth}px)`,
-  } as CSSProperties;
+  const imageSelectGridClass =
+    imageSelectColumnCount <= 1
+      ? "grid-cols-1 max-w-[11rem]"
+      : imageSelectColumnCount === 2
+        ? "grid-cols-2"
+        : imageSelectColumnCount === 3
+          ? "grid-cols-2 sm:grid-cols-3"
+          : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4";
+  const segmentedRadioGridClass =
+    optionCount === 2
+      ? "grid-cols-1 min-[520px]:grid-cols-2"
+      : optionCount === 3
+        ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        : "grid-cols-1";
   const hasSelectedValue =
     value !== undefined &&
     value !== null &&
@@ -542,14 +541,8 @@ function FormField({
             onValueChange={onChange}
             className={cn(
               useSegmentedRadio
-                ? "grid gap-2"
-                : "flex flex-col gap-2",
-              useSegmentedRadio &&
-                (optionCount === 2
-                  ? "grid-cols-2"
-                  : optionCount === 3
-                    ? "grid-cols-3"
-                    : "grid-cols-1"),
+                ? cn("grid gap-2.5", segmentedRadioGridClass)
+                : "flex flex-col gap-2.5",
             )}
           >
             {step.options?.map((option) => (
@@ -562,17 +555,22 @@ function FormField({
                 <Label
                   htmlFor={`${step.key}-${option.value}`}
                   className={cn(
-                    "flex min-h-11 w-full cursor-pointer items-center justify-center border px-3 py-2.5 text-center text-sm font-medium leading-snug transition-colors",
+                    "flex min-h-12 w-full cursor-pointer items-center justify-center border px-4 py-3 text-center transition-colors",
+                    useSegmentedRadio
+                      ? "flex-col gap-1 sm:min-h-11 sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5"
+                      : "min-h-12 justify-between gap-3 px-4 py-3 text-left sm:px-4",
                     CUSTOMIZATION_CONTROL_CLASS,
                     "hover:border-[#C4A062]",
                     "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#FAF7F2] peer-data-[state=checked]:text-[#12100D]",
                     showError && "border-rose-300",
                   )}
                 >
-                  <span>{formatDisplayLabel(option.label)}</span>
+                  <span className="text-sm font-medium leading-snug text-[#12100D]">
+                    {formatDisplayLabel(option.label)}
+                  </span>
                   {option.price_adjustment > 0 && (
-                    <span className="ml-1.5 text-xs font-normal text-[#9A7234]">
-                      (+{formatPrice(option.price_adjustment)})
+                    <span className="shrink-0 text-xs font-medium text-[#9A7234]">
+                      +{formatPrice(option.price_adjustment)}
                     </span>
                   )}
                 </Label>
@@ -587,39 +585,31 @@ function FormField({
       {step.type === "image_select" && (
         <div className="w-full max-w-full">
           {label}
-          <div
-            className={cn(
-              "inline-grid max-w-full justify-start gap-1.5 [grid-template-columns:var(--mobile-image-select-columns)] sm:gap-2 md:[grid-template-columns:var(--image-select-columns)]",
-            )}
-            style={imageSelectGridStyle}
-          >
+          <div className={cn("grid w-full gap-3", imageSelectGridClass)}>
             {step.options?.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative h-full w-full min-w-0 overflow-hidden rounded-md border bg-white transition-colors",
+                  "relative w-full min-w-0 overflow-hidden rounded-xl border bg-white text-left transition-colors",
                   value === option.value
-                    ? "border-[#8A6B37] bg-[#FAF7F2]"
+                    ? "border-[#8A6B37] bg-[#FAF7F2] ring-1 ring-[#8A6B37]/30"
                     : "border-[#E8DFD3] hover:border-[#C4A062]",
                   showError && "border-rose-300",
                 )}
               >
                 <div
                   className={cn(
-                    "relative aspect-square bg-neutral-50",
-                    imageWrapperClass === "p-3.5" ? "p-1" : "p-0.5",
+                    "relative aspect-[5/4] bg-[#FAF7F2] sm:aspect-square",
+                    imageWrapperClass,
                   )}
                 >
                   {option.image_url ? (
                     <OptionImage
                       source={option.image_url}
                       alt={option.label}
-                      className={cn(
-                        "object-center",
-                        imageFitModeClass
-                      )}
+                      className={cn("object-center", imageFitModeClass)}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs text-neutral-400">
@@ -627,24 +617,24 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div className="border-t border-[#E8DFD3] px-1 py-1 text-center">
+                <div className="border-t border-[#E8DFD3] px-2.5 py-2.5 text-center sm:px-3">
                   <p
                     className={cn(
-                      "break-words text-[9px] font-medium leading-tight text-[#12100D] sm:text-[10px]",
+                      "text-xs font-medium leading-snug text-[#12100D] sm:text-sm",
                       value === option.value && "font-semibold text-[#8A6B37]",
                     )}
                   >
                     {formatDisplayLabel(option.label)}
                   </p>
                   {option.price_adjustment > 0 && (
-                    <p className="mt-0.5 text-[8px] text-[#9A7234] sm:text-[9px]">
+                    <p className="mt-1 text-xs font-medium text-[#9A7234]">
                       +{formatPrice(option.price_adjustment)}
                     </p>
                   )}
                 </div>
                 {value === option.value ? (
-                  <div className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-sm bg-[#8A6B37]">
-                    <Check className="h-2 w-2 text-white" />
+                  <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#8A6B37] shadow-sm">
+                    <Check className="h-3 w-3 text-white" />
                   </div>
                 ) : null}
               </button>

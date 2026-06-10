@@ -34,7 +34,7 @@ import {
   CustomizationStep,
 } from "@/types/product-customization";
 import { PDP_BADGE, PDP_PRIMARY_BUTTON } from "@/lib/pdp-ui";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 
 const ProductCard = React.lazy(() =>
   import("@/components/product/ProductCard").then((mod) => ({
@@ -290,8 +290,14 @@ export function ProductDetailClient({
   const showFilledReviewStars =
     (product.reviewCount || 0) === 0 && Math.floor(product.rating || 0) === 0;
 
+  const addToCartLabel = isSchemaLoading
+    ? "Yükleniyor"
+    : isOutOfStock
+      ? "Tükendi"
+      : "Sepete Ekle";
+
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
+    <div className="min-h-screen bg-[#F8F8F8] pb-28 lg:pb-0">
       <div className="border-b border-neutral-200 bg-[#F8F8F8]">
         <div className="container-premium">
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3 sm:py-4">
@@ -329,7 +335,7 @@ export function ProductDetailClient({
         </div>
       </div>
 
-      <section className="py-8 lg:py-12">
+      <section className="py-5 sm:py-8 lg:py-12">
         <div className="container-premium">
           <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
             <div className="lg:sticky lg:top-28 lg:self-start">
@@ -369,7 +375,7 @@ export function ProductDetailClient({
                     {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
-                <span className="shrink-0 text-[30px] tracking-tight text-neutral-900 lg:text-[34px]">
+                <span className="shrink-0 text-2xl tracking-tight text-neutral-900 sm:text-[30px] lg:text-[34px]">
                   {formatPrice(displayPrice)}
                 </span>
                 {discountPercent > 0 && (
@@ -406,10 +412,10 @@ export function ProductDetailClient({
               ) : activeSchema ? (
                 <div
                   ref={extrasSectionRef}
-                  className="space-y-4 border-b border-[#E8DFD3] pb-6"
+                  className="rounded-2xl border border-[#E8DFD3] bg-white p-4 shadow-[0_12px_40px_-32px_rgba(18,16,13,0.18)] sm:p-5"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="font-serif text-xs font-medium uppercase tracking-[0.22em] text-[#9A7234]">
+                  <div className="mb-4 flex items-center gap-3 sm:mb-5">
+                    <span className="font-serif text-[11px] font-medium uppercase tracking-[0.22em] text-[#9A7234]">
                       Kişiselleştirme
                     </span>
                     <span className="h-px flex-1 bg-[#E8DFD3]" />
@@ -426,36 +432,29 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              <div className="space-y-5 border-y border-neutral-200 py-5">
+              <div className="space-y-4 border-y border-neutral-200 py-4 sm:space-y-5 sm:py-5">
                 {activeSchema && customizationState.extraPrice > 0 && (
                   <p className="text-sm text-neutral-500">
                     +{formatPrice(customizationState.extraPrice)} kişiselleştirme eklendi
                   </p>
                 )}
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
-                    className={`min-w-[220px] flex-1 ${PDP_PRIMARY_BUTTON}`}
+                    className={`hidden min-w-[220px] flex-1 lg:inline-flex ${PDP_PRIMARY_BUTTON}`}
                   >
                     <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
-                    {isSchemaLoading
-                      ? "Yükleniyor"
-                      : isOutOfStock
-                        ? "Tükendi"
-                        : "Sepete Ekle"}
+                    {addToCartLabel}
                   </button>
                   <button
                     onClick={toggleWishlist}
-                    className={`
-                      flex h-10 w-10 items-center justify-center text-neutral-900 transition-all
-                      ${
-                        isWishlisted
-                          ? "text-[#8A6B37]"
-                          : "hover:text-[#8A6B37]"
-                      }
-                    `}
+                    aria-label={isWishlisted ? "Favorilerden çıkar" : "Favorilere ekle"}
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-full border border-[#E8DFD3] bg-white text-neutral-900 transition-all",
+                      isWishlisted ? "text-[#8A6B37]" : "hover:border-[#C4A062] hover:text-[#8A6B37]",
+                    )}
                   >
                     <Heart
                       className={`h-5 w-5 stroke-[1.5] ${
@@ -465,7 +464,8 @@ export function ProductDetailClient({
                   </button>
                   <button
                     onClick={handleShare}
-                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[#8A6B37]"
+                    aria-label="Paylaş"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E8DFD3] bg-white text-neutral-900 transition-colors hover:border-[#C4A062] hover:text-[#8A6B37]"
                   >
                     <Share2 className="h-5 w-5 stroke-[1.5]" />
                   </button>
@@ -637,6 +637,27 @@ export function ProductDetailClient({
           </div>
         </div>
       </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E8DFD3] bg-white/95 px-4 py-3 shadow-[0_-12px_40px_rgba(18,16,13,0.08)] backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 shrink-0">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-500">
+              Toplam
+            </p>
+            <p className="font-serif text-xl font-semibold tracking-tight text-neutral-900">
+              {formatPrice(displayPrice)}
+            </p>
+          </div>
+          <button
+            onClick={handleAddToCart}
+            disabled={isOutOfStock || isSchemaLoading}
+            className={`min-h-12 flex-1 px-4 ${PDP_PRIMARY_BUTTON}`}
+          >
+            <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
+            {addToCartLabel}
+          </button>
+        </div>
+      </div>
 
       <div className="container-premium py-4 lg:py-6">
         <ProductReviewsSection
