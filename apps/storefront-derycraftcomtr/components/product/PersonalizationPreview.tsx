@@ -186,14 +186,6 @@ function normalizeCategoryValue(value?: string | null) {
     .replace(/^-+|-+$/g, "");
 }
 
-export function supportsPersonalizationPreview(
-  category?: string | null,
-  subcategory?: string | null,
-  productName?: string | null,
-) {
-  return resolvePreviewConfig(category, subcategory, productName) !== null;
-}
-
 function resolvePreviewConfig(
   category?: string | null,
   subcategory?: string | null,

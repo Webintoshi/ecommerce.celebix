@@ -12,7 +12,6 @@ type ProductReviewsSectionProps = {
   activeVariantId?: string | null;
   initialRating?: number;
   initialReviewCount?: number;
-  onSummaryChange?: (summary: { rating: number; reviewCount: number }) => void;
 };
 
 type UploadedReviewImage = {
@@ -88,7 +87,6 @@ export function ProductReviewsSection({
   activeVariantId,
   initialRating = 0,
   initialReviewCount = 0,
-  onSummaryChange,
 }: ProductReviewsSectionProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
@@ -152,10 +150,6 @@ export function ProductReviewsSection({
       reviewCount: reviews.length,
     };
   }, [initialRating, initialReviewCount, reviews]);
-
-  useEffect(() => {
-    onSummaryChange?.(summary);
-  }, [onSummaryChange, summary]);
 
   const resetForm = () => {
     setReviewerName("");

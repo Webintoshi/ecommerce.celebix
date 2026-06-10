@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ShoppingCart,
@@ -18,17 +18,10 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { ImageGallery } from "@/components/product/ImageGallery";
-import {
-  PersonalizationPreview,
-  supportsPersonalizationPreview,
-} from "@/components/product/PersonalizationPreview";
+import { PersonalizationPreview } from "@/components/product/PersonalizationPreview";
 import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
 import { ProductFeatures } from "@/components/product/ProductFeatures";
-import { ProductTrustStrip } from "@/components/product/ProductTrustStrip";
-import { ProductDeliveryTimeline } from "@/components/product/ProductDeliveryTimeline";
-import { ProductPdpTrustAccordions } from "@/components/product/ProductPdpTrustAccordions";
-import { MobileStickyBar } from "@/components/product/MobileStickyBar";
 import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
@@ -102,11 +95,7 @@ export function ProductDetailClient({
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set(["features"]));
-  const [reviewSummary, setReviewSummary] = useState({
-    rating: initialProduct?.rating || 0,
-    reviewCount: initialProduct?.reviewCount || 0,
-  });
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] =
     useState<ResolvedCustomizationSchema | null>(null);
@@ -145,22 +134,8 @@ export function ProductDetailClient({
 
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
-    setOpenAccordions(new Set(["features"]));
+    setOpenAccordions(new Set());
   }, [initialVariantIndex, initialProduct?.id]);
-
-  useEffect(() => {
-    setReviewSummary({
-      rating: product?.rating || 0,
-      reviewCount: product?.reviewCount || 0,
-    });
-  }, [product?.id, product?.rating, product?.reviewCount]);
-
-  const handleReviewSummaryChange = useCallback(
-    (summary: { rating: number; reviewCount: number }) => {
-      setReviewSummary(summary);
-    },
-    [],
-  );
 
   useEffect(() => {
     if (typeof window !== "undefined" && product) {
@@ -311,13 +286,8 @@ export function ProductDetailClient({
       ? variant.originalPrice +
         (activeSchema ? customizationState.extraPrice : 0)
       : undefined;
-  const displayRating = reviewSummary.rating;
-  const displayReviewCount = reviewSummary.reviewCount;
-  const filledStarCount =
-    displayReviewCount > 0 ? Math.min(5, Math.max(0, Math.round(displayRating))) : 0;
-  const showPersonalizationPreview =
-    Boolean(activeSchema) ||
-    supportsPersonalizationPreview(product.category, product.subcategory, product.name);
+  const showFilledReviewStars =
+    (product.reviewCount || 0) === 0 && Math.floor(product.rating || 0) === 0;
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
@@ -376,7 +346,7 @@ export function ProductDetailClient({
                     <Star
                       key={i}
                       className={`h-4 w-4 ${
-                        i < filledStarCount
+                        i < Math.floor(product.rating || 0) || showFilledReviewStars
                           ? "fill-[#8A6B37] text-[#8A6B37]"
                           : "fill-neutral-200 text-neutral-200"
                       }`}
@@ -384,11 +354,9 @@ export function ProductDetailClient({
                   ))}
                 </div>
                 <span className="text-sm text-neutral-500">
-                  ({displayReviewCount} değerlendirme)
+                  ({product.reviewCount || 0} değerlendirme)
                 </span>
               </div>
-
-              <ProductTrustStrip shortDescription={product.shortDescription} />
 
               <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap sm:gap-3">
                 {displayOriginalPrice !== undefined && (
@@ -407,9 +375,6 @@ export function ProductDetailClient({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-[#E8DFD3] bg-[#FAF7F2] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[#9A7234]">
-                  %100 El Yapımı
-                </span>
                 {product.featured && (
                   <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
                     Öne Çıkan
@@ -514,49 +479,11 @@ export function ProductDetailClient({
                 </div>
               </div>
 
-              <ProductDeliveryTimeline />
-
-              <ProductPdpTrustAccordions
-                openIds={openAccordions}
-                onToggle={toggleAccordion}
-                hasCustomization={Boolean(activeSchema)}
+              <PersonalizationPreview
+                category={product.category}
+                subcategory={product.subcategory}
+                productName={product.name}
               />
-
-              {showPersonalizationPreview ? (
-                <div className="border-t border-neutral-200">
-                  <button
-                    type="button"
-                    onClick={() => toggleAccordion("personalization-preview")}
-                    className="flex w-full items-center justify-between py-4 text-sm font-medium uppercase tracking-wide text-neutral-900"
-                  >
-                    Kişiselleştirme önizlemesi
-                    <ChevronDown
-                      className={`h-4 w-4 text-neutral-500 transition-transform ${
-                        openAccordions.has("personalization-preview") ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {openAccordions.has("personalization-preview") ? (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="pb-5">
-                          <PersonalizationPreview
-                            category={product.category}
-                            subcategory={product.subcategory}
-                            productName={product.name}
-                          />
-                        </div>
-                      </motion.div>
-                    ) : null}
-                  </AnimatePresence>
-                </div>
-              ) : null}
 
               <div className="border-t border-neutral-200 pt-1">
                 {[
@@ -617,6 +544,64 @@ export function ProductDetailClient({
                       </div>
                     ),
                   },
+                  {
+                    id: "shipping",
+                    label: "Kargo ve İade",
+                    content: (
+                      <div className="space-y-5 text-sm text-neutral-600">
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                            <span>🚛</span> KARGO VE İADE
+                          </h4>
+                          <ul className="list-none space-y-1.5">
+                            <li>
+                              <strong className="text-neutral-800">Ücretsiz Kargo:</strong> 1500 TL üzeri siparişlerde
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">Teslimat Süresi:</strong> 1-3 iş günü hazırlık + 2-4 iş günü kargo
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">Kargo Partneri:</strong> teslimat adresine göre değişebilir.
+                            </li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                            <span>💳</span> ÖDEME SEÇENEKLERİ
+                          </h4>
+                          <ul className="list-none space-y-1.5">
+                            <li>3D Secure ile kredi / banka kartı</li>
+                            <li>Havale / EFT</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                            <span>🔄</span> İADE KOŞULLARI
+                          </h4>
+                          <ul className="list-none space-y-1.5">
+                            <li>
+                              <strong className="text-neutral-800">14 gün içinde iade hakkı</strong>
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">İstisnalar:</strong> kişiselleştirilmiş ürünlerde iade yapılamaz
+                            </li>
+                            <li>
+                              <strong className="text-neutral-800">İade Kargosu:</strong> alıcı tarafından karşılanır
+                            </li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
+                            <span>✨</span> NEDEN DERYCRAFT?
+                          </h4>
+                          <ul className="list-none space-y-1.5">
+                            <li>%100 el yapımı hakiki deri ürünler</li>
+                            <li>SSL ile korunan güvenli alışveriş</li>
+                          </ul>
+                        </div>
+                      </div>
+                    ),
+                  },
                 ].map((item) => {
                   const isOpen = openAccordions.has(item.id);
                   return (
@@ -667,7 +652,6 @@ export function ProductDetailClient({
           activeVariantId={variant?.id}
           initialRating={product.rating}
           initialReviewCount={product.reviewCount}
-          onSummaryChange={handleReviewSummaryChange}
         />
       </div>
 
@@ -714,16 +698,6 @@ export function ProductDetailClient({
           )}
         </div>
       </section>
-
-      <MobileStickyBar
-        price={displayPrice}
-        originalPrice={displayOriginalPrice}
-        onAddToCart={handleAddToCart}
-        onToggleWishlist={toggleWishlist}
-        isWishlisted={isWishlisted}
-        isOutOfStock={isOutOfStock}
-        isDisabled={isSchemaLoading}
-      />
     </div>
   );
 }
