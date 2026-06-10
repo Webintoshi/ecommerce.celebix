@@ -4,15 +4,25 @@ import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import type { Product } from "@/types/product";
 import { ProductCard } from "@/components/product/ProductCard";
-import type { HomepageCategory } from "@/lib/homepage";
+import {
+  HOMEPAGE_CATEGORY_ORDER,
+  HOMEPAGE_SHOWCASE_CATEGORY_SLUGS,
+  type HomepageCategory,
+} from "@/lib/homepage";
 import { ROUTES } from "@/lib/constants";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import type { HomepageCurationSettings } from "@/lib/db/settings";
+import {
+  inferLegacySubcategorySlug,
+  readCelebixCategoryHierarchyMetadata,
+} from "@celebix/platform-config/src/category-hierarchy";
 
 type ShowcaseProduct = Product & {
   category?: string | null;
   subcategory?: string | null;
   is_featured?: boolean;
+  shopify_metadata?: unknown;
+  tags?: string[] | null;
 };
 
 interface ProductShowcaseSectionsProps {
@@ -41,6 +51,79 @@ function humanizeCategory(value?: string | null) {
     .join(" ");
 }
 
+function resolveProductCategorySlugs(product: ShowcaseProduct) {
+  const storedHierarchy = readCelebixCategoryHierarchyMetadata(product.shopify_metadata);
+  const pathSlugs = storedHierarchy.path
+    .map((segment) => segment.slug)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const category = product.category || storedHierarchy.categorySlug || pathSlugs[0] || "";
+  const subcategory =
+    inferLegacySubcategorySlug({
+      category: category || storedHierarchy.categorySlug,
+      subcategory: product.subcategory,
+      name: product.name,
+      slug: product.slug,
+      tags: product.tags,
+      metadata: product.shopify_metadata,
+    }) ||
+    (pathSlugs.length > 1 ? pathSlugs[pathSlugs.length - 1] || "" : "");
+  const normalizedPathSlugs =
+    pathSlugs.length > 0
+      ? pathSlugs
+      : [category, ...(subcategory && subcategory !== category ? [subcategory] : [])].filter(Boolean);
+
+  return {
+    category,
+    subcategory,
+    pathSlugs: normalizedPathSlugs,
+  };
+}
+
+function productMatchesCategorySlug(product: ShowcaseProduct, categorySlug: string) {
+  const target = normalizeKey(categorySlug);
+  if (!target) {
+    return false;
+  }
+
+  const resolved = resolveProductCategorySlugs(product);
+  const productSlugs = new Set(
+    [
+      resolved.category,
+      resolved.subcategory,
+      ...resolved.pathSlugs,
+      product.category,
+      product.subcategory,
+    ]
+      .map((value) => normalizeKey(value))
+      .filter(Boolean),
+  );
+
+  return productSlugs.has(target);
+}
+
+function resolveShowcaseCategory(
+  categorySlug: string,
+  categories: HomepageCategory[],
+): HomepageCategory {
+  const matchedCategory = categories.find((category) => category.slug === categorySlug);
+  if (matchedCategory) {
+    return matchedCategory;
+  }
+
+  const fallbackName =
+    HOMEPAGE_CATEGORY_ORDER.find((entry) => entry.slug === categorySlug)?.name ||
+    humanizeCategory(categorySlug);
+
+  return {
+    id: categorySlug,
+    name: fallbackName,
+    slug: categorySlug,
+    description: null,
+    image: null,
+    productCount: 0,
+  };
+}
+
 function resolveHomepageCuratedProductIds(
   categorySlug: string,
   homepageCuration?: HomepageCurationSettings,
@@ -59,17 +142,12 @@ function buildProductGroups(
   homepageCuration?: HomepageCurationSettings,
 ) {
   const usedProductIds = new Set<string>();
-  const groups = categories.slice(0, 4).map((category, index) => {
-    const categoryKey = normalizeKey(category.slug);
-    const categoryProducts = products.filter((product) => {
-      const productCategory = normalizeKey(product.category);
-      const productSubcategory = normalizeKey(product.subcategory);
-
-      return (
-        !usedProductIds.has(product.id) &&
-        (productCategory === categoryKey || productSubcategory === categoryKey)
-      );
-    });
+  const groups = HOMEPAGE_SHOWCASE_CATEGORY_SLUGS.map((categorySlug, index) => {
+    const category = resolveShowcaseCategory(categorySlug, categories);
+    const categoryProducts = products.filter(
+      (product) =>
+        !usedProductIds.has(product.id) && productMatchesCategorySlug(product, categorySlug),
+    );
 
     const explicitFeaturedProductIds = resolveHomepageCuratedProductIds(
       category.slug,
@@ -100,33 +178,15 @@ function buildProductGroups(
           : index === 1
             ? "Öne Çıkanlar"
             : index === 2
-              ? "Editörden"
-              : "Keşfet",
+              ? "Tamamlayıcılar"
+              : "Klasik Seçim",
       isCategoryDriven: true,
-      link: `/${category.slug}`,
+      link: ROUTES.category(category.slug),
       products: selectedProducts,
     };
   });
 
-  const fallbackProducts = products.filter((product) => !usedProductIds.has(product.id));
-  if (groups.some((group) => group.products.length > 0)) {
-    return groups.map((group) => {
-      if (group.products.length > 0) {
-        return group;
-      }
-
-      const selectedFallbackProducts = fallbackProducts.splice(0, 4);
-      selectedFallbackProducts.forEach((product) => usedProductIds.add(product.id));
-
-      return {
-        ...group,
-        title: group.title || humanizeCategory(group.link),
-        products: selectedFallbackProducts,
-      };
-    });
-  }
-
-  return [];
+  return groups.filter((group) => group.products.length > 0);
 }
 
 function EmptyShowcaseState() {

@@ -127,7 +127,7 @@ function hydrateHomepageProducts(
   });
 }
 
-const HOMEPAGE_CATEGORY_ORDER = [
+export const HOMEPAGE_CATEGORY_ORDER = [
   { slug: "cuzdan-kartlik", name: "Cüzdan & Kartlık" },
   { slug: "apple-watch-saat-kayislari", name: "Apple Watch Kayışları" },
   { slug: "saat-kayislari", name: "Deri Saat Kayışları" },
@@ -137,6 +137,13 @@ const HOMEPAGE_CATEGORY_ORDER = [
 ] as const;
 
 const HOMEPAGE_CATEGORY_SLUGS = HOMEPAGE_CATEGORY_ORDER.map((entry) => entry.slug);
+
+export const HOMEPAGE_SHOWCASE_CATEGORY_SLUGS = [
+  "cuzdan-kartlik",
+  "apple-watch-saat-kayislari",
+  "aksesuar",
+  "saat-kayislari",
+] as const;
 
 function sortCategoriesByHomepageSlugOrder<T extends { slug?: string | null }>(
   categories: T[],
