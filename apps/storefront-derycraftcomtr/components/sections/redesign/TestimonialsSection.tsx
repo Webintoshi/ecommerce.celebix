@@ -6,7 +6,6 @@ import type { HomepageTestimonial } from "@/lib/homepage";
 import { TESTIMONIALS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-const AUTO_PLAY_INTERVAL = 5000;
 const PROOF_IMAGE_WIDTH = 640;
 
 type TestimonialItem = {
@@ -252,7 +251,6 @@ export function TestimonialsSection({
 }) {
   const testimonials = useMemo(() => normalizeTestimonials(items), [items]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
 
   const totalSlides = Math.max(1, Math.ceil(testimonials.length / 2));
 
@@ -271,15 +269,6 @@ export function TestimonialsSection({
   useEffect(() => {
     setCurrentIndex(0);
   }, [totalSlides]);
-
-  useEffect(() => {
-    if (isPaused || totalSlides <= 1) {
-      return undefined;
-    }
-
-    const interval = setInterval(nextSlide, AUTO_PLAY_INTERVAL);
-    return () => clearInterval(interval);
-  }, [isPaused, nextSlide, totalSlides]);
 
   if (testimonials.length === 0) {
     return null;
@@ -305,11 +294,7 @@ export function TestimonialsSection({
           </div>
         </div>
 
-        <div
-          className="relative hidden lg:block"
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-        >
+        <div className="relative hidden lg:block">
           <div className="overflow-hidden">
             <div
               className="flex transition-transform duration-500 ease-out"
