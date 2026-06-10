@@ -64,13 +64,6 @@ function formatDisplayLabel(label: string) {
   return trimmed;
 }
 
-const IMAGE_ASPECT_RATIO_CLASS = {
-  "1:1": "aspect-square",
-  "3:2": "aspect-[3/2]",
-  "2:3": "aspect-[3/2]",
-  "16:9": "aspect-video",
-} as const;
-
 export interface CustomizationSelectionState {
   payload: CartCustomizationPayload | null;
   extraPrice: number;
