@@ -47,7 +47,15 @@ interface AppliedLogtoApplication {
   clientSecret: string | null;
 }
 
+interface LogtoM2MCredentials {
+  clientId: string;
+  clientSecret: string;
+  resource: string;
+}
+
 type LogtoSurfaceName = "admin" | "storefront";
+
+let cachedManagementToken: { value: string; expiresAt: number } | null = null;
 
 function readEnv(keys: string[]): string | null {
   for (const key of keys) {
@@ -133,8 +141,103 @@ function getLogtoManagementApiBaseUrl(): string | null {
   return baseUrl.endsWith("/api") ? baseUrl : `${baseUrl}/api`;
 }
 
-function getLogtoManagementToken(): string | null {
+function getStaticLogtoManagementToken(): string | null {
   return readEnv(["LOGTO_MANAGEMENT_API_TOKEN", "LOGTO_M2M_TOKEN", "LOGTO_MANAGEMENT_TOKEN"]);
+}
+
+function getLogtoManagementResource(): string {
+  return readEnv(["LOGTO_MANAGEMENT_RESOURCE"]) || "https://default.logto.app/api";
+}
+
+function getLogtoM2MCredentials(): LogtoM2MCredentials | null {
+  const clientId = readEnv([
+    "LOGTO_MANAGEMENT_M2M_CLIENT_ID",
+    "LOGTO_M2M_CLIENT_ID",
+    "LOGTO_MANAGEMENT_APP_ID",
+  ]);
+  const clientSecret = readEnv([
+    "LOGTO_MANAGEMENT_M2M_CLIENT_SECRET",
+    "LOGTO_M2M_CLIENT_SECRET",
+    "LOGTO_MANAGEMENT_APP_SECRET",
+  ]);
+
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    resource: getLogtoManagementResource(),
+  };
+}
+
+function buildLogtoTokenEndpointUrl(): string {
+  const baseUrl = getLogtoManagementApiBaseUrl();
+
+  if (!baseUrl) {
+    throw new Error("Logto management API URL eksik.");
+  }
+
+  return `${baseUrl.replace(/\/api$/, "")}/oidc/token`;
+}
+
+async function mintLogtoManagementToken(credentials: LogtoM2MCredentials): Promise<string> {
+  const response = await fetch(buildLogtoTokenEndpointUrl(), {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      resource: credentials.resource,
+      scope: "all",
+    }).toString(),
+  });
+
+  let payload: Record<string, unknown> = {};
+
+  try {
+    payload = asRecord(await response.json());
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok) {
+    const code = readOptionalString(payload.error) ?? readOptionalString(payload.code);
+    throw new Error(
+      `LOGTO_MANAGEMENT_TOKEN_MINT_FAILED: HTTP ${response.status}${code ? ` (${code})` : ""}`,
+    );
+  }
+
+  const accessToken = readOptionalString(payload.access_token);
+
+  if (!accessToken) {
+    throw new Error("LOGTO_MANAGEMENT_TOKEN_MINT_FAILED: access_token missing.");
+  }
+
+  const expiresIn = typeof payload.expires_in === "number" ? payload.expires_in : 3600;
+  cachedManagementToken = {
+    value: accessToken,
+    expiresAt: Date.now() + Math.max(expiresIn - 60, 60) * 1000,
+  };
+
+  return accessToken;
+}
+
+async function getLogtoManagementToken(): Promise<string | null> {
+  const credentials = getLogtoM2MCredentials();
+
+  if (credentials) {
+    if (cachedManagementToken && cachedManagementToken.expiresAt > Date.now()) {
+      return cachedManagementToken.value;
+    }
+
+    return mintLogtoManagementToken(credentials);
+  }
+
+  return getStaticLogtoManagementToken();
 }
 
 function buildLogtoApiUrl(pathname: string): string {
@@ -147,8 +250,8 @@ function buildLogtoApiUrl(pathname: string): string {
   return `${baseUrl}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
 }
 
-function getLogtoHeaders(): HeadersInit {
-  const token = getLogtoManagementToken();
+async function getLogtoHeaders(): Promise<HeadersInit> {
+  const token = await getLogtoManagementToken();
 
   if (!token) {
     throw new Error("Logto management token eksik.");
@@ -173,7 +276,7 @@ function mergeHeaders(baseHeaders: HeadersInit, extraHeaders?: HeadersInit): Hea
 async function logtoFetch(pathname: string, init: RequestInit = {}): Promise<unknown> {
   const response = await fetch(buildLogtoApiUrl(pathname), {
     ...init,
-    headers: mergeHeaders(getLogtoHeaders(), init.headers),
+    headers: mergeHeaders(await getLogtoHeaders(), init.headers),
   });
 
   if (!response.ok) {
@@ -221,7 +324,7 @@ export async function validateLogtoManagementAuthority(): Promise<void> {
   }
 
   const response = await fetch(buildLogtoApiUrl("/applications"), {
-    headers: getLogtoHeaders(),
+    headers: await getLogtoHeaders(),
   });
 
   if (!response.ok) {
@@ -400,22 +503,27 @@ export function getLogtoBootstrapStatus(): LogtoProvisioningStatus {
   const requirements = getLogtoAuthorityRequirements();
   const managementApiUrl = requirements.find((entry) => entry.key === "LOGTO_MANAGEMENT_API_URL");
   const managementToken = requirements.find((entry) => entry.key === "LOGTO_MANAGEMENT_API_TOKEN");
+  const managementM2MClientId = requirements.find((entry) => entry.key === "LOGTO_MANAGEMENT_M2M_CLIENT_ID");
+  const managementM2MClientSecret = requirements.find((entry) => entry.key === "LOGTO_MANAGEMENT_M2M_CLIENT_SECRET");
   const googleConnector = requirements.find((entry) => entry.key === "LOGTO_GOOGLE_CONNECTOR_READY");
   const smtpConnector = requirements.find((entry) => entry.key === "LOGTO_SMTP_CONNECTOR_READY");
   const issuer = process.env.LOGTO_ISSUER?.trim() || process.env.NEXT_PUBLIC_LOGTO_ISSUER?.trim() || "https://auth.celebix.co/oidc";
+  const hasM2MCredentials = Boolean(managementM2MClientId?.present && managementM2MClientSecret?.present);
+  const hasStaticToken = Boolean(managementToken?.present);
+  const hasManagementAuthority = hasStaticToken || hasM2MCredentials;
 
   return {
-    configured: Boolean(managementApiUrl?.present && managementToken?.present),
+    configured: Boolean(managementApiUrl?.present && hasManagementAuthority),
     issuer,
     hasManagementApiUrl: Boolean(managementApiUrl?.present),
-    hasManagementToken: Boolean(managementToken?.present),
+    hasManagementToken: hasManagementAuthority,
     googleConnector: googleConnector?.present ? "enabled" : "pending",
     emailRecovery: smtpConnector?.present ? "enabled" : "pending",
     requirements,
     lastError:
-      managementApiUrl?.present && managementToken?.present
+      managementApiUrl?.present && hasManagementAuthority
         ? undefined
-        : "Logto live apply authority eksik; config generation pending apply modunda calisir.",
+        : "Logto live apply authority eksik; static token veya M2M credentials gerekli.",
   };
 }
 
