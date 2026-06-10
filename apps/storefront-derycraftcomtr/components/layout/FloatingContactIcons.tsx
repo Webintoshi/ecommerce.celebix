@@ -140,6 +140,33 @@ export function FloatingIconInstagram({ className, size = 18 }: IconProps) {
   );
 }
 
+export function FloatingIconFaq({ className, size = 22 }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={cn("shrink-0", className)}
+      {...iconSize(size)}
+    >
+      <path
+        d="M12 17.25h.01"
+        stroke="currentColor"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+      />
+      <path
+        d="M9.2 9.15A2.8 2.8 0 0 1 12 8.25c1.55 0 2.75.95 2.75 2.35 0 1.45-1.05 1.95-1.95 2.45-.65.38-1.05.82-1.05 1.55v.15"
+        stroke="currentColor"
+        strokeWidth={STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth={STROKE} />
+    </svg>
+  );
+}
+
 export function FloatingIconForm({ className, size = 18 }: IconProps) {
   return (
     <svg
