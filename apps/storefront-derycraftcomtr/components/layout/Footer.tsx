@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION, SOCIAL_LINKS } from "@/lib/constants";
+import { SITE_NAME, SITE_DESCRIPTION, SOCIAL_LINKS } from "@/lib/constants";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
@@ -278,10 +278,10 @@ export function Footer({ categoryLinks }: { categoryLinks: StorefrontFooterCateg
               )}
             </Link>
 
-            <h2 className="mt-8 font-serif text-[1.65rem] leading-tight tracking-[-0.02em] text-white sm:text-[1.85rem]">
+            <p className="mt-6 max-w-sm font-sans text-[15px] font-medium leading-relaxed text-white/90">
               {brandHeadline}
-            </h2>
-            <p className="mt-4 max-w-sm text-[13px] leading-7 text-white/52">{brandStory}</p>
+            </p>
+            <p className="mt-3 max-w-sm font-sans text-[13px] leading-7 text-white/62">{brandStory}</p>
 
             <div className="mt-8 space-y-2.5">
               <a
