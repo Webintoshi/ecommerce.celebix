@@ -2,16 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  X,
-  ShoppingBag,
-  Plus,
-  Minus,
-  Trash2,
-  Check,
-  ArrowRight,
-  Lock,
-} from "lucide-react";
+import { X, ShoppingBag, Trash2, Check, ArrowRight, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
@@ -29,7 +20,6 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
   const {
     items,
     removeFromCart,
-    updateQuantity,
     subtotal,
     shipping,
     total,
@@ -77,7 +67,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[9999] bg-black/50"
+            className="fixed inset-0 z-[9999] bg-[#12100D]/40 backdrop-blur-[2px]"
             onClick={onClose}
           />
 
@@ -88,48 +78,50 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
             variants={slideVariants}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
             className={cn(
-              "fixed z-[10000] flex flex-col bg-white shadow-2xl",
-              "inset-x-0 bottom-0 h-[90vh] rounded-t-[2rem]",
-              "sm:inset-x-auto sm:bottom-0 sm:right-0 sm:top-0 sm:h-full sm:w-[400px] sm:rounded-none",
+              "fixed z-[10000] flex flex-col bg-[#FAF7F2] shadow-[0_24px_80px_rgba(18,16,13,0.18)]",
+              "inset-x-0 bottom-0 max-h-[92vh] rounded-t-[1.75rem]",
+              "sm:inset-x-auto sm:bottom-0 sm:right-0 sm:top-0 sm:h-full sm:max-h-none sm:w-[min(92vw,480px)] sm:rounded-none md:w-[520px]",
             )}
           >
             <div className="flex w-full justify-center pb-1 pt-3 sm:hidden">
-              <div className="h-1.5 w-12 rounded-full bg-gray-300" />
+              <div className="h-1 w-10 rounded-full bg-[#E8DFD3]" />
             </div>
 
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-gray-900">Sepet</h2>
-                <span className="text-sm font-medium text-gray-500">
+            <div className="flex items-center justify-between border-b border-[#E8DFD3] px-5 py-4 sm:px-6">
+              <div className="flex items-baseline gap-2">
+                <h2 className="font-serif text-xl font-semibold text-[#12100D] sm:text-[1.35rem]">
+                  Sepet
+                </h2>
+                <span className="text-xs font-medium text-neutral-500 sm:text-sm">
                   ({getTotalItems()} ürün)
                 </span>
               </div>
               <button
                 onClick={onClose}
-                className="rounded-full p-2 transition-colors hover:bg-gray-100"
+                className="grid h-9 w-9 place-items-center rounded-full border border-[#E8DFD3] bg-white text-neutral-600 transition-colors hover:border-[#C4A062] hover:text-[#12100D]"
                 aria-label="Kapat"
               >
-                <X className="h-5 w-5 text-gray-500" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             {lastAddedItem ? (
-              <div className="flex items-center gap-4 border-b border-emerald-100 bg-emerald-50 px-6 py-4 animate-in fade-in slide-in-from-top-2">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 shadow-sm">
-                  <Check className="h-5 w-5 text-white" />
+              <div className="flex items-center gap-3 border-b border-[#D8E8DF] bg-[#F0F7F2] px-5 py-3.5 animate-in fade-in slide-in-from-top-2 sm:px-6 sm:py-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#8A6B37] shadow-sm">
+                  <Check className="h-4 w-4 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-[#8A6B37]">
                     Yeni eklendi
                   </p>
-                  <p className="truncate text-sm font-bold text-gray-900">
+                  <p className="truncate text-sm font-medium text-[#12100D]">
                     {lastAddedItem.product.name}
                   </p>
-                  <p className="text-xs font-medium text-emerald-600">
+                  <p className="text-xs font-medium text-neutral-600">
                     {formatPrice(lastAddedItem.unitPrice * lastAddedItem.quantity)}
                   </p>
                 </div>
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-100 bg-white text-2xl shadow-sm">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E8DFD3] bg-white">
                   {lastAddedItemImage ? (
                     <img
                       src={lastAddedItemImage}
@@ -145,39 +137,40 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
             shipping > 0 &&
             shippingThreshold != null &&
             remainingForFreeShipping > 0 ? (
-              <div className="border-b border-gray-100 bg-gray-50 px-6 py-3">
-                <p className="mb-2 text-xs text-gray-600">
-                  <span className="font-bold text-primary">
+              <div className="border-b border-[#E8DFD3] bg-white px-5 py-3 sm:px-6">
+                <p className="mb-2 text-[11px] text-neutral-600 sm:text-xs">
+                  <span className="font-semibold text-[#8A6B37]">
                     {formatPrice(remainingForFreeShipping)}
                   </span>{" "}
-                  ücretsiz kargoya{" "}
-                  <span className="font-bold text-emerald-600">kalan tutar</span>
+                  ücretsiz kargoya kalan tutar
                 </p>
-                <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                <div className="h-1.5 overflow-hidden rounded-full bg-[#E8DFD3]">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
+                    className="h-full rounded-full bg-[#8A6B37] transition-all duration-500"
                     style={{ width: `${freeShippingProgress}%` }}
                   />
                 </div>
               </div>
             ) : null}
 
-            <div className="flex-1 space-y-4 overflow-y-auto p-6">
+            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:space-y-4 sm:px-6 sm:py-5">
               {items.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center space-y-6 text-center">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gray-50">
-                    <ShoppingBag className="h-10 w-10 text-gray-300" />
+                <div className="flex h-full flex-col items-center justify-center space-y-5 py-10 text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border border-[#E8DFD3] bg-white">
+                    <ShoppingBag className="h-8 w-8 text-neutral-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">Sepetiniz boş</h3>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <h3 className="font-serif text-lg font-semibold text-[#12100D]">
+                      Sepetiniz boş
+                    </h3>
+                    <p className="mt-1 text-sm text-neutral-500">
                       Henüz sepetinize ürün eklemediniz.
                     </p>
                   </div>
                   <Link
                     href={buildPath("/urunler")}
                     onClick={onClose}
-                    className="rounded-xl bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-red-800"
+                    className="inline-flex items-center justify-center border border-[#8A6B37] bg-[#8A6B37] px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:border-[#755a2d] hover:bg-[#755a2d]"
                   >
                     Alışverişe Başla
                   </Link>
@@ -192,70 +185,49 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   return (
                     <div
                       key={item.id}
-                      className="flex gap-4 rounded-2xl border border-gray-100/50 bg-gray-50 p-4 transition-colors hover:border-gray-200"
+                      className="rounded-xl border border-[#E8DFD3] bg-white p-3.5 sm:p-4"
                     >
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-white text-2xl shadow-sm">
-                        {itemImage ? (
-                          <img
-                            src={itemImage}
-                            alt={item.product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <h6
-                              className="m-0 overflow-hidden font-sans text-[13px] font-medium leading-[1.2] text-gray-900"
-                              style={{
-                                fontFamily: "var(--store-font-body)",
-                                display: "-webkit-box",
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
-                              }}
-                            >
-                              {item.product.name}
-                            </h6>
-                            <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                              {item.variant.name}
-                            </p>
-                          </div>
-                          <span className="shrink-0 text-sm font-bold text-primary">
-                            {formatPrice(item.unitPrice * item.quantity)}
-                          </span>
+                      <div className="flex gap-3 sm:gap-4">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E8DFD3] bg-[#FAF7F2] sm:h-[72px] sm:w-[72px]">
+                          {itemImage ? (
+                            <img
+                              src={itemImage}
+                              alt={item.product.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : null}
                         </div>
-
-                        {item.customization ? (
-                          <CartItemCustomizationDisplay
-                            customization={item.customization}
-                          />
-                        ) : null}
-
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
-                            <button
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-50 active:scale-95"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="w-6 text-center text-sm font-bold">
-                              {item.quantity}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <h6 className="line-clamp-2 font-sans text-[13px] font-medium leading-snug text-[#12100D] sm:text-sm">
+                                {item.product.name}
+                              </h6>
+                              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-neutral-500">
+                                {item.variant.name}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-sm font-semibold text-[#12100D]">
+                              {formatPrice(item.unitPrice * item.quantity)}
                             </span>
+                          </div>
+
+                          {item.customization ? (
+                            <CartItemCustomizationDisplay
+                              customization={item.customization}
+                              compact
+                            />
+                          ) : null}
+
+                          <div className="mt-2 flex justify-end">
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-50 active:scale-95"
+                              onClick={() => removeFromCart(item.id)}
+                              className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-[#FAF7F2] hover:text-[#8A6B37]"
+                              aria-label="Sepetten kaldır"
                             >
-                              <Plus className="h-3 w-3" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -265,20 +237,18 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
             </div>
 
             {items.length > 0 ? (
-              <div className="space-y-4 border-t border-gray-100 bg-white p-6 pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] sm:pb-6">
+              <div className="space-y-4 border-t border-[#E8DFD3] bg-white px-5 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-12px_40px_rgba(18,16,13,0.06)] sm:px-6 sm:pb-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-500">Ara Toplam</span>
-                    <span className="font-bold text-gray-900">
-                      {formatPrice(subtotal)}
-                    </span>
+                    <span className="text-neutral-500">Ara Toplam</span>
+                    <span className="font-medium text-[#12100D]">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-500">Kargo</span>
+                    <span className="text-neutral-500">Kargo</span>
                     <span
                       className={cn(
-                        "font-bold",
-                        shipping === 0 ? "text-emerald-600" : "text-gray-900",
+                        "font-medium",
+                        shipping === 0 ? "text-[#8A6B37]" : "text-[#12100D]",
                       )}
                     >
                       {shipping === 0 ? "Ücretsiz" : formatPrice(shipping)}
@@ -286,9 +256,11 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl border border-[#eecfc2] bg-[#F5E6E0] p-4">
-                  <span className="font-bold text-[#7B1113]">Toplam</span>
-                  <span className="text-2xl font-black tracking-tight text-[#7B1113]">
+                <div className="flex items-center justify-between rounded-lg border border-[#E8DFD3] bg-[#FAF7F2] px-4 py-3.5">
+                  <span className="text-sm font-semibold uppercase tracking-[0.12em] text-[#12100D]">
+                    Toplam
+                  </span>
+                  <span className="font-serif text-2xl font-semibold text-[#12100D]">
                     {formatPrice(total)}
                   </span>
                 </div>
@@ -296,12 +268,12 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 <Link
                   href={buildPath("/odeme")}
                   onClick={onClose}
-                  className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-800 active:scale-[0.98]"
+                  className="flex h-12 w-full items-center justify-center gap-2 border border-[#12100D] bg-[#12100D] text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:border-[#3D342C] hover:bg-[#3D342C] active:scale-[0.99] sm:h-[52px]"
                 >
-                  Ödemeye Geç <ArrowRight className="h-5 w-5" />
+                  Ödemeye Geç <ArrowRight className="h-4 w-4" />
                 </Link>
 
-                <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
+                <div className="flex items-center justify-center gap-2 text-[10px] text-neutral-400">
                   <Lock className="h-3 w-3" />
                   <span>256-bit SSL ile güvenli ödeme</span>
                 </div>
