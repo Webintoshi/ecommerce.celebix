@@ -76,22 +76,6 @@ function getSegmentedRadioGridClass(optionCount: number) {
   return "grid-cols-1";
 }
 
-function getImageSelectGridClass(optionCount: number) {
-  if (optionCount <= 1) {
-    return "grid-cols-1 max-w-[9rem]";
-  }
-
-  if (optionCount === 2) {
-    return "grid-cols-2";
-  }
-
-  if (optionCount === 3) {
-    return "grid-cols-3";
-  }
-
-  return "grid-cols-2 sm:grid-cols-4";
-}
-
 export interface CustomizationSelectionState {
   payload: CartCustomizationPayload | null;
   extraPrice: number;
@@ -155,7 +139,7 @@ function OptionImage({
       src={currentSource}
       alt={alt}
       fill
-      sizes="(max-width: 640px) 30vw, 96px"
+      sizes="(max-width: 640px) 25vw, 96px"
       className={className}
       onError={handleError}
     />
@@ -498,8 +482,6 @@ function FormField({
   const imageFitModeClass =
     imageFitMode === "cover" ? "object-cover" : "object-contain";
   const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3.5";
-  const imageSelectColumnCount = Math.min(Math.max(step.options?.length || 1, 1), 4);
-  const imageSelectGridClass = getImageSelectGridClass(imageSelectColumnCount);
   const segmentedRadioGridClass = getSegmentedRadioGridClass(optionCount);
   const hasSelectedValue =
     value !== undefined &&
@@ -606,14 +588,14 @@ function FormField({
       {step.type === "image_select" && (
         <div className="w-full max-w-full">
           {label}
-          <div className={cn("grid w-full min-w-0 gap-2", imageSelectGridClass)}>
+          <div className="flex w-full min-w-0 flex-nowrap gap-2">
             {step.options?.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative min-w-0 overflow-hidden rounded-md border bg-white text-left transition-colors",
+                  "relative min-w-0 flex-1 basis-0 overflow-hidden rounded-md border bg-white text-left transition-colors",
                   value === option.value
                     ? "border-[#8A6B37] bg-[#FAF7F2]"
                     : "border-[#E8DFD3] hover:border-[#C4A062]",
