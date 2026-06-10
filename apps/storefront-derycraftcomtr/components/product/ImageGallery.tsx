@@ -482,30 +482,6 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               </button>
             </>
           )}
-
-          {/* Dots indicator */}
-          {displayImages.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1">
-              {displayImages.map((_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedIndex(index);
-                  }}
-                  className="flex h-11 w-11 items-center justify-center"
-                  aria-label={`Görsel ${index + 1}`}
-                >
-                  <span
-                    className={`block rounded-full transition-all ${
-                      index === selectedIndex ? "h-2 w-5 bg-primary" : "h-2 w-2 bg-neutral-300"
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
       {isClient ? createPortal(lightboxContent, document.body) : null}

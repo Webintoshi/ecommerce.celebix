@@ -290,14 +290,8 @@ export function ProductDetailClient({
   const showFilledReviewStars =
     (product.reviewCount || 0) === 0 && Math.floor(product.rating || 0) === 0;
 
-  const addToCartLabel = isSchemaLoading
-    ? "Yükleniyor"
-    : isOutOfStock
-      ? "Tükendi"
-      : "Sepete Ekle";
-
   return (
-    <div className="min-h-screen bg-[#F8F8F8] pb-28 lg:pb-0">
+    <div className="min-h-screen bg-[#F8F8F8]">
       <div className="border-b border-neutral-200 bg-[#F8F8F8]">
         <div className="container-premium">
           <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3 sm:py-4">
@@ -439,14 +433,18 @@ export function ProductDetailClient({
                   </p>
                 )}
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
-                    className={`hidden min-w-[220px] flex-1 lg:inline-flex ${PDP_PRIMARY_BUTTON}`}
+                    className={`min-w-[220px] flex-1 ${PDP_PRIMARY_BUTTON}`}
                   >
                     <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
-                    {addToCartLabel}
+                    {isSchemaLoading
+                      ? "Yükleniyor"
+                      : isOutOfStock
+                        ? "Tükendi"
+                        : "Sepete Ekle"}
                   </button>
                   <button
                     onClick={toggleWishlist}
@@ -637,27 +635,6 @@ export function ProductDetailClient({
           </div>
         </div>
       </section>
-
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E8DFD3] bg-white/95 px-4 py-3 shadow-[0_-12px_40px_rgba(18,16,13,0.08)] backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 shrink-0">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-500">
-              Toplam
-            </p>
-            <p className="font-serif text-xl font-semibold tracking-tight text-neutral-900">
-              {formatPrice(displayPrice)}
-            </p>
-          </div>
-          <button
-            onClick={handleAddToCart}
-            disabled={isOutOfStock || isSchemaLoading}
-            className={`min-h-12 flex-1 px-4 ${PDP_PRIMARY_BUTTON}`}
-          >
-            <ShoppingCart className="h-5 w-5 stroke-[1.5]" />
-            {addToCartLabel}
-          </button>
-        </div>
-      </div>
 
       <div className="container-premium py-4 lg:py-6">
         <ProductReviewsSection
