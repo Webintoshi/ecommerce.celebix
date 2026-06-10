@@ -21,6 +21,10 @@ export const CUSTOMER_AUTH_URLS = {
   register: buildCustomerAuthBridgePath("register"),
 } as const;
 
+export function buildRegisterBridgePath(nextPath?: string | null) {
+  return buildCustomerAuthBridgePath("register", nextPath);
+}
+
 export function buildProtectedSignInBridgePath(nextPath?: string | null) {
   return buildCustomerAuthBridgePath("sign_in", nextPath);
 }

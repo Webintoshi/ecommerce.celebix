@@ -13,7 +13,7 @@ import { fetchShippingRatesForLocation, getResolvedShippingPrice } from "@/lib/s
 import { PaymentGatewayConfig } from "@/types/payment";
 import { ShippingRate } from "@/lib/shipping-storage";
 import { isStorefrontAbandonedCartDisabled, isStorefrontCustomerAuthMigrationRequired } from "@/lib/supabase-disconnect-readiness";
-import { CUSTOMER_AUTH_URLS } from "@/lib/customer-auth-links";
+import { buildRegisterBridgePath } from "@/lib/customer-auth-links";
 import { toast } from "sonner";
 import {
   CreditCard,
@@ -28,8 +28,6 @@ import {
   EyeOff,
   ShoppingBag,
   ArrowLeft,
-  CircleUser,
-  ArrowUpRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckoutStepIndicator } from "@/components/checkout/CheckoutStepIndicator";
@@ -808,27 +806,18 @@ export default function CheckoutPage() {
                     )}
 
                     {!user && !customerAuthMigrationRequired && logtoCustomerAuthEnabled && (
-                      <div className="flex gap-4 rounded-xl border border-[#E8DFD3] bg-[#FBF8F4] p-4 sm:p-5">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#E8DFD3] bg-white text-[#8A6B37]">
-                          <CircleUser className="h-5 w-5" strokeWidth={1.75} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-[#12100D]">
-                            Misafir olarak devam edebilirsiniz
-                          </p>
-                          <p className="mt-1 text-sm leading-6 text-neutral-600">
-                            Hesap oluşturmak zorunlu değil. Siparişinizi misafir olarak tamamlayabilir
-                            veya hesabınızı bir sonraki adımda oluşturabilirsiniz.
-                          </p>
-                          <a
-                            href={CUSTOMER_AUTH_URLS.register}
-                            className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8A6B37] transition-colors hover:text-[#755a2d]"
-                          >
-                            Hesap oluştur
-                            <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
-                          </a>
-                        </div>
-                      </div>
+                      <label className="flex cursor-pointer items-center gap-3">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 shrink-0 cursor-pointer rounded border-[#E8DFD3] text-[#8A6B37] focus:ring-[#8A6B37]"
+                          onChange={() => {
+                            window.location.href = buildRegisterBridgePath("/odeme");
+                          }}
+                        />
+                        <span className="text-sm text-[#12100D]">
+                          Ücretsiz Hesap Oluşturmak istiyorum.
+                        </span>
+                      </label>
                     )}
 
                     <section className="space-y-4">
