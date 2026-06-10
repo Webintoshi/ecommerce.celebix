@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeryCraft — Premium SSS Floating Widget v3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #12100d;
+      --ink-mid: #3d342c;
+      --ink-soft: #6b5f54;
+      --cream: #faf7f2;
+      --white: #ffffff;
+      --line: #e8dfd3;
+      --gold: #9a7234;
+      --gold-light: #c4a062;
+      --gold-glow: rgba(196, 160, 98, 0.35);
+      --fab-blue: #4a90e2;
+      --fab-blue-hover: #3d7fd0;
+      --fab-blue-shadow: rgba(74, 144, 226, 0.42);
+      --serif: "Cormorant Garamond", Georgia, serif;
+      --sans: "Inter", system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: #f0ede8;
+      min-height: 100vh;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* mock storefront */
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 7rem;
+    }
+
+    .banner {
+      background: var(--cream);
+      border: 1px solid var(--line);
+      border-left: 2px solid var(--gold);
+      padding: 1rem 1.25rem;
+      font-size: 0.75rem;
+      line-height: 1.65;
+      color: var(--ink-soft);
+      margin-bottom: 2rem;
+    }
+
+    .banner strong { color: var(--ink); }
+
+    .hero {
+      background: var(--white);
+      border: 1px solid var(--line);
+      padding: 3.5rem 2rem;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .card { aspect-ratio: 3/4; background: #e4dfd8; }
+
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* backdrop */
+    .dc-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: rgba(18, 16, 13, 0.22);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.35s ease, visibility 0.35s;
+    }
+
+    .dc-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* widget root */
+    .dc-widget {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.85rem;
+    }
+
+    @media (min-width: 640px) {
+      .dc-widget { bottom: 1.75rem; right: 1.75rem; }
+    }
+
+    /* teaser pill (closed only) */
+    .dc-teaser {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.85rem 0.45rem 0.65rem;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      box-shadow: 0 8px 28px rgba(18, 16, 13, 0.08);
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-mid);
+      opacity: 0;
+      transform: translateX(8px);
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .dc-widget:not(.is-open) .dc-teaser {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+      animation: teaser-in 0.6s ease 1.2s both;
+    }
+
+    @keyframes teaser-in {
+      from { opacity: 0; transform: translateX(12px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .dc-teaser__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 0 3px rgba(154, 114, 52, 0.2);
+      animation: dot-pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes dot-pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(154, 114, 52, 0.2); }
+      50% { box-shadow: 0 0 0 5px rgba(154, 114, 52, 0.08); }
+    }
+
+    /* panel */
+    .dc-panel {
+      width: min(400px, calc(100vw - 2rem));
+      background: var(--cream);
+      border: 1px solid var(--line);
+      border-radius: 1.5rem;
+      overflow: hidden;
+      box-shadow:
+        0 32px 80px rgba(18, 16, 13, 0.16),
+        0 8px 24px rgba(18, 16, 13, 0.06);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(16px) scale(0.96);
+      transform-origin: bottom right;
+      transition:
+        opacity 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0.38s;
+    }
+
+    .dc-panel.open {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    .dc-panel__rim {
+      height: 1px;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--gold-light) 30%,
+        var(--gold) 50%,
+        var(--gold-light) 70%,
+        transparent 100%
+      );
+    }
+
+    .dc-panel__head {
+      position: relative;
+      padding: 1.5rem 1.5rem 1.15rem;
+      background: var(--white);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dc-panel__close {
+      position: absolute;
+      top: 1.1rem;
+      right: 1.1rem;
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--cream);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      color: var(--ink-soft);
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+
+    .dc-panel__close:hover {
+      border-color: var(--gold);
+      color: var(--ink);
+      background: var(--white);
+    }
+
+    .dc-panel__eyebrow {
+      font-size: 0.58rem;
+      font-weight: 500;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .dc-panel__title {
+      margin-top: 0.5rem;
+      font-family: var(--serif);
+      font-size: 1.65rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      color: var(--ink);
+    }
+
+    .dc-panel__desc {
+      margin-top: 0.55rem;
+      font-size: 0.76rem;
+      line-height: 1.6;
+      color: var(--ink-soft);
+      max-width: 28ch;
+    }
+
+    /* accordion */
+    .dc-faq {
+      list-style: none;
+      max-height: min(52vh, 400px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--line) transparent;
+    }
+
+    .dc-faq::-webkit-scrollbar { width: 3px; }
+    .dc-faq::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+    .dc-faq__item {
+      border-bottom: 1px solid var(--line);
+      transition: background 0.25s ease;
+    }
+
+    .dc-faq__item:last-child { border-bottom: none; }
+
+    .dc-faq__item.is-open {
+      background: rgba(255, 255, 255, 0.65);
+    }
+
+    .dc-faq__q {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      padding: 1rem 1.5rem;
+      background: transparent;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      font-family: var(--sans);
+      transition: color 0.2s;
+    }
+
+    .dc-faq__q:hover { color: var(--ink); }
+
+    .dc-faq__num {
+      flex-shrink: 0;
+      width: 22px;
+      margin-top: 1px;
+      font-family: var(--serif);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--gold);
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+
+    .dc-faq__item.is-open .dc-faq__num { opacity: 1; }
+
+    .dc-faq__text {
+      flex: 1;
+      font-size: 0.78rem;
+      font-weight: 500;
+      line-height: 1.5;
+      color: var(--ink-mid);
+      transition: color 0.2s;
+    }
+
+    .dc-faq__item.is-open .dc-faq__text { color: var(--ink); }
+
+    .dc-faq__chev {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      margin-top: 1px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      color: var(--ink-soft);
+      transition: transform 0.3s ease, background 0.2s, border-color 0.2s, color 0.2s;
+    }
+
+    .dc-faq__chev svg { width: 10px; height: 10px; }
+
+    .dc-faq__item.is-open .dc-faq__chev {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--white);
+      transform: rotate(180deg);
+    }
+
+    .dc-faq__a-wrap {
+      height: 0;
+      overflow: hidden;
+      transition: height 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .dc-faq__a {
+      padding: 0 1.5rem 1.1rem 3.55rem;
+      font-size: 0.74rem;
+      line-height: 1.7;
+      color: var(--ink-soft);
+    }
+
+    /* footer */
+    .dc-panel__foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.5rem 1.2rem;
+      background: var(--white);
+      border-top: 1px solid var(--line);
+    }
+
+    .dc-panel__link {
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: var(--ink);
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 2px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .dc-panel__link:hover {
+      color: var(--gold);
+      border-color: var(--gold);
+    }
+
+    .dc-panel__wa {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: var(--ink-soft);
+      transition: color 0.2s;
+    }
+
+    .dc-panel__wa:hover { color: #1a5c36; }
+    .dc-panel__wa svg { width: 15px; height: 15px; }
+
+    /* FAB row */
+    .dc-fab-row {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    /* FAB — referans: mavi daire + beyaz balon + 3 nokta */
+    .dc-fab {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      background: var(--fab-blue);
+      color: var(--white);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 8px 24px var(--fab-blue-shadow);
+      flex-shrink: 0;
+      transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        background 0.2s ease,
+        box-shadow 0.28s ease;
+    }
+
+    .dc-fab:hover {
+      transform: translateY(-2px) scale(1.03);
+      background: var(--fab-blue-hover);
+      box-shadow: 0 12px 32px rgba(74, 144, 226, 0.5);
+    }
+
+    .dc-fab:active {
+      transform: translateY(0) scale(0.97);
+    }
+
+    .dc-fab.is-open {
+      background: var(--fab-blue-hover);
+    }
+
+    .dc-fab__icon {
+      position: relative;
+      z-index: 1;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    .dc-fab__icon--chat {
+      width: 30px;
+      height: 30px;
+    }
+
+    .dc-fab__icon--close {
+      display: none;
+      width: 22px;
+      height: 22px;
+    }
+
+    .dc-fab.is-open .dc-fab__icon--chat { display: none; }
+    .dc-fab.is-open .dc-fab__icon--close { display: block; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dc-teaser, .dc-teaser__dot { animation: none; }
+      .dc-panel, .dc-backdrop, .dc-faq__a-wrap, .dc-fab { transition-duration: 0.01ms; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page">
+    <div class="banner">
+      <strong>Premium SSS Widget — v4</strong><br />
+      Sağ alttaki mavi konuşma balonu butonuna tıklayın. Açılan panelde <em>Sıkça sorulan sorular</em> accordion formatında gelir.
+      Soruya tıklayınca cevap açılır. Beğenirseniz siteye React bileşeni olarak ekleriz.
+    </div>
+    <div class="hero">
+      <h1>DeryCraft Mağaza Önizlemesi</h1>
+    </div>
+    <div class="grid">
+      <div class="card"></div>
+      <div class="card"></div>
+      <div class="card"></div>
+      <div class="card"></div>
+    </div>
+  </div>
+
+  <!-- backdrop -->
+  <div class="dc-backdrop" id="dc-backdrop" aria-hidden="true"></div>
+
+  <!-- widget -->
+  <div class="dc-widget" id="dc-widget">
+    <div
+      class="dc-panel"
+      id="dc-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sıkça sorulan sorular"
+      aria-hidden="true"
+    >
+      <div class="dc-panel__rim"></div>
+
+      <div class="dc-panel__head">
+        <button type="button" class="dc-panel__close" id="dc-close" aria-label="Kapat">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 8l8 8M16 8l-8 8" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <p class="dc-panel__eyebrow">Yardım merkezi</p>
+        <h2 class="dc-panel__title">Sıkça sorulan sorular</h2>
+        <p class="dc-panel__desc">Sipariş, teslimat ve ürünlerimiz hakkında merak ettikleriniz.</p>
+      </div>
+
+      <ul class="dc-faq" id="dc-faq">
+        <li class="dc-faq__item">
+          <button type="button" class="dc-faq__q" aria-expanded="false">
+            <span class="dc-faq__num">01</span>
+            <span class="dc-faq__text">Teslimat süresi ne kadar?</span>
+            <span class="dc-faq__chev"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>
+          <div class="dc-faq__a-wrap"><div class="dc-faq__a">Ürünlerimizin üretim süresi, seçtiğiniz ürün türü ve kişiselleştirme taleplerinize göre değişiklik gösterir. Net teslimat süresi için bizimle iletişime geçebilirsiniz.</div></div>
+        </li>
+        <li class="dc-faq__item">
+          <button type="button" class="dc-faq__q" aria-expanded="false">
+            <span class="dc-faq__num">02</span>
+            <span class="dc-faq__text">Numune gönderiyor musunuz?</span>
+            <span class="dc-faq__chev"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>
+          <div class="dc-faq__a-wrap"><div class="dc-faq__a">Evet. Numune talebiniz üzerine örnek ürünler gönderebiliriz. Dilerseniz atölyemize davet ederek ürünleri yerinde incelemenizi de sağlayabiliriz.</div></div>
+        </li>
+        <li class="dc-faq__item">
+          <button type="button" class="dc-faq__q" aria-expanded="false">
+            <span class="dc-faq__num">03</span>
+            <span class="dc-faq__text">Minimum sipariş miktarı var mı?</span>
+            <span class="dc-faq__chev"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>
+          <div class="dc-faq__a-wrap"><div class="dc-faq__a">Talep edilen ürün türüne göre minimum adet değişebilir. Kurumsal talebinizi ilettiğinizde sizin için en uygun adet ve teklif yapısını birlikte netleştiririz.</div></div>
+        </li>
+        <li class="dc-faq__item">
+          <button type="button" class="dc-faq__q" aria-expanded="false">
+            <span class="dc-faq__num">04</span>
+            <span class="dc-faq__text">Ürünleri kişiselleştirmek için hangi seçenekleri sunuyorsunuz?</span>
+            <span class="dc-faq__chev"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>
+          <div class="dc-faq__a-wrap"><div class="dc-faq__a">Logo baskısı, isim, özel mesaj, kutulama ve kurumsal renklere uygun detaylar gibi farklı kişiselleştirme seçenekleri sunuyoruz.</div></div>
+        </li>
+        <li class="dc-faq__item">
+          <button type="button" class="dc-faq__q" aria-expanded="false">
+            <span class="dc-faq__num">05</span>
+            <span class="dc-faq__text">Toplu siparişlerde indirim var mı?</span>
+            <span class="dc-faq__chev"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>
+          <div class="dc-faq__a-wrap"><div class="dc-faq__a">Evet. Sipariş miktarınıza göre özel fiyatlandırma hazırlıyoruz. Detaylı teklif için bizimle iletişime geçebilirsiniz.</div></div>
+        </li>
+        <li class="dc-faq__item">
+          <button type="button" class="dc-faq__q" aria-expanded="false">
+            <span class="dc-faq__num">06</span>
+            <span class="dc-faq__text">Kişiselleştirilmiş siparişlerde iade veya değişim yapabilir miyiz?</span>
+            <span class="dc-faq__chev"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>
+          <div class="dc-faq__a-wrap"><div class="dc-faq__a">Kişiselleştirilmiş ürünlerde standart iade ve değişim uygulanmaz. Ancak üretim kaynaklı bir sorun yaşanırsa sizin için en doğru çözümü birlikte planlarız.</div></div>
+        </li>
+      </ul>
+
+      <div class="dc-panel__foot">
+        <a href="#" class="dc-panel__link" onclick="return false;">Tüm SSS sayfası</a>
+        <a href="#" class="dc-panel__wa" onclick="return false;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4.5a7.5 7.5 0 0 0-6.52 11.28L4.5 19.5l3.9-1.02A7.5 7.5 0 1 0 12 4.5Z" stroke-linejoin="round"/></svg>
+          WhatsApp
+        </a>
+      </div>
+    </div>
+
+    <div class="dc-fab-row">
+      <div class="dc-teaser" id="dc-teaser">
+        <span class="dc-teaser__dot"></span>
+        Yardım
+      </div>
+      <button
+        type="button"
+        class="dc-fab"
+        id="dc-fab"
+        aria-label="Sıkça sorulan soruları aç"
+        aria-expanded="false"
+        aria-controls="dc-panel"
+      >
+        <!-- Referans: mavi daire üzerinde beyaz balon + mavi üç nokta -->
+        <svg class="dc-fab__icon dc-fab__icon--chat" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <!-- Beyaz konuşma balonu + sol alt kuyruk (referans) -->
+          <path
+            fill="#ffffff"
+            d="M9 8.25h14a3 3 0 0 1 3 3v5.75a3 3 0 0 1-3 3h-6.1l-3.9 2.85V19.5H9a3 3 0 0 1-3-3v-5.75a3 3 0 0 1 3-3z"
+          />
+          <!-- Mavi üç nokta (balon içinde cut-out efekti) -->
+          <circle cx="12.5" cy="14.25" r="1.5" fill="var(--fab-blue)" />
+          <circle cx="16" cy="14.25" r="1.5" fill="var(--fab-blue)" />
+          <circle cx="19.5" cy="14.25" r="1.5" fill="var(--fab-blue)" />
+        </svg>
+        <svg class="dc-fab__icon dc-fab__icon--close" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const widget = document.getElementById("dc-widget");
+    const fab = document.getElementById("dc-fab");
+    const panel = document.getElementById("dc-panel");
+    const backdrop = document.getElementById("dc-backdrop");
+    const closeBtn = document.getElementById("dc-close");
+    const teaser = document.getElementById("dc-teaser");
+
+    function closeAllFaq() {
+      document.querySelectorAll(".dc-faq__item.is-open").forEach((item) => {
+        item.classList.remove("is-open");
+        const wrap = item.querySelector(".dc-faq__a-wrap");
+        const btn = item.querySelector(".dc-faq__q");
+        if (wrap) wrap.style.height = "0";
+        if (btn) btn.setAttribute("aria-expanded", "false");
+      });
+    }
+
+    function setOpen(open) {
+      widget.classList.toggle("is-open", open);
+      fab.classList.toggle("is-open", open);
+      panel.classList.toggle("open", open);
+      backdrop.classList.toggle("open", open);
+      fab.setAttribute("aria-expanded", String(open));
+      fab.setAttribute("aria-label", open ? "Paneli kapat" : "Sıkça sorulan soruları aç");
+      panel.setAttribute("aria-hidden", String(!open));
+      backdrop.setAttribute("aria-hidden", String(!open));
+      if (!open) closeAllFaq();
+    }
+
+    fab.addEventListener("click", () => setOpen(!widget.classList.contains("is-open")));
+    closeBtn.addEventListener("click", () => setOpen(false));
+    backdrop.addEventListener("click", () => setOpen(false));
+    teaser.addEventListener("click", () => setOpen(true));
+
+    document.querySelectorAll(".dc-faq__q").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const item = btn.closest(".dc-faq__item");
+        const wrap = item.querySelector(".dc-faq__a-wrap");
+        const inner = wrap.querySelector(".dc-faq__a");
+        const wasOpen = item.classList.contains("is-open");
+
+        closeAllFaq();
+
+        if (!wasOpen) {
+          item.classList.add("is-open");
+          btn.setAttribute("aria-expanded", "true");
+          wrap.style.height = inner.scrollHeight + "px";
+        }
+      });
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && widget.classList.contains("is-open")) {
+        setOpen(false);
+      }
+    });
+  </script>
+</body>
+</html>

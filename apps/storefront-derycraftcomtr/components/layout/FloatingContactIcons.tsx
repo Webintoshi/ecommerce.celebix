@@ -11,6 +11,31 @@ function iconSize(size: number) {
   return { width: size, height: size };
 }
 
+export function FloatingFaqChatIcon({
+  className,
+  size = 30,
+  dotColor = "#4A90E2",
+}: IconProps & { dotColor?: string }) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      fill="none"
+      aria-hidden="true"
+      className={cn("shrink-0", className)}
+      width={size}
+      height={size}
+    >
+      <path
+        fill="#ffffff"
+        d="M9 8.25h14a3 3 0 0 1 3 3v5.75a3 3 0 0 1-3 3h-6.1l-3.9 2.85V19.5H9a3 3 0 0 1-3-3v-5.75a3 3 0 0 1 3-3z"
+      />
+      <circle cx="12.5" cy="14.25" r="1.5" fill={dotColor} />
+      <circle cx="16" cy="14.25" r="1.5" fill={dotColor} />
+      <circle cx="19.5" cy="14.25" r="1.5" fill={dotColor} />
+    </svg>
+  );
+}
+
 export function FloatingIconMessage({ className, size = 22 }: IconProps) {
   return (
     <svg
