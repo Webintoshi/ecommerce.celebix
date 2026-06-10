@@ -42,6 +42,7 @@ import {
 import {
   DEFAULT_FLOATING_CONTACT_SETTINGS,
   getFloatingContactDefaultLabel,
+  normalizeFloatingContactButtonColor,
   normalizeFloatingContactSettings,
   type FloatingContactChannelType,
   type FloatingContactPosition,
@@ -605,6 +606,7 @@ export default function GeneralSettingsPage() {
 
   const typography = normalizeStoreTypographySettings(formData.typography);
   const floatingContact = normalizeFloatingContactSettings(formData.floatingContact);
+  const floatingButtonColor = normalizeFloatingContactButtonColor(floatingContact.buttonColor);
   const announcementColor = normalizeAnnouncementColor(announcementData.backgroundColor);
   const announcementTextColor = getAnnouncementTextColor(announcementColor);
   const announcementButtonClass =
@@ -889,6 +891,64 @@ export default function GeneralSettingsPage() {
                       WhatsApp ve Instagram alanları kullanıcı adı veya tam link kabul eder.
                       Form alanı için dahili rota ya da tam URL girebilirsiniz.
                     </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 rounded-[24px] border border-[var(--admin-border)] bg-white p-5 md:grid-cols-[240px_1fr]">
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-medium text-[var(--admin-text-secondary)] tracking-tight">
+                      Buton Rengi
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <label className="relative h-[42px] w-[52px] overflow-hidden rounded-[20px] border border-[var(--admin-border)] shadow-sm cursor-pointer hover:border-[var(--admin-accent-border)] transition-colors">
+                        <input
+                          type="color"
+                          value={floatingButtonColor}
+                          onChange={(event) =>
+                            handleFloatingContactChange(
+                              "buttonColor",
+                              normalizeFloatingContactButtonColor(event.target.value)
+                            )
+                          }
+                          className="absolute -inset-4 h-[200%] w-[200%] cursor-pointer opacity-0"
+                        />
+                        <span
+                          className="block h-full w-full"
+                          style={{ backgroundColor: floatingButtonColor }}
+                        />
+                      </label>
+                      <div className="flex-1">
+                        <Input
+                          label=""
+                          name="floatingContactButtonColor"
+                          value={floatingButtonColor}
+                          onChange={(event) =>
+                            handleFloatingContactChange(
+                              "buttonColor",
+                              normalizeFloatingContactButtonColor(event.target.value)
+                            )
+                          }
+                          placeholder="#12100D"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[12.5px] text-[#9a8474] pt-1">
+                      Vitrindeki yüzen SSS butonunun arka plan rengi.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <span className="text-[13px] font-medium text-[var(--admin-text-secondary)] tracking-tight">
+                        Canlı Önizleme
+                      </span>
+                      <div
+                        className="grid h-[64px] w-[64px] place-items-center rounded-full text-white shadow-[0_8px_24px_rgba(18,16,13,0.18)]"
+                        style={{ backgroundColor: floatingButtonColor }}
+                      >
+                        <MessageCircle className="h-7 w-7" />
+                      </div>
+                    </div>
                   </div>
                 </div>
 

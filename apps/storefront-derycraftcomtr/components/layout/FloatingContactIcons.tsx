@@ -14,7 +14,7 @@ function iconSize(size: number) {
 export function FloatingFaqChatIcon({
   className,
   size = 30,
-  dotColor = "#4A90E2",
+  dotColor = "#12100D",
 }: IconProps & { dotColor?: string }) {
   return (
     <svg

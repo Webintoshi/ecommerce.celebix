@@ -11,6 +11,8 @@ import {
 } from "@/lib/floating-faq";
 import {
   getFloatingContactDefaultLabel,
+  getFloatingContactButtonHoverColor,
+  getFloatingContactButtonShadowRgba,
   isFloatingContactExternalHref,
   normalizeFloatingContactSettings,
   resolveFloatingContactHref,
@@ -19,9 +21,6 @@ import {
   FloatingFaqChatIcon,
   FloatingIconClose,
 } from "@/components/layout/FloatingContactIcons";
-
-const FAB_BLUE = "#4A90E2";
-const FAB_BLUE_HOVER = "#3D7FD0";
 
 const POSITION_CLASSES = {
   "bottom-right": "bottom-5 right-4 sm:bottom-7 sm:right-7",
@@ -47,6 +46,20 @@ export function FloatingContactButton() {
   const settings = useMemo(
     () => normalizeFloatingContactSettings(storeInfo?.floatingContact),
     [storeInfo?.floatingContact],
+  );
+
+  const buttonColor = settings.buttonColor;
+  const buttonHoverColor = useMemo(
+    () => getFloatingContactButtonHoverColor(buttonColor),
+    [buttonColor],
+  );
+  const buttonShadow = useMemo(
+    () => getFloatingContactButtonShadowRgba(buttonColor, 0.42),
+    [buttonColor],
+  );
+  const buttonShadowHover = useMemo(
+    () => getFloatingContactButtonShadowRgba(buttonColor, 0.5),
+    [buttonColor],
   );
 
   const channels = useMemo(
@@ -306,11 +319,14 @@ export function FloatingContactButton() {
             aria-expanded={isOpen}
             aria-controls="floating-faq-panel"
             aria-label={isOpen ? "Paneli kapat" : "Sıkça sorulan soruları aç"}
-            className={`relative grid h-[64px] w-[64px] place-items-center rounded-full text-white shadow-[0_8px_24px_rgba(74,144,226,0.42)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(74,144,226,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A90E2]/40 focus-visible:ring-offset-2 ${
+            className={`relative grid h-[64px] w-[64px] place-items-center rounded-full text-white transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#12100D]/25 focus-visible:ring-offset-2 ${
               isBottomPosition ? "order-2" : "order-1"
             }`}
             style={{
-              backgroundColor: isOpen ? FAB_BLUE_HOVER : FAB_BLUE,
+              backgroundColor: isOpen ? buttonHoverColor : buttonColor,
+              boxShadow: isOpen
+                ? `0 12px 32px ${buttonShadowHover}`
+                : `0 8px 24px ${buttonShadow}`,
             }}
           >
             <AnimatePresence mode="wait" initial={false}>
@@ -332,7 +348,7 @@ export function FloatingContactButton() {
                   exit={{ opacity: 0, scale: 0.88 }}
                   transition={{ duration: prefersReducedMotion ? 0.01 : 0.22 }}
                 >
-                  <FloatingFaqChatIcon dotColor={FAB_BLUE} />
+                  <FloatingFaqChatIcon dotColor={buttonColor} />
                 </motion.span>
               )}
             </AnimatePresence>
