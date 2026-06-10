@@ -183,7 +183,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center"
+          className="fixed inset-0 z-[200] flex cursor-zoom-out items-center justify-center bg-black/95"
           onClick={() => setIsLightboxOpen(false)}
         >
           <button
@@ -252,7 +252,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
     return (
       <div className="w-full">
         <div
-          className="relative aspect-square overflow-hidden cursor-pointer bg-[#F8F8F8]"
+          className="relative aspect-square cursor-zoom-in overflow-hidden bg-[#F8F8F8]"
           onClick={() => setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -274,7 +274,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
               src={currentImage}
               alt={productName}
               draggable={false}
-              className="w-full h-full object-contain"
+              className="h-full w-full cursor-zoom-in object-contain"
               loading="eager"
               onLoad={() => setStatus(currentImage, 'loaded')}
               onError={() => setStatus(currentImage, 'error')}
@@ -373,7 +373,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
         {/* Sağ: Ana Görsel */}
         <div
-          className={`relative aspect-square overflow-hidden select-none bg-[#F8F8F8] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`relative aspect-square cursor-zoom-in select-none overflow-hidden bg-[#F8F8F8] ${isDragging ? "cursor-grabbing" : ""}`}
           onClick={() => !isDragging && setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -405,8 +405,8 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             src={currentImage}
             alt={`${productName} ana görsel`}
             draggable={false}
-            className={`w-full h-full object-contain transition-opacity duration-300 ${
-              currentStatus === 'loaded' ? 'opacity-100' : 'opacity-0'
+            className={`h-full w-full cursor-zoom-in object-contain transition-opacity duration-300 ${
+              currentStatus === "loaded" ? "opacity-100" : "opacity-0"
             }`}
             loading="eager"
             onLoad={() => setStatus(currentImage, 'loaded')}
