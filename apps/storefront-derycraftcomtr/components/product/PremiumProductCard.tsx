@@ -194,7 +194,7 @@ export function PremiumProductCard({ product }: PremiumProductCardProps) {
           })}
           {colorVariants.length > 4 && (
             <span
-              className="ml-0.5 font-sans text-[11px] font-medium leading-none text-neutral-500 sm:text-xs lg:text-sm"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-neutral-300 font-sans text-xs font-semibold leading-none text-neutral-600 md:h-[22px] md:w-[22px] lg:h-6 lg:w-6 lg:text-sm"
               aria-label={`${colorVariants.length} renk seçeneği`}
             >
               +
