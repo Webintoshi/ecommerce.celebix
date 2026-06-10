@@ -1,4 +1,5 @@
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
+import Link from "next/link";
 import {
   OwnerActionButton,
   OwnerDataList,
@@ -30,6 +31,15 @@ import {
   getPreviewOwnerAuthContext,
   hasOwnerPreviewDataFallback,
 } from "@/lib/owner-preview-fixtures";
+
+type StoreFilter = "all" | "ready" | "provisioning" | "failed" | "needs_setup" | "supabase_legacy";
+
+interface StoresPageProps {
+  searchParams?: Promise<{
+    q?: string;
+    filter?: string;
+  }>;
+}
 
 function getStoreStatusLabel(status: DashboardStoreSummary["status"]) {
   if (status === "active") {
@@ -178,6 +188,15 @@ function getSignalTone(signal: ReturnType<typeof getSetupSignals>[number]): Owne
   return "success";
 }
 
+function getSignalToneByKey(
+  signals: ReturnType<typeof getSetupSignals>,
+  key: ReturnType<typeof getSetupSignals>[number]["key"],
+): OwnerTone {
+  const signal = signals.find((entry) => entry.key === key);
+
+  return signal ? getSignalTone(signal) : "neutral";
+}
+
 function getReadinessNote(store: DashboardStoreSummary, pendingSignalCount: number) {
   if (store.provisioning.failedStepCount > 0) {
     return `${store.provisioning.failedStepCount} adım hata verdi, manuel takip gerekiyor.`;
@@ -198,7 +217,80 @@ function getReadinessNote(store: DashboardStoreSummary, pendingSignalCount: numb
   return "Kurulum zinciri temiz, sadece günlük operasyon takibi gerekiyor.";
 }
 
-export default async function StoresPage() {
+function normalizeFilter(value: string | undefined): StoreFilter {
+  if (
+    value === "ready" ||
+    value === "provisioning" ||
+    value === "failed" ||
+    value === "needs_setup" ||
+    value === "supabase_legacy"
+  ) {
+    return value;
+  }
+
+  return "all";
+}
+
+function storeMatchesFilter(store: DashboardStoreSummary, filter: StoreFilter) {
+  switch (filter) {
+    case "ready":
+      return store.provisioning.state === "ready";
+    case "provisioning":
+      return (
+        store.provisioning.state === "running" ||
+        store.provisioning.state === "provisioning" ||
+        store.provisioning.state.startsWith("pending_")
+      );
+    case "failed":
+      return store.provisioning.state === "failed" || store.provisioning.state === "pending_repair";
+    case "needs_setup":
+      return hasPendingSetupSignals(store.setup) || store.consistency.blocking;
+    case "supabase_legacy":
+      return isLegacyDatabaseMode(store.databaseMode);
+    case "all":
+    default:
+      return true;
+  }
+}
+
+function storeMatchesSearch(store: DashboardStoreSummary, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  const haystack = [
+    store.name,
+    store.slug,
+    store.storefrontDomain,
+    store.adminDomain,
+    store.management.clientCompanyName,
+    store.management.internalOwner,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase("tr");
+
+  return haystack.includes(query.toLocaleLowerCase("tr"));
+}
+
+function getSmokeStatus(store: DashboardStoreSummary) {
+  const passed = store.health.homepageOk && store.health.categoriesOk && store.health.productsOk;
+
+  if (passed) {
+    return { label: "Smoke PASS", tone: "success" as const };
+  }
+
+  if (store.provisioning.state === "pending_smoke") {
+    return { label: "Smoke pending", tone: "warning" as const };
+  }
+
+  return { label: "Smoke watch", tone: "neutral" as const };
+}
+
+export default async function StoresPage({ searchParams }: StoresPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const activeFilter = normalizeFilter(resolvedSearchParams.filter);
+  const searchQuery = resolvedSearchParams.q?.trim() ?? "";
   const previewFallback = hasOwnerPreviewDataFallback();
   const auth = previewFallback ? getPreviewOwnerAuthContext() : await requireOwnerAuth("/stores");
   const superAdmin = isSuperAdmin(auth);
@@ -207,6 +299,9 @@ export default async function StoresPage() {
   const deployDisabled = isOwnerActionDisabled("deploy", previewFlags);
   const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
   const stores = previewFallback ? getPreviewDashboardStores() : await listDashboardStores(auth);
+  const visibleStores = stores.filter(
+    (store) => storeMatchesFilter(store, activeFilter) && storeMatchesSearch(store, searchQuery),
+  );
 
   const readyCount = stores.filter((store) => store.provisioning.state === "ready").length;
   const newStandardCount = stores.filter((store) => !isLegacyDatabaseMode(store.databaseMode)).length;
@@ -303,16 +398,45 @@ export default async function StoresPage() {
       <OwnerSectionCard
         eyebrow="Portföy Listesi"
         title="Mağaza satırları"
-        copy="Her satır; mağaza kimliği, sağlık görünümü, bekleyen kurulum işleri ve hızlı detay erişimini aynı yüzeyde taşır."
+        copy="Her satır; store, domain, global status, DB, Auth, Storage, Analytics, Deploy, Smoke ve hızlı aksiyonları aynı yüzeyde taşır."
         actions={
           <>
-            <OwnerStatusChip tone="ink">{stores.length} kayıt</OwnerStatusChip>
+            <OwnerStatusChip tone="ink">{visibleStores.length}/{stores.length} kayıt</OwnerStatusChip>
             <OwnerStatusChip tone={dualHealthReadyCount === stores.length && stores.length > 0 ? "success" : "accent"}>
               {dualHealthReadyCount} mağazada admin ve storefront birlikte hazır
             </OwnerStatusChip>
           </>
         }
       >
+        <div className="store-list-toolbar">
+          <div className="store-filter-tabs" aria-label="Mağaza filtreleri">
+            {[
+              ["all", "All"],
+              ["ready", "Ready"],
+              ["provisioning", "Provisioning"],
+              ["failed", "Failed"],
+              ["needs_setup", "Needs Setup"],
+              ["supabase_legacy", "Supabase Legacy"],
+            ].map(([value, label]) => (
+              <Link
+                key={value}
+                className={activeFilter === value ? "is-active" : ""}
+                href={`/stores?filter=${value}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}`}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+          <form className="store-search-form" action="/stores">
+            <input type="hidden" name="filter" value={activeFilter} />
+            <label className="field">
+              <span>Search</span>
+              <input name="q" defaultValue={searchQuery} placeholder="store name, slug, domain" />
+            </label>
+            <button className="button button-secondary" type="submit">Ara</button>
+          </form>
+        </div>
+
         {stores.length === 0 ? (
           <OwnerEmptyState
             title="Henüz mağaza yok"
@@ -325,15 +449,23 @@ export default async function StoresPage() {
               ) : null
             }
           />
+        ) : visibleStores.length === 0 ? (
+          <OwnerEmptyState
+            title="Filtreye uyan mağaza yok"
+            copy="Arama veya filtreyi genişlettiğinizde mağaza operasyon satırları tekrar görünür."
+            action={<OwnerActionButton href="/stores" tone="secondary">Tüm Mağazalar</OwnerActionButton>}
+          />
         ) : (
           <OwnerDataList className="store-portfolio-list">
-            {stores.map((store) => {
+            {visibleStores.map((store) => {
               const setupSignals = getSetupSignals(store.setup);
               const pendingSignals = setupSignals.filter((signal) => signal.pending);
               const adminHealth = getAdminHealth(store);
               const storefrontHealth = getStorefrontHealth(store);
               const lifecycleLabel = getLifecycleStageLabel(store.management.lifecycleStage);
               const readinessNote = getReadinessNote(store, pendingSignals.length);
+              const smokeStatus = getSmokeStatus(store);
+              const deployReady = store.health.adminDeploymentReady && store.health.storefrontReady;
 
               return (
                 <article key={store.id} className="store-portfolio-card">
@@ -341,7 +473,7 @@ export default async function StoresPage() {
                     <div className="store-portfolio-title">
                       <div className="store-portfolio-name">
                         <strong>{store.name}</strong>
-                        <span>{store.storefrontDomain}</span>
+                        <span>{store.slug} · {store.storefrontDomain}</span>
                       </div>
                       <div className="store-portfolio-chip-row">
                         <OwnerStatusChip tone={isLegacyDatabaseMode(store.databaseMode) ? "legacy" : "ink"}>
@@ -368,16 +500,51 @@ export default async function StoresPage() {
                   <div className="store-portfolio-body">
                     <div className="store-portfolio-stack">
                       <div className="owner-mini-stat">
-                        <span>Portföy sahibi</span>
+                        <span>Domain</span>
+                        <strong>{store.storefrontDomain}</strong>
+                        <small>{store.adminDomain}</small>
+                      </div>
+                      <div className="owner-mini-stat">
+                        <span>Store</span>
                         <strong>{store.management.clientCompanyName || store.name}</strong>
                         <small>{store.management.internalOwner || "İç sahip henüz atanmadı"}</small>
                       </div>
-                      <div className="owner-mini-stat">
-                        <span>Hacim</span>
-                        <strong>{formatCurrency(store.totalRevenue)}</strong>
-                        <small>
-                          {store.orderCount} sipariş · {store.pendingOrderCount} bekleyen işlem
-                        </small>
+                    </div>
+
+                    <div className="store-ops-matrix" aria-label={`${store.name} operasyon durumları`}>
+                      <div>
+                        <span>DB</span>
+                        <OwnerStatusChip tone={isLegacyDatabaseMode(store.databaseMode) ? "legacy" : "success"}>
+                          {isLegacyDatabaseMode(store.databaseMode) ? "Supabase" : "light_postgres"}
+                        </OwnerStatusChip>
+                      </div>
+                      <div>
+                        <span>Auth</span>
+                        <OwnerStatusChip tone={getSignalToneByKey(setupSignals, "auth")}>
+                          {setupSignals.find((signal) => signal.key === "auth")?.shortLabel || "Auth"}
+                        </OwnerStatusChip>
+                      </div>
+                      <div>
+                        <span>Storage</span>
+                        <OwnerStatusChip tone={store.health.r2Ready ? "success" : "warning"}>
+                          {store.health.r2Ready ? "R2 ready" : "R2 watch"}
+                        </OwnerStatusChip>
+                      </div>
+                      <div>
+                        <span>Analytics</span>
+                        <OwnerStatusChip tone={getSignalToneByKey(setupSignals, "analytics")}>
+                          {setupSignals.find((signal) => signal.key === "analytics")?.shortLabel || "Analytics"}
+                        </OwnerStatusChip>
+                      </div>
+                      <div>
+                        <span>Deploy</span>
+                        <OwnerStatusChip tone={deployReady ? "success" : "warning"}>
+                          {deployReady ? "Admin + Storefront" : "Takip"}
+                        </OwnerStatusChip>
+                      </div>
+                      <div>
+                        <span>Smoke</span>
+                        <OwnerStatusChip tone={smokeStatus.tone}>{smokeStatus.label}</OwnerStatusChip>
                       </div>
                     </div>
 
@@ -420,8 +587,11 @@ export default async function StoresPage() {
                     </div>
 
                     <div className="store-portfolio-actions">
+                      <OwnerActionButton href={`https://${store.storefrontDomain}`} tone="ghost">
+                        Open
+                      </OwnerActionButton>
                       <OwnerActionButton href={`/stores/${store.slug}`} tone="secondary">
-                        Detayı Aç
+                        Details
                       </OwnerActionButton>
                       {superAdmin ? (
                         <LaunchStorefrontButton
@@ -431,6 +601,9 @@ export default async function StoresPage() {
                           disabledReason={deployDisabledReason}
                         />
                       ) : null}
+                      <OwnerActionButton href="/operations" tone="ghost">
+                        View logs
+                      </OwnerActionButton>
                     </div>
                   </div>
                 </article>

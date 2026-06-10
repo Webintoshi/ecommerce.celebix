@@ -19,6 +19,12 @@ import {
   OwnerSectionHeader,
   OwnerStatusChip,
   OwnerTimeline,
+  DeploymentCard,
+  RuntimeMetadataCard,
+  SmokeResultTable,
+  StoreStatusCard,
+  TechnicalDetailsDisclosure,
+  type OwnerTone,
 } from "@/components/owner-control";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
 import { repairStoreDeploymentAuthorityOnce } from "@/lib/coolify-store-deployment";
@@ -91,6 +97,30 @@ function getStoreStatusLabel(status: string) {
     return "Duraklatıldı";
   }
   return "Taslak";
+}
+
+function getStatusTone(ready: boolean, warning = false): OwnerTone {
+  if (ready) {
+    return "success";
+  }
+
+  return warning ? "warning" : "danger";
+}
+
+function getSetupSignalTone(signal: ReturnType<typeof getSetupSignals>[number] | undefined): OwnerTone {
+  if (!signal) {
+    return "neutral";
+  }
+
+  if (signal.pending) {
+    return "warning";
+  }
+
+  if (signal.key === "auth" && signal.providerLabel === "supabase") {
+    return "legacy";
+  }
+
+  return "success";
 }
 
 export default async function StoreDetailPage({ params }: StoreDetailPageProps) {
@@ -183,6 +213,41 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       : provisioning.state === "ready"
         ? "done"
         : "current";
+  const smokeRows = [
+    {
+      route: "/",
+      expected: "HTTP 200 + storefront shell",
+      actual: store.health.homepageOk ? "Homepage ready" : "Bekleyen kontrol",
+      passed: store.health.homepageOk,
+      checkedAt: formatDateTime(store.lastSyncedAt),
+    },
+    {
+      route: "/kategoriler",
+      expected: "Categories data available",
+      actual: store.health.categoriesOk ? "Categories ready" : "Bekleyen kontrol",
+      passed: store.health.categoriesOk,
+      checkedAt: formatDateTime(store.lastSyncedAt),
+    },
+    {
+      route: "/urunler",
+      expected: "Products data available",
+      actual: store.health.productsOk ? "Products ready" : "Bekleyen kontrol",
+      passed: store.health.productsOk,
+      checkedAt: formatDateTime(store.lastSyncedAt),
+    },
+    {
+      route: "/admin",
+      expected: "Admin runtime consistent",
+      actual: store.health.adminRuntimeConsistent ? "Admin ready" : "Runtime drift izleniyor",
+      passed: store.health.adminRuntimeConsistent,
+      checkedAt: formatDateTime(store.consistency.checkedAt),
+    },
+  ];
+  const smokePassed = smokeRows.every((row) => row.passed === true);
+  const metadataDriftWarning =
+    provisioning.state === "pending_repair" &&
+    provisioning.failedStepCount === 0 &&
+    smokePassed;
 
   return (
     <div className="store-detail-page">
@@ -235,10 +300,96 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <a href="#genel-bakis">Genel Bakış</a>
         <a href="#kurulum">Kurulum</a>
         <a href="#domain-deploy">Domain ve Deploy</a>
+        <a href="#smoke">Smoke</a>
         <a href="#erisim">Erişim</a>
         <a href="#aktivite">Aktivite</a>
         <a href="#tehlikeli">Tehlikeli İşlemler</a>
       </nav>
+
+      <section className="store-detail-section">
+        <OwnerSectionCard
+          eyebrow="Status Summary"
+          title="Control center özeti"
+          copy="Veritabanı, auth, storage, analytics, deploy, payment ve smoke sonuçları tek karar yüzeyinde görünür."
+          tone={metadataDriftWarning ? "warning" : smokePassed ? "success" : "accent"}
+          actions={
+            metadataDriftWarning ? (
+              <OwnerStatusChip tone="warning">Ready with metadata warning</OwnerStatusChip>
+            ) : (
+              <OwnerStatusChip tone={smokePassed ? "success" : "warning"}>
+                {smokePassed ? "Smoke PASS" : "Smoke izleniyor"}
+              </OwnerStatusChip>
+            )
+          }
+        >
+          <div className="store-status-summary-grid">
+            <StoreStatusCard
+              title="Database"
+              label={showSupabaseInfrastructure ? "Legacy Supabase" : "light_postgres"}
+              status={store.health.supabaseReady ? "Ready" : "Watch"}
+              tone={getStatusTone(store.health.supabaseReady, true)}
+              checkedAt={updatedAt}
+            />
+            <StoreStatusCard
+              title="Auth"
+              label={authSignal?.providerLabel || store.setup.auth.provider}
+              status={authSignal?.shortLabel || "Auth"}
+              tone={getSetupSignalTone(authSignal)}
+              checkedAt={updatedAt}
+            />
+            <StoreStatusCard
+              title="Storage"
+              label={store.r2BucketName || "R2 media"}
+              status={store.health.r2Ready ? "Ready" : "Needs setup"}
+              tone={getStatusTone(store.health.r2Ready, true)}
+              checkedAt={updatedAt}
+            />
+            <StoreStatusCard
+              title="Analytics"
+              label={analyticsSignal?.providerLabel || store.setup.analytics.provider}
+              status={analyticsSignal?.shortLabel || "Analytics"}
+              tone={getSetupSignalTone(analyticsSignal)}
+              checkedAt={updatedAt}
+            />
+            <StoreStatusCard
+              title="Storefront Deploy"
+              label={storefrontDeploymentStatus || storefrontDeployment?.status || store.storefrontStatus}
+              status={store.health.storefrontRuntimeConsistent ? "Ready" : "Watch"}
+              tone={getStatusTone(store.health.storefrontRuntimeConsistent, true)}
+              checkedAt={storefrontDeployedAt}
+            />
+            <StoreStatusCard
+              title="Admin Deploy"
+              label={adminDeploymentStatus || adminDeployment?.status || "Bekliyor"}
+              status={store.health.adminRuntimeConsistent ? "Ready" : "Watch"}
+              tone={getStatusTone(store.health.adminRuntimeConsistent, true)}
+              checkedAt={adminDeploymentPreparedAt}
+            />
+            <StoreStatusCard
+              title="Payment"
+              label={paymentSignal?.providerLabel || store.setup.payments.defaultProvider}
+              status={paymentSignal?.shortLabel || "Payment"}
+              tone={getSetupSignalTone(paymentSignal)}
+              checkedAt={updatedAt}
+            />
+            <StoreStatusCard
+              title="Smoke"
+              label={smokePassed ? "Acceptance checks passed" : "Acceptance checks pending"}
+              status={smokePassed ? "PASS" : "Watch"}
+              tone={smokePassed ? "success" : "warning"}
+              checkedAt={formatDateTime(store.lastSyncedAt)}
+            />
+          </div>
+          {metadataDriftWarning ? (
+            <TechnicalDetailsDisclosure title="Metadata drift details">
+              <p>
+                Step ve smoke sinyalleri hazır görünüyor; top-level provisioning metadata eski bir onarım
+                durumunu taşıyor olabilir. Kullanıcı yüzeyinde mağaza panik durumu yerine uyarılı hazır olarak gösterilir.
+              </p>
+            </TechnicalDetailsDisclosure>
+          ) : null}
+        </OwnerSectionCard>
+      </section>
 
       <section id="genel-bakis" className="store-detail-section">
         <OwnerSectionHeader
@@ -313,6 +464,24 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             </div>
           </OwnerSectionCard>
         </div>
+
+        <OwnerSectionCard
+          title="Runtime Metadata"
+          copy="Public-safe metadata operasyon karar alanları için sadeleştirildi."
+        >
+          <RuntimeMetadataCard
+            items={[
+              { label: "databaseMode", value: store.databaseMode, tone: showSupabaseInfrastructure ? "legacy" : "success" },
+              { label: "storageProvider", value: showSupabaseInfrastructure ? "supabase/r2" : "r2", tone: store.health.r2Ready ? "success" : "warning" },
+              { label: "analyticsProvider", value: store.setup.analytics.provider, tone: getSetupSignalTone(analyticsSignal) },
+              { label: "supabaseStatus", value: showSupabaseInfrastructure ? "legacy" : "none", tone: showSupabaseInfrastructure ? "legacy" : "success" },
+              { label: "customerAuthStatus", value: store.setup.auth.status, tone: getSetupSignalTone(authSignal) },
+              { label: "adminAuthStatus", value: store.health.adminRuntimeConsistent ? "runtime_ready" : "runtime_watch", tone: getStatusTone(store.health.adminRuntimeConsistent, true) },
+              { label: "paymentStatus", value: store.setup.payments.status, tone: getSetupSignalTone(paymentSignal) },
+              { label: "smokeStatus", value: smokePassed ? "pass" : "watch", tone: smokePassed ? "success" : "warning" },
+            ]}
+          />
+        </OwnerSectionCard>
       </section>
 
       <section id="kurulum" className="store-detail-section">
@@ -391,6 +560,49 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           copy="Admin ve vitrin deployment bilgileri ayrı kartlarda, preview aksiyonları kilitli biçimde görünür."
         />
         <div className="store-detail-two-column">
+          <DeploymentCard
+            title="Storefront Deployment"
+            status={store.health.storefrontRuntimeConsistent ? "Ready" : "Watch"}
+            tone={getStatusTone(store.health.storefrontRuntimeConsistent, true)}
+            rows={[
+              { label: "Branch", value: storefrontDeploymentBranch || "-" },
+              { label: "Commit", value: storefrontRepoCommitSha || "-" },
+              { label: "Image", value: readStringValue(storefrontConfig.image) || "-" },
+              { label: "Coolify app UUID", value: readStringValue(storefrontConfig.resourceId) || storefrontDeployment?.resourceId || "-" },
+              { label: "Deploy status", value: storefrontDeploymentStatus || storefrontDeployment?.status || store.storefrontStatus },
+              { label: "Health", value: store.health.storefrontRuntimeConsistent ? "consistent" : "watch" },
+              { label: "Last deploy", value: storefrontDeployedAt },
+              { label: "Runtime", value: storefrontRuntimeUrl || storefrontDeployment?.runtimeUrl || "-" },
+            ]}
+            note={storefrontDeploymentAuthorityNote || storefrontDeployment?.runtimeMessage || "Storefront yayın authority owner tarafında izleniyor."}
+            actions={
+              <>
+                <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} disabled={deployDisabled} disabledReason={deployDisabledReason} />
+                {superAdmin ? <RepairStoreDeploymentAuthorityButton slug={store.slug} disabled={repairDisabled} disabledReason={repairDisabledReason} /> : null}
+              </>
+            }
+          />
+
+          <DeploymentCard
+            title="Admin Deployment"
+            status={store.health.adminRuntimeConsistent ? "Ready" : "Watch"}
+            tone={getStatusTone(store.health.adminRuntimeConsistent, true)}
+            rows={[
+              { label: "Branch", value: adminDeploymentBranch || "-" },
+              { label: "Commit", value: readStringValue(bootstrap.adminDeploymentCommitSha) || "-" },
+              { label: "Image", value: readStringValue(bootstrap.adminDeploymentImage) || "-" },
+              { label: "Coolify app UUID", value: adminDeployment?.resourceId || "-" },
+              { label: "Deploy status", value: adminDeploymentStatus || adminDeployment?.status || "Bekliyor" },
+              { label: "Health", value: store.health.adminRuntimeConsistent ? "consistent" : "watch" },
+              { label: "Last deploy", value: adminDeploymentPreparedAt },
+              { label: "Runtime", value: adminDeploymentRuntimeUrl || adminDeployment?.runtimeUrl || "-" },
+            ]}
+            note={adminDeploymentAuthorityNote || adminDeployment?.runtimeMessage || "Admin yayın authority owner tarafında izleniyor."}
+            actions={adminDeployment ? <ProvisionAdminDeploymentButton slug={store.slug} currentStatus={adminDeployment.status} disabled={deployDisabled} disabledReason={deployDisabledReason} /> : null}
+          />
+        </div>
+
+        <div className="store-detail-two-column">
           <OwnerSectionCard
             title="Vitrin Yayın Planı"
             actions={
@@ -451,6 +663,26 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             />
           </OwnerSectionCard>
         ) : null}
+      </section>
+
+      <section id="smoke" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Smoke Result"
+          title="Acceptance smoke kontrolleri"
+          copy="Ham runtime hataları ana yüzeye dökülmez; pass/fail sonucu ve gerektiğinde teknik detay ayrı gösterilir."
+        />
+        <OwnerSectionCard
+          title="Smoke sonuçları"
+          tone={smokePassed ? "success" : "warning"}
+          actions={<OwnerStatusChip tone={smokePassed ? "success" : "warning"}>{smokePassed ? "Smoke passed" : "Smoke izleniyor"}</OwnerStatusChip>}
+        >
+          <SmokeResultTable rows={smokeRows} />
+          {store.health.storefrontDataMessage ? (
+            <TechnicalDetailsDisclosure title="Technical details">
+              <p>{store.health.storefrontDataMessage}</p>
+            </TechnicalDetailsDisclosure>
+          ) : null}
+        </OwnerSectionCard>
       </section>
 
       <section id="erisim" className="store-detail-section">

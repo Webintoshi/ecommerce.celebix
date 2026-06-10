@@ -6,7 +6,9 @@ import { CreateStoreForm } from "@/components/CreateStoreForm";
 import {
   OwnerCommandHero,
   OwnerLifecycleStepper,
+  OwnerSectionCard,
   OwnerStatusChip,
+  PreflightChecklist,
 } from "@/components/owner-control";
 import { requireOwnerAuth, requireSuperAdmin } from "@/lib/owner-auth";
 import { getLightPostgresBootstrapStatus } from "@/lib/light-postgres-provisioning";
@@ -23,6 +25,21 @@ export default async function NewStorePage() {
   const createStoreDisabledReason =
     getOwnerPreviewDisabledNotice("create_store", previewFlags) ?? undefined;
   const lightPostgresBootstrap = await getLightPostgresBootstrapStatus();
+  const preflightItems = [
+    { label: "Build server", ready: !previewFlags.provisioningDisabled, note: "Generated app build akışı yazma korumasıyla birlikte izlenir." },
+    { label: "Coolify", ready: !previewFlags.deployActionsDisabled, note: "Admin/storefront deploy aksiyonları preview guard durumuna göre kilitlenir." },
+    { label: "Git/GHCR", ready: !previewFlags.deployActionsDisabled, note: "Repo sync ve image publish hattı owner guard üzerinden okunur." },
+    { label: "Cloudflare DNS", ready: !previewFlags.deployActionsDisabled, note: "Demo domain standardı create öncesi görünür tutulur." },
+    { label: "light_postgres", ready: lightPostgresBootstrap.configured, note: lightPostgresBootstrap.configured ? "Varsayılan database standardı hazır." : "Database bootstrap config kontrol bekliyor." },
+    { label: "Logto", ready: true, note: "Yeni store auth provider standardı Logto placeholder ile açılır." },
+    { label: "R2", ready: true, note: "Medya storage standardı R2 olarak gösterilir." },
+    { label: "Umami", ready: true, note: "Analytics provider standardı Umami olarak gösterilir." },
+  ];
+  const preflightBlocked = preflightItems.some((item) => !item.ready);
+  const formDisabled = createStoreDisabled || preflightBlocked;
+  const formDisabledReason =
+    createStoreDisabledReason ||
+    (preflightBlocked ? "Preflight kontrolleri tamamlanmadan mağaza oluşturma kapalıdır." : undefined);
 
   return (
     <>
@@ -72,6 +89,19 @@ export default async function NewStorePage() {
 
       <div className="owner-wizard-shell">
         <aside className="owner-wizard-rail">
+          <OwnerSectionCard
+            title="Preflight"
+            copy="Create aksiyonu öncesi platform kontrolleri."
+            tone={preflightBlocked ? "danger" : "success"}
+            actions={
+              <OwnerStatusChip tone={preflightBlocked ? "danger" : "success"}>
+                {preflightBlocked ? "Create disabled" : "Create ready"}
+              </OwnerStatusChip>
+            }
+          >
+            <PreflightChecklist items={preflightItems} />
+          </OwnerSectionCard>
+
           <div className="owner-action-panel tone-accent">
             <div>
               <div className="card-title">Kurulum rehberi</div>
@@ -97,8 +127,8 @@ export default async function NewStorePage() {
           <CreateStoreForm
             ownerDeploymentBranch={getDefaultAdminDeploymentBranch()}
             storefrontBranchPrefix={getStorefrontDeploymentBranchPrefix()}
-            disabled={createStoreDisabled}
-            disabledReason={createStoreDisabledReason}
+            disabled={formDisabled}
+            disabledReason={formDisabledReason}
           />
         </div>
       </div>

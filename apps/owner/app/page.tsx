@@ -6,6 +6,10 @@ import {
   OwnerPageHeader,
   OwnerSectionCard,
   OwnerStatusChip,
+  OwnerTimeline,
+  ServiceStatusCard,
+  TechnicalDetailsDisclosure,
+  type OwnerTone,
 } from "@/components/owner-control";
 import { repairOwnerDeploymentBranchOnce } from "@/lib/coolify-owner-deployment";
 import { getOwnerDashboard } from "@/lib/control-plane";
@@ -66,8 +70,93 @@ export default async function OwnerDashboardPage() {
   ).length;
   const legacyStoreCount = dashboardStores.filter((store) => isLegacyDatabaseMode(store.databaseMode)).length;
   const setupQueueCount = pendingAuthCount + pendingAnalyticsCount + pendingPaymentCount;
+  const readyStoreCount = dashboardStores.filter((store) => store.provisioning.state === "ready").length;
+  const provisioningStoreCount = dashboardStores.filter((store) =>
+    store.provisioning.state === "running" ||
+    store.provisioning.state === "provisioning" ||
+    store.provisioning.state.startsWith("pending_"),
+  ).length;
+  const failedStoreCount = dashboardStores.filter((store) =>
+    store.provisioning.state === "failed" ||
+    store.provisioning.state === "pending_repair" ||
+    store.consistency.blocking,
+  ).length;
+  const recentDeploymentCount = dashboardStores.filter((store) =>
+    store.health.adminDeploymentReady || store.health.storefrontReady,
+  ).length;
+  const lastCheckedAt = dashboardStores
+    .map((store) => store.lastSyncedAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
   const cleanupRuns = dashboard?.cleanupRuns.slice(0, 3) ?? [];
   const attentionStores = dashboard?.attentionStores.slice(0, 4) ?? [];
+  const recentActivity = dashboard?.recentActivity.slice(0, 6) ?? [];
+
+  const readinessServices: Array<{
+    name: string;
+    status: string;
+    description: string;
+    tone: OwnerTone;
+    details?: string;
+  }> = [
+    {
+      name: "light_postgres",
+      status: legacyStoreCount === dashboardStores.length && dashboardStores.length > 0 ? "legacy" : "ready",
+      description:
+        legacyStoreCount > 0
+          ? `${dashboardStores.length - legacyStoreCount} mağaza light_postgres standardında, ${legacyStoreCount} legacy istisna izleniyor.`
+          : "Yeni mağazalar light_postgres standardıyla açılıyor.",
+      tone: legacyStoreCount > 0 ? "warning" : "success",
+      details: `${dashboardStores.length - legacyStoreCount} light_postgres / ${legacyStoreCount} legacy mağaza.`,
+    },
+    {
+      name: "Logto",
+      status: pendingAuthCount > 0 ? "pending" : "ready",
+      description: pendingAuthCount > 0 ? "Auth provider kurulumu bekleyen mağazalar var." : "Auth provider sinyalleri temiz.",
+      tone: pendingAuthCount > 0 ? "warning" : "success",
+      details: `${pendingAuthCount} mağaza auth setup bekliyor.`,
+    },
+    {
+      name: "R2",
+      status: dashboardStores.some((store) => !store.health.r2Ready) ? "watch" : "ready",
+      description: "Medya depolama readiness mağaza sağlık sinyallerinden okunuyor.",
+      tone: dashboardStores.some((store) => !store.health.r2Ready) ? "warning" : "success",
+      details: `${dashboardStores.filter((store) => store.health.r2Ready).length} mağazada R2 ready.`,
+    },
+    {
+      name: "Umami",
+      status: pendingAnalyticsCount > 0 ? "pending" : "ready",
+      description: pendingAnalyticsCount > 0 ? "Analytics kurulumu bekleyen mağazalar var." : "Analytics setup sinyalleri temiz.",
+      tone: pendingAnalyticsCount > 0 ? "warning" : "success",
+      details: `${pendingAnalyticsCount} mağaza analytics setup bekliyor.`,
+    },
+    {
+      name: "Coolify",
+      status: failedStoreCount > 0 ? "attention" : "ready",
+      description: "Admin ve storefront deploy readiness mağaza health alanlarından izleniyor.",
+      tone: failedStoreCount > 0 ? "warning" : "success",
+      details: `${recentDeploymentCount} mağazada deploy izi, ${failedStoreCount} mağazada dikkat sinyali.`,
+    },
+    {
+      name: "GHCR",
+      status: deployDisabled ? "disabled" : "ready",
+      description: deployDisabled ? "Preview guard deploy aksiyonlarını kapalı tutuyor." : "Deploy aksiyonları yetkili kullanıcı için açık.",
+      tone: deployDisabled ? "neutral" : "success",
+    },
+    {
+      name: "Cloudflare DNS",
+      status: dashboardStores.some((store) => store.provisioning.state === "pending_dns") ? "pending" : "ready",
+      description: "DNS bekleyen mağazalar provisioning state üzerinden ayrı izlenir.",
+      tone: dashboardStores.some((store) => store.provisioning.state === "pending_dns") ? "warning" : "success",
+    },
+    {
+      name: "Build Server",
+      status: provisioningStoreCount > 0 ? "running" : "ready",
+      description: provisioningStoreCount > 0 ? "Kurulum kuyruğunda çalışan veya bekleyen mağazalar var." : "Kurulum kuyruğu sakin.",
+      tone: provisioningStoreCount > 0 ? "accent" : "success",
+    },
+  ];
 
   const queueBuckets = [
     {
@@ -209,28 +298,28 @@ export default async function OwnerDashboardPage() {
 
       <div className="owner-metric-grid dashboard-kpi-grid">
         <OwnerKpiCard
-          label="Toplam mağaza"
+          label="Total Stores"
           value={portfolioCount}
           note={`${totals.activeStores} aktif, ${totals.draftStores} taslak`}
           tone="accent"
         />
         <OwnerKpiCard
-          label="Canlı vitrin"
-          value={totals.liveStorefronts}
-          note="Yayın hazırlığı tamamlanan mağazalar"
+          label="Ready Stores"
+          value={readyStoreCount}
+          note="Provisioning zinciri hazır görünen mağazalar"
           tone="success"
         />
         <OwnerKpiCard
-          label="Bekleyen sipariş"
-          value={totals.pendingOrders}
-          note="Operasyon takibi gereken siparişler"
-          tone={totals.pendingOrders > 0 ? "warning" : "neutral"}
+          label="Provisioning"
+          value={provisioningStoreCount}
+          note="Running, provisioning veya pending state"
+          tone={provisioningStoreCount > 0 ? "accent" : "neutral"}
         />
         <OwnerKpiCard
-          label="Yeni standart dışı"
-          value={legacyStoreCount}
-          note="Legacy veya özel modda kalan mağazalar"
-          tone={legacyStoreCount > 0 ? "legacy" : "neutral"}
+          label="Failed / Needs Attention"
+          value={failedStoreCount}
+          note={`${recentDeploymentCount} mağazada deploy izi var`}
+          tone={failedStoreCount > 0 ? "danger" : "success"}
         />
       </div>
 
@@ -241,6 +330,58 @@ export default async function OwnerDashboardPage() {
       ) : null}
 
       <div className="owner-dashboard-grid">
+        <OwnerSectionCard
+          eyebrow="System Readiness"
+          title="Platform servisleri"
+          copy="Provisioning, deploy, auth, storage ve analytics sinyalleri tek merkezde okunur."
+          actions={<OwnerStatusChip tone="ink">Recent deployments: {recentDeploymentCount}</OwnerStatusChip>}
+        >
+          <div className="service-status-grid">
+            {readinessServices.map((service) => (
+              <ServiceStatusCard
+                key={service.name}
+                name={service.name}
+                status={service.status}
+                tone={service.tone}
+                description={service.description}
+                checkedAt={formatDateTime(lastCheckedAt)}
+                details={service.details ? <p>{service.details}</p> : null}
+              />
+            ))}
+          </div>
+        </OwnerSectionCard>
+
+        <OwnerSectionCard
+          eyebrow="Recent Activity"
+          title="Son operasyon akışı"
+          copy="Create, provisioning, deploy ve smoke gibi olaylar panik yaratmayan kısa metinlerle izlenir."
+        >
+          <OwnerTimeline
+            items={recentActivity.map((item) => ({
+              id: item.id,
+              title: item.action.replaceAll("_", " "),
+              detail: item.targetLabel,
+              meta: (
+                <>
+                  <span>{item.actorName}</span>
+                  <strong>{formatDateTime(item.createdAt)}</strong>
+                </>
+              ),
+            }))}
+            empty={
+              <OwnerEmptyState
+                title="Henüz aktivite yok"
+                copy="Mağaza oluşturma, provisioning veya deploy olayları oluştuğunda burada listelenir."
+              />
+            }
+          />
+          {dashboardError ? (
+            <TechnicalDetailsDisclosure title="Teknik veri notu">
+              <p>{dashboardError}</p>
+            </TechnicalDetailsDisclosure>
+          ) : null}
+        </OwnerSectionCard>
+
         <OwnerSectionCard
           eyebrow="Panel Durumu"
           title="Kontrol paneli özeti"

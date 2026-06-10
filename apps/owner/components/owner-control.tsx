@@ -136,6 +136,198 @@ export function OwnerStatusChip({
   return <span className={`pill ${getPillToneClass(tone)} ${className}`.trim()}>{children}</span>;
 }
 
+export const StatusBadge = OwnerStatusChip;
+
+export function ServiceStatusCard({
+  name,
+  status,
+  description,
+  checkedAt,
+  tone = "neutral",
+  details,
+}: {
+  name: string;
+  status: ReactNode;
+  description: ReactNode;
+  checkedAt?: ReactNode;
+  tone?: OwnerTone;
+  details?: ReactNode;
+}) {
+  return (
+    <article className={`service-status-card tone-${tone}`}>
+      <div className="service-status-head">
+        <strong>{name}</strong>
+        <OwnerStatusChip tone={tone}>{status}</OwnerStatusChip>
+      </div>
+      <p>{description}</p>
+      <div className="service-status-foot">
+        <span>Son kontrol</span>
+        <strong>{checkedAt || "-"}</strong>
+      </div>
+      {details ? <TechnicalDetailsDisclosure title="Detay">{details}</TechnicalDetailsDisclosure> : null}
+    </article>
+  );
+}
+
+export function StoreStatusCard({
+  title,
+  label,
+  status,
+  tone = "neutral",
+  checkedAt,
+  action,
+}: {
+  title: string;
+  label: ReactNode;
+  status: ReactNode;
+  tone?: OwnerTone;
+  checkedAt?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <article className={`store-status-card tone-${tone}`}>
+      <div className="store-status-card-top">
+        <span>{title}</span>
+        <OwnerStatusChip tone={tone}>{status}</OwnerStatusChip>
+      </div>
+      <strong>{label}</strong>
+      <small>{checkedAt ? <>Son kontrol: {checkedAt}</> : "Son kontrol: -"}</small>
+      {action ? <div className="store-status-card-action">{action}</div> : null}
+    </article>
+  );
+}
+
+export function DeploymentCard({
+  title,
+  status,
+  tone = "neutral",
+  rows,
+  note,
+  actions,
+}: {
+  title: string;
+  status: ReactNode;
+  tone?: OwnerTone;
+  rows: Array<{ label: string; value: ReactNode }>;
+  note?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <article className={`deployment-card tone-${tone}`}>
+      <div className="deployment-card-head">
+        <strong>{title}</strong>
+        <OwnerStatusChip tone={tone}>{status}</OwnerStatusChip>
+      </div>
+      <div className="deployment-card-grid">
+        {rows.map((row) => (
+          <span key={row.label}>
+            {row.label}
+            <strong>{row.value || "-"}</strong>
+          </span>
+        ))}
+      </div>
+      {note ? <p>{note}</p> : null}
+      {actions ? <div className="actions compact-actions wrap">{actions}</div> : null}
+    </article>
+  );
+}
+
+export function RuntimeMetadataCard({
+  items,
+}: {
+  items: Array<{ label: string; value: ReactNode; tone?: OwnerTone }>;
+}) {
+  return (
+    <div className="runtime-metadata-grid">
+      {items.map((item) => (
+        <article key={item.label} className={`runtime-metadata-item tone-${item.tone ?? "neutral"}`}>
+          <span>{item.label}</span>
+          <strong>{item.value || "-"}</strong>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+export function SmokeResultTable({
+  rows,
+}: {
+  rows: Array<{
+    route: string;
+    expected: string;
+    actual: ReactNode;
+    passed: boolean | null;
+    checkedAt?: ReactNode;
+  }>;
+}) {
+  return (
+    <div className="smoke-result-table-wrap">
+      <table className="smoke-result-table">
+        <thead>
+          <tr>
+            <th>Route</th>
+            <th>Expected</th>
+            <th>Actual</th>
+            <th>Result</th>
+            <th>Last checked</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.route}>
+              <td>{row.route}</td>
+              <td>{row.expected}</td>
+              <td>{row.actual}</td>
+              <td>
+                <OwnerStatusChip tone={row.passed === null ? "neutral" : row.passed ? "success" : "danger"}>
+                  {row.passed === null ? "Not checked" : row.passed ? "PASS" : "FAIL"}
+                </OwnerStatusChip>
+              </td>
+              <td>{row.checkedAt || "-"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function PreflightChecklist({
+  items,
+}: {
+  items: Array<{ label: string; ready: boolean; note?: ReactNode }>;
+}) {
+  return (
+    <div className="preflight-checklist">
+      {items.map((item) => (
+        <article key={item.label} className={item.ready ? "is-ready" : "is-blocked"}>
+          <span aria-hidden="true" />
+          <div>
+            <strong>{item.label}</strong>
+            {item.note ? <p>{item.note}</p> : null}
+          </div>
+          <OwnerStatusChip tone={item.ready ? "success" : "danger"}>{item.ready ? "Ready" : "Blocked"}</OwnerStatusChip>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+export function TechnicalDetailsDisclosure({
+  title = "Technical details",
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className="owner-technical-details control-technical-details">
+      <summary>{title}</summary>
+      <div>{children}</div>
+    </details>
+  );
+}
+
 type ActionTone = "primary" | "secondary" | "ghost";
 
 interface OwnerActionButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

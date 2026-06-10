@@ -1,4 +1,5 @@
 import { RepairProjectButton } from "@/components/RepairProjectButton";
+import { TechnicalDetailsDisclosure } from "@/components/owner-control";
 import { formatDateTime } from "@/lib/formatters";
 import { getProvisioningLabel, getProvisioningToneClass } from "@/lib/lifecycle-ui";
 import type {
@@ -508,8 +509,11 @@ export function ProvisioningLifecycleCard({
 
         {provisioning.lastError ? (
           <div className="provisioning-stage-alert">
-            <strong>Sahne arkasindan gelen son not</strong>
-            <p>{provisioning.lastError}</p>
+            <strong>Needs attention</strong>
+            <p>Bu mağazada tamamlanması gereken bir kurulum veya runtime kontrolü var.</p>
+            <TechnicalDetailsDisclosure title="Technical details">
+              <p>{provisioning.lastError}</p>
+            </TechnicalDetailsDisclosure>
           </div>
         ) : (
           <p className="card-note">

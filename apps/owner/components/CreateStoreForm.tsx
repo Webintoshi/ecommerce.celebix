@@ -56,6 +56,24 @@ const THEME_OPTIONS = [
   { value: "editorial", label: "Editorial" },
 ];
 
+const RESERVED_SLUGS = new Set([
+  "admin",
+  "api",
+  "app",
+  "auth",
+  "celebix",
+  "customer",
+  "derycraft",
+  "derycraftcom",
+  "derycraftcomtr",
+  "login",
+  "owner",
+  "platform",
+  "root",
+  "support",
+  "www",
+]);
+
 function slugify(value: string): string {
   return value
     .normalize("NFKD")
@@ -69,6 +87,34 @@ function slugify(value: string): string {
     .replace(/Ã§/g, "c")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function getSlugValidationError(slug: string): string | null {
+  if (!slug) {
+    return "Slug zorunlu.";
+  }
+
+  if (slug !== slug.toLowerCase()) {
+    return "Slug sadece lowercase olmalı.";
+  }
+
+  if (/\s/.test(slug)) {
+    return "Slug boşluk içeremez.";
+  }
+
+  if (/[çğıöşüÇĞİÖŞÜ]/.test(slug)) {
+    return "Slug Türkçe karakter içeremez.";
+  }
+
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    return "Slug sadece harf, rakam ve tek tire grupları içerebilir.";
+  }
+
+  if (RESERVED_SLUGS.has(slug) || slug.includes("derycraft") || slug.includes("customer")) {
+    return "Bu slug korumalı veya rezerve edilmiş.";
+  }
+
+  return null;
 }
 
 export function CreateStoreForm({
@@ -104,6 +150,13 @@ export function CreateStoreForm({
     event.preventDefault();
     setError(null);
 
+    const slugValidationError = getSlugValidationError(form.slug);
+
+    if (slugValidationError) {
+      setError(slugValidationError);
+      return;
+    }
+
     if (disabled) {
       setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
       return;
@@ -128,8 +181,13 @@ export function CreateStoreForm({
   }
 
   const branchSlugPreview = form.slug || slugify(form.name) || "store-slug";
+  const slugValidationError = getSlugValidationError(form.slug);
+  const visibleSlugValidationError = form.slug ? slugValidationError : null;
+  const storefrontDomainPreview = `https://${branchSlugPreview}.celebix.site`;
+  const adminDomainPreview = `https://admin-${branchSlugPreview}.celebix.site`;
   const storefrontBranchPreview = `${storefrontBranchPrefix}/${branchSlugPreview}`;
   const legacyModeVisible = showLegacyOptions || form.databaseMode === "full_supabase";
+  const createBlocked = disabled || Boolean(slugValidationError);
 
   return (
     <form className="owner-create-wizard" onSubmit={handleSubmit}>
@@ -150,6 +208,7 @@ export function CreateStoreForm({
               <label className="field">
                 <span>Slug</span>
                 <input value={form.slug} onChange={handleSlugChange} placeholder="deri-kordon" required />
+                {visibleSlugValidationError ? <small className="form-error">{visibleSlugValidationError}</small> : null}
               </label>
               <label className="field field-full">
                 <span>Mağaza açıklaması</span>
@@ -172,15 +231,19 @@ export function CreateStoreForm({
             </div>
             <p className="section-copy">Vitrin domaini ana karar alanıdır; admin domaini kurulum zincirinde bundan türetilir.</p>
             <label className="field">
-              <span>Vitrin domaini</span>
+              <span>Birincil domain</span>
               <input
                 value={form.domain}
                 onChange={(event) => updateField("domain", event.target.value)}
                 placeholder="derikordon.com"
                 required
               />
-              <small className="muted">Demo kayıt ve admin host planı kurulum onayında teknik detay olarak görünür.</small>
+              <small className="muted">Canlı domain ayrı tutulur; Celebix demo domainleri slug üzerinden otomatik gösterilir.</small>
             </label>
+            <div className="domain-preview-grid">
+              <span>Storefront preview <strong>{storefrontDomainPreview}</strong></span>
+              <span>Admin preview <strong>{adminDomainPreview}</strong></span>
+            </div>
           </div>
         </section>
 
@@ -325,6 +388,8 @@ export function CreateStoreForm({
               <span>Mağaza <strong>{form.name || "Henüz girilmedi"}</strong></span>
               <span>Slug <strong>{branchSlugPreview}</strong></span>
               <span>Domain <strong>{form.domain || "Bekleniyor"}</strong></span>
+              <span>Storefront Preview <strong>{storefrontDomainPreview}</strong></span>
+              <span>Admin Preview <strong>{adminDomainPreview}</strong></span>
               <span>Standart <strong>{form.databaseMode === "full_supabase" ? "Legacy" : "Postgres + Logto + Umami + R2"}</strong></span>
               <span>Tema <strong>{form.theme}</strong></span>
               <span>Paket <strong>{form.packageDurationMonths || "1"} ay</strong></span>
@@ -348,13 +413,13 @@ export function CreateStoreForm({
           İptal
         </button>
         <div className="owner-wizard-footer-copy">
-          <strong>{disabled ? "Önizleme Modu" : "Kurulum hazır"}</strong>
-          <span>{disabled ? "Yazma işlemleri kapalı" : "Yeni mağaza kaydı oluşturulabilir"}</span>
+          <strong>{createBlocked ? "Create kapalı" : "Kurulum hazır"}</strong>
+          <span>{createBlocked ? disabledReason || visibleSlugValidationError || "Slug girildiğinde create açılır" : "Yeni mağaza kaydı oluşturulabilir"}</span>
         </div>
         <button
           type="submit"
           className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
-          disabled={disabled || isPending}
+          disabled={createBlocked || isPending}
         >
           {isPending ? "Oluşturuluyor..." : "Mağaza Oluştur"}
         </button>
