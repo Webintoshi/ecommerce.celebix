@@ -25,6 +25,11 @@ import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
 import { translateProductCollection, translateProductRecord } from "@/lib/translation";
 import { resolveVariantDisplayPricing } from "@celebix/platform-config/src/product-pricing";
+import {
+  getVariantAttributeRegistry,
+  hydrateVariantAttributes,
+  inferVariantAttributesFromName,
+} from "@/lib/variant-attribute-hydration";
 
 function isMissingProductVariantAttributeRelation(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("message" in error)) {
@@ -197,23 +202,11 @@ export default async function ProductDetailPage({
         }
       }
 
-      const discountRulesMap = await getProductDiscountRulesMap(supabase, [dbProduct.id]);
+      const [discountRulesMap, attributeRegistry] = await Promise.all([
+        getProductDiscountRulesMap(supabase, [dbProduct.id]),
+        getVariantAttributeRegistry(),
+      ]);
       const productDiscountRules = discountRulesMap[dbProduct.id] || [];
-
-      const allAttributeValues =
-        lightPostgresProduct !== undefined || !supabase
-          ? []
-          : (
-              await supabase
-                .from("variant_attribute_values")
-                .select(`
-                  id,
-                  value,
-                  color_code,
-                  image_url,
-                  attribute:variant_attributes(id, name)
-                `)
-            ).data;
 
       let images: string[] = [];
       if (
@@ -239,33 +232,26 @@ export default async function ProductDetailPage({
             },
             productDiscountRules,
           );
-          let attrs = Array.isArray(variant.linked_attributes)
+          const linkedAttributes = Array.isArray(variant.linked_attributes)
             ? variant.linked_attributes.map((attribute: any) => ({
                 ...attribute.attribute_value,
                 attribute: attribute.attribute_value?.attribute,
               }))
             : [];
 
-          if (attrs.length === 0 && Array.isArray(variant.raw_attributes)) {
-            attrs = variant.raw_attributes;
-          }
+          const rawAttributes = Array.isArray(variant.raw_attributes)
+            ? variant.raw_attributes
+            : Array.isArray(variant.attributes)
+              ? variant.attributes
+              : [];
 
-          if (attrs.length === 0 && allAttributeValues) {
-            const matchedValue = allAttributeValues.find(
-              (attributeValue: any) =>
-                attributeValue.value?.toLowerCase() === variant.name?.toLowerCase(),
-            );
-            if (matchedValue) {
-              attrs = [
-                {
-                  id: matchedValue.id,
-                  value: matchedValue.value,
-                  color_code: matchedValue.color_code,
-                  image_url: matchedValue.image_url,
-                  attribute: matchedValue.attribute,
-                },
-              ];
-            }
+          let attrs = hydrateVariantAttributes(
+            [...linkedAttributes, ...rawAttributes],
+            attributeRegistry,
+          );
+
+          if (attrs.length === 0) {
+            attrs = inferVariantAttributesFromName(variant.name || "", attributeRegistry);
           }
 
           return {

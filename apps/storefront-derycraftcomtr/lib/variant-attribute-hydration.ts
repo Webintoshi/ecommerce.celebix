@@ -54,15 +54,6 @@ function normalizeToken(value: string): string {
     .replace(/[^a-z0-9]+/g, "");
 }
 
-function isColorGroupName(value: unknown) {
-  const normalized = toOptionalString(value)?.toLocaleLowerCase("tr") ?? "";
-  return (
-    normalized.includes("renk") ||
-    normalized.includes("color") ||
-    normalized.includes("colour")
-  );
-}
-
 function createPrivilegedServerClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -421,10 +412,7 @@ export function hydrateProductVariantSnapshots<T extends HydratableVariant>(
 
     let attributes = hydrateVariantAttributes(rawAttributes, registry);
 
-    if (
-      attributes.length === 0 &&
-      (isColorGroupName(variant.group_name) || isColorGroupName(variant.groupName))
-    ) {
+    if (attributes.length === 0) {
       attributes = inferVariantAttributesFromName(variant.name || "", registry);
     }
 
