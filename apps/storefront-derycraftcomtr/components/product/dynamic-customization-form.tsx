@@ -134,7 +134,7 @@ function OptionImage({
       src={currentSource}
       alt={alt}
       fill
-      sizes="(max-width: 768px) 88px, 140px"
+      sizes="(max-width: 768px) 52px, 64px"
       className={className}
       onError={handleError}
     />
@@ -480,17 +480,18 @@ function FormField({
     imageFitMode === "cover" ? "object-cover" : "object-contain";
   const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3.5";
   const imageSelectColumnCount = Math.min(Math.max(step.options?.length || 1, 1), 4);
-  const imageSelectMinWidth =
+  const imageSelectTileWidth =
     imageSelectColumnCount >= 4
-      ? 72
+      ? 64
       : imageSelectColumnCount === 3
-        ? 88
+        ? 72
         : imageSelectColumnCount === 2
-          ? 108
-          : 140;
-  const mobileImageSelectGridStyle = {
-    "--mobile-image-select-columns": `repeat(${imageSelectColumnCount}, minmax(56px, 72px))`,
-    "--image-select-columns": `repeat(${imageSelectColumnCount}, minmax(${imageSelectMinWidth}px, 1fr))`,
+          ? 80
+          : 88;
+  const mobileImageSelectTileWidth = Math.min(imageSelectTileWidth, 58);
+  const imageSelectGridStyle = {
+    "--mobile-image-select-columns": `repeat(${imageSelectColumnCount}, ${mobileImageSelectTileWidth}px)`,
+    "--image-select-columns": `repeat(${imageSelectColumnCount}, ${imageSelectTileWidth}px)`,
   } as CSSProperties;
   const hasSelectedValue =
     value !== undefined &&
@@ -584,13 +585,13 @@ function FormField({
       )}
 
       {step.type === "image_select" && (
-        <div className="w-full">
+        <div className="w-full max-w-full">
           {label}
           <div
             className={cn(
-              "grid justify-start gap-2 [grid-template-columns:var(--mobile-image-select-columns)] sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]",
+              "inline-grid max-w-full justify-start gap-1.5 [grid-template-columns:var(--mobile-image-select-columns)] sm:gap-2 md:[grid-template-columns:var(--image-select-columns)]",
             )}
-            style={mobileImageSelectGridStyle}
+            style={imageSelectGridStyle}
           >
             {step.options?.map((option) => (
               <button
@@ -608,7 +609,7 @@ function FormField({
                 <div
                   className={cn(
                     "relative aspect-square bg-neutral-50",
-                    imageWrapperClass === "p-3.5" ? "p-1 md:p-2" : "p-1"
+                    imageWrapperClass === "p-3.5" ? "p-1" : "p-0.5",
                   )}
                 >
                   {option.image_url ? (
@@ -626,24 +627,24 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div className="border-t border-[#E8DFD3] px-2 py-2 text-center sm:px-3 sm:py-2.5">
+                <div className="border-t border-[#E8DFD3] px-1 py-1 text-center">
                   <p
                     className={cn(
-                      "break-words text-[11px] font-medium leading-snug text-[#12100D] sm:text-xs",
+                      "break-words text-[9px] font-medium leading-tight text-[#12100D] sm:text-[10px]",
                       value === option.value && "font-semibold text-[#8A6B37]",
                     )}
                   >
                     {formatDisplayLabel(option.label)}
                   </p>
                   {option.price_adjustment > 0 && (
-                    <p className="mt-0.5 text-[10px] text-[#9A7234] sm:text-[11px]">
+                    <p className="mt-0.5 text-[8px] text-[#9A7234] sm:text-[9px]">
                       +{formatPrice(option.price_adjustment)}
                     </p>
                   )}
                 </div>
                 {value === option.value ? (
-                  <div className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-sm bg-[#8A6B37]">
-                    <Check className="h-2.5 w-2.5 text-white" />
+                  <div className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-sm bg-[#8A6B37]">
+                    <Check className="h-2 w-2 text-white" />
                   </div>
                 ) : null}
               </button>
