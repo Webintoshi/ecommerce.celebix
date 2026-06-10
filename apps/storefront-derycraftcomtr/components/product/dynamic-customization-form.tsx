@@ -588,7 +588,7 @@ function FormField({
       {step.type === "image_select" && (
         <div className="w-full max-w-full">
           {label}
-          <div className="flex w-full min-w-0 flex-nowrap gap-2">
+          <div className="flex w-full min-w-0 flex-nowrap gap-2 lg:w-1/2 lg:max-w-[50%]">
             {step.options?.map((option) => (
               <button
                 key={option.value}
