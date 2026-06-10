@@ -130,6 +130,8 @@ const PREFLIGHT_STEP_KEYS: ProvisioningStepKey[] = [
   "coolify_preflight",
   "github_preflight",
   "starter_source_preflight",
+  "auth_preflight",
+  "analytics_preflight",
   "generated_apps_toggle",
 ];
 
@@ -664,7 +666,7 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
     return `Starter source erisilebilir: ${sourceBase}`;
   });
 
-  await runPreflightStep(tracker, "auth_setup", async () => {
+  await runPreflightStep(tracker, "auth_preflight", async () => {
     const store = repairStoreConfig(input.slug);
 
     if (store.databaseMode !== "light_postgres") {
@@ -677,7 +679,7 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
       : status.lastError || "Logto config generation pending apply modunda calisacak.";
   });
 
-  await runPreflightStep(tracker, "analytics_setup", async () => {
+  await runPreflightStep(tracker, "analytics_preflight", async () => {
     const store = repairStoreConfig(input.slug);
 
     if (store.databaseMode !== "light_postgres") {

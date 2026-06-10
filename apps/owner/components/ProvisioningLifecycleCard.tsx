@@ -55,6 +55,14 @@ const STEP_STORIES: Record<ProvisioningStepKey, StepStory> = {
     stage: "İlk taslak",
     copy: "Starter kaynakları vitrin iskeletini kurmak için açılıyor.",
   },
+  auth_preflight: {
+    stage: "Giriş hazırlığı",
+    copy: "Logto yönetim yetkisi ve connector hazırlığı doğrulanıyor.",
+  },
+  analytics_preflight: {
+    stage: "Ölçüm hazırlığı",
+    copy: "Umami yönetim yetkisi ve website apply hazırlığı doğrulanıyor.",
+  },
   generated_apps_toggle: {
     stage: "Otomasyon anahtari",
     copy: "Generated app politikası açılış ritmine göre ayarlanıyor.",
@@ -127,7 +135,7 @@ const ACTS: Array<{
     key: "authority_repo_sync",
     title: "Kimlik",
     caption: "Marka otoritesi ve yayin rotasi",
-    keys: ["owner_supabase_auth", "cleanup_guard", "deployment_branch_preflight", "supabase_preflight", "r2_preflight", "coolify_preflight", "github_preflight", "starter_source_preflight", "generated_apps_toggle", "authority_repo_sync", "management_profile"],
+    keys: ["owner_supabase_auth", "cleanup_guard", "deployment_branch_preflight", "supabase_preflight", "r2_preflight", "coolify_preflight", "github_preflight", "starter_source_preflight", "auth_preflight", "analytics_preflight", "generated_apps_toggle", "authority_repo_sync", "management_profile"],
   },
   {
     key: "supabase_provision",

@@ -44,6 +44,8 @@ export type ProvisioningStepKey =
   | "coolify_preflight"
   | "github_preflight"
   | "starter_source_preflight"
+  | "auth_preflight"
+  | "analytics_preflight"
   | "generated_apps_toggle"
   | "authority_repo_sync"
   | "management_profile"
@@ -121,6 +123,8 @@ const STEP_LABELS: Record<ProvisioningStepKey, string> = {
   coolify_preflight: "Coolify preflight",
   github_preflight: "GitHub sync preflight",
   starter_source_preflight: "Starter source preflight",
+  auth_preflight: "Auth authority preflight",
+  analytics_preflight: "Analytics authority preflight",
   generated_apps_toggle: "Generated apps toggle",
   authority_repo_sync: "Authority repo sync",
   management_profile: "Owner management profile",
