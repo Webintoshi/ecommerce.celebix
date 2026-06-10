@@ -402,13 +402,13 @@ export function ProductDetailClient({
               ) : activeSchema ? (
                 <div
                   ref={extrasSectionRef}
-                  className="space-y-3 border-b border-neutral-200 pb-5"
+                  className="space-y-4 border-b border-[#E8DFD3] pb-6"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
+                    <span className="font-serif text-xs font-medium uppercase tracking-[0.22em] text-[#9A7234]">
                       Kişiselleştirme
                     </span>
-                    <span className="h-px w-8 bg-neutral-300" />
+                    <span className="h-px flex-1 bg-[#E8DFD3]" />
                   </div>
                   <DynamicCustomizationForm
                     schemaId={activeSchema.id}

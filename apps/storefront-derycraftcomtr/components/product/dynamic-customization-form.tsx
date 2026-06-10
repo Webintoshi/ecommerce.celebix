@@ -24,9 +24,45 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Check } from "lucide-react";
+import { Check, Info } from "lucide-react";
 import { resolveStorefrontAssetUrl, resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
 import { cn } from "@/lib/utils";
+
+const CUSTOMIZATION_LABEL_CLASS =
+  "text-sm font-semibold leading-snug tracking-normal text-[#12100D]";
+const CUSTOMIZATION_CONTROL_CLASS =
+  "border-[#E8DFD3] bg-white text-[#12100D] shadow-none";
+const CUSTOMIZATION_SELECT_TRIGGER_CLASS = cn(
+  "h-11 w-full rounded-md px-3 text-sm",
+  CUSTOMIZATION_CONTROL_CLASS,
+  "focus:ring-1 focus:ring-[#C4A062]/35 focus:ring-offset-0",
+);
+const CUSTOMIZATION_INPUT_CLASS = cn(
+  "h-11 rounded-md text-sm",
+  CUSTOMIZATION_CONTROL_CLASS,
+  "focus-visible:ring-1 focus-visible:ring-[#C4A062]/35 focus-visible:ring-offset-0",
+);
+
+function formatDisplayLabel(label: string) {
+  const trimmed = label.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const lettersOnly = trimmed.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü]/g, "");
+  if (
+    lettersOnly.length >= 4 &&
+    lettersOnly === lettersOnly.toLocaleUpperCase("tr-TR")
+  ) {
+    return trimmed
+      .toLocaleLowerCase("tr-TR")
+      .replace(/(^|[\s/])([a-zçğıöşü])/g, (_match, prefix: string, char: string) =>
+        prefix + char.toLocaleUpperCase("tr-TR"),
+      );
+  }
+
+  return trimmed;
+}
 
 const IMAGE_ASPECT_RATIO_CLASS = {
   "1:1": "aspect-square",
@@ -337,10 +373,10 @@ export function DynamicCustomizationForm({
 
   if (loading) {
     return (
-      <div className={cn("space-y-3", className)}>
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-11 w-full rounded-2xl" />
-        <Skeleton className="h-11 w-full rounded-2xl" />
+      <div className={cn("space-y-5", className)}>
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-11 w-full rounded-md" />
+        <Skeleton className="h-11 w-full rounded-md" />
       </div>
     );
   }
@@ -350,14 +386,14 @@ export function DynamicCustomizationForm({
   }
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-6", className)}>
       {schema.description && (
-        <p className="text-sm leading-relaxed text-neutral-500">
+        <p className="text-sm leading-relaxed text-[#6B5F54]">
           {schema.description}
         </p>
       )}
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-col gap-6">
         {visibleSteps.map((step) => (
           <FormField
             key={step.id}
@@ -371,16 +407,14 @@ export function DynamicCustomizationForm({
       </div>
 
       {priceBreakdown && priceBreakdown.total_adjustment > 0 && (
-        <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white/70 px-4 py-3">
+        <div className="flex items-center justify-between rounded-md border border-[#E8DFD3] bg-[#FAF7F2] px-4 py-3">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">
-              Kişiselleştirme Ücreti
-            </p>
-            <p className="text-sm text-neutral-500">
-              Seçilen kişiselleştirme seçenekleri ürün fiyatına eklenir.
+            <p className="text-xs font-semibold text-[#12100D]">Kişiselleştirme ücreti</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-[#6B5F54]">
+              Seçimler ürün fiyatına eklenir.
             </p>
           </div>
-          <span className="text-base font-semibold text-neutral-900">
+          <span className="text-sm font-semibold text-[#9A7234]">
             +{formatPrice(priceBreakdown.total_adjustment)}
           </span>
         </div>
@@ -408,18 +442,32 @@ function FormField({
   isValid: boolean;
   showError: boolean;
 }) {
+  const displayLabel = formatDisplayLabel(step.label);
+  const optionCount = step.options?.length ?? 0;
+  const useSegmentedRadio = step.type === "radio_group" && optionCount > 0 && optionCount <= 3;
+
   const label = (
-    <div className="mb-2 flex items-center gap-1">
-      <Label className={cn("text-sm text-neutral-900", showError && "text-rose-600")}>
-        {step.label}
+    <div className="mb-2.5 flex items-start gap-2">
+      <Label className={cn(CUSTOMIZATION_LABEL_CLASS, showError && "text-rose-600")}>
+        {displayLabel}
+        {step.is_required ? <span className="text-[#C4A062]"> *</span> : null}
       </Label>
-      {step.is_required && <span className="text-rose-600">*</span>}
+      {step.help_text ? (
+        <span
+          className="mt-0.5 inline-flex text-[#9A7234]"
+          title={step.help_text}
+          aria-label={step.help_text}
+        >
+          <Info className="h-3.5 w-3.5" strokeWidth={1.75} />
+        </span>
+      ) : null}
     </div>
   );
 
-  const helpText = step.help_text && (
-    <p className="mt-1 text-xs text-neutral-500">{step.help_text}</p>
-  );
+  const helpText =
+    step.help_text && step.help_text.length > 80 ? (
+      <p className="mt-2 text-xs leading-relaxed text-[#6B5F54]">{step.help_text}</p>
+    ) : null;
 
   const errorMessage = showError && !isValid && (
     <p className="mt-1 text-xs text-rose-600">Bu alan zorunludur</p>
@@ -450,24 +498,17 @@ function FormField({
     value !== "" &&
     (!Array.isArray(value) || value.length > 0);
 
-  const gridClass = {
-    full: "w-full",
-    half: "w-full md:w-[calc(50%-0.5rem)]",
-    third: "w-full md:w-[calc(33.333%-0.75rem)]",
-    quarter: "w-full md:w-[calc(25%-0.75rem)]",
-  }[step.grid_width || "full"];
-
   return (
-    <div className={gridClass}>
+    <div className="w-full">
       {step.type === "select" && (
         <div>
           {label}
           <Select value={String(value || "")} onValueChange={onChange}>
             <SelectTrigger
               className={cn(
-                "rounded-2xl border-neutral-200 bg-white text-neutral-900",
-                hasSelectedValue && "border-[#8A6B37]/40 bg-[#8A6B37]/[0.05]",
-                showError && "border-rose-400"
+                CUSTOMIZATION_SELECT_TRIGGER_CLASS,
+                hasSelectedValue && "border-[#C4A062]/70 bg-[#FAF7F2]",
+                showError && "border-rose-400",
               )}
             >
               <SelectValue placeholder={step.placeholder || "Bir seçenek seçin"} />
@@ -498,10 +539,20 @@ function FormField({
           <RadioGroup
             value={String(value || "")}
             onValueChange={onChange}
-            className="flex flex-wrap gap-2"
+            className={cn(
+              useSegmentedRadio
+                ? "grid gap-2"
+                : "flex flex-col gap-2",
+              useSegmentedRadio &&
+                (optionCount === 2
+                  ? "grid-cols-2"
+                  : optionCount === 3
+                    ? "grid-cols-3"
+                    : "grid-cols-1"),
+            )}
           >
             {step.options?.map((option) => (
-              <div key={option.value}>
+              <div key={option.value} className={useSegmentedRadio ? "min-w-0" : "w-full"}>
                 <RadioGroupItem
                   value={option.value}
                   id={`${step.key}-${option.value}`}
@@ -510,16 +561,17 @@ function FormField({
                 <Label
                   htmlFor={`${step.key}-${option.value}`}
                   className={cn(
-                    "flex cursor-pointer items-center justify-center border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors",
-                    "border-[#E8DFD3] bg-white text-[#12100D] hover:border-[#C4A062]",
-                    "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#8A6B37] peer-data-[state=checked]:text-white",
+                    "flex min-h-11 w-full cursor-pointer items-center justify-center border px-3 py-2.5 text-center text-sm font-medium leading-snug transition-colors",
+                    CUSTOMIZATION_CONTROL_CLASS,
+                    "hover:border-[#C4A062]",
+                    "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#FAF7F2] peer-data-[state=checked]:text-[#12100D]",
                     showError && "border-rose-300",
                   )}
                 >
-                  {option.label}
+                  <span>{formatDisplayLabel(option.label)}</span>
                   {option.price_adjustment > 0 && (
-                    <span className="ml-2 text-xs text-emerald-600">
-                      +{formatPrice(option.price_adjustment)}
+                    <span className="ml-1.5 text-xs font-normal text-[#9A7234]">
+                      (+{formatPrice(option.price_adjustment)})
                     </span>
                   )}
                 </Label>
@@ -532,11 +584,11 @@ function FormField({
       )}
 
       {step.type === "image_select" && (
-        <div className="w-full max-w-full md:max-w-[420px]">
+        <div className="w-full">
           {label}
           <div
             className={cn(
-              "grid justify-start gap-1.5 [grid-template-columns:var(--mobile-image-select-columns)] sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]"
+              "grid justify-start gap-2 [grid-template-columns:var(--mobile-image-select-columns)] sm:gap-3 md:[grid-template-columns:var(--image-select-columns)]",
             )}
             style={mobileImageSelectGridStyle}
           >
@@ -546,11 +598,11 @@ function FormField({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative h-full w-full min-w-0 overflow-hidden border transition-colors md:max-w-none",
+                  "relative h-full w-full min-w-0 overflow-hidden rounded-md border bg-white transition-colors",
                   value === option.value
-                    ? "border-[#8A6B37] bg-[#8A6B37]/[0.04] ring-1 ring-[#8A6B37]/30 shadow-sm"
-                    : "border-neutral-200 hover:border-neutral-300",
-                  showError && "border-rose-300"
+                    ? "border-[#8A6B37] bg-[#FAF7F2]"
+                    : "border-[#E8DFD3] hover:border-[#C4A062]",
+                  showError && "border-rose-300",
                 )}
               >
                 <div
@@ -574,36 +626,26 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div
-                  className={cn(
-                    "p-1.5 text-left sm:p-3",
-                    value === option.value && "bg-[#8A6B37]/[0.06]"
-                  )}
-                >
+                <div className="border-t border-[#E8DFD3] px-2 py-2 text-center sm:px-3 sm:py-2.5">
                   <p
                     className={cn(
-                      "break-words text-[9px] font-medium leading-tight text-neutral-900 sm:text-xs",
-                      value === option.value && "font-semibold text-neutral-950"
+                      "break-words text-[11px] font-medium leading-snug text-[#12100D] sm:text-xs",
+                      value === option.value && "font-semibold text-[#8A6B37]",
                     )}
                   >
-                    {option.label}
+                    {formatDisplayLabel(option.label)}
                   </p>
                   {option.price_adjustment > 0 && (
-                    <p
-                      className={cn(
-                        "text-[9px] text-emerald-600",
-                        value === option.value && "font-medium"
-                      )}
-                    >
+                    <p className="mt-0.5 text-[10px] text-[#9A7234] sm:text-[11px]">
                       +{formatPrice(option.price_adjustment)}
                     </p>
                   )}
                 </div>
-                {value === option.value && (
-                  <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#8A6B37]">
-                    <Check className="h-3 w-3 text-white" />
+                {value === option.value ? (
+                  <div className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-sm bg-[#8A6B37]">
+                    <Check className="h-2.5 w-2.5 text-white" />
                   </div>
-                )}
+                ) : null}
               </button>
             ))}
           </div>
@@ -621,10 +663,7 @@ function FormField({
             onChange={(e) => onChange(e.target.value)}
             placeholder={step.placeholder}
             maxLength={step.validation_rules?.max_length}
-            className={cn(
-              "rounded-2xl border-neutral-200 bg-white",
-              showError && "border-rose-400"
-            )}
+            className={cn(CUSTOMIZATION_INPUT_CLASS, showError && "border-rose-400")}
           />
           {step.validation_rules?.max_length && (
             <p className="mt-1 text-right text-xs text-neutral-400">
@@ -646,8 +685,10 @@ function FormField({
             rows={4}
             maxLength={step.validation_rules?.max_length}
             className={cn(
-              "min-h-[120px] rounded-2xl border-neutral-200 bg-white",
-              showError && "border-rose-400"
+              "min-h-[120px] rounded-md text-sm",
+              CUSTOMIZATION_CONTROL_CLASS,
+              "focus-visible:ring-1 focus-visible:ring-[#C4A062]/35 focus-visible:ring-offset-0",
+              showError && "border-rose-400",
             )}
           />
           {step.validation_rules?.max_length && (
@@ -663,8 +704,9 @@ function FormField({
       {step.type === "checkbox" && (
         <div
           className={cn(
-            "flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 transition-colors",
-            Boolean(value) && "border-[#8A6B37]/35 bg-[#8A6B37]/[0.05]"
+            "flex items-start gap-3 rounded-md border px-4 py-3 transition-colors",
+            CUSTOMIZATION_CONTROL_CLASS,
+            Boolean(value) && "border-[#8A6B37]/50 bg-[#FAF7F2]",
           )}
         >
           <Checkbox
@@ -674,8 +716,8 @@ function FormField({
             className={cn(showError && "border-rose-400")}
           />
           <div className="flex-1">
-            <Label htmlFor={step.key} className="cursor-pointer text-sm text-neutral-900">
-              {step.label}
+            <Label htmlFor={step.key} className="cursor-pointer text-sm text-[#12100D]">
+              {formatDisplayLabel(step.label)}
               {step.is_required && <span className="ml-1 text-rose-600">*</span>}
             </Label>
             {helpText}
@@ -694,10 +736,7 @@ function FormField({
             placeholder={step.placeholder}
             min={step.validation_rules?.min_value}
             max={step.validation_rules?.max_value}
-            className={cn(
-              "rounded-2xl border-neutral-200 bg-white",
-              showError && "border-rose-400"
-            )}
+            className={cn(CUSTOMIZATION_INPUT_CLASS, showError && "border-rose-400")}
           />
           {helpText}
           {errorMessage}
