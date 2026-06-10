@@ -26,7 +26,9 @@ import {
   getLocalizedCategoryLabel,
   getLocalizedCopy,
 } from "@/lib/i18n";
+import { useAnnouncementBar } from "@/lib/announcement-bar";
 import { cn } from "@/lib/utils";
+import type { CSSProperties } from "react";
 
 const NAV_LINK_CLASS =
   "inline-flex items-center gap-1.5 font-serif text-[13px] uppercase tracking-[0.16em] text-neutral-950 transition-opacity hover:opacity-55 sm:text-[14px] lg:tracking-[0.18em]";
@@ -40,7 +42,7 @@ function UtilityIconButton({
     <button
       type="button"
       className={cn(
-        "relative inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-neutral-950 transition-opacity hover:opacity-55",
+        "header-utility-icon relative inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-neutral-950 transition-opacity hover:opacity-55",
         className,
       )}
       {...props}
@@ -66,6 +68,9 @@ export function Header({
   const { user, signOut } = useAuth();
   const { storeInfo } = useStoreInfo();
   const { locale, buildPath } = useStorefrontRoute();
+  const { backgroundColor, textColor, isEnabled: isAnnouncementEnabled } = useAnnouncementBar();
+  const useMobileAnnouncementTheme = isAnnouncementEnabled;
+  const invertLogoOnMobile = useMobileAnnouncementTheme && textColor === "#FFFFFF";
 
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const cartItemCount = getTotalItems();
@@ -351,9 +356,18 @@ export function Header({
   return (
     <header
       className={cn(
-        "relative sticky top-0 z-50 bg-white transition-shadow duration-300",
+        "relative sticky top-0 z-50 bg-white transition-shadow duration-300 lg:bg-white",
+        useMobileAnnouncementTheme && "storefront-mobile-header-themed",
         isScrolled && "shadow-[0_1px_0_rgba(0,0,0,0.06)]",
       )}
+      style={
+        useMobileAnnouncementTheme
+          ? ({
+              "--announcement-bar-bg": backgroundColor,
+              "--announcement-bar-fg": textColor,
+            } as CSSProperties)
+          : undefined
+      }
       onMouseLeave={scheduleMegaMenuClose}
     >
       <div className="container-premium">
@@ -370,13 +384,23 @@ export function Header({
                   alt={logoAlt}
                   fill
                   priority
-                  className="object-contain object-left"
+                  className={cn(
+                    "object-contain object-left",
+                    invertLogoOnMobile && "header-logo-on-dark",
+                  )}
                   sizes="(max-width: 640px) 100px, 124px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
             ) : (
-              <span className="font-serif text-lg text-neutral-900 lg:text-xl">{logoAlt}</span>
+              <span
+                className={cn(
+                  "font-serif text-lg lg:text-xl",
+                  useMobileAnnouncementTheme ? "max-lg:text-inherit" : "text-neutral-900",
+                )}
+              >
+                {logoAlt}
+              </span>
             )}
           </Link>
 
@@ -483,7 +507,7 @@ export function Header({
             <UtilityIconButton aria-label={copy.cartLabel} onClick={() => setIsCartOpen(true)}>
               <HeaderIconBag size={24} />
               {cartItemCount > 0 ? (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-medium leading-none text-white">
+                <span className="header-cart-badge absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-medium leading-none text-white">
                   {cartItemCount}
                 </span>
               ) : null}

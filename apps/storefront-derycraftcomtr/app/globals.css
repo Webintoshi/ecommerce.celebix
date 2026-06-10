@@ -554,3 +554,25 @@ button, input, select, textarea {
     padding-right: 0;
   }
 }
+
+/* === MOBILE HEADER + ANNOUNCEMENT BAR THEME === */
+@media (max-width: 1023px) {
+  .storefront-mobile-header-themed {
+    background-color: var(--announcement-bar-bg) !important;
+    color: var(--announcement-bar-fg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .storefront-mobile-header-themed .header-utility-icon {
+    color: var(--announcement-bar-fg);
+  }
+
+  .storefront-mobile-header-themed .header-cart-badge {
+    background-color: var(--announcement-bar-fg);
+    color: var(--announcement-bar-bg);
+  }
+
+  .storefront-mobile-header-themed .header-logo-on-dark {
+    filter: brightness(0) invert(1);
+  }
+}
