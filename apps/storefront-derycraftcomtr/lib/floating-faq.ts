@@ -107,3 +107,34 @@ export function resolveFloatingFaqItems(contentHtml?: string | null): FloatingFa
   const parsed = contentHtml ? parseFloatingFaqItemsFromHtml(contentHtml) : [];
   return parsed.length > 0 ? parsed : DEFAULT_FLOATING_FAQ_ITEMS;
 }
+
+const DEFAULT_FAQ_INTRO =
+  "Sipariş, teslimat, kişiselleştirme ve kurumsal talepler hakkında en sık sorulan soruları derledik.";
+
+/**
+ * Hero alanı için kısa giriş metni. Tüm plainText kullanılmaz — SSS tekrarını önler.
+ */
+export function resolveFaqIntro(contentHtml?: string | null, seoDescription?: string | null): string {
+  if (contentHtml) {
+    const headingMatch = contentHtml.match(/<h[23][^>]*>/i);
+    if (headingMatch?.index && headingMatch.index > 0) {
+      const introHtml = contentHtml.slice(0, headingMatch.index);
+      const paragraphs = [
+        ...introHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi),
+      ]
+        .map((paragraph) => stripHtml(paragraph[1] ?? ""))
+        .filter(Boolean);
+
+      const intro = paragraphs.join(" ").trim();
+      if (intro.length >= 20 && intro.length <= 280) {
+        return intro;
+      }
+    }
+  }
+
+  if (seoDescription?.trim()) {
+    return seoDescription.trim();
+  }
+
+  return DEFAULT_FAQ_INTRO;
+}

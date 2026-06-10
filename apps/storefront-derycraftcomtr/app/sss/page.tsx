@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { FaqAccordion } from "@/components/faq/FaqAccordion";
 import { buildStorePageMetadata } from "@/lib/seo-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getStorefrontProfile } from "@/lib/storefront-profile";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getPublishedManagedContentPage } from "@/lib/content-pages";
+import {
+  parseFloatingFaqItemsFromHtml,
+  resolveFaqIntro,
+  resolveFloatingFaqItems,
+} from "@/lib/floating-faq";
+import { generateFAQSchema } from "@/lib/seo-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -29,66 +36,118 @@ export default async function FAQPage() {
   const profile = await getStorefrontProfile();
   const managedPage = await getPublishedManagedContentPage("sss");
 
+  const faqItems = resolveFloatingFaqItems(managedPage?.contentHtml);
+  const intro = resolveFaqIntro(managedPage?.contentHtml, managedPage?.seoDescription);
+  const parsedFromAdmin = managedPage?.contentHtml
+    ? parseFloatingFaqItemsFromHtml(managedPage.contentHtml)
+    : [];
+  const showLegacyProse =
+    Boolean(managedPage?.contentHtml) && parsedFromAdmin.length === 0;
+
+  const contactHref = buildLocalizedPath("/iletisim", locale, routing);
+  const storesHref = buildLocalizedPath("/magazalarimiz", locale, routing);
+
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
-            Yardım Merkezi
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
-            Sıkça sorulan sorular
-          </h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
-            {managedPage?.plainText ||
-              `${profile.name} için sipariş, teslimat, iade ve destek içeriklerini admin panelinden yönetebilirsiniz.`}
-          </p>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(generateFAQSchema(faqItems)),
+        }}
+      />
+
+      <section className="border-b border-[#E8DFD3] bg-[#FAF7F2]">
+        <div className="container-premium px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-[0.62rem] font-medium uppercase tracking-[0.32em] text-[#9A7234]">
+              Yardım merkezi
+            </p>
+            <h1 className="mt-3 font-serif text-3xl font-semibold tracking-[-0.03em] text-[#12100D] sm:text-4xl lg:text-[2.75rem]">
+              Sıkça sorulan sorular
+            </h1>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#6B5F54] sm:text-[0.94rem]">
+              {intro}
+            </p>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 py-12 lg:py-16">
-        <article className="rounded-[28px] border border-black/5 bg-white p-8 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]">
-          {managedPage?.contentHtml ? (
-            <div
-              className="prose prose-neutral max-w-none [&_blockquote]:border-l-4 [&_blockquote]:border-[#C7A985] [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
-              dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
-            />
-          ) : (
-            <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
-              <p>
-                Bu sayfa admin panelindeki <strong>SSS</strong> içeriğiyle beslenir. Müşterilerin görmesini istediğiniz
-                soru, cevap ve yardım akışını burada zengin metin olarak yönetebilirsiniz.
-              </p>
-              <p>
-                İçerik eklenene kadar bu alan temel bir bilgilendirme bloğu olarak kalır.
-              </p>
-            </div>
-          )}
-        </article>
+      <section className="container-premium px-4 py-10 sm:px-6 sm:py-14 lg:py-16">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-10">
+          <article className="overflow-hidden rounded-[1.5rem] border border-[#E8DFD3] bg-[#FAF7F2] shadow-[0_24px_60px_-40px_rgba(18,16,13,0.18)]">
+            <div className="h-px bg-gradient-to-r from-transparent via-[#C4A062] to-transparent" />
+            <FaqAccordion items={faqItems} />
+          </article>
 
-        <div className="mt-8 rounded-[32px] bg-[#11192D] px-6 py-8 text-white sm:px-8">
-          <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
-            Daha fazla destek
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold">Hâlâ sorunuz mu var? Bizimle iletişime geçin</h2>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/78">
-            İletişim kartları genel ayarlardan gelir ve mağaza destek akışını burada tamamlar.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href={buildLocalizedPath("/iletisim", locale, routing)}
-              className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#11192D] transition hover:bg-[#F4ECE5]"
-            >
-              İletişim sayfasına git
-            </Link>
-            <a
-              href={`mailto:${profile.email}`}
-              className="rounded-full border border-white/20 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/10"
-            >
-              {profile.email}
-            </a>
-          </div>
+          <aside className="space-y-4 lg:sticky lg:top-28">
+            <div className="rounded-[1.25rem] border border-[#E8DFD3] bg-white p-5 sm:p-6">
+              <p className="text-[0.58rem] font-medium uppercase tracking-[0.28em] text-[#9A7234]">
+                Hızlı erişim
+              </p>
+              <h2 className="mt-2 font-serif text-xl font-semibold text-[#12100D]">
+                Yardıma mı ihtiyacınız var?
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#6B5F54]">
+                Aradığınız cevabı bulamadıysanız ekibimiz size yardımcı olur.
+              </p>
+
+              <div className="mt-5 space-y-2.5">
+                <Link
+                  href={contactHref}
+                  className="flex items-center justify-between rounded-full border border-[#E8DFD3] bg-[#FAF7F2] px-4 py-3 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-[#12100D] transition hover:border-[#C4A062]"
+                >
+                  İletişim
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <Link
+                  href={storesHref}
+                  className="flex items-center justify-between rounded-full border border-[#E8DFD3] bg-white px-4 py-3 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-[#12100D] transition hover:border-[#C4A062]"
+                >
+                  Mağazalarımız
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <a
+                  href={`mailto:${profile.email}`}
+                  className="flex items-center justify-between rounded-full border border-[#E8DFD3] bg-white px-4 py-3 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-[#12100D] transition hover:border-[#C4A062]"
+                >
+                  E-posta
+                  <span aria-hidden="true">→</span>
+                </a>
+                <a
+                  href={`tel:${profile.phoneLink}`}
+                  className="flex items-center justify-between rounded-full border border-[#E8DFD3] bg-white px-4 py-3 text-[0.72rem] font-medium uppercase tracking-[0.14em] text-[#12100D] transition hover:border-[#C4A062]"
+                >
+                  Telefon
+                  <span aria-hidden="true">→</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="rounded-[1.25rem] border border-[#E8DFD3] bg-[#12100D] p-5 text-white sm:p-6">
+              <p className="text-[0.58rem] font-medium uppercase tracking-[0.28em] text-[#C4A062]">
+                Kurumsal talepler
+              </p>
+              <p className="mt-2 text-sm leading-6 text-white/78">
+                Numune, toplu sipariş ve kişiselleştirme süreçleri için doğrudan bizimle iletişime geçebilirsiniz.
+              </p>
+              <Link
+                href={contactHref}
+                className="mt-4 inline-flex rounded-full border border-white/25 px-4 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.14em] text-white transition hover:bg-white hover:text-[#12100D]"
+              >
+                Teklif al
+              </Link>
+            </div>
+          </aside>
         </div>
+
+        {showLegacyProse ? (
+          <article className="mt-8 rounded-[1.5rem] border border-[#E8DFD3] bg-white p-6 sm:p-8">
+            <div
+              className="prose prose-neutral max-w-none prose-p:text-[#6B5F54] prose-headings:font-serif prose-headings:text-[#12100D] [&_blockquote]:border-l-4 [&_blockquote]:border-[#C4A062] [&_blockquote]:pl-4 [&_blockquote]:italic [&_ol]:pl-6 [&_ul]:pl-6"
+              dangerouslySetInnerHTML={{ __html: managedPage?.contentHtml ?? "" }}
+            />
+          </article>
+        ) : null}
       </section>
     </div>
   );
