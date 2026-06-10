@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStoredPaymentGateways } from "@/lib/db/payment-gateways";
-import { getQuickOrderLinkByToken, markQuickOrderLinkOpened } from "@/lib/db/quick-order-links";
+import {
+  getQuickOrderLinkByToken,
+  isQuickOrderStorageUnavailable,
+  markQuickOrderLinkOpened,
+} from "@/lib/db/quick-order-links";
 import { getPaymentGatewayRuntimeStatus, sanitizePublicPaymentGateway } from "@/lib/payment-providers";
 
 function isManualGateway(gateway: { gateway: string }) {
@@ -38,6 +42,19 @@ export async function GET(
       gateways,
     });
   } catch (error) {
+    if (isQuickOrderStorageUnavailable(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          enabled: false,
+          disabled: true,
+          reason: "disabled",
+          error: "Hizli siparis modulu aktif degil.",
+        },
+        { status: 404 },
+      );
+    }
+
     console.error("Quick order link read failed:", error);
     const status =
       error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "PGRST116"

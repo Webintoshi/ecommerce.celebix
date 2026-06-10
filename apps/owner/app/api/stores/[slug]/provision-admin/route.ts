@@ -11,7 +11,7 @@ import {
 } from "@/lib/generated-deployment-guard";
 import { isRedisLockError } from "@/lib/redis";
 import { ensureStoreConfigFromOwnerAuthority } from "@/lib/store-config-authority";
-import { syncStoreAuthorityRepoForStore } from "@/lib/storefront-repo-sync";
+import { syncAdminRepoForStore, syncStoreAuthorityRepoForStore } from "@/lib/storefront-repo-sync";
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
@@ -45,6 +45,12 @@ export async function POST(_: Request, { params }: RouteContext) {
     });
 
     try {
+      const adminRepoSync = await syncAdminRepoForStore(slug);
+
+      if (adminRepoSync.status !== "synced") {
+        throw new Error(adminRepoSync.message || "Admin repo senkronu tamamlanamadi.");
+      }
+
       const deployment = await provisionAdminDeploymentForStore(slug, { waitForRuntime: true });
       const authoritySync = await syncStoreAuthorityRepoForStore(slug);
 

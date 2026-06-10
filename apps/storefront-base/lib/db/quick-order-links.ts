@@ -56,6 +56,25 @@ export type QuickOrderLink = {
   items: QuickOrderLinkItem[];
 };
 
+export function isQuickOrderStorageUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("message" in error)) {
+    return false;
+  }
+
+  const message = String(error.message ?? "");
+
+  return (
+    /light_postgres compatibility table destegi bulunamadi: quick_order_links/i.test(message) ||
+    /light_postgres compatibility table destegi bulunamadi: quick_order_link_items/i.test(message) ||
+    /Could not find the table 'public\.quick_order_links'/i.test(message) ||
+    /Could not find the table 'public\.quick_order_link_items'/i.test(message) ||
+    /relation ["']public\.quick_order_links["'] does not exist/i.test(message) ||
+    /relation ["']public\.quick_order_link_items["'] does not exist/i.test(message) ||
+    /relation ["']quick_order_links["'] does not exist/i.test(message) ||
+    /relation ["']quick_order_link_items["'] does not exist/i.test(message)
+  );
+}
+
 function toNumber(value: unknown) {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : 0;

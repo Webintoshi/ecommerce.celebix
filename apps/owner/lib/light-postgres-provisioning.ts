@@ -1004,6 +1004,7 @@ ON CONFLICT (key) DO UPDATE
 SET
   label = excluded.label,
   provider = excluded.provider,
+  enabled = excluded.enabled,
   mode = excluded.mode,
   configuration = excluded.configuration,
   required_action = excluded.required_action;

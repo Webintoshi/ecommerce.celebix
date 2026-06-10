@@ -45,6 +45,10 @@ interface CoolifyBulkEnvEntry {
   is_multiline?: boolean;
 }
 
+interface CoolifyStartApplicationResponse {
+  deployment_uuid?: string | null;
+}
+
 export interface AdminDeploymentProvisioningResult {
   appName: string;
   resourceId: string | null;
@@ -496,10 +500,21 @@ async function syncApplicationEnv(applicationUuid: string, envEntries: Record<st
   });
 }
 
-async function startApplication(applicationUuid: string): Promise<void> {
-  await coolifyFetch(`/deploy?uuid=${encodeURIComponent(applicationUuid)}&force=true`, {
-    method: "GET"
-  });
+async function startApplication(applicationUuid: string): Promise<string> {
+  const payload = await coolifyFetch<{ deployments?: CoolifyStartApplicationResponse[] }>(
+    `/deploy?uuid=${encodeURIComponent(applicationUuid)}&force=true`,
+    {
+      method: "GET"
+    },
+  );
+  const deployment = Array.isArray(payload.deployments) ? payload.deployments[0] : null;
+  const deploymentUuid = deployment?.deployment_uuid?.trim();
+
+  if (!deploymentUuid) {
+    throw new Error(`Admin Coolify deploy job olusmadi: ${applicationUuid}`);
+  }
+
+  return deploymentUuid;
 }
 
 async function waitForAdminRuntime(

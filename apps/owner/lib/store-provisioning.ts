@@ -68,6 +68,7 @@ import {
 import { provisionStorefrontDeploymentForStore } from "@/lib/storefront-deployment-coolify";
 import {
   isGitHubRepoSyncConfigured,
+  syncAdminRepoForStore,
   syncStoreAuthorityRepoForStore,
   syncStorefrontRepoForStore,
   validateGitHubRepoSyncReadiness,
@@ -1249,7 +1250,13 @@ export async function runStoreProvisioningWorkflow(
           throw new Error(blueprint.runtimeMessage || "Admin blueprint hazirlanamadi.");
         }
 
-        return "Admin blueprint hazirlandi.";
+        const repoSync = await syncAdminRepoForStore(input.slug);
+
+        if (repoSync.status !== "synced") {
+          throw new Error(repoSync.message || "Admin repo senkronu tamamlanamadi.");
+        }
+
+        return `Admin blueprint hazirlandi; ${repoSync.message || "admin deploy branch senkronlandi."}`;
       },
     ],
     [

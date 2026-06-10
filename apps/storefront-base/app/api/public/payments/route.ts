@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { extractPaymentGatewayList } from "@/lib/db/payment-gateways";
 import {
     getPaymentGatewayRuntimeStatus,
     normalizePaymentGateways,
@@ -20,7 +21,7 @@ export async function GET() {
             throw error;
         }
 
-        const activeGateways = normalizePaymentGateways(data?.value || [])
+        const activeGateways = normalizePaymentGateways(extractPaymentGatewayList(data?.value))
             .filter((gateway) => gateway.status === "active" && getPaymentGatewayRuntimeStatus(gateway).isReady)
             .map((gateway) => sanitizePublicPaymentGateway(gateway));
 

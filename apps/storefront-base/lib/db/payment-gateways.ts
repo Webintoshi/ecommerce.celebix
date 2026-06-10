@@ -2,6 +2,18 @@ import { createServerClient } from "@/lib/supabase";
 import { normalizePaymentGateways } from "@/lib/payment-providers";
 import { PaymentGateway, PaymentGatewayConfig } from "@/types/payment";
 
+export function extractPaymentGatewayList(value: unknown): unknown {
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    if (value && typeof value === "object" && "gateways" in value) {
+        return (value as { gateways?: unknown }).gateways;
+    }
+
+    return [];
+}
+
 export async function getStoredPaymentGateways(): Promise<PaymentGatewayConfig[]> {
     const serverClient = createServerClient();
 
@@ -15,7 +27,7 @@ export async function getStoredPaymentGateways(): Promise<PaymentGatewayConfig[]
         throw error;
     }
 
-    return normalizePaymentGateways(data?.value || []);
+    return normalizePaymentGateways(extractPaymentGatewayList(data?.value));
 }
 
 export async function getPaymentGatewayById(id: string): Promise<PaymentGatewayConfig | null> {

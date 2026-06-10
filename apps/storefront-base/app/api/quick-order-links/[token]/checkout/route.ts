@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getActivePaymentGatewayById } from "@/lib/db/payment-gateways";
-import { getQuickOrderLinkByToken, markQuickOrderLinkOpened, validateQuickOrderStock } from "@/lib/db/quick-order-links";
+import {
+  getQuickOrderLinkByToken,
+  isQuickOrderStorageUnavailable,
+  markQuickOrderLinkOpened,
+  validateQuickOrderStock,
+} from "@/lib/db/quick-order-links";
 import { initializePayment } from "@/lib/payment-runtime";
 
 export const runtime = "nodejs";
@@ -146,6 +151,19 @@ export async function POST(
       payment,
     });
   } catch (error) {
+    if (isQuickOrderStorageUnavailable(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          enabled: false,
+          disabled: true,
+          reason: "disabled",
+          error: "Hizli siparis modulu aktif degil.",
+        },
+        { status: 409 },
+      );
+    }
+
     console.error("Quick order checkout init failed:", error);
     const status =
       error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "PGRST116"
