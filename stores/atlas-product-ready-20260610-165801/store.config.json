@@ -1,0 +1,251 @@
+{
+  "name": "atlas-product-ready-20260610-165801",
+  "slug": "atlas-product-ready-20260610-165801",
+  "status": "draft",
+  "databaseMode": "light_postgres",
+  "authProvider": "logto",
+  "customerAuthProvider": "logto",
+  "analyticsProvider": "umami",
+  "storageProvider": "r2",
+  "supabaseStatus": "none",
+  "theme": {
+    "key": "atelier",
+    "label": "Atelier",
+    "primaryColor": "#1f2937",
+    "accentColor": "#ea580c",
+    "surfaceColor": "#f8fafc",
+    "headingFont": "\"Times New Roman\", serif",
+    "bodyFont": "system-ui, sans-serif"
+  },
+  "branding": {
+    "tagline": "atlas-product-ready-20260610-165801 icin ortak Celebix commerce kurulumu",
+    "supportEmail": "destek@atlas-product-ready-20260610-165801.celebix.site",
+    "supportPhone": "+90 532 000 00 00",
+    "senderEmail": "noreply@atlas-product-ready-20260610-165801.celebix.site",
+    "smsSenderTitle": "ATLASPRODUC",
+    "defaultProductBrand": "atlas-product-ready-20260610-165801"
+  },
+  "domains": {
+    "storefront": "atlas-product-ready-20260610-165801.celebix.site",
+    "admin": "admin-atlas-product-ready-20260610-165801.celebix.site",
+    "demo": "atlas-product-ready-20260610-165801.demo.celebix.co"
+  },
+  "owner": {
+    "createdBy": "owner-panel",
+    "notes": "Merkezi owner panel uzerinden olusturuldu.",
+    "legacyModeSelected": false,
+    "standardProfile": "celebix_new_standard"
+  },
+  "lightPostgres": {
+    "cluster": "celebix-light-postgres",
+    "databaseName": "atlas-product-ready-20260610-165801",
+    "schemaProfile": "storefront_core",
+    "provisioning": "pending-owner-env",
+    "umamiReady": true,
+    "roleStatus": "pending-owner-env",
+    "schemaStatus": "pending",
+    "seedStatus": "pending",
+    "readinessStatus": "pending",
+    "missingTables": [],
+    "missingSeedKeys": [],
+    "missingOptionalModules": [],
+    "missingPaymentGatewayKeys": [],
+    "missingAuthBridgeTables": []
+  },
+  "auth": {
+    "provider": "logto",
+    "status": "pending_auth_setup",
+    "mode": "logto_ready_placeholder",
+    "requiredAction": "configure_admin_and_customer_auth",
+    "blocking": false
+  },
+  "analytics": {
+    "provider": "umami",
+    "status": "pending_analytics_setup",
+    "mode": "umami_ready_placeholder",
+    "requiredAction": "configure_umami_website",
+    "blocking": false
+  },
+  "logto": {
+    "adminAppStatus": "pending",
+    "customerAppStatus": "pending",
+    "adminAppId": null,
+    "adminClientId": null,
+    "customerAppId": null,
+    "customerClientId": null,
+    "adminIssuer": "https://auth.celebix.co/oidc",
+    "customerIssuer": "https://auth.celebix.co/oidc",
+    "adminRedirectUris": [
+      "https://admin-atlas-product-ready-20260610-165801.celebix.site/callback"
+    ],
+    "adminPostLogoutRedirectUris": [
+      "https://admin-atlas-product-ready-20260610-165801.celebix.site/admin/login",
+      "https://admin-atlas-product-ready-20260610-165801.celebix.site/admin/login?logged_out=1"
+    ],
+    "adminOrigins": [
+      "https://admin-atlas-product-ready-20260610-165801.celebix.site"
+    ],
+    "customerRedirectUris": [
+      "https://atlas-product-ready-20260610-165801.celebix.site/callback"
+    ],
+    "customerPostLogoutRedirectUris": [
+      "https://atlas-product-ready-20260610-165801.celebix.site",
+      "https://atlas-product-ready-20260610-165801.celebix.site/giris?next=/hesap&logged_out=1"
+    ],
+    "customerOrigins": [
+      "https://atlas-product-ready-20260610-165801.celebix.site"
+    ],
+    "googleSignIn": "pending",
+    "emailRecovery": "pending",
+    "adminBootstrapConfigPath": "infra/logto/bootstrap/generated/atlas-product-ready-20260610-165801-admin.application.json",
+    "customerBootstrapConfigPath": "infra/logto/bootstrap/generated/atlas-product-ready-20260610-165801-customer.application.json",
+    "bootstrapApplyState": "pending"
+  },
+  "umami": {
+    "websiteStatus": "pending",
+    "websiteId": null,
+    "websiteName": "atlas-product-ready-20260610-165801 Storefront",
+    "domain": "atlas-product-ready-20260610-165801.celebix.site",
+    "canonicalDomain": "atlas-product-ready-20260610-165801.celebix.site",
+    "host": "https://analytics.celebix.co",
+    "apiUrl": "https://analytics.celebix.co/api",
+    "scriptUrl": "https://analytics.celebix.co/script.js",
+    "timezone": "Europe/Istanbul",
+    "storefrontTrackingStatus": "pending",
+    "adminAnalyticsStatus": "pending",
+    "serverTokenStatus": "pending-owner-env",
+    "adminSummaryEndpoint": "/api/admin/analytics/summary",
+    "metrics": [
+      "activeUsers",
+      "visitorsToday",
+      "pageviewsToday",
+      "visitors7d",
+      "pageviews7d",
+      "topPages",
+      "topProducts",
+      "referrers"
+    ],
+    "bootstrapConfigPath": "infra/umami/bootstrap/generated/atlas-product-ready-20260610-165801.website.json",
+    "bootstrapApplyState": "pending"
+  },
+  "readiness": {
+    "database": "pending",
+    "databaseSchema": "pending",
+    "databaseSeed": "pending",
+    "databaseSmoke": "pending",
+    "storage": "pending",
+    "auth": "pending",
+    "analytics": "pending",
+    "admin": "pending",
+    "storefront": "pending",
+    "smoke": "pending"
+  },
+  "smoke": {
+    "storeSlug": "atlas-product-ready-20260610-165801",
+    "startedAt": "2026-06-10T13:58:03.669Z",
+    "mode": "plan",
+    "overallStatus": "pending",
+    "checks": []
+  },
+  "payments": {
+    "status": "configured",
+    "defaultProvider": "bank_transfer",
+    "requiredAction": "verify_bank_transfer_details_before_live_orders",
+    "blocking": false
+  },
+  "supabase": {
+    "projectRef": "pending-owner-bootstrap",
+    "url": "configure-in-env",
+    "provider": "self_hosted_coolify",
+    "storage": "disabled-by-database-mode"
+  },
+  "r2": {
+    "status": "pending",
+    "bucketName": null,
+    "publicUrl": null,
+    "managedDomain": null,
+    "endpoint": null,
+    "region": "auto",
+    "prefix": "stores/atlas-product-ready-20260610-165801/",
+    "uploadPrefix": "stores/atlas-product-ready-20260610-165801/uploads/",
+    "productImagesPrefix": "stores/atlas-product-ready-20260610-165801/products/",
+    "pageImagesPrefix": "stores/atlas-product-ready-20260610-165801/pages/",
+    "brandingPrefix": "stores/atlas-product-ready-20260610-165801/branding/",
+    "publicUrlTemplate": null,
+    "adminUploadStatus": "pending",
+    "storefrontReadStatus": "pending",
+    "credentialsStatus": "pending-owner-env",
+    "bootstrapConfigPath": "infra/r2/bootstrap/generated/atlas-product-ready-20260610-165801.storage.json",
+    "bootstrapApplyState": "pending",
+    "noSupabaseStorage": true,
+    "provisioning": "pending-owner-env"
+  },
+  "media": {
+    "provider": "r2",
+    "status": "pending",
+    "publicBaseUrl": null,
+    "prefix": "stores/atlas-product-ready-20260610-165801/",
+    "uploadPrefix": "stores/atlas-product-ready-20260610-165801/uploads/",
+    "productImagesPrefix": "stores/atlas-product-ready-20260610-165801/products/",
+    "pageImagesPrefix": "stores/atlas-product-ready-20260610-165801/pages/",
+    "brandingPrefix": "stores/atlas-product-ready-20260610-165801/branding/",
+    "publicUrlTemplate": null,
+    "adminUploadStatus": "pending",
+    "storefrontReadStatus": "pending",
+    "noSupabaseStorage": true
+  },
+  "bootstrap": {
+    "createdAt": "2026-06-10T13:58:03.670Z",
+    "envTemplatePath": "stores/atlas-product-ready-20260610-165801/admin.env.example",
+    "authorityBranch": "stores/authority",
+    "coolifyProjectName": "atlas-product-ready-20260610-165801",
+    "adminDeploymentProvider": "coolify",
+    "adminDeploymentName": "atlas-product-ready-20260610-165801 admin",
+    "adminDeploymentBranch": "deploy/admin/atlas-product-ready-20260610-165801",
+    "adminDeploymentRuntimeUrl": "https://admin-atlas-product-ready-20260610-165801.celebix.site",
+    "adminDeploymentStatus": "pending-owner-env",
+    "supabaseProvider": "self_hosted_coolify",
+    "supabaseProvisioning": "configured",
+    "adminDeployment": {
+      "strategy": "build_server_ghcr",
+      "image": "ghcr.io/celebixco/atlas-product-ready-20260610-165801-admin",
+      "imageTag": "production",
+      "useBuildServer": true,
+      "buildServer": "celebix-build-01",
+      "watchPaths": [
+        "apps/admin/**",
+        "packages/**"
+      ]
+    }
+  },
+  "storefront": {
+    "appDir": "apps/storefront-atlas-product-ready-20260610-165801",
+    "packageName": "@celebix/storefront-atlas-product-ready-20260610-165801",
+    "status": "not_started",
+    "repoSyncStatus": "pending",
+    "deploymentProvider": "coolify",
+    "deploymentName": "atlas-product-ready-20260610-165801 websitesi",
+    "deploymentBranch": "deploy/storefront/atlas-product-ready-20260610-165801",
+    "runtimeUrl": "https://atlas-product-ready-20260610-165801.celebix.site",
+    "deploymentStatus": "pending-owner-env",
+    "deployment": {
+      "strategy": "build_server_ghcr",
+      "image": "ghcr.io/celebixco/atlas-product-ready-20260610-165801-storefront",
+      "imageTag": "production",
+      "useBuildServer": true,
+      "buildServer": "celebix-build-01",
+      "watchPaths": [
+        "apps/storefront-atlas-product-ready-20260610-165801/**",
+        "packages/**"
+      ]
+    }
+  },
+  "features": [
+    "catalog",
+    "orders",
+    "customers",
+    "discounts",
+    "cms",
+    "frontend_from_existing_store"
+  ]
+}
