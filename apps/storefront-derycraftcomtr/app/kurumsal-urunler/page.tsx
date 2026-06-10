@@ -63,14 +63,14 @@ export default async function CorporateProductsPage() {
             priority
             sizes="100vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/45 to-black/70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/55 to-black/80" />
         </div>
 
         <div className="relative z-10 mx-auto max-w-4xl px-6 py-16 text-center sm:px-8">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/85 sm:text-[11px]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] !text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.55)] sm:text-[11px]">
             Şirketinize özel ürünlerle kalıcı iz bırakın
           </p>
-          <h1 className="mt-4 font-serif text-3xl font-medium leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+          <h1 className="mt-4 font-serif text-3xl font-medium leading-tight tracking-tight !text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] sm:text-4xl lg:text-5xl">
             Markanıza prestij katın
           </h1>
           <Link
