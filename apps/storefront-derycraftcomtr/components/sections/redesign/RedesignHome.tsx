@@ -34,6 +34,11 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         eyebrow={uiCopy?.categoriesEyebrow}
         heading={uiCopy?.categoriesHeading}
       />
+      <TestimonialsSection
+        heading={uiCopy?.testimonialsHeading}
+        countLabel={uiCopy?.testimonialsCountLabel}
+        items={data.testimonials}
+      />
       <ProductShowcaseSections
         categories={(data.categories as never[]) || []}
         allProducts={(data.allProducts as never[]) || []}
@@ -47,11 +52,6 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         description={uiCopy?.storesDescription}
         linkLabel={uiCopy?.storesLinkLabel}
         storesHref={storesHref}
-      />
-      <TestimonialsSection
-        heading={uiCopy?.testimonialsHeading}
-        countLabel={uiCopy?.testimonialsCountLabel}
-        items={data.testimonials}
       />
     </main>
   );
