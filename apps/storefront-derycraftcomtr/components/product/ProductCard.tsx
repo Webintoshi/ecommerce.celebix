@@ -34,12 +34,12 @@ function getResolvedProductImages(product: Product) {
     .filter((image) => image.length > 0);
 }
 
-const MAX_VISIBLE_SWATCHES = 3;
+const MAX_VISIBLE_SWATCHES = 4;
 
 function ProductCardSwatches({ product, className }: { product: Product; className?: string }) {
   const allSwatches = getProductCardSwatches(product.variants ?? [], 24);
   const visibleSwatches = allSwatches.slice(0, MAX_VISIBLE_SWATCHES);
-  const showMoreIndicator = allSwatches.length >= 4;
+  const showMoreIndicator = allSwatches.length > MAX_VISIBLE_SWATCHES;
 
   if (allSwatches.length === 0) {
     return null;
@@ -69,10 +69,10 @@ function ProductCardSwatches({ product, className }: { product: Product; classNa
       ))}
       {showMoreIndicator ? (
         <span
-          className="font-sans text-[10px] font-medium tracking-wide text-neutral-500 sm:text-[11px] lg:text-xs"
+          className="font-sans text-[11px] font-medium leading-none text-neutral-500 sm:text-xs lg:text-sm"
           aria-label={`${allSwatches.length} renk seçeneği`}
         >
-          4+
+          +
         </span>
       ) : null}
     </div>
