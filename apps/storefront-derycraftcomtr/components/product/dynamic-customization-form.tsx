@@ -64,6 +64,34 @@ function formatDisplayLabel(label: string) {
   return trimmed;
 }
 
+function getSegmentedRadioGridClass(optionCount: number) {
+  if (optionCount === 2) {
+    return "grid-cols-2";
+  }
+
+  if (optionCount === 3) {
+    return "grid-cols-3";
+  }
+
+  return "grid-cols-1";
+}
+
+function getImageSelectGridClass(optionCount: number) {
+  if (optionCount <= 1) {
+    return "grid-cols-1 max-w-[9rem]";
+  }
+
+  if (optionCount === 2) {
+    return "grid-cols-2";
+  }
+
+  if (optionCount === 3) {
+    return "grid-cols-3";
+  }
+
+  return "grid-cols-2 sm:grid-cols-4";
+}
+
 export interface CustomizationSelectionState {
   payload: CartCustomizationPayload | null;
   extraPrice: number;
@@ -127,7 +155,7 @@ function OptionImage({
       src={currentSource}
       alt={alt}
       fill
-      sizes="(max-width: 640px) 160px, 96px"
+      sizes="(max-width: 640px) 30vw, 96px"
       className={className}
       onError={handleError}
     />
@@ -471,20 +499,8 @@ function FormField({
     imageFitMode === "cover" ? "object-cover" : "object-contain";
   const imageWrapperClass = imageFitMode === "cover" ? "" : "p-3.5";
   const imageSelectColumnCount = Math.min(Math.max(step.options?.length || 1, 1), 4);
-  const imageSelectGridClass =
-    imageSelectColumnCount <= 1
-      ? "grid-cols-1 max-w-[11rem]"
-      : imageSelectColumnCount === 2
-        ? "grid-cols-2"
-        : imageSelectColumnCount === 3
-          ? "grid-cols-2 sm:grid-cols-3"
-          : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4";
-  const segmentedRadioGridClass =
-    optionCount === 2
-      ? "grid-cols-1 min-[520px]:grid-cols-2"
-      : optionCount === 3
-        ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-        : "grid-cols-1";
+  const imageSelectGridClass = getImageSelectGridClass(imageSelectColumnCount);
+  const segmentedRadioGridClass = getSegmentedRadioGridClass(optionCount);
   const hasSelectedValue =
     value !== undefined &&
     value !== null &&
@@ -534,8 +550,8 @@ function FormField({
             onValueChange={onChange}
             className={cn(
               useSegmentedRadio
-                ? cn("grid gap-2.5", segmentedRadioGridClass)
-                : "flex flex-col gap-2.5",
+                ? cn("grid gap-1.5 sm:gap-2", segmentedRadioGridClass)
+                : "flex flex-col gap-2",
             )}
           >
             {step.options?.map((option) => (
@@ -548,21 +564,33 @@ function FormField({
                 <Label
                   htmlFor={`${step.key}-${option.value}`}
                   className={cn(
-                    "flex min-h-12 w-full cursor-pointer items-center justify-center border px-4 py-3 text-center transition-colors",
+                    "flex w-full cursor-pointer border text-center transition-colors",
                     useSegmentedRadio
-                      ? "flex-col gap-1 sm:min-h-11 sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5"
-                      : "min-h-12 justify-between gap-3 px-4 py-3 text-left sm:px-4",
+                      ? "min-h-[4.25rem] flex-col items-center justify-center gap-1 px-1.5 py-2.5 sm:min-h-11 sm:px-2.5 sm:py-2"
+                      : "min-h-12 items-center justify-between gap-3 px-4 py-3 text-left",
                     CUSTOMIZATION_CONTROL_CLASS,
                     "hover:border-[#C4A062]",
                     "peer-data-[state=checked]:border-[#8A6B37] peer-data-[state=checked]:bg-[#FAF7F2] peer-data-[state=checked]:text-[#12100D]",
                     showError && "border-rose-300",
                   )}
                 >
-                  <span className="text-sm font-medium leading-snug text-[#12100D]">
+                  <span
+                    className={cn(
+                      "block w-full font-medium text-[#12100D]",
+                      useSegmentedRadio
+                        ? "text-[11px] leading-[1.2] sm:text-xs"
+                        : "text-sm leading-snug",
+                    )}
+                  >
                     {formatDisplayLabel(option.label)}
                   </span>
                   {option.price_adjustment > 0 && (
-                    <span className="shrink-0 text-xs font-medium text-[#9A7234]">
+                    <span
+                      className={cn(
+                        "shrink-0 font-medium leading-none text-[#9A7234]",
+                        useSegmentedRadio ? "text-[10px] sm:text-[11px]" : "text-xs",
+                      )}
+                    >
                       +{formatPrice(option.price_adjustment)}
                     </span>
                   )}
@@ -578,24 +606,24 @@ function FormField({
       {step.type === "image_select" && (
         <div className="w-full max-w-full">
           {label}
-          <div className={cn("grid w-full gap-3", imageSelectGridClass)}>
+          <div className={cn("grid w-full min-w-0 gap-2", imageSelectGridClass)}>
             {step.options?.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative w-full min-w-0 overflow-hidden rounded-xl border bg-white text-left transition-colors",
+                  "relative min-w-0 overflow-hidden rounded-md border bg-white text-left transition-colors",
                   value === option.value
-                    ? "border-[#8A6B37] bg-[#FAF7F2] ring-1 ring-[#8A6B37]/30"
+                    ? "border-[#8A6B37] bg-[#FAF7F2]"
                     : "border-[#E8DFD3] hover:border-[#C4A062]",
                   showError && "border-rose-300",
                 )}
               >
                 <div
                   className={cn(
-                    "relative aspect-[5/4] bg-[#FAF7F2] sm:aspect-square",
-                    imageWrapperClass,
+                    "relative aspect-square bg-[#FAF7F2]",
+                    imageWrapperClass === "p-3.5" ? "p-2 sm:p-3" : "p-1",
                   )}
                 >
                   {option.image_url ? (
@@ -610,24 +638,24 @@ function FormField({
                     </div>
                   )}
                 </div>
-                <div className="border-t border-[#E8DFD3] px-2.5 py-2.5 text-center sm:px-3">
+                <div className="border-t border-[#E8DFD3] px-1 py-1.5 text-center sm:px-2 sm:py-2">
                   <p
                     className={cn(
-                      "text-xs font-medium leading-snug text-[#12100D] sm:text-sm",
+                      "line-clamp-2 text-[10px] font-medium leading-tight text-[#12100D] sm:text-[11px]",
                       value === option.value && "font-semibold text-[#8A6B37]",
                     )}
                   >
                     {formatDisplayLabel(option.label)}
                   </p>
                   {option.price_adjustment > 0 && (
-                    <p className="mt-1 text-xs font-medium text-[#9A7234]">
+                    <p className="mt-0.5 text-[9px] font-medium leading-none text-[#9A7234] sm:text-[10px]">
                       +{formatPrice(option.price_adjustment)}
                     </p>
                   )}
                 </div>
                 {value === option.value ? (
-                  <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#8A6B37] shadow-sm">
-                    <Check className="h-3 w-3 text-white" />
+                  <div className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-sm bg-[#8A6B37]">
+                    <Check className="h-2.5 w-2.5 text-white" />
                   </div>
                 ) : null}
               </button>
