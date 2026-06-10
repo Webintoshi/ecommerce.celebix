@@ -348,7 +348,7 @@ export function FloatingContactButton() {
                   exit={{ opacity: 0, scale: 0.88 }}
                   transition={{ duration: prefersReducedMotion ? 0.01 : 0.22 }}
                 >
-                  <FloatingFaqChatIcon dotColor={buttonColor} />
+                  <FloatingFaqChatIcon size={32} />
                 </motion.span>
               )}
             </AnimatePresence>
