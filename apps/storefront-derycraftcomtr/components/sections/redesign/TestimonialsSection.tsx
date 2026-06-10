@@ -45,7 +45,7 @@ function ProofImageWithFallback({
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-neutral-100 text-xs font-medium uppercase tracking-[0.18em] text-neutral-400",
+          "flex items-center justify-center bg-neutral-100 text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-400",
           className,
         )}
       >
@@ -128,11 +128,11 @@ function RatingStars({
   );
 }
 
-function VerifiedBadge() {
+function VerifiedBadge({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
-      <Check className="h-3 w-3" />
-      Doğrulanmış Alıcı
+    <span className="inline-flex items-center gap-1 text-[10px] text-neutral-500 sm:text-xs">
+      <Check className="h-3 w-3 shrink-0" />
+      {compact ? "Doğrulandı" : "Doğrulanmış Alıcı"}
     </span>
   );
 }
@@ -152,7 +152,7 @@ function ProofGallery({ review }: { review: TestimonialItem }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 sm:aspect-square">
+      <div className="relative aspect-square overflow-hidden bg-neutral-100">
         <ProofImageWithFallback
           src={activeImage}
           alt={`${review.name} yorum görseli`}
@@ -216,27 +216,78 @@ function DesktopTestimonialCard({ review }: { review: TestimonialItem }) {
 }
 
 function MobileTestimonialCard({ review }: { review: TestimonialItem }) {
+  const primaryImage = review.proofImages[0];
+
   return (
-    <article className="min-w-[88%] max-w-[88%] snap-center overflow-hidden rounded-[24px] border border-neutral-200 bg-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)]">
-      <ProofGallery review={review} />
+    <article className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-[#E8DFD3] bg-white shadow-[0_12px_32px_-24px_rgba(15,23,42,0.2)]">
+      <div className="flex items-start gap-3 border-b border-[#F0EBE3] p-4">
+        {primaryImage ? (
+          <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-xl bg-neutral-100">
+            <ProofImageWithFallback
+              src={primaryImage}
+              alt={`${review.name} yorum görseli`}
+              className="h-full w-full"
+            />
+          </div>
+        ) : (
+          <div className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-[#FAF7F2] text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-400">
+            Yorum
+          </div>
+        )}
 
-      <div className="p-5">
-        <RatingStars rating={review.rating} iconClassName="h-4 w-4" />
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 gap-y-1">
-          <span className="text-sm font-semibold uppercase tracking-[0.08em] text-neutral-900">
-            {review.name}
-          </span>
-          {review.verified ? <VerifiedBadge /> : null}
+        <div className="min-w-0 flex-1 pt-0.5">
+          <RatingStars rating={review.rating} iconClassName="h-3 w-3" />
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.06em] text-neutral-900">
+              {review.name}
+            </span>
+            {review.verified ? <VerifiedBadge compact /> : null}
+          </div>
+          {review.title ? (
+            <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-5 text-neutral-700">
+              {review.title}
+            </p>
+          ) : null}
         </div>
+      </div>
 
-        {review.title ? (
-          <p className="mt-2 text-sm font-medium text-neutral-800">{review.title}</p>
-        ) : null}
-
-        <p className="mt-3 text-[0.95rem] leading-7 text-neutral-700">{review.content}</p>
+      <div className="flex flex-1 flex-col p-4 pt-3">
+        <p className="line-clamp-5 text-sm leading-6 text-neutral-600">{review.content}</p>
       </div>
     </article>
+  );
+}
+
+function CarouselDots({
+  count,
+  currentIndex,
+  onSelect,
+  className,
+}: {
+  count: number;
+  currentIndex: number;
+  onSelect: (index: number) => void;
+  className?: string;
+}) {
+  if (count <= 1) {
+    return null;
+  }
+
+  return (
+    <div className={cn("flex justify-center gap-2", className)}>
+      {Array.from({ length: count }).map((_, index) => (
+        <button
+          key={`dot-${index}`}
+          type="button"
+          onClick={() => onSelect(index)}
+          className={cn(
+            "h-1.5 rounded-full transition-all",
+            index === currentIndex ? "w-6 bg-[#8A6B37]" : "w-1.5 bg-neutral-300 hover:bg-neutral-400",
+          )}
+          aria-label={`Slayt ${index + 1}`}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -250,57 +301,96 @@ export function TestimonialsSection({
   items?: HomepageTestimonial[];
 }) {
   const testimonials = useMemo(() => normalizeTestimonials(items), [items]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [desktopIndex, setDesktopIndex] = useState(0);
+  const [mobileIndex, setMobileIndex] = useState(0);
 
-  const totalSlides = Math.max(1, Math.ceil(testimonials.length / 2));
+  const desktopSlides = Math.max(1, Math.ceil(testimonials.length / 2));
 
-  const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % totalSlides);
-  }, [totalSlides]);
+  const nextDesktopSlide = useCallback(() => {
+    setDesktopIndex((prev) => (prev + 1) % desktopSlides);
+  }, [desktopSlides]);
 
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
+  const prevDesktopSlide = () => {
+    setDesktopIndex((prev) => (prev - 1 + desktopSlides) % desktopSlides);
   };
 
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index);
+  const nextMobileSlide = useCallback(() => {
+    setMobileIndex((prev) => (prev + 1) % testimonials.length);
+  }, [testimonials.length]);
+
+  const prevMobileSlide = () => {
+    setMobileIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
   };
 
   useEffect(() => {
-    setCurrentIndex(0);
-  }, [totalSlides]);
+    setDesktopIndex(0);
+    setMobileIndex(0);
+  }, [desktopSlides, testimonials.length]);
 
   if (testimonials.length === 0) {
     return null;
   }
 
   return (
-    <section className="bg-[#F8F8F8F8] py-16 lg:py-20">
+    <section className="bg-[#F8F8F8F8] py-12 sm:py-16 lg:py-20">
       <div className="container-premium">
-        <div className="mb-8 text-center lg:mb-10">
-          <h2 className="font-serif text-[1.8rem] font-medium text-neutral-900 lg:text-[2.1rem]">
-            {heading}
-          </h2>
-          <p className="mt-2 text-sm text-neutral-500">{countLabel}</p>
+        <div className="mb-6 text-center sm:mb-8 lg:mb-10">
+          <h2 className="home-section-heading font-medium">{heading}</h2>
+          <p className="mt-1.5 text-xs text-neutral-500 sm:mt-2 sm:text-sm">{countLabel}</p>
         </div>
 
         <div className="lg:hidden">
-          <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex snap-x snap-mandatory gap-4 pb-2">
-              {testimonials.map((review) => (
-                <MobileTestimonialCard key={review.id} review={review} />
-              ))}
+          <div className="relative">
+            <div className="overflow-hidden">
+              <div
+                className="flex transition-transform duration-500 ease-out"
+                style={{ transform: `translateX(-${mobileIndex * 100}%)` }}
+              >
+                {testimonials.map((review) => (
+                  <div key={review.id} className="w-full shrink-0 px-0.5">
+                    <MobileTestimonialCard review={review} />
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {testimonials.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={prevMobileSlide}
+                  className="absolute left-0 top-1/2 flex h-9 w-9 -translate-x-1 -translate-y-1/2 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-sm"
+                  aria-label="Önceki yorum"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={nextMobileSlide}
+                  className="absolute right-0 top-1/2 flex h-9 w-9 translate-x-1 -translate-y-1/2 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-sm"
+                  aria-label="Sonraki yorum"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </>
+            ) : null}
           </div>
+
+          <CarouselDots
+            count={testimonials.length}
+            currentIndex={mobileIndex}
+            onSelect={setMobileIndex}
+            className="mt-5"
+          />
         </div>
 
         <div className="relative hidden lg:block">
           <div className="overflow-hidden">
             <div
               className="flex transition-transform duration-500 ease-out"
-              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+              style={{ transform: `translateX(-${desktopIndex * 100}%)` }}
             >
-              {Array.from({ length: totalSlides }).map((_, slideIndex) => (
+              {Array.from({ length: desktopSlides }).map((_, slideIndex) => (
                 <div
                   key={`testimonial-slide-${slideIndex}`}
                   className="grid w-full flex-shrink-0 grid-cols-2 gap-6"
@@ -313,11 +403,11 @@ export function TestimonialsSection({
             </div>
           </div>
 
-          {totalSlides > 1 ? (
+          {desktopSlides > 1 ? (
             <>
               <button
                 type="button"
-                onClick={prevSlide}
+                onClick={prevDesktopSlide}
                 className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:-translate-x-6"
                 aria-label="Önceki"
               >
@@ -326,7 +416,7 @@ export function TestimonialsSection({
 
               <button
                 type="button"
-                onClick={nextSlide}
+                onClick={nextDesktopSlide}
                 className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:translate-x-6"
                 aria-label="Sonraki"
               >
@@ -335,22 +425,12 @@ export function TestimonialsSection({
             </>
           ) : null}
 
-          {totalSlides > 1 ? (
-            <div className="mt-8 flex justify-center gap-2">
-              {Array.from({ length: totalSlides }).map((_, index) => (
-                <button
-                  key={`testimonial-dot-${index}`}
-                  type="button"
-                  onClick={() => goToSlide(index)}
-                  className={cn(
-                    "h-2 rounded-full transition-all",
-                    index === currentIndex ? "w-8 bg-[#8A6B37]" : "w-2 bg-neutral-300 hover:bg-neutral-400",
-                  )}
-                  aria-label={`Slayt ${index + 1}`}
-                />
-              ))}
-            </div>
-          ) : null}
+          <CarouselDots
+            count={desktopSlides}
+            currentIndex={desktopIndex}
+            onSelect={setDesktopIndex}
+            className="mt-8"
+          />
         </div>
       </div>
     </section>

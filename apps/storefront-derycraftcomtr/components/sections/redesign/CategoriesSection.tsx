@@ -39,11 +39,11 @@ export function CategoriesSection({
   }
 
   return (
-    <section className="bg-[#F8F8F8F8] py-20 lg:py-28">
+    <section className="bg-[#F8F8F8F8] py-12 sm:py-16 lg:py-24">
       <div className="container-premium">
-        <div className="mb-12 text-center lg:mb-16">
-          <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-400">{eyebrow}</p>
-          <h2 className="font-serif text-[1.8rem] font-medium text-neutral-900 lg:text-[2.15rem]">{heading}</h2>
+        <div className="mb-8 text-center sm:mb-10 lg:mb-14">
+          <p className="home-section-eyebrow mb-2 text-neutral-400 sm:mb-3">{eyebrow}</p>
+          <h2 className="home-section-heading font-medium">{heading}</h2>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">

@@ -121,7 +121,7 @@ export function StoreLocationsSection({
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8B6914]">
               {eyebrow}
             </p>
-            <h2 className="mt-4 font-serif text-[2rem] font-medium leading-[1.08] tracking-tight text-neutral-950 sm:text-[2.45rem]">
+            <h2 className="home-section-heading mt-3 font-medium tracking-tight text-neutral-950 sm:mt-4">
               {heading}
             </h2>
           </div>

@@ -223,28 +223,39 @@ export function ProductShowcaseSections({
   return (
     <>
       {effectiveGroups.map((group) => (
-        <section key={group.id} className="bg-[#F8F8F8F8] py-16 lg:py-20">
+        <section key={group.id} className="bg-[#F8F8F8F8] py-12 sm:py-16 lg:py-20">
           <div className="container-premium">
-            <div className="mb-8 flex items-end justify-between gap-4 sm:mb-12 sm:gap-6">
+            <div className="mb-6 flex items-end justify-between gap-3 sm:mb-10 sm:gap-6 lg:mb-12">
               <div className="min-w-0 flex-1">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                <span className="home-section-eyebrow mb-1.5 block sm:mb-2">
                   {group.subtitle}
                 </span>
-                <h2 className="text-[1.55rem] font-bold text-neutral-900 sm:text-[2.15rem]">
-                  {group.title}
-                </h2>
+                <h2 className="home-section-heading font-bold">{group.title}</h2>
               </div>
 
               <Link
                 href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
-                className="group inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:gap-2 sm:text-sm"
+                className="group inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-neutral-700 transition-colors hover:text-neutral-900 sm:gap-2 sm:text-sm"
               >
                 {viewAllLabel}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1 sm:h-4 sm:w-4" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
+            <div className="home-product-carousel lg:hidden">
+              <div className="flex snap-x snap-mandatory gap-3 pb-1 sm:gap-4">
+                {group.products.slice(0, 8).map((product) => (
+                  <div
+                    key={product.id}
+                    className="w-[72%] shrink-0 snap-start sm:w-[46%] md:w-[38%]"
+                  >
+                    <ProductCard product={product} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="hidden grid-cols-4 gap-x-8 gap-y-12 lg:grid">
               {group.products.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
