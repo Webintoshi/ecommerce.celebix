@@ -7,7 +7,6 @@ import { buildLocalizedPath } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getPublishedManagedContentPage } from "@/lib/content-pages";
 import {
-  parseFloatingFaqItemsFromHtml,
   resolveFaqIntro,
   resolveFloatingFaqItems,
 } from "@/lib/floating-faq";
@@ -38,11 +37,6 @@ export default async function FAQPage() {
 
   const faqItems = resolveFloatingFaqItems(managedPage?.contentHtml);
   const intro = resolveFaqIntro(managedPage?.contentHtml, managedPage?.seoDescription);
-  const parsedFromAdmin = managedPage?.contentHtml
-    ? parseFloatingFaqItemsFromHtml(managedPage.contentHtml)
-    : [];
-  const showLegacyProse =
-    Boolean(managedPage?.contentHtml) && parsedFromAdmin.length === 0;
 
   const contactHref = buildLocalizedPath("/iletisim", locale, routing);
   const storesHref = buildLocalizedPath("/magazalarimiz", locale, routing);
@@ -139,15 +133,6 @@ export default async function FAQPage() {
             </div>
           </aside>
         </div>
-
-        {showLegacyProse ? (
-          <article className="mt-8 rounded-[1.5rem] border border-[#E8DFD3] bg-white p-6 sm:p-8">
-            <div
-              className="prose prose-neutral max-w-none prose-p:text-[#6B5F54] prose-headings:font-serif prose-headings:text-[#12100D] [&_blockquote]:border-l-4 [&_blockquote]:border-[#C4A062] [&_blockquote]:pl-4 [&_blockquote]:italic [&_ol]:pl-6 [&_ul]:pl-6"
-              dangerouslySetInnerHTML={{ __html: managedPage?.contentHtml ?? "" }}
-            />
-          </article>
-        ) : null}
       </section>
     </div>
   );
