@@ -90,6 +90,7 @@ type ProvisioningMode = "create" | "repair";
 
 export interface StoreProvisioningWorkflowInput {
   auth: OwnerAuthContext;
+  auditActorId?: string | null;
   slug: string;
   mode: ProvisioningMode;
   packageStartDate?: string;
@@ -1321,7 +1322,7 @@ export async function runStoreProvisioningWorkflow(
     const result = await tracker.finalize();
 
     await recordOwnerAuditLog({
-      actorId: input.auth.user.id,
+      actorId: input.auditActorId === undefined ? input.auth.user.id : input.auditActorId,
       action: input.mode === "repair" ? "store_repair_run" : "store_provisioning_run",
       targetType: "store",
       targetId: input.slug,
