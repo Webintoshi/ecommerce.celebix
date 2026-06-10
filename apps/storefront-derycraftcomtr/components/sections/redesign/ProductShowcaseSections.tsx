@@ -4,11 +4,11 @@ import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import type { Product } from "@/types/product";
 import { ProductCard } from "@/components/product/ProductCard";
+import type { HomepageCategory } from "@/lib/homepage";
 import {
   HOMEPAGE_CATEGORY_ORDER,
   HOMEPAGE_SHOWCASE_CATEGORY_SLUGS,
-  type HomepageCategory,
-} from "@/lib/homepage";
+} from "@/lib/homepage-showcase-config";
 import { ROUTES } from "@/lib/constants";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import type { HomepageCurationSettings } from "@/lib/db/settings";
