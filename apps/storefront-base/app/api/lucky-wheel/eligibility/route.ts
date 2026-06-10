@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
-import { checkLuckyWheelEligibility, DEFAULT_LUCKY_WHEEL_CONFIG_ID } from "@/lib/lucky-wheel";
+import {
+  checkLuckyWheelEligibility,
+  DEFAULT_LUCKY_WHEEL_CONFIG_ID,
+  isLuckyWheelStorageUnavailable,
+} from "@/lib/lucky-wheel";
 
 const eligibilitySchema = z.object({
   configId: z.string().uuid().optional(),
@@ -47,6 +51,16 @@ export async function POST(request: NextRequest) {
       ...result,
     });
   } catch (error) {
+    if (isLuckyWheelStorageUnavailable(error)) {
+      return NextResponse.json({
+        success: true,
+        disabled: true,
+        canSpin: false,
+        reason: "Şans çarkı şu anda aktif değil.",
+        spinsRemaining: 0,
+      });
+    }
+
     console.error("Lucky wheel eligibility POST error:", error);
     return NextResponse.json(
       {

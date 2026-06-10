@@ -1,7 +1,9 @@
 import "server-only";
 
+import { lookup } from "node:dns/promises";
 import {
   createStore,
+  getStoreAdminDomainForStorefrontDomain,
   resolveDefaultDatabaseMode,
   type DatabaseMode,
 } from "@celebix/platform-config";
@@ -126,12 +128,47 @@ async function validateLiveProviderAuthority(databaseMode: DatabaseMode): Promis
   return errors;
 }
 
+function isGeneratedManagedDomain(domain: string): boolean {
+  return domain.endsWith(".celebix.site") || domain.endsWith(".demo.celebix.co");
+}
+
+async function isResolvable(domain: string): Promise<boolean> {
+  try {
+    await lookup(domain);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function validateGeneratedDomainAuthority(input: {
+  storefrontDomain: string;
+  adminDomain: string;
+}): Promise<string[]> {
+  const errors: string[] = [];
+
+  for (const [label, domain] of Object.entries(input)) {
+    if (!isGeneratedManagedDomain(domain)) {
+      continue;
+    }
+
+    if (!(await isResolvable(domain))) {
+      errors.push(
+        `${label} DNS authority hazir degil: ${domain} resolve etmiyor. Generated store icin wildcard DNS/proxy authority gerekli.`,
+      );
+    }
+  }
+
+  return errors;
+}
+
 export async function validateOwnerStoreCreatePreflight(
   body: OwnerStoreCreateRequestBody,
 ): Promise<OwnerStoreCreatePreflightResult> {
   const requestedDatabaseMode = resolveDefaultDatabaseMode(body.databaseMode);
   const legacyModeSelected = requestedDatabaseMode === "full_supabase";
   const predictedSlug = predictStoreSlug(body.name ?? "", body.slug);
+  const predictedStorefrontDomain = body.domain?.trim().toLocaleLowerCase("tr") || "";
 
   if (!predictedSlug) {
     return {
@@ -177,7 +214,29 @@ export async function validateOwnerStoreCreatePreflight(
     databaseMode: requestedDatabaseMode,
   });
   const liveAuthorityErrors = await validateLiveProviderAuthority(requestedDatabaseMode);
-  const errors = [...environmentReadiness.errors, ...liveAuthorityErrors];
+  const domainAuthorityErrors: string[] = [];
+
+  if (predictedStorefrontDomain) {
+    try {
+      domainAuthorityErrors.push(
+        ...(await validateGeneratedDomainAuthority({
+          storefrontDomain: predictedStorefrontDomain,
+          adminDomain: getStoreAdminDomainForStorefrontDomain(predictedStorefrontDomain),
+        })),
+      );
+    } catch (error) {
+      domainAuthorityErrors.push(
+        `Generated domain authority dogrulanamadi: ${
+          error instanceof Error ? error.message : "bilinmeyen hata"
+        }`,
+      );
+    }
+  }
+  const errors = [
+    ...environmentReadiness.errors,
+    ...liveAuthorityErrors,
+    ...domainAuthorityErrors,
+  ];
 
   return {
     ok: errors.length === 0,

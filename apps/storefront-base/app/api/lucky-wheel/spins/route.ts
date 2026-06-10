@@ -2,7 +2,11 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
-import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, spinLuckyWheel } from "@/lib/lucky-wheel";
+import {
+  DEFAULT_LUCKY_WHEEL_CONFIG_ID,
+  isLuckyWheelStorageUnavailable,
+  spinLuckyWheel,
+} from "@/lib/lucky-wheel";
 
 const spinSchema = z.object({
   configId: z.string().uuid().optional(),
@@ -77,6 +81,22 @@ export async function POST(request: NextRequest) {
     const status = result.success ? 200 : result.canSpin ? 409 : 422;
     return NextResponse.json(result, { status });
   } catch (error) {
+    if (isLuckyWheelStorageUnavailable(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          disabled: true,
+          canSpin: false,
+          message: "Şans çarkı şu anda aktif değil.",
+          remainingSpins: 0,
+          spin: null,
+          prize: null,
+          couponCode: null,
+        },
+        { status: 409 },
+      );
+    }
+
     console.error("Lucky wheel spins POST error:", error);
     return NextResponse.json(
       {

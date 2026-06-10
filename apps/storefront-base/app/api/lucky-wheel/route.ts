@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, getLuckyWheelPublicData } from "@/lib/lucky-wheel";
+import {
+  DEFAULT_LUCKY_WHEEL_CONFIG_ID,
+  getLuckyWheelPublicData,
+  isLuckyWheelStorageUnavailable,
+} from "@/lib/lucky-wheel";
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,6 +48,17 @@ export async function GET(request: NextRequest) {
       prizes: publicPrizes,
     });
   } catch (error) {
+    if (isLuckyWheelStorageUnavailable(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          disabled: true,
+          error: "Şans çarkı şu anda aktif değil.",
+        },
+        { status: 404 },
+      );
+    }
+
     console.error("Lucky wheel public GET error:", error);
     return NextResponse.json(
       {

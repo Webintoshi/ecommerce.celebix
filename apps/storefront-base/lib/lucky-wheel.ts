@@ -107,6 +107,22 @@ export function normalizeLuckyWheelPhone(value?: string): string | undefined {
   return digits;
 }
 
+export function isLuckyWheelStorageUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("message" in error)) {
+    return false;
+  }
+
+  const message = String(error.message ?? "");
+
+  return (
+    /light_postgres compatibility table destegi bulunamadi: lucky_wheel/i.test(message) ||
+    /Could not find the table 'public\.lucky_wheel/i.test(message) ||
+    /relation ["']public\.lucky_wheel/i.test(message) ||
+    /relation ["']lucky_wheel/i.test(message) ||
+    /perform_lucky_wheel_spin/i.test(message)
+  );
+}
+
 async function getConfigById(configId: string) {
   const supabase = createServerClient();
   const { data, error } = await supabase

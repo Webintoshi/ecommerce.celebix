@@ -586,20 +586,24 @@ export interface RemoveStoreArtifactsResult {
   skippedPaths: string[];
 }
 
-function getDemoDomainRoot(): string {
-  return ensureDomain(process.env.OWNER_DEMO_DOMAIN_ROOT?.trim() || "celebix.co");
+function getDemoDomainRoots(): string[] {
+  const configuredRoot = ensureDomain(process.env.OWNER_DEMO_DOMAIN_ROOT?.trim() || "celebix.co");
+  return Array.from(new Set([configuredRoot, "celebix.site", "demo.celebix.co"]));
 }
 
 function resolveAdminDomain(storefrontDomain: string): string {
   const normalizedStorefrontDomain = ensureDomain(storefrontDomain);
-  const demoRoot = getDemoDomainRoot();
-  const demoSuffix = `.${demoRoot}`;
+  const demoRoots = getDemoDomainRoots();
 
-  if (normalizedStorefrontDomain.endsWith(demoSuffix)) {
-    const prefix = normalizedStorefrontDomain.slice(0, -demoSuffix.length);
+  for (const demoRoot of demoRoots) {
+    const demoSuffix = `.${demoRoot}`;
 
-    if (prefix && !prefix.includes(".")) {
-      return `admin-${prefix}.${demoRoot}`;
+    if (normalizedStorefrontDomain.endsWith(demoSuffix)) {
+      const prefix = normalizedStorefrontDomain.slice(0, -demoSuffix.length);
+
+      if (prefix && !prefix.includes(".")) {
+        return `admin-${prefix}.${demoRoot}`;
+      }
     }
   }
 
@@ -1196,7 +1200,15 @@ function buildStoreConfig(input: Required<CreateStoreInput>): StoreConfig {
     }),
     readiness: buildDefaultStoreReadinessConfig(),
     smoke: buildDefaultStoreSmokeReport(input.slug),
-    payments: buildDefaultStorePaymentsConfig(),
+    payments:
+      databaseMode === "light_postgres"
+        ? {
+            status: "configured",
+            defaultProvider: "bank_transfer",
+            requiredAction: "verify_bank_transfer_details_before_live_orders",
+            blocking: false,
+          }
+        : buildDefaultStorePaymentsConfig(),
     supabase: {
       projectRef: "pending-owner-bootstrap",
       url: "configure-in-env",

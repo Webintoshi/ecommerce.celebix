@@ -919,6 +919,17 @@ export async function provisionStorefrontDeploymentForStore(
       );
     });
     currentApplicationUuid = resolveIdentifier(ensuredApplication.application);
+    await applyStorefrontAuthorityPatch(slug, {
+      appDir: store.storefront?.appDir ?? null,
+      status: store.storefront?.status ?? "scaffolded",
+      lastScaffoldError: store.storefront?.lastScaffoldError ?? null,
+      deploymentStatus: "prepared",
+      deploymentName: blueprint.appName,
+      runtimeUrl: blueprint.runtimeUrl,
+      resourceId: currentApplicationUuid,
+      lastDeploymentError:
+        "Storefront Coolify app olusturuldu; runtime/DNS dogrulamasi devam ediyor.",
+    });
     await syncApplicationEnv(currentApplicationUuid, blueprint.envEntries).catch((error) => {
       throw new Error(
         `Storefront env senkronu basarisiz: ${
@@ -993,6 +1004,17 @@ export async function provisionStorefrontDeploymentForStore(
           );
         });
         currentApplicationUuid = resolveIdentifier(ensuredApplication.application);
+        await applyStorefrontAuthorityPatch(slug, {
+          appDir: store.storefront?.appDir ?? null,
+          status: store.storefront?.status ?? "scaffolded",
+          lastScaffoldError: store.storefront?.lastScaffoldError ?? null,
+          deploymentStatus: "prepared",
+          deploymentName: blueprint.appName,
+          runtimeUrl: blueprint.runtimeUrl,
+          resourceId: currentApplicationUuid,
+          lastDeploymentError:
+            "Storefront Coolify app yeniden olusturuldu; runtime/DNS dogrulamasi devam ediyor.",
+        });
 
         await syncApplicationEnv(currentApplicationUuid, blueprint.envEntries).catch((error) => {
           throw new Error(

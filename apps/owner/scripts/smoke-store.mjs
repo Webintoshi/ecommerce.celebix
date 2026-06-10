@@ -263,7 +263,7 @@ async function checkSecurityMetadata({ slug, storefrontUrl, adminUrl, timeoutMs 
 
 async function runSmoke(slug, timeoutMs) {
   const storefrontUrl = `https://${slug}.celebix.site`;
-  const adminUrl = `https://admin.${slug}.celebix.site`;
+  const adminUrl = `https://admin-${slug}.celebix.site`;
   const checks = [];
 
   for (const path of ["/", "/urunler", "/odeme", "/blog", "/giris", "/kayit", "/sifremi-unuttum", "/api/public/runtime", "/api/public/payments"]) {

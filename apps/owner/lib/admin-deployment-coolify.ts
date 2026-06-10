@@ -678,6 +678,13 @@ export async function provisionAdminDeploymentForStore(
     let ensuredApplication = await ensureAdminApplication(store, blueprint, projectUuid, environmentUuid);
     let applicationUuid = resolveIdentifier(ensuredApplication.application);
     currentApplicationUuid = applicationUuid;
+    await persistAdminDeploymentAuthorityState(slug, {
+      deploymentStatus: "prepared",
+      deploymentName: blueprint.appName,
+      runtimeUrl: blueprint.runtimeUrl,
+      resourceId: applicationUuid,
+      lastError: "Admin Coolify app olusturuldu; runtime/DNS dogrulamasi devam ediyor.",
+    });
     await syncApplicationEnv(applicationUuid, blueprint.envEntries).catch((error) => {
       throw new Error(
         `Admin deployment env senkronu basarisiz: ${
@@ -742,6 +749,14 @@ export async function provisionAdminDeploymentForStore(
         applicationUuid,
       );
       applicationUuid = resolveIdentifier(ensuredApplication.application);
+      await persistAdminDeploymentAuthorityState(slug, {
+        deploymentStatus: "prepared",
+        deploymentName: blueprint.appName,
+        runtimeUrl: blueprint.runtimeUrl,
+        resourceId: applicationUuid,
+        lastError:
+          "Admin Coolify app yeniden olusturuldu; runtime/DNS dogrulamasi devam ediyor.",
+      });
 
       await syncApplicationEnv(applicationUuid, blueprint.envEntries).catch((error) => {
         throw new Error(
