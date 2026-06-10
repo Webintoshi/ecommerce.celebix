@@ -69,7 +69,7 @@ function ProductCardSwatches({ product, className }: { product: Product; classNa
       ))}
       {showMoreIndicator ? (
         <span
-          className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-neutral-300 font-sans text-[11px] font-semibold leading-none text-neutral-600 sm:h-4 sm:w-4 sm:text-xs md:h-[18px] md:w-[18px] lg:h-5 lg:w-5 lg:text-sm"
+          className="shrink-0 font-sans text-[19px] font-medium leading-none text-neutral-600 sm:text-[20px]"
           aria-label={`${allSwatches.length} renk seçeneği`}
         >
           +
