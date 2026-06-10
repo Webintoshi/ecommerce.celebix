@@ -35,6 +35,8 @@ const PANEL_MOTION = {
   exit: { opacity: 0, y: 12, scale: 0.98 },
 };
 
+const FLOATING_BUTTON_COLOR = "#8A6B37";
+
 export function FloatingContactButton() {
   const { storeInfo } = useStoreInfo();
   const { buildPath } = useStorefrontRoute();
@@ -48,7 +50,7 @@ export function FloatingContactButton() {
     [storeInfo?.floatingContact],
   );
 
-  const buttonColor = settings.buttonColor;
+  const buttonColor = FLOATING_BUTTON_COLOR;
   const buttonHoverColor = useMemo(
     () => getFloatingContactButtonHoverColor(buttonColor),
     [buttonColor],
