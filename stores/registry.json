@@ -28,51 +28,9 @@
     "status": "draft"
   },
   {
-    "slug": "atlas-lpg-smoke-20260608-0441",
-    "name": "Atlas LPG Smoke Test",
-    "domain": "atlas-lpg-smoke-20260608-0441.celebix.site",
-    "theme": "atelier",
-    "status": "draft"
-  },
-  {
-    "slug": "atlas-product-ready-20260610-055424",
-    "name": "atlas product ready 20260610 055424",
-    "domain": "atlas-product-ready-20260610-055424.celebix.site",
-    "theme": "atelier",
-    "status": "draft"
-  },
-  {
-    "slug": "atlas-product-ready-20260610-060348",
-    "name": "atlas product ready 20260610 060348",
-    "domain": "atlas-product-ready-20260610-060348.celebix.site",
-    "theme": "atelier",
-    "status": "draft"
-  },
-  {
-    "slug": "atlas-product-ready-20260610-061511",
-    "name": "atlas product ready 20260610 061511",
-    "domain": "atlas-product-ready-20260610-061511.celebix.site",
-    "theme": "atelier",
-    "status": "draft"
-  },
-  {
-    "slug": "atlas-product-ready-20260610-063356",
-    "name": "atlas product ready 20260610 063356",
-    "domain": "atlas-product-ready-20260610-063356.celebix.site",
-    "theme": "atelier",
-    "status": "draft"
-  },
-  {
-    "slug": "atlas-product-ready-20260610-064954",
-    "name": "atlas product ready 20260610 064954",
-    "domain": "atlas-product-ready-20260610-064954.celebix.site",
-    "theme": "atelier",
-    "status": "draft"
-  },
-  {
-    "slug": "atlas-product-ready-20260610-065334",
-    "name": "atlas product ready 20260610 065334",
-    "domain": "atlas-product-ready-20260610-065334.celebix.site",
+    "slug": "atlas-product-ready-20260610-064324",
+    "name": "atlas-product-ready-20260610-064324",
+    "domain": "atlas-product-ready-20260610-064324.celebix.site",
     "theme": "atelier",
     "status": "draft"
   },
