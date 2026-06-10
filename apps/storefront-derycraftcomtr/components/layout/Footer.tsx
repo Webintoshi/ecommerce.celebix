@@ -44,7 +44,7 @@ const LOCALE_SWITCH_OPTIONS: Array<{
 
 const ENGLISH_FOOTER_COPY: FooterLocaleCopy = {
   languageLabel: "Language",
-  brandHeadline: "Crafted by hand",
+  brandHeadline: "100% Hand-Stitched Guaranteed Products",
   brandStory:
     "We unite traditional leather craftsmanship with contemporary design. Every piece is carefully made in our workshop.",
   aboutHeading: "Discover",
@@ -66,7 +66,7 @@ const ENGLISH_FOOTER_COPY: FooterLocaleCopy = {
 
 const TURKISH_FOOTER_COPY: FooterLocaleCopy = {
   languageLabel: "Dil",
-  brandHeadline: "El işçiliğiyle üretilir",
+  brandHeadline: "%100 El Dikişi Garantili Ürünler",
   brandStory:
     "Geleneksel deri işçiliğini çağdaş tasarımla buluşturuyoruz. Her parça atölyemizde özenle, el emeğiyle üretilir.",
   aboutHeading: "Bizi Keşfedin",
@@ -198,11 +198,13 @@ export function Footer({ categoryLinks }: { categoryLinks: StorefrontFooterCateg
   const instagramUrl = storeInfo?.socialInstagram || SOCIAL_LINKS.instagram;
   const youtubeUrl = SOCIAL_LINKS.youtube || SOCIAL_LINKS.instagram;
 
-  const brandHeadline = SITE_TAGLINE || copy.brandHeadline;
-  const brandStory =
-    SITE_DESCRIPTION && !SITE_DESCRIPTION.includes("Celebix ile yonetilen")
-      ? SITE_DESCRIPTION
-      : copy.brandStory;
+  const isGenericStoreDescription =
+    !SITE_DESCRIPTION?.trim() ||
+    SITE_DESCRIPTION.includes("Celebix ile yonetilen") ||
+    SITE_DESCRIPTION.toLowerCase().includes("ortak celebix storefront");
+
+  const brandHeadline = copy.brandHeadline;
+  const brandStory = isGenericStoreDescription ? copy.brandStory : SITE_DESCRIPTION;
 
   useEffect(() => {
     let isMounted = true;
