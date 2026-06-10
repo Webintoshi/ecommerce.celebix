@@ -34,7 +34,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckoutStepIndicator } from "@/components/checkout/CheckoutStepIndicator";
 import { CheckoutOrderSummary } from "@/components/checkout/CheckoutOrderSummary";
-import { CheckoutTrustStrip } from "@/components/checkout/CheckoutTrustStrip";
 import { CheckoutDeliveryRecap } from "@/components/checkout/CheckoutDeliveryRecap";
 import { CheckoutMobileSummary } from "@/components/checkout/CheckoutMobileSummary";
 import { useStoreInfo } from "@/lib/store-info-context";
@@ -559,10 +558,8 @@ export default function CheckoutPage() {
         </div>
       </header>
 
-      <CheckoutTrustStrip />
-
       <main className="container-premium py-8 sm:py-10 lg:py-12">
-        <div className="mx-auto grid max-w-6xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-10">
+        <div className="mx-auto grid max-w-7xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(460px,520px)] lg:gap-10 xl:gap-12">
           <div className="space-y-6">
             <CheckoutMobileSummary {...orderSummaryProps} />
 

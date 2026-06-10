@@ -144,12 +144,12 @@ export function CheckoutOrderSummary({
               <span>{selectedShippingRate.estimatedDays || ""}</span>
             </div>
           ) : null}
-          <div className="flex justify-between text-neutral-600">
-            <span>İndirim</span>
-            <span className="font-medium text-[#8A6B37]">
-              -{discountAmount > 0 ? formatPrice(discountAmount) : "0 ₺"}
-            </span>
-          </div>
+          {discountAmount > 0 ? (
+            <div className="flex justify-between text-neutral-600">
+              <span>İndirim</span>
+              <span className="font-medium text-[#8A6B37]">-{formatPrice(discountAmount)}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-between rounded-xl border border-[#E8DFD3] bg-[#FAF7F2] px-4 py-4">
