@@ -12,6 +12,7 @@ const FORBIDDEN_SLUG_PATTERNS = [
   /^api$/,
   /^celebix$/,
   /^derycraft/,
+  /derycraft/,
   /^ecommerce$/,
   /^owner$/,
   /^prod(?:uction)?$/,
