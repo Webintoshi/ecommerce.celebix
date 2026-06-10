@@ -132,12 +132,14 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
     }
   };
 
-  // Mouse events (desktop drag)
+  // Mouse events (desktop drag) — main gallery
   const [isDragging, setIsDragging] = useState(false);
   const mouseStartX = useRef(0);
   const mouseEndX = useRef(0);
+  const didDrag = useRef(false);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    didDrag.current = false;
     setIsDragging(true);
     mouseStartX.current = e.clientX;
     mouseEndX.current = e.clientX;
@@ -146,6 +148,9 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
     mouseEndX.current = e.clientX;
+    if (Math.abs(mouseStartX.current - mouseEndX.current) > 8) {
+      didDrag.current = true;
+    }
   };
 
   const handleMouseUp = () => {
@@ -153,6 +158,34 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
     setIsDragging(false);
     const diff = mouseStartX.current - mouseEndX.current;
     if (Math.abs(diff) > 50) {
+      didDrag.current = true;
+      diff > 0 ? handleNext() : handlePrevious();
+    }
+  };
+
+  // Mouse events — lightbox
+  const [isLightboxDragging, setIsLightboxDragging] = useState(false);
+  const lightboxMouseStartX = useRef(0);
+  const lightboxMouseEndX = useRef(0);
+
+  const handleLightboxMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsLightboxDragging(true);
+    lightboxMouseStartX.current = e.clientX;
+    lightboxMouseEndX.current = e.clientX;
+  };
+
+  const handleLightboxMouseMove = (e: React.MouseEvent) => {
+    if (!isLightboxDragging) return;
+    lightboxMouseEndX.current = e.clientX;
+  };
+
+  const handleLightboxMouseUp = (e: React.MouseEvent) => {
+    if (!isLightboxDragging) return;
+    e.stopPropagation();
+    setIsLightboxDragging(false);
+    const diff = lightboxMouseStartX.current - lightboxMouseEndX.current;
+    if (Math.abs(diff) > 50 && displayImages.length > 1) {
       diff > 0 ? handleNext() : handlePrevious();
     }
   };
@@ -183,7 +216,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] flex cursor-zoom-out items-center justify-center bg-black/95"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95"
           onClick={() => setIsLightboxOpen(false)}
         >
           <button
@@ -225,22 +258,34 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             </>
           )}
 
-          <div
-            className="relative flex h-full w-full items-center justify-center p-4"
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={() => handleTouchEnd()}
-          >
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-[11px] font-medium tracking-[0.2em] text-white/85">
+          <div className="pointer-events-none relative flex h-full w-full items-center justify-center p-4">
+            <div
+              className={`pointer-events-auto ${
+                isLightboxDragging
+                  ? "cursor-grabbing"
+                  : displayImages.length > 1
+                    ? "cursor-grab"
+                    : "cursor-default"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={() => handleTouchEnd()}
+              onMouseDown={handleLightboxMouseDown}
+              onMouseMove={handleLightboxMouseMove}
+              onMouseUp={handleLightboxMouseUp}
+              onMouseLeave={handleLightboxMouseUp}
+            >
+              <img
+                src={currentImage}
+                alt={productName}
+                draggable={false}
+                className="max-h-[calc(100vh-6rem)] max-w-[min(100vw-2rem,1200px)] select-none object-contain"
+              />
+            </div>
+            <div className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-[11px] font-medium tracking-[0.2em] text-white/85">
               {selectedIndex + 1} / {displayImages.length}
             </div>
-            <img
-              src={currentImage}
-              alt={productName}
-              draggable={false}
-              className="max-w-full max-h-full object-contain"
-            />
           </div>
         </motion.div>
       )}
@@ -373,8 +418,15 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
         {/* Sağ: Ana Görsel */}
         <div
-          className={`relative aspect-square cursor-zoom-in select-none overflow-hidden bg-[#F8F8F8] ${isDragging ? "cursor-grabbing" : ""}`}
-          onClick={() => !isDragging && setIsLightboxOpen(true)}
+          className={`relative aspect-square select-none overflow-hidden bg-[#F8F8F8] ${
+            isDragging ? "cursor-grabbing" : "cursor-zoom-in"
+          }`}
+          onClick={() => {
+            if (!didDrag.current) {
+              setIsLightboxOpen(true);
+            }
+            didDrag.current = false;
+          }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={() => handleTouchEnd(() => setIsLightboxOpen(true))}
@@ -405,9 +457,9 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             src={currentImage}
             alt={`${productName} ana görsel`}
             draggable={false}
-            className={`h-full w-full cursor-zoom-in object-contain transition-opacity duration-300 ${
-              currentStatus === "loaded" ? "opacity-100" : "opacity-0"
-            }`}
+            className={`h-full w-full object-contain transition-opacity duration-300 ${
+              isDragging ? "cursor-grabbing" : "cursor-zoom-in"
+            } ${currentStatus === "loaded" ? "opacity-100" : "opacity-0"}`}
             loading="eager"
             onLoad={() => setStatus(currentImage, 'loaded')}
             onError={() => setStatus(currentImage, 'error')}
