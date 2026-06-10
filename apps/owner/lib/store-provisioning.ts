@@ -674,9 +674,12 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
     }
 
     const status = getLogtoBootstrapStatus();
-    return status.configured
-      ? "Logto management authority apply-ready durumda."
-      : status.lastError || "Logto config generation pending apply modunda calisacak.";
+
+    if (!status.configured) {
+      throw new Error(status.lastError || "Logto live apply authority eksik.");
+    }
+
+    return "Logto management authority apply-ready durumda.";
   });
 
   await runPreflightStep(tracker, "analytics_preflight", async () => {
@@ -687,9 +690,12 @@ async function runPreflights(input: StoreProvisioningWorkflowInput, tracker: Pro
     }
 
     const status = getUmamiBootstrapStatus();
-    return status.configured
-      ? "Umami token authority apply-ready durumda."
-      : status.lastError || "Umami config generation pending apply modunda calisacak.";
+
+    if (!status.configured) {
+      throw new Error(status.lastError || "Umami live apply token authority eksik.");
+    }
+
+    return "Umami token authority apply-ready durumda.";
   });
 
   await runPreflightStep(tracker, "generated_apps_toggle", async () => {
@@ -1155,9 +1161,14 @@ export async function runStoreProvisioningWorkflow(
 
         if (store.databaseMode === "light_postgres") {
           const result = await provisionLogtoAppsForStore(store);
+
+          if (result.adminAppStatus !== "ready" || result.customerAppStatus !== "ready") {
+            throw new Error("Logto live apply tamamlanmadi; admin/customer app authority ready degil.");
+          }
+
           await syncOwnerStoresAndMetricsBestEffort("Logto provisioning");
 
-          return `Logto admin/customer app config hazirlandi: ${result.adminConfigPath}, ${result.customerConfigPath}`;
+          return `Logto admin/customer app authority configured: ${result.adminConfigPath}, ${result.customerConfigPath}`;
         }
 
         return "Supabase auth store ile birlikte hazir.";
@@ -1170,9 +1181,14 @@ export async function runStoreProvisioningWorkflow(
 
         if (store.databaseMode === "light_postgres") {
           const result = await provisionUmamiForStore(store);
+
+          if (result.websiteStatus !== "ready" || !result.websiteId) {
+            throw new Error("Umami live apply tamamlanmadi; website ID configured degil.");
+          }
+
           await syncOwnerStoresAndMetricsBestEffort("Umami provisioning");
 
-          return `Umami website config hazirlandi: ${result.configPath}; websiteId=${result.websiteId ? "configured" : "pending"}`;
+          return `Umami website authority configured: ${result.configPath}; websiteId=configured`;
         }
 
         return "Legacy analytics setup store runtime icinde ele alinir.";

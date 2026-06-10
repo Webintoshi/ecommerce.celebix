@@ -1299,7 +1299,8 @@ function normalizeProvisioningSummaryForDisplay(
   if (input.setup.analytics.status === "configured") {
     markCompleted("analytics_setup", "Analytics authority hazır.");
   } else if (analyticsPending && input.analyticsPlaceholderReady) {
-    markCompleted("analytics_setup", "Umami-ready analytics placeholder owner authority içinde kayıtlı.");
+    markFailed("analytics_setup", "Umami live apply tamamlanmadı; analytics authority pending.");
+    blockRemainingStepsAfter("analytics_setup", "Umami website authority configured olmadan ilerlenemez.");
   } else if (!input.analyticsPlaceholderReady) {
     markFailed("analytics_setup", "light_postgres mağaza için analytics hazırlığı tamamlanmadı.");
   }
@@ -1312,7 +1313,8 @@ function normalizeProvisioningSummaryForDisplay(
         : "Auth authority hazır.",
     );
   } else if (authPending) {
-    markCompleted("auth_setup", "Logto-ready auth placeholder owner authority içinde kayıtlı.");
+    markFailed("auth_setup", "Logto live apply tamamlanmadı; auth authority pending.");
+    blockRemainingStepsAfter("auth_setup", "Logto admin/customer app authority configured olmadan ilerlenemez.");
   }
 
   if (input.setup.payments.status === "configured") {

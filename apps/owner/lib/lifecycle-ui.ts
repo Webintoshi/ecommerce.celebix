@@ -109,7 +109,7 @@ export function getSetupSignals(setup: StoreSetupSummary): SetupSignalDisplay[] 
           : "pill pill-success",
       cardToneClass: authPending ? "tone-auth" : authLegacy ? "tone-legacy" : "tone-ready",
       note: authPending
-        ? "Logto-ready placeholder owner authority içinde kayıtlı."
+        ? "Logto live apply bekliyor; admin/customer app authority henüz configured değil."
         : authLegacy
           ? "Bu mağaza istisnai olarak legacy Supabase auth ile çalışıyor."
           : "Auth authority canlı ve owner tarafında hazır görünüyor.",
@@ -127,7 +127,7 @@ export function getSetupSignals(setup: StoreSetupSummary): SetupSignalDisplay[] 
         : "pill pill-success",
       cardToneClass: analyticsPending ? "tone-analytics" : "tone-ready",
       note: analyticsPending
-        ? "Umami-ready placeholder owner authority içinde kayıtlı."
+        ? "Umami live apply bekliyor; website authority henüz configured değil."
         : "Analytics authority canlı ve lifecycle tarafında tamam görünüyor.",
       pending: analyticsPending,
       configured: !analyticsPending,
