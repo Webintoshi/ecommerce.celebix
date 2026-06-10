@@ -10,20 +10,15 @@ import {
   Minus,
   Plus,
   ArrowLeft,
-  Package,
-  Clock,
-  BadgeCheck,
-  Hammer,
   ChevronRight,
-  ChevronDown,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useCart } from "@/lib/cart-context";
 import { ImageGallery } from "@/components/product/ImageGallery";
 import { PersonalizationPreview } from "@/components/product/PersonalizationPreview";
 import { ProductReviewsSection } from "@/components/product/ProductReviewsSection";
 import { VariantSelectorV2 } from "@/components/product/VariantSelectorV2";
-import { ProductFeatures } from "@/components/product/ProductFeatures";
+import { ProductTrustStrip } from "@/components/product/ProductTrustStrip";
+import { ProductPdpTrustAccordions } from "@/components/product/ProductPdpTrustAccordions";
 import {
   DynamicCustomizationForm,
   type CustomizationSelectionState,
@@ -98,7 +93,6 @@ export function ProductDetailClient({
 
   const [selectedVariant, setSelectedVariant] = useState(initialVariantIndex);
   const [quantity, setQuantity] = useState(1);
-  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeSchema, setActiveSchema] =
     useState<ResolvedCustomizationSchema | null>(null);
@@ -119,13 +113,6 @@ export function ProductDetailClient({
   const { addToCart } = useCart();
   const { locale, buildPath } = useStorefrontRoute();
 
-  const toggleAccordion = (id: string) => {
-    const next = new Set(openAccordions);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setOpenAccordions(next);
-  };
-
   useEffect(() => {
     setProduct(initialProduct);
     setLoading(!initialProduct);
@@ -138,7 +125,6 @@ export function ProductDetailClient({
   useEffect(() => {
     setSelectedVariant(initialVariantIndex);
     setQuantity(1);
-    setOpenAccordions(new Set());
   }, [initialVariantIndex, initialProduct?.id]);
 
   useEffect(() => {
@@ -549,155 +535,9 @@ export function ProductDetailClient({
                 productName={product.name}
               />
 
-              <div className="border-t border-neutral-200 pt-1">
-                {[
-                  {
-                    id: "features",
-                    label: "Ürün Detayları",
-                    content: <ProductFeatures product={product} />,
-                  },
-                  {
-                    id: "specs",
-                    label: "Özellikler",
-                    content: (
-                      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Malzeme
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Premium Full-Grain Deri
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              İşçilik
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Üretim Süresi
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              1–3 İş Günü
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Garanti
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              El Yapımı Zanaatkar Kalitesi
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    id: "shipping",
-                    label: "Kargo & İade",
-                    content: (
-                      <div className="space-y-5 text-sm text-neutral-600">
-                        <div>
-                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>🚛</span> KARGO & İADE
-                          </h4>
-                          <ul className="list-none space-y-1.5">
-                            <li>
-                              <strong className="text-neutral-800">Ücretsiz Kargo:</strong> 1500₺ ve üzeri tüm siparişlerde
-                            </li>
-                            <li>
-                              <strong className="text-neutral-800">Teslimat Süresi:</strong> 1–3 iş günü hazırlık + 2–4 iş günü kargo süresi
-                            </li>
-                            <li>
-                              <strong className="text-neutral-800">Kargo Partneri:</strong> Teslimat adresine göre değişiklik gösterebilir.
-                            </li>
-                          </ul>
-                        </div>
-                        <div>
-                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>💳</span> ÖDEME SEÇENEKLERİ
-                          </h4>
-                          <ul className="list-none space-y-1.5">
-                            <li>Kredi/Banka Kartı (3D Secure güvenliği ile)</li>
-                            <li>Havale/EFT</li>
-                          </ul>
-                        </div>
-                        <div>
-                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>🔄</span> İADE POLİTİKASI
-                          </h4>
-                          <ul className="list-none space-y-1.5">
-                            <li>
-                              <strong className="text-neutral-800">14 Gün İçinde İade Hakkı</strong>
-                            </li>
-                            <li>
-                              <strong className="text-neutral-800">İstisnalar:</strong> Kişiye özel üretimlerde iade yoktur
-                            </li>
-                            <li>
-                              <strong className="text-neutral-800">İade Kargo Ücreti:</strong> Alıcıya aittir
-                            </li>
-                          </ul>
-                        </div>
-                        <div>
-                          <h4 className="mb-2 flex items-center gap-2 font-semibold text-neutral-900">
-                            <span>✨</span> NEDEN BİZ?
-                          </h4>
-                          <ul className="list-none space-y-1.5">
-                            <li>%100 El Yapımı & Gerçek Deri Ürünler</li>
-                            <li>Güvenli alışveriş (SSL sertifikası ile korunur)</li>
-                          </ul>
-                        </div>
-                      </div>
-                    ),
-                  },
-                ].map((item) => {
-                  const isOpen = openAccordions.has(item.id);
-                  return (
-                    <div key={item.id} className="border-b border-neutral-200">
-                      <button
-                        onClick={() => toggleAccordion(item.id)}
-                        className="flex w-full items-center justify-between py-4 text-sm font-medium uppercase tracking-wide text-neutral-900"
-                      >
-                        {item.label}
-                        <ChevronDown
-                          className={`h-4 w-4 text-neutral-500 transition-transform ${
-                            isOpen ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
-                      <AnimatePresence initial={false}>
-                        {isOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pb-5">{item.content}</div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </div>
+              <ProductTrustStrip />
+
+              <ProductPdpTrustAccordions product={product} />
 
               {product.sku && (
                 <p className="text-xs text-neutral-400">
