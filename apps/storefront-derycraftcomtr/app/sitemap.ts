@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 import { getAllPublishedContentPaths } from "@/lib/seo-content";
 import { getRequestOrigin } from "@/lib/request-origin";
-import { getProductSlug } from "@/lib/products";
+import { maybeListStorefrontProducts } from "@/lib/db/light-postgres-storefront-read";
 
 function buildAbsoluteUrl(pathname: string, siteUrl: string) {
   try {
@@ -9,6 +9,21 @@ function buildAbsoluteUrl(pathname: string, siteUrl: string) {
   } catch {
     return pathname;
   }
+}
+
+async function getProductSlugsForSitemap(): Promise<string[]> {
+  try {
+    const lightPostgresProducts = await maybeListStorefrontProducts();
+    if (lightPostgresProducts !== undefined) {
+      return lightPostgresProducts
+        .map((product) => product.slug)
+        .filter((slug): slug is string => typeof slug === "string" && slug.trim().length > 0);
+    }
+  } catch (error) {
+    console.error("Sitemap light postgres products could not be loaded:", error);
+  }
+
+  return [];
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -51,7 +66,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    productSlugs = await getProductSlug();
+    productSlugs = await getProductSlugsForSitemap();
   } catch (error) {
     console.error("Sitemap product slugs could not be loaded:", error);
   }
@@ -63,14 +78,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: item.path.split("/").length === 3 ? 0.8 : 0.7,
   }));
 
-  const productPages: MetadataRoute.Sitemap = productSlugs
-    .filter((slug) => typeof slug === "string" && slug.trim().length > 0)
-    .map((slug) => ({
-      url: buildAbsoluteUrl(`/urunler/${slug}`, siteUrl),
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.9,
-    }));
+  const productPages: MetadataRoute.Sitemap = productSlugs.map((slug) => ({
+    url: buildAbsoluteUrl(`/urunler/${slug}`, siteUrl),
+    lastModified: new Date(),
+    changeFrequency: "weekly",
+    priority: 0.9,
+  }));
 
   return [...staticPages, ...contentPages, ...productPages];
 }
