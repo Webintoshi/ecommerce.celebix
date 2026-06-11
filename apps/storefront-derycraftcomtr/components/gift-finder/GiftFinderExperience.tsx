@@ -29,36 +29,39 @@ type OpenFilterKey = "recipient" | "budget" | "occasion" | null;
 export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
   const { buildPath } = useStorefrontRoute();
   const [filters, setFilters] = useState<GiftFinderFilters>(DEFAULT_GIFT_FINDER_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<GiftFinderFilters | null>(null);
+  const [searchRevision, setSearchRevision] = useState(0);
   const [openFilter, setOpenFilter] = useState<OpenFilterKey>(null);
-  const [hasSearched, setHasSearched] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const heroImageSrc = GIFT_FINDER_HERO_IMAGE;
 
   const results = useMemo(() => {
-    if (!hasSearched || !filters.recipient) {
+    if (!appliedFilters?.recipient) {
       return [];
     }
 
-    return findGiftProducts(products, filters, 8);
-  }, [filters, hasSearched, products]);
+    return findGiftProducts(products, appliedFilters, 8);
+  }, [appliedFilters, products]);
 
   const summaryLabels = useMemo(() => {
-    const recipient = GIFT_RECIPIENT_OPTIONS.find((option) => option.value === filters.recipient)?.label;
-    const budget = GIFT_BUDGET_OPTIONS.find((option) => option.value === filters.budget)?.label;
-    const occasion = GIFT_OCCASION_OPTIONS.find((option) => option.value === filters.occasion)?.label;
+    if (!appliedFilters) return "";
+
+    const recipient = GIFT_RECIPIENT_OPTIONS.find((option) => option.value === appliedFilters.recipient)?.label;
+    const budget = GIFT_BUDGET_OPTIONS.find((option) => option.value === appliedFilters.budget)?.label;
+    const occasion = GIFT_OCCASION_OPTIONS.find((option) => option.value === appliedFilters.occasion)?.label;
     return [recipient, budget, occasion].filter(Boolean).join(" · ");
-  }, [filters]);
+  }, [appliedFilters]);
 
   const collectionHref = useMemo(() => {
-    if (!filters.recipient) return buildPath(ROUTES.products);
+    if (!appliedFilters?.recipient) return buildPath(ROUTES.products);
 
     const primaryCategory = results[0] ? getPrimaryGiftCategorySlug(results[0]) : "";
     const params = new URLSearchParams();
 
-    params.set("hediye-kime", filters.recipient);
-    if (filters.budget) params.set("max-fiyat", filters.budget);
-    params.set("neden", filters.occasion);
+    params.set("hediye-kime", appliedFilters.recipient);
+    if (appliedFilters.budget) params.set("max-fiyat", appliedFilters.budget);
+    params.set("neden", appliedFilters.occasion);
 
     const basePath = primaryCategory
       ? buildPath(ROUTES.category(primaryCategory))
@@ -66,7 +69,7 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
 
     const query = params.toString();
     return query ? `${basePath}?${query}` : basePath;
-  }, [buildPath, filters, results]);
+  }, [appliedFilters, buildPath, results]);
 
   function openOnly(next: OpenFilterKey) {
     setOpenFilter((current) => (current === next ? null : next));
@@ -79,7 +82,8 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
     }
 
     setErrorMessage("");
-    setHasSearched(true);
+    setAppliedFilters({ ...filters });
+    setSearchRevision((current) => current + 1);
     setOpenFilter(null);
   }
 
@@ -172,7 +176,7 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
         </div>
       </section>
 
-      {hasSearched ? (
+      {appliedFilters ? (
         <section className="border border-[#E5D9CA] bg-[#FBF8F4] px-6 py-9 sm:px-9 sm:py-11">
           <div className="mb-7 flex flex-col gap-4 sm:mb-9 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -193,7 +197,10 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
           </div>
 
           {results.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
+            <div
+              key={`gift-results-${searchRevision}`}
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 lg:gap-5"
+            >
               {results.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
