@@ -132,6 +132,8 @@ export function CreateStoreForm({
   const branchSlugPreview = form.slug || slugify(form.name) || "store-slug";
   const adminBranchPreview = `${adminDeploymentBranchPrefix}/${branchSlugPreview}`;
   const storefrontBranchPreview = `${storefrontBranchPrefix}/${branchSlugPreview}`;
+  const storefrontUrlPreview = `https://${branchSlugPreview}.celebix.site`;
+  const adminUrlPreview = `https://admin-${branchSlugPreview}.celebix.site`;
   const legacyModeVisible = showLegacyOptions || form.databaseMode === "full_supabase";
 
   return (
@@ -205,9 +207,38 @@ export function CreateStoreForm({
               <span className="pill">R2 medya depolama</span>
               <span className="pill">Build Server / GHCR</span>
               <span className="pill pill-ink">Supabase kullanılmıyor</span>
+              <span className="pill pill-success">Coolify deploy</span>
+              <span className="pill pill-success">Cloudflare DNS izleme</span>
               <span className="pill provisioning-tone-pending_auth">Auth Kurulumu Bekleyen</span>
               <span className="pill provisioning-tone-pending_analytics">Analytics Kurulumu Bekleyen</span>
               <span className="pill provisioning-tone-pending_payment">Ödeme Kurulumu Bekleyen</span>
+            </div>
+            <div className="create-stack-grid">
+              <div>
+                <span>Default DB</span>
+                <strong>light_postgres</strong>
+                <p>DB, runtime role ve schema seed bu standartla açılır.</p>
+              </div>
+              <div>
+                <span>Auth</span>
+                <strong>Logto</strong>
+                <p>Admin ve customer app ayrı authority olarak hazırlanır.</p>
+              </div>
+              <div>
+                <span>Storage</span>
+                <strong>R2</strong>
+                <p>Public media URL ve store prefix Supabase Storage yerine kullanılır.</p>
+              </div>
+              <div>
+                <span>Analytics</span>
+                <strong>Umami</strong>
+                <p>Website config ve admin summary server-side token authority ile izlenir.</p>
+              </div>
+              <div>
+                <span>Supabase status</span>
+                <strong>none / not used</strong>
+                <p>Yeni mağaza default akışında Supabase runtime geri getirilmez.</p>
+              </div>
             </div>
             <div className="owner-advanced-box">
               <button
@@ -281,6 +312,23 @@ export function CreateStoreForm({
                 />
               </label>
             </div>
+            <div className="create-stack-grid">
+              <div>
+                <span>Default payment</span>
+                <strong>bank_transfer</strong>
+                <p>Banka havalesi başlangıç ödeme authority olarak görünür.</p>
+              </div>
+              <div>
+                <span>COD policy</span>
+                <strong>ops approval</strong>
+                <p>Kapıda ödeme store policy hazır olduğunda açılır.</p>
+              </div>
+              <div>
+                <span>Card policy</span>
+                <strong>gateway required</strong>
+                <p>Kart tahsilatı provider authority tamamlanmadan aktif sayılmaz.</p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -328,9 +376,27 @@ export function CreateStoreForm({
               <span>Mağaza <strong>{form.name || "Henüz girilmedi"}</strong></span>
               <span>Slug <strong>{branchSlugPreview}</strong></span>
               <span>Domain <strong>{form.domain || "Bekleniyor"}</strong></span>
+              <span>Storefront URL <strong>{storefrontUrlPreview}</strong></span>
+              <span>Admin URL <strong>{adminUrlPreview}</strong></span>
               <span>Standart <strong>{form.databaseMode === "full_supabase" ? "Legacy" : "Postgres + Logto + Umami + R2"}</strong></span>
               <span>Tema <strong>{form.theme}</strong></span>
               <span>Paket <strong>{form.packageDurationMonths || "1"} ay</strong></span>
+            </div>
+            <div className="expected-provisioning-list" aria-label="Beklenen provisioning adımları">
+              {[
+                "Store record created",
+                "light_postgres DB/role/schema seeded",
+                "R2 configured",
+                "Logto admin/customer apps created",
+                "Umami website configured",
+                "storefront/admin branches generated",
+                "Coolify apps created",
+                "storefront/admin deployed",
+                "public/customer/admin smoke passed",
+                "final ready",
+              ].map((step) => (
+                <span key={step}>{step}</span>
+              ))}
             </div>
             <details className="owner-technical-details">
               <summary>Teknik branch planı</summary>

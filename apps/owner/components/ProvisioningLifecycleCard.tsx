@@ -15,6 +15,7 @@ interface ProvisioningLifecycleCardProps {
   superAdmin: boolean;
   repairDisabled?: boolean;
   repairDisabledReason?: string;
+  metadataWarning?: boolean;
 }
 
 interface StepStory {
@@ -399,6 +400,7 @@ export function ProvisioningLifecycleCard({
   superAdmin,
   repairDisabled = false,
   repairDisabledReason,
+  metadataWarning = false,
 }: ProvisioningLifecycleCardProps) {
   const focusedLifecycleStepKey = getFocusedLifecycleStepKey(provisioning.state);
   const currentStep =
@@ -415,7 +417,7 @@ export function ProvisioningLifecycleCard({
     (step) => step.status === "failed" || step.status === "blocked",
   ).length;
   const showRepairButton =
-    superAdmin && (provisioning.state === "pending_repair" || provisioning.state === "failed");
+    superAdmin && !metadataWarning && (provisioning.state === "pending_repair" || provisioning.state === "failed");
   const softPendingState =
     provisioning.state === "pending_auth" ||
     provisioning.state === "pending_analytics" ||
@@ -431,9 +433,19 @@ export function ProvisioningLifecycleCard({
   const progressPercent = softPendingState ? Math.min(baseProgressPercent, 92) : baseProgressPercent;
   const pendingCount =
     provisioning.steps.filter((step) => step.status === "pending").length + (softPendingState ? 1 : 0);
-  const heroCopy = getHeroCopy(provisioning.state, storeName, currentStep?.label ?? null);
-  const provisioningToneClass = getProvisioningToneClass(provisioning.state);
-  const provisioningLabel = getProvisioningLabel(provisioning.state);
+  const heroCopy = metadataWarning
+    ? {
+        eyebrow: "Metadata warning",
+        title: `${storeName} operational`,
+        body: "Store is operational; top-level provisioning metadata appears stale. Owner UI keeps this as a warning instead of a red failure.",
+      }
+    : getHeroCopy(provisioning.state, storeName, currentStep?.label ?? null);
+  const provisioningToneClass = metadataWarning
+    ? "provisioning-tone-pending_repair"
+    : getProvisioningToneClass(provisioning.state);
+  const provisioningLabel = metadataWarning
+    ? "ready with metadata warning"
+    : getProvisioningLabel(provisioning.state);
 
   const actStatuses = ACTS.map((act) => {
     const currentActSteps = provisioning.steps.filter((step) => act.keys.includes(step.key));

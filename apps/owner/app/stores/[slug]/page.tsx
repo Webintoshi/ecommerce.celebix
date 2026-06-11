@@ -9,6 +9,11 @@ import { RepairStoreDeploymentAuthorityButton } from "@/components/RepairStoreDe
 import { DeleteStoreButton } from "@/components/DeleteStoreButton";
 import { ProvisioningLifecycleCard } from "@/components/ProvisioningLifecycleCard";
 import {
+  getOperationalStatus,
+  getProvisioningTimeline,
+  getStoreReadinessItems,
+} from "@/lib/control-center-ui";
+import {
   OwnerActionPanel,
   OwnerActionQueue,
   OwnerEmptyState,
@@ -35,12 +40,17 @@ import {
   isLegacyDatabaseMode,
 } from "@/lib/lifecycle-ui";
 import { requireOwnerAuth, isSuperAdmin } from "@/lib/owner-auth";
-import { getStoreDetail } from "@/lib/control-plane";
+import { getStoreDetail, type DashboardStoreSummary, type StoreDetailSummary } from "@/lib/control-plane";
 import {
   getOwnerPreviewDisabledNotice,
   getOwnerPreviewFlags,
   isOwnerActionDisabled,
 } from "@/lib/preview-mode";
+import {
+  getPreviewDashboardStores,
+  getPreviewOwnerAuthContext,
+  hasOwnerPreviewDataFallback,
+} from "@/lib/owner-preview-fixtures";
 
 interface StoreDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -93,10 +103,51 @@ function getStoreStatusLabel(status: string) {
   return "Taslak";
 }
 
+function buildPreviewStoreDetail(store: DashboardStoreSummary): StoreDetailSummary {
+  return {
+    ...store,
+    supportEmail: store.management.clientContactEmail,
+    supportPhone: store.management.clientContactPhone,
+    tagline: store.management.nextAction,
+    supabaseProjectRef: null,
+    supabaseUrl: null,
+    supabaseDashboardUrl: null,
+    r2BucketName: store.r2?.bucketName ?? (store.health.r2Ready ? `${store.slug}-assets` : null),
+    r2PublicUrl: store.r2?.publicUrl ?? null,
+    r2ManagedDomain: store.r2?.managedDomain ?? null,
+    bootstrap: {
+      adminDeploymentName: `${store.slug}-admin`,
+      adminDeploymentBranch: `generated-admin/${store.slug}`,
+      adminDeploymentStatus: store.health.adminDeploymentReady ? "configured" : "pending-owner-env",
+      adminDeploymentRuntimeUrl: `https://${store.adminDomain}`,
+      provisionedAt: store.provisioning.lastRunAt,
+    },
+    storefront: {
+      deploymentName: `${store.slug}-storefront`,
+      deploymentBranch: `generated-storefront/${store.slug}`,
+      deploymentStatus: store.health.storefrontRuntimeConsistent ? "configured" : "pending",
+      runtimeUrl: `https://${store.storefrontDomain}`,
+      repoSyncStatus: store.storefrontAppDir ? "synced" : "pending",
+      preparedAt: store.provisioning.lastRunAt,
+      deployedAt: store.smoke?.finishedAt ?? store.provisioning.lastRunAt,
+    },
+    features: ["owner-preview", "light-postgres", "logto", "r2", "umami"],
+    createdAt: store.lastSyncedAt ?? "2026-06-04T18:30:00.000Z",
+    updatedAt: store.lastSyncedAt ?? "2026-06-04T18:30:00.000Z",
+    affiliateAssignments: [],
+    storeAdmins: [],
+    recentActivity: [],
+  };
+}
+
 export default async function StoreDetailPage({ params }: StoreDetailPageProps) {
-  const auth = await requireOwnerAuth();
+  const previewFallback = hasOwnerPreviewDataFallback();
+  const auth = previewFallback ? getPreviewOwnerAuthContext() : await requireOwnerAuth();
   const { slug } = await params;
-  const store = await getStoreDetail(auth, slug);
+  const previewStore = previewFallback
+    ? getPreviewDashboardStores().find((item) => item.slug === slug)
+    : null;
+  const store = previewStore ? buildPreviewStoreDetail(previewStore) : await getStoreDetail(auth, slug);
   const superAdmin = isSuperAdmin(auth);
   const previewFlags = getOwnerPreviewFlags();
   const writeDisabled = isOwnerActionDisabled("write", previewFlags);
@@ -170,6 +221,9 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const r2 = store.r2;
   const media = store.media;
   const smoke = store.smoke;
+  const operationalStatus = getOperationalStatus(store);
+  const readinessItems = getStoreReadinessItems(store);
+  const provisioningTimeline = getProvisioningTimeline(store);
   const smokePassedCount = smoke?.checks.filter((check) => check.status === "passed").length ?? 0;
   const smokeFailedCount = smoke?.checks.filter((check) => check.status === "failed").length ?? 0;
   const smokePendingCount = smoke?.checks.filter((check) => check.status === "pending").length ?? 0;
@@ -190,11 +244,25 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const progressToneClass = subscription.status === "active" ? "is-success" : "is-warning";
   const setupStepState = pendingSetupSignals.length > 0 ? "current" : "done";
   const deploymentStepState =
-    provisioning.state === "failed" || provisioning.state === "pending_repair"
+    provisioning.state === "failed" || (provisioning.state === "pending_repair" && operationalStatus.needsAttention)
       ? "blocked"
-      : provisioning.state === "ready"
+      : provisioning.state === "ready" || operationalStatus.label === "Ready with metadata warning"
         ? "done"
         : "current";
+  const warningItems = [
+    operationalStatus.metadataWarning
+      ? "Store is operational; top-level provisioning metadata appears stale."
+      : null,
+    operationalStatus.smokeIncomplete
+      ? "Smoke verification is missing or incomplete."
+      : null,
+    provisioning.failedStepCount > 0
+      ? `${provisioning.failedStepCount} provisioning step failed.`
+      : null,
+    store.consistency.blocking
+      ? `${store.consistency.blockingIssueCount} blocking consistency issue exists.`
+      : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="store-detail-page">
@@ -215,6 +283,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span className={getDatabaseModePillClass(store.databaseMode)}>
               {getDatabaseModeLabel(store.databaseMode)}
             </span>
+            <OwnerStatusChip tone={operationalStatus.tone}>{operationalStatus.label}</OwnerStatusChip>
           </>
         }
         actions={
@@ -245,7 +314,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
 
       <nav className="store-section-nav" aria-label="Mağaza detay bölümleri">
         <a href="#genel-bakis">Genel Bakış</a>
+        <a href="#identity">Identity</a>
+        <a href="#readiness">Readiness</a>
         <a href="#kurulum">Kurulum</a>
+        <a href="#timeline">Timeline</a>
         <a href="#domain-deploy">Domain ve Deploy</a>
         <a href="#erisim">Erişim</a>
         <a href="#aktivite">Aktivite</a>
@@ -268,6 +340,26 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <div className="store-detail-two-column">
+          <OwnerSectionCard
+            title="Operational status"
+            copy={operationalStatus.note}
+            tone={operationalStatus.tone}
+            actions={<OwnerStatusChip tone={operationalStatus.tone}>{operationalStatus.label}</OwnerStatusChip>}
+          >
+            {warningItems.length > 0 ? (
+              <div className="warning-banner-list">
+                {warningItems.map((warning) => (
+                  <div key={warning} className="owner-warning-banner">
+                    <strong>Warning</strong>
+                    <p>{warning}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="card-note">Blocking provisioning, deploy, smoke veya metadata alarmı görünmüyor.</p>
+            )}
+          </OwnerSectionCard>
+
           <OwnerSectionCard title="Müşteri ve Yaşam Döngüsü" copy={store.management.nextAction || "Sonraki aksiyon tanımlanmamış."}>
             <div className="meta-pairs">
               <span>Marka: <strong>{store.management.clientCompanyName || store.name}</strong></span>
@@ -327,12 +419,98 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
       </section>
 
+      <section id="identity" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Identity"
+          title="Store identity and domains"
+          copy="Mağaza kimliği, domainler ve audit zamanları teknik arama gerektirmeden okunur."
+        />
+        <OwnerSectionCard title="Identity">
+          <div className="control-center-facts">
+            <div>
+              <span>Store name</span>
+              <strong>{store.name}</strong>
+            </div>
+            <div>
+              <span>Slug</span>
+              <strong>{store.slug}</strong>
+            </div>
+            <div>
+              <span>Store ID</span>
+              <strong>{store.id}</strong>
+            </div>
+            <div>
+              <span>Storefront domain</span>
+              <strong>{store.storefrontDomain}</strong>
+            </div>
+            <div>
+              <span>Admin domain</span>
+              <strong>{store.adminDomain}</strong>
+            </div>
+            <div>
+              <span>Created</span>
+              <strong>{createdAt}</strong>
+            </div>
+            <div>
+              <span>Updated</span>
+              <strong>{updatedAt}</strong>
+            </div>
+          </div>
+        </OwnerSectionCard>
+      </section>
+
+      <section id="readiness" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Infrastructure"
+          title="Tenant infrastructure readiness"
+          copy="Database, storage, auth, analytics, deploy, image, DNS ve build server sinyalleri aynı grid içinde gösterilir."
+        />
+        <OwnerSectionCard title="System readiness for this store" actions={<OwnerStatusChip tone={operationalStatus.tone}>{operationalStatus.label}</OwnerStatusChip>}>
+          <div className="system-readiness-grid">
+            {readinessItems.map((item) => (
+              <article key={item.key} className={`system-readiness-card status-${item.status}`}>
+                <div className="system-readiness-top">
+                  <strong>{item.label}</strong>
+                  <OwnerStatusChip tone={item.tone}>{item.status}</OwnerStatusChip>
+                </div>
+                <p>{item.description}</p>
+                <span>{item.checkedAt ? `Son kontrol: ${formatDateTime(item.checkedAt)}` : "Son kontrol zamanı yok"}</span>
+              </article>
+            ))}
+          </div>
+        </OwnerSectionCard>
+      </section>
+
       <section id="kurulum" className="store-detail-section">
         <OwnerSectionHeader
           eyebrow="Kurulum Akışı"
           title="Hazırlık ve aksiyon sırası"
           copy="Teknik log hissi yerine, mağazanın işletime hazır olma durumu adım adım okunur."
         />
+        <section id="timeline" className="store-detail-section">
+          <OwnerSectionCard
+            title="Provisioning timeline"
+            copy="Fresh-store acceptance sırası, mevcut owner/store config kanıtlarından okunur. Eksik backend endpoint için fake mutation eklenmez."
+            actions={<OwnerStatusChip tone={operationalStatus.tone}>{operationalStatus.label}</OwnerStatusChip>}
+          >
+            <div className="control-center-timeline">
+              {provisioningTimeline.map((item) => (
+                <article key={item.key} className={`control-center-timeline-item status-${item.status}`}>
+                  <span className="control-center-timeline-dot" />
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p>{item.message}</p>
+                  </div>
+                  <div className="control-center-timeline-meta">
+                    <OwnerStatusChip tone={item.tone}>{item.status}</OwnerStatusChip>
+                    <span>{item.timestamp ? formatDateTime(item.timestamp) : "timestamp yok"}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </OwnerSectionCard>
+        </section>
+
         <div className="store-detail-two-column">
           <OwnerActionPanel
             title="Kurulum Akışı"
@@ -393,6 +571,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           superAdmin={superAdmin}
           repairDisabled={repairDisabled}
           repairDisabledReason={repairDisabledReason}
+          metadataWarning={operationalStatus.metadataWarning}
         />
 
         {!showSupabaseInfrastructure ? (

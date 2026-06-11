@@ -1,4 +1,5 @@
 import { LaunchStorefrontButton } from "@/components/LaunchStorefrontButton";
+import { getOperationalStatus } from "@/lib/control-center-ui";
 import {
   OwnerActionButton,
   OwnerDataList,
@@ -211,16 +212,14 @@ export default async function StoresPage() {
   const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
   const stores = previewFallback ? getPreviewDashboardStores() : await listDashboardStores(auth);
 
-  const readyCount = stores.filter((store) => store.provisioning.state === "ready").length;
+  const operationalStatuses = stores.map((store) => ({ store, status: getOperationalStatus(store) }));
+  const readyCount = operationalStatuses.filter(
+    ({ status }) => status.label === "Ready" || status.label === "Ready with metadata warning",
+  ).length;
   const newStandardCount = stores.filter((store) => !isLegacyDatabaseMode(store.databaseMode)).length;
   const legacyCount = stores.length - newStandardCount;
-  const actionRequiredCount = stores.filter(
-    (store) =>
-      hasPendingSetupSignals(store.setup) ||
-      store.provisioning.state === "pending_repair" ||
-      store.provisioning.state === "failed" ||
-      store.consistency.blocking,
-  ).length;
+  const actionRequiredCount = operationalStatuses.filter(({ status }) => status.needsAttention).length;
+  const metadataWarningCount = operationalStatuses.filter(({ status }) => status.metadataWarning).length;
   const dualHealthReadyCount = stores.filter(
     (store) => store.health.adminRuntimeConsistent && store.health.storefrontRuntimeConsistent,
   ).length;
@@ -239,6 +238,9 @@ export default async function StoresPage() {
             </OwnerStatusChip>
             <OwnerStatusChip tone={actionRequiredCount > 0 ? "warning" : "success"}>
               {actionRequiredCount > 0 ? `${actionRequiredCount} mağaza aksiyon bekliyor` : "Aksiyon kuyruğu temiz"}
+            </OwnerStatusChip>
+            <OwnerStatusChip tone={metadataWarningCount > 0 ? "warning" : "success"}>
+              {metadataWarningCount > 0 ? `${metadataWarningCount} metadata warning` : "Metadata alarmı yok"}
             </OwnerStatusChip>
           </>
         }
@@ -292,7 +294,7 @@ export default async function StoresPage() {
         <OwnerKpiCard
           label="Kurulum aksiyonu"
           value={actionRequiredCount}
-          note="Auth, analytics, ödeme veya onarım kuyruğu"
+          note="Gerçek failed/blocking sinyal taşıyan mağazalar"
           tone={actionRequiredCount > 0 ? "warning" : "success"}
         />
         <OwnerKpiCard
@@ -336,7 +338,20 @@ export default async function StoresPage() {
               const adminHealth = getAdminHealth(store);
               const storefrontHealth = getStorefrontHealth(store);
               const lifecycleLabel = getLifecycleStageLabel(store.management.lifecycleStage);
-              const readinessNote = getReadinessNote(store, pendingSignals.length);
+              const operationalStatus = getOperationalStatus(store);
+              const readinessNote = operationalStatus.note || getReadinessNote(store, pendingSignals.length);
+              const deployLabel =
+                store.health.adminRuntimeConsistent && store.health.storefrontRuntimeConsistent
+                  ? "Deploy ready"
+                  : store.health.adminDeploymentReady || store.health.storefrontRuntimeConsistent
+                    ? "Deploy partial"
+                    : "Deploy pending";
+              const smokeLabel =
+                store.smoke?.overallStatus === "passed"
+                  ? "Smoke PASS"
+                  : store.smoke?.overallStatus === "failed"
+                    ? "Smoke failed"
+                    : "Smoke pending";
 
               return (
                 <article key={store.id} className="store-portfolio-card">
@@ -358,6 +373,9 @@ export default async function StoresPage() {
                         </OwnerStatusChip>
                         <OwnerStatusChip tone={getPortfolioHealthTone(store.health.label)}>
                           {getPortfolioHealthLabel(store.health.label)}
+                        </OwnerStatusChip>
+                        <OwnerStatusChip tone={operationalStatus.tone}>
+                          {operationalStatus.label}
                         </OwnerStatusChip>
                       </div>
                     </div>
@@ -387,7 +405,7 @@ export default async function StoresPage() {
                     <div className="store-portfolio-stack">
                       <div className="owner-mini-stat">
                         <span>Kurulum akışı</span>
-                        <strong>{getProvisioningLabel(store.provisioning.state)}</strong>
+                        <strong>{operationalStatus.label}</strong>
                         <small>{readinessNote}</small>
                       </div>
                       <div className="store-health-chip-row">
@@ -396,6 +414,45 @@ export default async function StoresPage() {
                             {signal.pending ? signal.shortLabel : `${signal.title} hazır`}
                           </OwnerStatusChip>
                         ))}
+                      </div>
+                    </div>
+
+                    <div className="store-ops-matrix" aria-label={`${store.name} operasyon durumu`}>
+                      <div>
+                        <span>Slug</span>
+                        <strong>{store.slug}</strong>
+                      </div>
+                      <div>
+                        <span>Admin domain</span>
+                        <strong>{store.adminDomain}</strong>
+                      </div>
+                      <div>
+                        <span>DB</span>
+                        <strong>{getDatabaseModeLabel(store.databaseMode)}</strong>
+                      </div>
+                      <div>
+                        <span>Auth</span>
+                        <strong>{store.setup.auth.provider} / {store.setup.auth.status}</strong>
+                      </div>
+                      <div>
+                        <span>Storage</span>
+                        <strong>{store.health.r2Ready ? "R2 ready" : "R2 pending"}</strong>
+                      </div>
+                      <div>
+                        <span>Analytics</span>
+                        <strong>{store.setup.analytics.provider} / {store.setup.analytics.status}</strong>
+                      </div>
+                      <div>
+                        <span>Deploy</span>
+                        <strong>{deployLabel}</strong>
+                      </div>
+                      <div>
+                        <span>Smoke</span>
+                        <strong>{smokeLabel}</strong>
+                      </div>
+                      <div>
+                        <span>Payment</span>
+                        <strong>{store.setup.payments.defaultProvider} / {store.setup.payments.status}</strong>
                       </div>
                     </div>
 
@@ -426,6 +483,15 @@ export default async function StoresPage() {
                       <OwnerActionButton href={`/stores/${store.slug}`} tone="secondary">
                         Detayı Aç
                       </OwnerActionButton>
+                      <a className="button button-ghost" href={`https://${store.storefrontDomain}`} target="_blank" rel="noreferrer">
+                        Vitrin
+                      </a>
+                      <a className="button button-ghost" href={`https://${store.adminDomain}/admin`} target="_blank" rel="noreferrer">
+                        Admin
+                      </a>
+                      <span className="button button-ghost" aria-disabled="true" title="Copy domains action will be wired when a safe client action exists.">
+                        Copy domains
+                      </span>
                       {superAdmin ? (
                         <LaunchStorefrontButton
                           slug={store.slug}

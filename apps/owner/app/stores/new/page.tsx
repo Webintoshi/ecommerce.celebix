@@ -15,9 +15,15 @@ import {
   getOwnerPreviewFlags,
   isOwnerActionDisabled,
 } from "@/lib/preview-mode";
+import {
+  getPreviewOwnerAuthContext,
+  hasOwnerPreviewDataFallback,
+} from "@/lib/owner-preview-fixtures";
 
 export default async function NewStorePage() {
-  requireSuperAdmin(await requireOwnerAuth("/stores/new"));
+  const previewFallback = hasOwnerPreviewDataFallback();
+  const auth = previewFallback ? getPreviewOwnerAuthContext() : await requireOwnerAuth("/stores/new");
+  requireSuperAdmin(auth);
   const previewFlags = getOwnerPreviewFlags();
   const createStoreDisabled = isOwnerActionDisabled("create_store", previewFlags);
   const createStoreDisabledReason =

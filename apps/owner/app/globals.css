@@ -4261,7 +4261,61 @@ code {
 }
 
 .dashboard-kpi-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.system-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.system-readiness-card {
+  display: grid;
+  gap: 10px;
+  min-height: 138px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.72)),
+    color-mix(in srgb, var(--surface-2) 86%, white);
+}
+
+.system-readiness-card.status-ready {
+  border-color: var(--status-success-border);
+}
+
+.system-readiness-card.status-warning {
+  border-color: var(--status-warning-border);
+}
+
+.system-readiness-card.status-failed {
+  border-color: var(--status-danger-border);
+}
+
+.system-readiness-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.system-readiness-top strong {
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.system-readiness-card p {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.system-readiness-card > span {
+  align-self: end;
+  color: var(--text-tertiary);
+  font-size: 11px;
 }
 
 .store-portfolio-list {
@@ -4346,7 +4400,7 @@ code {
 
 .store-portfolio-body {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 1fr) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   gap: 14px;
   align-items: start;
 }
@@ -4387,10 +4441,201 @@ code {
 }
 
 .store-portfolio-actions {
+  grid-column: 4;
+  grid-row: 1 / span 2;
   display: grid;
   justify-items: end;
   gap: 12px;
   min-width: 184px;
+}
+
+.store-ops-matrix {
+  grid-column: 1 / 4;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.store-ops-matrix div {
+  display: grid;
+  gap: 5px;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 86%, white);
+}
+
+.store-ops-matrix span,
+.control-center-facts span,
+.create-stack-grid span {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.store-ops-matrix strong,
+.control-center-facts strong,
+.create-stack-grid strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.control-center-facts,
+.create-stack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.control-center-facts div,
+.create-stack-grid div {
+  display: grid;
+  gap: 6px;
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-2) 86%, white);
+}
+
+.create-stack-grid {
+  margin-top: 14px;
+}
+
+.create-stack-grid p {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.warning-banner-list {
+  display: grid;
+  gap: 10px;
+}
+
+.owner-warning-banner {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--status-warning-border);
+  border-radius: 14px;
+  background: var(--status-warning-soft);
+}
+
+.owner-warning-banner strong {
+  color: var(--text-primary);
+}
+
+.owner-warning-banner p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.control-center-timeline {
+  display: grid;
+  gap: 0;
+}
+
+.control-center-timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 0 0 16px;
+}
+
+.control-center-timeline-item::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 18px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--border-default);
+}
+
+.control-center-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.control-center-timeline-item:last-child::after {
+  display: none;
+}
+
+.control-center-timeline-dot {
+  position: relative;
+  z-index: 1;
+  width: 17px;
+  height: 17px;
+  margin-top: 4px;
+  border-radius: 999px;
+  border: 3px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.control-center-timeline-item.status-completed .control-center-timeline-dot {
+  border-color: var(--status-success-border);
+  background: var(--status-success);
+}
+
+.control-center-timeline-item.status-running .control-center-timeline-dot,
+.control-center-timeline-item.status-warning .control-center-timeline-dot {
+  border-color: var(--status-warning-border);
+  background: var(--brand-primary);
+}
+
+.control-center-timeline-item.status-failed .control-center-timeline-dot {
+  border-color: var(--status-danger-border);
+  background: var(--status-danger);
+}
+
+.control-center-timeline-item strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.control-center-timeline-item p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.control-center-timeline-meta {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.control-center-timeline-meta > span:last-child {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.expected-provisioning-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.expected-provisioning-list span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 88%, white);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .store-portfolio-actions .inline-stack {
@@ -4694,6 +4939,16 @@ tbody td {
     grid-template-columns: 1fr;
   }
 
+  .store-ops-matrix,
+  .store-portfolio-actions {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .store-ops-matrix {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .affiliate-side-column {
     position: static;
   }
@@ -4871,6 +5126,7 @@ tbody td {
 
   .store-infrastructure-grid,
   .owner-review-grid,
+  .store-ops-matrix,
   .dashboard-kpi-grid,
   .affiliate-kpi-grid,
   .affiliate-partner-stats {

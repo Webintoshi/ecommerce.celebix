@@ -8,6 +8,7 @@ import {
   OwnerStatusChip,
 } from "@/components/owner-control";
 import { repairOwnerDeploymentBranchOnce } from "@/lib/coolify-owner-deployment";
+import { getOperationalStatus, summarizeSystemReadiness } from "@/lib/control-center-ui";
 import { getOwnerDashboard } from "@/lib/control-plane";
 import { formatCurrency, formatDateTime } from "@/lib/formatters";
 import { isLegacyDatabaseMode } from "@/lib/lifecycle-ui";
@@ -17,9 +18,16 @@ import {
   getOwnerPreviewFlags,
   isOwnerActionDisabled,
 } from "@/lib/preview-mode";
+import {
+  getPreviewDashboardStores,
+  getPreviewOperationsSummary,
+  getPreviewOwnerAuthContext,
+  hasOwnerPreviewDataFallback,
+} from "@/lib/owner-preview-fixtures";
 
 export default async function OwnerDashboardPage() {
-  const auth = await requireOwnerAuth("/");
+  const previewFallback = hasOwnerPreviewDataFallback();
+  const auth = previewFallback ? getPreviewOwnerAuthContext() : await requireOwnerAuth("/");
   const superAdmin = isSuperAdmin(auth);
   const previewFlags = getOwnerPreviewFlags();
   const createStoreDisabled = isOwnerActionDisabled("create_store", previewFlags);
@@ -35,7 +43,36 @@ export default async function OwnerDashboardPage() {
   let dashboard: Awaited<ReturnType<typeof getOwnerDashboard>> | null = null;
 
   try {
-    dashboard = await getOwnerDashboard(auth);
+    if (previewFallback) {
+      const stores = getPreviewDashboardStores();
+      const operations = getPreviewOperationsSummary(stores);
+      const totalRevenue = stores.reduce((total, store) => total + store.totalRevenue, 0);
+
+      dashboard = {
+        totals: {
+          setupRevenue: stores.length * 19000,
+          revenue: totalRevenue,
+          orders: stores.reduce((total, store) => total + store.orderCount, 0),
+          customers: stores.reduce((total, store) => total + store.customerCount, 0),
+          activeStores: stores.filter((store) => store.status === "active").length,
+          draftStores: stores.filter((store) => store.status === "draft").length,
+          pendingOrders: stores.reduce((total, store) => total + store.pendingOrderCount, 0),
+          liveStorefronts: stores.filter((store) => store.storefrontStatus === "active").length,
+          affiliateExposure: stores.reduce(
+            (total, store) => total + (store.totalRevenue * store.totalAffiliateRate) / 100,
+            0,
+          ),
+        },
+        spotlightStores: stores.slice(0, 3),
+        attentionStores: stores.filter((store) => store.consistency.blocking || store.provisioning.failedStepCount > 0),
+        orphanedCleanupRuns: operations.totals.orphanedCleanupRuns,
+        cleanupRuns: operations.cleanupRuns,
+        recentActivity: operations.recentActivity,
+        stores,
+      };
+    } else {
+      dashboard = await getOwnerDashboard(auth);
+    }
   } catch (error) {
     dashboardError = error instanceof Error ? error.message : "Owner dashboard verisi yüklenemedi.";
   }
@@ -66,6 +103,20 @@ export default async function OwnerDashboardPage() {
   ).length;
   const legacyStoreCount = dashboardStores.filter((store) => isLegacyDatabaseMode(store.databaseMode)).length;
   const setupQueueCount = pendingAuthCount + pendingAnalyticsCount + pendingPaymentCount;
+  const operationalStatuses = dashboardStores.map(getOperationalStatus);
+  const readyStores = operationalStatuses.filter(
+    (status) => status.label === "Ready" || status.label === "Ready with metadata warning",
+  ).length;
+  const provisioningCount = dashboardStores.filter((store) =>
+    store.provisioning.state === "running" || store.provisioning.state === "provisioning",
+  ).length;
+  const failedStores = operationalStatuses.filter((status) => status.needsAttention).length;
+  const recentDeployments = dashboardStores.filter(
+    (store) => store.health.adminDeploymentReady || store.health.storefrontRuntimeConsistent,
+  ).length;
+  const smokePassed = dashboardStores.filter((store) => store.smoke?.overallStatus === "passed").length;
+  const metadataWarningStores = operationalStatuses.filter((status) => status.metadataWarning).length;
+  const systemReadiness = summarizeSystemReadiness(dashboardStores);
   const cleanupRuns = dashboard?.cleanupRuns.slice(0, 3) ?? [];
   const attentionStores = dashboard?.attentionStores.slice(0, 4) ?? [];
 
@@ -209,28 +260,46 @@ export default async function OwnerDashboardPage() {
 
       <div className="owner-metric-grid dashboard-kpi-grid">
         <OwnerKpiCard
-          label="Toplam mağaza"
-          value={portfolioCount}
+          label="Total Stores"
+          value={dashboardStores.length || portfolioCount}
           note={`${totals.activeStores} aktif, ${totals.draftStores} taslak`}
           tone="accent"
         />
         <OwnerKpiCard
-          label="Canlı vitrin"
-          value={totals.liveStorefronts}
-          note="Yayın hazırlığı tamamlanan mağazalar"
+          label="Ready Stores"
+          value={readyStores}
+          note="Ready veya metadata warning ile operasyonel"
           tone="success"
         />
         <OwnerKpiCard
-          label="Bekleyen sipariş"
-          value={totals.pendingOrders}
-          note="Operasyon takibi gereken siparişler"
-          tone={totals.pendingOrders > 0 ? "warning" : "neutral"}
+          label="Provisioning"
+          value={provisioningCount}
+          note="Aktif provisioning/running akışı"
+          tone={provisioningCount > 0 ? "accent" : "neutral"}
         />
         <OwnerKpiCard
-          label="Yeni standart dışı"
-          value={legacyStoreCount}
-          note="Legacy veya özel modda kalan mağazalar"
-          tone={legacyStoreCount > 0 ? "legacy" : "neutral"}
+          label="Failed / Needs Attention"
+          value={failedStores}
+          note="Gerçek failed/blocking sinyal taşıyan mağazalar"
+          tone={failedStores > 0 ? "danger" : "success"}
+        />
+        <OwnerKpiCard
+          label="Recent Deployments"
+          value={recentDeployments}
+          note="Admin veya storefront deploy kanıtı olanlar"
+          tone="accent"
+        />
+        <OwnerKpiCard
+          label="Smoke Passed"
+          value={smokePassed}
+          note="New-store smoke PASS raporu görünenler"
+          tone={smokePassed > 0 ? "success" : "warning"}
+        />
+        <OwnerKpiCard
+          label="Metadata Warnings"
+          value={metadataWarningStores}
+          note="Operasyonel ama top-level metadata stale görünenler"
+          tone={metadataWarningStores > 0 ? "warning" : "success"}
         />
       </div>
 
@@ -239,6 +308,33 @@ export default async function OwnerDashboardPage() {
           <p className="form-error">{dashboardError}</p>
         </OwnerSectionCard>
       ) : null}
+
+      <OwnerSectionCard
+        eyebrow="System Readiness"
+        title="Provisioning platform health"
+        copy="Her servis owner verisinden türetilen okunabilir durumla gösterilir; secret veya env değeri yazdırılmaz."
+        actions={
+          <>
+            <OwnerStatusChip tone="ink">{systemReadiness.length} servis</OwnerStatusChip>
+            <OwnerStatusChip tone={systemReadiness.some((item) => item.status === "failed") ? "danger" : "success"}>
+              {systemReadiness.some((item) => item.status === "failed") ? "Dikkat gerekiyor" : "Bloklayan platform alarmı yok"}
+            </OwnerStatusChip>
+          </>
+        }
+      >
+        <div className="system-readiness-grid">
+          {systemReadiness.map((item) => (
+            <article key={item.key} className={`system-readiness-card status-${item.status}`}>
+              <div className="system-readiness-top">
+                <strong>{item.label}</strong>
+                <OwnerStatusChip tone={item.tone}>{item.status}</OwnerStatusChip>
+              </div>
+              <p>{item.description}</p>
+              <span>{item.checkedAt ? `Son kontrol: ${formatDateTime(item.checkedAt)}` : "Son kontrol zamanı yok"}</span>
+            </article>
+          ))}
+        </div>
+      </OwnerSectionCard>
 
       <div className="owner-dashboard-grid">
         <OwnerSectionCard
