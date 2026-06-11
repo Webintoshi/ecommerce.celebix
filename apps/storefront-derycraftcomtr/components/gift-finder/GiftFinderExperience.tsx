@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
@@ -33,8 +33,26 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
   const [searchRevision, setSearchRevision] = useState(0);
   const [openFilter, setOpenFilter] = useState<OpenFilterKey>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const resultsSectionRef = useRef<HTMLElement>(null);
 
   const heroImageSrc = GIFT_FINDER_HERO_IMAGE;
+
+  useEffect(() => {
+    if (!appliedFilters) {
+      return;
+    }
+
+    const isMobile = window.matchMedia("(max-width: 1023px)").matches;
+    if (!isMobile) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      resultsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+
+    return () => window.clearTimeout(timeout);
+  }, [appliedFilters, searchRevision]);
 
   const results = useMemo(() => {
     if (!appliedFilters?.recipient) {
@@ -177,7 +195,10 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
       </section>
 
       {appliedFilters ? (
-        <section className="border border-[#E5D9CA] bg-[#FBF8F4] px-6 py-9 sm:px-9 sm:py-11">
+        <section
+          ref={resultsSectionRef}
+          className="scroll-mt-[5.5rem] border border-[#E5D9CA] bg-[#FBF8F4] px-6 py-9 sm:px-9 sm:py-11"
+        >
           <div className="mb-7 flex flex-col gap-4 sm:mb-9 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8B6914]">

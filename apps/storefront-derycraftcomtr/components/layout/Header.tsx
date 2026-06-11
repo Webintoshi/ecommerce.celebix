@@ -27,9 +27,7 @@ import {
   getLocalizedCategoryLabel,
   getLocalizedCopy,
 } from "@/lib/i18n";
-import { useAnnouncementBar } from "@/lib/announcement-bar";
 import { cn } from "@/lib/utils";
-import type { CSSProperties } from "react";
 
 const NAV_LINK_CLASS =
   "inline-flex items-center gap-1.5 font-serif text-[13px] uppercase tracking-[0.16em] text-neutral-950 transition-opacity hover:opacity-55 sm:text-[14px] lg:tracking-[0.18em]";
@@ -69,10 +67,6 @@ export function Header({
   const { user, signOut } = useAuth();
   const { storeInfo } = useStoreInfo();
   const { locale, buildPath } = useStorefrontRoute();
-  const { backgroundColor, textColor, isEnabled: isAnnouncementEnabled } = useAnnouncementBar();
-  const useMobileAnnouncementTheme = isAnnouncementEnabled;
-  const invertLogoOnMobile = useMobileAnnouncementTheme && textColor === "#FFFFFF";
-
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const cartItemCount = getTotalItems();
   const isAuthenticated = Boolean(user);
@@ -357,18 +351,9 @@ export function Header({
   return (
     <header
       className={cn(
-        "relative sticky top-0 z-50 bg-white transition-shadow duration-300 lg:bg-white",
-        useMobileAnnouncementTheme && "storefront-mobile-header-themed",
+        "relative sticky top-0 z-50 bg-white transition-shadow duration-300",
         isScrolled && "shadow-[0_1px_0_rgba(0,0,0,0.06)]",
       )}
-      style={
-        useMobileAnnouncementTheme
-          ? ({
-              "--announcement-bar-bg": backgroundColor,
-              "--announcement-bar-fg": textColor,
-            } as CSSProperties)
-          : undefined
-      }
       onMouseLeave={scheduleMegaMenuClose}
     >
       <div className="container-premium">
@@ -385,21 +370,13 @@ export function Header({
                   alt={logoAlt}
                   fill
                   priority
-                  className={cn(
-                    "object-contain object-left",
-                    invertLogoOnMobile && "header-logo-on-dark",
-                  )}
+                  className="object-contain object-left"
                   sizes="(max-width: 640px) 100px, 124px"
                   unoptimized={usesProxiedLogo}
                 />
               </div>
             ) : (
-              <span
-                className={cn(
-                  "font-serif text-lg lg:text-xl",
-                  useMobileAnnouncementTheme ? "max-lg:text-inherit" : "text-neutral-900",
-                )}
-              >
+              <span className="font-serif text-lg text-neutral-900 lg:text-xl">
                 {logoAlt}
               </span>
             )}
