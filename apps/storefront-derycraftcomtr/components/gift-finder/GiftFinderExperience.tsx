@@ -11,6 +11,7 @@ import {
   DEFAULT_GIFT_FINDER_FILTERS,
   GIFT_BUDGET_OPTIONS,
   GIFT_CATEGORY_LABELS,
+  GIFT_FINDER_HERO_IMAGE,
   GIFT_OCCASION_OPTIONS,
   GIFT_RECIPIENT_OPTIONS,
   type GiftFinderFilters,
@@ -26,19 +27,6 @@ type GiftFinderExperienceProps = {
 
 type OpenFilterKey = "recipient" | "budget" | "occasion" | null;
 
-const HERO_IMAGE = "/Hero_banner_Bir.jpg";
-
-function getGiftHeroImage(products: Product[]) {
-  for (const product of products) {
-    const image = product.images?.[0];
-    if (typeof image === "string" && image.trim()) {
-      return resolveStorefrontAssetUrl(image) || HERO_IMAGE;
-    }
-  }
-
-  return HERO_IMAGE;
-}
-
 export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
   const { buildPath } = useStorefrontRoute();
   const [filters, setFilters] = useState<GiftFinderFilters>(DEFAULT_GIFT_FINDER_FILTERS);
@@ -46,7 +34,7 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
   const [hasSearched, setHasSearched] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const heroImageSrc = getGiftHeroImage(products);
+  const heroImageSrc = resolveStorefrontAssetUrl(GIFT_FINDER_HERO_IMAGE);
   const usesProxiedHeroImage = isProxiedStorefrontAssetUrl(heroImageSrc);
 
   const results = useMemo(() => {
@@ -175,7 +163,7 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
           <div className="relative min-h-[240px] overflow-hidden bg-[#F0E8DC] sm:min-h-[260px] lg:min-h-full">
             <Image
               src={heroImageSrc}
-              alt="DeryCraft deri hediye koleksiyonu"
+              alt="DeryCraft deri ruj kutusu hediye koleksiyonu"
               fill
               priority
               unoptimized={usesProxiedHeroImage || heroImageSrc.startsWith("http")}
