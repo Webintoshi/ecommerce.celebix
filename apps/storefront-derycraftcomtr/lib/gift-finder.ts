@@ -1,7 +1,7 @@
 import {
   inferLegacySubcategorySlug,
   readCelebixCategoryHierarchyMetadata,
-} from "@celebix/platform-config";
+} from "@celebix/platform-config/src/category-hierarchy";
 import {
   type GiftFinderFilters,
   OCCASION_CATEGORY_BOOST,
