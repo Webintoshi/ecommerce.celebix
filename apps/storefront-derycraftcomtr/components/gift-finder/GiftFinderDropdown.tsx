@@ -32,6 +32,7 @@ export function GiftFinderDropdown({
   onClose,
 }: GiftFinderDropdownProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number; width: number } | null>(
     null,
@@ -46,9 +47,10 @@ export function GiftFinderDropdown({
 
     function handlePointerDown(event: MouseEvent) {
       const target = event.target as Node;
-      if (!rootRef.current?.contains(target)) {
-        onClose();
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
       }
+      onClose();
     }
 
     function handleEscape(event: KeyboardEvent) {
@@ -94,6 +96,7 @@ export function GiftFinderDropdown({
   const menu =
     isOpen && menuPosition ? (
       <ul
+        ref={menuRef}
         id={listboxId}
         role="listbox"
         style={{

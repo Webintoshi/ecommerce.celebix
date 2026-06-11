@@ -12,13 +12,13 @@ import { useCart } from "@/lib/cart-context";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { HeaderGiftFinderLink } from "@/components/layout/HeaderGiftFinderLink";
 import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
 import {
   HeaderIconAccount,
   HeaderIconBag,
   HeaderIconChevron,
   HeaderIconClose,
-  HeaderIconGift,
   HeaderIconMenu,
   HeaderIconSearch,
 } from "@/components/layout/HeaderIcons";
@@ -372,10 +372,10 @@ export function Header({
       onMouseLeave={scheduleMegaMenuClose}
     >
       <div className="container-premium">
-        <div className="flex h-[4.5rem] items-center lg:grid lg:h-[5.5rem] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
+        <div className="relative flex h-[4.5rem] items-center lg:h-[5.5rem]">
           <Link
             href={buildPath(ROUTES.home)}
-            className="flex-shrink-0"
+            className="relative z-20 flex-shrink-0"
             aria-label={logoAlt}
           >
             {logoSrc ? (
@@ -406,7 +406,7 @@ export function Header({
           </Link>
 
           <nav
-            className="hidden items-center justify-center gap-4 lg:flex xl:gap-6"
+            className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-4 lg:flex xl:gap-6"
             onMouseEnter={() => {
               if (megaMenuCloseTimer.current) {
                 window.clearTimeout(megaMenuCloseTimer.current);
@@ -483,7 +483,7 @@ export function Header({
 
           </nav>
 
-          <div className="ml-auto flex items-center gap-4 sm:gap-5 lg:ml-0 lg:justify-self-end lg:gap-6">
+          <div className="relative z-20 ml-auto flex items-center gap-4 sm:gap-5 lg:gap-6">
             {isAuthenticated ? (
               <Link
                 href={buildPath("/hesap")}
@@ -502,13 +502,7 @@ export function Header({
               </a>
             )}
 
-            <Link
-              href={buildPath(ROUTES.giftFinder)}
-              className="header-utility-icon inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-neutral-950 transition-opacity hover:opacity-55"
-              aria-label="Hediye bulucu"
-            >
-              <HeaderIconGift size={24} />
-            </Link>
+            <HeaderGiftFinderLink />
 
             <UtilityIconButton aria-label={copy.searchLabel} onClick={openSearch}>
               <HeaderIconSearch size={24} />
