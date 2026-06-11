@@ -4,6 +4,13 @@ import {
   maybeGetAdminCustomizationSchemaById,
   maybeListAdminCustomizationSchemas,
 } from "@/lib/db/light-postgres-read";
+import {
+  maybeCreateLightPostgresCustomizationSchema,
+  maybeDeleteLightPostgresCustomizationSchema,
+  maybeDuplicateLightPostgresCustomizationSchema,
+  maybeSaveLightPostgresCustomizationSchema,
+  maybeSetLightPostgresCustomizationSchemaActive,
+} from "@/lib/db/light-postgres-customization-write";
 import type { CustomizationStep } from "@/types/product-customization";
 
 type CreateSchemaBody = {
@@ -25,6 +32,7 @@ type SaveSchemaBody = {
     id: string;
     name: string;
     description?: string;
+    is_active?: boolean;
     settings?: Record<string, unknown>;
   };
   steps: CustomizationStep[];
@@ -125,8 +133,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createServerClient();
-
   try {
     const body = (await request.json()) as PostBody;
 
@@ -135,6 +141,17 @@ export async function POST(request: NextRequest) {
         return badRequest("name ve slug zorunludur");
       }
 
+      const lightPostgresSchema = await maybeCreateLightPostgresCustomizationSchema({
+        name: body.name,
+        description: body.description,
+        slug: body.slug,
+        settings: body.settings,
+      });
+      if (lightPostgresSchema !== undefined) {
+        return NextResponse.json({ success: true, schema: lightPostgresSchema });
+      }
+
+      const supabase = createServerClient();
       const { data, error } = await supabase
         .from("product_customization_schemas")
         .insert({
@@ -154,6 +171,16 @@ export async function POST(request: NextRequest) {
     if (body.action === "duplicate") {
       if (!body.schemaId) return badRequest("schemaId zorunludur");
 
+      const lightPostgresSchema = await maybeDuplicateLightPostgresCustomizationSchema(body.schemaId);
+      if (lightPostgresSchema !== undefined) {
+        if (!lightPostgresSchema) {
+          return NextResponse.json({ success: false, error: "Şema bulunamadı" }, { status: 404 });
+        }
+
+        return NextResponse.json({ success: true, schema: lightPostgresSchema });
+      }
+
+      const supabase = createServerClient();
       const { data: fullSchema, error: schemaError } = await supabase
         .from("product_customization_schemas")
         .select(
@@ -243,6 +270,17 @@ export async function POST(request: NextRequest) {
         return badRequest("schema.id ve steps zorunludur");
       }
 
+      const lightPostgresSaved = await maybeSaveLightPostgresCustomizationSchema({
+        schema: body.schema,
+        steps: body.steps,
+        productAssignments: body.productAssignments,
+        categoryAssignments: body.categoryAssignments,
+      });
+      if (lightPostgresSaved !== undefined) {
+        return NextResponse.json({ success: true });
+      }
+
+      const supabase = createServerClient();
       const { error: schemaError } = await supabase
         .from("product_customization_schemas")
         .update({
@@ -483,13 +521,22 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = createServerClient();
   try {
     const body = (await request.json()) as { id?: string; is_active?: boolean };
     if (!body.id || typeof body.is_active !== "boolean") {
       return badRequest("id ve is_active zorunludur");
     }
 
+    const lightPostgresUpdated = await maybeSetLightPostgresCustomizationSchemaActive(body.id, body.is_active);
+    if (lightPostgresUpdated !== undefined) {
+      if (!lightPostgresUpdated) {
+        return NextResponse.json({ success: false, error: "Şema bulunamadı" }, { status: 404 });
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    const supabase = createServerClient();
     const { error } = await supabase
       .from("product_customization_schemas")
       .update({ is_active: body.is_active })
@@ -507,12 +554,21 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = createServerClient();
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return badRequest("id zorunludur");
 
+    const lightPostgresDeleted = await maybeDeleteLightPostgresCustomizationSchema(id);
+    if (lightPostgresDeleted !== undefined) {
+      if (!lightPostgresDeleted) {
+        return NextResponse.json({ success: false, error: "Şema bulunamadı" }, { status: 404 });
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    const supabase = createServerClient();
     const { error } = await supabase
       .from("product_customization_schemas")
       .delete()

@@ -213,6 +213,7 @@ export function FormBuilder({
             id: schema.id,
             name: schema.name,
             description: schema.description,
+            is_active: schema.is_active,
             settings: schema.settings,
           },
           steps,

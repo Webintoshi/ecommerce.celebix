@@ -24,6 +24,96 @@ export interface LightPostgresProvisioningResult {
   schemaProfile: "storefront_core";
 }
 
+export interface LightPostgresReadinessResult {
+  ready: boolean;
+  databaseName: string;
+  roleName: string;
+  schemaProfile: "storefront_core";
+  checkedAt: string;
+  missingTables: string[];
+  missingSeedKeys: string[];
+  missingOptionalModules: string[];
+  missingPaymentGatewayKeys: string[];
+  missingAuthBridgeTables: string[];
+  roleReady: boolean;
+  runtimeConnectReady: boolean;
+  nextRepairAction: string | null;
+  message: string;
+}
+
+export interface LightPostgresEnvRequirementStatus {
+  key: string;
+  aliases: string[];
+  required: boolean;
+  scope: "owner" | "generated-runtime";
+  usedBy: string;
+  missingBehavior: string;
+  secret: boolean;
+  present: boolean;
+}
+
+export const LIGHT_POSTGRES_SCHEMA_PROFILE = "storefront_core" as const;
+
+export const LIGHT_POSTGRES_REQUIRED_TABLES = [
+  "categories",
+  "products",
+  "product_variants",
+  "product_customization_schemas",
+  "product_customization_steps",
+  "product_customization_options",
+  "product_schema_assignments",
+  "category_schema_assignments",
+  "settings",
+  "pages",
+  "customers",
+  "customer_addresses",
+  "customer_preferred_products",
+  "orders",
+  "order_items",
+  "order_item_customizations",
+  "payment_attempts",
+  "payment_webhook_events",
+  "payment_gateways",
+  "auth_principals",
+  "auth_store_memberships",
+  "auth_store_customer_links",
+  "auth_events",
+  "optional_module_state",
+] as const;
+
+export const LIGHT_POSTGRES_AUTH_BRIDGE_TABLES = [
+  "auth_principals",
+  "auth_store_memberships",
+  "auth_store_customer_links",
+  "auth_events",
+] as const;
+
+export const LIGHT_POSTGRES_REQUIRED_SEED_KEYS = [
+  "store_info",
+  "analytics",
+  "seo_settings",
+  "runtime",
+  "payment_gateways",
+  "customer_auth",
+  "admin_auth",
+  "optional_modules",
+  "schema_version",
+] as const;
+
+export const LIGHT_POSTGRES_REQUIRED_PAYMENT_GATEWAYS = [
+  "bank_transfer",
+  "cod",
+] as const;
+
+export const LIGHT_POSTGRES_OPTIONAL_MODULE_KEYS = [
+  "marketplaces",
+  "accounting",
+  "email_marketing",
+  "customer_loyalty",
+  "subscriptions",
+  "advanced_analytics",
+] as const;
+
 interface SqlQueryResult<TRow extends Record<string, unknown> = Record<string, unknown>> {
   rows: TRow[];
 }
@@ -286,6 +376,115 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.product_customization_schemas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  slug text NOT NULL UNIQUE,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  settings jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  created_by uuid
+);
+
+CREATE TABLE IF NOT EXISTS public.product_customization_steps (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  schema_id uuid NOT NULL REFERENCES public.product_customization_schemas(id) ON DELETE CASCADE,
+  type text NOT NULL,
+  key text NOT NULL,
+  label text NOT NULL,
+  placeholder text,
+  help_text text,
+  is_required boolean NOT NULL DEFAULT false,
+  validation_rules jsonb NOT NULL DEFAULT '{}'::jsonb,
+  sort_order integer NOT NULL DEFAULT 0,
+  grid_width text NOT NULL DEFAULT 'full',
+  style_config jsonb NOT NULL DEFAULT '{}'::jsonb,
+  show_conditions jsonb,
+  price_config jsonb,
+  default_value jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (schema_id, key)
+);
+
+CREATE TABLE IF NOT EXISTS public.product_customization_options (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  step_id uuid NOT NULL REFERENCES public.product_customization_steps(id) ON DELETE CASCADE,
+  label text NOT NULL,
+  value text NOT NULL,
+  description text,
+  image_url text,
+  icon text,
+  color text,
+  price_adjustment numeric(12,2) NOT NULL DEFAULT 0,
+  price_adjustment_type text NOT NULL DEFAULT 'fixed',
+  stock_quantity integer,
+  track_stock boolean NOT NULL DEFAULT false,
+  show_conditions jsonb,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_default boolean NOT NULL DEFAULT false,
+  is_disabled boolean NOT NULL DEFAULT false,
+  dependent_step_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.product_schema_assignments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  schema_id uuid NOT NULL REFERENCES public.product_customization_schemas(id) ON DELETE CASCADE,
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  is_default boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (schema_id, product_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.category_schema_assignments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  schema_id uuid NOT NULL REFERENCES public.product_customization_schemas(id) ON DELETE CASCADE,
+  category_id uuid NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
+  is_auto_apply boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (schema_id, category_id)
+);
+
+ALTER TABLE public.product_schema_assignments
+  ADD COLUMN IF NOT EXISTS id uuid,
+  ADD COLUMN IF NOT EXISTS is_default boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+
+UPDATE public.product_schema_assignments
+SET id = gen_random_uuid()
+WHERE id IS NULL;
+
+ALTER TABLE public.product_schema_assignments
+  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+ALTER TABLE public.category_schema_assignments
+  ADD COLUMN IF NOT EXISTS id uuid,
+  ADD COLUMN IF NOT EXISTS is_auto_apply boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+
+UPDATE public.category_schema_assignments
+SET id = gen_random_uuid()
+WHERE id IS NULL;
+
+ALTER TABLE public.category_schema_assignments
+  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+ALTER TABLE public.product_customization_schemas
+  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+ALTER TABLE public.product_customization_steps
+  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+ALTER TABLE public.product_customization_options
+  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
 CREATE TABLE IF NOT EXISTS public.settings (
   key text PRIMARY KEY,
   value jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -312,6 +511,13 @@ CREATE TABLE IF NOT EXISTS public.pages (
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
 CREATE INDEX IF NOT EXISTS idx_products_status ON public.products(status);
 CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON public.product_variants(product_id);
+CREATE INDEX IF NOT EXISTS idx_customization_schemas_sort ON public.product_customization_schemas(sort_order, created_at);
+CREATE INDEX IF NOT EXISTS idx_customization_steps_schema ON public.product_customization_steps(schema_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_customization_options_step ON public.product_customization_options(step_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_schema_assignments_product ON public.product_schema_assignments(product_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_schema_assignments_schema ON public.product_schema_assignments(schema_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_category_schema_assignments_category ON public.category_schema_assignments(category_id);
+CREATE INDEX IF NOT EXISTS idx_category_schema_assignments_schema ON public.category_schema_assignments(schema_id);
 CREATE INDEX IF NOT EXISTS idx_pages_sort_order ON public.pages(sort_order);
 
 DROP TRIGGER IF EXISTS categories_set_updated_at ON public.categories;
@@ -327,6 +533,21 @@ FOR EACH ROW EXECUTE FUNCTION public.celebix_set_updated_at();
 DROP TRIGGER IF EXISTS product_variants_set_updated_at ON public.product_variants;
 CREATE TRIGGER product_variants_set_updated_at
 BEFORE UPDATE ON public.product_variants
+FOR EACH ROW EXECUTE FUNCTION public.celebix_set_updated_at();
+
+DROP TRIGGER IF EXISTS product_customization_schemas_set_updated_at ON public.product_customization_schemas;
+CREATE TRIGGER product_customization_schemas_set_updated_at
+BEFORE UPDATE ON public.product_customization_schemas
+FOR EACH ROW EXECUTE FUNCTION public.celebix_set_updated_at();
+
+DROP TRIGGER IF EXISTS product_customization_steps_set_updated_at ON public.product_customization_steps;
+CREATE TRIGGER product_customization_steps_set_updated_at
+BEFORE UPDATE ON public.product_customization_steps
+FOR EACH ROW EXECUTE FUNCTION public.celebix_set_updated_at();
+
+DROP TRIGGER IF EXISTS product_customization_options_set_updated_at ON public.product_customization_options;
+CREATE TRIGGER product_customization_options_set_updated_at
+BEFORE UPDATE ON public.product_customization_options
 FOR EACH ROW EXECUTE FUNCTION public.celebix_set_updated_at();
 
 DROP TRIGGER IF EXISTS settings_set_updated_at ON public.settings;

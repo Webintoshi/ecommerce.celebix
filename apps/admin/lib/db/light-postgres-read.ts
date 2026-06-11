@@ -10,6 +10,7 @@ import {
 } from "../../../../packages/platform-config/src/light-postgres-customization-read";
 import { queryAdminLightPostgres, queryAdminLightPostgresOne } from "@/lib/db/light-postgres-client";
 import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
+import { maybeEnsureAdminCustomizationSchema } from "@/lib/db/light-postgres-customization-schema";
 
 type JsonScalar = string | number | boolean | null;
 type JsonValue = JsonScalar | JsonValue[] | { [key: string]: JsonValue };
@@ -314,6 +315,8 @@ export async function maybeListAdminAssignableProducts() {
     return undefined;
   }
 
+  await maybeEnsureAdminCustomizationSchema();
+
   const rows = await queryAdminLightPostgres<AssignableProductRow>(
     `
       select id, name, slug, category
@@ -334,6 +337,8 @@ export async function maybeListAdminAssignableCategories() {
   if (!shouldUseLightPostgresAdmin()) {
     return undefined;
   }
+
+  await maybeEnsureAdminCustomizationSchema();
 
   const rows = await queryAdminLightPostgres<AssignableCategoryRow>(
     `
@@ -357,6 +362,8 @@ export async function maybeListAdminCustomizationSchemas() {
     return undefined;
   }
 
+  await maybeEnsureAdminCustomizationSchema();
+
   return listLightPostgresCustomizationSchemas(
     executeLightPostgres,
   ) as Promise<LightPostgresCustomizationSchemaSummary[]>;
@@ -366,6 +373,8 @@ export async function maybeGetAdminCustomizationSchemaById(id: string) {
   if (!shouldUseLightPostgresAdmin()) {
     return undefined;
   }
+
+  await maybeEnsureAdminCustomizationSchema();
 
   return getLightPostgresCustomizationSchemaDetailById(
     executeLightPostgres,
@@ -377,6 +386,8 @@ export async function maybeGetAdminCustomizationSchemaForProduct(productId: stri
   if (!shouldUseLightPostgresAdmin()) {
     return undefined;
   }
+
+  await maybeEnsureAdminCustomizationSchema();
 
   return getLightPostgresCustomizationSchemaForProduct(
     executeLightPostgres,
