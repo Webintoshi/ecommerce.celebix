@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import {
+  buildStorefrontTransformedImageUrl,
+  resolveStorefrontAssetUrl,
+} from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 
 interface HeroBanner {
@@ -30,12 +33,19 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
     defaultBanners;
 
   const currentBanner = heroBanners[0];
-  const desktopSrc = resolveStorefrontAssetUrl(
-    currentBanner.desktop || currentBanner.mobile || defaultBanners[0].desktop,
-  );
-  const mobileSrc = resolveStorefrontAssetUrl(
-    currentBanner.mobile || currentBanner.desktop || defaultBanners[0].mobile || desktopSrc,
-  );
+  const desktopSource =
+    currentBanner.desktop || currentBanner.mobile || defaultBanners[0].desktop;
+  const mobileSource =
+    currentBanner.mobile ||
+    currentBanner.desktop ||
+    defaultBanners[0].mobile ||
+    desktopSource;
+  const desktopSrc =
+    buildStorefrontTransformedImageUrl(desktopSource, { width: 1920, quality: 80 }) ||
+    resolveStorefrontAssetUrl(desktopSource);
+  const mobileSrc =
+    buildStorefrontTransformedImageUrl(mobileSource, { width: 828, quality: 75 }) ||
+    resolveStorefrontAssetUrl(mobileSource);
 
   return (
     <section className="relative w-full overflow-hidden">
@@ -44,12 +54,14 @@ export function HeroSection({ slides, banners }: HeroSectionProps) {
           <source media="(max-width: 767px)" srcSet={mobileSrc} />
           <source media="(min-width: 768px)" srcSet={desktopSrc} />
           <img
-            src={desktopSrc}
+            src={mobileSrc}
             alt={currentBanner.alt}
             fetchPriority="high"
             loading="eager"
             decoding="async"
             sizes="100vw"
+            width={828}
+            height={1035}
             className="h-full w-full object-cover object-center"
           />
         </picture>

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { resolveStorefrontAssetUrl, isProxiedStorefrontAssetUrl } from "@/lib/asset-url";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 import type { HomepageCategory } from "@/lib/homepage";
 
@@ -30,7 +30,6 @@ export function CategoriesSection({
         name: category.name,
         link: ROUTES.category(category.slug),
         image: resolvedImage || null,
-        usesProxiedImage: resolvedImage ? isProxiedStorefrontAssetUrl(resolvedImage) : false,
       };
     });
 
@@ -42,7 +41,7 @@ export function CategoriesSection({
     <section className="bg-[#F8F8F8F8] py-12 sm:py-16 lg:py-24">
       <div className="container-premium">
         <div className="mb-8 text-center sm:mb-10 lg:mb-14">
-          <p className="home-section-eyebrow mb-2 text-neutral-400 sm:mb-3">{eyebrow}</p>
+          <p className="home-section-eyebrow mb-2 sm:mb-3">{eyebrow}</p>
           <h2 className="home-section-heading font-medium">{heading}</h2>
         </div>
 
@@ -59,8 +58,7 @@ export function CategoriesSection({
                   alt={category.name}
                   fill
                   className="object-cover transition-transform duration-700 group-hover:scale-105"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  unoptimized={category.usesProxiedImage}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   onError={() =>
                     setImageErrors((current) => ({
                       ...current,

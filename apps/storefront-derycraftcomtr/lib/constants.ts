@@ -139,6 +139,7 @@ export const ROUTES = {
   wishlist: "/favoriler",
   login: "/giris",
   register: "/kayit",
+  giftFinder: "/hediye-bulucu",
 } as const;
 
 export const PRODUCT_BADGES = {
@@ -153,6 +154,7 @@ export const PRODUCT_BADGES = {
 export const NAV_LINKS = [
   { name: "Ana Sayfa", href: ROUTES.home },
   { name: "Ürünler", href: ROUTES.products },
+  { name: "Hediye Bulucu", href: ROUTES.giftFinder },
   { name: "Blog", href: ROUTES.blog },
   { name: "İletişim", href: ROUTES.contact },
   { name: "SSS", href: "/sss" },
@@ -161,6 +163,7 @@ export const NAV_LINKS = [
 export const FOOTER_LINKS = {
   discover: [
     { name: "Tüm Ürünler", href: ROUTES.products },
+    { name: "Hediye Bulucu", href: ROUTES.giftFinder },
     { name: "Öne Çıkanlar", href: `${ROUTES.products}?sort=featured` },
     { name: "Yeni Gelenler", href: `${ROUTES.products}?sort=newest` },
   ],

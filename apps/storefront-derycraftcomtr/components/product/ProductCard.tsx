@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
-import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { cn, formatPrice } from "@/lib/utils";
@@ -140,7 +140,6 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
   const { buildPath } = useStorefrontRoute();
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
-  const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
   const displayVariant = product.variants?.[0];
   const displayPrice = displayVariant?.price;
   const originalPrice =
@@ -160,7 +159,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
                 alt={product.name}
                 fill
                 className="object-contain p-1.5 transition-transform duration-700 group-hover:scale-[1.03]"
-                unoptimized={usesProxiedPrimaryImage}
+                sizes="112px"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-neutral-50 text-sm text-neutral-400">
@@ -196,7 +195,6 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               fill
               className="object-contain p-2 transition-transform duration-700 ease-out group-hover:scale-[1.03] sm:p-3"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              unoptimized={usesProxiedPrimaryImage}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-neutral-400">

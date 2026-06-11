@@ -336,7 +336,7 @@ export function TestimonialsSection({
       <div className="container-premium">
         <div className="mb-6 text-center sm:mb-8 lg:mb-10">
           <h2 className="home-section-heading font-medium">{heading}</h2>
-          <p className="mt-1.5 text-xs text-neutral-500 sm:mt-2 sm:text-sm">{countLabel}</p>
+          <p className="mt-1.5 text-xs text-neutral-600 sm:mt-2 sm:text-sm">{countLabel}</p>
         </div>
 
         <div className="lg:hidden">

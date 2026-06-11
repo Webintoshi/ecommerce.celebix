@@ -240,6 +240,16 @@ export function Header({
                 </div>
 
                 <nav className="flex-1 overflow-y-auto px-6 pb-40">
+                  <div className="border-b border-neutral-200/80">
+                    <Link
+                      href={buildPath(ROUTES.giftFinder)}
+                      className="block py-5 font-serif text-[15px] uppercase tracking-[0.12em] text-[#8B6914]"
+                      onClick={closeMenu}
+                    >
+                      Hediye Bulucu
+                    </Link>
+                  </div>
+
                   {navigationCategories.map((category) => {
                     const localizedCategoryName = getLocalizedCategoryLabel(
                       category.slug,
@@ -479,6 +489,10 @@ export function Header({
                 </div>
               );
             })}
+
+            <Link href={buildPath(ROUTES.giftFinder)} className={NAV_LINK_CLASS}>
+              Hediye Bulucu
+            </Link>
           </nav>
 
           <div className="ml-auto flex items-center gap-4 sm:gap-5 lg:ml-0 lg:justify-self-end lg:gap-6">

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { preload } from "react-dom";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
+import { buildStorefrontTransformedImageUrl } from "@/lib/asset-url";
 import { getHomepageData } from "@/lib/homepage";
 import { getStoreInfo } from "@/lib/db/settings";
 import { buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
@@ -93,6 +95,17 @@ export default async function Home() {
   const storesHref = buildLocalizedPath("/magazalarimiz", locale, routing);
   const logoAssetPath = storeInfo?.logoUrl || STOREFRONT_RUNTIME.logoPath || "";
   const logoUrl = logoAssetPath ? await buildAbsoluteRequestUrl(logoAssetPath) : "";
+  const firstHeroBanner = homepageData.heroBanners[0];
+  const heroLcpSrc = firstHeroBanner
+    ? buildStorefrontTransformedImageUrl(
+        firstHeroBanner.mobile || firstHeroBanner.desktop,
+        { width: 828, quality: 75 },
+      )
+    : "";
+
+  if (heroLcpSrc) {
+    preload(heroLcpSrc, { as: "image", fetchPriority: "high" });
+  }
 
   return (
     <>

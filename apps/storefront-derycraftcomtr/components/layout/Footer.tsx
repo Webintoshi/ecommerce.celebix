@@ -57,6 +57,7 @@ const ENGLISH_FOOTER_COPY: FooterLocaleCopy = {
   aboutLinks: [
     { name: "Home", href: "/" },
     { name: "About", href: "/hakkimizda" },
+    { name: "Gift Finder", href: "/hediye-bulucu" },
     { name: "Stores", href: "/magazalarimiz" },
     { name: "Corporate Products", href: "/kurumsal-urunler" },
     { name: "Contact", href: "/iletisim" },
@@ -79,6 +80,7 @@ const TURKISH_FOOTER_COPY: FooterLocaleCopy = {
   aboutLinks: [
     { name: "Ana Sayfa", href: "/" },
     { name: "Hakkımızda", href: "/hakkimizda" },
+    { name: "Hediye Bulucu", href: "/hediye-bulucu" },
     { name: "Mağazalarımız", href: "/magazalarimiz" },
     { name: "Kurumsal Ürünler", href: "/kurumsal-urunler" },
     { name: "İletişim", href: "/iletisim" },

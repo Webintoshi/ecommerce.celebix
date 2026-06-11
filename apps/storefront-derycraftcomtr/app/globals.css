@@ -500,7 +500,7 @@ button, input, select, textarea {
   font-weight: 600;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--neutral-500);
+  color: var(--neutral-600);
 }
 
 .home-section-heading {
