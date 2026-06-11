@@ -176,6 +176,11 @@ function getStorefrontGitHubBranch(slug: string): string {
   return getStoreDeploymentBranches(slug, store).storefrontBranch;
 }
 
+function getAdminGitHubBranch(slug: string): string {
+  const store = requireStoreConfig(slug);
+  return getStoreDeploymentBranches(slug, store).adminBranch;
+}
+
 function getCommitterName(): string {
   return process.env.GITHUB_SYNC_COMMITTER_NAME?.trim() || "Celebix Owner Bot";
 }
@@ -433,6 +438,26 @@ function resolveRepoFiles(slug: string): Array<{ absolutePath: string; relativeP
   }
 
   for (const absolutePath of collectFilesRecursively(appDirectory)) {
+    pushRepoFile(files, repoRoot, absolutePath);
+  }
+
+  return files;
+}
+
+function resolveAdminRepoFiles(slug: string): Array<{ absolutePath: string; relativePath: string }> {
+  const repoRoot = getRepoRoot();
+  const files = resolveAuthorityFiles(slug);
+  const adminDirectory = path.join(repoRoot, "apps", "admin");
+
+  if (!fs.existsSync(adminDirectory)) {
+    throw new Error("Admin app dizini bulunamadi.");
+  }
+
+  for (const sharedFile of resolveStorefrontSharedFiles()) {
+    files.push(sharedFile);
+  }
+
+  for (const absolutePath of collectFilesRecursively(adminDirectory)) {
     pushRepoFile(files, repoRoot, absolutePath);
   }
 
@@ -1105,4 +1130,17 @@ export async function syncStorefrontRepoForStore(slug: string): Promise<Storefro
     commitSha: verification.headSha ?? result.commitSha,
     message: verification.message ?? result.message,
   };
+}
+
+export async function syncAdminRepoForStore(slug: string): Promise<StorefrontRepoSyncResult> {
+  const branch = getAdminGitHubBranch(slug);
+
+  return syncGitHubFiles({
+    slug,
+    branch,
+    baseBranch: getAuthorityGitHubBranch(),
+    files: resolveAdminRepoFiles(slug),
+    commitMessage: `chore: sync admin scaffold for ${slug}`,
+    trackStorefrontSync: false,
+  });
 }

@@ -15,10 +15,12 @@ import {
   buildDefaultStoreAuthConfig,
   buildDefaultStorePaymentsConfig,
   applyStorefrontAuthorityPatchToConfig,
+  getDefaultAdminDeploymentBranch,
   getExpectedStorefrontAppDir,
   resolveAuthorityRepositoryBranch,
   resolveStorefrontRepositoryBranch,
   type StoreConfig,
+  type StoreSmokeReport,
   type StorefrontStatus,
   type StoreRegistryEntry,
   type StorefrontAuthorityPatchInput,
@@ -149,16 +151,28 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
     readOptionalString(bootstrap.adminDeploymentRuntimeUrl) ?? `https://${row.admin_domain}`;
   const auth = asRecord(metadata.auth);
   const analytics = asRecord(metadata.analytics);
+  const logto = asRecord(metadata.logto);
+  const umami = asRecord(metadata.umami);
+  const r2 = asRecord(metadata.r2);
+  const media = asRecord(metadata.media);
+  const readiness = asRecord(metadata.readiness);
+  const smoke = asRecord(metadata.smoke);
   const payments = asRecord(metadata.payments);
   const defaultAuth = buildDefaultStoreAuthConfig(databaseMode);
   const defaultAnalytics = buildDefaultStoreAnalyticsConfig();
   const defaultPayments = buildDefaultStorePaymentsConfig();
+  const newStandardSelected = databaseMode === "light_postgres";
 
   return {
     name: row.name,
     slug: row.slug,
     status: row.status,
     databaseMode,
+    authProvider: newStandardSelected ? "logto" : "supabase",
+    customerAuthProvider: newStandardSelected ? "logto" : "supabase",
+    analyticsProvider: "umami",
+    storageProvider: newStandardSelected ? "r2" : "supabase",
+    supabaseStatus: newStandardSelected ? "none" : "legacy",
     theme: {
       key: themeKey,
       label: themeLabel,
@@ -244,6 +258,132 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       blocking:
         typeof analytics.blocking === "boolean" ? Boolean(analytics.blocking) : false,
     },
+    logto: {
+      adminAppStatus:
+        readOptionalString(logto.adminAppStatus) === "configured" ||
+        readOptionalString(logto.adminAppStatus) === "failed"
+          ? (readOptionalString(logto.adminAppStatus) as "configured" | "failed")
+          : newStandardSelected
+            ? "pending"
+            : "skipped",
+      customerAppStatus:
+        readOptionalString(logto.customerAppStatus) === "configured" ||
+        readOptionalString(logto.customerAppStatus) === "failed"
+          ? (readOptionalString(logto.customerAppStatus) as "configured" | "failed")
+          : newStandardSelected
+            ? "pending"
+            : "skipped",
+      adminAppId: readOptionalString(logto.adminAppId),
+      adminClientId: readOptionalString(logto.adminClientId),
+      customerAppId: readOptionalString(logto.customerAppId),
+      customerClientId: readOptionalString(logto.customerClientId),
+      adminIssuer: readOptionalString(logto.adminIssuer) ?? "https://auth.celebix.co/oidc",
+      customerIssuer: readOptionalString(logto.customerIssuer) ?? "https://auth.celebix.co/oidc",
+      adminRedirectUris: readStringArray(logto.adminRedirectUris),
+      adminPostLogoutRedirectUris: readStringArray(logto.adminPostLogoutRedirectUris),
+      adminOrigins: readStringArray(logto.adminOrigins),
+      customerRedirectUris: readStringArray(logto.customerRedirectUris),
+      customerPostLogoutRedirectUris: readStringArray(logto.customerPostLogoutRedirectUris),
+      customerOrigins: readStringArray(logto.customerOrigins),
+      googleSignIn:
+        readOptionalString(logto.googleSignIn) === "enabled" ||
+        readOptionalString(logto.googleSignIn) === "unavailable"
+          ? (readOptionalString(logto.googleSignIn) as "enabled" | "unavailable")
+          : "pending",
+      emailRecovery:
+        readOptionalString(logto.emailRecovery) === "enabled" ||
+        readOptionalString(logto.emailRecovery) === "unavailable"
+          ? (readOptionalString(logto.emailRecovery) as "enabled" | "unavailable")
+          : "pending",
+      adminBootstrapConfigPath: readOptionalString(logto.adminBootstrapConfigPath) ?? undefined,
+      customerBootstrapConfigPath: readOptionalString(logto.customerBootstrapConfigPath) ?? undefined,
+      bootstrapApplyState:
+        readOptionalString(logto.bootstrapApplyState) === "applied" ||
+        readOptionalString(logto.bootstrapApplyState) === "failed"
+          ? (readOptionalString(logto.bootstrapApplyState) as "applied" | "failed")
+          : "pending",
+      lastProvisionError: readOptionalString(logto.lastProvisionError) ?? undefined,
+    },
+    umami: {
+      websiteStatus:
+        readOptionalString(umami.websiteStatus) === "configured" ||
+        readOptionalString(umami.websiteStatus) === "failed"
+          ? (readOptionalString(umami.websiteStatus) as "configured" | "failed")
+          : "pending",
+      websiteId:
+        readOptionalString(umami.websiteId) ??
+        readOptionalString(analytics.websiteId),
+      websiteName: readOptionalString(umami.websiteName) ?? `${row.name} Storefront`,
+      domain: readOptionalString(umami.domain) ?? row.storefront_domain,
+      canonicalDomain: readOptionalString(umami.canonicalDomain) ?? row.storefront_domain,
+      host: readOptionalString(umami.host) ?? "https://analytics.celebix.co",
+      apiUrl: readOptionalString(umami.apiUrl) ?? "https://analytics.celebix.co/api",
+      scriptUrl: readOptionalString(umami.scriptUrl) ?? "https://analytics.celebix.co/script.js",
+      timezone: readOptionalString(umami.timezone) ?? "Europe/Istanbul",
+      storefrontTrackingStatus:
+        readOptionalString(umami.storefrontTrackingStatus) === "configured" ||
+        readOptionalString(umami.storefrontTrackingStatus) === "failed"
+          ? (readOptionalString(umami.storefrontTrackingStatus) as "configured" | "failed")
+          : "pending",
+      adminAnalyticsStatus:
+        readOptionalString(umami.adminAnalyticsStatus) === "configured" ||
+        readOptionalString(umami.adminAnalyticsStatus) === "failed"
+          ? (readOptionalString(umami.adminAnalyticsStatus) as "configured" | "failed")
+          : "pending",
+      serverTokenStatus:
+        readOptionalString(umami.serverTokenStatus) === "configured" ||
+        readOptionalString(umami.serverTokenStatus) === "not-required"
+          ? (readOptionalString(umami.serverTokenStatus) as "configured" | "not-required")
+          : "pending-owner-env",
+      adminSummaryEndpoint:
+        readOptionalString(umami.adminSummaryEndpoint) ?? "/api/admin/analytics/summary",
+      metrics: readStringArray(umami.metrics),
+      bootstrapConfigPath: readOptionalString(umami.bootstrapConfigPath) ?? undefined,
+      bootstrapApplyState:
+        readOptionalString(umami.bootstrapApplyState) === "applied" ||
+        readOptionalString(umami.bootstrapApplyState) === "failed"
+          ? (readOptionalString(umami.bootstrapApplyState) as "applied" | "failed")
+          : "pending",
+      lastProvisionError: readOptionalString(umami.lastProvisionError) ?? undefined,
+    },
+    readiness: {
+      database:
+        readOptionalString(readiness.database) === "ready" ||
+        readOptionalString(readiness.database) === "failed"
+          ? (readOptionalString(readiness.database) as "ready" | "failed")
+          : "pending",
+      storage:
+        readOptionalString(readiness.storage) === "ready" ||
+        readOptionalString(readiness.storage) === "failed"
+          ? (readOptionalString(readiness.storage) as "ready" | "failed")
+          : "pending",
+      auth:
+        readOptionalString(readiness.auth) === "ready" ||
+        readOptionalString(readiness.auth) === "failed"
+          ? (readOptionalString(readiness.auth) as "ready" | "failed")
+          : "pending",
+      analytics:
+        readOptionalString(readiness.analytics) === "ready" ||
+        readOptionalString(readiness.analytics) === "failed"
+          ? (readOptionalString(readiness.analytics) as "ready" | "failed")
+          : "pending",
+      admin:
+        readOptionalString(readiness.admin) === "ready" ||
+        readOptionalString(readiness.admin) === "failed"
+          ? (readOptionalString(readiness.admin) as "ready" | "failed")
+          : "pending",
+      storefront:
+        readOptionalString(readiness.storefront) === "ready" ||
+        readOptionalString(readiness.storefront) === "failed"
+          ? (readOptionalString(readiness.storefront) as "ready" | "failed")
+          : "pending",
+      smoke:
+        readOptionalString(readiness.smoke) === "ready" ||
+        readOptionalString(readiness.smoke) === "failed"
+          ? (readOptionalString(readiness.smoke) as "ready" | "failed")
+          : "pending",
+    },
+    smoke: Object.keys(smoke).length > 0 ? (smoke as unknown as StoreSmokeReport) : undefined,
     payments: {
       status:
         readOptionalString(payments.status) === "configured"
@@ -269,14 +409,87 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       dashboardUrl: readOptionalString(bootstrap.supabaseDashboardUrl) ?? undefined,
     },
     r2: {
-      bucketName: row.r2_bucket_name ?? undefined,
-      publicUrl: row.r2_public_url ?? undefined,
-      managedDomain: row.r2_managed_domain ?? undefined,
+      status: row.r2_bucket_name ? "configured" : newStandardSelected ? "pending" : "skipped",
+      bucketName: row.r2_bucket_name ?? readOptionalString(r2.bucketName) ?? undefined,
+      publicUrl: row.r2_public_url ?? readOptionalString(r2.publicUrl) ?? undefined,
+      managedDomain: row.r2_managed_domain ?? readOptionalString(r2.managedDomain) ?? undefined,
+      endpoint: readOptionalString(r2.endpoint) ?? undefined,
+      region: readOptionalString(r2.region) ?? "auto",
+      prefix: readOptionalString(r2.prefix) ?? `stores/${row.slug}/`,
+      uploadPrefix: readOptionalString(r2.uploadPrefix) ?? `stores/${row.slug}/uploads/`,
+      productImagesPrefix:
+        readOptionalString(r2.productImagesPrefix) ?? `stores/${row.slug}/products/`,
+      pageImagesPrefix: readOptionalString(r2.pageImagesPrefix) ?? `stores/${row.slug}/pages/`,
+      brandingPrefix: readOptionalString(r2.brandingPrefix) ?? `stores/${row.slug}/branding/`,
+      publicUrlTemplate:
+        readOptionalString(r2.publicUrlTemplate) ??
+        (row.r2_public_url ? `${row.r2_public_url.replace(/\/+$/, "")}/{key}` : undefined),
+      adminUploadStatus:
+        readOptionalString(r2.adminUploadStatus) === "configured" ||
+        readOptionalString(r2.adminUploadStatus) === "failed"
+          ? (readOptionalString(r2.adminUploadStatus) as "configured" | "failed")
+          : "pending",
+      storefrontReadStatus:
+        readOptionalString(r2.storefrontReadStatus) === "configured" ||
+        readOptionalString(r2.storefrontReadStatus) === "failed"
+          ? (readOptionalString(r2.storefrontReadStatus) as "configured" | "failed")
+          : "pending",
+      credentialsStatus:
+        readOptionalString(r2.credentialsStatus) === "configured" ||
+        readOptionalString(r2.credentialsStatus) === "not-required"
+          ? (readOptionalString(r2.credentialsStatus) as "configured" | "not-required")
+          : "pending-owner-env",
+      bootstrapConfigPath:
+        readOptionalString(r2.bootstrapConfigPath) ?? `infra/r2/bootstrap/generated/${row.slug}.storage.json`,
+      bootstrapApplyState:
+        readOptionalString(r2.bootstrapApplyState) === "applied" ||
+        readOptionalString(r2.bootstrapApplyState) === "failed"
+          ? (readOptionalString(r2.bootstrapApplyState) as "applied" | "failed")
+          : "pending",
+      noSupabaseStorage:
+        typeof r2.noSupabaseStorage === "boolean" ? Boolean(r2.noSupabaseStorage) : newStandardSelected,
       provisionedAt: readOptionalString(bootstrap.provisionedAt) ?? row.updated_at,
       lastProvisionError: readOptionalString(bootstrap.lastProvisionError) ?? undefined,
       provisioning:
         (readOptionalString(bootstrap.r2Provisioning) as "pending-owner-env" | "configured" | "failed" | null) ??
         (row.r2_bucket_name ? "configured" : "pending-owner-env"),
+    },
+    media: {
+      provider: "r2",
+      status: row.r2_bucket_name ? "configured" : newStandardSelected ? "pending" : "skipped",
+      publicBaseUrl:
+        row.r2_public_url ?? readOptionalString(media.publicBaseUrl) ?? readOptionalString(r2.publicUrl),
+      prefix: readOptionalString(media.prefix) ?? readOptionalString(r2.prefix) ?? `stores/${row.slug}/`,
+      uploadPrefix:
+        readOptionalString(media.uploadPrefix) ??
+        readOptionalString(r2.uploadPrefix) ??
+        `stores/${row.slug}/uploads/`,
+      productImagesPrefix:
+        readOptionalString(media.productImagesPrefix) ??
+        readOptionalString(r2.productImagesPrefix) ??
+        `stores/${row.slug}/products/`,
+      pageImagesPrefix:
+        readOptionalString(media.pageImagesPrefix) ??
+        readOptionalString(r2.pageImagesPrefix) ??
+        `stores/${row.slug}/pages/`,
+      brandingPrefix:
+        readOptionalString(media.brandingPrefix) ??
+        readOptionalString(r2.brandingPrefix) ??
+        `stores/${row.slug}/branding/`,
+      publicUrlTemplate:
+        readOptionalString(media.publicUrlTemplate) ?? readOptionalString(r2.publicUrlTemplate),
+      adminUploadStatus:
+        readOptionalString(media.adminUploadStatus) === "configured" ||
+        readOptionalString(media.adminUploadStatus) === "failed"
+          ? (readOptionalString(media.adminUploadStatus) as "configured" | "failed")
+          : "pending",
+      storefrontReadStatus:
+        readOptionalString(media.storefrontReadStatus) === "configured" ||
+        readOptionalString(media.storefrontReadStatus) === "failed"
+          ? (readOptionalString(media.storefrontReadStatus) as "configured" | "failed")
+          : "pending",
+      noSupabaseStorage:
+        typeof media.noSupabaseStorage === "boolean" ? Boolean(media.noSupabaseStorage) : newStandardSelected,
     },
     bootstrap: {
       createdAt: readOptionalString(bootstrap.createdAt) ?? row.created_at,
@@ -286,7 +499,7 @@ function buildRecoveredStoreConfig(row: OwnerStoreAuthorityRow): StoreConfig {
       adminDeploymentProvider: "coolify",
       adminDeploymentName: readOptionalString(bootstrap.adminDeploymentName) ?? `${row.slug}-admin`,
       adminDeploymentBranch:
-        readOptionalString(bootstrap.adminDeploymentBranch) ?? resolveAuthorityRepositoryBranch(),
+        readOptionalString(bootstrap.adminDeploymentBranch) ?? getDefaultAdminDeploymentBranch(row.slug),
       adminDeploymentRuntimeUrl: adminRuntimeUrl,
       adminDeploymentResourceId: readOptionalString(bootstrap.adminDeploymentResourceId) ?? undefined,
       adminDeploymentStatus:

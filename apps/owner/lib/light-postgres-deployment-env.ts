@@ -28,14 +28,33 @@ function readEnvValue(
   return null;
 }
 
-function buildRuntimeDatabaseUrl(databaseName: string): string | null {
-  const template = process.env.LIGHT_POSTGRES_DATABASE_URL_TEMPLATE?.trim();
+function buildLightPostgresRoleName(databaseName: string): string {
+  const normalized = databaseName
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 46);
+  return `celebix_store_${normalized || "store"}`;
+}
 
-  if (!template) {
+function buildRuntimeDatabaseUrl(databaseName: string): string | null {
+  const template =
+    process.env.LIGHT_POSTGRES_RUNTIME_DATABASE_URL_TEMPLATE?.trim() ||
+    process.env.LIGHT_POSTGRES_DATABASE_URL_TEMPLATE?.trim();
+  const roleName = buildLightPostgresRoleName(databaseName);
+  const rolePassword = process.env.LIGHT_POSTGRES_STORE_ROLE_PASSWORD_TEMPLATE
+    ?.trim()
+    .replace(/\$\{database\}/g, databaseName)
+    .replace(/\$\{role\}/g, roleName);
+
+  if (!template || !rolePassword) {
     return null;
   }
 
-  return template.replace(/\$\{database\}/g, databaseName);
+  return template
+    .replace(/\$\{database\}/g, databaseName)
+    .replace(/\$\{role\}/g, encodeURIComponent(roleName))
+    .replace(/\$\{password\}/g, encodeURIComponent(rolePassword));
 }
 
 export function resolveLightPostgresDeploymentEnv(

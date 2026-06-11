@@ -22,7 +22,7 @@ interface CreateStorePayload {
 }
 
 interface CreateStoreFormProps {
-  ownerDeploymentBranch: string;
+  adminDeploymentBranchPrefix: string;
   storefrontBranchPrefix: string;
   disabled?: boolean;
   disabledReason?: string;
@@ -72,7 +72,7 @@ function slugify(value: string): string {
 }
 
 export function CreateStoreForm({
-  ownerDeploymentBranch,
+  adminDeploymentBranchPrefix,
   storefrontBranchPrefix,
   disabled = false,
   disabledReason,
@@ -81,6 +81,7 @@ export function CreateStoreForm({
   const [form, setForm] = useState(INITIAL_STATE);
   const [error, setError] = useState<string | null>(null);
   const [showLegacyOptions, setShowLegacyOptions] = useState(false);
+  const [isSlugDirty, setIsSlugDirty] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -92,11 +93,12 @@ export function CreateStoreForm({
     setForm((current) => ({
       ...current,
       name: nextName,
-      slug: current.slug ? current.slug : slugify(nextName),
+      slug: isSlugDirty ? current.slug : slugify(nextName),
     }));
   }
 
   function handleSlugChange(event: ChangeEvent<HTMLInputElement>) {
+    setIsSlugDirty(true);
     updateField("slug", slugify(event.target.value));
   }
 
@@ -128,7 +130,10 @@ export function CreateStoreForm({
   }
 
   const branchSlugPreview = form.slug || slugify(form.name) || "store-slug";
+  const adminBranchPreview = `${adminDeploymentBranchPrefix}/${branchSlugPreview}`;
   const storefrontBranchPreview = `${storefrontBranchPrefix}/${branchSlugPreview}`;
+  const storefrontUrlPreview = `https://${branchSlugPreview}.celebix.site`;
+  const adminUrlPreview = `https://admin-${branchSlugPreview}.celebix.site`;
   const legacyModeVisible = showLegacyOptions || form.databaseMode === "full_supabase";
 
   return (
@@ -192,15 +197,48 @@ export function CreateStoreForm({
               <span>Yeni Celebix Standardı</span>
             </div>
             <p>
-              Yeni mağazalar varsayılan olarak Yeni Standart, R2 medya zinciri ve generated admin/vitrin düzeniyle açılır.
-              Teknik veritabanı modu ana seçim değildir.
+              Yeni mağazalar varsayılan olarak Postgres veritabanı, Logto kimlik doğrulama,
+              Umami analitik, R2 medya depolama ve Build Server/GHCR yayın düzeniyle açılır.
             </p>
             <div className="actions compact-actions wrap stack-top-sm">
-              <span className="pill pill-success">Yeni Standart</span>
-              <span className="pill">R2 varsayılan</span>
+              <span className="pill pill-success">Postgres veritabanı</span>
+              <span className="pill pill-success">Logto kimlik doğrulama</span>
+              <span className="pill pill-success">Umami analitik</span>
+              <span className="pill">R2 medya depolama</span>
+              <span className="pill">Build Server / GHCR</span>
+              <span className="pill pill-ink">Supabase kullanılmıyor</span>
+              <span className="pill pill-success">Coolify deploy</span>
+              <span className="pill pill-success">Cloudflare DNS izleme</span>
               <span className="pill provisioning-tone-pending_auth">Auth Kurulumu Bekleyen</span>
               <span className="pill provisioning-tone-pending_analytics">Analytics Kurulumu Bekleyen</span>
               <span className="pill provisioning-tone-pending_payment">Ödeme Kurulumu Bekleyen</span>
+            </div>
+            <div className="create-stack-grid">
+              <div>
+                <span>Default DB</span>
+                <strong>light_postgres</strong>
+                <p>DB, runtime role ve schema seed bu standartla açılır.</p>
+              </div>
+              <div>
+                <span>Auth</span>
+                <strong>Logto</strong>
+                <p>Admin ve customer app ayrı authority olarak hazırlanır.</p>
+              </div>
+              <div>
+                <span>Storage</span>
+                <strong>R2</strong>
+                <p>Public media URL ve store prefix Supabase Storage yerine kullanılır.</p>
+              </div>
+              <div>
+                <span>Analytics</span>
+                <strong>Umami</strong>
+                <p>Website config ve admin summary server-side token authority ile izlenir.</p>
+              </div>
+              <div>
+                <span>Supabase status</span>
+                <strong>none / not used</strong>
+                <p>Yeni mağaza default akışında Supabase runtime geri getirilmez.</p>
+              </div>
             </div>
             <div className="owner-advanced-box">
               <button
@@ -274,6 +312,23 @@ export function CreateStoreForm({
                 />
               </label>
             </div>
+            <div className="create-stack-grid">
+              <div>
+                <span>Default payment</span>
+                <strong>bank_transfer</strong>
+                <p>Banka havalesi başlangıç ödeme authority olarak görünür.</p>
+              </div>
+              <div>
+                <span>COD policy</span>
+                <strong>ops approval</strong>
+                <p>Kapıda ödeme store policy hazır olduğunda açılır.</p>
+              </div>
+              <div>
+                <span>Card policy</span>
+                <strong>gateway required</strong>
+                <p>Kart tahsilatı provider authority tamamlanmadan aktif sayılmaz.</p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -321,14 +376,32 @@ export function CreateStoreForm({
               <span>Mağaza <strong>{form.name || "Henüz girilmedi"}</strong></span>
               <span>Slug <strong>{branchSlugPreview}</strong></span>
               <span>Domain <strong>{form.domain || "Bekleniyor"}</strong></span>
-              <span>Standart <strong>{form.databaseMode === "full_supabase" ? "Legacy" : "Yeni Standart"}</strong></span>
+              <span>Storefront URL <strong>{storefrontUrlPreview}</strong></span>
+              <span>Admin URL <strong>{adminUrlPreview}</strong></span>
+              <span>Standart <strong>{form.databaseMode === "full_supabase" ? "Legacy" : "Postgres + Logto + Umami + R2"}</strong></span>
               <span>Tema <strong>{form.theme}</strong></span>
               <span>Paket <strong>{form.packageDurationMonths || "1"} ay</strong></span>
+            </div>
+            <div className="expected-provisioning-list" aria-label="Beklenen provisioning adımları">
+              {[
+                "Store record created",
+                "light_postgres DB/role/schema seeded",
+                "R2 configured",
+                "Logto admin/customer apps created",
+                "Umami website configured",
+                "storefront/admin branches generated",
+                "Coolify apps created",
+                "storefront/admin deployed",
+                "public/customer/admin smoke passed",
+                "final ready",
+              ].map((step) => (
+                <span key={step}>{step}</span>
+              ))}
             </div>
             <details className="owner-technical-details">
               <summary>Teknik branch planı</summary>
               <div className="meta-pairs">
-                <span>Owner/Admin branch: <strong>{ownerDeploymentBranch}</strong></span>
+                <span>Admin branch: <strong>{adminBranchPreview}</strong></span>
                 <span>Vitrin branch: <strong>{storefrontBranchPreview}</strong></span>
               </div>
             </details>

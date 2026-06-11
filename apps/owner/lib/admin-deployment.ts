@@ -15,6 +15,7 @@ import { diagnoseGeneratedRuntimeFailure } from "@/lib/generated-runtime-readine
 import { resolveLightPostgresDeploymentEnv } from "@/lib/light-postgres-deployment-env";
 import { resolveR2DeploymentEnv } from "@/lib/r2-deployment-env";
 import { getStoreSupabaseSecret } from "@/lib/store-secrets";
+import { buildGeneratedRuntimeEnv } from "@/lib/generated-app-standard";
 
 export interface StoreAdminDeploymentBlueprint {
   storeSlug: string;
@@ -166,7 +167,9 @@ async function readAdminEnvEntries(
       runtimeDatabaseName,
       runtimeSslMode,
     } = resolveLightPostgresDeploymentEnv(store, existingEnv);
+    const generatedRuntimeEnv = buildGeneratedRuntimeEnv(store, "admin", existingEnv);
     const envEntries: Record<string, string> = {
+      ...generatedRuntimeEnv,
       CELEBIX_NEXT_BUILD_CPUS: resolveProvisionedNextBuildCpuCap(2, ["CELEBIX_ADMIN_BUILD_CPUS"]),
       CELEBIX_ADMIN_DEPLOYMENT_MARKER:
         options?.deploymentMarker?.trim() ||
@@ -178,8 +181,9 @@ async function readAdminEnvEntries(
       LIGHT_POSTGRES_DATABASE_NAME: runtimeDatabaseName,
       LIGHT_POSTGRES_DATABASE_SSLMODE: runtimeSslMode,
       NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
-      AUTH_SETUP_STATUS: "blocked_auth_setup",
-      NEXT_PUBLIC_AUTH_SETUP_STATUS: "blocked_auth_setup",
+      AUTH_SETUP_STATUS: generatedRuntimeEnv.AUTH_SETUP_STATUS || "pending_auth_setup",
+      NEXT_PUBLIC_AUTH_SETUP_STATUS:
+        generatedRuntimeEnv.NEXT_PUBLIC_AUTH_SETUP_STATUS || "pending_auth_setup",
       NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
       NEXT_PUBLIC_ADMIN_URL: runtimeUrl,
       NEXT_PUBLIC_STORE_NAME: store.name,
@@ -425,7 +429,16 @@ export async function getStoreAdminDeploymentBlueprint(
         envEntries.LIGHT_POSTGRES_DATABASE_URL &&
           envEntries.LIGHT_POSTGRES_DATABASE_NAME &&
           envEntries.NEXT_PUBLIC_STORE_DOMAIN &&
-          envEntries.NEXT_PUBLIC_ADMIN_DOMAIN,
+          envEntries.NEXT_PUBLIC_ADMIN_DOMAIN &&
+          (
+            store.authProvider !== "logto" ||
+            (
+              envEntries.AUTH_SETUP_STATUS === "logto_stable" &&
+              envEntries.LOGTO_ISSUER &&
+              envEntries.LOGTO_ADMIN_APP_ID &&
+              envEntries.LOGTO_COOKIE_SECRET
+            )
+          ),
       )
     : Boolean(
         envEntries.NEXT_PUBLIC_SUPABASE_URL &&
@@ -439,8 +452,21 @@ export async function getStoreAdminDeploymentBlueprint(
       buildServer.trim(),
   );
 
+  const missingLogtoAuthority =
+    store.databaseMode === "light_postgres" &&
+    store.authProvider === "logto" &&
+    !(
+      envEntries.AUTH_SETUP_STATUS === "logto_stable" &&
+      envEntries.LOGTO_ISSUER &&
+      envEntries.LOGTO_ADMIN_APP_ID &&
+      envEntries.LOGTO_COOKIE_SECRET
+    );
   let status: "pending-owner-env" | "prepared" | "configured" | "failed" = hasRequiredEnv ? "prepared" : "pending-owner-env";
-  let runtimeMessage: string | null = hasRequiredEnv ? null : "Admin deployment authority henuz yazilmamis.";
+  let runtimeMessage: string | null = hasRequiredEnv
+    ? null
+    : missingLogtoAuthority
+      ? "Admin Logto authority pending; admin deploy beklemede."
+      : "Admin deployment authority henuz yazilmamis.";
   let runtimeConsistent = false;
 
   if (!buildServerReady) {

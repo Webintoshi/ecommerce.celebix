@@ -15,6 +15,7 @@ interface ProvisioningLifecycleCardProps {
   superAdmin: boolean;
   repairDisabled?: boolean;
   repairDisabledReason?: string;
+  metadataWarning?: boolean;
 }
 
 interface StepStory {
@@ -54,6 +55,14 @@ const STEP_STORIES: Record<ProvisioningStepKey, StepStory> = {
   starter_source_preflight: {
     stage: "İlk taslak",
     copy: "Starter kaynakları vitrin iskeletini kurmak için açılıyor.",
+  },
+  auth_preflight: {
+    stage: "Giriş hazırlığı",
+    copy: "Logto yönetim yetkisi ve connector hazırlığı doğrulanıyor.",
+  },
+  analytics_preflight: {
+    stage: "Ölçüm hazırlığı",
+    copy: "Umami yönetim yetkisi ve website apply hazırlığı doğrulanıyor.",
   },
   generated_apps_toggle: {
     stage: "Otomasyon anahtari",
@@ -127,7 +136,7 @@ const ACTS: Array<{
     key: "authority_repo_sync",
     title: "Kimlik",
     caption: "Marka otoritesi ve yayin rotasi",
-    keys: ["owner_supabase_auth", "cleanup_guard", "deployment_branch_preflight", "supabase_preflight", "r2_preflight", "coolify_preflight", "github_preflight", "starter_source_preflight", "generated_apps_toggle", "authority_repo_sync", "management_profile"],
+    keys: ["owner_supabase_auth", "cleanup_guard", "deployment_branch_preflight", "supabase_preflight", "r2_preflight", "coolify_preflight", "github_preflight", "starter_source_preflight", "auth_preflight", "analytics_preflight", "generated_apps_toggle", "authority_repo_sync", "management_profile"],
   },
   {
     key: "supabase_provision",
@@ -218,13 +227,23 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
-  if (state === "pending_repair") {
+  if (state === "pending_repair" || state === "failed_storage" || state === "failed_smoke") {
     return {
       eyebrow: "Teknik mola",
       title: "Kurulum takıldı ama akış kontrol altında",
       body: currentStepLabel
         ? `${currentStepLabel} adımında duraksama var. Owner panel onarım akışını ve kalan adımları buradan yönetiyor.`
         : "Kurulum zincirinde düzeltilmesi gereken bir adım var. Owner panel geri kalan adımları kaybetmeden onarım akışını sürdürüyor.",
+    };
+  }
+
+  if (state === "pending_storage") {
+    return {
+      eyebrow: "R2 medya beklemede",
+      title: "Medya depolama standardı hazırlanıyor",
+      body: currentStepLabel
+        ? `${currentStepLabel} adımı R2 bucket/public URL veya server-side credential authority bekliyor.`
+        : "R2 bucket, prefix ve public media URL metadata hazırlandı; canlı apply veya env authority bekleniyor.",
     };
   }
 
@@ -265,6 +284,32 @@ function getHeroCopy(state: ProvisioningState, storeName: string, currentStepLab
     };
   }
 
+  if (state === "pending_smoke") {
+    return {
+      eyebrow: "Smoke beklemede",
+      title: "Altyapı hazır, kabul smoke kuyruğu bekleniyor",
+      body:
+        "Postgres, Logto, Umami, R2 ve generated app authority tamamlandı. Owner panel mağazayı ready yapmadan önce smoke checklist sonucunu bekliyor.",
+    };
+  }
+
+  if (
+    state === "database_ready" ||
+    state === "storage_ready" ||
+    state === "auth_ready" ||
+    state === "analytics_ready" ||
+    state === "admin_ready" ||
+    state === "storefront_ready" ||
+    state === "smoke_ready"
+  ) {
+    return {
+      eyebrow: "Hazırlık tamamlanıyor",
+      title: `${storeName} standard adımlarında ilerliyor`,
+      body:
+        "Owner lifecycle Postgres, Logto, Umami, R2, admin, vitrin ve smoke aşamalarını ayrı ayrı izlemeye hazır.",
+    };
+  }
+
   if (state === "failed") {
     return {
       eyebrow: "Kritik duruş",
@@ -302,12 +347,19 @@ function getStatusLabel(status: ProvisioningStepStatus): string {
 
 function getFocusedLifecycleStepKey(state: ProvisioningState): ProvisioningStepKey | null {
   switch (state) {
+    case "pending_storage":
+    case "failed_storage":
+      return "r2_provision";
     case "pending_auth":
       return "auth_setup";
     case "pending_analytics":
       return "analytics_setup";
     case "pending_payment":
       return "payment_setup";
+    case "pending_smoke":
+    case "failed_smoke":
+    case "smoke_ready":
+      return null;
     default:
       return null;
   }
@@ -348,6 +400,7 @@ export function ProvisioningLifecycleCard({
   superAdmin,
   repairDisabled = false,
   repairDisabledReason,
+  metadataWarning = false,
 }: ProvisioningLifecycleCardProps) {
   const focusedLifecycleStepKey = getFocusedLifecycleStepKey(provisioning.state);
   const currentStep =
@@ -364,7 +417,7 @@ export function ProvisioningLifecycleCard({
     (step) => step.status === "failed" || step.status === "blocked",
   ).length;
   const showRepairButton =
-    superAdmin && (provisioning.state === "pending_repair" || provisioning.state === "failed");
+    superAdmin && !metadataWarning && (provisioning.state === "pending_repair" || provisioning.state === "failed");
   const softPendingState =
     provisioning.state === "pending_auth" ||
     provisioning.state === "pending_analytics" ||
@@ -380,9 +433,19 @@ export function ProvisioningLifecycleCard({
   const progressPercent = softPendingState ? Math.min(baseProgressPercent, 92) : baseProgressPercent;
   const pendingCount =
     provisioning.steps.filter((step) => step.status === "pending").length + (softPendingState ? 1 : 0);
-  const heroCopy = getHeroCopy(provisioning.state, storeName, currentStep?.label ?? null);
-  const provisioningToneClass = getProvisioningToneClass(provisioning.state);
-  const provisioningLabel = getProvisioningLabel(provisioning.state);
+  const heroCopy = metadataWarning
+    ? {
+        eyebrow: "Metadata warning",
+        title: `${storeName} operational`,
+        body: "Store is operational; top-level provisioning metadata appears stale. Owner UI keeps this as a warning instead of a red failure.",
+      }
+    : getHeroCopy(provisioning.state, storeName, currentStep?.label ?? null);
+  const provisioningToneClass = metadataWarning
+    ? "provisioning-tone-pending_repair"
+    : getProvisioningToneClass(provisioning.state);
+  const provisioningLabel = metadataWarning
+    ? "ready with metadata warning"
+    : getProvisioningLabel(provisioning.state);
 
   const actStatuses = ACTS.map((act) => {
     const currentActSteps = provisioning.steps.filter((step) => act.keys.includes(step.key));

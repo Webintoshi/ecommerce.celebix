@@ -6,12 +6,23 @@ import { readGeneratedRuntimeIssueCode } from "@/lib/generated-runtime-readiness
 export type ProvisioningState =
   | "running"
   | "provisioning"
+  | "database_ready"
+  | "storage_ready"
+  | "auth_ready"
+  | "analytics_ready"
+  | "admin_ready"
+  | "storefront_ready"
+  | "smoke_ready"
   | "pending_dns"
+  | "pending_storage"
   | "pending_auth"
   | "pending_analytics"
   | "pending_payment"
+  | "pending_smoke"
   | "ready"
   | "pending_repair"
+  | "failed_storage"
+  | "failed_smoke"
   | "failed";
 export type ProvisioningStepStatus =
   | "pending"
@@ -33,6 +44,8 @@ export type ProvisioningStepKey =
   | "coolify_preflight"
   | "github_preflight"
   | "starter_source_preflight"
+  | "auth_preflight"
+  | "analytics_preflight"
   | "generated_apps_toggle"
   | "authority_repo_sync"
   | "management_profile"
@@ -110,6 +123,8 @@ const STEP_LABELS: Record<ProvisioningStepKey, string> = {
   coolify_preflight: "Coolify preflight",
   github_preflight: "GitHub sync preflight",
   starter_source_preflight: "Starter source preflight",
+  auth_preflight: "Auth authority preflight",
+  analytics_preflight: "Analytics authority preflight",
   generated_apps_toggle: "Generated apps toggle",
   authority_repo_sync: "Authority repo sync",
   management_profile: "Owner management profile",
@@ -146,12 +161,23 @@ function readBoolean(value: unknown, fallback: boolean): boolean {
 function normalizeProvisioningState(value: unknown): ProvisioningState {
   return value === "running" ||
     value === "provisioning" ||
+    value === "database_ready" ||
+    value === "storage_ready" ||
+    value === "auth_ready" ||
+    value === "analytics_ready" ||
+    value === "admin_ready" ||
+    value === "storefront_ready" ||
+    value === "smoke_ready" ||
     value === "pending_dns" ||
+    value === "pending_storage" ||
     value === "pending_auth" ||
     value === "pending_analytics" ||
     value === "pending_payment" ||
+    value === "pending_smoke" ||
     value === "ready" ||
     value === "pending_repair" ||
+    value === "failed_storage" ||
+    value === "failed_smoke" ||
     value === "failed"
     ? value
     : "provisioning";
@@ -505,6 +531,10 @@ export function deriveProvisioningState(
   );
 
   if (blockers.length > 0) {
+    if (blockers.some((step) => step.key === "r2_preflight" || step.key === "r2_provision")) {
+      return options.terminalFailure ? "failed_storage" : "pending_storage";
+    }
+
     return options.terminalFailure ? "failed" : "pending_repair";
   }
 

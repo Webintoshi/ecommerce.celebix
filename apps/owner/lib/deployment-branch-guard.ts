@@ -106,7 +106,7 @@ function buildValidation(
 export function previewStoreDeploymentBranches(slug: string): DeploymentBranchPreview {
   return {
     ownerBranch: getOwnerRepositoryBranch(),
-    adminBranch: getDefaultAdminDeploymentBranch(),
+    adminBranch: getDefaultAdminDeploymentBranch(slug),
     storefrontBranch: getDefaultStorefrontDeploymentBranch(slug),
   };
 }

@@ -1,4 +1,5 @@
 export {
+  getAdminDeploymentBranchPrefix,
   getDefaultAdminDeploymentBranch,
   getDefaultStorefrontDeploymentBranch,
   getOwnerRepositoryBranch,

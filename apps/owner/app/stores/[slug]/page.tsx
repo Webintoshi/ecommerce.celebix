@@ -9,6 +9,11 @@ import { RepairStoreDeploymentAuthorityButton } from "@/components/RepairStoreDe
 import { DeleteStoreButton } from "@/components/DeleteStoreButton";
 import { ProvisioningLifecycleCard } from "@/components/ProvisioningLifecycleCard";
 import {
+  getOperationalStatus,
+  getProvisioningTimeline,
+  getStoreReadinessItems,
+} from "@/lib/control-center-ui";
+import {
   OwnerActionPanel,
   OwnerActionQueue,
   OwnerEmptyState,
@@ -35,12 +40,17 @@ import {
   isLegacyDatabaseMode,
 } from "@/lib/lifecycle-ui";
 import { requireOwnerAuth, isSuperAdmin } from "@/lib/owner-auth";
-import { getStoreDetail } from "@/lib/control-plane";
+import { getStoreDetail, type DashboardStoreSummary, type StoreDetailSummary } from "@/lib/control-plane";
 import {
   getOwnerPreviewDisabledNotice,
   getOwnerPreviewFlags,
   isOwnerActionDisabled,
 } from "@/lib/preview-mode";
+import {
+  getPreviewDashboardStores,
+  getPreviewOwnerAuthContext,
+  hasOwnerPreviewDataFallback,
+} from "@/lib/owner-preview-fixtures";
 
 interface StoreDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -93,10 +103,51 @@ function getStoreStatusLabel(status: string) {
   return "Taslak";
 }
 
+function buildPreviewStoreDetail(store: DashboardStoreSummary): StoreDetailSummary {
+  return {
+    ...store,
+    supportEmail: store.management.clientContactEmail,
+    supportPhone: store.management.clientContactPhone,
+    tagline: store.management.nextAction,
+    supabaseProjectRef: null,
+    supabaseUrl: null,
+    supabaseDashboardUrl: null,
+    r2BucketName: store.r2?.bucketName ?? (store.health.r2Ready ? `${store.slug}-assets` : null),
+    r2PublicUrl: store.r2?.publicUrl ?? null,
+    r2ManagedDomain: store.r2?.managedDomain ?? null,
+    bootstrap: {
+      adminDeploymentName: `${store.slug}-admin`,
+      adminDeploymentBranch: `generated-admin/${store.slug}`,
+      adminDeploymentStatus: store.health.adminDeploymentReady ? "configured" : "pending-owner-env",
+      adminDeploymentRuntimeUrl: `https://${store.adminDomain}`,
+      provisionedAt: store.provisioning.lastRunAt,
+    },
+    storefront: {
+      deploymentName: `${store.slug}-storefront`,
+      deploymentBranch: `generated-storefront/${store.slug}`,
+      deploymentStatus: store.health.storefrontRuntimeConsistent ? "configured" : "pending",
+      runtimeUrl: `https://${store.storefrontDomain}`,
+      repoSyncStatus: store.storefrontAppDir ? "synced" : "pending",
+      preparedAt: store.provisioning.lastRunAt,
+      deployedAt: store.smoke?.finishedAt ?? store.provisioning.lastRunAt,
+    },
+    features: ["owner-preview", "light-postgres", "logto", "r2", "umami"],
+    createdAt: store.lastSyncedAt ?? "2026-06-04T18:30:00.000Z",
+    updatedAt: store.lastSyncedAt ?? "2026-06-04T18:30:00.000Z",
+    affiliateAssignments: [],
+    storeAdmins: [],
+    recentActivity: [],
+  };
+}
+
 export default async function StoreDetailPage({ params }: StoreDetailPageProps) {
-  const auth = await requireOwnerAuth();
+  const previewFallback = hasOwnerPreviewDataFallback();
+  const auth = previewFallback ? getPreviewOwnerAuthContext() : await requireOwnerAuth();
   const { slug } = await params;
-  const store = await getStoreDetail(auth, slug);
+  const previewStore = previewFallback
+    ? getPreviewDashboardStores().find((item) => item.slug === slug)
+    : null;
+  const store = previewStore ? buildPreviewStoreDetail(previewStore) : await getStoreDetail(auth, slug);
   const superAdmin = isSuperAdmin(auth);
   const previewFlags = getOwnerPreviewFlags();
   const writeDisabled = isOwnerActionDisabled("write", previewFlags);
@@ -161,6 +212,21 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const authSignal = setupSignals.find((signal) => signal.key === "auth");
   const analyticsSignal = setupSignals.find((signal) => signal.key === "analytics");
   const paymentSignal = setupSignals.find((signal) => signal.key === "payment");
+  const logto = store.logto;
+  const logtoAdminRedirectCount = logto?.adminRedirectUris?.length ?? 0;
+  const logtoAdminLogoutCount = logto?.adminPostLogoutRedirectUris?.length ?? 0;
+  const logtoCustomerRedirectCount = logto?.customerRedirectUris?.length ?? 0;
+  const logtoCustomerLogoutCount = logto?.customerPostLogoutRedirectUris?.length ?? 0;
+  const umami = store.umami;
+  const r2 = store.r2;
+  const media = store.media;
+  const smoke = store.smoke;
+  const operationalStatus = getOperationalStatus(store);
+  const readinessItems = getStoreReadinessItems(store);
+  const provisioningTimeline = getProvisioningTimeline(store);
+  const smokePassedCount = smoke?.checks.filter((check) => check.status === "passed").length ?? 0;
+  const smokeFailedCount = smoke?.checks.filter((check) => check.status === "failed").length ?? 0;
+  const smokePendingCount = smoke?.checks.filter((check) => check.status === "pending").length ?? 0;
   const pendingSetupSignals = setupSignals.filter((signal) => signal.pending);
   const orphanedTargetCount = cleanupRuns.reduce(
     (total, run) =>
@@ -178,11 +244,25 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const progressToneClass = subscription.status === "active" ? "is-success" : "is-warning";
   const setupStepState = pendingSetupSignals.length > 0 ? "current" : "done";
   const deploymentStepState =
-    provisioning.state === "failed" || provisioning.state === "pending_repair"
+    provisioning.state === "failed" || (provisioning.state === "pending_repair" && operationalStatus.needsAttention)
       ? "blocked"
-      : provisioning.state === "ready"
+      : provisioning.state === "ready" || operationalStatus.label === "Ready with metadata warning"
         ? "done"
         : "current";
+  const warningItems = [
+    operationalStatus.metadataWarning
+      ? "Store is operational; top-level provisioning metadata appears stale."
+      : null,
+    operationalStatus.smokeIncomplete
+      ? "Smoke verification is missing or incomplete."
+      : null,
+    provisioning.failedStepCount > 0
+      ? `${provisioning.failedStepCount} provisioning step failed.`
+      : null,
+    store.consistency.blocking
+      ? `${store.consistency.blockingIssueCount} blocking consistency issue exists.`
+      : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="store-detail-page">
@@ -203,6 +283,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             <span className={getDatabaseModePillClass(store.databaseMode)}>
               {getDatabaseModeLabel(store.databaseMode)}
             </span>
+            <OwnerStatusChip tone={operationalStatus.tone}>{operationalStatus.label}</OwnerStatusChip>
           </>
         }
         actions={
@@ -233,7 +314,10 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
 
       <nav className="store-section-nav" aria-label="Mağaza detay bölümleri">
         <a href="#genel-bakis">Genel Bakış</a>
+        <a href="#identity">Identity</a>
+        <a href="#readiness">Readiness</a>
         <a href="#kurulum">Kurulum</a>
+        <a href="#timeline">Timeline</a>
         <a href="#domain-deploy">Domain ve Deploy</a>
         <a href="#erisim">Erişim</a>
         <a href="#aktivite">Aktivite</a>
@@ -256,6 +340,26 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
 
         <div className="store-detail-two-column">
+          <OwnerSectionCard
+            title="Operational status"
+            copy={operationalStatus.note}
+            tone={operationalStatus.tone}
+            actions={<OwnerStatusChip tone={operationalStatus.tone}>{operationalStatus.label}</OwnerStatusChip>}
+          >
+            {warningItems.length > 0 ? (
+              <div className="warning-banner-list">
+                {warningItems.map((warning) => (
+                  <div key={warning} className="owner-warning-banner">
+                    <strong>Warning</strong>
+                    <p>{warning}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="card-note">Blocking provisioning, deploy, smoke veya metadata alarmı görünmüyor.</p>
+            )}
+          </OwnerSectionCard>
+
           <OwnerSectionCard title="Müşteri ve Yaşam Döngüsü" copy={store.management.nextAction || "Sonraki aksiyon tanımlanmamış."}>
             <div className="meta-pairs">
               <span>Marka: <strong>{store.management.clientCompanyName || store.name}</strong></span>
@@ -315,12 +419,98 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         </div>
       </section>
 
+      <section id="identity" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Identity"
+          title="Store identity and domains"
+          copy="Mağaza kimliği, domainler ve audit zamanları teknik arama gerektirmeden okunur."
+        />
+        <OwnerSectionCard title="Identity">
+          <div className="control-center-facts">
+            <div>
+              <span>Store name</span>
+              <strong>{store.name}</strong>
+            </div>
+            <div>
+              <span>Slug</span>
+              <strong>{store.slug}</strong>
+            </div>
+            <div>
+              <span>Store ID</span>
+              <strong>{store.id}</strong>
+            </div>
+            <div>
+              <span>Storefront domain</span>
+              <strong>{store.storefrontDomain}</strong>
+            </div>
+            <div>
+              <span>Admin domain</span>
+              <strong>{store.adminDomain}</strong>
+            </div>
+            <div>
+              <span>Created</span>
+              <strong>{createdAt}</strong>
+            </div>
+            <div>
+              <span>Updated</span>
+              <strong>{updatedAt}</strong>
+            </div>
+          </div>
+        </OwnerSectionCard>
+      </section>
+
+      <section id="readiness" className="store-detail-section">
+        <OwnerSectionHeader
+          eyebrow="Infrastructure"
+          title="Tenant infrastructure readiness"
+          copy="Database, storage, auth, analytics, deploy, image, DNS ve build server sinyalleri aynı grid içinde gösterilir."
+        />
+        <OwnerSectionCard title="System readiness for this store" actions={<OwnerStatusChip tone={operationalStatus.tone}>{operationalStatus.label}</OwnerStatusChip>}>
+          <div className="system-readiness-grid">
+            {readinessItems.map((item) => (
+              <article key={item.key} className={`system-readiness-card status-${item.status}`}>
+                <div className="system-readiness-top">
+                  <strong>{item.label}</strong>
+                  <OwnerStatusChip tone={item.tone}>{item.status}</OwnerStatusChip>
+                </div>
+                <p>{item.description}</p>
+                <span>{item.checkedAt ? `Son kontrol: ${formatDateTime(item.checkedAt)}` : "Son kontrol zamanı yok"}</span>
+              </article>
+            ))}
+          </div>
+        </OwnerSectionCard>
+      </section>
+
       <section id="kurulum" className="store-detail-section">
         <OwnerSectionHeader
           eyebrow="Kurulum Akışı"
           title="Hazırlık ve aksiyon sırası"
           copy="Teknik log hissi yerine, mağazanın işletime hazır olma durumu adım adım okunur."
         />
+        <section id="timeline" className="store-detail-section">
+          <OwnerSectionCard
+            title="Provisioning timeline"
+            copy="Fresh-store acceptance sırası, mevcut owner/store config kanıtlarından okunur. Eksik backend endpoint için fake mutation eklenmez."
+            actions={<OwnerStatusChip tone={operationalStatus.tone}>{operationalStatus.label}</OwnerStatusChip>}
+          >
+            <div className="control-center-timeline">
+              {provisioningTimeline.map((item) => (
+                <article key={item.key} className={`control-center-timeline-item status-${item.status}`}>
+                  <span className="control-center-timeline-dot" />
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p>{item.message}</p>
+                  </div>
+                  <div className="control-center-timeline-meta">
+                    <OwnerStatusChip tone={item.tone}>{item.status}</OwnerStatusChip>
+                    <span>{item.timestamp ? formatDateTime(item.timestamp) : "timestamp yok"}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </OwnerSectionCard>
+        </section>
+
         <div className="store-detail-two-column">
           <OwnerActionPanel
             title="Kurulum Akışı"
@@ -381,7 +571,170 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           superAdmin={superAdmin}
           repairDisabled={repairDisabled}
           repairDisabledReason={repairDisabledReason}
+          metadataWarning={operationalStatus.metadataWarning}
         />
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="Logto kimlik doğrulama"
+            copy="Yeni Standart mağazalarda admin ve müşteri giriş uygulamaları ayrı Logto config olarak hazırlanır."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Admin uygulaması</span>
+                <strong>{logto?.adminAppStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{logto?.adminBootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Müşteri uygulaması</span>
+                <strong>{logto?.customerAppStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{logto?.customerBootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Redirect URI</span>
+                <strong>{logtoAdminRedirectCount + logtoCustomerRedirectCount} kayıt</strong>
+                <p>Admin ve müşteri callback domainleri public HTTPS olarak tutulur.</p>
+              </article>
+              <article>
+                <span>Çıkış yönlendirmeleri</span>
+                <strong>{logtoAdminLogoutCount + logtoCustomerLogoutCount} kayıt</strong>
+                <p>Admin login ve müşteri hesap dönüşleri hazır.</p>
+              </article>
+              <article>
+                <span>Google ile giriş</span>
+                <strong>{logto?.googleSignIn === "enabled" ? "Aktif" : "Bekliyor"}</strong>
+                <p>Central connector hazır olunca customer app kullanabilir.</p>
+              </article>
+              <article>
+                <span>Şifre sıfırlama</span>
+                <strong>{logto?.emailRecovery === "enabled" ? "Aktif" : "Bekliyor"}</strong>
+                <p>SMTP recovery connector hazır olunca akış açılır.</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="Umami analitik"
+            copy="Yeni Standart mağazalarda vitrin tracking ve admin analytics server-side token authority ile hazırlanır."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Website kaydı</span>
+                <strong>{umami?.websiteStatus === "configured" ? "Hazır" : "Hazırlanacak"}</strong>
+                <p>{umami?.bootstrapConfigPath || "Bootstrap config pending apply."}</p>
+              </article>
+              <article>
+                <span>Website ID</span>
+                <strong>{umami?.websiteId ? "Tanımlı" : "Pending"}</strong>
+                <p>{umami?.canonicalDomain || store.storefrontDomain}</p>
+              </article>
+              <article>
+                <span>Storefront script</span>
+                <strong>{umami?.storefrontTrackingStatus === "configured" ? "Aktif" : "Hazırlanacak"}</strong>
+                <p>{umami?.scriptUrl || "https://analytics.celebix.co/script.js"}</p>
+              </article>
+              <article>
+                <span>Admin analytics</span>
+                <strong>{umami?.adminAnalyticsStatus === "configured" ? "Aktif" : "Pending"}</strong>
+                <p>{umami?.adminSummaryEndpoint || "/api/admin/analytics/summary"}</p>
+              </article>
+              <article>
+                <span>Token authority</span>
+                <strong>{umami?.serverTokenStatus === "configured" ? "Server hazır" : "Owner env bekliyor"}</strong>
+                <p>Token browser'a taşınmaz; admin özetleri server-side okunur.</p>
+              </article>
+              <article>
+                <span>Store scope</span>
+                <strong>{umami?.domain || store.storefrontDomain}</strong>
+                <p>{umami?.timezone || "Europe/Istanbul"}</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="R2 medya depolama"
+            copy="Yeni Standart mağazalarda ürün, sayfa ve marka görselleri R2 public media authority üzerinden okunur; Supabase Storage kullanılmaz."
+            tone="accent"
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Bucket / public URL</span>
+                <strong>{r2?.bucketName ? "Tanımlı" : "Pending"}</strong>
+                <p>{r2?.publicUrl || "R2 public base URL owner env/apply bekliyor."}</p>
+              </article>
+              <article>
+                <span>Mağaza prefix</span>
+                <strong>{r2?.prefix || media?.prefix || `stores/${store.slug}/`}</strong>
+                <p>Her mağaza kendi prefix scope'u içinde tutulur.</p>
+              </article>
+              <article>
+                <span>Ürün görselleri</span>
+                <strong>{media?.productImagesPrefix || r2?.productImagesPrefix || `stores/${store.slug}/products/`}</strong>
+                <p>{media?.publicUrlTemplate || r2?.publicUrlTemplate || "Public URL template pending."}</p>
+              </article>
+              <article>
+                <span>Sayfa / marka görselleri</span>
+                <strong>{media?.pageImagesPrefix || r2?.pageImagesPrefix || `stores/${store.slug}/pages/`}</strong>
+                <p>{media?.brandingPrefix || r2?.brandingPrefix || `stores/${store.slug}/branding/`}</p>
+              </article>
+              <article>
+                <span>Admin upload</span>
+                <strong>{media?.adminUploadStatus === "configured" ? "Server hazır" : "Pending"}</strong>
+                <p>R2 credential sadece server-side kullanılır; browser'a secret taşınmaz.</p>
+              </article>
+              <article>
+                <span>Vitrin okuma</span>
+                <strong>{media?.storefrontReadStatus === "configured" ? "Aktif" : "Pending"}</strong>
+                <p>{media?.noSupabaseStorage !== false ? "Supabase Storage kullanılmıyor." : "Legacy storage kontrol edilmeli."}</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
+
+        {!showSupabaseInfrastructure ? (
+          <OwnerSectionCard
+            title="New-store smoke"
+            copy="Package 7 smoke runner planı mağaza canlıya alınmadan önce runtime, auth, analytics, medya ve Supabase-free kontrollerini izler."
+            tone={smoke?.overallStatus === "failed" ? "danger" : smoke?.overallStatus === "passed" ? "success" : "accent"}
+          >
+            <div className="store-infrastructure-grid">
+              <article>
+                <span>Durum</span>
+                <strong>
+                  {smoke?.overallStatus === "passed"
+                    ? "Smoke geçti"
+                    : smoke?.overallStatus === "failed"
+                      ? "Smoke başarısız"
+                      : smoke?.overallStatus === "partial"
+                        ? "Kısmi"
+                        : "Smoke bekliyor"}
+                </strong>
+                <p>{smoke?.mode === "execute" ? "Execute sonucu" : "Plan mode; canlı request çalıştırılmadı."}</p>
+              </article>
+              <article>
+                <span>Check sayısı</span>
+                <strong>{smoke?.checks.length ?? 0}</strong>
+                <p>{smokePassedCount} geçti / {smokeFailedCount} fail / {smokePendingCount} pending</p>
+              </article>
+              <article>
+                <span>Son çalışma</span>
+                <strong>{smoke?.finishedAt ? formatDateTime(smoke.finishedAt) : "Bekliyor"}</strong>
+                <p>{smoke?.startedAt ? `Plan başlangıcı: ${formatDateTime(smoke.startedAt)}` : "Smoke runner henüz planlanmadı."}</p>
+              </article>
+              <article>
+                <span>Repair action</span>
+                <strong>{smokeFailedCount > 0 ? "Gerekli" : "Yok"}</strong>
+                <p>{smoke?.checks.find((check) => check.status === "failed")?.repairAction || "Fail oluşursa ilgili check repairAction alanı doldurulur."}</p>
+              </article>
+            </div>
+          </OwnerSectionCard>
+        ) : null}
       </section>
 
       <section id="domain-deploy" className="store-detail-section">

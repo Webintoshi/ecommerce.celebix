@@ -58,14 +58,17 @@ function normalizeInputDomain(value: string): string {
 
 function resolveAdminPreviewDomain(storefrontDomain: string): string {
   const normalizedDomain = normalizeInputDomain(storefrontDomain);
-  const demoRoot = "celebix.co";
-  const demoSuffix = `.${demoRoot}`;
+  const demoRoots = ["celebix.co", "celebix.site", "demo.celebix.co"];
 
-  if (normalizedDomain.endsWith(demoSuffix)) {
-    const prefix = normalizedDomain.slice(0, -demoSuffix.length);
+  for (const demoRoot of demoRoots) {
+    const demoSuffix = `.${demoRoot}`;
 
-    if (prefix && !prefix.includes(".")) {
-      return `admin-${prefix}.${demoRoot}`;
+    if (normalizedDomain.endsWith(demoSuffix)) {
+      const prefix = normalizedDomain.slice(0, -demoSuffix.length);
+
+      if (prefix && !prefix.includes(".")) {
+        return `admin-${prefix}.${demoRoot}`;
+      }
     }
   }
 
@@ -171,7 +174,7 @@ export function MigrateStoreDomainForm({
         <span>Yeni admin domain</span>
         <input value={previewAdminDomain} disabled placeholder="admin.wayabutik.com" />
         <small className="muted">
-          {"`celebix.co` demo domainlerinde admin host `admin-<slug>.celebix.co`, özel domainlerde `admin.<domain>` olur."}
+          {"Celebix demo domainlerinde admin host `admin-<slug>.<root>`, özel domainlerde `admin.<domain>` olur."}
         </small>
       </label>
 
