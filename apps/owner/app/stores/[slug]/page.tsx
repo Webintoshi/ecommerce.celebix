@@ -26,7 +26,6 @@ import {
   OwnerTimeline,
 } from "@/components/owner-control";
 import { getStoreAdminDeploymentBlueprint } from "@/lib/admin-deployment";
-import { repairStoreDeploymentAuthorityOnce } from "@/lib/coolify-store-deployment";
 import { getStorefrontDeploymentBlueprint } from "@/lib/storefront-deployment";
 import { listCleanupRuns } from "@/lib/store-lifecycle";
 import { UpdateStoreProfileForm } from "@/components/UpdateStoreProfileForm";
@@ -34,8 +33,6 @@ import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib
 import {
   getDatabaseModeLabel,
   getDatabaseModePillClass,
-  getProvisioningLabel,
-  getProvisioningToneClass,
   getSetupSignals,
   isLegacyDatabaseMode,
 } from "@/lib/lifecycle-ui";
@@ -63,34 +60,6 @@ function readStringValue(value: unknown): string | null {
 function readDateValue(value: unknown): string | null {
   const parsed = readStringValue(value);
   return parsed ? formatDateTime(parsed) : "-";
-}
-
-function buildDeploymentAuthorityNote(
-  target: {
-    status: "repaired" | "already_configured" | "missing";
-    branchChanged: boolean;
-    autoDeployChanged: boolean;
-    desiredBranch: string;
-  } | null,
-): string | null {
-  if (!target) {
-    return null;
-  }
-
-  if (target.status === "repaired") {
-    const fragments = [
-      target.branchChanged ? `branch ${target.desiredBranch}` : null,
-      target.autoDeployChanged ? "auto deploy" : null,
-    ].filter(Boolean);
-
-    return `Authority self-heal: ${fragments.join(" + ") || "ayarlar"} onarıldı.`;
-  }
-
-  if (target.status === "missing") {
-    return "Coolify resource'u bulunamadi; deployment authority sonraki provisioning adiminda kurulacak.";
-  }
-
-  return null;
 }
 
 function getStoreStatusLabel(status: string) {
@@ -151,34 +120,28 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
   const superAdmin = isSuperAdmin(auth);
   const previewFlags = getOwnerPreviewFlags();
   const writeDisabled = isOwnerActionDisabled("write", previewFlags);
-  const deployDisabled = isOwnerActionDisabled("deploy", previewFlags);
-  const cleanupDisabled = isOwnerActionDisabled("cleanup", previewFlags);
-  const repairDisabled = isOwnerActionDisabled("repair", previewFlags);
   const writeDisabledReason = getOwnerPreviewDisabledNotice("write", previewFlags) ?? undefined;
   const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
   const cleanupDisabledReason = getOwnerPreviewDisabledNotice("cleanup", previewFlags) ?? undefined;
   const repairDisabledReason = getOwnerPreviewDisabledNotice("repair", previewFlags) ?? undefined;
+  const deployActionLockedReason =
+    deployDisabledReason || "Deploy ve repair mutasyonları ayrı onaylı deploy workflow'u üzerinden çalıştırılır.";
+  const repairActionLockedReason =
+    repairDisabledReason || "Repair mutasyonları ayrı onaylı deploy workflow'u üzerinden çalıştırılır.";
+  const cleanupActionLockedReason =
+    cleanupDisabledReason || "Cleanup ve delete aksiyonları ayrı onaylı bakım workflow'u üzerinden çalıştırılır.";
 
   if (!store) {
     notFound();
   }
 
-  const deploymentAuthorityRepair = superAdmin && !repairDisabled
-    ? await repairStoreDeploymentAuthorityOnce(store.slug)
-    : null;
   const cleanupRuns = await listCleanupRuns({ unresolvedOnly: true, limit: 3, slug: store.slug }).catch(
     () => [],
   );
   const adminDeployment = await getStoreAdminDeploymentBlueprint(store.slug).catch(() => null);
   const storefrontDeployment = await getStorefrontDeploymentBlueprint(store.slug).catch(() => null);
-  const storefrontDeploymentAuthority = deploymentAuthorityRepair?.targets.find(
-    (target) => target.target === "storefront",
-  ) ?? null;
-  const adminDeploymentAuthority = deploymentAuthorityRepair?.targets.find(
-    (target) => target.target === "admin",
-  ) ?? null;
-  const storefrontDeploymentAuthorityNote = buildDeploymentAuthorityNote(storefrontDeploymentAuthority);
-  const adminDeploymentAuthorityNote = buildDeploymentAuthorityNote(adminDeploymentAuthority);
+  const storefrontDeploymentAuthorityNote: string | null = null;
+  const adminDeploymentAuthorityNote: string | null = null;
   const bootstrap = (store.bootstrap ?? {}) as Record<string, unknown>;
   const supabaseProjectName = readStringValue(bootstrap.supabaseProjectName);
   const supabaseResourceId = readStringValue(bootstrap.supabaseResourceId);
@@ -234,13 +197,6 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       run.targets.filter((target) => target.status === "failed" || target.status === "skipped").length,
     0,
   );
-  const healthToneClass =
-    store.health.label === "hazir"
-      ? "pill-success"
-      : store.health.label === "kritik"
-        ? "pill-danger"
-        : "pill-warning";
-  const provisioningToneClass = getProvisioningToneClass(provisioning.state);
   const progressToneClass = subscription.status === "active" ? "is-success" : "is-warning";
   const setupStepState = pendingSetupSignals.length > 0 ? "current" : "done";
   const deploymentStepState =
@@ -251,10 +207,13 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         : "current";
   const warningItems = [
     operationalStatus.metadataWarning
-      ? "Store is operational; top-level provisioning metadata appears stale."
+      ? "Store operational görünüyor; üst seviye provisioning/runtime metadata stale olabilir."
       : null,
     operationalStatus.smokeIncomplete
       ? "Smoke verification is missing or incomplete."
+      : null,
+    store.health.storefrontDataMessage?.toLocaleLowerCase("en").includes("runtime_unreachable")
+      ? store.health.storefrontDataMessage
       : null,
     provisioning.failedStepCount > 0
       ? `${provisioning.failedStepCount} provisioning step failed.`
@@ -274,8 +233,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         chips={
           <>
             <OwnerStatusChip>{getStoreStatusLabel(store.status)}</OwnerStatusChip>
-            <OwnerStatusChip tone={store.health.label === "hazir" ? "success" : store.health.label === "kritik" ? "danger" : "warning"}>
-              {store.health.label}
+            <OwnerStatusChip tone={operationalStatus.metadataWarning ? "warning" : store.health.label === "hazir" ? "success" : store.health.label === "kritik" ? "danger" : "warning"}>
+              {operationalStatus.metadataWarning ? "Metadata warning" : store.health.label}
             </OwnerStatusChip>
             <OwnerStatusChip tone={showSupabaseInfrastructure ? "legacy" : "accent"}>
               {showSupabaseInfrastructure ? "Legacy" : "Yeni Standart"}
@@ -315,10 +274,11 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
       <nav className="store-section-nav" aria-label="Mağaza detay bölümleri">
         <a href="#genel-bakis">Genel Bakış</a>
         <a href="#identity">Identity</a>
-        <a href="#readiness">Readiness</a>
+        <a href="#readiness">Infrastructure</a>
         <a href="#kurulum">Kurulum</a>
         <a href="#timeline">Timeline</a>
-        <a href="#domain-deploy">Domain ve Deploy</a>
+        <a href="#domain-deploy">Deployments</a>
+        <a href="#warnings">Warnings</a>
         <a href="#erisim">Erişim</a>
         <a href="#aktivite">Aktivite</a>
         <a href="#tehlikeli">Tehlikeli İşlemler</a>
@@ -357,6 +317,25 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               </div>
             ) : (
               <p className="card-note">Blocking provisioning, deploy, smoke veya metadata alarmı görünmüyor.</p>
+            )}
+          </OwnerSectionCard>
+
+          <OwnerSectionCard
+            title="Warnings"
+            copy="Runtime/provisioning metadata uyarıları operational status'tan ayrı gösterilir; gerçek blocking issue varsa saklanmaz."
+            tone={warningItems.length > 0 ? "warning" : "success"}
+          >
+            {warningItems.length > 0 ? (
+              <div id="warnings" className="warning-banner-list">
+                {warningItems.map((warning) => (
+                  <div key={warning} className="owner-warning-banner">
+                    <strong>Warning</strong>
+                    <p>{warning}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p id="warnings" className="card-note">No warnings.</p>
             )}
           </OwnerSectionCard>
 
@@ -423,7 +402,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         <OwnerSectionHeader
           eyebrow="Identity"
           title="Store identity and domains"
-          copy="Mağaza kimliği, domainler ve audit zamanları teknik arama gerektirmeden okunur."
+          copy="Store name, slug, Store ID, storefront/admin domains ve audit zamanları teknik arama gerektirmeden okunur."
         />
         <OwnerSectionCard title="Identity">
           <div className="control-center-facts">
@@ -569,8 +548,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
           storeName={store.name}
           provisioning={provisioning}
           superAdmin={superAdmin}
-          repairDisabled={repairDisabled}
-          repairDisabledReason={repairDisabledReason}
+          repairDisabled
+          repairDisabledReason={repairActionLockedReason}
           metadataWarning={operationalStatus.metadataWarning}
         />
 
@@ -748,8 +727,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
             title="Vitrin Yayın Planı"
             actions={
               <>
-                <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} disabled={deployDisabled} disabledReason={deployDisabledReason} />
-                {superAdmin ? <RepairStoreDeploymentAuthorityButton slug={store.slug} disabled={repairDisabled} disabledReason={repairDisabledReason} /> : null}
+                <LaunchStorefrontButton slug={store.slug} currentStatus={store.storefrontStatus} disabled disabledReason={deployActionLockedReason} />
+                {superAdmin ? <RepairStoreDeploymentAuthorityButton slug={store.slug} disabled disabledReason={repairActionLockedReason} /> : null}
               </>
             }
           >
@@ -772,7 +751,7 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
 
           <OwnerSectionCard
             title="Admin Yayın Planı"
-            actions={adminDeployment ? <ProvisionAdminDeploymentButton slug={store.slug} currentStatus={adminDeployment.status} disabled={deployDisabled} disabledReason={deployDisabledReason} /> : null}
+            actions={adminDeployment ? <ProvisionAdminDeploymentButton slug={store.slug} currentStatus={adminDeployment.status} disabled disabledReason={deployActionLockedReason} /> : null}
           >
             {adminDeployment ? (
               <>
@@ -799,8 +778,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
               storefrontDomain={store.storefrontDomain}
               adminDomain={store.adminDomain}
               domainMigration={store.domainMigration}
-              disabled={deployDisabled}
-              disabledReason={deployDisabledReason}
+              disabled
+              disabledReason={deployActionLockedReason}
             />
           </OwnerSectionCard>
         ) : null}
@@ -978,8 +957,8 @@ export default async function StoreDetailPage({ params }: StoreDetailPageProps) 
         {superAdmin ? (
           <OwnerSectionCard title="Tehlikeli İşlem" copy="Bu mağaza silindiğinde owner kaydı, yayınlar, Legacy kaynaklar, R2 ve generated vitrin izleri temizlenir." tone="danger">
             <div className="store-danger-actions">
-              <DeleteStoreButton slug={store.slug} name={store.name} disabled={cleanupDisabled} disabledReason={cleanupDisabledReason} />
-              {cleanupDisabledReason ? <p className="form-notice form-notice-preview">{cleanupDisabledReason}</p> : null}
+              <DeleteStoreButton slug={store.slug} name={store.name} disabled disabledReason={cleanupActionLockedReason} />
+              <p className="form-notice form-notice-preview">{cleanupActionLockedReason}</p>
             </div>
           </OwnerSectionCard>
         ) : null}

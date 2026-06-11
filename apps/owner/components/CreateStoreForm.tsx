@@ -82,6 +82,7 @@ export function CreateStoreForm({
   const [error, setError] = useState<string | null>(null);
   const [showLegacyOptions, setShowLegacyOptions] = useState(false);
   const [isSlugDirty, setIsSlugDirty] = useState(false);
+  const [confirmLiveCreate, setConfirmLiveCreate] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -108,6 +109,11 @@ export function CreateStoreForm({
 
     if (disabled) {
       setError(disabledReason || "Önizleme ortamında yazma ve kurulum işlemleri kapalıdır.");
+      return;
+    }
+
+    if (!confirmLiveCreate) {
+      setError("Canlı mağaza oluşturma için preflight/confirm onayı işaretlenmelidir.");
       return;
     }
 
@@ -379,6 +385,8 @@ export function CreateStoreForm({
               <span>Storefront URL <strong>{storefrontUrlPreview}</strong></span>
               <span>Admin URL <strong>{adminUrlPreview}</strong></span>
               <span>Standart <strong>{form.databaseMode === "full_supabase" ? "Legacy" : "Postgres + Logto + Umami + R2"}</strong></span>
+              <span>Payment policy <strong>bank_transfer default / COD ops approval / card gateway required</strong></span>
+              <span>Supabase <strong>none / not used</strong></span>
               <span>Tema <strong>{form.theme}</strong></span>
               <span>Paket <strong>{form.packageDurationMonths || "1"} ay</strong></span>
             </div>
@@ -418,12 +426,21 @@ export function CreateStoreForm({
         </button>
         <div className="owner-wizard-footer-copy">
           <strong>{disabled ? "Önizleme Modu" : "Kurulum hazır"}</strong>
-          <span>{disabled ? "Yazma işlemleri kapalı" : "Yeni mağaza kaydı oluşturulabilir"}</span>
+          <span>{disabled ? "Yazma işlemleri kapalı" : "Canlı create preflight/confirm onayı gerektirir"}</span>
+          <label className="owner-confirm-toggle">
+            <input
+              type="checkbox"
+              checked={confirmLiveCreate}
+              disabled={disabled || isPending}
+              onChange={(event) => setConfirmLiveCreate(event.target.checked)}
+            />
+            <span>Preflight tamamlandı; gerçek mağaza oluşturmayı onaylıyorum</span>
+          </label>
         </div>
         <button
           type="submit"
           className={`button button-primary${disabledReason ? " button-preview-disabled" : ""}`}
-          disabled={disabled || isPending}
+          disabled={disabled || isPending || !confirmLiveCreate}
         >
           {isPending ? "Oluşturuluyor..." : "Mağaza Oluştur"}
         </button>

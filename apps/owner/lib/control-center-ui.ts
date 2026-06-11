@@ -43,6 +43,20 @@ function hasBlockingStep(steps: ProvisioningStepSummary[]): boolean {
   return steps.some((step) => (step.status === "failed" || step.status === "blocked") && step.blocking);
 }
 
+function hasFailedStep(steps: ProvisioningStepSummary[]): boolean {
+  return steps.some((step) => step.status === "failed" || step.status === "blocked");
+}
+
+function hasCompletedProvisioningEvidence(store: DashboardStoreSummary): boolean {
+  const steps = store.provisioning.steps;
+
+  if (steps.length === 0) {
+    return store.provisioning.pendingStepCount === 0 && store.provisioning.failedStepCount === 0;
+  }
+
+  return steps.every((step) => step.status === "completed" || step.status === "skipped");
+}
+
 function hasSmokePassed(smoke: StoreSmokeReport | null | undefined): boolean {
   return smoke?.overallStatus === "passed";
 }
@@ -63,18 +77,33 @@ function hasInfrastructureReady(store: DashboardStoreSummary): boolean {
   );
 }
 
+function hasOperationalProof(store: DashboardStoreSummary): boolean {
+  return (
+    hasSmokePassed(store.smoke) ||
+    store.health.adminRuntimeConsistent ||
+    store.health.adminDeploymentReady ||
+    store.health.storefrontRuntimeConsistent ||
+    store.health.storefrontReady ||
+    store.storefrontStatus === "active"
+  );
+}
+
 export function getOperationalStatus(store: DashboardStoreSummary): OperationalStatus {
   const blocking = store.consistency.blocking || hasBlockingStep(store.provisioning.steps);
   const smokePassed = hasSmokePassed(store.smoke);
   const smokeMissing = hasSmokeMissing(store.smoke);
   const infrastructureReady = hasInfrastructureReady(store);
+  const completedProvisioning = hasCompletedProvisioningEvidence(store);
+  const operationalProof = hasOperationalProof(store);
+  const failedSteps = store.provisioning.failedStepCount > 0 || hasFailedStep(store.provisioning.steps);
   const stalePendingRepair =
     store.provisioning.state === "pending_repair" &&
-    infrastructureReady &&
-    smokePassed &&
-    !blocking;
+    completedProvisioning &&
+    operationalProof &&
+    !blocking &&
+    !failedSteps;
 
-  if (blocking || store.provisioning.failedStepCount > 0) {
+  if (blocking || failedSteps) {
     return {
       label: "Needs Attention",
       tone: "danger",
@@ -89,9 +118,20 @@ export function getOperationalStatus(store: DashboardStoreSummary): OperationalS
     return {
       label: "Ready with metadata warning",
       tone: "warning",
-      note: "Store is operational; top-level provisioning metadata appears stale.",
+      note: "Store is operational; top-level provisioning/runtime metadata appears stale.",
       metadataWarning: true,
       smokeIncomplete: false,
+      needsAttention: false,
+    };
+  }
+
+  if (completedProvisioning && operationalProof && (!infrastructureReady || !smokePassed) && !blocking) {
+    return {
+      label: "Ready with metadata warning",
+      tone: "warning",
+      note: "Store is operational; top-level provisioning/runtime metadata may be stale.",
+      metadataWarning: true,
+      smokeIncomplete: smokeMissing && !smokePassed,
       needsAttention: false,
     };
   }
