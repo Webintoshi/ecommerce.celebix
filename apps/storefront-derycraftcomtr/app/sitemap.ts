@@ -1,6 +1,7 @@
 import { MetadataRoute } from "next";
 import { getAllPublishedContentPaths } from "@/lib/seo-content";
 import { getRequestOrigin } from "@/lib/request-origin";
+import { getProductSlug } from "@/lib/products";
 
 function buildAbsoluteUrl(pathname: string, siteUrl: string) {
   try {
@@ -32,14 +33,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.8,
     },
+    {
+      url: buildAbsoluteUrl("/urunler", siteUrl),
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.95,
+    },
   ];
 
   let contentPaths: Awaited<ReturnType<typeof getAllPublishedContentPaths>> = [];
+  let productSlugs: string[] = [];
 
   try {
     contentPaths = await getAllPublishedContentPaths();
   } catch (error) {
     console.error("Sitemap content paths could not be loaded:", error);
+  }
+
+  try {
+    productSlugs = await getProductSlug();
+  } catch (error) {
+    console.error("Sitemap product slugs could not be loaded:", error);
   }
 
   const contentPages: MetadataRoute.Sitemap = contentPaths.map((item) => ({
@@ -49,5 +63,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: item.path.split("/").length === 3 ? 0.8 : 0.7,
   }));
 
-  return [...staticPages, ...contentPages];
+  const productPages: MetadataRoute.Sitemap = productSlugs
+    .filter((slug) => typeof slug === "string" && slug.trim().length > 0)
+    .map((slug) => ({
+      url: buildAbsoluteUrl(`/urunler/${slug}`, siteUrl),
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    }));
+
+  return [...staticPages, ...contentPages, ...productPages];
 }
