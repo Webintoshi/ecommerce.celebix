@@ -210,6 +210,8 @@ export default async function StoresPage() {
   const createStoreDisabled = isOwnerActionDisabled("create_store", previewFlags);
   const deployDisabled = isOwnerActionDisabled("deploy", previewFlags);
   const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
+  const deployActionLockedReason =
+    deployDisabledReason || "Deploy ve repair mutasyonları ayrı onaylı deploy workflow'u üzerinden çalıştırılır.";
   const stores = previewFallback ? getPreviewDashboardStores() : await listDashboardStores(auth);
 
   const operationalStatuses = stores.map((store) => ({ store, status: getOperationalStatus(store) }));
@@ -308,7 +310,7 @@ export default async function StoresPage() {
       <OwnerSectionCard
         eyebrow="Portföy Listesi"
         title="Mağaza satırları"
-        copy="Her satır; mağaza kimliği, sağlık görünümü, bekleyen kurulum işleri ve hızlı detay erişimini aynı yüzeyde taşır."
+        copy="Her satır; DB, Auth, Storage, Analytics, Deploy, Smoke ve Payment status matrix alanlarını aynı yüzeyde taşır."
         actions={
           <>
             <OwnerStatusChip tone="ink">{stores.length} kayıt</OwnerStatusChip>
@@ -352,6 +354,12 @@ export default async function StoresPage() {
                   : store.smoke?.overallStatus === "failed"
                     ? "Smoke failed"
                     : "Smoke pending";
+              const portfolioHealthLabel = operationalStatus.metadataWarning
+                ? "Metadata warning"
+                : getPortfolioHealthLabel(store.health.label);
+              const portfolioHealthTone = operationalStatus.metadataWarning
+                ? "warning"
+                : getPortfolioHealthTone(store.health.label);
 
               return (
                 <article key={store.id} className="store-portfolio-card">
@@ -371,8 +379,8 @@ export default async function StoresPage() {
                         <OwnerStatusChip tone={getStoreStatusTone(store.status)}>
                           {getStoreStatusLabel(store.status)}
                         </OwnerStatusChip>
-                        <OwnerStatusChip tone={getPortfolioHealthTone(store.health.label)}>
-                          {getPortfolioHealthLabel(store.health.label)}
+                        <OwnerStatusChip tone={portfolioHealthTone}>
+                          {portfolioHealthLabel}
                         </OwnerStatusChip>
                         <OwnerStatusChip tone={operationalStatus.tone}>
                           {operationalStatus.label}
@@ -496,8 +504,8 @@ export default async function StoresPage() {
                         <LaunchStorefrontButton
                           slug={store.slug}
                           currentStatus={store.storefrontStatus}
-                          disabled={deployDisabled}
-                          disabledReason={deployDisabledReason}
+                          disabled
+                          disabledReason={deployActionLockedReason}
                         />
                       ) : null}
                     </div>

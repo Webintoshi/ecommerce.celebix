@@ -2031,6 +2031,22 @@ tbody td strong {
   font-size: 11px;
 }
 
+.owner-confirm-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.owner-confirm-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;

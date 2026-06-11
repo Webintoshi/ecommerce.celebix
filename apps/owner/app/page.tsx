@@ -7,7 +7,6 @@ import {
   OwnerSectionCard,
   OwnerStatusChip,
 } from "@/components/owner-control";
-import { repairOwnerDeploymentBranchOnce } from "@/lib/coolify-owner-deployment";
 import { getOperationalStatus, summarizeSystemReadiness } from "@/lib/control-center-ui";
 import { getOwnerDashboard } from "@/lib/control-plane";
 import { formatCurrency, formatDateTime } from "@/lib/formatters";
@@ -34,10 +33,6 @@ export default async function OwnerDashboardPage() {
   const deployDisabled = isOwnerActionDisabled("deploy", previewFlags);
   const repairDisabled = isOwnerActionDisabled("repair", previewFlags);
   const deployDisabledReason = getOwnerPreviewDisabledNotice("deploy", previewFlags) ?? undefined;
-
-  if (superAdmin && !repairDisabled) {
-    await repairOwnerDeploymentBranchOnce();
-  }
 
   let dashboardError: string | null = null;
   let dashboard: Awaited<ReturnType<typeof getOwnerDashboard>> | null = null;
