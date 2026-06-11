@@ -372,10 +372,10 @@ export function Header({
       onMouseLeave={scheduleMegaMenuClose}
     >
       <div className="container-premium">
-        <div className="relative flex h-[4.5rem] items-center lg:h-[5.5rem]">
+        <div className="flex h-[4.5rem] items-center lg:grid lg:h-[5.5rem] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
           <Link
             href={buildPath(ROUTES.home)}
-            className="relative z-20 flex-shrink-0"
+            className="flex-shrink-0"
             aria-label={logoAlt}
           >
             {logoSrc ? (
@@ -406,7 +406,7 @@ export function Header({
           </Link>
 
           <nav
-            className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-4 lg:flex xl:gap-6"
+            className="hidden items-center justify-center gap-4 lg:flex xl:gap-6"
             onMouseEnter={() => {
               if (megaMenuCloseTimer.current) {
                 window.clearTimeout(megaMenuCloseTimer.current);
@@ -483,7 +483,7 @@ export function Header({
 
           </nav>
 
-          <div className="relative z-20 ml-auto flex items-center gap-4 sm:gap-5 lg:gap-6">
+          <div className="ml-auto flex items-center gap-4 sm:gap-5 lg:ml-0 lg:justify-self-end lg:gap-6">
             {isAuthenticated ? (
               <Link
                 href={buildPath("/hesap")}
