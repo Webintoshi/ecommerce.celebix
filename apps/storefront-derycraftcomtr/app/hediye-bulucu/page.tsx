@@ -39,7 +39,7 @@ export default async function GiftFinderPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
-      <div className="container-premium py-10 sm:py-12 lg:py-14">
+      <div className="container-premium py-8 sm:py-10 lg:py-12">
         <GiftFinderExperience products={translatedProducts} />
       </div>
     </div>

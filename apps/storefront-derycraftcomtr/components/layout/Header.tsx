@@ -18,6 +18,7 @@ import {
   HeaderIconBag,
   HeaderIconChevron,
   HeaderIconClose,
+  HeaderIconGift,
   HeaderIconMenu,
   HeaderIconSearch,
 } from "@/components/layout/HeaderIcons";
@@ -240,16 +241,6 @@ export function Header({
                 </div>
 
                 <nav className="flex-1 overflow-y-auto px-6 pb-40">
-                  <div className="border-b border-neutral-200/80">
-                    <Link
-                      href={buildPath(ROUTES.giftFinder)}
-                      className="block py-5 font-serif text-[15px] uppercase tracking-[0.12em] text-[#8B6914]"
-                      onClick={closeMenu}
-                    >
-                      Hediye Bulucu
-                    </Link>
-                  </div>
-
                   {navigationCategories.map((category) => {
                     const localizedCategoryName = getLocalizedCategoryLabel(
                       category.slug,
@@ -490,9 +481,6 @@ export function Header({
               );
             })}
 
-            <Link href={buildPath(ROUTES.giftFinder)} className={NAV_LINK_CLASS}>
-              Hediye Bulucu
-            </Link>
           </nav>
 
           <div className="ml-auto flex items-center gap-4 sm:gap-5 lg:ml-0 lg:justify-self-end lg:gap-6">
@@ -513,6 +501,14 @@ export function Header({
                 <HeaderIconAccount size={24} />
               </a>
             )}
+
+            <Link
+              href={buildPath(ROUTES.giftFinder)}
+              className="header-utility-icon inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-neutral-950 transition-opacity hover:opacity-55"
+              aria-label="Hediye bulucu"
+            >
+              <HeaderIconGift size={24} />
+            </Link>
 
             <UtilityIconButton aria-label={copy.searchLabel} onClick={openSearch}>
               <HeaderIconSearch size={24} />

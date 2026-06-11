@@ -107,6 +107,37 @@ export function HeaderIconClose({ className, size = 22 }: HeaderIconProps) {
   );
 }
 
+export function HeaderIconGift({ className, size = 22 }: HeaderIconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={cn("shrink-0", className)}
+      {...iconSize(size)}
+    >
+      <path
+        d="M12 8.25v12.5M7.25 8.25h9.5M5.75 12h12.5M5.75 15.25h12.5"
+        stroke="currentColor"
+        strokeWidth={STROKE}
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 8.25c0-2.2 1.65-3.75 3.35-3.75 1.45 0 2.4 1.05 2.4 2.45 0 1.55-1.35 1.3-2.4 1.3H12Zm0 0c0-2.2-1.65-3.75-3.35-3.75-1.45 0-2.4 1.05-2.4 2.45 0 1.55 1.35 1.3 2.4 1.3H12Z"
+        stroke="currentColor"
+        strokeWidth={STROKE}
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.75 8.25h12.5v3.75H5.75V8.25Z"
+        stroke="currentColor"
+        strokeWidth={STROKE}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function HeaderIconChevron({ className, size = 12 }: HeaderIconProps) {
   return (
     <svg
