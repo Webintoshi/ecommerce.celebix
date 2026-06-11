@@ -91,8 +91,7 @@ export const DEFAULT_GIFT_FINDER_FILTERS: GiftFinderFilters = {
   occasion: "icimden-geldi",
 };
 
-export const GIFT_FINDER_HERO_IMAGE =
-  "https://pub-4a729225991f4b33aa7ab5c294391cec.r2.dev/products/imported/deri-ruj-kutusu/1774967363278-DSCF2816_fb221a30-3b5e-4057-b426-9c9648d0c92e.jpg";
+export const GIFT_FINDER_HERO_IMAGE = "/gift-finder-hero.png";
 
 /** Small static asset for header icon — avoids remote transform/proxy failures. */
 export const GIFT_FINDER_HEADER_ICON = "/gift-finder-header-icon.png";

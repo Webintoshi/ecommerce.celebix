@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
 import { GiftFinderDropdown } from "@/components/gift-finder/GiftFinderDropdown";
-import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
 import {
   DEFAULT_GIFT_FINDER_FILTERS,
@@ -34,8 +33,7 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
   const [hasSearched, setHasSearched] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const heroImageSrc = resolveStorefrontAssetUrl(GIFT_FINDER_HERO_IMAGE);
-  const usesProxiedHeroImage = isProxiedStorefrontAssetUrl(heroImageSrc);
+  const heroImageSrc = GIFT_FINDER_HERO_IMAGE;
 
   const results = useMemo(() => {
     if (!hasSearched || !filters.recipient) {
@@ -163,17 +161,13 @@ export function GiftFinderExperience({ products }: GiftFinderExperienceProps) {
           <div className="relative min-h-[240px] overflow-hidden bg-[#F0E8DC] sm:min-h-[260px] lg:min-h-full">
             <Image
               src={heroImageSrc}
-              alt="DeryCraft deri ruj kutusu hediye koleksiyonu"
+              alt="DeryCraft hediye koleksiyonu"
               fill
               priority
-              unoptimized={usesProxiedHeroImage || heroImageSrc.startsWith("http")}
               className="object-cover object-center"
               sizes="(max-width: 1024px) 100vw, 36vw"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,253,251,0.18),transparent_38%)]" />
-            <span className="absolute bottom-5 left-5 border border-white/35 bg-neutral-950/50 px-3.5 py-2 text-[9px] font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-[2px]">
-              El yapımı deri
-            </span>
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,253,251,0.12),transparent_32%)]" />
           </div>
         </div>
       </section>
