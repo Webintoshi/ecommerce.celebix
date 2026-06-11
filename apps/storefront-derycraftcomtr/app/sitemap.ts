@@ -3,6 +3,9 @@ import { getAllPublishedContentPaths } from "@/lib/seo-content";
 import { getRequestOrigin } from "@/lib/request-origin";
 import { maybeListStorefrontProducts } from "@/lib/db/light-postgres-storefront-read";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function buildAbsoluteUrl(pathname: string, siteUrl: string) {
   try {
     return new URL(pathname, siteUrl).toString();
