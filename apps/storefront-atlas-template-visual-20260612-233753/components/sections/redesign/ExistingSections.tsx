@@ -74,11 +74,11 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(138,104,71,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(20,13,8,0.12),_transparent_35%)]" />
         <div className="relative mx-auto flex min-h-[620px] max-w-[1500px] min-w-0 flex-col justify-center overflow-hidden px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
           <div className="grid items-center gap-12 lg:grid-cols-[0.92fr_1.08fr]">
-            <div className="max-w-2xl">
+            <div className="max-w-2xl min-w-0">
               <span className="inline-flex rounded-full border border-[#7B1113]/15 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7B1113]">
                 {DEFAULT_DEMO_THEME.heroEyebrow}
               </span>
-              <h1 className="mt-6 font-serif text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-[#17110D] sm:text-5xl lg:text-6xl">
+              <h1 className="mt-6 max-w-full break-words font-serif text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-[#17110D] [overflow-wrap:anywhere] sm:text-5xl lg:text-6xl">
                 {SITE_NAME}
                 <span className="mt-3 block text-[#8A6847]">{DEFAULT_DEMO_THEME.heroTitle}</span>
               </h1>
