@@ -128,7 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (customerAuthMode === "logto") {
       const url = new URL("/api/auth/sign-in", window.location.origin);
       url.searchParams.set("next", "/hesap");
-      url.searchParams.set("firstScreen", "sign_in");
+      url.searchParams.set("firstScreen", "identifier:sign-in");
+      url.searchParams.set("identifier", "email");
       if (email.trim()) {
         url.searchParams.set("login_hint", email.trim());
       }

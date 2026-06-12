@@ -143,7 +143,7 @@ export function Header() {
             {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <Link href={buildPath(ROUTES.home)} className="flex-shrink-0" aria-label={logoAlt}>
+          <Link href={buildPath(ROUTES.home)} className="min-w-0 flex-shrink" aria-label={logoAlt}>
             {logoSrc ? (
               <div className="relative h-7 w-[104px] sm:h-8 sm:w-[118px] lg:h-8 lg:w-[128px]">
                 <Image
@@ -157,7 +157,7 @@ export function Header() {
                 />
               </div>
             ) : (
-              <span className="font-serif text-base font-medium text-neutral-900 lg:text-lg">
+              <span className="block max-w-[min(48vw,18rem)] truncate font-serif text-base font-medium text-neutral-900 lg:max-w-[20rem] lg:text-lg">
                 {logoAlt}
               </span>
             )}
@@ -255,7 +255,7 @@ export function Header() {
               <div key={category.id} className="space-y-2">
                 <Link
                   href={buildPath(ROUTES.category(category.slug))}
-                  className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                  className="store-nav-text block break-words text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {getLocalizedCategoryLabel(category.slug, category.name, locale)}
@@ -267,7 +267,7 @@ export function Header() {
                       <Link
                         key={subcategory.id}
                         href={buildPath(ROUTES.category(subcategory.slug))}
-                        className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                        className="store-nav-text block break-words text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         {subcategory.name}
@@ -280,7 +280,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={buildPath(link.href)}
-                className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                className="store-nav-text block break-words text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
                 onClick={() => setIsMenuOpen(false)}
               >
                 {link.name}

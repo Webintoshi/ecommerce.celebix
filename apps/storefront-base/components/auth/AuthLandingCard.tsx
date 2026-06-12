@@ -86,8 +86,8 @@ export function AuthLandingCard({
           </div>
         </div>
 
-        <div className="order-1 space-y-6 lg:order-2">
-          <Link href="/" className="inline-flex font-serif text-3xl font-semibold tracking-[-0.04em] text-[#140D08]">
+        <div className="order-1 min-w-0 space-y-6 lg:order-2">
+          <Link href="/" className="inline-flex max-w-full break-words font-serif text-3xl font-semibold tracking-[-0.04em] text-[#140D08] [overflow-wrap:anywhere]">
             {SITE_NAME}
           </Link>
           <div className="relative aspect-[4/5] overflow-hidden rounded-[44px] shadow-[0_36px_110px_-62px_rgba(24,17,11,0.62)]">
