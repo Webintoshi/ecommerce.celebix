@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -49,6 +49,8 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
     description: existingCategory?.description || "",
     image: existingCategory?.image || "",
     icon: existingCategory?.icon || "🥜",
+    seo_title: existingCategory?.seo_title || "",
+    seo_description: existingCategory?.seo_description || "",
   });
 
   // Parent category feature disabled - requires database update
@@ -352,6 +354,33 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
             </div>
           </div>
         </div>
+
+          {/* SEO */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">SEO</h2>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">SEO Bas[0x15F]l[0x131][0x11F][0x131] <span className="text-gray-400 text-xs font-normal">(bo[0x15F] birakilirsa kategori adi kullanilir)</span></label>
+              <input
+                type="text"
+                value={formData.seo_title || ""}
+                onChange={(e) => setFormData(prev => ({ ...prev, seo_title: e.target.value }))}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm"
+                placeholder="Ornek: Bund Apple Watch Kayisi | El Yapimi Deri - DeryCraft"
+                maxLength={80}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Meta Aciklama <span className="text-gray-400 text-xs font-normal">(Google aramada cikan 1-2 cumle)</span></label>
+              <textarea
+                value={formData.seo_description || ""}
+                onChange={(e) => setFormData(prev => ({ ...prev, seo_description: e.target.value }))}
+                rows={2}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm resize-none"
+                placeholder="Ornek: El yapimi deri Bund Apple Watch kayislarimizi kesfet. Vegetal deri, ucretsiz kargo."
+                maxLength={200}
+              />
+            </div>
+          </div>
 
         {/* Sidebar */}
         <div className="space-y-6">

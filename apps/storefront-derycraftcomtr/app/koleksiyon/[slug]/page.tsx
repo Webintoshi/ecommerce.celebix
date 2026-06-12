@@ -1,4 +1,4 @@
-import { Metadata } from "next";
+﻿import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { runCategoriesQuery } from "@/lib/categories-query-compat";
 import { runProductsQuery } from "@/lib/products-query-compat";
@@ -546,11 +546,11 @@ export async function generateMetadata({
   return buildStorePageMetadata({
     locale,
     pathname: `/${category.slug}`,
-    title: translatedCategory.seo_title || translatedCategory.name,
+    title: translatedCategory.seo_title || `${translatedCategory.name} | DeryCraft`,
     description:
       translatedCategory.seo_description ||
       translatedCategory.description ||
-      `${translatedCategory.name} kategorisindeki urunleri kesfedin.`,
+      `${translatedCategory.name} kategorisindeki el yapimi deri urunleri kesfet. Ucretsiz kargo, hizli teslimat.`,
     keywords: category.seo_keywords,
     image: translatedCategory.image,
     type: "website",

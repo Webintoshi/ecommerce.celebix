@@ -1,4 +1,4 @@
-import { CategoryInfo } from "@/types/product";
+﻿import { CategoryInfo } from "@/types/product";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 
 type CategoryAdminInput = Omit<CategoryInfo, "id" | "productCount"> & {
@@ -7,6 +7,8 @@ type CategoryAdminInput = Omit<CategoryInfo, "id" | "productCount"> & {
   is_active?: boolean;
   seo_title?: string;
   seo_description?: string;
+  seo_keywords?: string[] | null;
+  seo_keywords?: string[];
 };
 
 function getSupabase() {
@@ -82,6 +84,7 @@ function mapCategory(data: Record<string, any>): CategoryInfo {
     is_active: data.is_active !== false,
     seo_title: data.seo_title || "",
     seo_description: data.seo_description || "",
+    seo_keywords: data.seo_keywords || null,
   };
 }
 
@@ -197,6 +200,8 @@ export async function addCategory(category: CategoryAdminInput): Promise<void> {
     is_active: category.is_active !== false,
     seo_title: category.seo_title || null,
     seo_description: category.seo_description || null,
+    seo_keywords: category.seo_keywords || null,
+    seo_keywords: category.seo_keywords || null,
   };
 
   while (true) {
@@ -226,6 +231,8 @@ export async function updateCategory(id: string, updatedCategory: Partial<Catego
     is_active: updatedCategory.is_active !== false,
     seo_title: updatedCategory.seo_title || null,
     seo_description: updatedCategory.seo_description || null,
+    seo_keywords: updatedCategory.seo_keywords || null,
+    seo_keywords: updatedCategory.seo_keywords || null,
   };
 
   while (true) {
