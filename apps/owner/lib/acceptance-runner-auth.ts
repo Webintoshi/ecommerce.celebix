@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import type { OwnerAuthContext } from "@/lib/owner-auth";
 import { predictStoreSlug } from "@/lib/owner-store-create-service";
 
-const DEFAULT_ALLOWED_SLUG_PREFIX = "atlas-product-ready-";
+const DEFAULT_ALLOWED_SLUG_PREFIXES = ["atlas-product-ready-", "atlas-final-acceptance-"] as const;
 const ACCEPTANCE_RUNNER_EMAIL = "owner-acceptance-runner@internal.celebix";
 const ACCEPTANCE_RUNNER_ID = "00000000-0000-0000-0000-000000000000";
 const FORBIDDEN_SLUG_PATTERNS = [
@@ -48,8 +48,21 @@ export interface AcceptanceSlugPolicyFailure {
   message: string;
 }
 
+export function getAcceptanceAllowedSlugPrefixes(): string[] {
+  const configuredPrefixes = process.env.OWNER_ACCEPTANCE_ALLOWED_SLUG_PREFIX?.trim();
+  const prefixes = configuredPrefixes
+    ? configuredPrefixes.split(/[,\s]+/).map((prefix) => prefix.trim()).filter(Boolean)
+    : [...DEFAULT_ALLOWED_SLUG_PREFIXES];
+
+  return [...new Set(prefixes)].length > 0 ? [...new Set(prefixes)] : [...DEFAULT_ALLOWED_SLUG_PREFIXES];
+}
+
 export function getAcceptanceAllowedSlugPrefix(): string {
-  return process.env.OWNER_ACCEPTANCE_ALLOWED_SLUG_PREFIX?.trim() || DEFAULT_ALLOWED_SLUG_PREFIX;
+  return getAcceptanceAllowedSlugPrefixes()[0] ?? DEFAULT_ALLOWED_SLUG_PREFIXES[0];
+}
+
+function formatAllowedPrefixes(prefixes: string[]): string {
+  return prefixes.join(", ");
 }
 
 function getAcceptanceRunnerToken(): string | null {
@@ -112,7 +125,8 @@ export function authorizeAcceptanceRunner(request: Request): AcceptanceRunnerAut
 }
 
 export function validateAcceptanceRunnerSlug(rawSlug: unknown): AcceptanceSlugPolicySuccess | AcceptanceSlugPolicyFailure {
-  const allowedPrefix = getAcceptanceAllowedSlugPrefix();
+  const allowedPrefixes = getAcceptanceAllowedSlugPrefixes();
+  const allowedPrefix = formatAllowedPrefixes(allowedPrefixes);
   const slug = typeof rawSlug === "string" ? predictStoreSlug(rawSlug, rawSlug) : "";
 
   if (!slug) {
@@ -135,13 +149,15 @@ export function validateAcceptanceRunnerSlug(rawSlug: unknown): AcceptanceSlugPo
     };
   }
 
-  if (!slug.startsWith(allowedPrefix)) {
+  const matchedAllowedPrefix = allowedPrefixes.find((prefix) => slug.startsWith(prefix));
+
+  if (!matchedAllowedPrefix) {
     return {
       ok: false,
       slug,
       allowedPrefix,
       reason: "prefix_forbidden",
-      message: `Acceptance runner sadece ${allowedPrefix} prefix'i ile calisir.`,
+      message: `Acceptance runner sadece ${allowedPrefix} prefixleri ile calisir.`,
     };
   }
 
@@ -158,7 +174,7 @@ export function validateAcceptanceRunnerSlug(rawSlug: unknown): AcceptanceSlugPo
   return {
     ok: true,
     slug,
-    allowedPrefix,
+    allowedPrefix: matchedAllowedPrefix,
   };
 }
 
