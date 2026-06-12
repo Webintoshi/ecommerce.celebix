@@ -4,7 +4,11 @@ import crypto from "node:crypto";
 import type { OwnerAuthContext } from "@/lib/owner-auth";
 import { predictStoreSlug } from "@/lib/owner-store-create-service";
 
-const DEFAULT_ALLOWED_SLUG_PREFIXES = ["atlas-product-ready-", "atlas-final-acceptance-"] as const;
+const DEFAULT_ALLOWED_SLUG_PREFIXES = [
+  "atlas-product-ready-",
+  "atlas-final-acceptance-",
+  "atlas-template-visual-",
+] as const;
 const ACCEPTANCE_RUNNER_EMAIL = "owner-acceptance-runner@internal.celebix";
 const ACCEPTANCE_RUNNER_ID = "00000000-0000-0000-0000-000000000000";
 const FORBIDDEN_SLUG_PATTERNS = [

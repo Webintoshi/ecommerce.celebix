@@ -12,6 +12,7 @@ import { useCart } from "@/lib/cart-context";
 import { useWishlist } from "@/lib/wishlist-context";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { extractPlainTextFromProductDescription } from "@/lib/product-description";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
 
 interface QuickViewContextType {
   quickViewProduct: Product | null;
@@ -160,11 +161,7 @@ function QuickViewModal({ product, onClose }: { product: Product; onClose: () =>
                   priority
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-7xl md:text-8xl">
-                  {product.category === "fistik-ezmesi" && "🥜"}
-                  {product.category === "findik-ezmesi" && "🌰"}
-                  {product.category === "kuruyemis" && "🥔"}
-                </div>
+                <DefaultDemoPlaceholder id="placeholder-07" label={product.name} />
               )}
 
               {/* Image Navigation Arrows */}

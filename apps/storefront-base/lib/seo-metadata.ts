@@ -111,7 +111,10 @@ function buildPageTitle(title: string, titleSuffix: string) {
 export async function getStoreSeoContext(locale: StorefrontLocale): Promise<StoreSeoContext> {
   const [storeInfo, seoSettings] = await Promise.all([getStoreInfo(), getSeoSettings()]);
   const copy = getLocalizedCopy(locale);
-  const siteName = normalizeTitle(seoSettings.siteName) || storeInfo.name || STOREFRONT_RUNTIME.name;
+  const siteName =
+    normalizeTitle(seoSettings.siteName) ||
+    normalizeTitle(storeInfo?.name) ||
+    STOREFRONT_RUNTIME.name;
   const titleSuffix = normalizeTitle(seoSettings.titleSuffix) || siteName;
   const rawDefaultTitle = normalizeTitle(seoSettings.defaultTitle) || copy.siteTitle || siteName;
   const rawDefaultDescription =

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
 
 interface ImageGalleryProps {
   images: string[];
@@ -50,13 +51,8 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   if (displayImages.length === 0) {
     return (
-      <div className="relative aspect-square flex flex-col items-center justify-center bg-[#F8F8F8]">
-        <svg className="w-20 h-20 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5" strokeWidth="2"/>
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeWidth="2"/>
-        </svg>
-        <p className="text-sm font-medium text-gray-500">Henüz görsel eklenmemiş</p>
+      <div className="relative aspect-square overflow-hidden bg-[#F8F8F8]">
+        <DefaultDemoPlaceholder id="placeholder-07" label={productName} />
       </div>
     );
   }
@@ -262,12 +258,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
             <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" />
           )}
           {currentStatus === 'error' ? (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-              <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l4.586-4.586a2 2 0 012.828 0L20 14M10 4v4m0 0H4m6 0h6" />
-              </svg>
-              <p className="text-sm text-gray-500">Görsel yüklenemedi</p>
-            </div>
+            <DefaultDemoPlaceholder id="placeholder-07" label={productName} />
           ) : (
             <img
               ref={mainImageRef}
@@ -390,12 +381,11 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
           {/* Error state */}
           {currentStatus === 'error' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-              <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l4.586-4.586a2 2 0 012.828 0L20 14M10 4v4m0 0H4m6 0h6" />
-              </svg>
-              <p className="text-sm text-gray-500">Görsel yüklenemedi</p>
-            </div>
+            <DefaultDemoPlaceholder
+              id="placeholder-07"
+              label={productName}
+              className="absolute inset-0"
+            />
           )}
 
           {/* Main image - always render, opacity based on status */}

@@ -9,6 +9,7 @@ import { useStoreInfo } from "@/lib/store-info-context";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { DEFAULT_DEMO_CATEGORIES } from "@/lib/default-demo-theme";
 import type { PolicyFooterLink } from "@/lib/policy-pages";
 import {
   LOCALE_LABELS,
@@ -20,6 +21,10 @@ type FooterCategory = {
   id: string;
   name: string;
   slug: string;
+};
+
+type FooterVisibleCategory = FooterCategory & {
+  href?: string;
 };
 
 export function Footer() {
@@ -45,6 +50,15 @@ export function Footer() {
   const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
   const instagramUrl = storeInfo?.socialInstagram || SOCIAL_LINKS.instagram;
   const youtubeUrl = SOCIAL_LINKS.youtube || SOCIAL_LINKS.instagram;
+  const visibleCategoryLinks: FooterVisibleCategory[] =
+    categoryLinks.length > 0
+      ? categoryLinks
+      : DEFAULT_DEMO_CATEGORIES.map((category) => ({
+          id: category.id,
+          name: category.name,
+          slug: category.slug,
+          href: category.href,
+        }));
 
   useEffect(() => {
     let isMounted = true;
@@ -234,10 +248,10 @@ export function Footer() {
               {copy.categoriesHeading}
             </p>
             <ul className="space-y-3">
-              {categoryLinks.map((link) => (
+              {visibleCategoryLinks.map((link) => (
                 <li key={link.id}>
                   <Link
-                    href={buildPath(`/${link.slug}`)}
+                    href={buildPath(link.href || `/${link.slug}`)}
                     className="text-sm text-gray-400 transition-colors hover:text-white"
                   >
                     {link.name}

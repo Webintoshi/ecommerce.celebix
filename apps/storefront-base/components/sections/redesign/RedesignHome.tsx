@@ -1,13 +1,16 @@
 import { CategoriesSection } from "./CategoriesSection";
 import { HeroSection } from "./ExistingSections";
+import { BlogPreviewSection } from "./BlogPreviewSection";
 import { ProductShowcaseSections } from "./ProductShowcaseSections";
 import { StoreLocationsSection } from "./StoreLocationsSection";
 import { TestimonialsSection } from "./TestimonialsSection";
 import type { HomepageData } from "@/lib/homepage";
+import type { BlogPost } from "@/types/blog";
 
 interface RedesignHomeProps {
   data: HomepageData;
   storesHref: string;
+  blogPosts?: BlogPost[];
   uiCopy?: {
     categoriesEyebrow?: string;
     categoriesHeading?: string;
@@ -25,7 +28,7 @@ interface RedesignHomeProps {
   };
 }
 
-export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeProps) {
+export default function RedesignHome({ data, storesHref, blogPosts = [], uiCopy }: RedesignHomeProps) {
   return (
     <main className="min-h-screen bg-[#F8F8F8F8]">
       <HeroSection slides={data.heroBanners || []} />
@@ -50,6 +53,7 @@ export default function RedesignHome({ data, storesHref, uiCopy }: RedesignHomeP
         heroBanners={data.heroBanners}
         promoBanners={data.promoBanners}
       />
+      <BlogPreviewSection posts={blogPosts} />
       <TestimonialsSection
         heading={uiCopy?.testimonialsHeading}
         countLabel={uiCopy?.testimonialsCountLabel}

@@ -28,31 +28,6 @@ export async function fetchCategories(locale: StorefrontLocale = DEFAULT_LOCALE)
   }
 }
 
-export async function fetchCategoriesServer() {
-  const { createServerClient } = await import("@/lib/supabase");
-  const supabase = createServerClient();
-
-  const { data, error } = await runCategoriesQuery((includeIsActiveFilter) => {
-    let query = supabase
-      .from("categories")
-      .select("*")
-      .order("sort_order", { ascending: true });
-
-    if (includeIsActiveFilter) {
-      query = query.eq("is_active", true);
-    }
-
-    return query;
-  });
-
-  if (error) {
-    console.error("Error fetching categories:", error);
-    return [];
-  }
-
-  return data || [];
-}
-
 export async function fetchCategoryBySlug(slug: string): Promise<CategoryInfo | null> {
   const supabase = getSupabase();
 

@@ -4,6 +4,8 @@ import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Package } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
+import { DEFAULT_DEMO_PRODUCT_CARDS } from "@/lib/default-demo-theme";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
 import { Product } from "@/types/product";
 
@@ -62,12 +64,28 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
               <Package className="h-8 w-8 text-neutral-400" />
             </div>
             <h3 className="mb-2 text-xl font-medium text-neutral-900">
-              Ürün vitrini hazır
+              Ürün vitrini keşfe hazır
             </h3>
             <p className="mx-auto max-w-lg text-sm leading-7 text-neutral-500">
-              Adminde yayınlanan ilk ürünler geldiği anda bu alan premium ürün
-              kartlarıyla otomatik dolar.
+              İlk canlı ürünler yayınlanana kadar bu demo seçki mağazanın boş
+              görünmesini engeller ve ziyaretçiye net bir alışveriş yönü verir.
             </p>
+            <div className="mx-auto mt-8 grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {DEFAULT_DEMO_PRODUCT_CARDS.map((card) => (
+                <div key={card.id} className="overflow-hidden rounded-[24px] border border-neutral-100 bg-white text-left">
+                  <div className="aspect-square">
+                    <DefaultDemoPlaceholder id={card.placeholder} label={card.title} compact />
+                  </div>
+                  <div className="p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8A6847]">
+                      {card.eyebrow}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-neutral-900">{card.title}</p>
+                    <p className="mt-1 text-xs text-neutral-500">{card.priceLabel}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </motion.div>
         ) : (
           <>

@@ -103,6 +103,8 @@ export interface ProductVariant {
   barcode?: string;
   groupName?: string; // "Gramaj", "Renk"
   images?: string[];
+  attributes?: Array<Record<string, unknown>>;
+  raw_attributes?: Array<Record<string, unknown>>;
   unit?: "adet" | "kg" | "g" | "lt" | "ml" | "paket" | "kutu";
   maxPurchaseQuantity?: number;
   warehouseLocation?: string;

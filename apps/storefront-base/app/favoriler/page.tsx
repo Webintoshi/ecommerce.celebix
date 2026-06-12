@@ -5,6 +5,7 @@ import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
 import { useCart } from "@/lib/cart-context";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
 
 export default function WishlistPage() {
   const { items, removeFromWishlist, clearWishlist, getTotalItems } = useWishlist();
@@ -76,9 +77,12 @@ export default function WishlistPage() {
               {/* Product Image */}
               <Link href={`/urunler/${product.slug}`} className="block">
                 <div className="aspect-square bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center text-6xl relative overflow-hidden">
-                  {product.category === "fistik-ezmesi" && "🥜"}
-                  {product.category === "findik-ezmesi" && "🌰"}
-                  {product.category === "kuruyemis" && "🥔"}
+                  <DefaultDemoPlaceholder
+                    id="placeholder-07"
+                    label={product.name}
+                    compact
+                    className="absolute inset-0"
+                  />
                   
                   {/* Remove Button */}
                   <button

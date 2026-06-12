@@ -2,7 +2,7 @@ import {
   getManagedContentPageDefinition,
   isManagedContentPageSlug,
   type ManagedContentPageSlug,
-} from "@celebix/platform-config";
+} from "@celebix/platform-config/src/content-pages";
 import {
   extractPlainTextFromProductDescription,
   normalizeProductDescriptionHtml,

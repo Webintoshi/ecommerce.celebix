@@ -4,7 +4,7 @@ import {
   getPolicyPageLabel,
   isPolicyPageSlug,
   type PolicyPageSlug,
-} from "@celebix/platform-config";
+} from "@celebix/platform-config/src/policy-pages";
 import type { StorefrontLocale } from "@/lib/i18n";
 import { createServerClient } from "@/lib/supabase";
 import type { PageGEO, StaticPage } from "@/types/page";

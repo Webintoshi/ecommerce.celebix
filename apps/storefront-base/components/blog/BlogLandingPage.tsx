@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, Clock3, FolderOpen, Sparkles } from "lucide-react";
 import { BLOG_CATEGORIES } from "@/lib/blog";
 import { resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
 import { formatDate } from "@/lib/utils";
 import type { StorefrontProfile } from "@/lib/storefront-profile";
 import type { BlogPost } from "@/types/blog";
@@ -52,15 +53,13 @@ function BlogCover({
   }
 
   return (
-    <div
-      className={`flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(191,137,74,0.28),_transparent_52%),linear-gradient(135deg,#1B1410_0%,#2F1D14_45%,#8A6847_100%)] text-[4rem] text-white ${className || ""}`}
-    >
-      <div className="flex flex-col items-center gap-3">
-        <span>{category?.icon || "•"}</span>
-        <span className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">
-          {category?.name || "Blog"}
-        </span>
-      </div>
+    <div className={`relative overflow-hidden ${className || ""}`}>
+      <DefaultDemoPlaceholder
+        id="placeholder-11"
+        label={category?.name || "Blog"}
+        compact
+        className="absolute inset-0"
+      />
     </div>
   );
 }
@@ -155,6 +154,9 @@ export function BlogLandingPage({
       <section className="mx-auto max-w-7xl px-6 pb-20 lg:px-8">
         {posts.length === 0 ? (
           <div className="rounded-[32px] border border-dashed border-black/10 bg-white/70 px-8 py-20 text-center shadow-[0_24px_80px_-58px_rgba(24,17,11,0.35)]">
+            <div className="mx-auto mb-7 h-40 max-w-md overflow-hidden rounded-[28px]">
+              <DefaultDemoPlaceholder id="placeholder-11" label="Blog rehberi" compact />
+            </div>
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#8A6847]/10 text-[#8A6847]">
               <Sparkles className="h-7 w-7" />
             </div>

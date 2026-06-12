@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useState } from "react";
 import { resolveStorefrontAssetUrl, isProxiedStorefrontAssetUrl } from "@/lib/asset-url";
 import { ROUTES } from "@/lib/constants";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
+import {
+  DEFAULT_DEMO_CATEGORIES,
+  getCategoryPlaceholder,
+  type DefaultPlaceholderId,
+} from "@/lib/default-demo-theme";
 
 interface HomepageCategory {
   id: string;
@@ -26,23 +32,25 @@ export function CategoriesSection({
 }: CategoriesSectionProps) {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
-  const displayCategories = initialCategories
+  const hasRealCategories = initialCategories.some((category) => category.slug && category.name);
+  const sourceCategories = hasRealCategories ? initialCategories : DEFAULT_DEMO_CATEGORIES;
+  const displayCategories = sourceCategories
     .filter((category) => category.slug && category.name)
-    .map((category) => {
-      const resolvedImage = resolveStorefrontAssetUrl(category.image);
+    .map((category, index) => {
+      const resolvedImage = resolveStorefrontAssetUrl("image" in category ? category.image : null);
 
       return {
         id: category.id,
         name: category.name,
-        link: ROUTES.category(category.slug),
+        link: "href" in category ? category.href : ROUTES.category(category.slug),
         image: resolvedImage || null,
         usesProxiedImage: resolvedImage ? isProxiedStorefrontAssetUrl(resolvedImage) : false,
+        placeholder: ("imagePlaceholder" in category
+          ? category.imagePlaceholder
+          : getCategoryPlaceholder(index)) as DefaultPlaceholderId,
+        productCount: "productCount" in category ? category.productCount : undefined,
       };
     });
-
-  if (displayCategories.length === 0) {
-    return null;
-  }
 
   return (
     <section className="bg-[#F8F8F8F8] py-20 lg:py-28">
@@ -52,7 +60,7 @@ export function CategoriesSection({
           <h2 className="font-serif text-3xl font-medium text-neutral-900 lg:text-4xl">{heading}</h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
           {displayCategories.map((category) => (
             <Link
               key={category.id}
@@ -75,15 +83,23 @@ export function CategoriesSection({
                   }
                 />
               ) : (
-                <div className="absolute inset-0 bg-neutral-100" aria-hidden="true" />
+                <DefaultDemoPlaceholder
+                  id={category.placeholder}
+                  label={category.name}
+                  compact
+                  className="absolute inset-0"
+                />
               )}
 
               <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
 
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-center p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
-                <p className="category-card-title" style={{ color: "#ffffff" }}>
-                  {category.name}
-                </p>
+              <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
+                {category.productCount ? (
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/78">
+                    {category.productCount}+ urun
+                  </p>
+                ) : null}
+                <p className="category-card-title" style={{ color: "#ffffff" }}>{category.name}</p>
               </div>
             </Link>
           ))}

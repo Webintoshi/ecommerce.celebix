@@ -4,7 +4,6 @@ import {
     PaymentGatewayFormState,
     PaymentMethodStatus,
 } from "@/types/payment";
-import { PaymentService } from "./payment-service";
 import {
     createPaymentGatewayDefaults,
     getPaymentProviderDefinition,
@@ -13,8 +12,14 @@ import {
 
 let paymentGateways: PaymentGatewayConfig[] = [];
 
+async function loadPaymentService() {
+    const { PaymentService } = await import("./payment-service");
+    return PaymentService;
+}
+
 export async function getPaymentGateways(): Promise<PaymentGatewayConfig[]> {
     try {
+        const PaymentService = await loadPaymentService();
         const fromApi = await PaymentService.getAll();
         paymentGateways = normalizePaymentGateways(fromApi);
     } catch (error) {
@@ -33,18 +38,8 @@ export function getPaymentGatewayByType(type: PaymentGateway): PaymentGatewayCon
 }
 
 export async function getActivePaymentGateways(): Promise<PaymentGatewayConfig[]> {
-    try {
-        const response = await fetch("/api/public/payments");
-        if (!response.ok) {
-            return [];
-        }
-
-        const data = await response.json();
-        return normalizePaymentGateways(data.gateways || []);
-    } catch (error) {
-        console.error("getActivePaymentGateways error:", error);
-        return [];
-    }
+    const { getActivePaymentGateways } = await import("./public-payments");
+    return getActivePaymentGateways();
 }
 
 export function getPaymentGatewaysByStatus(status: PaymentMethodStatus): PaymentGatewayConfig[] {
@@ -63,6 +58,7 @@ export async function addPaymentGateway(data: PaymentGatewayFormState): Promise<
     };
 
     const updatedGateways = [...paymentGateways, newGateway];
+    const PaymentService = await loadPaymentService();
     await PaymentService.saveAll(updatedGateways);
     paymentGateways = updatedGateways;
 
@@ -82,11 +78,13 @@ export async function updatePaymentGateway(id: string, data: Partial<PaymentGate
         updatedAt: new Date().toISOString(),
     };
 
+    const PaymentService = await loadPaymentService();
     await PaymentService.saveAll(paymentGateways);
 }
 
 export async function deletePaymentGateway(id: string): Promise<void> {
     paymentGateways = paymentGateways.filter((gateway) => gateway.id !== id);
+    const PaymentService = await loadPaymentService();
     await PaymentService.saveAll(paymentGateways);
 }
 
@@ -98,6 +96,7 @@ export async function togglePaymentGatewayStatus(id: string, status: PaymentMeth
 
     gateway.status = status;
     gateway.updatedAt = new Date().toISOString();
+    const PaymentService = await loadPaymentService();
     await PaymentService.saveAll(paymentGateways);
 }
 
@@ -120,6 +119,7 @@ export async function testPaymentGatewayConnection(id: string): Promise<boolean>
         return true;
     }
 
+    const PaymentService = await loadPaymentService();
     const result = await PaymentService.testGateway(id);
     return result.success;
 }
@@ -190,6 +190,7 @@ export async function updatePaymentGatewayOrder(ids: string[]): Promise<void> {
         .map((id) => getPaymentGatewayById(id))
         .filter((gateway): gateway is PaymentGatewayConfig => Boolean(gateway));
 
+    const PaymentService = await loadPaymentService();
     await PaymentService.saveAll(paymentGateways);
 }
 

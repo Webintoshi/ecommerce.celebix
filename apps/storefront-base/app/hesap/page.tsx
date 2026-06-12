@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { 
   Mail, Lock, User, Eye, EyeOff, ShoppingBag, Heart, MapPin, 
   LogOut, Package, ChevronRight, Loader2, Edit2, Save, X,

@@ -14,7 +14,7 @@ import {
   Package,
   Clock,
   BadgeCheck,
-  Hammer,
+  Truck,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -586,32 +586,10 @@ export function ProductDetailClient({
                           <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Malzeme
+                              Kalite
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              Premium Full-Grain Deri
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Hammer className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              İşçilik
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              El Dikişi (Saddle Stitch)
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
-                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Üretim Süresi
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              3-5 İş Günü
+                              Secili koleksiyon standardi
                             </p>
                           </div>
                         </div>
@@ -619,10 +597,32 @@ export function ProductDetailClient({
                           <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Garanti
+                              Hazırlık
                             </p>
                             <p className="text-sm font-medium text-neutral-900">
-                              2 Yıl
+                              Ozenli paketleme
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
+                          <Truck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
+                              Teslimat
+                            </p>
+                            <p className="text-sm font-medium text-neutral-900">
+                              1-3 is gunu hazirlik
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 border-b border-neutral-200 pb-3">
+                          <Clock className="h-5 w-5 stroke-[1.5] text-neutral-500" />
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
+                              Destek
+                            </p>
+                            <p className="text-sm font-medium text-neutral-900">
+                              Siparis sonrasi takip
                             </p>
                           </div>
                         </div>
@@ -639,8 +639,8 @@ export function ProductDetailClient({
                             Kargo Bilgileri
                           </h4>
                           <p>
-                            Siparişleriniz 3-5 iş günü içerisinde kargoya verilir.
-                            500 TL ve üzeri siparişlerde kargo ücretsizdir.
+                            Siparişleriniz mağaza operasyon takvimine göre hazırlanır.
+                            Kargo ve teslimat avantajları sepet ekranında netleşir.
                           </p>
                         </div>
                         <div>
@@ -655,11 +655,11 @@ export function ProductDetailClient({
                         </div>
                         <div>
                           <h4 className="mb-1 font-medium text-neutral-900">
-                            Özel Siparişler
+                            Kişiselleştirme
                           </h4>
                           <p>
-                            Özel ölçü ve kişiselleştirme taleplerinde üretim süresi
-                            7-10 iş gününe uzayabilir.
+                            Ürüne özel seçenekler varsa teslimat süresi ve fiyat
+                            bilgisi sepet öncesinde güncellenir.
                           </p>
                         </div>
                       </div>

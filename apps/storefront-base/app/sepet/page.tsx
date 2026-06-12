@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
 import { SHIPPING_THRESHOLD as SHIPPING_THRESHOLD_FALLBACK } from "@/lib/constants";
 import { CartItemCustomizationDisplay } from "@/components/cart/cart-item-customization";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
 
 export default function CartPage() {
   const {
@@ -26,8 +27,11 @@ export default function CartPage() {
       <div className="min-h-screen">
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-2xl mx-auto text-center">
-            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShoppingBag className="w-12 h-12 text-primary" />
+            <div className="mx-auto mb-7 h-44 max-w-md overflow-hidden rounded-[32px]">
+              <DefaultDemoPlaceholder id="placeholder-12" label="Sepetiniz sizi bekliyor" compact />
+            </div>
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShoppingBag className="w-10 h-10 text-primary" />
             </div>
             <h1 className="text-3xl font-bold text-primary mb-4">Sepetiniz Boş</h1>
             <p className="text-muted mb-8">
@@ -73,11 +77,11 @@ export default function CartPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <>
-                        {item.product.category === "fistik-ezmesi" && "🥜"}
-                        {item.product.category === "findik-ezmesi" && "🌰"}
-                        {item.product.category === "kuruyemis" && "🥔"}
-                      </>
+                      <DefaultDemoPlaceholder
+                        id="placeholder-07"
+                        label={item.product.name}
+                        compact
+                      />
                     )}
                   </div>
 
