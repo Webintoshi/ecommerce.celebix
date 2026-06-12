@@ -3,9 +3,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { AuthError, AuthResponse, Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { resolveCustomerAuthMode } from "@/lib/customer-auth-mode";
 
 type AuthResultError = AuthError | Error | null;
-type CustomerAuthMode = "supabase" | "logto" | "disabled";
 
 const CUSTOMER_AUTH_UNAVAILABLE_MESSAGE =
   "Musteri hesabi girisi gecici olarak hazir degil. Misafir odeme kullanilabilir.";
@@ -23,45 +23,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function normalizeRuntimeValue(value: string | undefined): string {
-  return value?.trim().replace(/^["']|["']$/g, "").toLowerCase() ?? "";
-}
-
-function resolveCustomerAuthMode(): CustomerAuthMode {
-  const explicitProvider = normalizeRuntimeValue(
-    process.env.NEXT_PUBLIC_CUSTOMER_AUTH_PROVIDER || process.env.CUSTOMER_AUTH_PROVIDER,
-  );
-
-  if (explicitProvider === "logto") {
-    return "logto";
-  }
-
-  if (explicitProvider === "supabase") {
-    return "supabase";
-  }
-
-  const authStatus = normalizeRuntimeValue(
-    process.env.NEXT_PUBLIC_CUSTOMER_AUTH_STATUS || process.env.CUSTOMER_AUTH_STATUS,
-  );
-
-  if (authStatus === "logto_stable" || authStatus === "logto_canary") {
-    return "logto";
-  }
-
-  const databaseMode = normalizeRuntimeValue(
-    process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE || process.env.DATABASE_MODE,
-  );
-  const supabaseStatus = normalizeRuntimeValue(
-    process.env.NEXT_PUBLIC_SUPABASE_STATUS || process.env.SUPABASE_STATUS,
-  );
-
-  if (databaseMode === "light_postgres" || supabaseStatus === "none") {
-    return "disabled";
-  }
-
-  return "supabase";
-}
 
 async function fetchLogtoSession() {
   const response = await fetch("/api/auth/session", {

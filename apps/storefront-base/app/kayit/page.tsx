@@ -4,14 +4,18 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { resolveCustomerAuthMode, isGeneratedAuthMode } from "@/lib/customer-auth-mode";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { CaptchaProtection } from "@/components/auth/CaptchaProtection";
+import { AuthLandingCard } from "@/components/auth/AuthLandingCard";
 import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, UserPlus, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function RegisterPage() {
   const router = useRouter();
   const { signUp, user } = useAuth();
+  const customerAuthMode = resolveCustomerAuthMode();
+  const useGeneratedAuth = isGeneratedAuthMode(customerAuthMode);
   
   const [formData, setFormData] = useState({
     firstName: "",
@@ -39,6 +43,16 @@ export default function RegisterPage() {
       router.push("/hesap");
     }
   }, [user, router]);
+
+  const handleGeneratedRegister = async () => {
+    setLoading(true);
+    setError("");
+    const { error: authError } = await signUp("", "");
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,9 +135,34 @@ export default function RegisterPage() {
     }
   };
 
+  if (useGeneratedAuth) {
+    return (
+      <AuthLandingCard
+        eyebrow="Yeni hesap"
+        title="Hesabinizi guvenli sekilde olusturun"
+        description={
+          customerAuthMode === "logto"
+            ? "Kayit islemi merkezi hesap ekraninda tamamlanir. Storefront sifre veya captcha toplamaz; hesap servisinin guvenli akisina yonlenirsiniz."
+            : "Musteri kaydi su anda hazir degil. Magazayi kesfedebilir ve uygun akislarda misafir olarak devam edebilirsiniz."
+        }
+        primaryLabel={loading ? "Yonlendiriliyor..." : "Hesap Olustur"}
+        secondaryLabel="Zaten hesabim var"
+        secondaryHref="/giris"
+        onPrimaryAction={customerAuthMode === "logto" ? handleGeneratedRegister : undefined}
+        primaryDisabled={customerAuthMode !== "logto" || loading}
+        helperText={
+          error ||
+          (customerAuthMode === "logto"
+            ? "Bu sayfa Logto uyumlu generated storefront akisi icindir; parola alanlari yalniz legacy modda gosterilir."
+            : "Hesap modulu etkinlesene kadar vitrin ve sepet akisi misafir deneyimiyle kullanilabilir.")
+        }
+      />
+    );
+  }
+
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F6F1EB] flex items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -145,7 +184,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4 py-12">
+    <div className="min-h-screen bg-[#F6F1EB] flex items-center justify-center p-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo */}
         <motion.div 

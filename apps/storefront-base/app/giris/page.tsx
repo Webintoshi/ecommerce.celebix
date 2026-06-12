@@ -1,18 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { resolveCustomerAuthMode, isGeneratedAuthMode } from "@/lib/customer-auth-mode";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { CaptchaProtection } from "@/components/auth/CaptchaProtection";
-import { Mail, Lock, ArrowRight, Eye, EyeOff, Shield, CheckCircle } from "lucide-react";
+import { AuthLandingCard } from "@/components/auth/AuthLandingCard";
+import { Mail, Lock, ArrowRight, Eye, EyeOff, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { signIn, user } = useAuth();
+  const customerAuthMode = resolveCustomerAuthMode();
+  const useGeneratedAuth = isGeneratedAuthMode(customerAuthMode);
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,6 +34,16 @@ export default function LoginPage() {
       router.push("/hesap");
     }
   }, [user, router]);
+
+  const handleGeneratedSignIn = async () => {
+    setLoading(true);
+    setError("");
+    const { error: authError } = await signIn("", "");
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,8 +74,33 @@ export default function LoginPage() {
     }
   };
 
+  if (useGeneratedAuth) {
+    return (
+      <AuthLandingCard
+        eyebrow="Guvenli musteri hesabi"
+        title="Hesabinizla devam edin"
+        description={
+          customerAuthMode === "logto"
+            ? "Siparislerinizi ve hesap bilgilerinizi guvenli kimlik ekraninda yonetin. Giris islemi merkezi hesap servisinde tamamlanir."
+            : "Musteri hesabi su anda hazir degil. Magazayi kesfedebilir ve uygun akislarda misafir olarak devam edebilirsiniz."
+        }
+        primaryLabel={loading ? "Yonlendiriliyor..." : "Giris Yap"}
+        secondaryLabel="Urunleri Kesfet"
+        secondaryHref="/urunler"
+        onPrimaryAction={customerAuthMode === "logto" ? handleGeneratedSignIn : undefined}
+        primaryDisabled={customerAuthMode !== "logto" || loading}
+        helperText={
+          error ||
+          (customerAuthMode === "logto"
+            ? "E-posta/sifre ve captcha bu modda storefront icinde islenmez; guvenli hesap ekranina yonlendirilirsiniz."
+            : "Hesap modulu etkinlesene kadar vitrin ve sepet akisi misafir deneyimiyle kullanilabilir.")
+        }
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4 py-12">
+    <div className="min-h-screen bg-[#F6F1EB] flex items-center justify-center p-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo */}
         <motion.div 
