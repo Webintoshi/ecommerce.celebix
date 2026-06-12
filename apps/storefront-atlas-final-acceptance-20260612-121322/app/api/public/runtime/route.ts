@@ -1,0 +1,38 @@
+import { NextResponse } from "next/server";
+import { getActiveStoreSlug, getStoreConfig } from "@celebix/platform-config";
+import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
+
+function readRuntime() {
+  const slug = getActiveStoreSlug();
+  const store = getStoreConfig(slug);
+  const storefrontDomain =
+    process.env.NEXT_PUBLIC_STORE_DOMAIN?.trim() ||
+    store?.domains.storefront ||
+    null;
+  const adminDomain =
+    process.env.NEXT_PUBLIC_ADMIN_DOMAIN?.trim() ||
+    store?.domains.admin ||
+    null;
+  const storefrontUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    (storefrontDomain ? `https://${storefrontDomain}` : null);
+  const adminUrl =
+    process.env.NEXT_PUBLIC_ADMIN_URL?.trim() ||
+    (adminDomain ? `https://${adminDomain}` : null);
+
+  return {
+    slug,
+    databaseMode: STOREFRONT_RUNTIME.databaseMode,
+    storefrontDomain,
+    adminDomain,
+    storefrontUrl,
+    adminUrl,
+  };
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ...readRuntime(),
+    generatedAt: new Date().toISOString(),
+  });
+}

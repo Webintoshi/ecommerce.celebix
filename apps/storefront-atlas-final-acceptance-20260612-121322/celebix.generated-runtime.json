@@ -1,0 +1,138 @@
+{
+  "storeSlug": "atlas-final-acceptance-20260612-121322",
+  "storeName": "atlas-final-acceptance-20260612-121322",
+  "target": "storefront",
+  "databaseMode": "light_postgres",
+  "authProvider": "logto",
+  "customerAuthProvider": "logto",
+  "authStrategy": "pending_auth_setup",
+  "storageProvider": "r2",
+  "analyticsProvider": "umami",
+  "supabaseStatus": "none",
+  "r2": {
+    "status": "configured",
+    "bucketName": "smoke-theme-e2e-assets",
+    "publicUrl": "https://pub-71adb672e22543659fd965ba0063a986.r2.dev",
+    "managedDomain": null,
+    "endpoint": "https://6072b3e50ada6e75c9a73cd3ff584644.r2.cloudflarestorage.com",
+    "region": "auto",
+    "prefix": "stores/atlas-final-acceptance-20260612-121322/",
+    "uploadPrefix": "stores/atlas-final-acceptance-20260612-121322/uploads/",
+    "productImagesPrefix": "stores/atlas-final-acceptance-20260612-121322/products/",
+    "pageImagesPrefix": "stores/atlas-final-acceptance-20260612-121322/pages/",
+    "brandingPrefix": "stores/atlas-final-acceptance-20260612-121322/branding/",
+    "publicUrlTemplate": "https://pub-71adb672e22543659fd965ba0063a986.r2.dev/{key}",
+    "adminUploadStatus": "configured",
+    "storefrontReadStatus": "configured",
+    "credentialsStatus": "configured",
+    "bootstrapConfigPath": "infra/r2/bootstrap/generated/atlas-final-acceptance-20260612-121322.storage.json",
+    "bootstrapApplyState": "pending",
+    "noSupabaseStorage": true,
+    "provisioning": "configured"
+  },
+  "media": {
+    "provider": "r2",
+    "status": "configured",
+    "publicBaseUrl": "https://pub-71adb672e22543659fd965ba0063a986.r2.dev",
+    "prefix": "stores/atlas-final-acceptance-20260612-121322/",
+    "uploadPrefix": "stores/atlas-final-acceptance-20260612-121322/uploads/",
+    "productImagesPrefix": "stores/atlas-final-acceptance-20260612-121322/products/",
+    "pageImagesPrefix": "stores/atlas-final-acceptance-20260612-121322/pages/",
+    "brandingPrefix": "stores/atlas-final-acceptance-20260612-121322/branding/",
+    "publicUrlTemplate": "https://pub-71adb672e22543659fd965ba0063a986.r2.dev/{key}",
+    "adminUploadStatus": "configured",
+    "storefrontReadStatus": "configured",
+    "noSupabaseStorage": true
+  },
+  "umami": {
+    "websiteStatus": "pending",
+    "websiteId": null,
+    "websiteName": "atlas-final-acceptance-20260612-121322 Storefront",
+    "domain": "atlas-final-acceptance-20260612-121322.celebix.site",
+    "canonicalDomain": "atlas-final-acceptance-20260612-121322.celebix.site",
+    "host": "https://analytics.celebix.co",
+    "apiUrl": "https://analytics.celebix.co/api",
+    "scriptUrl": "https://analytics.celebix.co/script.js",
+    "timezone": "Europe/Istanbul",
+    "storefrontTrackingStatus": "pending",
+    "adminAnalyticsStatus": "pending",
+    "serverTokenStatus": "pending-owner-env",
+    "adminSummaryEndpoint": "/api/admin/analytics/summary",
+    "metrics": [
+      "activeUsers",
+      "visitorsToday",
+      "pageviewsToday",
+      "visitors7d",
+      "pageviews7d",
+      "topPages",
+      "topProducts",
+      "referrers"
+    ],
+    "bootstrapConfigPath": "infra/umami/bootstrap/generated/atlas-final-acceptance-20260612-121322.website.json",
+    "bootstrapApplyState": "pending"
+  },
+  "logto": {
+    "adminAppStatus": "pending",
+    "customerAppStatus": "pending",
+    "adminAppId": null,
+    "adminClientId": null,
+    "customerAppId": null,
+    "customerClientId": null,
+    "adminIssuer": "https://auth.celebix.co/oidc",
+    "customerIssuer": "https://auth.celebix.co/oidc",
+    "adminRedirectUris": [
+      "https://admin-atlas-final-acceptance-20260612-121322.celebix.site/callback"
+    ],
+    "adminPostLogoutRedirectUris": [
+      "https://admin-atlas-final-acceptance-20260612-121322.celebix.site/admin/login",
+      "https://admin-atlas-final-acceptance-20260612-121322.celebix.site/admin/login?logged_out=1"
+    ],
+    "adminOrigins": [
+      "https://admin-atlas-final-acceptance-20260612-121322.celebix.site"
+    ],
+    "customerRedirectUris": [
+      "https://atlas-final-acceptance-20260612-121322.celebix.site/callback"
+    ],
+    "customerPostLogoutRedirectUris": [
+      "https://atlas-final-acceptance-20260612-121322.celebix.site",
+      "https://atlas-final-acceptance-20260612-121322.celebix.site/giris?next=/hesap&logged_out=1"
+    ],
+    "customerOrigins": [
+      "https://atlas-final-acceptance-20260612-121322.celebix.site"
+    ],
+    "googleSignIn": "pending",
+    "emailRecovery": "pending",
+    "adminBootstrapConfigPath": "infra/logto/bootstrap/generated/atlas-final-acceptance-20260612-121322-admin.application.json",
+    "customerBootstrapConfigPath": "infra/logto/bootstrap/generated/atlas-final-acceptance-20260612-121322-customer.application.json",
+    "bootstrapApplyState": "pending"
+  },
+  "optionalModules": {
+    "quick_order_links": "disabled",
+    "coupons": "disabled",
+    "discounts": "disabled",
+    "lucky_wheel": "disabled",
+    "marketplace": "disabled",
+    "accounting": "disabled"
+  },
+  "readiness": {
+    "database": "ready",
+    "databaseSchema": "ready",
+    "databaseSeed": "ready",
+    "databaseSmoke": "ready",
+    "storage": "ready",
+    "auth": "pending",
+    "analytics": "pending",
+    "admin": "pending",
+    "storefront": "pending",
+    "smoke": "pending"
+  },
+  "deployment": {
+    "strategy": "build_server_ghcr",
+    "image": "ghcr.io/celebixco/atlas-final-acceptance-20260612-121322-storefront",
+    "imageTag": "production",
+    "useBuildServer": true,
+    "buildServer": "celebix-build-01",
+    "branch": "deploy/storefront/atlas-final-acceptance-20260612-121322",
+    "workspace": "@celebix/storefront-atlas-final-acceptance-20260612-121322"
+  }
+}
