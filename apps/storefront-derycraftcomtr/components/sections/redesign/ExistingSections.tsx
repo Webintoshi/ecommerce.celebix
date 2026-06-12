@@ -170,9 +170,9 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                   {slide.title}
                 </span>
               )}
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white mb-3 sm:mb-4 leading-tight">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white mb-3 sm:mb-4 leading-tight">
                 {slide.alt}
-              </h2>
+              </h1>
               {slide.subtitle && (
                 <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-8 max-w-md">
                   {slide.subtitle}

@@ -52,6 +52,16 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
+      <div className="border-b border-neutral-200 bg-[#F8F8F8]">
+        <div className="container-premium py-6 sm:py-8">
+          <h1 className="font-serif text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+            Tüm Ürünler
+          </h1>
+          <p className="mt-2 text-sm text-neutral-500">
+            El yapımı hakiki deri ürünler — kayışlar, cüzdanlar, çantalar ve aksesuarlar.
+          </p>
+        </div>
+      </div>
       <section className="container-premium py-8 sm:py-12">
         {visibleProducts.length === 0 ? (
           <motion.div
