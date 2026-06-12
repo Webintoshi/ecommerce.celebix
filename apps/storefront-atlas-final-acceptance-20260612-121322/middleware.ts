@@ -105,6 +105,10 @@ function applyNoCacheHeaders(response: NextResponse, pathname: string) {
   }
 }
 
+function isContentDetailPath(pathname: string) {
+  return pathname.startsWith("/urunler/") || pathname.startsWith("/blog/");
+}
+
 function isSecureRequest(request: NextRequest) {
   return request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
 }
@@ -210,6 +214,17 @@ export async function middleware(request: NextRequest) {
   const userAgent = request.headers.get("user-agent") || "";
   const ip = getRequestIp(request);
   const originalPathname = request.nextUrl.pathname;
+
+  if (isContentDetailPath(originalPathname)) {
+    const response = new NextResponse("Not found", {
+      status: 404,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+    });
+    applyNoCacheHeaders(response as NextResponse, originalPathname);
+    return withSecurity(request, response as NextResponse);
+  }
 
   if (shouldBypassLocaleHandling(originalPathname)) {
     return withSecurity(request, await handleBypassedRequest(request, originalPathname, ip));
