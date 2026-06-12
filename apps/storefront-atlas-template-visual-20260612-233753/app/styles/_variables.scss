@@ -1,0 +1,21 @@
+
+$color-primary: #b91c1c; // red-700
+$color-primary-dark: #991b1c; // red-800
+$color-text: #111827; // gray-900
+$color-text-light: #4b5563; // gray-600
+$color-bg: #ffffff;
+$color-bg-alt: #f9fafb; // gray-50
+$color-border: #e5e7eb; // gray-200
+
+$font-primary: var(--store-font-body);
+
+$breakpoint-mobile: 480px;
+$breakpoint-tablet: 768px;
+$breakpoint-desktop: 1024px;
+$breakpoint-large: 1280px;
+
+$spacing-xs: 0.5rem;
+$spacing-sm: 1rem;
+$spacing-md: 1.5rem;
+$spacing-lg: 2rem;
+$spacing-xl: 4rem;

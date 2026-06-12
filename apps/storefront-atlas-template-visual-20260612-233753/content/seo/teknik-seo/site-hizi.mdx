@@ -1,0 +1,269 @@
+---
+title: "Site Hızı Optimizasyonu: Pratik Taktikler 2026"
+description: "Web sitesi hızını artırmak için pratik ve etkili optimizasyon teknikleri. Resim optimizasyonu, CDN, caching ve daha fazlası."
+primaryKeyword: "site hızı optimizasyonu"
+secondaryKeywords:
+  - "sayfa hızı"
+  - "web performance"
+  - "page speed"
+  - "loading time"
+searchIntent: "informational"
+publishedAt: "2026-02-19"
+updatedAt: "2026-02-19"
+readingTime: 8
+wordCount: 2200
+pillarTitle: "Teknik SEO"
+relatedClusters:
+  - "teknik-seo/core-web-vitals"
+keyTakeaways:
+  - "Site hızı hem ranking faktörü hem de conversion oranı üzerinde direkt etkiye sahip"
+  - "Resimler genellikle sayfanın %50-70'ini oluşturur, WebP formatı ile %30 tasarruf sağlanabilir"
+  - "CDN kullanımı global audience için kritik, 100-200 ms gecikme azaltır"
+  - "Browser caching ile returning visitors için %80 daha hızlı yükleme sağlanır"
+---
+
+## Site Hızı Optimizasyonu
+
+Site hızı, sadece SEO ranking faktörü değil, doğrudan conversion oranını etkileyen en kritik metriklerden biridir. Araştırmalar şunu gösteriyor:
+
+- **1 saniye** yükleme süresi: %90 conversion
+- **3 saniye** yükleme süresi: %32 conversion düşüşü
+- **5 saniye** yükleme süresi: %90 bounce artışı
+
+Bu rehberde, pratik ve hemen uygulanabilebilir optimizasyon tekniklerini ele alacağız.
+
+## Resim Optimizasyonu (En Etkili Quick Win)
+
+Resimler, genellikle sayfanın toplam boyutunun **%50-70'ini** oluşturur.
+
+### 1. Format Seçimi
+
+| Format | Kullanım | Boyut Tasarrufu |
+|---|---|---|
+| **WebP** | Fotoğraflar, grafikler | %25-35 vs JPEG |
+| **AVIF** | Modern browser'lar | %50 vs JPEG |
+| **PNG** | Transparent gerekli | WebP'e tercih etme |
+| **SVG** | Icons, logos | Lossless, scaleable |
+
+```html
+<!-- Next.js ile automatic WebP -->
+import Image from 'next/image';
+
+<Image
+  src="/hero.jpg"
+  alt="Hero"
+  width={1920}
+  height={1080}
+  // Otomatik WebP conversion
+/>
+```
+
+### 2. Lazy Loading
+
+```javascript
+// ✅ Native lazy loading (Chrome 76+)
+<img src="image.jpg" loading="lazy" alt="..." />
+
+// ✅ Next.js Image component
+<Image
+  src="/product.jpg"
+  loading="lazy"
+  placeholder="blur" // Blur placeholder
+/>
+```
+
+### 3. Responsive Images
+
+```html
+<img
+  srcset="small.jpg 500w,
+          medium.jpg 1000w,
+          large.jpg 2000w"
+  sizes="(max-width: 600px) 500px,
+         (max-width: 1200px) 1000px,
+         2000px"
+  src="large.jpg"
+  alt="Responsive image"
+/>
+```
+
+## CDN (Content Delivery Network)
+
+CDN, statik dosyaları kullanıcıya en yakın sunucudan sunar.
+
+**Faydaları:**
+- 100-200 ms latency azaltma
+- Düşük bandwidth maliyeti
+- Yüksek availability
+- DDoS koruması
+
+**Popüler CDN'ler:**
+- Cloudflare (Ücretsiz plan)
+- AWS CloudFront
+- Fastly
+- KeyCDN
+
+```javascript
+// Next.js ile CDN yapılandırması
+// next.config.js
+module.exports = {
+  images: {
+    domains: ['cdn.example.com'],
+    loader: 'custom',
+    loaderFile: './lib/image-loader.js',
+  },
+};
+```
+
+## Browser Caching
+
+Returning visitors için kritik.
+
+```apache
+# .htaccess ile cache headers
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Resimler: 1 yıl
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+
+  # CSS/JS: 1 ay
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+
+  # HTML: Cache yok
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+```
+
+```javascript
+// Next.js ile cache headers
+// next.config.js
+module.exports = {
+  async headers() {
+    return [
+      {
+        source: '/images/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ];
+  },
+};
+```
+
+## CSS ve JS Optimizasyonu
+
+### Minification
+
+```bash
+# Production build ile otomatik
+npm run build
+
+# Manuel araçlar
+npm install -g terser
+terser input.js -o output.min.js
+```
+
+### Code Splitting
+
+```javascript
+// ❌ Yanlış - Her şeyi import eder
+import { Chart, Calendar, Slider } from 'big-library';
+
+// ✅ Doğru - Dynamic import
+const Chart = dynamic(() => import('big-library/Chart'));
+const Calendar = dynamic(() => import('big-library/Calendar'));
+```
+
+### Tree Shaking
+
+```javascript
+// ❌ Yanlış - Tüm library yüklenir
+import _ from 'lodash';
+
+// ✅ Doğru - Sadece gerekli fonksiyon
+import debounce from 'lodash/debounce';
+```
+
+## Server-Side Optimizasyonlar
+
+### Gzip / Brotli Compression
+
+```javascript
+// Next.js ile compression
+// next.config.js
+module.exports = {
+  compress: true, // Varsayılan true
+};
+```
+
+### HTTP/2
+
+```nginx
+# Nginx konfigürasyonu
+server {
+    listen 443 ssl http2;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+}
+```
+
+## Ön Yükleme Stratejileri
+
+### Resource Hints
+
+```html
+<head>
+  <!-- DNS lookup önceden yap -->
+  <link rel="dns-prefetch" href="https://cdn.example.com">
+
+  <!-- Bağlantı kur -->
+  <link rel="preconnect" href="https://cdn.example.com">
+
+  <!-- Kritik kaynakları önceden yükle -->
+  <link rel="preload" href="/font.woff2" as="font" crossorigin>
+  <link rel="preload" href="/hero.webp" as="image">
+</head>
+```
+
+## Site Hızı Ölçme Araçları
+
+1. **PageSpeed Insights** - Ücretsiz, Google resmi
+2. **WebPageTest** - Detaylı waterfall
+3. **GTmetrix** - Historical data
+4. **Lighthouse** - CI/CD integration
+
+## Optimizasyon Roadmap
+
+### Faz 1: Quick Wins (1 hafta)
+- [ ] Resimleri WebP formatına çevir
+- [ ] Lazy loading ekle
+- [ ] Browser caching aktif et
+- [ ] Gzip compression aç
+
+### Faz 2: Mid-term (1 ay)
+- [ ] CDN entegrasyonu
+- [ ] CSS/JS minification
+- [ ] Code splitting implement et
+- [ ] Image optimizasyon pipeline
+
+### Faz 3: Advanced (3 ay)
+- [ ] Edge functions
+- [ ] Service worker
+- [ ] Progressive enhancement
+- [ ] Performance monitoring
+
+## Sonraki Adımlar
+
+Site hızı optimizasyonu tamamladıktan sonra:
+
+1. **[Core Web Vitals](/seo/teknik-seo/core-web-vitals)** - Metrik detayları
+2. **[Taranabilirlik](/seo/teknik-seo/taranabilirlik)** - Crawl optimization
+3. **[Sayfa İçi SEO](/seo/sayfa-ici-seo)** - Content optimization
