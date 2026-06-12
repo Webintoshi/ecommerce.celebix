@@ -1,6 +1,6 @@
 import { buildGoogleMerchantFeedXml, normalizeGoogleMerchantFeedSettings, normalizeGoogleMerchantText, validateGoogleMerchantFeedItem, type GoogleMerchantFeedItem } from "@celebix/platform-config/src/google-merchant";
 import { resolveStorefrontDirectAssetUrl } from "@/lib/asset-url";
-import { fetchCategoriesServer } from "@/lib/categories";
+import { fetchCategoriesServer } from "@/lib/categories-server";
 import { buildLocalizedPath } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
 import { getAllProducts } from "@/lib/products";

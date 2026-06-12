@@ -1,23 +1,79 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createLightPostgresCompatClient } from "@celebix/platform-config/src/light-postgres-compat";
 import { isLightPostgresRuntime } from "@celebix/platform-config/src/light-postgres-runtime";
 
-type LightPostgresCompatModule = {
-    createLightPostgresCompatClient: (options: {
-        env: NodeJS.ProcessEnv;
-        mode: "light_postgres";
-    }) => unknown;
-};
-
 function createLightPostgresServerCompatClient() {
-    const runtimeRequire = (0, eval)("require") as (id: string) => unknown;
-    const compatModule = runtimeRequire(
-        "@celebix/platform-config/src/light-postgres-compat",
-    ) as LightPostgresCompatModule;
+    if (!hasLightPostgresDatabaseUrl()) {
+        return createEmptyServerClient() as unknown as SupabaseClient;
+    }
 
-    return compatModule.createLightPostgresCompatClient({
+    return createLightPostgresCompatClient({
         env: process.env,
         mode: "light_postgres",
-    }) as SupabaseClient;
+    }) as unknown as SupabaseClient;
+}
+
+function hasLightPostgresDatabaseUrl() {
+    return Boolean(
+        process.env.LIGHT_POSTGRES_DATABASE_URL?.trim() ||
+        process.env.DATABASE_URL?.trim(),
+    );
+}
+
+function createEmptyServerClient() {
+    return {
+        from() {
+            return createEmptyQueryBuilder();
+        },
+        rpc() {
+            return Promise.resolve({ data: null, error: null });
+        },
+        auth: {
+            admin: {
+                createUser: async () => ({ data: null, error: new Error("Auth admin is unavailable without a database.") }),
+            },
+            getUser: async () => ({ data: { user: null }, error: null }),
+        },
+    };
+}
+
+function createEmptyQueryBuilder(cardinality: "many" | "single" | "maybeSingle" = "many") {
+    const resolve = () =>
+        Promise.resolve({
+            data: cardinality === "many" ? [] : null,
+            error: null,
+            count: 0,
+        });
+
+    const builder: Record<string, unknown> = {
+        select: () => builder,
+        insert: () => builder,
+        update: () => builder,
+        delete: () => builder,
+        upsert: () => builder,
+        eq: () => builder,
+        neq: () => builder,
+        in: () => builder,
+        is: () => builder,
+        lt: () => builder,
+        lte: () => builder,
+        gt: () => builder,
+        gte: () => builder,
+        ilike: () => builder,
+        not: () => builder,
+        or: () => builder,
+        order: () => builder,
+        limit: () => builder,
+        range: () => builder,
+        single: () => createEmptyQueryBuilder("single"),
+        maybeSingle: () => createEmptyQueryBuilder("maybeSingle"),
+        then: (onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) =>
+            resolve().then(onFulfilled, onRejected),
+        catch: (onRejected: (reason: unknown) => unknown) => resolve().catch(onRejected),
+        finally: (onFinally: () => void) => resolve().finally(onFinally),
+    };
+
+    return builder;
 }
 
 // Lazy client initialization to prevent build-time errors

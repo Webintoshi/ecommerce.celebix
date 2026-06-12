@@ -20,8 +20,8 @@ import type { Product, ProductVariant } from "@/types/product";
 import {
   inferLegacySubcategorySlug,
   readCelebixCategoryHierarchyMetadata,
-  sortProductsByListingOrder,
-} from "@celebix/platform-config";
+} from "@celebix/platform-config/src/category-hierarchy";
+import { sortProductsByListingOrder } from "@celebix/platform-config/src/product-listing-order";
 import { resolveVariantDisplayPricing, type ProductDiscountRule } from "@celebix/platform-config/src/product-pricing";
 import { translateCategoryRecord, translateProductCollection } from "@/lib/translation";
 import CollectionProductsClient from "./CollectionProductsClient";

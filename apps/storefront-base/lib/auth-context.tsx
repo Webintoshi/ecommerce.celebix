@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { AuthError, AuthResponse, Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { resolveCustomerAuthMode } from "@/lib/customer-auth-mode";
 
 type AuthResultError = AuthError | Error | null;

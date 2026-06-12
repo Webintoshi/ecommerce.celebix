@@ -20,3 +20,10 @@ export function getBrowserSupabaseClient(): SupabaseClient {
 
   return browserClient;
 }
+
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    const client = getBrowserSupabaseClient();
+    return client[prop as keyof SupabaseClient];
+  },
+});

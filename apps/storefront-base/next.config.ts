@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { resolveNextBuildCpuCap } from "@celebix/platform-config";
+import { resolveNextBuildCpuCap } from "@celebix/platform-config/src/next-build";
 
 const inferredImageTransformationUrl =
   process.env.NEXT_PUBLIC_IMAGE_TRANSFORMATION_URL ??
