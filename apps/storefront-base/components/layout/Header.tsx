@@ -12,6 +12,7 @@ import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { fetchCategories } from "@/lib/categories";
 import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
 import { HeaderSearchOverlay } from "@/components/layout/HeaderSearchOverlay";
+import { DEFAULT_NAV_LINKS } from "@/lib/default-demo-theme";
 import {
   getLocalizedCategoryLabel,
   getLocalizedCopy,
@@ -42,6 +43,7 @@ export function Header() {
 
   const copy = useMemo(() => getLocalizedCopy(locale), [locale]);
   const cartItemCount = getTotalItems();
+  const hasHeaderCategories = headerCategories.length > 0;
   const shouldUsePlaceholderLogo =
     !storeInfo?.logoUrl &&
     typeof SITE_LOGO_PATH === "string" &&
@@ -162,7 +164,7 @@ export function Header() {
           </Link>
 
           <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
-            {headerCategories.map((category) => {
+            {hasHeaderCategories ? headerCategories.map((category) => {
               const localizedCategoryName = getLocalizedCategoryLabel(category.slug, category.name, locale);
 
               if (category.children.length === 0) {
@@ -204,7 +206,15 @@ export function Header() {
                   </div>
                 </div>
               );
-            })}
+            }) : DEFAULT_NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={buildPath(link.href)}
+                className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+              >
+                {link.name}
+              </Link>
+            ))}
           </nav>
 
           <div className="flex items-center gap-4">
@@ -241,7 +251,7 @@ export function Header() {
       {isMenuOpen ? (
         <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
           <nav className="container-premium space-y-4 py-4">
-            {headerCategories.map((category) => (
+            {hasHeaderCategories ? headerCategories.map((category) => (
               <div key={category.id} className="space-y-2">
                 <Link
                   href={buildPath(ROUTES.category(category.slug))}
@@ -266,6 +276,15 @@ export function Header() {
                   </div>
                 ) : null}
               </div>
+            )) : DEFAULT_NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={buildPath(link.href)}
+                className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {link.name}
+              </Link>
             ))}
           </nav>
         </div>

@@ -34,6 +34,7 @@ import {
   EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
 
 type AppliedCoupon = {
   code: string;
@@ -912,11 +913,11 @@ export default function CheckoutPage() {
                           {item.product.images && item.product.images.length > 0 ? (
                             <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
                           ) : (
-                            <>
-                              {item.product.category === "fistik-ezmesi" && "🥜"}
-                              {item.product.category === "findik-ezmesi" && "🌰"}
-                              {item.product.category === "kuruyemis" && "🥔"}
-                            </>
+                            <DefaultDemoPlaceholder
+                              id="placeholder-07"
+                              label={item.product.name}
+                              compact
+                            />
                           )}
                         </div>
                         <div className="flex-1 min-w-0 py-1">

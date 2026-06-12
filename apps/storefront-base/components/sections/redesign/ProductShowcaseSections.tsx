@@ -8,6 +8,8 @@ import type { HomepageCategory } from "@/lib/homepage";
 import { ROUTES } from "@/lib/constants";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import type { HomepageCurationSettings } from "@/lib/db/settings";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
+import { DEFAULT_DEMO_PRODUCT_CARDS } from "@/lib/default-demo-theme";
 
 type ShowcaseProduct = Product & {
   category?: string | null;
@@ -130,21 +132,6 @@ function buildProductGroups(
 }
 
 function EmptyShowcaseState() {
-  const cards = [
-    {
-      title: "Urunleri Yayina Al",
-      text: "Adminde yayinlanan urunler bu alanda kategori bazli bloklara dogrudan tasinir.",
-    },
-    {
-      title: "Manuel Sirayi Kullan",
-      text: "Admin panelindeki urun sirasi vitrinde ve kategori bloklarinda aynen korunur.",
-    },
-    {
-      title: "Kategori Kurgusunu Tamamla",
-      text: "Aktif kategoriler otomatik section basliklarina ve koleksiyon baglantilarina donusur.",
-    },
-  ];
-
   return (
     <section className="bg-[#F8F8F8F8] py-16 lg:py-20">
       <div className="container-premium">
@@ -154,27 +141,42 @@ function EmptyShowcaseState() {
             Vitrin Hazir
           </span>
           <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#18110B] sm:text-4xl">
-            Urunleriniz geldikce bu alan premium vitrininize otomatik dolar
+            Secili urunler icin hazir premium vitrin
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#6B5A4D] sm:text-[15px]">
-            Ekstra frontend eforu gerektirmeden admin panelindeki urun ve kategori
-            girdileri, baslangic temasinin section duzenini otomatik doldurur.
+            Ilk urunler yayinlanana kadar alisverise hazir gorunen demo kartlar
+            ziyaretciye temiz bir marka deneyimi sunar.
           </p>
         </div>
 
-        <div className="mt-10 grid gap-4 lg:grid-cols-3">
-          {cards.map((card) => (
+        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {DEFAULT_DEMO_PRODUCT_CARDS.map((card) => (
             <div
-              key={card.title}
-              className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
+              key={card.id}
+              className="overflow-hidden rounded-[30px] border border-black/5 bg-white shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                Otomatik
-              </p>
-              <h3 className="mt-3 text-xl font-semibold text-[#18110B]">{card.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{card.text}</p>
+              <div className="aspect-square">
+                <DefaultDemoPlaceholder id={card.placeholder} label={card.title} compact />
+              </div>
+              <div className="p-5 text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+                  {card.eyebrow}
+                </p>
+                <h3 className="mt-3 text-lg font-semibold text-[#18110B]">{card.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-[#6B5A4D]">{card.description}</p>
+                <p className="mt-4 text-sm font-semibold text-[#18110B]">{card.priceLabel}</p>
+              </div>
             </div>
           ))}
+        </div>
+        <div className="mt-9 text-center">
+          <Link
+            href={ROUTES.products}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-[#C7A985] bg-white px-5 py-3 text-sm font-semibold text-[#18110B] transition hover:border-[#8A6847] hover:bg-[#FFF9F2]"
+          >
+            Tum urunleri kesfet
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </section>
@@ -249,8 +251,8 @@ export function ProductShowcaseSections({
             </div>
 
             <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-8">
-              {group.products.slice(0, 4).map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {group.products.slice(0, 4).map((product, index) => (
+                <ProductCard key={product.id} product={product} index={index} />
               ))}
             </div>
           </div>

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import RedesignHome from "@/components/sections/redesign/RedesignHome";
+import { mapBlogRows } from "@/lib/blog-content";
+import { getPublishedPosts } from "@/lib/db/blog";
 import { getHomepageData } from "@/lib/homepage";
 import { getStoreInfo } from "@/lib/db/settings";
 import { buildLocaleAlternates, buildLocalizedPath, getLocalizedCopy } from "@/lib/i18n";
@@ -59,12 +61,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const locale = await getRequestLocale();
-  const [homepageData, storeInfo, requestOrigin, routing] = await Promise.all([
+  const [homepageData, storeInfo, blogRows, requestOrigin, routing] = await Promise.all([
     getHomepageData(locale),
     getStoreInfo(),
+    getPublishedPosts(),
     getRequestOrigin(),
     getLocaleRoutingConfig(),
   ]);
+  const blogPosts = mapBlogRows(blogRows).slice(0, 3);
   const siteName = storeInfo?.name || STOREFRONT_RUNTIME.name;
   const siteDescription = storeInfo?.address
     ? `${siteName} magazasinin adres, iletisim ve urun vitrini tek deneyimde sunulur.`
@@ -82,7 +86,12 @@ export default async function Home() {
 
   return (
     <>
-      <RedesignHome data={homepageData} uiCopy={HOME_UI_COPY} storesHref={storesHref} />
+      <RedesignHome
+        data={homepageData}
+        blogPosts={blogPosts}
+        uiCopy={HOME_UI_COPY}
+        storesHref={storesHref}
+      />
 
       <script
         type="application/ld+json"

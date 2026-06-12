@@ -9,6 +9,8 @@ import { useStorefrontRoute } from "@/lib/storefront-route-context";
 import { formatPrice } from "@/lib/utils";
 import { getProductCardSwatches } from "@/lib/variant-selection";
 import { Product } from "@/types/product";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
+import { getProductPlaceholder } from "@/lib/default-demo-theme";
 
 interface ProductCardProps {
   product: Product;
@@ -92,13 +94,14 @@ function ProductCardRating({ product }: { product: Product }) {
   );
 }
 
-export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
+export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCardProps) {
   const { buildPath } = useStorefrontRoute();
   const productImages = getResolvedProductImages(product);
   const primaryImage = productImages[0];
   const usesProxiedPrimaryImage = isProxiedStorefrontAssetUrl(primaryImage);
   const displayVariant = product.variants?.[0];
   const displayPrice = displayVariant?.price;
+  const priceLabel = typeof displayPrice === "number" ? formatPrice(displayPrice) : "Fiyat bilgisi yakinda";
   const originalPrice =
     displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
       ? displayVariant.originalPrice
@@ -119,9 +122,7 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
                 unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-sm text-neutral-400">
-                Gorsel yok
-              </div>
+              <DefaultDemoPlaceholder id={getProductPlaceholder(index)} label={product.name} compact />
             )}
           </div>
           <div className="flex flex-1 flex-col justify-center">
@@ -129,17 +130,18 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
               {product.name}
             </h3>
             <ProductCardRating product={product} />
-            {typeof displayPrice === "number" ? (
-              <div className="mt-1 flex items-baseline gap-2">
-                {originalPrice ? (
-                  <span className="text-xs text-neutral-400 line-through">
-                    {formatPrice(originalPrice)}
-                  </span>
-                ) : null}
-                <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
-              </div>
-            ) : null}
+            <div className="mt-1 flex items-baseline gap-2">
+              {originalPrice ? (
+                <span className="text-xs text-neutral-400 line-through">
+                  {formatPrice(originalPrice)}
+                </span>
+              ) : null}
+              <p className="text-sm font-semibold text-neutral-900">{priceLabel}</p>
+            </div>
             <ProductCardSwatches product={product} />
+            <span className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">
+              Urunu incele
+            </span>
           </div>
         </div>
       </Link>
@@ -159,9 +161,12 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
             unoptimized={usesProxiedPrimaryImage}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-sm text-neutral-400">
-            Gorsel yok
-          </div>
+          <DefaultDemoPlaceholder
+            id={getProductPlaceholder(index)}
+            label={product.name}
+            compact
+            className="absolute inset-0"
+          />
         )}
       </div>
 
@@ -171,16 +176,14 @@ export function ProductCard({ product, viewMode = "grid" }: ProductCardProps) {
 
       <ProductCardRating product={product} />
 
-      {typeof displayPrice === "number" ? (
-        <div className="mt-1 flex items-baseline justify-center gap-2">
-          {originalPrice ? (
-            <span className="text-xs text-neutral-400 line-through">
-              {formatPrice(originalPrice)}
-            </span>
-          ) : null}
-          <p className="text-sm font-semibold text-neutral-900">{formatPrice(displayPrice)}</p>
-        </div>
-      ) : null}
+      <div className="mt-1 flex items-baseline justify-center gap-2">
+        {originalPrice ? (
+          <span className="text-xs text-neutral-400 line-through">
+            {formatPrice(originalPrice)}
+          </span>
+        ) : null}
+        <p className="text-sm font-semibold text-neutral-900">{priceLabel}</p>
+      </div>
 
       <ProductCardSwatches product={product} />
     </Link>

@@ -6,7 +6,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, ChevronLeft, ChevronRight, Leaf, Shield, Check, Truck, Clock, Sparkles, Mail, Send, Award, Heart, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROUTES, SITE_NAME } from "@/lib/constants";
+import { ROUTES, SITE_NAME, SITE_TAGLINE } from "@/lib/constants";
+import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
+import { DEFAULT_DEMO_THEME, DEFAULT_TRUST_ITEMS } from "@/lib/default-demo-theme";
 import { Marquee } from "../Marquee";
 
 interface MarqueeSettings {
@@ -27,7 +29,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 
 // Types from PremiumHome
 interface HeroSlide {
-  id: number;
+  id: string | number;
   desktop: string;
   mobile: string;
   alt: string;
@@ -68,56 +70,66 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   if (!isLoaded || !slides || slides.length === 0) {
     return (
-      <section className="relative overflow-hidden bg-[#F4ECE5]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(123,17,19,0.14),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(31,41,55,0.14),_transparent_35%)]" />
-        <div className="relative mx-auto flex min-h-[520px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
-          <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="relative overflow-hidden bg-[#F6F1EB]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(138,104,71,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(20,13,8,0.12),_transparent_35%)]" />
+        <div className="relative mx-auto flex min-h-[620px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
+          <div className="grid items-center gap-12 lg:grid-cols-[0.92fr_1.08fr]">
             <div className="max-w-2xl">
               <span className="inline-flex rounded-full border border-[#7B1113]/15 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7B1113]">
-                Premium Starter Theme
+                {DEFAULT_DEMO_THEME.heroEyebrow}
               </span>
               <h1 className="mt-6 font-serif text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-[#17110D] sm:text-5xl lg:text-6xl">
                 {SITE_NAME}
+                <span className="mt-3 block text-[#8A6847]">{DEFAULT_DEMO_THEME.heroTitle}</span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-8 text-[#5F5147] sm:text-lg">
-                Magaza ayarlarinizi, hero bannerlarinizi, kategorilerinizi ve urunlerinizi
-                adminden girdiginizde bu alan otomatik olarak gercek vitrininize donusur.
+                {SITE_TAGLINE || DEFAULT_DEMO_THEME.heroDescription}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={ROUTES.products}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-[#7B1113] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#651012]"
                 >
-                  Koleksiyonu Incele
+                  Urunleri Incele
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href={ROUTES.contact}
+                  href={ROUTES.blog}
                   className="inline-flex items-center justify-center rounded-full border border-[#BFA58D] bg-white px-6 py-3.5 text-sm font-semibold text-[#2B211B] transition hover:border-[#8A6847] hover:bg-[#FFF9F2]"
                 >
-                  Iletisim Bilgilerini Tamamla
+                  Marka Notlarini Oku
                 </Link>
+              </div>
+              <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {DEFAULT_TRUST_ITEMS.map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-2xl border border-black/5 bg-white/65 px-4 py-3 text-xs font-semibold text-[#5F5147] shadow-[0_18px_48px_-42px_rgba(41,24,15,0.45)]"
+                  >
+                    {item}
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                { title: "Hero Bannerlar", text: "Adminden eklenen ilk bannerlar burada tam ekran mercek alir." },
-                { title: "Kategori Vitrini", text: "Aktif kategoriler, sira ayarina gore anasayfaya tasinir." },
-                { title: "Urun Gruplari", text: "Yayinlanan urunler kategori bazli bloklarda otomatik sergilenir." },
-                { title: "Musteri Guveni", text: "Onayli yorumlar ve magaza bilgileri sayfaya otomatik baglanir." },
-              ].map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-[28px] border border-black/5 bg-white/88 p-5 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)] backdrop-blur"
-                >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                    Hazir
-                  </p>
-                  <h2 className="mt-3 text-xl font-semibold text-[#18110B]">{item.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">{item.text}</p>
+            <div className="grid gap-4 sm:grid-cols-[0.72fr_0.28fr]">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-[42px] shadow-[0_32px_100px_-52px_rgba(24,17,11,0.55)]">
+                <DefaultDemoPlaceholder id="placeholder-01" label="Yeni sezon vitrini" />
+              </div>
+              <div className="grid gap-4">
+                <div className="relative min-h-[220px] overflow-hidden rounded-[32px] shadow-[0_24px_60px_-48px_rgba(24,17,11,0.45)]">
+                  <DefaultDemoPlaceholder id="placeholder-02" label="Secili koleksiyon" compact />
                 </div>
-              ))}
+                <div className="rounded-[32px] border border-black/5 bg-white/88 p-5 shadow-[0_24px_60px_-48px_rgba(24,17,11,0.35)] backdrop-blur">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+                    Alisverise hazir
+                  </p>
+                  <h2 className="mt-3 text-2xl font-semibold text-[#18110B]">Vitrin, blog ve kategori akisi</h2>
+                  <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">
+                    Gercek urunler geldikce placeholder alanlari otomatik olarak canli icerikle degisir.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

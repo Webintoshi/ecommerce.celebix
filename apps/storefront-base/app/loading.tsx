@@ -8,13 +8,13 @@ export default function Loading() {
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#7B1113]/20 border-t-[#7B1113]" />
         </div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8A6847]">
-          Premium Storefront
+          Magaza hazirlaniyor
         </p>
         <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[#18110B]">
           {STOREFRONT_RUNTIME.name}
         </h2>
         <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">
-          Sayfa hazirlaniyor. Admin panelinden gelen icerikler ve vitrin bloklari yukleniyor.
+          Sayfa hazirlaniyor. Vitrin bloklari ve alisveris deneyimi yukleniyor.
         </p>
       </div>
     </div>

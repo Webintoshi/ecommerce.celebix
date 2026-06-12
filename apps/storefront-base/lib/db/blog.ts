@@ -5,6 +5,18 @@ import { slugify } from "@/lib/utils";
 // BLOG QUERIES
 // =====================================================
 
+function isMissingBlogTableError(error: unknown): boolean {
+    if (!error || typeof error !== "object") {
+        return false;
+    }
+
+    const candidate = error as { code?: unknown; message?: unknown };
+    const code = typeof candidate.code === "string" ? candidate.code : "";
+    const message = typeof candidate.message === "string" ? candidate.message : "";
+
+    return code === "42P01" && message.includes("blog_posts");
+}
+
 /**
  * Get published blog posts
  */
@@ -15,6 +27,10 @@ export async function getPublishedPosts() {
         .select("*")
         .eq("status", "published")
         .order("published_at", { ascending: false });
+
+    if (isMissingBlogTableError(error)) {
+        return [];
+    }
 
     if (error) throw error;
     return data;
