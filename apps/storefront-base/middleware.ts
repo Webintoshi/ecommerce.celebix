@@ -15,6 +15,8 @@ import {
   stripLocaleFromPathname,
 } from "@/lib/i18n";
 import { getLocaleRoutingConfig } from "@/lib/locale-routing";
+import { parseProductSlug } from "@/lib/slug-parser";
+import { createServerClient } from "@/lib/supabase";
 
 const RATE_LIMIT_WINDOW = 60 * 1000;
 const RATE_LIMIT_MAX = 30;
@@ -42,6 +44,8 @@ const PUBLIC_SENSITIVE_WRITE_API_PATHS = [
   "/api/product-reviews",
   "/api/upload",
 ] as const;
+const PRODUCT_DETAIL_PATH_PATTERN = /^\/urunler\/([^/]+)\/?$/;
+const BLOG_DETAIL_PATH_PATTERN = /^\/blog\/([^/]+)\/?$/;
 
 const AI_BOTS = [
   "GPTBot",
@@ -103,6 +107,100 @@ function applyNoCacheHeaders(response: NextResponse, pathname: string) {
     response.headers.set("Expires", "0");
     response.headers.set("Surrogate-Control", "no-store");
   }
+}
+
+function getErrorCode(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return null;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
+}
+
+async function hasPublishedProduct(slug: string) {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("id")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .or("status.eq.published,status.is.null")
+    .limit(1);
+
+  if (error) {
+    console.error("Product 404 preflight failed:", error);
+    return true;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
+async function hasPublishedBlogPost(slug: string) {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .select("id")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .limit(1);
+
+  if (error) {
+    if (getErrorCode(error) === "42P01") {
+      return false;
+    }
+
+    console.error("Blog 404 preflight failed:", error);
+    return true;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
+function rewriteMissingContent(
+  request: NextRequest,
+  pathname: string,
+  requestHeaders?: Headers,
+) {
+  const rewriteUrl = request.nextUrl.clone();
+  rewriteUrl.pathname = "/__not-found";
+  rewriteUrl.search = "";
+
+  const response = requestHeaders
+    ? NextResponse.rewrite(rewriteUrl, {
+        status: 404,
+        request: { headers: requestHeaders },
+      })
+    : NextResponse.rewrite(rewriteUrl, { status: 404 });
+
+  applyNoCacheHeaders(response, pathname);
+  response.headers.set("X-Robots-Tag", "noindex, follow");
+  return response;
+}
+
+async function resolveMissingContentResponse(
+  request: NextRequest,
+  pathname: string,
+  requestHeaders?: Headers,
+) {
+  const productMatch = pathname.match(PRODUCT_DETAIL_PATH_PATTERN);
+  if (productMatch?.[1]) {
+    const decodedSlug = decodeURIComponent(productMatch[1]);
+    const { baseSlug } = parseProductSlug(decodedSlug);
+    if (!(await hasPublishedProduct(baseSlug))) {
+      return rewriteMissingContent(request, pathname, requestHeaders);
+    }
+  }
+
+  const blogMatch = pathname.match(BLOG_DETAIL_PATH_PATTERN);
+  if (blogMatch?.[1]) {
+    const decodedSlug = decodeURIComponent(blogMatch[1]);
+    if (!(await hasPublishedBlogPost(decodedSlug))) {
+      return rewriteMissingContent(request, pathname, requestHeaders);
+    }
+  }
+
+  return null;
 }
 
 function isSecureRequest(request: NextRequest) {
@@ -258,6 +356,15 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set("x-celebix-locale", localeRouting.sourceLocale);
     requestHeaders.set("x-celebix-pathname", originalPathname);
 
+    const missingContentResponse = await resolveMissingContentResponse(
+      request,
+      originalPathname,
+      requestHeaders,
+    );
+    if (missingContentResponse) {
+      return withSecurity(request, missingContentResponse);
+    }
+
     const response = NextResponse.next({
       request: { headers: requestHeaders },
     });
@@ -314,6 +421,15 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-celebix-locale", locale);
   requestHeaders.set("x-celebix-pathname", internalPathname);
+
+  const missingContentResponse = await resolveMissingContentResponse(
+    request,
+    internalPathname,
+    requestHeaders,
+  );
+  if (missingContentResponse) {
+    return withSecurity(request, missingContentResponse);
+  }
 
   const response =
     internalPathname !== originalPathname

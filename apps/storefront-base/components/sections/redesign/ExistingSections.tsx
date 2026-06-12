@@ -72,7 +72,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
     return (
       <section className="relative overflow-hidden bg-[#F6F1EB]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(138,104,71,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(20,13,8,0.12),_transparent_35%)]" />
-        <div className="relative mx-auto flex min-h-[620px] max-w-[1500px] flex-col justify-center px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
+        <div className="relative mx-auto flex min-h-[620px] max-w-[1500px] min-w-0 flex-col justify-center overflow-hidden px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
           <div className="grid items-center gap-12 lg:grid-cols-[0.92fr_1.08fr]">
             <div className="max-w-2xl">
               <span className="inline-flex rounded-full border border-[#7B1113]/15 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7B1113]">
@@ -112,7 +112,7 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-[0.72fr_0.28fr]">
+            <div className="grid min-w-0 gap-4 sm:grid-cols-[0.72fr_0.28fr]">
               <div className="relative aspect-[4/5] overflow-hidden rounded-[42px] shadow-[0_32px_100px_-52px_rgba(24,17,11,0.55)]">
                 <DefaultDemoPlaceholder id="placeholder-01" label="Yeni sezon vitrini" />
               </div>

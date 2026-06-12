@@ -175,7 +175,7 @@ export function TestimonialsSection({
               <button
                 type="button"
                 onClick={prevSlide}
-                className="absolute left-0 top-1/2 flex h-10 w-10 -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:-translate-x-6"
+                className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg sm:left-0 sm:-translate-x-4 lg:-translate-x-6"
                 aria-label="Onceki"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -184,7 +184,7 @@ export function TestimonialsSection({
               <button
                 type="button"
                 onClick={nextSlide}
-                className="absolute right-0 top-1/2 flex h-10 w-10 translate-x-4 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg lg:translate-x-6"
+                className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-600 shadow-md transition-all hover:text-neutral-900 hover:shadow-lg sm:right-0 sm:translate-x-4 lg:translate-x-6"
                 aria-label="Sonraki"
               >
                 <ChevronRight className="h-5 w-5" />
