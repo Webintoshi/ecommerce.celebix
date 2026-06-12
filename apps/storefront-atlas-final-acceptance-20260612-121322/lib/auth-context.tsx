@@ -1,16 +1,20 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, Session, AuthError, AuthResponse } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { AuthError, AuthResponse, Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 type AuthResultError = AuthError | Error | null;
+type CustomerAuthMode = "supabase" | "logto" | "disabled";
+
+const CUSTOMER_AUTH_UNAVAILABLE_MESSAGE =
+  "Musteri hesabi girisi gecici olarak hazir degil. Misafir odeme kullanilabilir.";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: AuthResultError; data?: AuthResponse['data'] }>;
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: AuthResultError; data?: AuthResponse['data'] | null }>;
   signUp: (email: string, password: string, metadata?: Record<string, unknown>, captchaToken?: string) => Promise<{ error: AuthResultError; data: AuthResponse['data'] | null }>;
   signOut: () => Promise<{ error: AuthResultError }>;
   resetPassword: (email: string) => Promise<{ error: AuthResultError }>;
@@ -20,12 +24,113 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function normalizeRuntimeValue(value: string | undefined): string {
+  return value?.trim().replace(/^["']|["']$/g, "").toLowerCase() ?? "";
+}
+
+function resolveCustomerAuthMode(): CustomerAuthMode {
+  const explicitProvider = normalizeRuntimeValue(
+    process.env.NEXT_PUBLIC_CUSTOMER_AUTH_PROVIDER || process.env.CUSTOMER_AUTH_PROVIDER,
+  );
+
+  if (explicitProvider === "logto") {
+    return "logto";
+  }
+
+  if (explicitProvider === "supabase") {
+    return "supabase";
+  }
+
+  const authStatus = normalizeRuntimeValue(
+    process.env.NEXT_PUBLIC_CUSTOMER_AUTH_STATUS || process.env.CUSTOMER_AUTH_STATUS,
+  );
+
+  if (authStatus === "logto_stable" || authStatus === "logto_canary") {
+    return "logto";
+  }
+
+  const databaseMode = normalizeRuntimeValue(
+    process.env.NEXT_PUBLIC_RUNTIME_DATABASE_MODE || process.env.DATABASE_MODE,
+  );
+  const supabaseStatus = normalizeRuntimeValue(
+    process.env.NEXT_PUBLIC_SUPABASE_STATUS || process.env.SUPABASE_STATUS,
+  );
+
+  if (databaseMode === "light_postgres" || supabaseStatus === "none") {
+    return "disabled";
+  }
+
+  return "supabase";
+}
+
+async function fetchLogtoSession() {
+  const response = await fetch("/api/auth/session", {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  return (payload?.user as User | null) ?? null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const customerAuthMode = resolveCustomerAuthMode();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (customerAuthMode === "disabled") {
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    if (customerAuthMode === "logto") {
+      let cancelled = false;
+
+      const loadSession = async () => {
+        try {
+          const currentUser = await fetchLogtoSession();
+
+          if (cancelled) {
+            return;
+          }
+
+          setSession(null);
+          setUser(currentUser);
+        } catch (error) {
+          if (!cancelled) {
+            console.error("Error getting Logto customer session:", error);
+            setSession(null);
+            setUser(null);
+          }
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      };
+
+      void loadSession();
+
+      const handleFocus = () => {
+        void loadSession();
+      };
+
+      window.addEventListener("focus", handleFocus);
+
+      return () => {
+        cancelled = true;
+        window.removeEventListener("focus", handleFocus);
+      };
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -49,9 +154,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [customerAuthMode]);
 
   const signIn = async (email: string, password: string) => {
+    if (customerAuthMode === "disabled") {
+      return {
+        error: new Error(CUSTOMER_AUTH_UNAVAILABLE_MESSAGE),
+        data: null,
+      };
+    }
+
+    if (customerAuthMode === "logto") {
+      const url = new URL("/api/auth/sign-in", window.location.origin);
+      url.searchParams.set("next", "/hesap");
+      url.searchParams.set("firstScreen", "sign_in");
+      if (email.trim()) {
+        url.searchParams.set("login_hint", email.trim());
+      }
+
+      window.location.assign(url.toString());
+
+      return {
+        error: null,
+        data: null,
+      };
+    }
+
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -88,6 +216,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, metadata?: Record<string, unknown>) => {
+    if (customerAuthMode === "disabled") {
+      return {
+        error: new Error(CUSTOMER_AUTH_UNAVAILABLE_MESSAGE),
+        data: null,
+      };
+    }
+
+    if (customerAuthMode === "logto") {
+      const url = new URL("/api/auth/sign-in", window.location.origin);
+      url.searchParams.set("next", "/hesap");
+      url.searchParams.set("firstScreen", "register");
+      if (email.trim()) {
+        url.searchParams.set("login_hint", email.trim());
+      }
+
+      window.location.assign(url.toString());
+
+      return {
+        error: null,
+        data: null,
+      };
+    }
+
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -125,11 +276,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (customerAuthMode === "disabled") {
+      setSession(null);
+      setUser(null);
+      return { error: null };
+    }
+
+    if (customerAuthMode === "logto") {
+      setSession(null);
+      setUser(null);
+      window.location.assign(
+        `/api/auth/sign-out?next=${encodeURIComponent("/giris?next=/hesap&logged_out=1")}`,
+      );
+      return { error: null };
+    }
+
     const { error } = await supabase.auth.signOut();
     return { error };
   };
 
   const resetPassword = async (email: string) => {
+    if (customerAuthMode === "disabled") {
+      return { error: new Error(CUSTOMER_AUTH_UNAVAILABLE_MESSAGE) };
+    }
+
+    if (customerAuthMode === "logto") {
+      const url = new URL("/api/auth/sign-in", window.location.origin);
+      url.searchParams.set("firstScreen", "reset_password");
+      url.searchParams.set("identifier", "email");
+      if (email.trim()) {
+        url.searchParams.set("login_hint", email.trim());
+      }
+
+      window.location.assign(url.toString());
+      return { error: null };
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/sifre-yenile` : undefined,
     });
@@ -137,6 +319,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword = async (newPassword: string) => {
+    if (customerAuthMode === "disabled") {
+      return { error: new Error(CUSTOMER_AUTH_UNAVAILABLE_MESSAGE) };
+    }
+
+    if (customerAuthMode === "logto") {
+      return {
+        error: new Error("Sifre guncelleme guvenli hesap ekraninda tamamlanir."),
+      };
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -144,6 +336,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshSession = async () => {
+    if (customerAuthMode === "disabled") {
+      setSession(null);
+      setUser(null);
+      return;
+    }
+
+    if (customerAuthMode === "logto") {
+      try {
+        const currentUser = await fetchLogtoSession();
+        setSession(null);
+        setUser(currentUser);
+      } catch (error) {
+        console.error("Error refreshing Logto customer session:", error);
+        setSession(null);
+        setUser(null);
+      }
+      return;
+    }
+
     try {
       const { data } = await supabase.auth.refreshSession();
       setSession(data.session);
