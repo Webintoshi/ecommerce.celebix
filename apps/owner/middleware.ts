@@ -24,6 +24,7 @@ const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
 const OWNER_PUBLIC_RUNTIME_API_PATH = "/api/public/runtime";
 const OWNER_ACCEPTANCE_CREATE_API_PATH = "/api/internal/acceptance/create-store";
+const OWNER_INTERNAL_STORE_SMOKE_REFRESH_PREFIX = "/api/internal/stores/";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
 const OWNER_RECOVER_PATH = "/auth/recover";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
@@ -67,11 +68,16 @@ function isProtectedOwnerPage(pathname: string) {
 }
 
 function isProtectedOwnerApi(pathname: string) {
+  const isInternalStoreSmokeRefresh =
+    pathname.startsWith(OWNER_INTERNAL_STORE_SMOKE_REFRESH_PREFIX) &&
+    pathname.endsWith("/smoke-refresh");
+
   return (
     pathname.startsWith("/api") &&
     pathname !== OWNER_LOGIN_API_PATH &&
     pathname !== OWNER_PUBLIC_RUNTIME_API_PATH &&
-    pathname !== OWNER_ACCEPTANCE_CREATE_API_PATH
+    pathname !== OWNER_ACCEPTANCE_CREATE_API_PATH &&
+    !isInternalStoreSmokeRefresh
   );
 }
 

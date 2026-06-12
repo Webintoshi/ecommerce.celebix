@@ -32,6 +32,7 @@ export function buildNewStoreSmokeChecks(store: StoreConfig): SmokeCheckDefiniti
     { id: "storefront_home_200", label: "Storefront home", category: "storefront", kind: "http", target: "storefront", path: "/", expectedStatus: 200, expected: "HTTP 200" },
     { id: "storefront_products_200", label: "Storefront products", category: "storefront", kind: "http", target: "storefront", path: "/urunler", expectedStatus: 200, expected: "HTTP 200" },
     { id: "storefront_checkout_200", label: "Storefront checkout", category: "checkout", kind: "http", target: "storefront", path: "/odeme", expectedStatus: 200, expected: "HTTP 200" },
+    { id: "storefront_blog_200", label: "Storefront blog", category: "storefront", kind: "http", target: "storefront", path: "/blog", expectedStatus: 200, expected: "HTTP 200" },
     { id: "storefront_runtime_200", label: "Storefront runtime endpoint", category: "storefront", kind: "http", target: "storefront", path: "/api/public/runtime", expectedStatus: 200, expected: "HTTP 200" },
     {
       id: "storefront_runtime_standard",
@@ -54,6 +55,10 @@ export function buildNewStoreSmokeChecks(store: StoreConfig): SmokeCheckDefiniti
     { id: "storefront_login_200", label: "Customer login page", category: "auth", kind: "http", target: "storefront", path: "/giris", expectedStatus: 200, expected: "HTTP 200" },
     { id: "storefront_register_200", label: "Customer register page", category: "auth", kind: "http", target: "storefront", path: "/kayit", expectedStatus: 200, expected: "HTTP 200" },
     { id: "storefront_forgot_password_200", label: "Customer forgot password page", category: "auth", kind: "http", target: "storefront", path: "/sifremi-unuttum", expectedStatus: 200, expected: "HTTP 200" },
+    { id: "customer_email_sign_in_307", label: "Customer email sign-in redirects", category: "auth", kind: "redirect", target: "storefront", path: "/api/auth/sign-in?identifier=email&firstScreen=identifier:sign-in&next=%2Fhesap", expectedStatus: 307, expected: "HTTP 307 to Logto" },
+    { id: "customer_google_sign_in_307", label: "Customer Google sign-in redirects", category: "auth", kind: "redirect", target: "storefront", path: "/api/auth/sign-in?directSignIn=social:google&next=%2Fhesap", expectedStatus: 307, expected: "HTTP 307 to Logto" },
+    { id: "customer_reset_password_307", label: "Customer reset-password redirects", category: "auth", kind: "redirect", target: "storefront", path: "/api/auth/sign-in?firstScreen=reset_password&identifier=email&next=%2Fgiris", expectedStatus: 307, expected: "HTTP 307 to Logto" },
+    { id: "customer_invalid_callback_safe", label: "Invalid customer callback stays on public domain", category: "security", kind: "http", target: "storefront", path: "/callback?code=fake&state=fake", expectedStatus: [200, 302, 307, 400, 401], expected: "No local/dev redirect" },
     { id: "storefront_account_401", label: "Anonymous account API unauthorized", category: "auth", kind: "http", target: "storefront", path: "/api/account", expectedStatus: 401, expected: "HTTP 401" },
     { id: "storefront_missing_product_404", label: "Missing product returns 404", category: "storefront", kind: "http", target: "storefront", path: "/urunler/__missing_smoke_product__", expectedStatus: 404, expected: "HTTP 404" },
     { id: "storefront_missing_blog_404", label: "Missing blog returns 404", category: "storefront", kind: "http", target: "storefront", path: "/blog/__missing_smoke_post__", expectedStatus: 404, expected: "HTTP 404" },
