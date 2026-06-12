@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getActivePaymentGatewayById } from "@/lib/db/payment-gateways";
 import { getQuickOrderLinkByToken, markQuickOrderLinkOpened, validateQuickOrderStock } from "@/lib/db/quick-order-links";
 import { initializePayment } from "@/lib/payment-runtime";
+import { isOptionalModuleDisabled, optionalModuleDisabledPayload } from "@/lib/optional-modules-runtime";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,10 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
+    if (isOptionalModuleDisabled("quick_order_links")) {
+      return NextResponse.json(optionalModuleDisabledPayload("quick_order_links"), { status: 404 });
+    }
+
     const { token } = await params;
     const body = await request.json().catch(() => null);
     const parsed = requestSchema.safeParse(body);

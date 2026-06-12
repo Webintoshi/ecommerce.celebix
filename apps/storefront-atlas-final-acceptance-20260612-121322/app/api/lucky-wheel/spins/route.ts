@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, spinLuckyWheel } from "@/lib/lucky-wheel";
+import { isOptionalModuleDisabled, optionalModuleDisabledPayload } from "@/lib/optional-modules-runtime";
 
 const spinSchema = z.object({
   configId: z.string().uuid().optional(),
@@ -15,6 +16,10 @@ const spinSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    if (isOptionalModuleDisabled("lucky_wheel")) {
+      return NextResponse.json(optionalModuleDisabledPayload("lucky_wheel"), { status: 404 });
+    }
+
     const requestIp = getRequestIp(request);
     const ipRateLimit = await checkRateLimit({
       key: `lucky-wheel:spin:ip:${requestIp}`,

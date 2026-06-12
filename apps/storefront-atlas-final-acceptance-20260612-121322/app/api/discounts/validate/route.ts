@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { applyCoupon, getCouponByCode } from "@/lib/db/coupons";
+import { isOptionalModuleDisabled, optionalModuleDisabledPayload } from "@/lib/optional-modules-runtime";
 
 const validateSchema = z.object({
   code: z.string().trim().min(3).max(40),
@@ -9,6 +10,10 @@ const validateSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    if (isOptionalModuleDisabled("coupons") || isOptionalModuleDisabled("discounts")) {
+      return NextResponse.json(optionalModuleDisabledPayload("coupons"), { status: 404 });
+    }
+
     const body = await request.json();
     const parsed = validateSchema.safeParse(body);
 

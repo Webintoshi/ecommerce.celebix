@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStoredPaymentGateways } from "@/lib/db/payment-gateways";
 import { getQuickOrderLinkByToken, markQuickOrderLinkOpened } from "@/lib/db/quick-order-links";
 import { getPaymentGatewayRuntimeStatus, sanitizePublicPaymentGateway } from "@/lib/payment-providers";
+import { isOptionalModuleDisabled, optionalModuleDisabledPayload } from "@/lib/optional-modules-runtime";
 
 function isManualGateway(gateway: { gateway: string }) {
   return gateway.gateway === "bank_transfer" || gateway.gateway === "cod";
@@ -12,6 +13,10 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
+    if (isOptionalModuleDisabled("quick_order_links")) {
+      return NextResponse.json(optionalModuleDisabledPayload("quick_order_links"), { status: 404 });
+    }
+
     const { token } = await params;
     let link = await getQuickOrderLinkByToken(token);
 

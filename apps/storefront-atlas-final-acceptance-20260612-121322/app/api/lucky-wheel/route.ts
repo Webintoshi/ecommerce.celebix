@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, getLuckyWheelPublicData } from "@/lib/lucky-wheel";
+import { isOptionalModuleDisabled, optionalModuleDisabledPayload } from "@/lib/optional-modules-runtime";
 
 export async function GET(request: NextRequest) {
   try {
+    if (isOptionalModuleDisabled("lucky_wheel")) {
+      return NextResponse.json(optionalModuleDisabledPayload("lucky_wheel"), { status: 404 });
+    }
+
     const configId = request.nextUrl.searchParams.get("id") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;
     const { config, prizes } = await getLuckyWheelPublicData(configId);
 
@@ -56,6 +61,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST() {
+  if (isOptionalModuleDisabled("lucky_wheel")) {
+    return NextResponse.json(optionalModuleDisabledPayload("lucky_wheel"), { status: 404 });
+  }
+
   return NextResponse.json(
     {
       success: false,
