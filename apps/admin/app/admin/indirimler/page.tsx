@@ -10,7 +10,6 @@ import {
   Search,
   Trash2,
   XCircle,
-  TicketPercent,
   CalendarClock,
   Layers3,
   BarChart3,
@@ -252,13 +251,6 @@ export default function DiscountsPage() {
                 <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                 Yenile
               </button>
-              <Link
-                href="/admin/indirimler/sans-carki"
-                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-              >
-                <TicketPercent className="h-4 w-4" />
-                Sans Carki
-              </Link>
               <Link
                 href="/admin/indirimler/yeni"
                 className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"

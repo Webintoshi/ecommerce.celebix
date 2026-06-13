@@ -367,7 +367,6 @@ async function runSmoke(slug, timeoutMs) {
   const optionalModules = [
     ["quick_order", "/admin/siparisler/hizli-siparis"],
     ["coupons_discounts", "/admin/indirimler"],
-    ["lucky_wheel", "/admin/indirimler/sans-carki"],
     ["marketplace", "/admin/markets"],
     ["accounting", "/admin/muhasebe"],
   ];

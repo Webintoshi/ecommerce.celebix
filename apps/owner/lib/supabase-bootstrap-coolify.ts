@@ -95,7 +95,6 @@ const CORE_BOOTSTRAP_SQL_FILES = [
   ["apps", "admin", "supabase", "migrations", "025_create_accounting_runtime.sql"],
   ["apps", "admin", "supabase", "migrations", "20260314000100_product_tag_suggestions.sql"],
   ["apps", "admin", "supabase", "migrations", "20260314001000_marketplace_runtime.sql"],
-  ["apps", "admin", "supabase", "migrations", "20260315002000_lucky_wheel_production.sql"],
   ["apps", "admin", "supabase", "migrations", "20260328000000_payment_runtime.sql"],
   ["apps", "admin", "supabase", "migrations", "006_add_product_columns.sql"],
   ["apps", "admin", "supabase", "migrations", "20260402020000_default_product_tax_rate_zero.sql"],

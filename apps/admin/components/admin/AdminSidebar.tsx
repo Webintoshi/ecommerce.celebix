@@ -94,7 +94,6 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Tüm İndirimler", href: "/admin/indirimler" },
       { title: "Yeni İndirim", href: "/admin/indirimler/yeni" },
-      { title: "Şans Çarkı", href: "/admin/indirimler/sans-carki" },
     ],
   },
   {

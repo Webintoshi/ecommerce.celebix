@@ -94,10 +94,6 @@ function isProtectedApi(request: NextRequest) {
     }
   }
 
-  if (pathname === "/api/lucky-wheel/admin") {
-    return true;
-  }
-
   if (pathname === "/api/migrate") {
     return true;
   }

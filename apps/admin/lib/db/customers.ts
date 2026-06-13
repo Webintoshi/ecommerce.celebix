@@ -318,7 +318,7 @@ function isMissingSchemaError(error: unknown): boolean {
 }
 
 async function runOptionalCustomerCleanup(
-  action: () => Promise<{ error: unknown }>,
+  action: () => PromiseLike<{ error: unknown }>,
 ) {
   const { error } = await action();
 
@@ -646,13 +646,6 @@ export async function deleteCustomer(id: string) {
   await runOptionalCustomerCleanup(() =>
     serverClient
       .from("product_reviews")
-      .update({ customer_id: null })
-      .eq("customer_id", id),
-  );
-
-  await runOptionalCustomerCleanup(() =>
-    serverClient
-      .from("lucky_wheel_spins")
       .update({ customer_id: null })
       .eq("customer_id", id),
   );

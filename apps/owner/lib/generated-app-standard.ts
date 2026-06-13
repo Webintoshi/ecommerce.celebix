@@ -39,7 +39,6 @@ const OPTIONAL_MODULE_SAFE_DISABLED: Record<string, "disabled"> = {
   quick_order_links: "disabled",
   coupons: "disabled",
   discounts: "disabled",
-  lucky_wheel: "disabled",
   marketplace: "disabled",
   accounting: "disabled",
 };

@@ -182,7 +182,7 @@ export const NEW_STORE_SMOKE_CHECKLIST: NewStoreSmokeChecklistItem[] = [
   { area: "admin", key: "admin_runtime", label: "Admin runtime uses Logto/light_postgres", target: "runtime", expectation: "runtime_ready" },
   { area: "admin", key: "admin_me", label: "Authenticated admin identity", target: "/api/admin/me", expectation: "http_200" },
   { area: "admin", key: "admin_crud", label: "Products/categories/settings CRUD opens", target: "admin_core_tables", expectation: "runtime_ready" },
-  { area: "admin", key: "optional_modules_safe_disabled", label: "Optional modules are safe-disabled", target: "quick_order_links,coupons,lucky_wheel,marketplace,accounting", expectation: "safe_state" },
+  { area: "admin", key: "optional_modules_safe_disabled", label: "Optional modules are safe-disabled", target: "quick_order_links,coupons,marketplace,accounting", expectation: "safe_state" },
   { area: "admin", key: "analytics_route_safe", label: "Admin analytics route safe state", target: "/admin/analizler", expectation: "safe_state" },
   { area: "auth", key: "admin_sign_in", label: "Admin sign-in redirect", target: "admin_sign_in", expectation: "http_307" },
   { area: "auth", key: "customer_sign_in", label: "Customer sign-in redirect", target: "customer_sign_in", expectation: "http_307" },
