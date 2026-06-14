@@ -25,7 +25,6 @@ const PUBLIC_WRITE_RATE_LIMIT_WINDOW = 10 * 60 * 1000;
 const STATIC_FILE_PATTERN = /\.[^/]+$/;
 const INTERNAL_WRITE_API_PATHS = [
   "/api/categories",
-  "/api/lucky-wheel/admin",
   "/api/pages",
   "/api/products",
   "/api/revalidate",
@@ -46,6 +45,7 @@ const PUBLIC_SENSITIVE_WRITE_API_PATHS = [
 ] as const;
 const PRODUCT_DETAIL_PATH_PATTERN = /^\/urunler\/([^/]+)\/?$/;
 const BLOG_DETAIL_PATH_PATTERN = /^\/blog\/([^/]+)\/?$/;
+const REMOVED_MODULE_PATHS = new Set(["/sans-carki", "/lucky-wheel"]);
 
 const AI_BOTS = [
   "GPTBot",
@@ -320,6 +320,10 @@ export async function middleware(request: NextRequest) {
   const isAIBot = AI_BOTS.some((bot) => normalizedUserAgent.includes(bot.toLowerCase()));
   const isGeneralBot = GENERAL_BOTS.some((bot) => normalizedUserAgent.includes(bot.toLowerCase()));
   const isBot = isAIBot || isGeneralBot;
+
+  if (REMOVED_MODULE_PATHS.has(internalPathname.replace(/\/$/, ""))) {
+    return withSecurity(request, rewriteMissingContent(request, internalPathname, new Headers(request.headers)));
+  }
 
   if (isBot) {
     const limit = isAIBot ? AI_BOT_RATE_LIMIT : RATE_LIMIT_MAX;
