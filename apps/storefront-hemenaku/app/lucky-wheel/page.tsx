@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
 
-export default function RemovedLuckyWheelPage() {
+export default function RemovedLuckyWheelAliasPage() {
   notFound();
 }
