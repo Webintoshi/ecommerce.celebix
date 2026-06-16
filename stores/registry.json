@@ -46,7 +46,7 @@
     "name": "atlas-template-visual-20260612-233753",
     "domain": "atlas-template-visual-20260612-233753.celebix.site",
     "theme": "atelier",
-    "status": "draft"
+    "status": "active"
   },
   {
     "slug": "butik-waya",
@@ -74,6 +74,13 @@
     "name": "Ezmeo",
     "domain": "ezmeo.com",
     "theme": "leather",
+    "status": "draft"
+  },
+  {
+    "slug": "hemenaku",
+    "name": "Hemenaku",
+    "domain": "hemenaku.com",
+    "theme": "atelier",
     "status": "draft"
   },
   {
