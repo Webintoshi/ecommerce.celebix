@@ -28,10 +28,7 @@ export function resolveAdminStoreSlug(): string {
 }
 
 export function shouldUseLightPostgresAdmin(
-  storeSlug: string = resolveAdminStoreSlug(),
+  _storeSlug: string = resolveAdminStoreSlug(),
 ): boolean {
-  return (
-    resolveAdminDatabaseMode() === "light_postgres" &&
-    storeSlug === "derycraftcomtr"
-  );
+  return resolveAdminDatabaseMode() === "light_postgres";
 }

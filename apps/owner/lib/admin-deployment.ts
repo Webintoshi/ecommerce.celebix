@@ -129,6 +129,20 @@ function readExistingAdminEnvMap(store: StoreConfig): Record<string, string> {
   return parseEnvFile(fs.readFileSync(envLocalPath, "utf8"));
 }
 
+function hasUsableEnvEntry(envEntries: Record<string, string>, key: string): boolean {
+  const normalized = envEntries[key]?.trim().toLowerCase();
+
+  return Boolean(
+    normalized &&
+      !normalized.startsWith("configure-") &&
+      !normalized.startsWith("placeholder-"),
+  );
+}
+
+function hasUsableAnyEnvEntry(envEntries: Record<string, string>, keys: string[]): boolean {
+  return keys.some((key) => hasUsableEnvEntry(envEntries, key));
+}
+
 function getSharedRedisEnvEntries(): Record<string, string> {
   const redisUrl =
     process.env.COOLIFY_SHARED_REDIS_URL?.trim() ||
@@ -424,21 +438,19 @@ export async function getStoreAdminDeploymentBlueprint(
   const useBuildServer = deploymentConfig?.useBuildServer ?? true;
   const buildServer = deploymentConfig?.buildServer ?? "celebix-build-01";
   const deploymentMarker = envEntries.CELEBIX_ADMIN_DEPLOYMENT_MARKER?.trim() || null;
+  const hasLogtoAdminRuntimeAuthority =
+    envEntries.AUTH_SETUP_STATUS === "logto_stable" &&
+    hasUsableEnvEntry(envEntries, "LOGTO_ISSUER") &&
+    hasUsableEnvEntry(envEntries, "LOGTO_ADMIN_APP_ID") &&
+    hasUsableAnyEnvEntry(envEntries, ["LOGTO_ADMIN_APP_SECRET", "LOGTO_APP_SECRET"]) &&
+    hasUsableEnvEntry(envEntries, "LOGTO_COOKIE_SECRET");
   const hasRequiredEnv = store.databaseMode === "light_postgres"
     ? Boolean(
         envEntries.LIGHT_POSTGRES_DATABASE_URL &&
           envEntries.LIGHT_POSTGRES_DATABASE_NAME &&
           envEntries.NEXT_PUBLIC_STORE_DOMAIN &&
           envEntries.NEXT_PUBLIC_ADMIN_DOMAIN &&
-          (
-            store.authProvider !== "logto" ||
-            (
-              envEntries.AUTH_SETUP_STATUS === "logto_stable" &&
-              envEntries.LOGTO_ISSUER &&
-              envEntries.LOGTO_ADMIN_APP_ID &&
-              envEntries.LOGTO_COOKIE_SECRET
-            )
-          ),
+          (store.authProvider !== "logto" || hasLogtoAdminRuntimeAuthority),
       )
     : Boolean(
         envEntries.NEXT_PUBLIC_SUPABASE_URL &&
@@ -455,12 +467,7 @@ export async function getStoreAdminDeploymentBlueprint(
   const missingLogtoAuthority =
     store.databaseMode === "light_postgres" &&
     store.authProvider === "logto" &&
-    !(
-      envEntries.AUTH_SETUP_STATUS === "logto_stable" &&
-      envEntries.LOGTO_ISSUER &&
-      envEntries.LOGTO_ADMIN_APP_ID &&
-      envEntries.LOGTO_COOKIE_SECRET
-    );
+    !hasLogtoAdminRuntimeAuthority;
   let status: "pending-owner-env" | "prepared" | "configured" | "failed" = hasRequiredEnv ? "prepared" : "pending-owner-env";
   let runtimeMessage: string | null = hasRequiredEnv
     ? null
