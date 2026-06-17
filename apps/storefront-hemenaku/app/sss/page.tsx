@@ -33,15 +33,15 @@ export default async function FAQPage() {
     <div className="min-h-screen bg-[#F8F8F8]">
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#0F766E]">
             Yardim Merkezi
           </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-semibold text-[#111827] sm:text-5xl">
             Sikca sorulan sorular
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#526B66]">
             {managedPage?.plainText ||
-              `${profile.name} icin siparis, teslimat, iade ve destek akislari hakkindaki icerikleri admin panelinden yonetebilirsiniz.`}
+              `${profile.name} siparis, teslimat, iade ve destek surecleri hakkinda sik sorulan sorulari burada toplar.`}
           </p>
         </div>
       </section>
@@ -54,13 +54,13 @@ export default async function FAQPage() {
               dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
             />
           ) : (
-            <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
+            <div className="space-y-5 text-sm leading-7 text-[#526B66]">
               <p>
-                Bu sayfa admin panelindeki <strong>SSS</strong> iceriginden beslenir. Musteriye gostermek istediginiz
-                soru-cevap, operasyon notlari veya yardim akisini burada zengin metin olarak yonetebilirsiniz.
+                Siparis oncesi urun sorulari, teslimat sureci, iade kosullari ve destek kanallari
+                Hemenaku ekibi tarafindan net ve kolay anlasilir sekilde yanitlanir.
               </p>
               <p>
-                Icerik eklenene kadar bu alan temel bir bilgilendirme olarak kalir.
+                Daha ayrintili bilgiye ihtiyaciniz olursa iletisim sayfasindan bize ulasabilirsiniz.
               </p>
             </div>
           )}
@@ -72,7 +72,7 @@ export default async function FAQPage() {
           </p>
           <h2 className="mt-3 text-3xl font-semibold">Hala sorunuz varsa bize ulasin</h2>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-white/78">
-            Iletisim kartlari genel ayarlardan gelir ve burada store genel destek akisini tamamlar.
+            Siparis veya teslimatla ilgili sorulariniz icin Hemenaku destek kanallari yaninizda.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link

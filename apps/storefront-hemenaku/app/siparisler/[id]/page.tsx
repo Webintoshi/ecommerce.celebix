@@ -150,7 +150,7 @@ export default async function OrderSuccessPage({
         </p>
         <Link
           href="/"
-          className="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-primary px-8 text-sm font-semibold text-white transition-colors hover:bg-red-800"
+          className="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-[#0F766E] px-8 text-sm font-semibold text-white transition-colors hover:bg-[#115E59]"
         >
           Ana sayfaya dön
         </Link>
@@ -187,7 +187,7 @@ export default async function OrderSuccessPage({
   const paymentBanner = getPaymentBanner(resolvedSearchParams.payment);
 
   return (
-    <div className="min-h-screen bg-[#faf8f4] pb-20 pt-8">
+    <div className="min-h-screen bg-[#F7FAF9] pb-20 pt-8">
       <OrderSuccessToast />
       <div className="mx-auto flex max-w-[1120px] flex-col gap-8 px-4 md:px-6">
         {paymentBanner && (
@@ -197,9 +197,9 @@ export default async function OrderSuccessPage({
           </div>
         )}
 
-        <section className="overflow-hidden rounded-[34px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+        <section className="overflow-hidden rounded-lg border border-[#DDE7E4] bg-white shadow-sm">
           <div className="grid gap-0 lg:grid-cols-[1.25fr_0.95fr]">
-            <div className="border-b border-stone-200 bg-[linear-gradient(135deg,#f7f1e7_0%,#fff_55%,#f8f5ef_100%)] p-6 sm:p-8 lg:border-b-0 lg:border-r">
+            <div className="border-b border-[#DDE7E4] bg-[#F0FDFA] p-6 sm:p-8 lg:border-b-0 lg:border-r">
               <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-sm">
                 <Check className="h-7 w-7 stroke-[3]" />
               </div>
@@ -215,11 +215,11 @@ export default async function OrderSuccessPage({
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
+                <div className="rounded-lg border border-[#DDE7E4] bg-white/80 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Sipariş No</p>
                   <p className="mt-2 font-mono text-sm font-semibold text-stone-900">#{order.order_number}</p>
                 </div>
-                <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
+                <div className="rounded-lg border border-[#DDE7E4] bg-white/80 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Tarih</p>
                   <p className="mt-2 text-sm font-semibold text-stone-900">
                     {new Date(order.created_at).toLocaleDateString("tr-TR", {
@@ -229,7 +229,7 @@ export default async function OrderSuccessPage({
                     })}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-stone-200 bg-white/80 p-4">
+                <div className="rounded-lg border border-[#DDE7E4] bg-white/80 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Toplam</p>
                   <p className="mt-2 text-sm font-semibold text-stone-900">{formatPrice(order.total)}</p>
                 </div>
@@ -237,7 +237,7 @@ export default async function OrderSuccessPage({
             </div>
 
             <div className="p-6 sm:p-8">
-              <div className="rounded-[28px] border border-stone-200 bg-[#fcfaf6] p-5">
+              <div className="rounded-lg border border-[#DDE7E4] bg-[#F7FAF9] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Ödeme Yöntemi</p>
@@ -251,15 +251,17 @@ export default async function OrderSuccessPage({
 
                 <div className="mt-5 space-y-3 border-t border-stone-200 pt-5 text-sm text-stone-600">
                   <div className="flex items-center justify-between gap-3">
-                    <span>Muhasebe durumu</span>
-                    <span className="font-medium text-stone-900">{accountingSnapshot?.syncStatus || "idle"}</span>
+                    <span>Belge durumu</span>
+                    <span className="font-medium text-stone-900">
+                      {accountingSnapshot?.syncStatus === "synced" ? "Hazir" : "Hazirlaniyor"}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span>Fatura no</span>
                     <span className="font-medium text-stone-900">{accountingSnapshot?.invoiceNo || "-"}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span>Sağlayıcı</span>
+                    <span>Odeme kaydi</span>
                     <span className="font-medium text-stone-900">{accountingSnapshot?.provider || "-"}</span>
                   </div>
                 </div>
@@ -280,7 +282,7 @@ export default async function OrderSuccessPage({
         </section>
 
         <section className="grid gap-8 xl:grid-cols-[1.25fr_0.85fr]">
-          <div className="rounded-[30px] border border-stone-200 bg-white p-6 shadow-[0_14px_42px_rgba(15,23,42,0.05)] sm:p-8">
+          <div className="rounded-lg border border-[#DDE7E4] bg-white p-6 shadow-sm sm:p-8">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-100 text-stone-700">
                 <ShoppingBag className="h-5 w-5" />
@@ -298,7 +300,7 @@ export default async function OrderSuccessPage({
                 return (
                   <article
                     key={item.id}
-                    className="rounded-[28px] border border-stone-200 bg-[#fcfaf6] p-4 sm:p-5"
+                    className="rounded-lg border border-[#DDE7E4] bg-[#F7FAF9] p-4 sm:p-5"
                   >
                     <div className="flex items-start gap-4">
                       <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-white sm:h-28 sm:w-28">
@@ -371,7 +373,7 @@ export default async function OrderSuccessPage({
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-[30px] border border-stone-200 bg-white p-6 shadow-[0_14px_42px_rgba(15,23,42,0.05)] sm:p-8">
+            <div className="rounded-lg border border-[#DDE7E4] bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-100 text-stone-700">
                   <MapPin className="h-5 w-5" />
@@ -397,7 +399,7 @@ export default async function OrderSuccessPage({
               </div>
             </div>
 
-            <div className="rounded-[30px] border border-stone-200 bg-white p-6 shadow-[0_14px_42px_rgba(15,23,42,0.05)] sm:p-8">
+            <div className="rounded-lg border border-[#DDE7E4] bg-white p-6 shadow-sm sm:p-8">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Sipariş Özeti</p>
               <div className="mt-5 space-y-3 text-sm text-stone-600">
                 <div className="flex items-center justify-between gap-3">
@@ -428,7 +430,7 @@ export default async function OrderSuccessPage({
         <div className="flex flex-col items-center justify-center gap-4 pb-4 sm:flex-row">
           <Link
             href="/urunler"
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-8 text-sm font-semibold text-white transition-colors hover:bg-red-800 sm:w-auto"
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#0F766E] px-8 text-sm font-semibold text-white transition-colors hover:bg-[#115E59] sm:w-auto"
           >
             Alışverişe devam et
             <ChevronRight className="h-4 w-4" />

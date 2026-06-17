@@ -102,32 +102,40 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
   const displayVariant = product.variants?.[0];
   const displayPrice = displayVariant?.price;
   const priceLabel = typeof displayPrice === "number" ? formatPrice(displayPrice) : "Fiyat bilgisi yakinda";
+  const stockLabel =
+    typeof displayVariant?.stock === "number"
+      ? displayVariant.stock > 0
+        ? "Stokta"
+        : "Stok bilgisi yakinda"
+      : "Secenekler yakinda";
   const originalPrice =
     displayVariant?.originalPrice && displayVariant.originalPrice > (displayPrice ?? 0)
       ? displayVariant.originalPrice
       : undefined;
   const productHref = buildPath(ROUTES.product(product.slug));
+  const productName = product.name?.trim() || "Hemenaku urunu";
 
   if (viewMode === "list") {
     return (
-      <Link href={productHref} className="group block">
-        <div className="flex gap-6 bg-white p-4">
-          <div className="relative h-40 w-32 flex-shrink-0 overflow-hidden">
+      <Link href={productHref} className="group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F766E]">
+        <div className="flex gap-4 rounded-lg border border-[#DDE7E4] bg-white p-4 shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-md sm:gap-6">
+          <div className="relative h-36 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-[#EEF6F4] sm:h-40 sm:w-32">
             {primaryImage ? (
               <Image
                 src={primaryImage}
-                alt={product.name}
+                alt={productName}
                 fill
-                className="object-cover"
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
                 unoptimized={usesProxiedPrimaryImage}
               />
             ) : (
-              <DefaultDemoPlaceholder id={getProductPlaceholder(index)} label={product.name} compact />
+              <DefaultDemoPlaceholder id={getProductPlaceholder(index)} label={productName} compact />
             )}
           </div>
           <div className="flex flex-1 flex-col justify-center">
-            <h3 className="store-product-title text-neutral-900 transition-colors group-hover:text-neutral-600">
-              {product.name}
+            <p className="mb-2 text-[11px] font-semibold uppercase text-[#0F766E]">{stockLabel}</p>
+            <h3 className="store-product-title text-[#111827] transition-colors group-hover:text-[#0F766E]">
+              {productName}
             </h3>
             <ProductCardRating product={product} />
             <div className="mt-1 flex items-baseline gap-2">
@@ -136,10 +144,10 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
                   {formatPrice(originalPrice)}
                 </span>
               ) : null}
-              <p className="text-sm font-semibold text-neutral-900">{priceLabel}</p>
+              <p className="text-sm font-semibold text-[#111827]">{priceLabel}</p>
             </div>
             <ProductCardSwatches product={product} />
-            <span className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">
+            <span className="mt-4 inline-flex w-fit rounded-full bg-[#0F766E] px-4 py-2 text-xs font-semibold text-white transition group-hover:bg-[#115E59]">
               Urunu incele
             </span>
           </div>
@@ -149,12 +157,18 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
   }
 
   return (
-    <Link href={productHref} className="group block">
-      <div className="relative mb-3 aspect-square overflow-hidden bg-neutral-100">
+    <Link
+      href={productHref}
+      className="group block rounded-lg border border-[#DDE7E4] bg-white p-2 shadow-sm transition hover:-translate-y-0.5 hover:border-[#B8CAC5] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F766E]"
+    >
+      <div className="relative mb-3 aspect-square overflow-hidden rounded-md bg-[#EEF6F4]">
+        <div className="absolute left-2 top-2 z-10 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-[#0F766E] shadow-sm">
+          {stockLabel}
+        </div>
         {primaryImage ? (
           <Image
             src={primaryImage}
-            alt={product.name}
+            alt={productName}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
@@ -163,15 +177,16 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
         ) : (
           <DefaultDemoPlaceholder
             id={getProductPlaceholder(index)}
-            label={product.name}
+            label={productName}
             compact
             className="absolute inset-0"
           />
         )}
       </div>
 
-      <h3 className="store-product-title line-clamp-2 text-center text-neutral-900 transition-colors group-hover:text-neutral-600">
-        {product.name}
+      <div className="px-1 pb-2 text-center">
+      <h3 className="store-product-title line-clamp-2 text-[#111827] transition-colors group-hover:text-[#0F766E]">
+        {productName}
       </h3>
 
       <ProductCardRating product={product} />
@@ -182,10 +197,14 @@ export function ProductCard({ product, index = 0, viewMode = "grid" }: ProductCa
             {formatPrice(originalPrice)}
           </span>
         ) : null}
-        <p className="text-sm font-semibold text-neutral-900">{priceLabel}</p>
+        <p className="text-sm font-semibold text-[#111827]">{priceLabel}</p>
       </div>
 
       <ProductCardSwatches product={product} />
+        <span className="mt-4 inline-flex w-full items-center justify-center rounded-full border border-[#DDE7E4] bg-[#F7FAF9] px-3 py-2 text-xs font-semibold text-[#111827] transition group-hover:border-[#0F766E] group-hover:text-[#0F766E]">
+          Urunu Incele
+        </span>
+      </div>
     </Link>
   );
 }

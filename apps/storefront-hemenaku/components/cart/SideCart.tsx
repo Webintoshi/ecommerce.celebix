@@ -178,7 +178,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   <Link
                     href={buildPath("/urunler")}
                     onClick={onClose}
-                    className="rounded-xl bg-primary px-8 py-3 font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-red-800"
+                    className="rounded-full bg-[#0F766E] px-8 py-3 font-bold text-white shadow-lg shadow-[#0F766E]/20 transition-colors hover:bg-[#115E59]"
                   >
                     Alisverise Basla
                   </Link>
@@ -287,9 +287,9 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl border border-[#eecfc2] bg-[#F5E6E0] p-4">
-                  <span className="font-bold text-[#7B1113]">Toplam</span>
-                  <span className="text-2xl font-black tracking-tight text-[#7B1113]">
+                <div className="flex items-center justify-between rounded-lg border border-[#B8CAC5] bg-[#F0FDFA] p-4">
+                  <span className="font-bold text-[#0F766E]">Toplam</span>
+                  <span className="text-2xl font-black text-[#0F766E]">
                     {formatPrice(total)}
                   </span>
                 </div>
@@ -297,7 +297,7 @@ export function SideCart({ isOpen, onClose }: SideCartProps) {
                 <Link
                   href={buildPath("/odeme")}
                   onClick={onClose}
-                  className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-red-800 active:scale-[0.98]"
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#0F766E] font-bold text-white shadow-lg shadow-[#0F766E]/20 transition-all hover:bg-[#115E59] active:scale-[0.98]"
                 >
                   Odemeye Gec <ArrowRight className="h-5 w-5" />
                 </Link>

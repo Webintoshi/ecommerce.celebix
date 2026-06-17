@@ -388,7 +388,7 @@ export function QuickOrderCheckoutPage({ token }: { token: string }) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-gray-500">Siparis ozeti</p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-gray-950">{formatPrice(link.total)}</h2>
+              <h2 className="mt-1 text-2xl font-semibold text-gray-950">{formatPrice(link.total)}</h2>
             </div>
             <div className="rounded-full bg-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-600">
               {link.status}

@@ -128,8 +128,8 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "border-b border-neutral-200 bg-[#F8F8F8F8]/95 backdrop-blur-sm"
-          : "bg-[#F8F8F8F8]"
+          ? "border-b border-[#DDE7E4] bg-white/95 shadow-sm backdrop-blur-sm"
+          : "border-b border-transparent bg-white"
       }`}
     >
       <div className="container-premium">
@@ -157,7 +157,7 @@ export function Header() {
                 />
               </div>
             ) : (
-              <span className="font-serif text-base font-medium text-neutral-900 lg:text-lg">
+              <span className="font-serif text-lg font-semibold text-[#111827] lg:text-xl">
                 {logoAlt}
               </span>
             )}
@@ -172,7 +172,7 @@ export function Header() {
                   <Link
                     key={category.id}
                     href={buildPath(ROUTES.category(category.slug))}
-                    className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className="store-nav-text group relative text-[0.92rem] text-[#334A45] transition-all duration-300 hover:text-[#0F766E] after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-[#0F766E] after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
                   >
                     {localizedCategoryName}
                   </Link>
@@ -183,14 +183,14 @@ export function Header() {
                 <div key={category.id} className="group relative">
                   <Link
                     href={buildPath(ROUTES.category(category.slug))}
-                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                    className="store-nav-text relative inline-flex items-center gap-1 text-[0.92rem] text-[#334A45] transition-all duration-300 hover:text-[#0F766E] after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-[#0F766E] after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
                   >
                     {localizedCategoryName}
                     <ChevronDown className="h-4 w-4" />
                   </Link>
 
                   <div className="pointer-events-none absolute left-1/2 top-full z-30 w-72 -translate-x-1/2 pt-4 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                    <div className="rounded-[2rem] border border-neutral-200 bg-[#F8F8F8F8]/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+                    <div className="rounded-lg border border-[#DDE7E4] bg-white/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-sm">
                       <div className="space-y-1">
                         {category.children.map((subcategory) => (
                           <Link
@@ -210,7 +210,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={buildPath(link.href)}
-                className="store-nav-text group relative text-[0.92rem] text-neutral-800 transition-all duration-300 hover:text-neutral-950 after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-neutral-900 after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
+                className="store-nav-text group relative text-[0.92rem] text-[#334A45] transition-all duration-300 hover:text-[#0F766E] after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-[#0F766E] after:transition-all after:duration-300 after:content-[''] group-hover:after:w-full"
               >
                 {link.name}
               </Link>
@@ -224,11 +224,11 @@ export function Header() {
               aria-label={copy.searchLabel}
               onClick={() => setIsSearchOpen(true)}
             >
-              <Search className="h-5 w-5 text-neutral-600" />
+              <Search className="h-5 w-5 text-[#334A45]" />
             </button>
 
             <Link href={buildPath(user ? "/hesap" : ROUTES.login)} className="hidden p-2 sm:block">
-              <User className="h-5 w-5 text-neutral-600" />
+              <User className="h-5 w-5 text-[#334A45]" />
             </Link>
 
             <button
@@ -237,7 +237,7 @@ export function Header() {
               aria-label={copy.cartLabel}
               onClick={() => setIsCartOpen(true)}
             >
-              <ShoppingBag className="h-5 w-5 text-neutral-600" />
+              <ShoppingBag className="h-5 w-5 text-[#334A45]" />
               {cartItemCount > 0 ? (
                 <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white">
                   {cartItemCount}
@@ -249,13 +249,13 @@ export function Header() {
       </div>
 
       {isMenuOpen ? (
-        <div className="border-t border-neutral-200 bg-[#F8F8F8F8] lg:hidden">
+        <div className="border-t border-[#DDE7E4] bg-white lg:hidden">
           <nav className="container-premium space-y-4 py-4">
             {hasHeaderCategories ? headerCategories.map((category) => (
               <div key={category.id} className="space-y-2">
                 <Link
                   href={buildPath(ROUTES.category(category.slug))}
-                  className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                  className="store-nav-text block text-[#334A45] transition-all duration-300 hover:pl-2 hover:text-[#0F766E]"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {getLocalizedCategoryLabel(category.slug, category.name, locale)}
@@ -267,7 +267,7 @@ export function Header() {
                       <Link
                         key={subcategory.id}
                         href={buildPath(ROUTES.category(subcategory.slug))}
-                        className="store-nav-text block text-sm text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                        className="store-nav-text block text-sm text-[#526B66] transition-all duration-300 hover:pl-2 hover:text-[#0F766E]"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         {subcategory.name}
@@ -280,12 +280,33 @@ export function Header() {
               <Link
                 key={link.href}
                 href={buildPath(link.href)}
-                className="store-nav-text block text-neutral-800 transition-all duration-300 hover:pl-2 hover:text-neutral-950"
+                className="store-nav-text block text-[#334A45] transition-all duration-300 hover:pl-2 hover:text-[#0F766E]"
                 onClick={() => setIsMenuOpen(false)}
               >
                 {link.name}
               </Link>
             ))}
+            <div className="grid grid-cols-2 gap-3 border-t border-[#DDE7E4] pt-4">
+              <Link
+                href={buildPath(user ? "/hesap" : ROUTES.login)}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#DDE7E4] px-4 py-3 text-sm font-semibold text-[#111827]"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <User className="h-4 w-4" />
+                Hesap
+              </Link>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#0F766E] px-4 py-3 text-sm font-semibold text-white"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  setIsCartOpen(true);
+                }}
+              >
+                <ShoppingBag className="h-4 w-4" />
+                Sepet
+              </button>
+            </div>
           </nav>
         </div>
       ) : null}

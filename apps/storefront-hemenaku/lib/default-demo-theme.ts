@@ -33,27 +33,27 @@ export type DefaultDemoProductCard = {
 };
 
 export const DEFAULT_DEMO_THEME = {
-  id: "default-premium",
-  name: "Default Premium",
+  id: "hemenaku-ready",
+  name: "Hemenaku",
   palette: {
-    sand: "#F6F1EB",
-    cream: "#FFF9F2",
-    ink: "#140D08",
-    coffee: "#8A6847",
-    blush: "#C7A985",
-    slate: "#0B1120",
+    sand: "#F7FAF9",
+    cream: "#FFFFFF",
+    ink: "#111827",
+    coffee: "#0F766E",
+    blush: "#EA580C",
+    slate: "#16213E",
   },
-  heroEyebrow: "Yeni sezon vitrini",
-  heroTitle: "Modern magaza deneyimi hazir",
+  heroEyebrow: "Hizli ve guvenli alisveris",
+  heroTitle: "Gunun ihtiyacini kolayca tamamlayin",
   heroDescription:
-    "Secili urunler, guvenli odeme, hizli teslimat ve marka hikayeniz tek bir premium vitrin deneyiminde bulusur.",
+    "Hemenaku, secili urunleri sade bir vitrin, net teslimat akisi ve guven veren destek deneyimiyle bir araya getirir.",
 } as const;
 
 export const DEFAULT_TRUST_ITEMS = [
-  "Guvenli odeme",
-  "Hizli teslimat",
-  "Kolay iade",
-  "Canli destek",
+  "Guvenli odeme akisi",
+  "Net teslimat bilgisi",
+  "Kolay iade destegi",
+  "Siparis sonrasi takip",
 ];
 
 export const DEFAULT_DEMO_CATEGORIES: DefaultDemoCategory[] = [
@@ -94,34 +94,34 @@ export const DEFAULT_DEMO_CATEGORIES: DefaultDemoCategory[] = [
 export const DEFAULT_DEMO_PRODUCT_CARDS: DefaultDemoProductCard[] = [
   {
     id: "default-signature",
-    title: "Signature Urun",
-    eyebrow: "Vitrin Secimi",
-    description: "Markanizin one cikan urunu icin premium kart alani.",
-    priceLabel: "1.250 TL",
+    title: "Gunun Secimi",
+    eyebrow: "Vitrin",
+    description: "Hemenaku vitrini yeni urunler icin temiz ve okunabilir bir alan sunar.",
+    priceLabel: "Yakinda",
     placeholder: "placeholder-07",
   },
   {
     id: "default-daily",
-    title: "Gunluk Favori",
-    eyebrow: "Yeni Gelen",
-    description: "Kategori ve varyantlar eklendikce gercek urunle degisir.",
-    priceLabel: "890 TL",
+    title: "Pratik Favori",
+    eyebrow: "Secili",
+    description: "Urunler yayina alindikca bu alan canli fiyat ve stok bilgisiyle dolar.",
+    priceLabel: "Yakinda",
     placeholder: "placeholder-08",
   },
   {
     id: "default-gift",
-    title: "Hediye Secimi",
-    eyebrow: "Editor Secimi",
-    description: "Hediye, set veya kampanya urunleri icin temiz alan.",
-    priceLabel: "1.490 TL",
+    title: "Hediye Fikri",
+    eyebrow: "Koleksiyon",
+    description: "Set, kampanya veya ozel secimler icin duzenli bir vitrin alani.",
+    priceLabel: "Yakinda",
     placeholder: "placeholder-09",
   },
   {
     id: "default-season",
-    title: "Sezon Parcasi",
-    eyebrow: "Cok Satan",
-    description: "Ilk stoklar girilene kadar vitrinin bos gorunmesini engeller.",
-    priceLabel: "720 TL",
+    title: "Sezon Notu",
+    eyebrow: "Yeni",
+    description: "Yeni stoklar geldiginde ziyaretciyi dogrudan urun detayina tasir.",
+    priceLabel: "Yakinda",
     placeholder: "placeholder-10",
   },
 ];

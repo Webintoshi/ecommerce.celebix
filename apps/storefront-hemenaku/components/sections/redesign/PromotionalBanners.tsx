@@ -25,13 +25,13 @@ interface PromotionalBannersProps {
 }
 
 function getDefaultBadge(order: number): string {
-  const badges = ["Yeni Tema", "Editor Secimi", "Hazir Kampanya"];
-  return badges[order - 1] || "Placeholder";
+  const badges = ["Yeni", "Secili Urunler", "Kampanya"];
+  return badges[order - 1] || "Hemenaku";
 }
 
 function getDefaultColor(order: number): string {
-  const colors = ["#7B1113", "#B85E2D", "#2E5A4F"];
-  return colors[order - 1] || "#7B1113";
+  const colors = ["#0F766E", "#EA580C", "#2563EB"];
+  return colors[order - 1] || "#0F766E";
 }
 
 function getDefaultDiscount(order: number): string {
@@ -45,39 +45,39 @@ function getDefaultBanners(): PromoBanner[] {
       id: 1,
       image: "/placeholders/promo-banner-1.svg",
       mobileImage: "/placeholders/promo-banner-1.svg",
-      title: "Yeni koleksiyonunu konumlandir",
-      subtitle: "Hazir hero alani",
+      title: "Yeni koleksiyonu kesfet",
+      subtitle: "Hemenaku secimleri",
       buttonText: "Urunleri gor",
       buttonLink: "/urunler",
       order: 1,
-      badge: "Yeni Tema",
-      color: "#7B1113",
+      badge: "Yeni",
+      color: "#0F766E",
       discount: "20",
     },
     {
       id: 2,
       image: "/placeholders/promo-banner-2.svg",
       mobileImage: "/placeholders/promo-banner-2.svg",
-      title: "One cikan urun grubunu sergile",
-      subtitle: "Editor secimi alani",
-      buttonText: "Blog alanini ac",
-      buttonLink: "/blog",
+      title: "One cikan urunleri incele",
+      subtitle: "Gunluk kullanima uygun secimler",
+      buttonText: "Urunlere git",
+      buttonLink: "/urunler",
       order: 2,
-      badge: "Editor Secimi",
-      color: "#B85E2D",
+      badge: "Secili Urunler",
+      color: "#EA580C",
       discount: "15",
     },
     {
       id: 3,
       image: "/placeholders/promo-banner-3.svg",
       mobileImage: "/placeholders/promo-banner-3.svg",
-      title: "Hazir kampanya slotu",
-      subtitle: "Polish icin acik alan",
+      title: "Destek ve teslimat bilgisi",
+      subtitle: "Siparis oncesi yardim",
       buttonText: "Iletisime gec",
       buttonLink: "/iletisim",
       order: 3,
-      badge: "Hazir Kampanya",
-      color: "#2E5A4F",
+      badge: "Destek",
+      color: "#2563EB",
       discount: "10",
     },
   ];
@@ -91,7 +91,7 @@ function normalizeBanners(payload: unknown): PromoBanner[] {
       : [];
 
   return rawBanners
-    .map((rawBanner, index) => {
+    .map((rawBanner, index): PromoBanner | null => {
       if (!rawBanner || typeof rawBanner !== "object") {
         return null;
       }
@@ -178,12 +178,12 @@ export default function PromotionalBanners({
 
   if (loading) {
     return (
-      <section className="bg-[#FFF5F5] py-16 md:py-24" id="promotional-banners">
+      <section className="bg-[#F7FAF9] py-16 md:py-24" id="promotional-banners">
         <div className="mx-auto flex max-w-[1400px] gap-6 px-4 sm:px-6 lg:px-8">
           {[1, 2, 3].map((item) => (
             <div
               key={item}
-              className="aspect-[16/10] flex-1 rounded-3xl bg-[#F3E0E1] animate-pulse"
+              className="aspect-[16/10] flex-1 rounded-lg bg-[#DDE7E4] animate-pulse"
             />
           ))}
         </div>
@@ -196,26 +196,25 @@ export default function PromotionalBanners({
   const secondary = sortedBanners.slice(1, 3);
 
   return (
-    <section className="overflow-hidden bg-[#FFF5F5] py-16 md:py-24" id="promotional-banners">
+    <section className="overflow-hidden bg-[#F7FAF9] py-16 md:py-24" id="promotional-banners">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="mb-10 text-center md:mb-14">
-          <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#7B1113] px-4 py-2 text-sm font-medium text-white shadow-lg">
+          <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#0F766E] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0F766E]/15">
             <Sparkles className="h-4 w-4" />
-            Hazir kampanya alani
+            Hemenaku secimleri
           </span>
-          <h2 className="mb-4 text-3xl font-bold tracking-tight text-[#7B1113] md:text-5xl">
-            Storefront base promo slotlari
+          <h2 className="mb-4 text-3xl font-bold text-[#111827] md:text-5xl">
+            One cikan alisveris firsatlari
           </h2>
-          <p className="mx-auto max-w-2xl text-base text-[#6b4b4c] md:text-lg">
-            Bu bloklar yeni magazada admin ayarlariyla doldurulur. Placeholder gorseller,
-            tasarim ve polish surecini hizlandirmak icin birakildi.
+          <p className="mx-auto max-w-2xl text-base text-[#526B66] md:text-lg">
+            Secili urunler, kampanyalar ve destek kanallari tek bir alanda derlenir.
           </p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-12">
           {featured ? (
             <Link href={featured.buttonLink} className="group lg:col-span-7">
-              <article className="relative aspect-[16/10] overflow-hidden rounded-3xl shadow-xl transition-all duration-500 group-hover:shadow-2xl lg:aspect-[16/9]">
+              <article className="relative aspect-[16/10] overflow-hidden rounded-lg shadow-xl transition-all duration-500 group-hover:shadow-2xl lg:aspect-[16/9]">
                 <Image
                   src={featured.image}
                   alt={featured.title}
@@ -226,7 +225,7 @@ export default function PromotionalBanners({
                   unoptimized={featured.image.startsWith("http")}
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
-                <div className="absolute left-6 top-6 inline-flex items-center gap-2 rounded-full bg-[#7B1113] px-4 py-2 text-sm font-bold text-white shadow-lg">
+                <div className="absolute left-6 top-6 inline-flex items-center gap-2 rounded-full bg-[#0F766E] px-4 py-2 text-sm font-bold text-white shadow-lg">
                   <Percent className="h-4 w-4" />
                   %{featured.discount || "20"} alan
                 </div>
@@ -237,7 +236,7 @@ export default function PromotionalBanners({
                   <h3 className="mb-4 text-3xl font-bold text-white md:text-4xl">
                     {featured.title}
                   </h3>
-                  <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-[#7B1113] transition-colors group-hover:bg-[#F3E0E1]">
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-[#0F766E] transition-colors group-hover:bg-[#F0FDFA]">
                     {featured.buttonText}
                     <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                   </span>
@@ -249,7 +248,7 @@ export default function PromotionalBanners({
           <div className="flex flex-col gap-6 lg:col-span-5">
             {secondary.map((banner) => (
               <Link key={banner.id} href={banner.buttonLink} className="group flex-1">
-                <article className="relative min-h-[240px] overflow-hidden rounded-3xl shadow-lg transition-all duration-500 group-hover:shadow-xl">
+                <article className="relative min-h-[240px] overflow-hidden rounded-lg shadow-lg transition-all duration-500 group-hover:shadow-xl">
                   <Image
                     src={banner.image}
                     alt={banner.title}

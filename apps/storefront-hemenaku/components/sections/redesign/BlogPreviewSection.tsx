@@ -18,20 +18,20 @@ export function BlogPreviewSection({ posts = [] }: BlogPreviewSectionProps) {
   const visiblePosts = posts.slice(0, 3);
 
   return (
-    <section className="bg-[#F6F1EB] py-16 lg:py-20">
+    <section className="bg-[#F7FAF9] py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-              Journal
+            <span className="mb-2 block text-xs font-semibold uppercase text-[#0F766E]">
+              Hemenaku Notlari
             </span>
-            <h2 className="font-serif text-3xl font-medium tracking-[-0.04em] text-[#140D08] sm:text-4xl">
-              Marka notlari ve rehberler
+            <h2 className="font-serif text-3xl font-semibold text-[#111827] sm:text-4xl">
+              Alisverisi kolaylastiran rehberler
             </h2>
           </div>
           <Link
             href="/blog"
-            className="group inline-flex items-center gap-2 text-sm font-semibold text-[#140D08]"
+            className="group inline-flex items-center gap-2 text-sm font-semibold text-[#0F766E]"
           >
             Blogu ac
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -47,7 +47,7 @@ export function BlogPreviewSection({ posts = [] }: BlogPreviewSectionProps) {
                 <Link
                   key={post.id}
                   href={`/blog/${post.slug}`}
-                  className="group overflow-hidden rounded-[30px] border border-black/5 bg-white shadow-[0_24px_72px_-58px_rgba(24,17,11,0.35)]"
+                  className="group overflow-hidden rounded-lg border border-[#DDE7E4] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className="relative aspect-[16/10] overflow-hidden">
                     {coverImage ? (
@@ -68,13 +68,13 @@ export function BlogPreviewSection({ posts = [] }: BlogPreviewSectionProps) {
                     )}
                   </div>
                   <div className="p-6">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+                    <p className="text-[11px] font-semibold uppercase text-[#0F766E]">
                       {index === 0 ? "One cikan" : getCategoryName(post)}
                     </p>
-                    <h3 className="mt-3 line-clamp-2 font-serif text-2xl leading-tight tracking-[-0.04em] text-[#140D08]">
+                    <h3 className="mt-3 line-clamp-2 font-serif text-2xl leading-tight text-[#111827]">
                       {post.title}
                     </h3>
-                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#5F5147]">
+                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#526B66]">
                       {post.excerpt}
                     </p>
                   </div>
@@ -83,21 +83,21 @@ export function BlogPreviewSection({ posts = [] }: BlogPreviewSectionProps) {
             })}
           </div>
         ) : (
-          <div className="grid items-stretch overflow-hidden rounded-[34px] border border-black/5 bg-white shadow-[0_24px_80px_-58px_rgba(24,17,11,0.35)] lg:grid-cols-[0.42fr_0.58fr]">
+          <div className="grid items-stretch overflow-hidden rounded-lg border border-[#DDE7E4] bg-white shadow-sm lg:grid-cols-[0.42fr_0.58fr]">
             <div className="min-h-[260px]">
               <DefaultDemoPlaceholder id="placeholder-11" label="Blog rehberi" />
             </div>
             <div className="flex flex-col justify-center p-8 lg:p-10">
-              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#C7A985] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#0F766E]/20 bg-[#F0FDFA] px-4 py-2 text-[11px] font-semibold uppercase text-[#0F766E]">
                 <Sparkles className="h-3.5 w-3.5" />
-                Icerik alani hazir
+                Rehberler yakinda
               </span>
-              <h3 className="mt-5 font-serif text-4xl leading-[0.98] tracking-[-0.05em] text-[#140D08]">
-                Ilk blog yazisi yayinlandiginda bu alan canli preview olur
+              <h3 className="mt-5 font-serif text-3xl leading-tight text-[#111827] sm:text-4xl">
+                Hemenaku notlari icin temiz bir okuma alani hazir
               </h3>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[#5F5147]">
-                Yeni storefront, blog tablosu veya yazi olmadan da 500 vermez;
-                ziyaretciye hazir, temiz ve marka dostu bir rehber alani gosterir.
+              <p className="mt-4 max-w-xl text-sm leading-7 text-[#526B66]">
+                Urun rehberleri ve alisveris ipuclari yayinlandikca burada one cikar.
+                Simdilik ziyaretci, urun ve iletisim rotalarina net sekilde ulasir.
               </p>
             </div>
           </div>

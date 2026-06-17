@@ -33,13 +33,13 @@ export default async function AboutPage() {
     <div className="min-h-screen bg-[#F8F8F8]">
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
-          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+          <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#0F766E]">
             Hakkimizda
           </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-semibold text-[#111827] sm:text-5xl">
             {profile.name}
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-[#6B5A4D]">
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#526B66]">
             {managedPage?.plainText || profile.tagline}
           </p>
         </div>
@@ -54,15 +54,14 @@ export default async function AboutPage() {
                 dangerouslySetInnerHTML={{ __html: managedPage.contentHtml }}
               />
             ) : (
-              <div className="space-y-5 text-sm leading-7 text-[#5F5147]">
+              <div className="space-y-5 text-sm leading-7 text-[#526B66]">
                 <p>
-                  Bu alan admin panelindeki <strong>Hakkimizda</strong> sayfasindan yonetilir.
-                  Icerik girildiginde magaza hikayeniz, uretim anlayisiniz ve kurumsal anlatiminiz
-                  burada yayinlanir.
+                  {profile.name}, hizli ve guven veren alisveris deneyimini sade bir vitrinle birlestirir.
+                  Urun secimi, sepet ve destek adimlari ziyaretcinin kolay karar vermesi icin duzenlenir.
                 </p>
                 <p>
-                  Simdilik bu sayfa magaza genel ayarlarindaki marka bilgilerini referans aliyor.
-                  Musteriye gosterilecek son metni admin panelinden duzenlemeniz gerekir.
+                  Yeni marka icerikleri eklendikce bu sayfa Hemenaku hikayesini, hizmet anlayisini
+                  ve musteriye sundugu avantajlari daha ayrintili anlatacak sekilde genisler.
                 </p>
               </div>
             )}
@@ -72,9 +71,9 @@ export default async function AboutPage() {
             <p className="text-xs font-medium uppercase tracking-[0.28em] text-white/65">
               Iletisim
             </p>
-            <h2 className="mt-3 text-3xl font-semibold">Markanizi acik ve guvenli anlatin</h2>
+            <h2 className="mt-3 text-3xl font-semibold">Sorulariniz icin Hemenaku yaninizda</h2>
             <p className="mt-4 text-sm leading-7 text-white/78">
-              Destek, teklif ve kurumsal talepler icin iletisim sayfasini da bu akisla birlikte guncelleyebilirsiniz.
+              Destek, teslimat ve urun talepleri icin iletisim kanallarindan bize ulasabilirsiniz.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link

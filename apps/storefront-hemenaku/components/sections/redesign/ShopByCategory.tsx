@@ -99,15 +99,15 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header Skeleton */}
           <div className="text-center mb-10 md:mb-14">
-            <div className="h-6 w-32 bg-[#F3E0E1] rounded-full mx-auto mb-4 animate-pulse" />
-            <div className="h-10 w-56 bg-[#F3E0E1] rounded-lg mx-auto mb-3 animate-pulse" />
-            <div className="h-5 w-72 bg-[#F3E0E1] rounded mx-auto animate-pulse" />
+            <div className="h-6 w-32 bg-[#F0FDFA] rounded-full mx-auto mb-4 animate-pulse" />
+            <div className="h-10 w-56 bg-[#F0FDFA] rounded-lg mx-auto mb-3 animate-pulse" />
+            <div className="h-5 w-72 bg-[#F0FDFA] rounded mx-auto animate-pulse" />
           </div>
           {/* Cards Skeleton */}
           <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 justify-center">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex-shrink-0 w-[280px] md:w-auto">
-                <div className="aspect-[4/5] bg-[#F3E0E1] rounded-2xl md:rounded-3xl animate-pulse" />
+                <div className="aspect-[4/5] bg-[#F0FDFA] rounded-2xl md:rounded-3xl animate-pulse" />
               </div>
             ))}
           </div>
@@ -130,15 +130,15 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
         {/* Section Header - Premium Editorial Style */}
         <div className="text-center mb-10 md:mb-14 opacity-0 animate-[fadeIn_0.6s_ease-out_forwards]">
           {/* Eyebrow Badge */}
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7B1113]/10 text-[#7B1113] text-sm font-medium mb-4 border border-[#7B1113]/20">
-            <span className="w-2 h-2 rounded-full bg-[#7B1113]" />
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0F766E]/10 text-[#0F766E] text-sm font-medium mb-4 border border-[#0F766E]/20">
+            <span className="w-2 h-2 rounded-full bg-[#0F766E]" />
             Koleksiyonlar
           </span>
           
           {/* Main Title */}
           <h2 
             id="category-heading" 
-            className="text-3xl md:text-5xl font-bold text-[#7B1113] mb-4 tracking-tight"
+            className="text-3xl md:text-5xl font-bold text-[#0F766E] mb-4 tracking-tight"
           >
             Kategoriye Göz At
           </h2>
@@ -172,9 +172,9 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                   aria-label={`${cat.name} kategorisini incele`}
                 >
                   {/* Card Container with 4:5 Aspect Ratio */}
-                  <div className="relative aspect-[4/5] rounded-2xl md:rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 bg-[#7B1113]">
+                  <div className="relative aspect-[4/5] rounded-2xl md:rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 bg-[#0F766E]">
                     {/* Gradient Border on Hover */}
-                    <div className="absolute -inset-[2px] rounded-2xl md:rounded-3xl bg-gradient-to-r from-[#7B1113] via-[#F3E0E1] to-[#7B1113] opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
+                    <div className="absolute -inset-[2px] rounded-2xl md:rounded-3xl bg-gradient-to-r from-[#0F766E] via-[#F0FDFA] to-[#0F766E] opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
                     
                     {/* Main Card */}
                     <div className="relative w-full h-full rounded-2xl md:rounded-3xl overflow-hidden">
@@ -189,7 +189,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                           onError={() => handleImageError(cat.id)}
                         />
                       ) : (
-                        <div className="absolute inset-0 bg-[#F3E0E1]" aria-hidden="true" />
+                        <div className="absolute inset-0 bg-[#F0FDFA]" aria-hidden="true" />
                       )}
                       
                       {/* Gradient Overlay - Bottom to Top */}
@@ -206,7 +206,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
 
                       {/* Top Right - Arrow Icon (Glassmorphism) */}
                       <div className="absolute top-4 right-4">
-                        <span className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30 transform transition-all duration-300 group-hover:scale-110 group-hover:bg-white group-hover:text-[#7B1113]">
+                        <span className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30 transform transition-all duration-300 group-hover:scale-110 group-hover:bg-white group-hover:text-[#0F766E]">
                           <ArrowUpRight size={20} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                         </span>
                       </div>
@@ -227,7 +227,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                           )}
                           
                           {/* CTA Button - Glassmorphism */}
-                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-medium border border-white/30 transition-all duration-300 group-hover:bg-white group-hover:text-[#7B1113] group-hover:gap-3">
+                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-medium border border-white/30 transition-all duration-300 group-hover:bg-white group-hover:text-[#0F766E] group-hover:gap-3">
                             Koleksiyonu Gör
                             <ArrowRight size={16} />
                           </span>
@@ -252,9 +252,9 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
                 key={idx}
                 onClick={() => scrollToIndex(idx)}
                 className={`h-2 rounded-full transition-all duration-300 ${
-                  idx === currentIndex 
-                    ? 'w-8 bg-[#7B1113]' 
-                    : 'w-2 bg-[#7B1113]/30 hover:bg-[#7B1113]/50'
+                  idx === currentIndex
+                    ? 'w-8 bg-[#0F766E]'
+                    : 'w-2 bg-[#0F766E]/30 hover:bg-[#115E59]/50'
                 }`}
                 aria-label={`Kategori ${idx + 1}'e git`}
               />
@@ -266,7 +266,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
         <div className="text-center mt-12 opacity-0 animate-[fadeIn_0.6s_ease-out_forwards]" style={{ animationDelay: '0.4s' }}>
           <Link
             href="/koleksiyon"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-[#7B1113] font-semibold border border-[#7B1113]/20 shadow-lg hover:shadow-xl hover:bg-[#7B1113] hover:text-white hover:border-[#7B1113] transition-all duration-300 group"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-[#0F766E] font-semibold border border-[#0F766E]/20 shadow-lg hover:shadow-xl hover:bg-[#115E59] hover:text-white hover:border-[#0F766E] transition-all duration-300 group"
           >
             Tüm Kategorileri Keşfet
             <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
