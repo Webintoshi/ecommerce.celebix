@@ -3,7 +3,6 @@ import { Inter, Lora } from "next/font/google";
 import { Toaster } from "sonner";
 import { getActiveStoreSlug, requireStoreConfig } from "@celebix/platform-config";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
-import { getStoreInfo } from "@/lib/db/settings";
 import "./globals.css";
 
 const inter = Inter({
@@ -21,7 +20,6 @@ const lora = Lora({
 
 export async function generateMetadata(): Promise<Metadata> {
   let storeName = STORE_RUNTIME.name;
-  let faviconUrl = "";
 
   try {
     storeName = requireStoreConfig(getActiveStoreSlug()).name;
@@ -29,16 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
     console.error("Admin metadata store config fallback:", error);
   }
 
-  try {
-    const storeInfo = await getStoreInfo();
-    faviconUrl = typeof storeInfo?.faviconUrl === "string" ? storeInfo.faviconUrl.trim() : "";
-  } catch (error) {
-    console.error("Admin metadata favicon fallback:", error);
-  }
-
-  const faviconHref = faviconUrl
-    ? `/api/favicon?v=${encodeURIComponent(faviconUrl)}`
-    : "/api/favicon";
+  // Keep metadata generation build-safe; the dynamic favicon route resolves
+  // store-specific icons at request time without build-time DB access.
+  const faviconHref = "/api/favicon";
 
   return {
     title: {

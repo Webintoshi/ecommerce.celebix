@@ -2,6 +2,8 @@ import { getAdminAuthContext, getAdminBootstrapProfileFromCookies } from "@/lib/
 import { withServerTimeout } from "@/lib/server-timeout";
 import AdminLayoutClient from "./AdminLayoutClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: {
