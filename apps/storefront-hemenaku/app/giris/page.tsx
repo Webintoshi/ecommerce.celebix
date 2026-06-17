@@ -81,7 +81,7 @@ export default function LoginPage() {
         title="Hesabinizla devam edin"
         description={
           customerAuthMode === "logto"
-            ? "Siparislerinizi ve hesap bilgilerinizi guvenli kimlik ekraninda yonetin. Giris islemi merkezi hesap servisinde tamamlanir."
+            ? "Siparislerinizi ve hesap bilgilerinizi guvenli Hemenaku hesap ekraninda yonetin."
             : "Musteri hesabi su anda hazir degil. Magazayi kesfedebilir ve uygun akislarda misafir olarak devam edebilirsiniz."
         }
         primaryLabel={loading ? "Yonlendiriliyor..." : "Giris Yap"}
@@ -92,7 +92,7 @@ export default function LoginPage() {
         helperText={
           error ||
           (customerAuthMode === "logto"
-            ? "E-posta/sifre ve captcha bu modda storefront icinde islenmez; guvenli hesap ekranina yonlendirilirsiniz."
+            ? "Devam ettiginizde guvenli hesap ekranina yonlendirilirsiniz."
             : "Hesap modulu etkinlesene kadar vitrin ve sepet akisi misafir deneyimiyle kullanilabilir.")
         }
       />
@@ -210,7 +210,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#115E59] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

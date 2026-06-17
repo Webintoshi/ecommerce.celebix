@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFF5F5;
-  --foreground: #7B1113;
+  --background: #f7faf9;
+  --foreground: #111827;
 
   /* Brand Palette */
-  --primary: #7B1113;
-  --primary-foreground: #FFFFFF;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
 
-  --secondary: #F1DADB;
-  --secondary-foreground: #7B1113;
+  --secondary: #fff7ed;
+  --secondary-foreground: #9a3412;
 
-  --muted: #6b4b4c;
-  --muted-foreground: #6b4b4c;
+  --muted: #eef2f1;
+  --muted-foreground: #5f6f6b;
 
   /* shadcn/ui required variables */
-  --card: #FFFFFF;
-  --card-foreground: #7B1113;
-  --popover: #FFFFFF;
-  --popover-foreground: #7B11113;
-  --accent: #F1DADB;
-  --accent-foreground: #7B1113;
-  --destructive: #FF3B30;
-  --destructive-foreground: #FFFFFF;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #7B1113;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --accent: #ea580c;
+  --accent-foreground: #ffffff;
+  --destructive: #ff3b30;
+  --destructive-foreground: #ffffff;
+  --border: #dbe5e2;
+  --input: #dbe5e2;
+  --ring: #0f766e;
 
   /* Apple Design Tokens */
   --apple-blue: #0071E3;
@@ -106,14 +106,33 @@
   --store-font-product-card-size: 16px;
   --store-font-product-page-size: 44px;
   --store-font-heading-scale: 1.12;
-  --store-font-heading-tracking: -0.015em;
+  --store-font-heading-tracking: 0em;
   --store-font-body-tracking: 0em;
   --font-sans: var(--store-font-body);
   --font-serif: var(--store-font-heading);
   --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
 }
 
-/* Custom Utilities for Clean Luxury Design */
+/* Custom Utilities for Clean Commerce Design */
+@layer components {
+  .container-premium {
+    width: min(100% - 2rem, 1180px);
+    margin-inline: auto;
+  }
+
+  @media (min-width: 768px) {
+    .container-premium {
+      width: min(100% - 3rem, 1180px);
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .container-premium {
+      width: min(100% - 4rem, 1220px);
+    }
+  }
+}
+
 @layer utilities {
   .subtle-border {
     @apply border border-gray-200;
@@ -125,12 +144,12 @@
 }
 
 body {
-  background: #FAFAFA;
+  background: #f7faf9;
   color: var(--foreground);
   font-family: var(--store-font-body);
   font-size: var(--store-font-base-size);
   font-weight: var(--store-font-body-weight);
-  letter-spacing: var(--store-font-body-tracking);
+  letter-spacing: 0;
   overflow-x: hidden;
 }
 
@@ -142,7 +161,7 @@ h5,
 h6 {
   font-family: var(--store-font-heading);
   font-weight: var(--store-font-heading-weight);
-  letter-spacing: var(--store-font-heading-tracking);
+  letter-spacing: 0;
   line-height: 1.08;
 }
 
@@ -167,48 +186,48 @@ textarea {
 
 /* Brand color overrides */
 .bg-primary {
-  background-color: #7B1113 !important;
+  background-color: #0f766e !important;
 }
 
 .text-primary {
-  color: #7B1113 !important;
+  color: #0f766e !important;
 }
 
 .border-primary {
-  border-color: #7B1113 !important;
+  border-color: #0f766e !important;
 }
 
 .ring-primary {
-  --tw-ring-color: #7B1113 !important;
+  --tw-ring-color: #0f766e !important;
 }
 
 .bg-primary\/10 {
-  background-color: rgba(123, 17, 19, 0.1) !important;
+  background-color: rgba(15, 118, 110, 0.1) !important;
 }
 
 .border-primary\/10 {
-  border-color: rgba(123, 17, 19, 0.1) !important;
+  border-color: rgba(15, 118, 110, 0.1) !important;
 }
 
 .border-primary\/20 {
-  border-color: rgba(123, 17, 19, 0.2) !important;
+  border-color: rgba(15, 118, 110, 0.2) !important;
 }
 
 .text-primary-foreground {
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 
 .bg-primary-foreground {
-  background-color: #FFFFFF !important;
-  color: #7B1113 !important;
+  background-color: #ffffff !important;
+  color: #0f766e !important;
 }
 
 .text-secondary-foreground {
-  color: #7B1113 !important;
+  color: #9a3412 !important;
 }
 
 .bg-secondary {
-  background-color: #F3E0E1 !important;
+  background-color: #fff7ed !important;
 }
 
 @keyframes marquee {
@@ -281,7 +300,7 @@ textarea {
   font-family: var(--store-font-menu);
   font-size: var(--store-font-menu-size);
   font-weight: var(--store-font-menu-weight);
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 

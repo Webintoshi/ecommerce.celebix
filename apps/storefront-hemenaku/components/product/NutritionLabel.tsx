@@ -15,13 +15,13 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
 
   if (!nutrition) {
     return (
-      <div className="text-center py-16 bg-white rounded-3xl border border-[#7B1113]/10">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#F3E0E1] flex items-center justify-center">
-          <svg className="w-10 h-10 text-[#7B1113]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="text-center py-16 bg-white rounded-3xl border border-[#0F766E]/10">
+        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#F0FDFA] flex items-center justify-center">
+          <svg className="w-10 h-10 text-[#0F766E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <p className="text-lg font-medium text-[#7B1113]">Besin Değeri Bilgisi Bulunmuyor</p>
+        <p className="text-lg font-medium text-[#0F766E]">Besin Değeri Bilgisi Bulunmuyor</p>
         <p className="text-[#6b4b4c] mt-2">Bu ürün için besin değeri bilgisi eklenmemiş.</p>
       </div>
     );
@@ -41,10 +41,10 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-3xl border border-[#7B1113]/10 overflow-hidden shadow-sm"
+        className="bg-white rounded-3xl border border-[#0F766E]/10 overflow-hidden shadow-sm"
       >
         {/* Header */}
-        <div className="bg-[#7B1113] text-white p-6">
+        <div className="bg-[#0F766E] text-white p-6">
           <h3 className="text-2xl font-bold">Besin Değerleri</h3>
           <p className="text-white/80 mt-1">
             {basis === "per_100g" ? "100g" : `${servingSize}g`} başına
@@ -62,9 +62,9 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
                 transition={{ delay: idx * 0.05 }}
                 className={`
                   p-4 rounded-2xl border transition-all hover:shadow-md
-                  ${item.highlight 
-                    ? "bg-[#7B1113] text-white border-[#7B1113] col-span-2" 
-                    : "bg-[#F3E0E1]/30 border-[#7B1113]/10"
+                  ${item.highlight
+                    ? "bg-[#0F766E] text-white border-[#0F766E] col-span-2"
+                    : "bg-[#F0FDFA]/30 border-[#0F766E]/10"
                   }
                 `}
               >
@@ -75,7 +75,7 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
                       {item.label}
                     </span>
                   </div>
-                  <span className={`text-xl font-bold ${item.highlight ? "text-white" : "text-[#7B1113]"}`}>
+                  <span className={`text-xl font-bold ${item.highlight ? "text-white" : "text-[#0F766E]"}`}>
                     {item.value}
                   </span>
                 </div>
@@ -85,8 +85,8 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
 
           {/* Vitamins & Minerals */}
           {vitamins && Object.keys(vitamins).length > 0 && (
-            <div className="mt-8 pt-8 border-t border-[#7B1113]/10">
-              <h4 className="text-lg font-semibold text-[#7B1113] mb-4">Vitamin & Mineral</h4>
+            <div className="mt-8 pt-8 border-t border-[#0F766E]/10">
+              <h4 className="text-lg font-semibold text-[#0F766E] mb-4">Vitamin & Mineral</h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {Object.entries(vitamins).map(([key, value], idx) => {
                   const labelMap: Record<string, string> = {
@@ -105,10 +105,10 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 + idx * 0.05 }}
-                      className="p-3 bg-[#F3E0E1]/30 rounded-xl text-center"
+                      className="p-3 bg-[#F0FDFA]/30 rounded-xl text-center"
                     >
                       <p className="text-xs text-[#6b4b4c] mb-1">{labelMap[key] || key}</p>
-                      <p className="font-semibold text-[#7B1113]">{value as string}</p>
+                      <p className="font-semibold text-[#0F766E]">{value as string}</p>
                     </motion.div>
                   );
                 })}
@@ -118,7 +118,7 @@ export function NutritionLabel({ product }: NutritionLabelProps) {
         </div>
 
         {/* Footer Note */}
-        <div className="bg-[#F3E0E1]/30 p-4 text-center">
+        <div className="bg-[#F0FDFA]/30 p-4 text-center">
           <p className="text-sm text-[#6b4b4c]">
             Günlük besin değeri ihtiyacının %{Math.round((nutrition.calories / 2000) * 100)}'ini karşılar
           </p>

@@ -312,7 +312,7 @@ export default function AccountPage() {
                     <p className="text-gray-600 mb-4">İlk siparişinizi vererek alışverişe başlayın.</p>
                     <Link
                       href="/urunler"
-                      className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#7B1113] transition-colors"
+                      className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#115E59] transition-colors"
                     >
                       Alışverişe Başla
                     </Link>
@@ -403,7 +403,7 @@ export default function AccountPage() {
                   <p className="text-gray-600 mb-4">İlk siparişinizi vererek alışverişe başlayın.</p>
                   <Link
                     href="/urunler"
-                    className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#7B1113] transition-colors"
+                    className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#115E59] transition-colors"
                   >
                     Alışverişe Başla
                   </Link>
@@ -472,7 +472,7 @@ export default function AccountPage() {
                     });
                     setShowAddressForm(true);
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-red-800 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-[#115E59] transition-colors"
                 >
                   <MapPin className="w-4 h-4" />
                   Yeni Adres
@@ -621,7 +621,7 @@ export default function AccountPage() {
                             console.error("Error saving address:", error);
                           }
                         }}
-                        className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-red-800 transition-colors"
+                        className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#115E59] transition-colors"
                       >
                         <Save className="w-4 h-4" />
                         Kaydet
@@ -726,7 +726,7 @@ export default function AccountPage() {
                   {!isEditing && (
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-[#7B1113] transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-[#115E59] transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
                       Düzenle
@@ -785,7 +785,7 @@ export default function AccountPage() {
                         <button
                           onClick={handleSaveProfile}
                           disabled={saving}
-                          className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#7B1113] transition-colors disabled:opacity-50"
+                          className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-[#115E59] transition-colors disabled:opacity-50"
                         >
                           {saving ? (
                             <Loader2 className="w-4 h-4 animate-spin" />

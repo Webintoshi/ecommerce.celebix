@@ -36,12 +36,12 @@ export function MobileStickyBar({
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#7B1113]/10 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] backdrop-blur-lg safe-area-pb lg:hidden"
+          className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#0F766E]/10 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] backdrop-blur-lg safe-area-pb lg:hidden"
         >
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-[#7B1113]">{formatPrice(price)}</span>
+                <span className="text-2xl font-bold text-[#0F766E]">{formatPrice(price)}</span>
                 {originalPrice ? (
                   <span className="text-sm text-[#6b4b4c] line-through">
                     {formatPrice(originalPrice)}
@@ -58,7 +58,7 @@ export function MobileStickyBar({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {}}
-                className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#7B1113]/20 text-[#7B1113] transition-all active:scale-95"
+                className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#0F766E]/20 text-[#0F766E] transition-all active:scale-95"
               >
                 <Heart className="h-5 w-5" />
               </button>
@@ -68,7 +68,7 @@ export function MobileStickyBar({
                 className={`flex items-center gap-2 rounded-xl px-6 py-3 font-semibold transition-all duration-200 active:scale-95 ${
                   isOutOfStock
                     ? "cursor-not-allowed bg-gray-200 text-gray-400"
-                    : "bg-[#7B1113] text-white shadow-lg shadow-[#7B1113]/25"
+                    : "bg-[#0F766E] text-white shadow-lg shadow-[#0F766E]/25"
                 }`}
               >
                 <ShoppingCart className="h-5 w-5" />

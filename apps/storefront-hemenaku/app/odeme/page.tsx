@@ -5,9 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
-import { supabase } from "@/lib/supabase-browser";
 import { formatPrice, cn } from "@/lib/utils";
-import { TURKISH_CITIES, SHIPPING_THRESHOLD } from "@/lib/constants";
+import { TURKISH_CITIES } from "@/lib/constants";
 import { getActivePaymentGateways } from "@/lib/public-payments";
 import { fetchShippingRatesForLocation, getResolvedShippingPrice } from "@/lib/shipping";
 import { PaymentGatewayConfig } from "@/types/payment";
@@ -16,22 +15,13 @@ import { toast } from "sonner";
 import {
   CreditCard,
   Truck,
-  Mail,
-  MapPin,
   Lock,
   ChevronRight,
-  ShieldCheck,
   Package,
   Building2,
-  Phone,
   Loader2,
   AlertCircle,
-  RotateCcw,
   Check,
-  ChevronLeft,
-  UserPlus,
-  Eye,
-  EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
@@ -66,11 +56,6 @@ export default function CheckoutPage() {
     country: "Türkiye",
   });
 
-  // Account Creation State
-  const [createAccount, setCreateAccount] = useState(false);
-  const [accountPassword, setAccountPassword] = useState("");
-  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [couponError, setCouponError] = useState("");
@@ -123,25 +108,7 @@ export default function CheckoutPage() {
   // Load user data if logged in
   useEffect(() => {
     if (user) {
-      // User is logged in, fetch customer data
-      const loadUserData = async () => {
-        const { data: customer } = await supabase
-          .from("customers")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
-        
-        if (customer) {
-          setContactEmail(user.email || "");
-          setShippingInfo(prev => ({
-            ...prev,
-            firstName: customer.first_name || "",
-            lastName: customer.last_name || "",
-            phone: customer.phone || "",
-          }));
-        }
-      };
-      loadUserData();
+      setContactEmail(user.email || "");
     }
   }, [user]);
 
@@ -262,87 +229,11 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Validate account creation fields if checked
-    if (!user && createAccount) {
-      if (!accountPassword || accountPassword.length < 6) {
-        toast.error("Şifre en az 6 karakter olmalıdır.");
-        return;
-      }
-      if (accountPassword !== accountPasswordConfirm) {
-        toast.error("Şifreler eşleşmiyor.");
-        return;
-      }
-    }
-
     setIsSubmitting(true);
 
     try {
       let customerId = null;
       let userId = user?.id || null;
-
-      // Create account if requested and not logged in
-      if (!user && createAccount) {
-        const registerResponse = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: contactEmail,
-            password: accountPassword,
-            metadata: {
-              first_name: shippingInfo.firstName,
-              last_name: shippingInfo.lastName,
-              phone: shippingInfo.phone,
-            },
-          }),
-        });
-        const registerResult = await registerResponse.json().catch(() => ({}));
-
-        if (!registerResponse.ok) {
-          const message = registerResult.error || "Hesap oluşturulurken bir hata oluştu.";
-          if (message.includes("zaten kayıtlı")) {
-            toast.error("Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın.");
-          } else {
-            toast.error("Hesap oluşturulurken bir hata oluştu: " + message);
-          }
-          setIsSubmitting(false);
-          return;
-        }
-
-        if (registerResult.user) {
-          userId = registerResult.user.id;
-          
-          // Create customer record linked to the new user
-          const { data: customerData, error: customerError } = await supabase
-            .from("customers")
-            .insert({
-              user_id: registerResult.user.id,
-              email: contactEmail,
-              first_name: shippingInfo.firstName,
-              last_name: shippingInfo.lastName,
-              phone: shippingInfo.phone,
-              status: "active",
-            })
-            .select()
-            .single();
-
-          if (customerError) {
-            console.error("Error creating customer:", customerError);
-          } else {
-            customerId = customerData.id;
-          }
-        }
-      } else if (user) {
-        // Get existing customer ID for logged-in user
-        const { data: customer } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
-        
-        if (customer) {
-          customerId = customer.id;
-        }
-      }
 
       const orderData = {
         customerId,
@@ -364,10 +255,10 @@ export default function CheckoutPage() {
         shippingCost: resolvedShippingCost,
         discount: discountAmount,
         couponCode: appliedCoupon?.code || null,
-        notes: createAccount ? "Hesap oluşturuldu" : "",
+        notes: "",
         contactEmail,
         receiveUpdates: true,
-        createAccount: !user && createAccount,
+        createAccount: false,
         shippingMethod: selectedShippingRate ? {
           id: selectedShippingRate.id,
           name: selectedShippingRate.name,
@@ -395,10 +286,7 @@ export default function CheckoutPage() {
         return;
       }
 
-      toast.success(createAccount 
-        ? "Siparişiniz alındı! Hesabınız başarıyla oluşturuldu." 
-        : "Siparişiniz başarıyla alındı!"
-      );
+      toast.success("Siparişiniz başarıyla alındı!");
       clearCart({ preserveServerCart: true });
       router.push(`/siparisler/${result.order.id}?new=true`);
     } catch (error) {
@@ -420,20 +308,27 @@ export default function CheckoutPage() {
   const isCardLikeGateway = (gatewayType?: string) => {
     return Boolean(gatewayType && !["bank_transfer", "cod"].includes(gatewayType));
   };
+  const selectedGateway = paymentGateways.find(g => g.id === selectedPaymentMethod);
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Sepetiniz Boş</h1>
-          <Link href="/urunler" className="text-primary hover:underline underline-offset-4">Alışverişe Devam Et</Link>
+      <div className="min-h-screen bg-[#F7FAF9] flex items-center justify-center p-4">
+        <div className="max-w-md rounded-lg border border-[#DDE7E4] bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#F0FDFA]">
+            <Package className="h-7 w-7 text-[#0F766E]" />
+          </div>
+          <h1 className="text-2xl font-semibold text-[#111827] mb-3">Sepetiniz Bos</h1>
+          <p className="mb-6 text-sm leading-7 text-[#526B66]">
+            Odeme adimina gecmek icin once sepetinize urun ekleyin.
+          </p>
+          <Link href="/urunler" className="inline-flex rounded-full bg-[#0F766E] px-6 py-3 text-sm font-semibold text-white hover:bg-[#115E59]">Alışverişe Devam Et</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6] font-sans pb-20">
+    <div className="min-h-screen bg-[#F7FAF9] font-sans pb-20">
 
       {/* Header Removed as requested */}
 
@@ -468,7 +363,7 @@ export default function CheckoutPage() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-[1.5rem] shadow-sm p-8"
+                  className="bg-white rounded-lg border border-[#DDE7E4] shadow-sm p-6 sm:p-8"
                 >
                   <div className="flex items-center gap-4 mb-8">
                     <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-700">
@@ -539,87 +434,6 @@ export default function CheckoutPage() {
                         className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300 disabled:bg-gray-50 disabled:text-gray-500"
                       />
                     </div>
-
-                    {/* Account Creation - Only for non-logged in users */}
-                    {!user && (
-                      <div className="space-y-4">
-                        <label className="flex items-start gap-3 p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 cursor-pointer hover:bg-emerald-50 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={createAccount}
-                            onChange={(e) => setCreateAccount(e.target.checked)}
-                            className="mt-0.5 w-5 h-5 text-emerald-600 border-emerald-300 rounded focus:ring-emerald-500 cursor-pointer"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <UserPlus className="w-4 h-4 text-emerald-600" />
-                              <span className="font-semibold text-gray-900">Hesap Oluştur</span>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Sonraki alışverişlerinizde hızlı checkout için şifrenizi belirleyin
-                            </p>
-                          </div>
-                        </label>
-
-                        {/* Password Fields - Only when account creation is checked */}
-                        <AnimatePresence>
-                          {createAccount && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="space-y-4 overflow-hidden"
-                            >
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-600">Şifre Oluştur</label>
-                                <div className="relative">
-                                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                  <input
-                                    type={showPassword ? "text" : "password"}
-                                    value={accountPassword}
-                                    onChange={(e) => setAccountPassword(e.target.value)}
-                                    placeholder="En az 6 karakter"
-                                    minLength={6}
-                                    className="w-full h-12 pl-12 pr-12 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                  >
-                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-600">Şifre Tekrar</label>
-                                <div className="relative">
-                                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                  <input
-                                    type={showPassword ? "text" : "password"}
-                                    value={accountPasswordConfirm}
-                                    onChange={(e) => setAccountPasswordConfirm(e.target.value)}
-                                    placeholder="Şifrenizi tekrar girin"
-                                    className="w-full h-12 pl-12 pr-4 rounded-xl border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white text-gray-900 placeholder:text-gray-300"
-                                  />
-                                </div>
-                              </div>
-                              <p className="text-xs text-gray-500">
-                                Hesap oluşturarak{" "}
-                                <Link href="/kullanim-kosullari" className="text-primary hover:underline" target="_blank">
-                                  Kullanım Koşulları
-                                </Link>
-                                {" "}ve{" "}
-                                <Link href="/gizlilik" className="text-primary hover:underline" target="_blank">
-                                  Gizlilik Politikası
-                                </Link>
-                                {" "}nı kabul etmiş olursunuz.
-                              </p>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    )}
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-600">Telefon</label>
@@ -692,7 +506,7 @@ export default function CheckoutPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-gray-900">Teslimat Yöntemi</p>
-                          <p className="text-xs text-gray-500">Checkout ekranında müşteriye gösterilir.</p>
+                          <p className="text-xs text-gray-500">Adresinize göre uygun seçenekler gösterilir.</p>
                         </div>
                         {selectedShippingRate ? (
                           <span className={cn("text-sm font-semibold", resolvedShippingCost === 0 ? "text-emerald-600" : "text-gray-900")}>
@@ -753,7 +567,7 @@ export default function CheckoutPage() {
 
                     <button
                       onClick={handleNextStep}
-                      className="w-full bg-primary text-white font-bold h-14 rounded-xl hover:bg-red-800 transition-colors flex items-center justify-center gap-2 mt-4 shadow-lg shadow-primary/20"
+                      className="w-full bg-primary text-white font-bold h-14 rounded-xl hover:bg-[#115E59] transition-colors flex items-center justify-center gap-2 mt-4 shadow-lg shadow-primary/20"
                     >
                       Ödemeye Geç <ChevronRight className="h-4 w-4" />
                     </button>
@@ -765,7 +579,7 @@ export default function CheckoutPage() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="bg-white rounded-[1.5rem] shadow-sm p-8"
+                  className="bg-white rounded-lg border border-[#DDE7E4] shadow-sm p-6 sm:p-8"
                 >
                   <div className="flex items-center gap-4 mb-8">
                     <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
@@ -818,7 +632,11 @@ export default function CheckoutPage() {
 
                   {/* Payment Method Selection */}
                   <div className="grid grid-cols-1 gap-4 mb-8">
-                    {paymentGateways.map(gateway => (
+                    {isLoadingGateways ? (
+                      <div className="rounded-lg border border-[#DDE7E4] bg-[#F7FAF9] p-5 text-sm text-[#526B66]">
+                        Odeme yontemleri yukleniyor...
+                      </div>
+                    ) : paymentGateways.length > 0 ? paymentGateways.map(gateway => (
                       <label
                         key={gateway.id}
                         onClick={() => setSelectedPaymentMethod(gateway.id)}
@@ -839,31 +657,44 @@ export default function CheckoutPage() {
                         {gateway.gateway === 'cod' && <Truck className="h-5 w-5 text-gray-400" />}
                         {isCardLikeGateway(gateway.gateway) && <CreditCard className="h-5 w-5 text-gray-400" />}
                       </label>
-                    ))}
+                    )) : (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-800">
+                        Odeme yontemleri magaza sahibi tarafindan yapilandirilacak. Siparis oncesi bilgi almak icin iletisim sayfasindan destek alabilirsiniz.
+                      </div>
+                    )}
                   </div>
 
                   {/* Selected Gateway Details */}
-                  {paymentGateways.find(g => g.id === selectedPaymentMethod)?.gateway === 'bank_transfer' && (
+                  {selectedGateway?.gateway === 'bank_transfer' && (
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      {selectedGateway.bankAccount?.iban ? (
+                        <>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500 font-medium">Banka</span>
-                        <span className="font-bold text-gray-900 text-right">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.bankName}</span>
+                        <span className="font-bold text-gray-900 text-right">{selectedGateway.bankAccount?.bankName}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500 font-medium">Alıcı</span>
-                        <span className="font-bold text-gray-900 text-right">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.accountHolder}</span>
+                        <span className="font-bold text-gray-900 text-right">{selectedGateway.bankAccount?.accountHolder}</span>
                       </div>
                       <div className="pt-4 border-t border-gray-200">
                         <p className="text-xs text-gray-500 font-bold uppercase mb-2">IBAN</p>
                         <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
-                          <code className="font-mono font-bold text-gray-900 break-all">{paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.iban}</code>
-                          <button onClick={() => copyToClipboard(paymentGateways.find(g => g.id === selectedPaymentMethod)?.bankAccount?.iban || "")} className="text-primary text-sm font-bold hover:underline shrink-0 ml-2">Kopyala</button>
+                          <code className="font-mono font-bold text-gray-900 break-all">{selectedGateway.bankAccount?.iban}</code>
+                          <button onClick={() => copyToClipboard(selectedGateway.bankAccount?.iban || "")} className="text-primary text-sm font-bold hover:underline shrink-0 ml-2">Kopyala</button>
                         </div>
                       </div>
                       <div className="flex gap-2 text-xs text-amber-600 bg-amber-50 p-3 rounded-lg">
                         <AlertCircle className="h-4 w-4 shrink-0" />
                         Sipariş numaranızı açıklama kısmına yazmayı unutmayınız.
                       </div>
+                        </>
+                      ) : (
+                        <div className="flex gap-3 text-sm leading-7 text-amber-700">
+                          <AlertCircle className="mt-1 h-4 w-4 shrink-0" />
+                          Banka transferi detaylari magaza sahibi tarafindan tamamlanacak. Siparis oncesi destek icin iletisim kanallarini kullanabilirsiniz.
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -882,8 +713,8 @@ export default function CheckoutPage() {
                     </button>
                     <button
                       onClick={handleCompleteOrder}
-                      disabled={isSubmitting}
-                      className="flex-[2] h-14 bg-primary text-white font-bold rounded-xl hover:bg-red-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-primary/20"
+                      disabled={isSubmitting || paymentGateways.length === 0}
+                      className="flex-[2] h-14 bg-primary text-white font-bold rounded-xl hover:bg-[#115E59] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-primary/20"
                     >
                       {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Lock className="h-4 w-4" />}
                       {formatPrice(finalTotal)} Öde
@@ -903,7 +734,7 @@ export default function CheckoutPage() {
 
               <h2 className="text-lg font-bold text-gray-900">Sipariş Özeti</h2>
 
-              <div className="bg-white rounded-[1.5rem] shadow-sm p-6">
+              <div className="bg-white rounded-lg border border-[#DDE7E4] shadow-sm p-6">
                 <div className="space-y-6">
                   {/* Items */}
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
@@ -970,9 +801,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  {/* Dark Total Box - Using Primary Brand Color as base */}
-                  {/* Total Box - Nude Theme */}
-                  <div className="bg-[#F5E6E0] rounded-xl p-5 flex justify-between items-center text-[#7B1113] shadow-sm">
+                  <div className="bg-[#F0FDFA] rounded-lg p-5 flex justify-between items-center text-[#0F766E] shadow-sm">
                     <span className="font-bold text-lg">Toplam</span>
                     <span className="font-black text-2xl tracking-tight">{formatPrice(finalTotal)}</span>
                   </div>

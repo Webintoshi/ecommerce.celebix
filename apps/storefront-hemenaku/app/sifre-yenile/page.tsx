@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { resolveCustomerAuthMode, isGeneratedAuthMode } from "@/lib/customer-auth-mode";
+import { AuthLandingCard } from "@/components/auth/AuthLandingCard";
 import { SITE_LOGO_PATH, SITE_NAME } from "@/lib/constants";
 import { Lock, ArrowRight, Eye, EyeOff, CheckCircle, Shield } from "lucide-react";
 import { motion } from "framer-motion";
@@ -11,6 +13,8 @@ import { motion } from "framer-motion";
 export default function ResetPasswordPage() {
   const router = useRouter();
   const { updatePassword } = useAuth();
+  const customerAuthMode = resolveCustomerAuthMode();
+  const useGeneratedAuth = isGeneratedAuthMode(customerAuthMode);
   
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,6 +25,13 @@ export default function ResetPasswordPage() {
   const showLogoImage =
     typeof SITE_LOGO_PATH === "string" &&
     !SITE_LOGO_PATH.includes("placeholder-storefront-logo");
+
+  const handleGeneratedReset = () => {
+    setLoading(true);
+    const url = new URL("/api/auth/sign-in", window.location.origin);
+    url.searchParams.set("firstScreen", "reset_password");
+    window.location.assign(url.toString());
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +83,26 @@ export default function ResetPasswordPage() {
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
         </motion.div>
       </div>
+    );
+  }
+
+  if (useGeneratedAuth) {
+    return (
+      <AuthLandingCard
+        eyebrow="Hesap erisimi"
+        title="Sifre yenileme guvenli hesap ekraninda"
+        description={
+          customerAuthMode === "logto"
+            ? "Yeni sifre belirleme islemi guvenli Hemenaku hesap ekraninda tamamlanir."
+            : "Hesap modulu su anda hazir degil. Magazayi misafir olarak kullanmaya devam edebilirsiniz."
+        }
+        primaryLabel={loading ? "Yonlendiriliyor..." : "Guvenli Ekrana Git"}
+        secondaryLabel="Giris Sayfasina Don"
+        secondaryHref="/giris"
+        onPrimaryAction={customerAuthMode === "logto" ? handleGeneratedReset : undefined}
+        primaryDisabled={customerAuthMode !== "logto" || loading}
+        helperText="Parola islemleri guvenli hesap ekraninda tamamlanir."
+      />
     );
   }
 
@@ -169,7 +200,7 @@ export default function ResetPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#115E59] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

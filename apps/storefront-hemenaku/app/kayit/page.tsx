@@ -142,7 +142,7 @@ export default function RegisterPage() {
         title="Hesabinizi guvenli sekilde olusturun"
         description={
           customerAuthMode === "logto"
-            ? "Kayit islemi merkezi hesap ekraninda tamamlanir. Storefront sifre veya captcha toplamaz; hesap servisinin guvenli akisina yonlenirsiniz."
+            ? "Hesap olusturma islemi guvenli Hemenaku hesap ekraninda tamamlanir."
             : "Musteri kaydi su anda hazir degil. Magazayi kesfedebilir ve uygun akislarda misafir olarak devam edebilirsiniz."
         }
         primaryLabel={loading ? "Yonlendiriliyor..." : "Hesap Olustur"}
@@ -153,7 +153,7 @@ export default function RegisterPage() {
         helperText={
           error ||
           (customerAuthMode === "logto"
-            ? "Bu sayfa Logto uyumlu generated storefront akisi icindir; parola alanlari yalniz legacy modda gosterilir."
+            ? "Devam ettiginizde hesap olusturma ekranina yonlendirilirsiniz."
             : "Hesap modulu etkinlesene kadar vitrin ve sepet akisi misafir deneyimiyle kullanilabilir.")
         }
       />
@@ -377,7 +377,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#7B1113] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#115E59] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

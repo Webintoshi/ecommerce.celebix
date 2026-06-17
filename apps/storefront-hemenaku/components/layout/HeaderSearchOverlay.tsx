@@ -230,7 +230,7 @@ export function HeaderSearchOverlay({
                   </div>
                 </form>
                 <p className="mt-3 text-sm text-neutral-500">
-                  En az 2 karakter yazin. Sonuclar yazdikca otomatik gelir.
+                  En az 2 karakter yazin; eslesen urunler aninda listelenir.
                 </p>
               </div>
 
@@ -253,7 +253,7 @@ export function HeaderSearchOverlay({
                     Arama hazir
                   </p>
                   <p className="mt-2 text-sm text-neutral-500">
-                    Popupta ajax arama acik. Urun ismini yazmaya baslayin.
+                    Urun, kategori veya model adini yazmaya baslayin.
                   </p>
                 </div>
               </div>

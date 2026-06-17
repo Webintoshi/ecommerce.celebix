@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS: AnnouncementSettings = {
   link: "/kampanyalar",
   linkText: "Hemen Kesfet",
   enabled: true,
-  backgroundColor: "#7B1113",
+  backgroundColor: "#0F766E",
 };
 
 function normalizeAnnouncementColor(value?: string) {

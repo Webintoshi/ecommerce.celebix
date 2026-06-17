@@ -70,63 +70,67 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
 
   if (!isLoaded || !slides || slides.length === 0) {
     return (
-      <section className="relative overflow-hidden bg-[#F6F1EB]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(138,104,71,0.18),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(20,13,8,0.12),_transparent_35%)]" />
-        <div className="relative mx-auto flex min-h-[620px] max-w-[1500px] min-w-0 flex-col justify-center overflow-hidden px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
-          <div className="grid items-center gap-12 lg:grid-cols-[0.92fr_1.08fr]">
+      <section className="relative overflow-hidden border-b border-[#DDE7E4] bg-[#F7FAF9]">
+        <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#0F766E,#EA580C,#2563EB)]" />
+        <div className="relative mx-auto flex min-h-[620px] max-w-[1500px] min-w-0 flex-col justify-center overflow-hidden px-5 py-16 sm:px-8 lg:px-12 lg:py-24">
+          <div className="grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr]">
             <div className="max-w-2xl">
-              <span className="inline-flex rounded-full border border-[#7B1113]/15 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#7B1113]">
+              <span className="inline-flex rounded-full border border-[#0F766E]/20 bg-white px-4 py-2 text-[11px] font-semibold uppercase text-[#0F766E] shadow-sm">
                 {DEFAULT_DEMO_THEME.heroEyebrow}
               </span>
-              <h1 className="mt-6 font-serif text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-[#17110D] sm:text-5xl lg:text-6xl">
+              <h1 className="mt-6 font-serif text-4xl font-semibold leading-[1.02] text-[#111827] sm:text-5xl lg:text-6xl">
                 {SITE_NAME}
-                <span className="mt-3 block text-[#8A6847]">{DEFAULT_DEMO_THEME.heroTitle}</span>
+                <span className="mt-3 block text-[#0F766E]">{DEFAULT_DEMO_THEME.heroTitle}</span>
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#5F5147] sm:text-lg">
+              <p className="mt-5 max-w-xl text-base leading-8 text-[#4B635E] sm:text-lg">
                 {SITE_TAGLINE || DEFAULT_DEMO_THEME.heroDescription}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={ROUTES.products}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#7B1113] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#651012]"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#0F766E] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#115E59]"
                 >
                   Urunleri Incele
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href={ROUTES.blog}
-                  className="inline-flex items-center justify-center rounded-full border border-[#BFA58D] bg-white px-6 py-3.5 text-sm font-semibold text-[#2B211B] transition hover:border-[#8A6847] hover:bg-[#FFF9F2]"
+                  href={ROUTES.contact}
+                  className="inline-flex items-center justify-center rounded-full border border-[#CBD8D5] bg-white px-6 py-3.5 text-sm font-semibold text-[#111827] transition hover:border-[#0F766E] hover:text-[#0F766E]"
                 >
-                  Marka Notlarini Oku
+                  Magazayi Kesfet
                 </Link>
               </div>
               <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {DEFAULT_TRUST_ITEMS.map((item) => (
+                {DEFAULT_TRUST_ITEMS.map((item, index) => {
+                  const TrustIcon = [Shield, Truck, Check, Clock][index] || Shield;
+                  return (
                   <div
                     key={item}
-                    className="rounded-2xl border border-black/5 bg-white/65 px-4 py-3 text-xs font-semibold text-[#5F5147] shadow-[0_18px_48px_-42px_rgba(41,24,15,0.45)]"
+                    className="rounded-lg border border-[#DDE7E4] bg-white px-4 py-3 text-xs font-semibold text-[#425A55] shadow-sm"
                   >
-                    {item}
+                    <TrustIcon className="mb-2 h-4 w-4 text-[#0F766E]" />
+                    <span>{item}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             <div className="grid min-w-0 gap-4 sm:grid-cols-[0.72fr_0.28fr]">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[42px] shadow-[0_32px_100px_-52px_rgba(24,17,11,0.55)]">
-                <DefaultDemoPlaceholder id="placeholder-01" label="Yeni sezon vitrini" />
+              <div className="relative aspect-[4/5] overflow-hidden rounded-lg shadow-[0_28px_80px_-56px_rgba(15,23,42,0.55)]">
+                <DefaultDemoPlaceholder id="placeholder-01" label="Hemenaku vitrini" />
               </div>
               <div className="grid gap-4">
-                <div className="relative min-h-[220px] overflow-hidden rounded-[32px] shadow-[0_24px_60px_-48px_rgba(24,17,11,0.45)]">
-                  <DefaultDemoPlaceholder id="placeholder-02" label="Secili koleksiyon" compact />
+                <div className="relative min-h-[220px] overflow-hidden rounded-lg shadow-[0_20px_48px_-40px_rgba(15,23,42,0.45)]">
+                  <DefaultDemoPlaceholder id="placeholder-02" label="Secili urunler" compact />
                 </div>
-                <div className="rounded-[32px] border border-black/5 bg-white/88 p-5 shadow-[0_24px_60px_-48px_rgba(24,17,11,0.35)] backdrop-blur">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
-                    Alisverise hazir
+                <div className="rounded-lg border border-[#DDE7E4] bg-white p-5 shadow-[0_20px_48px_-42px_rgba(15,23,42,0.28)]">
+                  <p className="text-[11px] font-semibold uppercase text-[#EA580C]">
+                    Guvenli akış
                   </p>
-                  <h2 className="mt-3 text-2xl font-semibold text-[#18110B]">Vitrin, blog ve kategori akisi</h2>
-                  <p className="mt-3 text-sm leading-7 text-[#6B5A4D]">
-                    Gercek urunler geldikce placeholder alanlari otomatik olarak canli icerikle degisir.
+                  <h2 className="mt-3 text-2xl font-semibold text-[#111827]">Temiz vitrin, net sepet, kolay odeme</h2>
+                  <p className="mt-3 text-sm leading-7 text-[#526B66]">
+                    Hemenaku alisveris deneyimi urun az olsa bile dengeli, okunabilir ve guven veren bir yapida kalir.
                   </p>
                 </div>
               </div>
@@ -243,6 +247,44 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   );
 }
 
+export function StorefrontCtaSection() {
+  return (
+    <section className="bg-[#111827] py-14 text-white sm:py-16">
+      <div className="container-premium">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase text-[#99F6E4]">
+              Hemenaku destek hattı
+            </p>
+            <h2 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight sm:text-4xl">
+              Siparis, teslimat veya urun sorulariniz icin net bir sonraki adim var.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72">
+              Urunleri inceleyebilir, sorulariniz icin iletisim kanalina gecebilir ya da sepetinizi guvenli odeme akisiyle tamamlayabilirsiniz.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+            <Link
+              href={ROUTES.products}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#111827] transition hover:bg-[#F7FAF9]"
+            >
+              Urunleri Incele
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href={ROUTES.contact}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              <Mail className="h-4 w-4" />
+              Iletisime Gec
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function MarqueeSection() {
   const [settings, setSettings] = useState<MarqueeSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -315,12 +357,12 @@ export function Newsletter() {
   };
 
   return (
-    <section className="py-16 sm:py-20 md:py-28 bg-[#7B1113] relative overflow-hidden">
+    <section className="py-16 sm:py-20 md:py-28 bg-[#0F766E] relative overflow-hidden">
       {/* Decorative Background Elements */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Gradient Orbs */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#F3E0E1]/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-[#F3E0E1]/10 rounded-full blur-3xl" />
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#F0FDFA]/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-[#F0FDFA]/10 rounded-full blur-3xl" />
         
         {/* Pattern Overlay */}
         <div className="absolute inset-0 opacity-5" style={{
@@ -333,8 +375,8 @@ export function Newsletter() {
           {subscribed ? (
             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 sm:p-12 text-center opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               {/* Success Icon */}
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#F3E0E1] flex items-center justify-center">
-                <Check className="w-10 h-10 text-[#7B1113]" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#F0FDFA] flex items-center justify-center">
+                <Check className="w-10 h-10 text-[#0F766E]" />
               </div>
               
               <h3 className="text-2xl sm:text-3xl font-bold text-white mb-3">
@@ -343,7 +385,7 @@ export function Newsletter() {
               <p className="text-white/80 text-base sm:text-lg mb-4">
                 %10 indirim kodunuz e-posta adresinize gönderildi.
               </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F3E0E1]/20 text-white text-sm">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F0FDFA]/20 text-white text-sm">
                 <Sparkles className="w-4 h-4" />
                 İlk siparişinizde geçerli
               </div>
@@ -359,7 +401,7 @@ export function Newsletter() {
               {/* Title */}
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
                 Özel Fırsatları
-                <span className="block mt-1 text-[#F3E0E1]">Kaçırma</span>
+                <span className="block mt-1 text-[#F0FDFA]">Kaçırma</span>
               </h2>
 
               {/* Description */}
@@ -376,16 +418,16 @@ export function Newsletter() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="E-posta adresin"
                     required
-                    className="w-full px-5 sm:px-6 py-4 bg-white/10 border border-white/30 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-[#F3E0E1]/50 focus:border-[#F3E0E1] transition-all backdrop-blur-sm"
+                    className="w-full px-5 sm:px-6 py-4 bg-white/10 border border-white/30 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-[#F0FDFA]/50 focus:border-[#F0FDFA] transition-all backdrop-blur-sm"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-8 py-4 bg-white text-[#7B1113] text-base font-bold rounded-xl hover:bg-[#F3E0E1] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
+                  className="px-8 py-4 bg-white text-[#0F766E] text-base font-bold rounded-xl hover:bg-[#F0FDFA] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
                 >
                   {loading ? (
-                    <div className="w-5 h-5 border-2 border-[#7B1113] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-[#0F766E] border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
                       Abone Ol
@@ -407,7 +449,7 @@ export function Newsletter() {
                   {[1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
-                      className="w-8 h-8 rounded-full bg-[#F3E0E1]/30 border-2 border-[#7B1113] flex items-center justify-center"
+                      className="w-8 h-8 rounded-full bg-[#F0FDFA]/30 border-2 border-[#0F766E] flex items-center justify-center"
                     >
                       <span className="text-white text-xs">👤</span>
                     </div>

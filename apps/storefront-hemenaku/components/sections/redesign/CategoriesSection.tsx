@@ -53,19 +53,22 @@ export function CategoriesSection({
     });
 
   return (
-    <section className="bg-[#F8F8F8F8] py-20 lg:py-28">
+    <section className="bg-[#F7FAF9] py-16 lg:py-24">
       <div className="container-premium">
         <div className="mb-12 text-center lg:mb-16">
-          <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-400">{eyebrow}</p>
-          <h2 className="font-serif text-3xl font-medium text-neutral-900 lg:text-4xl">{heading}</h2>
+          <p className="mb-3 text-xs font-semibold uppercase text-[#0F766E]">{eyebrow}</p>
+          <h2 className="font-serif text-3xl font-semibold text-[#111827] lg:text-4xl">{heading}</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#526B66]">
+            Populer rotalar, yeni urunler ve sezon secimleri tek bakista bulunabilir.
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
           {displayCategories.map((category) => (
             <Link
               key={category.id}
               href={category.link}
-              className="group relative block aspect-[3/2] overflow-hidden"
+              className="group relative block aspect-[3/2] overflow-hidden rounded-lg border border-[#DDE7E4] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F766E]"
             >
               {category.image && !imageErrors[category.id] ? (
                 <Image
@@ -91,11 +94,11 @@ export function CategoriesSection({
                 />
               )}
 
-              <div className="absolute inset-0 bg-black/25 transition-colors duration-300 group-hover:bg-black/35" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.06)_0%,rgba(17,24,39,0.54)_100%)] transition-colors duration-300 group-hover:bg-black/28" />
 
               <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
                 {category.productCount ? (
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/78">
+                  <p className="mb-2 text-[10px] font-semibold uppercase text-white/78">
                     {category.productCount}+ urun
                   </p>
                 ) : null}

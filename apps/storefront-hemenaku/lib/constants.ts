@@ -11,7 +11,7 @@ export const CONTACT_INFO = {
   email: STOREFRONT_RUNTIME.supportEmail,
   phone: STOREFRONT_RUNTIME.supportPhone,
   whatsapp: STOREFRONT_RUNTIME.supportPhone,
-  address: "Magaza adresi owner panel veya storefront ayarlariyla guncellenir.",
+  address: "Hemenaku destek ekibi siparis ve teslimat sorulariniz icin yaninizda.",
 };
 
 export const SOCIAL_LINKS = {
@@ -181,26 +181,26 @@ export const FOOTER_LINKS = {
 export const TESTIMONIALS = [
   {
     id: "1",
-    name: "Magaza Yorumu",
-    role: "Placeholder",
-    text: "Bu alan gercek musteri yorumlariyla doldurulmak uzere storefront base icine birakildi.",
+    name: "Guvenli Alisveris",
+    role: "Hemenaku",
+    text: "Odeme ve siparis adimlari sade, izlenebilir ve musteri destegiyle desteklenir.",
     rating: 5,
-    image: "/placeholder.svg",
+    image: "",
   },
   {
     id: "2",
-    name: "Editor Notu",
-    role: "Placeholder",
-    text: "Yeni magazada urunler, kategori yapisi ve marka dili netlestikce bu yorum bloklari guncellenebilir.",
+    name: "Net Teslimat",
+    role: "Hemenaku",
+    text: "Teslimat ve iade surecleri sepet ve siparis akisi boyunca anlasilir sekilde sunulur.",
     rating: 5,
-    image: "/placeholder.svg",
+    image: "",
   },
   {
     id: "3",
-    name: "Polish Alani",
-    role: "Placeholder",
-    text: "Agent veya tasarimci sadece bu base ustune marka polish uygulayarak hizli sekilde canli storefront uretebilir.",
+    name: "Kolay Destek",
+    role: "Hemenaku",
+    text: "Destek kanallari alisveris oncesi ve sonrasi sorular icin her sayfadan erisilebilir tutulur.",
     rating: 5,
-    image: "/placeholder.svg",
+    image: "",
   },
 ];

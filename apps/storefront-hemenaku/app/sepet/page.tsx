@@ -24,23 +24,23 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-[#F7FAF9]">
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-2xl mx-auto text-center">
-            <div className="mx-auto mb-7 h-44 max-w-md overflow-hidden rounded-[32px]">
+            <div className="mx-auto mb-7 h-44 max-w-md overflow-hidden rounded-lg">
               <DefaultDemoPlaceholder id="placeholder-12" label="Sepetiniz sizi bekliyor" compact />
             </div>
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShoppingBag className="w-10 h-10 text-primary" />
+            <div className="w-20 h-20 bg-[#F0FDFA] rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShoppingBag className="w-10 h-10 text-[#0F766E]" />
             </div>
-            <h1 className="text-3xl font-bold text-primary mb-4">Sepetiniz Boş</h1>
-            <p className="text-muted mb-8">
+            <h1 className="text-3xl font-semibold text-[#111827] mb-4">Sepetiniz Bos</h1>
+            <p className="text-[#526B66] mb-8 leading-7">
               Sepetinizde henüz ürün bulunmamaktadır. Alışverişe devam etmek
               için ürünlerimize göz atın.
             </p>
             <Link
               href="/urunler"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-all"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-[#0F766E] text-white rounded-full font-semibold hover:bg-[#115E59] transition-all"
             >
               Alışverişe Başla
             </Link>
@@ -51,10 +51,11 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="bg-primary text-primary-foreground py-8">
+    <div className="min-h-screen bg-[#F7FAF9]">
+      <div className="border-b border-[#DDE7E4] bg-white py-8">
         <div className="container mx-auto px-4">
-          <h1 className="text-2xl md:text-3xl font-bold">
+          <p className="text-xs font-semibold uppercase text-[#0F766E]">Sepet</p>
+          <h1 className="mt-2 text-2xl md:text-3xl font-semibold text-[#111827]">
             Sepetim ({getTotalItems()} ürün)
           </h1>
         </div>
@@ -66,10 +67,10 @@ export default function CartPage() {
             {items.map((item) => (
               <div
                 key={item.id}
-                className="bg-white rounded-xl p-4 md:p-6 shadow-sm border border-primary/10"
+                className="bg-white rounded-lg p-4 md:p-6 shadow-sm border border-[#DDE7E4]"
               >
                 <div className="flex gap-4">
-                  <div className="w-20 h-20 md:w-24 md:h-24 bg-primary/5 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-4xl">
+                  <div className="w-20 h-20 md:w-24 md:h-24 bg-[#F0FDFA] rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-4xl">
                     {item.product.images && item.product.images.length > 0 ? (
                       <img
                         src={item.product.images[0]}
@@ -88,13 +89,13 @@ export default function CartPage() {
                   <div className="flex-1 min-w-0">
                     <Link
                       href={`/urunler/${item.product.slug}`}
-                      className="font-semibold text-primary hover:underline block mb-2"
+                      className="font-semibold text-[#111827] hover:text-[#0F766E] block mb-2"
                     >
                       {item.product.name}
                     </Link>
                     <p className="text-sm text-muted mb-2">{item.variant.name}</p>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-lg font-bold text-primary">
+                      <span className="text-lg font-bold text-[#111827]">
                         {formatPrice(item.unitPrice)}
                       </span>
                     </div>
@@ -104,10 +105,10 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex flex-col items-end gap-3">
-                    <div className="flex items-center border border-primary/20 rounded-lg">
+                    <div className="flex items-center border border-[#DDE7E4] rounded-lg">
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-primary/5 transition-colors"
+                        className="w-10 h-10 flex items-center justify-center hover:bg-[#F0FDFA] transition-colors"
                         aria-label="Azalt"
                       >
                         <Minus className="w-4 h-4" />
@@ -117,7 +118,7 @@ export default function CartPage() {
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-primary/5 transition-colors"
+                        className="w-10 h-10 flex items-center justify-center hover:bg-[#F0FDFA] transition-colors"
                         aria-label="Arttır"
                       >
                         <Plus className="w-4 h-4" />
@@ -134,8 +135,8 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-primary/10 flex justify-end">
-                  <span className="font-semibold text-primary">
+                <div className="mt-4 pt-4 border-t border-[#DDE7E4] flex justify-end">
+                  <span className="font-semibold text-[#111827]">
                     Toplam: {formatPrice(item.unitPrice * item.quantity)}
                   </span>
                 </div>
@@ -144,8 +145,8 @@ export default function CartPage() {
           </div>
 
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-primary/10 sticky top-24">
-              <h2 className="text-xl font-bold text-primary mb-6">Sipariş Özeti</h2>
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-[#DDE7E4] sticky top-24">
+              <h2 className="text-xl font-semibold text-[#111827] mb-6">Sipariş Özeti</h2>
 
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between">
@@ -157,7 +158,7 @@ export default function CartPage() {
                   <span className="text-muted">Kargo</span>
                   <span className="font-medium">
                     {shipping === 0 ? (
-                      <span className="text-primary">Ücretsiz</span>
+                    <span className="text-[#0F766E]">Ücretsiz</span>
                     ) : (
                       formatPrice(shipping)
                     )}
@@ -165,28 +166,28 @@ export default function CartPage() {
                 </div>
 
                 {shipping > 0 && shippingThreshold != null && (
-                  <div className="text-xs text-muted bg-primary/5 p-3 rounded-lg">
+                  <div className="text-xs text-[#526B66] bg-[#F0FDFA] p-3 rounded-lg">
                     {formatPrice(SHIPPING_THRESHOLD - subtotal)} daha alırsanız
                     kargo ücretsiz!
                   </div>
                 )}
 
-                <div className="flex justify-between text-lg font-bold pt-4 border-t border-primary/10">
+                <div className="flex justify-between text-lg font-bold pt-4 border-t border-[#DDE7E4]">
                   <span>Toplam</span>
-                  <span className="text-primary">{formatPrice(total)}</span>
+                  <span className="text-[#0F766E]">{formatPrice(total)}</span>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <Link
                   href="/odeme"
-                  className="block w-full text-center px-6 py-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all"
+                  className="block w-full text-center px-6 py-4 bg-[#0F766E] text-white rounded-lg font-semibold hover:bg-[#115E59] transition-all"
                 >
                   Siparişi Tamamla
                 </Link>
                 <Link
                   href="/urunler"
-                  className="block w-full text-center px-6 py-4 border border-primary/20 rounded-lg font-medium hover:bg-primary/5 transition-all"
+                  className="block w-full text-center px-6 py-4 border border-[#DDE7E4] rounded-lg font-semibold hover:border-[#0F766E] hover:text-[#0F766E] transition-all"
                 >
                   Alışverişe Devam Et
                 </Link>

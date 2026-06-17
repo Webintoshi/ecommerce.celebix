@@ -11,22 +11,22 @@ import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin"
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
-  categoriesEyebrow: "Koleksiyonlar",
-  categoriesHeading: "Markanizin vitrini",
+  categoriesEyebrow: "Kesif",
+  categoriesHeading: "Hemenaku vitrininden secimler",
   viewAllLabel: "Tumunu Gor",
   productGroups: [
-    { title: "Cok Satanlar", subtitle: "Secili Koleksiyon" },
-    { title: "One Cikanlar", subtitle: "Editor Secimi" },
-    { title: "Yeni Seckiler", subtitle: "Canli Vitrin" },
-    { title: "Tamamlayicilar", subtitle: "Kesfet" },
+    { title: "Cok Satanlar", subtitle: "Populer Secimler" },
+    { title: "One Cikanlar", subtitle: "Hemenaku Secimi" },
+    { title: "Yeni Seckiler", subtitle: "Yeni Eklenenler" },
+    { title: "Tamamlayicilar", subtitle: "Birlikte Iyi Gider" },
   ],
-  storesEyebrow: "Fiziksel Deneyim",
-  storesHeading: "Magazanizi yalnizca urunle degil, atmosferle de anlatin",
+  storesEyebrow: "Destek ve Teslimat",
+  storesHeading: "Siparis oncesinden teslimata kadar net alisveris akisi",
   storesDescription:
-    "Genel ayarlariniza eklediginiz iletisim bilgileri, magaza detaylari ve gorseller burada premium bir blok olarak otomatik kullanilir.",
-  storesLinkLabel: "Magaza detaylarini gor",
-  testimonialsHeading: "Musteri Yorumlari",
-  testimonialsCountLabel: "Onayli yorumlar geldikce bu alan otomatik guncellenir",
+    "Hemenaku, hizli karar vermeyi kolaylastiran temiz vitrin, guvenli odeme adimlari ve ulasilabilir destek kanallariyla tasarlandi.",
+  storesLinkLabel: "Iletisim bilgilerini gor",
+  testimonialsHeading: "Alisveris guvenceleri",
+  testimonialsCountLabel: "Guvenli odeme, seffaf teslimat ve siparis sonrasi destek tek akista.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -78,7 +78,7 @@ export default async function Home() {
     buildLocalizedPath("/urunler", locale, routing),
     requestOrigin,
   ).toString();
-  const storesHref = buildLocalizedPath("/magazalarimiz", locale, routing);
+  const storesHref = buildLocalizedPath("/iletisim", locale, routing);
   const hasRealLogo = Boolean(storeInfo?.logoUrl?.trim());
   const logoUrl = hasRealLogo
     ? await buildAbsoluteRequestUrl(storeInfo?.logoUrl)

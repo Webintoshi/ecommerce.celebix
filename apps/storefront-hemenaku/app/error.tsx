@@ -33,21 +33,21 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
+    <div className="min-h-screen bg-[#F7FAF9]">
       <div className="container mx-auto flex min-h-screen items-center justify-center px-4">
-        <div className="max-w-2xl text-center">
+        <div className="max-w-2xl rounded-lg border border-[#DDE7E4] bg-white p-8 text-center shadow-sm">
           <div className="mb-8">
-            <div className="mb-4 inline-flex rounded-full bg-red-100 p-6">
-              <AlertTriangle className="h-16 w-16 text-red-600" />
+            <div className="mb-4 inline-flex rounded-full bg-[#FFF7ED] p-6">
+              <AlertTriangle className="h-16 w-16 text-[#EA580C]" />
             </div>
           </div>
 
-          <h1 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl">
-            Bir Hata Olustu
+          <h1 className="mb-4 text-3xl font-bold text-[#111827] md:text-4xl">
+            Sayfayi Yenileyelim
           </h1>
-          <p className="mb-8 text-lg text-gray-600">
-            Uzgunuz, bir seyler ters gitti. Lutfen sayfayi yenilemeyi deneyin veya
-            ana sayfaya donun.
+          <p className="mb-8 text-lg leading-8 text-[#526B66]">
+            Bu sayfa beklenmedik sekilde yuklenemedi. Yeniden deneyebilir veya
+            Hemenaku ana sayfasina donebilirsiniz.
           </p>
 
           {process.env.NODE_ENV === "development" ? (
@@ -59,14 +59,14 @@ export default function Error({
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <button
               onClick={reset}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F766E] px-6 py-3 font-medium text-white transition-colors hover:bg-[#115E59]"
             >
               <RefreshCw className="h-5 w-5" />
               Tekrar Dene
             </button>
             <Link
               href="/"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-6 py-3 font-medium transition-colors hover:bg-gray-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#DDE7E4] px-6 py-3 font-medium text-[#111827] transition-colors hover:bg-[#F7FAF9]"
             >
               <Home className="h-5 w-5" />
               Ana Sayfaya Don

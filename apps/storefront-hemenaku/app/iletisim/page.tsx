@@ -54,15 +54,15 @@ export default async function ContactPage() {
       <section className="border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#8A6847]">
+            <p className="text-xs font-medium uppercase tracking-[0.34em] text-[#0F766E]">
               Iletisim
             </p>
-            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#18110B] sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-semibold text-[#111827] sm:text-5xl">
               {profile.name} ile baglanti kurun
             </h1>
-            <p className="mt-5 text-base leading-8 text-[#6B5A4D]">
+            <p className="mt-5 text-base leading-8 text-[#526B66]">
               {managedPage?.plainText ||
-                "Iletisim kartlari genel ayarlardan, govde icerigi ise admin panelindeki Iletisim sayfasindan yonetilir."}
+                "Siparis, teslimat, iade ve urun sorulariniz icin Hemenaku ile kolayca baglanti kurabilirsiniz."}
             </p>
           </div>
         </div>
@@ -87,10 +87,10 @@ export default async function ContactPage() {
                 key={card.title}
                 className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(41,24,15,0.45)]"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7B1113]/8 text-[#7B1113]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0F766E]/8 text-[#0F766E]">
                   <Icon className="h-5 w-5" />
                 </div>
-                <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A6847]">
+                <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#0F766E]">
                   {card.title}
                 </p>
                 <p className="mt-3 text-base leading-7 text-[#221813]">{card.value}</p>

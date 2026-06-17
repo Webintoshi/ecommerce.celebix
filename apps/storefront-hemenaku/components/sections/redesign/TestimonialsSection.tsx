@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Check, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Headphones, RotateCcw, ShieldCheck, Star, Truck } from "lucide-react";
 import type { HomepageTestimonial } from "@/lib/homepage";
-import { TESTIMONIALS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const AUTO_PLAY_INTERVAL = 5000;
@@ -29,14 +28,7 @@ function getInitials(name: string) {
 
 function normalizeTestimonials(items?: HomepageTestimonial[]): TestimonialItem[] {
   if (!Array.isArray(items) || items.length === 0) {
-    return TESTIMONIALS.map((item) => ({
-      id: String(item.id),
-      name: item.name,
-      rating: item.rating,
-      text: item.text,
-      image: item.image,
-      verified: true,
-    }));
+    return [];
   }
 
   return items
@@ -88,15 +80,61 @@ export function TestimonialsSection({
   }, [isPaused, nextSlide, totalSlides]);
 
   if (testimonials.length === 0) {
-    return null;
+    const trustCards = [
+      {
+        title: "Guvenli odeme",
+        text: "Odeme adimlari net, izlenebilir ve musteri bilgilerini koruyacak sekilde tasarlandi.",
+        icon: ShieldCheck,
+      },
+      {
+        title: "Teslimat takibi",
+        text: "Siparis sureci sepetten teslimata kadar acik bilgilerle desteklenir.",
+        icon: Truck,
+      },
+      {
+        title: "Kolay iade",
+        text: "Iade ve degisim surecleri musteri destek kanallariyla kolaylastirilir.",
+        icon: RotateCcw,
+      },
+      {
+        title: "Ulasilabilir destek",
+        text: "Urun, sepet ve teslimat sorulari icin Hemenaku iletisim kanallari gorunur kalir.",
+        icon: Headphones,
+      },
+    ];
+
+    return (
+      <section className="bg-[#F7FAF9] py-16 lg:py-20">
+        <div className="container-premium">
+          <div className="mb-10 text-center">
+            <h2 className="mb-2 text-2xl font-semibold text-[#111827] lg:text-3xl">{heading}</h2>
+            <p className="mx-auto max-w-2xl text-sm leading-7 text-[#526B66]">{countLabel}</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {trustCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <article key={card.title} className="rounded-lg border border-[#DDE7E4] bg-white p-5 shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0F766E]">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold text-[#111827]">{card.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-[#526B66]">{card.text}</p>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section className="bg-neutral-50 py-16 lg:py-20">
+    <section className="bg-[#F7FAF9] py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-10 text-center">
-          <h2 className="mb-2 text-2xl font-medium text-neutral-900 lg:text-3xl">{heading}</h2>
-          <p className="text-sm text-neutral-500">{countLabel}</p>
+          <h2 className="mb-2 text-2xl font-semibold text-[#111827] lg:text-3xl">{heading}</h2>
+          <p className="text-sm text-[#526B66]">{countLabel}</p>
         </div>
 
         <div

@@ -1,5 +1,5 @@
 import { CategoriesSection } from "./CategoriesSection";
-import { HeroSection } from "./ExistingSections";
+import { HeroSection, StorefrontCtaSection } from "./ExistingSections";
 import { BlogPreviewSection } from "./BlogPreviewSection";
 import { ProductShowcaseSections } from "./ProductShowcaseSections";
 import { StoreLocationsSection } from "./StoreLocationsSection";
@@ -30,7 +30,7 @@ interface RedesignHomeProps {
 
 export default function RedesignHome({ data, storesHref, blogPosts = [], uiCopy }: RedesignHomeProps) {
   return (
-    <main className="min-h-screen bg-[#F8F8F8F8]">
+    <main className="min-h-screen bg-[#F7FAF9]">
       <HeroSection slides={data.heroBanners || []} />
       <CategoriesSection
         initialCategories={(data.categories as never[]) || []}
@@ -54,6 +54,7 @@ export default function RedesignHome({ data, storesHref, blogPosts = [], uiCopy 
         promoBanners={data.promoBanners}
       />
       <BlogPreviewSection posts={blogPosts} />
+      <StorefrontCtaSection />
       <TestimonialsSection
         heading={uiCopy?.testimonialsHeading}
         countLabel={uiCopy?.testimonialsCountLabel}

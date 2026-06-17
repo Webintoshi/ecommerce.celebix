@@ -139,8 +139,8 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     icon: "Home",
     seo_title: `${STOREFRONT_RUNTIME.name} | Premium Magaza Deneyimi`,
     seo_description:
-      "Adminden yonetilen urunler, kategoriler ve bannerlarla otomatik olarak guncellenen premium storefront deneyimi.",
-    seo_keywords: ["premium storefront", "e-ticaret", "urun vitrini", "celebix"],
+      "Guncel urunler, kategoriler ve secili vitrin alanlariyla yenilenen premium alisveris deneyimi.",
+    seo_keywords: ["premium magaza", "e-ticaret", "urun vitrini", "hemenaku"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["WebSite", "Organization"] },
     is_active: true,
@@ -153,7 +153,7 @@ export const DEFAULT_PAGES: Omit<StaticPage, "id" | "created_at" | "updated_at">
     icon: "Package",
     seo_title: `Tum Urunler | ${STOREFRONT_RUNTIME.name}`,
     seo_description:
-      "Yayindaki urunleri, secili koleksiyonlari ve admin panelinden yonetilen premium vitrin bloklarini kesfedin.",
+      "Yayindaki urunleri, secili koleksiyonlari ve premium vitrin bloklarini kesfedin.",
     seo_keywords: ["tum urunler", "koleksiyonlar", "premium vitrin"],
     faq: [],
     geo_data: { keyTakeaways: [], entities: ["CollectionPage"] },

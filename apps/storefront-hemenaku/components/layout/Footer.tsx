@@ -120,13 +120,13 @@ export function Footer() {
   const aboutLinks = [
     { name: copy.footerHome, href: "/" },
     { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: copy.footerStores, href: "/magazalarimiz" },
-    { name: copy.footerCorporate, href: "/kurumsal-urunler" },
+    { name: "Tum Urunler", href: "/urunler" },
+    { name: "Kargo ve Teslimat", href: "/kargo" },
     { name: copy.footerContact, href: "/iletisim" },
   ];
 
   return (
-    <footer className="bg-[#0B1120] text-white">
+    <footer className="bg-[#111827] text-white">
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="lg:col-span-1">
@@ -143,13 +143,16 @@ export function Footer() {
                   />
                 </div>
               ) : (
-                <span className="text-2xl font-light tracking-wide">{logoAlt}</span>
+                <span className="text-2xl font-semibold">{logoAlt}</span>
               )}
             </Link>
 
             <div className="mb-6 space-y-2">
               <p className="text-sm text-gray-300">{contactPhone}</p>
               <p className="break-all text-sm text-gray-300">{contactEmail}</p>
+              <p className="max-w-xs text-sm leading-6 text-gray-400">
+                Guvenli alisveris, net teslimat ve kolay destek icin Hemenaku.
+              </p>
             </div>
 
             {routing.showLocaleSwitcher ? (
@@ -208,7 +211,7 @@ export function Footer() {
                 href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-gray-400 transition-all hover:border-white hover:text-white"
                 aria-label="Instagram"
               >
                 <Instagram className="h-4 w-4" />
@@ -217,7 +220,7 @@ export function Footer() {
                 href={youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-600 text-gray-400 transition-all hover:border-white hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-gray-400 transition-all hover:border-white hover:text-white"
                 aria-label="YouTube"
               >
                 <Youtube className="h-4 w-4" />
@@ -283,7 +286,7 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-gray-800">
+      <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 lg:flex-row lg:px-8">
           <p className="text-xs text-gray-500">
             &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}

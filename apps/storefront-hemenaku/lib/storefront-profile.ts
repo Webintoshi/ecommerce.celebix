@@ -19,7 +19,7 @@ export type StorefrontProfile = {
 };
 
 const DEFAULT_ADDRESS =
-  "Magaza adresi ve fiziksel deneyim bilgileri admin genel ayarlarindan girildiginde bu alan otomatik guncellenir.";
+  "Online destek ve siparis danismanligi Hemenaku iletisim kanallarindan saglanir.";
 
 export async function getStorefrontProfile(): Promise<StorefrontProfile> {
   const storeInfo = await getStoreInfo();

@@ -78,13 +78,13 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
       return {
         siteTitle: `${name} | Premium Storefront`,
         siteDescription:
-          "A premium storefront that turns admin-managed products, categories, banners, and reviews into a polished brand website.",
+          "A polished online store for published products, curated categories, banners, and customer trust signals.",
         homeTitle: `${name} | Premium Storefront`,
         homeDescription:
-          "A premium storefront that turns admin-managed products, categories, banners, and reviews into a polished brand website.",
+          "A polished online store for published products, curated categories, banners, and customer trust signals.",
         productsTitle: `All Products | ${name}`,
         productsDescription:
-          "Discover all published products, curated collections, and merchandising blocks managed from your admin panel.",
+          "Discover all published products, curated collections, and featured merchandising blocks.",
         contactTitle: `Contact | ${name}`,
         contactDescription:
           "Get in touch for support, wholesale inquiries, and custom project requests.",
@@ -101,10 +101,10 @@ function getRuntimeCopyDefaults(locale: StorefrontLocale) {
       return {
         siteTitle: `${name} | Premium Magaza Deneyimi`,
         siteDescription:
-          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
+          "Guncel urunler, kategoriler, bannerlar ve guven unsurlariyla premium alisveris deneyimi.",
         homeTitle: `${name} | Premium Magaza Deneyimi`,
         homeDescription:
-          "Adminden yonetilen urunler, kategoriler, bannerlar ve yorumlar ile otomatik olarak premium vitrine donusen modern storefront deneyimi.",
+          "Guncel urunler, kategoriler, bannerlar ve guven unsurlariyla premium alisveris deneyimi.",
         productsTitle: `Tum Urunler | ${name}`,
         productsDescription:
           "Yayindaki urunleri, secili koleksiyonlari ve premium vitrin bloklarini tek bir akista kesfedin.",
