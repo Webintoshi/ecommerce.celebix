@@ -46,6 +46,7 @@ const PUBLIC_SENSITIVE_WRITE_API_PATHS = [
 ] as const;
 const PRODUCT_DETAIL_PATH_PATTERN = /^\/urunler\/([^/]+)\/?$/;
 const BLOG_DETAIL_PATH_PATTERN = /^\/blog\/([^/]+)\/?$/;
+const REMOVED_LUCKY_WHEEL_PAGE_PATHS = new Set(["/sans-carki", "/lucky-wheel"]);
 
 const AI_BOTS = [
   "GPTBot",
@@ -220,6 +221,10 @@ function matchesPath(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+function isRemovedLuckyWheelPage(pathname: string) {
+  return REMOVED_LUCKY_WHEEL_PAGE_PATHS.has(pathname.replace(/\/$/, "") || "/");
+}
+
 function isInternalWriteProtectedApi(pathname: string, method: string) {
   return isMutationMethod(method) && INTERNAL_WRITE_API_PATHS.some((prefix) => matchesPath(pathname, prefix));
 }
@@ -311,6 +316,10 @@ export async function middleware(request: NextRequest) {
 
   if (shouldBypassLocaleHandling(originalPathname)) {
     return withSecurity(request, await handleBypassedRequest(request, originalPathname, ip));
+  }
+
+  if (isRemovedLuckyWheelPage(originalPathname)) {
+    return withSecurity(request, rewriteMissingContent(request, originalPathname));
   }
 
   const localeRouting = await getLocaleRoutingConfig();

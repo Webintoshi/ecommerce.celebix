@@ -1,7 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 
+function readEnv(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim().replace(/^["']|["']$/g, "");
+    if (value) return value;
+  }
+
+  return null;
+}
+
+function normalizeUrl(value: string) {
+  return new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`).toString().replace(/\/$/, "");
+}
+
+function resolvePublicOrigin(request: NextRequest) {
+  const configured = readEnv("NEXT_PUBLIC_SITE_URL", "SITE_URL", "STOREFRONT_URL", "NEXT_PUBLIC_STOREFRONT_URL");
+  if (configured) {
+    return normalizeUrl(configured);
+  }
+
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  if (host) {
+    const protocol = request.headers.get("x-forwarded-proto") || "https";
+    return `${protocol}://${host}`.replace(/\/$/, "");
+  }
+
+  return request.nextUrl.origin;
+}
+
 function buildLoginRedirect(request: NextRequest, params: Record<string, string>) {
-  const url = new URL("/giris", request.url);
+  const url = new URL("/giris", resolvePublicOrigin(request));
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
@@ -36,7 +64,7 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const response = NextResponse.redirect(new URL(sanitizeNextPath(stateCookie.nextPath), request.url));
+  const response = NextResponse.redirect(new URL(sanitizeNextPath(stateCookie.nextPath), resolvePublicOrigin(request)));
   response.cookies.set("celebix-customer-logto-state", "", { expires: new Date(0), path: "/" });
   return response;
 }
