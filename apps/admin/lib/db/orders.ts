@@ -71,6 +71,8 @@ type LightPostgresOrderItemCustomizationRow = Record<string, unknown> & {
     order_item_id: string;
 };
 
+let lightPostgresOrderColumnsPromise: Promise<Set<string>> | null = null;
+
 function toNumber(value: unknown, fallback = 0): number {
     if (typeof value === "number" && Number.isFinite(value)) {
         return value;
@@ -80,11 +82,37 @@ function toNumber(value: unknown, fallback = 0): number {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+async function getLightPostgresOrderColumns(): Promise<Set<string>> {
+    if (!lightPostgresOrderColumnsPromise) {
+        lightPostgresOrderColumnsPromise = queryAdminLightPostgres<{ column_name: string }>(
+            `
+              select column_name
+              from information_schema.columns
+              where table_schema = 'public'
+                and table_name = 'orders'
+            `,
+        ).then((rows) => new Set(rows.map((row) => row.column_name)));
+    }
+
+    return lightPostgresOrderColumnsPromise;
+}
+
+function selectLightPostgresOrderColumn(
+    columns: Set<string>,
+    columnName: string,
+    fallbackSql = "null",
+): string {
+    return columns.has(columnName)
+        ? columnName
+        : `${fallbackSql} as ${columnName}`;
+}
+
 async function listLightPostgresOrders(options?: {
     status?: string;
     limit?: number;
     offset?: number;
 }) {
+    const orderColumns = await getLightPostgresOrderColumns();
     const whereClauses: string[] = [];
     const params: unknown[] = [];
 
@@ -110,10 +138,10 @@ async function listLightPostgresOrders(options?: {
           notes,
           source_type,
           source_ref_id,
-          shipping_carrier,
-          tracking_number,
-          estimated_delivery,
-          internal_notes,
+          ${selectLightPostgresOrderColumn(orderColumns, "shipping_carrier")},
+          ${selectLightPostgresOrderColumn(orderColumns, "tracking_number")},
+          ${selectLightPostgresOrderColumn(orderColumns, "estimated_delivery")},
+          ${selectLightPostgresOrderColumn(orderColumns, "internal_notes")},
           created_at,
           updated_at
         from public.orders
