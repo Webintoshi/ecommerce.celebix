@@ -49,7 +49,7 @@ function FilterSection({ title, defaultOpen = true, children }: FilterSectionPro
     <div className="border-b border-[#E5E2DE] pb-4">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full py-2 text-sm font-medium text-[#0F1626] tracking-wide uppercase hover:text-[#8A6B37] transition-colors"
+        className="flex w-full items-center justify-between py-2 text-sm font-medium uppercase tracking-wide text-[#0F172A] transition-colors hover:text-[#166534]"
       >
         {title}
         {isOpen ? (
@@ -104,7 +104,7 @@ export function FilterSidebar({ filters, onFilterChange, categoryCounts, classNa
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
-            className="text-sm text-[#8A6B37] hover:text-[#0F1626] transition-colors"
+            className="text-sm text-[#166534] transition-colors hover:text-[#0F172A]"
           >
             Temizle
           </button>
@@ -272,7 +272,7 @@ export function ActiveFilters({ filters, onFilterChange }: ActiveFiltersProps) {
         <button
           key={index}
           onClick={filter.onRemove}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8A6B37]/10 text-[#0F1626] text-sm border border-[#8A6B37]/20 hover:bg-[#8A6B37]/20 transition-colors"
+          className="inline-flex items-center gap-1.5 border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1.5 text-sm text-[#0F172A] transition-colors hover:bg-[#22C55E]/20"
         >
           {filter.label}
           <X className="w-3.5 h-3.5" />

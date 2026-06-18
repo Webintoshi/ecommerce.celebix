@@ -120,7 +120,7 @@ export function DynamicVariantSelector({
           </span>
         </div>
         <div className="flex items-center gap-2 p-3 bg-neutral-100/50 rounded-xl border border-neutral-900/10">
-          <span className="font-medium text-[#8A6B37]">{variant.name}</span>
+          <span className="font-medium text-[#0F172A]">{variant.name}</span>
           {variant.stock <= 5 && variant.stock > 0 && (
             <span className="text-xs text-amber-600">(Son {variant.stock} adet!)</span>
           )}
@@ -140,9 +140,9 @@ export function DynamicVariantSelector({
           <div key={attrName} className="space-y-3">
             {/* Header: Nitelik Adı - Seçili Değer */}
             <div className="flex items-center gap-2">
-              <span className="font-medium text-[#8A6B37] uppercase tracking-wide text-xs">{attrName}</span>
+              <span className="text-xs font-medium uppercase tracking-wide text-[#0F172A]">{attrName}</span>
               <span className="text-gray-400">—</span>
-              <span className="text-[#8A6B37]">{selectedValue}</span>
+              <span className="text-[#166534]">{selectedValue}</span>
             </div>
 
             {isColor || values.some(v => v.image_url) ? (
@@ -161,7 +161,7 @@ export function DynamicVariantSelector({
                       className={cn(
                         "relative w-12 h-12 rounded-full border-2 transition-all duration-200 overflow-hidden flex items-center justify-center",
                         isSelected
-                          ? "border-[#8A6B37] ring-2 ring-[#8A6B37]/30" 
+                          ? "border-[#22C55E] ring-2 ring-[#22C55E]/30"
                           : "border-gray-300 hover:border-gray-400",
                         isOutOfStock && "opacity-50 cursor-not-allowed"
                       )}
@@ -192,7 +192,7 @@ export function DynamicVariantSelector({
 
                       {/* Selected indicator - border only */}
                       {isSelected && (
-                        <div className="absolute inset-0 rounded-full border-2 border-[#8A6B37]" />
+                        <div className="absolute inset-0 rounded-full border-2 border-[#22C55E]" />
                       )}
 
                       {/* Out of stock X */}
@@ -221,10 +221,10 @@ export function DynamicVariantSelector({
                       className={cn(
                         "relative px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 border",
                         isSelected
-                          ? "bg-[#8A6B37] text-white border-[#8A6B37]"
+                          ? "border-[#0F172A] bg-[#0F172A] text-white"
                           : isOutOfStock
                             ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                            : "bg-white text-[#8A6B37] border-gray-300 hover:border-[#8A6B37]"
+                            : "border-gray-300 bg-white text-[#0F172A] hover:border-[#22C55E]"
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -251,7 +251,7 @@ export function DynamicVariantSelector({
       {attributes.size === 0 && variants.length > 1 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-[#8A6B37]">Boyut Seçin</span>
+            <span className="font-medium text-[#0F172A]">Boyut Seçin</span>
             <span className="text-sm text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
               {variants[selectedIndex]?.weight}g
             </span>
@@ -270,10 +270,10 @@ export function DynamicVariantSelector({
                   className={cn(
                     "relative px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 border",
                     isSelected
-                      ? "bg-[#8A6B37] text-white border-[#8A6B37]"
+                      ? "border-[#0F172A] bg-[#0F172A] text-white"
                       : isOutOfStock
                         ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                        : "bg-white text-[#8A6B37] border-gray-300 hover:border-[#8A6B37]"
+                        : "border-gray-300 bg-white text-[#0F172A] hover:border-[#22C55E]"
                   )}
                 >
                   <span className="flex items-center gap-2">

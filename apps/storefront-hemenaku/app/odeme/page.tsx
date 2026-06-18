@@ -312,23 +312,23 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F7FAF9] flex items-center justify-center p-4">
-        <div className="max-w-md rounded-lg border border-[#DDE7E4] bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#F0FDFA]">
-            <Package className="h-7 w-7 text-[#0F766E]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F7FA] p-4">
+        <div className="max-w-md rounded-lg border border-[#D7DEE8] bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-[#ECFDF5]">
+            <Package className="h-7 w-7 text-[#16A34A]" />
           </div>
-          <h1 className="text-2xl font-semibold text-[#111827] mb-3">Sepetiniz Bos</h1>
-          <p className="mb-6 text-sm leading-7 text-[#526B66]">
-            Odeme adimina gecmek icin once sepetinize urun ekleyin.
+          <h1 className="mb-3 text-2xl font-semibold text-[#0B1220]">Sepetiniz boş</h1>
+          <p className="mb-6 text-sm leading-7 text-[#526176]">
+            Ödeme adımına geçmek için önce sepetinize ürün ekleyin.
           </p>
-          <Link href="/urunler" className="inline-flex rounded-full bg-[#0F766E] px-6 py-3 text-sm font-semibold text-white hover:bg-[#115E59]">Alışverişe Devam Et</Link>
+          <Link href="/urunler" className="inline-flex rounded-lg bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white hover:bg-[#1E293B]">Alışverişe Devam Et</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F7FAF9] font-sans pb-20">
+    <div className="min-h-screen bg-[#F5F7FA] pb-20 font-sans">
 
       {/* Header Removed as requested */}
 
@@ -363,10 +363,10 @@ export default function CheckoutPage() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-lg border border-[#DDE7E4] shadow-sm p-6 sm:p-8"
+                  className="rounded-lg border border-[#D7DEE8] bg-white p-6 shadow-sm sm:p-8"
                 >
                   <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-700">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#EEF2F7] text-[#0B1220]">
                       <Truck className="h-6 w-6" />
                     </div>
                     <div>
@@ -579,17 +579,17 @@ export default function CheckoutPage() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="bg-white rounded-lg border border-[#DDE7E4] shadow-sm p-6 sm:p-8"
+                  className="rounded-lg border border-[#D7DEE8] bg-white p-6 shadow-sm sm:p-8"
                 >
                   <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#ECFDF5] text-[#16A34A]">
                       <CreditCard className="h-6 w-6" />
                     </div>
                     <div>
                       <h2 className="text-xl font-bold text-gray-900">Ödeme Bilgileri</h2>
                       <p className="text-sm text-gray-500">Güvenli ödeme işlemi</p>
                     </div>
-                    <div className="ml-auto flex items-center gap-1 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1.5 rounded-full">
+                    <div className="ml-auto flex items-center gap-1 rounded-md bg-[#ECFDF5] px-3 py-1.5 text-xs font-bold text-[#16A34A]">
                       <Lock className="h-3 w-3" /> SSL Güvenli
                     </div>
                   </div>
@@ -597,12 +597,13 @@ export default function CheckoutPage() {
                   {/* VISUAL CREDIT CARD WRAPPER */}
                   <div className="mb-8">
                     {isCardLikeGateway(getGatewayType(selectedPaymentMethod)) && (
-                      <div className="w-full max-w-md mx-auto aspect-[1.586] rounded-2xl p-6 md:p-8 text-white relative overflow-hidden shadow-2xl shadow-indigo-500/20 mb-8 transform transition-transform hover:scale-[1.02] duration-500">
+                      <div className="relative mx-auto mb-8 aspect-[1.586] w-full max-w-md overflow-hidden rounded-lg p-6 text-white shadow-2xl shadow-slate-950/20 transition-transform duration-500 hover:scale-[1.02] md:p-8">
                         {/* Gradient Background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] via-[#8b5cf6] to-[#ec4899]" />
+                        <div className="absolute inset-0 bg-[linear-gradient(135deg,#0B1220,#172033_58%,#14532D)]" />
+                        <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:28px_28px]" />
 
                         {/* Chip */}
-                        <div className="relative w-12 h-9 bg-yellow-400 rounded-lg mb-8 opacity-90 shadow-sm border border-yellow-300/50 flex items-center justify-center">
+                        <div className="relative mb-8 flex h-9 w-12 items-center justify-center rounded-lg border border-yellow-300/50 bg-[#FACC15] opacity-90 shadow-sm">
                           <div className="w-8 h-px bg-yellow-600/30 absolute" />
                           <div className="h-5 w-px bg-yellow-600/30 absolute" />
                         </div>
@@ -633,16 +634,16 @@ export default function CheckoutPage() {
                   {/* Payment Method Selection */}
                   <div className="grid grid-cols-1 gap-4 mb-8">
                     {isLoadingGateways ? (
-                      <div className="rounded-lg border border-[#DDE7E4] bg-[#F7FAF9] p-5 text-sm text-[#526B66]">
-                        Odeme yontemleri yukleniyor...
+                      <div className="rounded-lg border border-[#D7DEE8] bg-[#F8FAFC] p-5 text-sm text-[#526176]">
+                        Ödeme yöntemleri yükleniyor...
                       </div>
                     ) : paymentGateways.length > 0 ? paymentGateways.map(gateway => (
                       <label
                         key={gateway.id}
                         onClick={() => setSelectedPaymentMethod(gateway.id)}
-                        className={cn(
-                          "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
-                          selectedPaymentMethod === gateway.id ? "border-primary bg-primary/5" : "border-gray-100 hover:border-gray-200"
+                      className={cn(
+                          "flex cursor-pointer items-center gap-4 rounded-lg border-2 p-4 transition-all",
+                          selectedPaymentMethod === gateway.id ? "border-[#0F172A] bg-[#F8FAFC]" : "border-gray-100 hover:border-gray-200"
                         )}
                       >
                         <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", selectedPaymentMethod === gateway.id ? "border-primary" : "border-gray-300")}>
@@ -659,7 +660,7 @@ export default function CheckoutPage() {
                       </label>
                     )) : (
                       <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-800">
-                        Odeme yontemleri magaza sahibi tarafindan yapilandirilacak. Siparis oncesi bilgi almak icin iletisim sayfasindan destek alabilirsiniz.
+                        Ödeme yöntemleri mağaza sahibi tarafından yapılandırılacak. Sipariş öncesi bilgi almak için iletişim sayfasından destek alabilirsiniz.
                       </div>
                     )}
                   </div>
@@ -707,14 +708,14 @@ export default function CheckoutPage() {
                   <div className="flex items-center gap-4 mt-8">
                     <button
                       onClick={() => setCurrentStep(1)}
-                      className="flex-1 h-14 rounded-xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+                      className="h-14 flex-1 rounded-lg border border-gray-200 font-bold text-gray-600 transition-colors hover:bg-gray-50"
                     >
                       Geri
                     </button>
                     <button
                       onClick={handleCompleteOrder}
                       disabled={isSubmitting || paymentGateways.length === 0}
-                      className="flex-[2] h-14 bg-primary text-white font-bold rounded-xl hover:bg-[#115E59] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-primary/20"
+                      className="flex h-14 flex-[2] items-center justify-center gap-2 rounded-lg bg-[#0F172A] font-bold text-white shadow-lg shadow-slate-950/15 transition-colors hover:bg-[#1E293B] disabled:opacity-70"
                     >
                       {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Lock className="h-4 w-4" />}
                       {formatPrice(finalTotal)} Öde
@@ -734,7 +735,7 @@ export default function CheckoutPage() {
 
               <h2 className="text-lg font-bold text-gray-900">Sipariş Özeti</h2>
 
-              <div className="bg-white rounded-lg border border-[#DDE7E4] shadow-sm p-6">
+              <div className="rounded-lg border border-[#D7DEE8] bg-white p-6 shadow-sm">
                 <div className="space-y-6">
                   {/* Items */}
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
@@ -801,7 +802,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  <div className="bg-[#F0FDFA] rounded-lg p-5 flex justify-between items-center text-[#0F766E] shadow-sm">
+                  <div className="flex items-center justify-between rounded-lg bg-[#ECFDF5] p-5 text-[#166534] shadow-sm">
                     <span className="font-bold text-lg">Toplam</span>
                     <span className="font-black text-2xl tracking-tight">{formatPrice(finalTotal)}</span>
                   </div>

@@ -168,7 +168,7 @@ export function PersonalizationPreview({
         <h3 className="text-[10px] font-medium uppercase tracking-[0.3em] text-neutral-700">
           Kişiselleştirme Ön İzleme
         </h3>
-        <Search className="h-3.5 w-3.5 text-[#8A6B37]" />
+        <Search className="h-3.5 w-3.5 text-[#16A34A]" />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(160px,0.78fr)]">

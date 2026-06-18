@@ -51,7 +51,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   if (displayImages.length === 0) {
     return (
-      <div className="relative aspect-square overflow-hidden bg-[#F8F8F8]">
+      <div className="relative aspect-square overflow-hidden rounded-lg border border-[#D7DEE8] bg-[#EEF2F7] shadow-sm">
         <DefaultDemoPlaceholder id="placeholder-07" label={productName} />
       </div>
     );
@@ -248,7 +248,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
     return (
       <div className="w-full">
         <div
-          className="relative aspect-square overflow-hidden cursor-pointer bg-[#F8F8F8]"
+          className="relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-[#D7DEE8] bg-[#EEF2F7] shadow-sm"
           onClick={() => setIsLightboxOpen(true)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -308,7 +308,7 @@ export function ImageGallery({ images, productName }: ImageGalleryProps) {
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-[72px_1fr] sm:grid-cols-[100px_1fr] gap-3 sm:gap-4 items-start">
+        <div className="grid grid-cols-[72px_1fr] items-start gap-3 sm:grid-cols-[100px_1fr] sm:gap-4">
         {/* Sol: Thumbnails */}
         <div className="relative flex flex-col">
           <div 

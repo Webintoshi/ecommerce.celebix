@@ -1,10 +1,10 @@
-const DEFAULT_SITE_URL = "https://store.celebix.co";
-const DEFAULT_STORE_NAME = "Yeni Magaza";
-const DEFAULT_TAGLINE = "Ozenle secilmis urunler, guvenli alisveris ve hizli teslimat.";
+const DEFAULT_SITE_URL = "https://hemenaku.com";
+const DEFAULT_STORE_NAME = "Hemenaku";
+const DEFAULT_TAGLINE = "Araciniz icin dogru aku, hizli ve guvenilir teslimat.";
 const DEFAULT_DESCRIPTION =
-  "Yeni sezon urunleri, secili koleksiyonlar ve marka hikayesi tek bir modern alisveris deneyiminde bulusur.";
-const DEFAULT_SUPPORT_EMAIL = "destek@store.celebix.co";
-const DEFAULT_SUPPORT_PHONE = "+90 532 000 00 00";
+  "Hemenaku aku, oto elektrik ve arac enerji urunleri icin guven veren modern alisveris deneyimi sunar.";
+const DEFAULT_SUPPORT_EMAIL = "";
+const DEFAULT_SUPPORT_PHONE = "";
 const DEFAULT_LOGO_PATH = "/placeholder-storefront-logo.svg";
 
 function normalizeUrl(value: string | undefined, fallback: string): string {
@@ -44,14 +44,14 @@ export const STOREFRONT_RUNTIME = {
     process.env.NEXT_PUBLIC_STORE_SUPPORT_PHONE || DEFAULT_SUPPORT_PHONE
   ),
   socialInstagram:
-    process.env.NEXT_PUBLIC_STORE_INSTAGRAM || "https://instagram.com/celebix.co",
+    process.env.NEXT_PUBLIC_STORE_INSTAGRAM || "",
   socialFacebook:
-    process.env.NEXT_PUBLIC_STORE_FACEBOOK || "https://facebook.com/celebixco",
+    process.env.NEXT_PUBLIC_STORE_FACEBOOK || "",
   socialTwitter:
-    process.env.NEXT_PUBLIC_STORE_TWITTER || "https://twitter.com/celebixco",
+    process.env.NEXT_PUBLIC_STORE_TWITTER || "",
   shippingMessage:
     process.env.NEXT_PUBLIC_FREE_SHIPPING_TEXT ||
-    "Yeni sezon vitrini yayinda",
+    "Hemenaku vitrin deneyimi hazir",
   gtmId: process.env.NEXT_PUBLIC_GTM_ID || "",
 } as const;
 

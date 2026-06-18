@@ -48,8 +48,8 @@ export function Footer() {
 
   const contactEmail = storeInfo?.email || STOREFRONT_RUNTIME.supportEmail;
   const contactPhone = storeInfo?.phone || STOREFRONT_RUNTIME.supportPhone;
-  const instagramUrl = storeInfo?.socialInstagram || SOCIAL_LINKS.instagram;
-  const youtubeUrl = SOCIAL_LINKS.youtube || SOCIAL_LINKS.instagram;
+  const instagramUrl = storeInfo?.socialInstagram || "";
+  const youtubeUrl = "";
   const visibleCategoryLinks: FooterVisibleCategory[] =
     categoryLinks.length > 0
       ? categoryLinks
@@ -120,13 +120,13 @@ export function Footer() {
   const aboutLinks = [
     { name: copy.footerHome, href: "/" },
     { name: copy.footerAbout, href: "/hakkimizda" },
-    { name: "Tum Urunler", href: "/urunler" },
+    { name: "Tüm Ürünler", href: "/urunler" },
     { name: "Kargo ve Teslimat", href: "/kargo" },
     { name: copy.footerContact, href: "/iletisim" },
   ];
 
   return (
-    <footer className="bg-[#111827] text-white">
+    <footer className="bg-[#08111F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="lg:col-span-1">
@@ -143,7 +143,7 @@ export function Footer() {
                   />
                 </div>
               ) : (
-                <span className="text-2xl font-semibold">{logoAlt}</span>
+                <span className="text-2xl font-semibold tracking-tight">{logoAlt}</span>
               )}
             </Link>
 
@@ -151,7 +151,7 @@ export function Footer() {
               <p className="text-sm text-gray-300">{contactPhone}</p>
               <p className="break-all text-sm text-gray-300">{contactEmail}</p>
               <p className="max-w-xs text-sm leading-6 text-gray-400">
-                Guvenli alisveris, net teslimat ve kolay destek icin Hemenaku.
+                Akü, oto elektrik ve araç enerji ürünlerinde doğru seçim, kolay sipariş ve hızlı destek için Hemenaku.
               </p>
             </div>
 
@@ -206,7 +206,9 @@ export function Footer() {
             </div>
             ) : null}
 
+            {instagramUrl || youtubeUrl ? (
             <div className="flex items-center gap-3">
+              {instagramUrl ? (
               <a
                 href={instagramUrl}
                 target="_blank"
@@ -216,6 +218,8 @@ export function Footer() {
               >
                 <Instagram className="h-4 w-4" />
               </a>
+              ) : null}
+              {youtubeUrl ? (
               <a
                 href={youtubeUrl}
                 target="_blank"
@@ -225,7 +229,9 @@ export function Footer() {
               >
                 <Youtube className="h-4 w-4" />
               </a>
+              ) : null}
             </div>
+            ) : null}
           </div>
 
           <div>

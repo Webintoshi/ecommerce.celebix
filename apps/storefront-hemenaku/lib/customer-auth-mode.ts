@@ -31,8 +31,12 @@ export function resolveCustomerAuthMode(): CustomerAuthMode {
   const supabaseStatus = normalizeRuntimeValue(
     process.env.NEXT_PUBLIC_SUPABASE_STATUS || process.env.SUPABASE_STATUS,
   );
+  const hasSupabaseBrowserConfig = Boolean(
+    normalizeRuntimeValue(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      normalizeRuntimeValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+  );
 
-  if (databaseMode === "light_postgres" || supabaseStatus === "none") {
+  if (databaseMode === "light_postgres" || supabaseStatus === "none" || !hasSupabaseBrowserConfig) {
     return "disabled";
   }
 

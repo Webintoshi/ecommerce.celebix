@@ -136,16 +136,15 @@ function EmptyShowcaseState() {
     <section className="bg-white py-16 lg:py-20">
       <div className="container-premium">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#0F766E]/20 bg-[#F0FDFA] px-4 py-2 text-[11px] font-semibold uppercase text-[#0F766E]">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-[#22C55E]/25 bg-[#ECFDF5] px-4 py-2 text-[11px] font-semibold uppercase text-[#166534]">
             <Sparkles className="h-3.5 w-3.5" />
-            Hemenaku Vitrini
+            Hemenaku kataloğu
           </span>
-          <h2 className="mt-5 text-3xl font-semibold text-[#111827] sm:text-4xl">
-            Yeni secimler icin temiz ve guven veren vitrin
+          <h2 className="mt-5 text-3xl font-semibold text-[#0B1220] sm:text-4xl">
+            Ürünler hazırlanıyor
           </h2>
-          <p className="mt-4 text-sm leading-7 text-[#526B66] sm:text-[15px]">
-            Urunler yayina alindikca bu alan canli fiyat, stok ve detay sayfalariyla dolar.
-            Bu arada ziyaretci vitrin rotalarini ve destek kanallarini rahatca bulur.
+          <p className="mt-4 text-sm leading-7 text-[#526176] sm:text-[15px]">
+            Çok yakında Hemenaku ürün kataloğu burada olacak. Gerçek ürünler yayınlandığında fiyat, stok ve detay sayfaları canlı veriden görünecek.
           </p>
         </div>
 
@@ -153,18 +152,18 @@ function EmptyShowcaseState() {
           {DEFAULT_DEMO_PRODUCT_CARDS.map((card) => (
             <div
               key={card.id}
-              className="overflow-hidden rounded-lg border border-[#DDE7E4] bg-white shadow-sm"
+              className="overflow-hidden rounded-lg border border-[#D7DEE8] bg-white shadow-sm"
             >
               <div className="aspect-square">
                 <DefaultDemoPlaceholder id={card.placeholder} label={card.title} compact />
               </div>
               <div className="p-5 text-center">
-                <p className="text-[11px] font-semibold uppercase text-[#0F766E]">
+                <p className="text-[11px] font-semibold uppercase text-[#16A34A]">
                   {card.eyebrow}
                 </p>
-                <h3 className="mt-3 text-base font-semibold text-[#111827] sm:text-lg">{card.title}</h3>
-                <p className="mt-3 text-xs leading-6 text-[#526B66] sm:text-sm">{card.description}</p>
-                <p className="mt-4 text-sm font-semibold text-[#EA580C]">{card.priceLabel}</p>
+                <h3 className="mt-3 text-base font-semibold text-[#0B1220] sm:text-lg">{card.title}</h3>
+                <p className="mt-3 text-xs leading-6 text-[#526176] sm:text-sm">{card.description}</p>
+                <p className="mt-4 text-sm font-semibold text-[#B45309]">{card.priceLabel}</p>
               </div>
             </div>
           ))}
@@ -172,9 +171,9 @@ function EmptyShowcaseState() {
         <div className="mt-9 text-center">
           <Link
             href={ROUTES.products}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#0F766E] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#115E59]"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F172A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1E293B]"
           >
-            Tum urunleri kesfet
+            Ürünleri İncele
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -229,21 +228,21 @@ export function ProductShowcaseSections({
   return (
     <>
       {effectiveGroups.map((group) => (
-        <section key={group.id} className="bg-[#F7FAF9] py-16 lg:py-20">
+        <section key={group.id} className="bg-[#F5F7FA] py-16 lg:py-20">
           <div className="container-premium">
             <div className="mb-12 flex items-end justify-between gap-6">
               <div>
                 <span className="mb-2 block text-xs font-semibold uppercase text-[#0F766E]">
                   {group.subtitle}
                 </span>
-                <h2 className="text-3xl font-semibold text-[#111827] sm:text-4xl">
+                <h2 className="text-3xl font-semibold text-[#0B1220] sm:text-4xl">
                   {group.title}
                 </h2>
               </div>
 
               <Link
                 href={buildPath(group.link.startsWith("/") ? group.link : ROUTES.products)}
-                className="group hidden items-center gap-2 text-sm font-semibold text-[#0F766E] transition-colors hover:text-[#115E59] sm:inline-flex"
+                className="group hidden items-center gap-2 text-sm font-semibold text-[#166534] transition-colors hover:text-[#0F172A] sm:inline-flex"
               >
                 {viewAllLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

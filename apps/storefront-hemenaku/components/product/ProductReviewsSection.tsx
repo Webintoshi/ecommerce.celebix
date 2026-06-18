@@ -278,7 +278,7 @@ export function ProductReviewsSection({
                 key={value}
                 className={`h-4 w-4 ${
                   value <= Math.round(summary.rating)
-                    ? "fill-[#8A6B37] text-[#8A6B37]"
+                    ? "fill-[#FACC15] text-[#FACC15]"
                     : "fill-neutral-200 text-neutral-200"
                 }`}
               />
@@ -295,11 +295,11 @@ export function ProductReviewsSection({
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <div className="space-y-4">
           {isLoading ? (
-            <div className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-500 shadow-sm">
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500 shadow-sm">
               Yorumlar yükleniyor...
             </div>
           ) : reviews.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-8 text-center shadow-sm">
+            <div className="rounded-lg border border-dashed border-neutral-300 bg-white p-8 text-center shadow-sm">
               <p className="text-base font-medium text-neutral-900">Bu ürün için henüz onaylı yorum yok.</p>
               <p className="mt-2 text-sm leading-6 text-neutral-500">
                 İlk görselli yorumu siz gönderin. Onay sonrası burada yayınlanır.
@@ -307,7 +307,7 @@ export function ProductReviewsSection({
             </div>
           ) : (
             reviews.map((review) => (
-              <article key={review.id} className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <article key={review.id} className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-neutral-900">{review.reviewerName}</div>
@@ -319,7 +319,7 @@ export function ProductReviewsSection({
                         key={value}
                         className={`h-4 w-4 ${
                           value <= review.rating
-                            ? "fill-[#8A6B37] text-[#8A6B37]"
+                            ? "fill-[#FACC15] text-[#FACC15]"
                             : "fill-neutral-200 text-neutral-200"
                         }`}
                       />
@@ -349,7 +349,7 @@ export function ProductReviewsSection({
           )}
         </div>
 
-        <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm lg:p-6">
+        <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm lg:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-xl font-semibold text-neutral-900">Yorum bırak</h3>
@@ -364,13 +364,13 @@ export function ProductReviewsSection({
                 value={reviewerName}
                 onChange={(event) => setReviewerName(event.target.value)}
                 placeholder="Ad Soyad"
-                className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+                className="w-full rounded-lg border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#22C55E]/10"
               />
               <input
                 value={reviewerEmail}
                 onChange={(event) => setReviewerEmail(event.target.value)}
                 placeholder="E-posta (opsiyonel)"
-                className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+                className="w-full rounded-lg border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#22C55E]/10"
               />
             </div>
 
@@ -378,7 +378,7 @@ export function ProductReviewsSection({
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Yorum başlığı (opsiyonel)"
-              className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+              className="w-full rounded-lg border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#22C55E]/10"
             />
 
             <div className="space-y-2">
@@ -393,7 +393,7 @@ export function ProductReviewsSection({
                   >
                     <Star
                       className={`h-6 w-6 ${
-                        value <= rating ? "fill-[#8A6B37] text-[#8A6B37]" : "fill-neutral-200 text-neutral-200"
+                        value <= rating ? "fill-[#FACC15] text-[#FACC15]" : "fill-neutral-200 text-neutral-200"
                       }`}
                     />
                   </button>
@@ -406,7 +406,7 @@ export function ProductReviewsSection({
               onChange={(event) => setBody(event.target.value)}
               rows={5}
               placeholder="Ürün hakkındaki deneyiminizi yazın..."
-              className="w-full rounded-3xl border border-neutral-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#8A6B37] focus:ring-4 focus:ring-[#8A6B37]/10"
+              className="w-full rounded-lg border border-neutral-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#22C55E]/10"
             />
 
             <div className="space-y-3">
@@ -428,7 +428,7 @@ export function ProductReviewsSection({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading || uploadedImages.length >= MAX_PRODUCT_REVIEW_IMAGES}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
                 Görsel Seç
@@ -477,7 +477,7 @@ export function ProductReviewsSection({
               type="button"
               onClick={handleSubmit}
               disabled={isPending || isUploading}
-              className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-[#8A6B37] px-6 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-[#755a2d] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-w-[180px] items-center justify-center rounded-lg bg-[#0F172A] px-6 py-3 text-sm font-medium uppercase tracking-wide text-white transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending ? "Gönderiliyor..." : "Yorumu Gönder"}
             </button>

@@ -30,7 +30,7 @@ interface RedesignHomeProps {
 
 export default function RedesignHome({ data, storesHref, blogPosts = [], uiCopy }: RedesignHomeProps) {
   return (
-    <main className="min-h-screen bg-[#F7FAF9]">
+    <main className="min-h-screen bg-[#F5F7FA]">
       <HeroSection slides={data.heroBanners || []} />
       <CategoriesSection
         initialCategories={(data.categories as never[]) || []}
@@ -53,13 +53,13 @@ export default function RedesignHome({ data, storesHref, blogPosts = [], uiCopy 
         heroBanners={data.heroBanners}
         promoBanners={data.promoBanners}
       />
-      <BlogPreviewSection posts={blogPosts} />
-      <StorefrontCtaSection />
       <TestimonialsSection
         heading={uiCopy?.testimonialsHeading}
         countLabel={uiCopy?.testimonialsCountLabel}
         items={data.testimonials}
       />
+      <BlogPreviewSection posts={blogPosts} />
+      <StorefrontCtaSection />
     </main>
   );
 }
