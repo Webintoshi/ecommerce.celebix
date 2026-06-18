@@ -19,6 +19,14 @@ export type AdminRoleCookiePayload = {
   role: UserRole;
 };
 
+function getOptionalRoleCookieSigningKey(): string | null {
+  return (
+    getOptionalSupabaseServiceRoleKey() ??
+    process.env.LOGTO_COOKIE_SECRET?.trim() ??
+    null
+  );
+}
+
 function getAdminRoleCookieOptions() {
   return {
     path: "/",
@@ -30,7 +38,7 @@ function getAdminRoleCookieOptions() {
 }
 
 function signValue(payload: string): string | null {
-  const signingKey = getOptionalSupabaseServiceRoleKey();
+  const signingKey = getOptionalRoleCookieSigningKey();
 
   if (!signingKey) {
     return null;
@@ -47,7 +55,7 @@ function encodePayload(payload: AdminRoleCookiePayload): string {
   const signature = signValue(encoded);
 
   if (!signature) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
+    throw new Error("Admin role cookie signing key is not configured");
   }
 
   return `${encoded}.${signature}`;

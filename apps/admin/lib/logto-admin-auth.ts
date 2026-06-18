@@ -228,6 +228,43 @@ function coerceString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function isMissingAuthMembershipTableError(error: unknown): boolean {
+  const code = typeof error === "object" && error ? Reflect.get(error, "code") : null;
+  if (code === "42P01") {
+    return true;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("auth_principals") ||
+    message.includes("auth_store_memberships") ||
+    message.includes("auth_provider_links") ||
+    message.includes("store_user_roles")
+  ) && message.includes("does not exist");
+}
+
+function normalizeAdminBridgeRow(row: {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  role: string | null;
+  task_definition: string | null;
+  provider_subject: string;
+} | null): LogtoAdminBridgeRecord | null {
+  if (!row || !isAdminRole(row.role)) {
+    return null;
+  }
+
+  return {
+    userId: row.user_id,
+    email: row.email,
+    fullName: row.full_name,
+    role: row.role,
+    taskDefinition: row.task_definition,
+    providerSubject: row.provider_subject,
+  };
+}
+
 function buildLogtoSessionUser(session: LogtoAdminSessionPayload): User {
   const now = new Date().toISOString();
 
@@ -427,114 +464,250 @@ export async function getLogtoLogoutRedirectUrl(
 
 export async function findLegacyAdminBridgeByLogtoSubject(
   providerSubject: string,
+  email?: string | null,
 ): Promise<LogtoAdminBridgeRecord | null> {
-  const row = await queryAdminLightPostgresOne<{
+  const membershipBridge = await findAdminMembershipBridgeByLogtoSubject(
+    providerSubject,
+    email,
+  );
+
+  if (membershipBridge) {
+    return membershipBridge;
+  }
+
+  const row = await queryLegacyAdminBridgeByLogtoSubject(providerSubject);
+  return normalizeAdminBridgeRow(row);
+}
+
+async function findAdminMembershipBridgeByLogtoSubject(
+  providerSubject: string,
+  email?: string | null,
+): Promise<LogtoAdminBridgeRecord | null> {
+  try {
+    const row = await queryAdminLightPostgresOne<{
+      user_id: string;
+      email: string | null;
+      full_name: string | null;
+      role: string | null;
+      task_definition: string | null;
+      provider_subject: string;
+    }>(
+      `
+        select
+          ap.id::text as user_id,
+          nullif(ap.email, '') as email,
+          coalesce(
+            nullif(ap.metadata->>'fullName', ''),
+            nullif(ap.metadata->>'displayName', ''),
+            nullif(ap.metadata->>'name', '')
+          ) as full_name,
+          asm.role,
+          nullif(asm.metadata->>'taskDefinition', '') as task_definition,
+          ap.subject as provider_subject
+        from auth_principals ap
+        inner join auth_store_memberships asm
+          on asm.principal_id = ap.id
+         and asm.store_slug = $1
+         and coalesce(asm.status, 'active') = 'active'
+        where ap.provider = 'logto'
+          and coalesce(ap.status, 'active') = 'active'
+          and (
+            ap.subject = $2
+            or ($3::text is not null and lower(ap.email) = lower($3::text))
+          )
+        order by case asm.role
+          when 'super_admin' then 0
+          when 'product_manager' then 1
+          when 'content_creator' then 2
+          when 'order_manager' then 3
+          else 99
+        end
+        limit 1
+      `,
+      [STORE_RUNTIME.slug, providerSubject, email ?? null],
+    );
+
+    return normalizeAdminBridgeRow(row);
+  } catch (error) {
+    if (isMissingAuthMembershipTableError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function queryLegacyAdminBridgeByLogtoSubject(providerSubject: string) {
+  try {
+    return await queryAdminLightPostgresOne<{
+      user_id: string;
+      email: string | null;
+      full_name: string | null;
+      role: string | null;
+      task_definition: string | null;
+      provider_subject: string;
+    }>(
+      `
+        select
+          u.id as user_id,
+          nullif(u.primary_email, '') as email,
+          u.display_name as full_name,
+          sur.role,
+          sur.task_definition,
+          apl.provider_subject
+        from auth_provider_links apl
+        inner join users u
+          on u.id = apl.user_id
+        inner join store_user_roles sur
+          on sur.user_id = u.id
+         and sur.store_slug = $1
+         and coalesce(sur.is_active, true) = true
+        where apl.provider = 'logto'
+          and apl.provider_subject = $2
+          and coalesce(u.is_active, true) = true
+        order by case sur.role
+          when 'super_admin' then 0
+          when 'product_manager' then 1
+          when 'content_creator' then 2
+          when 'order_manager' then 3
+          else 99
+        end
+        limit 1
+      `,
+      [STORE_RUNTIME.slug, providerSubject],
+    );
+  } catch (error) {
+    if (isMissingAuthMembershipTableError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function findAdminMembershipBridgeByUserId(
+  userId: string,
+  providerSubject?: string | null,
+): Promise<LogtoAdminBridgeRecord | null> {
+  try {
+    const row = await queryAdminLightPostgresOne<{
+      user_id: string;
+      email: string | null;
+      full_name: string | null;
+      role: string | null;
+      task_definition: string | null;
+      provider_subject: string;
+    }>(
+      `
+        select
+          ap.id::text as user_id,
+          nullif(ap.email, '') as email,
+          coalesce(
+            nullif(ap.metadata->>'fullName', ''),
+            nullif(ap.metadata->>'displayName', ''),
+            nullif(ap.metadata->>'name', '')
+          ) as full_name,
+          asm.role,
+          nullif(asm.metadata->>'taskDefinition', '') as task_definition,
+          ap.subject as provider_subject
+        from auth_principals ap
+        inner join auth_store_memberships asm
+          on asm.principal_id = ap.id
+         and asm.store_slug = $2
+         and coalesce(asm.status, 'active') = 'active'
+        where ap.id::text = $1
+          and ap.provider = 'logto'
+          and coalesce(ap.status, 'active') = 'active'
+          and ($3::text is null or ap.subject = $3)
+        order by case asm.role
+          when 'super_admin' then 0
+          when 'product_manager' then 1
+          when 'content_creator' then 2
+          when 'order_manager' then 3
+          else 99
+        end
+        limit 1
+      `,
+      [userId, STORE_RUNTIME.slug, providerSubject ?? null],
+    );
+
+    return normalizeAdminBridgeRow(row);
+  } catch (error) {
+    if (isMissingAuthMembershipTableError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function queryLegacyAdminBridgeByUserId(
+  userId: string,
+  providerSubject?: string | null,
+) {
+  try {
+    return await queryAdminLightPostgresOne<{
     user_id: string;
     email: string | null;
     full_name: string | null;
     role: string | null;
     task_definition: string | null;
     provider_subject: string;
-  }>(
-    `
-      select
-        u.id as user_id,
-        nullif(u.primary_email, '') as email,
-        u.display_name as full_name,
-        sur.role,
-        sur.task_definition,
-        apl.provider_subject
-      from auth_provider_links apl
-      inner join users u
-        on u.id = apl.user_id
-      inner join store_user_roles sur
-        on sur.user_id = u.id
-       and sur.store_slug = $1
-       and coalesce(sur.is_active, true) = true
-      where apl.provider = 'logto'
-        and apl.provider_subject = $2
-        and coalesce(u.is_active, true) = true
-      order by case sur.role
-        when 'super_admin' then 0
-        when 'product_manager' then 1
-        when 'content_creator' then 2
-        when 'order_manager' then 3
-        else 99
-      end
-      limit 1
-    `,
-    [STORE_RUNTIME.slug, providerSubject],
-  );
+    }>(
+      `
+        select
+          u.id as user_id,
+          nullif(u.primary_email, '') as email,
+          u.display_name as full_name,
+          sur.role,
+          sur.task_definition,
+          apl.provider_subject
+        from users u
+        inner join auth_provider_links apl
+          on apl.user_id = u.id
+         and apl.provider = 'logto'
+        inner join store_user_roles sur
+          on sur.user_id = u.id
+         and sur.store_slug = $2
+         and coalesce(sur.is_active, true) = true
+        where u.id = $1
+          and coalesce(u.is_active, true) = true
+          and ($3::text is null or apl.provider_subject = $3)
+        order by case sur.role
+          when 'super_admin' then 0
+          when 'product_manager' then 1
+          when 'content_creator' then 2
+          when 'order_manager' then 3
+          else 99
+        end
+        limit 1
+      `,
+      [userId, STORE_RUNTIME.slug, providerSubject ?? null],
+    );
+  } catch (error) {
+    if (isMissingAuthMembershipTableError(error)) {
+      return null;
+    }
 
-  if (!row || !isAdminRole(row.role)) {
-    return null;
+    throw error;
   }
-
-  return {
-    userId: row.user_id,
-    email: row.email,
-    fullName: row.full_name,
-    role: row.role,
-    taskDefinition: row.task_definition,
-    providerSubject: row.provider_subject,
-  };
 }
 
 export async function findLegacyAdminBridgeByUserId(
   userId: string,
   providerSubject?: string | null,
 ): Promise<LogtoAdminBridgeRecord | null> {
-  const row = await queryAdminLightPostgresOne<{
-    user_id: string;
-    email: string | null;
-    full_name: string | null;
-    role: string | null;
-    task_definition: string | null;
-    provider_subject: string;
-  }>(
-    `
-      select
-        u.id as user_id,
-        nullif(u.primary_email, '') as email,
-        u.display_name as full_name,
-        sur.role,
-        sur.task_definition,
-        apl.provider_subject
-      from users u
-      inner join auth_provider_links apl
-        on apl.user_id = u.id
-       and apl.provider = 'logto'
-      inner join store_user_roles sur
-        on sur.user_id = u.id
-       and sur.store_slug = $2
-       and coalesce(sur.is_active, true) = true
-      where u.id = $1
-        and coalesce(u.is_active, true) = true
-        and ($3::text is null or apl.provider_subject = $3)
-      order by case sur.role
-        when 'super_admin' then 0
-        when 'product_manager' then 1
-        when 'content_creator' then 2
-        when 'order_manager' then 3
-        else 99
-      end
-      limit 1
-    `,
-    [userId, STORE_RUNTIME.slug, providerSubject ?? null],
+  const membershipBridge = await findAdminMembershipBridgeByUserId(
+    userId,
+    providerSubject,
   );
 
-  if (!row || !isAdminRole(row.role)) {
-    return null;
+  if (membershipBridge) {
+    return membershipBridge;
   }
 
-  return {
-    userId: row.user_id,
-    email: row.email,
-    fullName: row.full_name,
-    role: row.role,
-    taskDefinition: row.task_definition,
-    providerSubject: row.provider_subject,
-  };
+  const row = await queryLegacyAdminBridgeByUserId(userId, providerSubject);
+  return normalizeAdminBridgeRow(row);
 }
 
 export function resolveLogtoAdminSessionIdentity(cookies: CookieValue[]) {
