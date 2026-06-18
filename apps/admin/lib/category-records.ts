@@ -442,7 +442,7 @@ async function ensureCategoryRecord(
   return createCategoryRecord(supabase, {
     name: desiredName,
     slug: input.slug,
-    description: null,
+    description: `${desiredName} kategorisi`,
     image: mirroredImageUrl,
     parent_id: input.parentId || null,
     sort_order: 0,

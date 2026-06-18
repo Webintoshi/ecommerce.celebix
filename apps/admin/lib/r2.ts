@@ -103,35 +103,35 @@ const r2Client = new S3Client({
     },
 });
 
-const BUCKET_NAME = firstConfiguredValue(process.env.R2_BUCKET_NAME, storeStorageConfig?.r2?.bucketName) || "celebix-assets";
+const BUCKET_NAME = firstConfiguredValue(storeStorageConfig?.r2?.bucketName, process.env.R2_BUCKET_NAME) || "celebix-assets";
 const PUBLIC_URL = firstConfiguredValue(
+    storeStorageConfig?.media?.publicBaseUrl,
+    storeStorageConfig?.r2?.publicUrl,
     process.env.R2_PUBLIC_URL,
     process.env.NEXT_PUBLIC_R2_PUBLIC_URL,
     process.env.R2_PUBLIC_BASE_URL,
-    storeStorageConfig?.media?.publicBaseUrl,
-    storeStorageConfig?.r2?.publicUrl,
 );
 const PUBLIC_URL_TEMPLATE = firstConfiguredValue(
-    process.env.R2_PUBLIC_URL_TEMPLATE,
     storeStorageConfig?.media?.publicUrlTemplate,
     storeStorageConfig?.r2?.publicUrlTemplate,
+    process.env.R2_PUBLIC_URL_TEMPLATE,
 );
-const R2_PREFIX = firstConfiguredValue(process.env.R2_PREFIX, storeStorageConfig?.media?.prefix, storeStorageConfig?.r2?.prefix);
-const R2_UPLOAD_PREFIX = firstConfiguredValue(process.env.R2_UPLOAD_PREFIX, storeStorageConfig?.media?.uploadPrefix, storeStorageConfig?.r2?.uploadPrefix);
+const R2_PREFIX = firstConfiguredValue(storeStorageConfig?.media?.prefix, storeStorageConfig?.r2?.prefix, process.env.R2_PREFIX);
+const R2_UPLOAD_PREFIX = firstConfiguredValue(storeStorageConfig?.media?.uploadPrefix, storeStorageConfig?.r2?.uploadPrefix, process.env.R2_UPLOAD_PREFIX);
 const R2_PRODUCT_IMAGES_PREFIX = firstConfiguredValue(
-    process.env.R2_PRODUCT_IMAGES_PREFIX,
     storeStorageConfig?.media?.productImagesPrefix,
     storeStorageConfig?.r2?.productImagesPrefix,
+    process.env.R2_PRODUCT_IMAGES_PREFIX,
 );
 const R2_PAGE_IMAGES_PREFIX = firstConfiguredValue(
-    process.env.R2_PAGE_IMAGES_PREFIX,
     storeStorageConfig?.media?.pageImagesPrefix,
     storeStorageConfig?.r2?.pageImagesPrefix,
+    process.env.R2_PAGE_IMAGES_PREFIX,
 );
 const R2_BRANDING_PREFIX = firstConfiguredValue(
-    process.env.R2_BRANDING_PREFIX,
     storeStorageConfig?.media?.brandingPrefix,
     storeStorageConfig?.r2?.brandingPrefix,
+    process.env.R2_BRANDING_PREFIX,
 );
 
 // R2 public URL fallback (if custom domain not set)

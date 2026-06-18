@@ -264,6 +264,97 @@ function buildCustomerUpdatePayload(input: Partial<CustomerUpsertInput>) {
   return payload;
 }
 
+const LIGHT_POSTGRES_CUSTOMER_MUTATION_COLUMNS = new Set([
+  "phone",
+  "first_name",
+  "last_name",
+  "status",
+  "notes",
+  "total_orders",
+  "total_spent",
+  "tags",
+]);
+
+function pruneLightPostgresCustomerPayload(payload: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]) => LIGHT_POSTGRES_CUSTOMER_MUTATION_COLUMNS.has(key)),
+  );
+}
+
+function serializeCustomerMutationValue(key: string, value: unknown) {
+  if (key === "tags") {
+    return JSON.stringify(Array.isArray(value) ? value : []);
+  }
+
+  return value;
+}
+
+async function getOrCreateLightPostgresCustomer(customerData: CustomerUpsertInput) {
+  const existing = await getCustomerByEmail(customerData.email);
+  const updates = pruneLightPostgresCustomerPayload(buildCustomerUpdatePayload(customerData));
+
+  if (existing) {
+    if (Object.keys(updates).length > 0) {
+      return updateLightPostgresCustomer(existing.id, updates);
+    }
+
+    return existing;
+  }
+
+  const insertPayload: Record<string, unknown> = {
+    email: customerData.email,
+    status: customerData.status || "active",
+    ...updates,
+  };
+  const columns = Object.keys(insertPayload);
+  const values = columns.map((column) => serializeCustomerMutationValue(column, insertPayload[column]));
+  const placeholders = columns.map((column, index) => (
+    column === "tags" ? `$${index + 1}::jsonb` : `$${index + 1}`
+  ));
+
+  await queryAdminLightPostgres(
+    `
+      insert into public.customers (${columns.join(", ")})
+      values (${placeholders.join(", ")})
+    `,
+    values,
+  );
+
+  const customer = await getCustomerByEmail(customerData.email);
+  if (!customer) {
+    throw new Error("Customer insert did not return a readable customer");
+  }
+
+  return customer;
+}
+
+async function updateLightPostgresCustomer(id: string, updates: Record<string, unknown>) {
+  const payload = pruneLightPostgresCustomerPayload(updates);
+  const entries = Object.entries(payload);
+
+  if (entries.length === 0) {
+    return getCustomerById(id);
+  }
+
+  const assignments = entries.map(([column], index) => (
+    column === "tags"
+      ? `${column} = $${index + 2}::jsonb`
+      : `${column} = $${index + 2}`
+  ));
+  const values = entries.map(([column, value]) => serializeCustomerMutationValue(column, value));
+
+  await queryAdminLightPostgres(
+    `
+      update public.customers
+      set ${assignments.join(", ")}, updated_at = now()
+      where id = $1
+    `,
+    [id, ...values],
+  );
+
+  return getCustomerById(id);
+}
+
 function normalizeAddressType(input: CustomerAddressInput) {
   if (input.type) {
     return input.type;
@@ -525,6 +616,10 @@ export async function getCustomerByEmail(email: string) {
  * Create or get customer by email
  */
 export async function getOrCreateCustomer(customerData: CustomerUpsertInput) {
+  if (shouldUseLightPostgresAdmin()) {
+    return getOrCreateLightPostgresCustomer(customerData);
+  }
+
   const serverClient = createServerClient();
   const existing = await getCustomerByEmail(customerData.email);
   const updates = buildCustomerUpdatePayload(customerData);
@@ -564,6 +659,10 @@ export async function getOrCreateCustomer(customerData: CustomerUpsertInput) {
  * Update customer (admin)
  */
 export async function updateCustomer(id: string, updates: Record<string, unknown>) {
+  if (shouldUseLightPostgresAdmin()) {
+    return updateLightPostgresCustomer(id, updates);
+  }
+
   const serverClient = createServerClient();
 
   const { data, error } = await serverClient
