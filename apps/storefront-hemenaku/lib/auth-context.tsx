@@ -1,8 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { AuthError, AuthResponse, Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase-browser";
+import type { AuthError, AuthResponse, Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { resolveCustomerAuthMode } from "@/lib/customer-auth-mode";
 
 type AuthResultError = AuthError | Error | null;
@@ -36,6 +35,11 @@ async function fetchLogtoSession() {
 
   const payload = await response.json().catch(() => ({}));
   return (payload?.user as User | null) ?? null;
+}
+
+async function getSupabaseBrowserClient(): Promise<SupabaseClient> {
+  const { getBrowserSupabaseClient } = await import("@/lib/supabase-browser");
+  return getBrowserSupabaseClient();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -92,29 +96,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // Get initial session
-    const getInitialSession = async () => {
+    let cancelled = false;
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    const setupSupabaseSession = async () => {
       try {
+        const supabase = await getSupabaseBrowserClient();
+        if (cancelled) {
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) {
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
+
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        });
+        subscription = data.subscription;
       } catch (error) {
-        console.error("Error getting initial session:", error);
+        if (!cancelled) {
+          console.error("Error getting initial session:", error);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    getInitialSession();
+    void setupSupabaseSession();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe();
+    };
   }, [customerAuthMode]);
 
   const signIn = async (email: string, password: string) => {
@@ -163,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      const supabase = await getSupabaseBrowserClient();
       const { data, error } = await supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
@@ -252,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null };
     }
 
+    const supabase = await getSupabaseBrowserClient();
     const { error } = await supabase.auth.signOut();
     return { error };
   };
@@ -273,6 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null };
     }
 
+    const supabase = await getSupabaseBrowserClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/sifre-yenile` : undefined,
     });
@@ -290,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
+    const supabase = await getSupabaseBrowserClient();
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -317,6 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      const supabase = await getSupabaseBrowserClient();
       const { data } = await supabase.auth.refreshSession();
       setSession(data.session);
       setUser(data.session?.user ?? null);

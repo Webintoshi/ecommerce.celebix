@@ -100,7 +100,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F1EB] flex items-center justify-center p-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-[#F5F7FA] p-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo */}
         <motion.div 
@@ -112,7 +112,7 @@ export default function LoginPage() {
             {showLogoImage ? (
               <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
             ) : (
-              <span className="font-serif text-3xl font-semibold tracking-tight text-gray-900">
+              <span className="text-3xl font-semibold tracking-tight text-[#0B1220]">
                 {SITE_NAME}
               </span>
             )}
@@ -124,10 +124,10 @@ export default function LoginPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-xl p-8"
+          className="rounded-lg border border-[#D7DEE8] bg-white p-8 shadow-xl shadow-slate-950/5"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#ECFDF5]">
               <Shield className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
@@ -210,7 +210,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#115E59] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0F172A] py-3 font-bold text-white transition-colors hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>

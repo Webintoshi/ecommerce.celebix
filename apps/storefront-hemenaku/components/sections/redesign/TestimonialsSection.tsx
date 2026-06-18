@@ -82,44 +82,44 @@ export function TestimonialsSection({
   if (testimonials.length === 0) {
     const trustCards = [
       {
-        title: "Guvenli odeme",
-        text: "Odeme adimlari net, izlenebilir ve musteri bilgilerini koruyacak sekilde tasarlandi.",
+        title: "Doğru ürün yönlendirmesi",
+        text: "Araç uyumluluğu ve kullanım ihtiyacına göre karar vermeyi kolaylaştıran sade vitrin.",
         icon: ShieldCheck,
       },
       {
-        title: "Teslimat takibi",
-        text: "Siparis sureci sepetten teslimata kadar acik bilgilerle desteklenir.",
+        title: "Güvenilir tedarik",
+        text: "Ürün kartlarında fiyat, stok ve seçenek bilgileri gerçek katalog geldiğinde net görünür.",
         icon: Truck,
       },
       {
-        title: "Kolay iade",
-        text: "Iade ve degisim surecleri musteri destek kanallariyla kolaylastirilir.",
+        title: "Hızlı destek",
+        text: "Telefon, e-posta ve iletişim rotaları sipariş öncesi sorular için ulaşılabilir kalır.",
         icon: RotateCcw,
       },
       {
-        title: "Ulasilabilir destek",
-        text: "Urun, sepet ve teslimat sorulari icin Hemenaku iletisim kanallari gorunur kalir.",
+        title: "Kolay sipariş deneyimi",
+        text: "Mobilde okunaklı ürün kartları, sepet ve ödeme adımları satış odağını korur.",
         icon: Headphones,
       },
     ];
 
     return (
-      <section className="bg-[#F7FAF9] py-16 lg:py-20">
+      <section className="bg-[#F5F7FA] py-16 lg:py-20">
         <div className="container-premium">
           <div className="mb-10 text-center">
-            <h2 className="mb-2 text-2xl font-semibold text-[#111827] lg:text-3xl">{heading}</h2>
-            <p className="mx-auto max-w-2xl text-sm leading-7 text-[#526B66]">{countLabel}</p>
+            <h2 className="mb-2 text-2xl font-semibold text-[#0B1220] lg:text-3xl">{heading}</h2>
+            <p className="mx-auto max-w-2xl text-sm leading-7 text-[#526176]">{countLabel}</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {trustCards.map((card) => {
               const Icon = card.icon;
               return (
-                <article key={card.title} className="rounded-lg border border-[#DDE7E4] bg-white p-5 shadow-sm">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F0FDFA] text-[#0F766E]">
+                <article key={card.title} className="rounded-lg border border-[#D7DEE8] bg-white p-5 shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-md bg-[#ECFDF5] text-[#16A34A]">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold text-[#111827]">{card.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-[#526B66]">{card.text}</p>
+                  <h3 className="mt-4 text-lg font-semibold text-[#0B1220]">{card.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-[#526176]">{card.text}</p>
                 </article>
               );
             })}
@@ -130,7 +130,7 @@ export function TestimonialsSection({
   }
 
   return (
-    <section className="bg-[#F7FAF9] py-16 lg:py-20">
+    <section className="bg-[#F5F7FA] py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-10 text-center">
           <h2 className="mb-2 text-2xl font-semibold text-[#111827] lg:text-3xl">{heading}</h2>
@@ -166,7 +166,7 @@ export function TestimonialsSection({
                             />
                           </div>
                         ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#8A6B37]/10 text-lg font-semibold tracking-[0.24em] text-[#8A6B37]">
+                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#ECFDF5] text-lg font-semibold tracking-[0.24em] text-[#166534]">
                             {getInitials(review.name)}
                           </div>
                         )}
@@ -180,7 +180,7 @@ export function TestimonialsSection({
                               className={cn(
                                 "h-3.5 w-3.5",
                                 index < review.rating
-                                  ? "fill-[#8A6B37] text-[#8A6B37]"
+                                  ? "fill-[#FACC15] text-[#FACC15]"
                                   : "fill-neutral-200 text-neutral-200",
                               )}
                             />

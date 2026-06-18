@@ -18,15 +18,15 @@ export function BlogPreviewSection({ posts = [] }: BlogPreviewSectionProps) {
   const visiblePosts = posts.slice(0, 3);
 
   return (
-    <section className="bg-[#F7FAF9] py-16 lg:py-20">
+    <section className="bg-[#F5F7FA] py-16 lg:py-20">
       <div className="container-premium">
         <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <span className="mb-2 block text-xs font-semibold uppercase text-[#0F766E]">
-              Hemenaku Notlari
+              Hemenaku Rehberi
             </span>
-            <h2 className="font-serif text-3xl font-semibold text-[#111827] sm:text-4xl">
-              Alisverisi kolaylastiran rehberler
+            <h2 className="text-3xl font-semibold text-[#0B1220] sm:text-4xl">
+              Akü seçimini kolaylaştıran rehberler
             </h2>
           </div>
           <Link
@@ -71,7 +71,7 @@ export function BlogPreviewSection({ posts = [] }: BlogPreviewSectionProps) {
                     <p className="text-[11px] font-semibold uppercase text-[#0F766E]">
                       {index === 0 ? "One cikan" : getCategoryName(post)}
                     </p>
-                    <h3 className="mt-3 line-clamp-2 font-serif text-2xl leading-tight text-[#111827]">
+                    <h3 className="mt-3 line-clamp-2 text-2xl font-semibold leading-tight text-[#111827]">
                       {post.title}
                     </h3>
                     <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#526B66]">
@@ -90,14 +90,14 @@ export function BlogPreviewSection({ posts = [] }: BlogPreviewSectionProps) {
             <div className="flex flex-col justify-center p-8 lg:p-10">
               <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#0F766E]/20 bg-[#F0FDFA] px-4 py-2 text-[11px] font-semibold uppercase text-[#0F766E]">
                 <Sparkles className="h-3.5 w-3.5" />
-                Rehberler yakinda
+                Rehberler yakında
               </span>
-              <h3 className="mt-5 font-serif text-3xl leading-tight text-[#111827] sm:text-4xl">
-                Hemenaku notlari icin temiz bir okuma alani hazir
+              <h3 className="mt-5 text-3xl font-semibold leading-tight text-[#0B1220] sm:text-4xl">
+                Hemenaku notları için temiz bir okuma alanı hazır
               </h3>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[#526B66]">
-                Urun rehberleri ve alisveris ipuclari yayinlandikca burada one cikar.
-                Simdilik ziyaretci, urun ve iletisim rotalarina net sekilde ulasir.
+              <p className="mt-4 max-w-xl text-sm leading-7 text-[#526176]">
+                Akü seçimi, araç uyumluluğu ve alışveriş ipuçları yayınlandıkça burada öne çıkar.
+                Şimdilik ziyaretçi ürün ve iletişim rotalarına net şekilde ulaşır.
               </p>
             </div>
           </div>

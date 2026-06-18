@@ -53,13 +53,13 @@ export function CategoriesSection({
     });
 
   return (
-    <section className="bg-[#F7FAF9] py-16 lg:py-24">
+    <section className="bg-[#F5F7FA] py-16 lg:py-24">
       <div className="container-premium">
-        <div className="mb-12 text-center lg:mb-16">
-          <p className="mb-3 text-xs font-semibold uppercase text-[#0F766E]">{eyebrow}</p>
-          <h2 className="font-serif text-3xl font-semibold text-[#111827] lg:text-4xl">{heading}</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#526B66]">
-            Populer rotalar, yeni urunler ve sezon secimleri tek bakista bulunabilir.
+        <div className="mb-10 max-w-3xl lg:mb-12">
+          <p className="mb-3 text-xs font-semibold uppercase text-[#16A34A]">{eyebrow}</p>
+          <h2 className="text-3xl font-semibold text-[#0B1220] lg:text-4xl">{heading}</h2>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-[#526176]">
+            Canlı kategoriler yayınlandığında bu alan API verisiyle dolar. Kategori boşsa Hemenaku’nun ürün yönünü açıkça gösteren görsel placeholder kartları korunur.
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export function CategoriesSection({
             <Link
               key={category.id}
               href={category.link}
-              className="group relative block aspect-[3/2] overflow-hidden rounded-lg border border-[#DDE7E4] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F766E]"
+              className="group relative block aspect-[3/2] overflow-hidden rounded-lg border border-[#D7DEE8] bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-[#94A3B8] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22C55E]"
             >
               {category.image && !imageErrors[category.id] ? (
                 <Image
@@ -94,11 +94,11 @@ export function CategoriesSection({
                 />
               )}
 
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.06)_0%,rgba(17,24,39,0.54)_100%)] transition-colors duration-300 group-hover:bg-black/28" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08)_0%,rgba(15,23,42,0.72)_100%)] transition-colors duration-300 group-hover:bg-black/32" />
 
               <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center p-3 pb-4 text-center sm:p-5 sm:pb-6 lg:p-6 lg:pb-7">
                 {category.productCount ? (
-                  <p className="mb-2 text-[10px] font-semibold uppercase text-white/78">
+                  <p className="mb-2 text-[10px] font-semibold uppercase text-[#FACC15]">
                     {category.productCount}+ urun
                   </p>
                 ) : null}

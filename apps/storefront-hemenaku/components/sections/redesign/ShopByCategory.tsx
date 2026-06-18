@@ -95,7 +95,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
 
   if (loading) {
     return (
-      <section className="py-16 md:py-24 bg-[#FFF5F5]" id="shop-by-category">
+      <section className="bg-[#F5F7FA] py-16 md:py-24" id="shop-by-category">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header Skeleton */}
           <div className="text-center mb-10 md:mb-14">
@@ -122,7 +122,7 @@ export default function ShopByCategory({ initialCategories = [] }: ShopByCategor
 
   return (
     <section 
-      className="py-16 md:py-24 bg-[#FFF5F5] overflow-hidden" 
+      className="overflow-hidden bg-[#F5F7FA] py-16 md:py-24"
       id="shop-by-category"
       aria-labelledby="category-heading"
     >

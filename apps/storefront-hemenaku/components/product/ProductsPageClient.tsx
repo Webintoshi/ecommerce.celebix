@@ -54,27 +54,27 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
   const hasMore = displayCount < sortedProducts.length;
 
   return (
-    <div className="min-h-screen bg-[#F7FAF9]">
-      <section className="border-b border-[#DDE7E4] bg-white">
+    <div className="min-h-screen bg-[#F5F7FA]">
+      <section className="border-b border-[#D7DEE8] bg-white">
         <div className="container-premium py-12 sm:py-16">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.55fr)] lg:items-end">
             <div>
-              <p className="text-xs font-semibold uppercase text-[#0F766E]">Urunler</p>
-              <h1 className="mt-3 text-4xl font-semibold leading-tight text-[#111827] sm:text-5xl">
-                Hemenaku vitrini
+              <p className="text-xs font-semibold uppercase text-[#166534]">Ürünler</p>
+              <h1 className="mt-3 text-4xl font-semibold leading-tight text-[#0B1220] sm:text-5xl">
+                Hemenaku ürün vitrini
               </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#526B66] sm:text-base">
-                Secili urunleri, net fiyat bilgisini ve sepet adimlarini sade bir alisveris akisi icinde inceleyin.
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#526176] sm:text-base">
+                Akü, oto elektrik, şarj ve bakım ürünlerini net fiyat, stok ve sepet adımlarıyla inceleyin.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-              <div className="rounded-lg border border-[#DDE7E4] bg-[#F0FDFA] p-4">
-                <ShieldCheck className="h-5 w-5 text-[#0F766E]" />
-                <p className="mt-2 text-sm font-semibold text-[#111827]">Guvenli odeme akisi</p>
+              <div className="rounded-lg border border-[#BBF7D0] bg-[#ECFDF5] p-4">
+                <ShieldCheck className="h-5 w-5 text-[#16A34A]" />
+                <p className="mt-2 text-sm font-semibold text-[#0B1220]">Güvenilir ürün seçimi</p>
               </div>
-              <div className="rounded-lg border border-[#F6C99C] bg-[#FFF7ED] p-4">
-                <Truck className="h-5 w-5 text-[#EA580C]" />
-                <p className="mt-2 text-sm font-semibold text-[#111827]">Teslimat ve iade destegi</p>
+              <div className="rounded-lg border border-[#FDE68A] bg-[#FEFCE8] p-4">
+                <Truck className="h-5 w-5 text-[#B45309]" />
+                <p className="mt-2 text-sm font-semibold text-[#0B1220]">Hızlı teslimat desteği</p>
               </div>
             </div>
           </div>
@@ -86,29 +86,29 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="rounded-lg border border-[#DDE7E4] bg-white px-5 py-16 text-center shadow-sm sm:px-8 sm:py-20"
+            className="rounded-lg border border-[#D7DEE8] bg-white px-5 py-16 text-center shadow-sm sm:px-8 sm:py-20"
           >
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#F0FDFA]">
-              <Package className="h-8 w-8 text-[#0F766E]" />
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-lg bg-[#ECFDF5]">
+              <Package className="h-8 w-8 text-[#16A34A]" />
             </div>
-            <h3 className="mb-2 text-2xl font-semibold text-[#111827]">
-              Urun secimi hazirlaniyor
+            <h3 className="mb-2 text-2xl font-semibold text-[#0B1220]">
+              Ürünler hazırlanıyor
             </h3>
-            <p className="mx-auto max-w-lg text-sm leading-7 text-[#526B66]">
-              Hemenaku secimleri yakinda burada listelenecek. Bu surecte iletisim sayfasindan destek alabilir veya vitrin rotalarini inceleyebilirsiniz.
+            <p className="mx-auto max-w-lg text-sm leading-7 text-[#526176]">
+              Çok yakında Hemenaku ürün kataloğu burada olacak. Bu süreçte iletişim sayfasından destek alabilir veya kategori vitrinini inceleyebilirsiniz.
             </p>
             <div className="mx-auto mt-8 grid max-w-4xl grid-cols-2 gap-4 lg:grid-cols-4">
               {DEFAULT_DEMO_PRODUCT_CARDS.map((card) => (
-                <div key={card.id} className="overflow-hidden rounded-lg border border-[#DDE7E4] bg-white text-left">
+                <div key={card.id} className="overflow-hidden rounded-lg border border-[#D7DEE8] bg-white text-left">
                   <div className="aspect-square">
                     <DefaultDemoPlaceholder id={card.placeholder} label={card.title} compact />
                   </div>
                   <div className="p-4">
-                    <p className="text-[10px] font-semibold uppercase text-[#0F766E]">
+                    <p className="text-[10px] font-semibold uppercase text-[#166534]">
                       {card.eyebrow}
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-[#111827]">{card.title}</p>
-                    <p className="mt-1 text-xs text-[#EA580C]">{card.priceLabel}</p>
+                    <p className="mt-2 text-sm font-semibold text-[#0B1220]">{card.title}</p>
+                    <p className="mt-1 text-xs text-[#B45309]">{card.priceLabel}</p>
                   </div>
                 </div>
               ))}
@@ -116,15 +116,15 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/iletisim"
-                className="inline-flex items-center justify-center rounded-full bg-[#0F766E] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#115E59]"
+                className="inline-flex items-center justify-center rounded-lg bg-[#0F172A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1E293B]"
               >
-                Iletisime Gec
+                Destek Al
               </Link>
               <Link
                 href="/"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#DDE7E4] px-5 py-3 text-sm font-semibold text-[#111827] transition hover:border-[#0F766E] hover:text-[#0F766E]"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D7DEE8] px-5 py-3 text-sm font-semibold text-[#0B1220] transition hover:border-[#22C55E] hover:text-[#166534]"
               >
-                Ana Sayfaya Don
+                Ana Sayfaya Dön
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -133,7 +133,7 @@ function ProductsPageContent({ initialProducts }: ProductsPageClientProps) {
           <>
             <motion.div
               layout
-              className="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6"
+              className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6"
             >
               <AnimatePresence mode="popLayout">
                 {visibleProducts.map((product, index) => (
@@ -170,7 +170,7 @@ export function ProductsPageClient({ initialProducts }: ProductsPageClientProps)
   return (
     <React.Suspense
       fallback={
-        <div className="min-h-screen bg-[#F8F8F8]">
+        <div className="min-h-screen bg-[#F5F7FA]">
           <section className="pt-20 pb-10 sm:pt-28 sm:pb-12">
             <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
               <div className="mx-auto mb-6 h-4 w-32 animate-pulse rounded bg-neutral-200" />

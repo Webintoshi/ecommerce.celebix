@@ -81,7 +81,7 @@ export function BlogLandingPage({
   const supportingPosts = posts.slice(1, 4);
   const archivePosts = posts.slice(4);
 
-  const eyebrow = activeCategory ? `${activeCategory.name} arsivi` : `${profile.name} Journal`;
+  const eyebrow = activeCategory ? `${activeCategory.name} arşivi` : `${profile.name} Rehber`;
   const title = activeCategory
     ? `${activeCategory.name} yazilari`
     : "Alisverisi kolaylastiran Hemenaku notlari";
@@ -90,9 +90,9 @@ export function BlogLandingPage({
     : `${profile.name} rehberleri, urun notlari ve karar vermeyi kolaylastiran kisa icerikler burada toplanir.`;
 
   return (
-    <div className="min-h-screen bg-[#F7FAF9] text-[#111827]">
-      <section className="relative overflow-hidden border-b border-[#DDE7E4] bg-white">
-        <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#0F766E,#EA580C,#2563EB)]" />
+    <div className="min-h-screen bg-[#F5F7FA] text-[#0B1220]">
+      <section className="relative overflow-hidden border-b border-[#D7DEE8] bg-white">
+        <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#FACC15,#22C55E,#38BDF8)]" />
         <div className="relative mx-auto flex max-w-7xl flex-col gap-12 px-6 py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase text-[#0F766E]">
@@ -161,10 +161,10 @@ export function BlogLandingPage({
               <Sparkles className="h-7 w-7" />
             </div>
             <h2 className="mt-6 font-serif text-4xl text-[#111827]">
-              Hemenaku notlari yakinda
+              Hemenaku notları yakında
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#526B66]">
-              Urun rehberleri, teslimat ipuclari ve kampanya notlari yayina alindikca burada okunabilir bir akis olusacak.
+              Akü seçimi, araç uyumluluğu ve teslimat notları yayınlandıkça burada okunabilir bir akış oluşacak.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link href="/urunler" className="rounded-full bg-[#0F766E] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#115E59]">

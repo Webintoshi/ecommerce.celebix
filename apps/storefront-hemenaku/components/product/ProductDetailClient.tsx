@@ -314,7 +314,7 @@ export function ProductDetailClient({
     if (variant.stock <= 5) {
       return { text: `Son ${variant.stock} adet`, color: "text-amber-600" };
     }
-    return { text: "Stokta var", color: "text-neutral-500" };
+    return { text: "Stokta var", color: "text-emerald-700" };
   };
 
   const stockStatus = getStockStatus();
@@ -328,33 +328,33 @@ export function ProductDetailClient({
       : undefined;
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
-      <div className="border-b border-neutral-200 bg-[#F8F8F8]">
+    <div className="min-h-screen bg-[#F5F7FA]">
+      <div className="border-b border-[#D7DEE8] bg-white">
         <div className="container-premium">
           <div className="flex items-center gap-3 py-4 text-sm">
             <Link
                   href={buildPath("/urunler")}
-              className="flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-900"
+              className="flex items-center gap-2 text-[#526176] transition-colors hover:text-[#0B1220]"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Tüm Ürünlere Dön</span>
             </Link>
-            <div className="ml-auto flex items-center gap-2 text-neutral-400">
+            <div className="ml-auto hidden items-center gap-2 text-[#64748B] sm:flex">
               <Link
                   href={buildPath("/")}
-                className="transition-colors hover:text-neutral-600"
+                className="transition-colors hover:text-[#0B1220]"
               >
                 Ana Sayfa
               </Link>
               <ChevronRight className="w-4 h-4" />
               <Link
                   href={buildPath("/urunler")}
-                className="transition-colors hover:text-neutral-600"
+                className="transition-colors hover:text-[#0B1220]"
               >
                 Ürünler
               </Link>
               <ChevronRight className="w-4 h-4" />
-              <span className="max-w-[150px] truncate font-medium text-neutral-900">
+              <span className="max-w-[150px] truncate font-medium text-[#0B1220]">
                 {product.name}
               </span>
             </div>
@@ -375,18 +375,18 @@ export function ProductDetailClient({
 
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
+                <span className="text-xs font-medium uppercase tracking-[0.2em] text-[#166534]">
                   {product.category}
                 </span>
-                <span className="h-px w-8 bg-neutral-300" />
+                <span className="h-px w-8 bg-[#CBD5E1]" />
                 {product.featured && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
+                  <span className="rounded-md bg-[#0F172A] px-2.5 py-1 text-[10px] uppercase tracking-wider text-white">
                     Öne Çıkan
                   </span>
                 )}
               </div>
 
-              <h1 className="store-product-title-detail tracking-tight text-neutral-900">
+              <h1 className="store-product-title-detail tracking-tight text-[#0B1220]">
                 {product.name}
               </h1>
 
@@ -397,41 +397,41 @@ export function ProductDetailClient({
                       key={i}
                       className={`h-4 w-4 ${
                         i < Math.floor(product.rating || 0)
-                          ? "fill-[#8A6B37] text-[#8A6B37]"
+                          ? "fill-[#FACC15] text-[#FACC15]"
                           : "fill-neutral-200 text-neutral-200"
                       }`}
                     />
                   ))}
                 </div>
-                <span className="text-sm text-neutral-500">
+                <span className="text-sm text-[#526176]">
                   ({product.reviewCount || 0} değerlendirme)
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
                 {displayOriginalPrice !== undefined && (
-                  <span className="text-sm text-neutral-400 line-through lg:text-base">
+                  <span className="text-sm text-[#94A3B8] line-through lg:text-base">
                     {formatPrice(displayOriginalPrice)}
                   </span>
                 )}
-                <span className="text-3xl tracking-tight text-neutral-900 lg:text-4xl">
+                <span className="text-3xl font-semibold tracking-tight text-[#0B1220] lg:text-4xl">
                   {formatPrice(displayPrice)}
                 </span>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 {discountPercent > 0 && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+                  <span className="rounded-md bg-[#0F172A] px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
                     %{discountPercent} İndirim
                   </span>
                 )}
                 {product.new && (
-                  <span className="rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+                  <span className="rounded-md bg-[#0F172A] px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
                     Yeni
                   </span>
                 )}
                 {product.vegan && (
-                  <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[10px] font-medium text-neutral-900">
+                  <span className="rounded-md border border-[#D7DEE8] bg-white px-2.5 py-1 text-[10px] font-medium text-[#0B1220]">
                     Vegan
                   </span>
                 )}
@@ -450,13 +450,13 @@ export function ProductDetailClient({
               ) : activeSchema ? (
                 <div
                   ref={extrasSectionRef}
-                  className="space-y-3 border-b border-neutral-200 pb-5"
+                className="space-y-3 border-b border-[#D7DEE8] pb-5"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
+                    <span className="text-xs font-medium uppercase tracking-[0.2em] text-[#526176]">
                       Kişiselleştirme
                     </span>
-                    <span className="h-px w-8 bg-neutral-300" />
+                    <span className="h-px w-8 bg-[#CBD5E1]" />
                   </div>
                   <DynamicCustomizationForm
                     schemaId={activeSchema.id}
@@ -470,11 +470,11 @@ export function ProductDetailClient({
                 </div>
               ) : null}
 
-              <div className="space-y-5 border-y border-neutral-200 py-5">
+              <div className="space-y-5 rounded-lg border border-[#D7DEE8] bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-2 h-2 rounded-full ${
+                      className={`h-2 w-2 rounded-full ${
                         isOutOfStock
                           ? "bg-neutral-300"
                           : variant.stock <= 5
@@ -482,12 +482,12 @@ export function ProductDetailClient({
                             : "bg-green-500"
                       }`}
                     />
-                    <span className={`text-sm ${stockStatus.color}`}>
+                    <span className={`text-sm font-semibold ${stockStatus.color}`}>
                       {stockStatus.text}
                     </span>
                   </div>
                   {activeSchema && customizationState.extraPrice > 0 && (
-                    <p className="text-sm text-neutral-500">
+                    <p className="text-sm text-[#526176]">
                       +{formatPrice(customizationState.extraPrice)} kişiselleştirme
                     </p>
                   )}
@@ -498,23 +498,23 @@ export function ProductDetailClient({
                     <span className="text-xs font-medium uppercase tracking-wide text-neutral-900">
                       Adet
                     </span>
-                    <div className="flex items-center overflow-hidden rounded-full border border-neutral-200 bg-[#F8F8F8]">
+                    <div className="flex items-center overflow-hidden rounded-lg border border-[#D7DEE8] bg-[#F8FAFC]">
                       <button
                         onClick={() => handleQuantityChange(-1)}
                         disabled={quantity <= 1}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-[#EEF2F7] disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        <Minus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
+                        <Minus className="h-4 w-4 stroke-[1.5] text-[#0B1220]" />
                       </button>
-                      <span className="w-10 text-center text-base font-medium text-neutral-900">
+                      <span className="w-10 text-center text-base font-medium text-[#0B1220]">
                         {quantity}
                       </span>
                       <button
                         onClick={() => handleQuantityChange(1)}
                         disabled={quantity >= (variant.stock || 10)}
-                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-[#EEF2F7] disabled:cursor-not-allowed disabled:opacity-30"
                       >
-                        <Plus className="h-4 w-4 stroke-[1.5] text-neutral-900" />
+                        <Plus className="h-4 w-4 stroke-[1.5] text-[#0B1220]" />
                       </button>
                     </div>
                   </div>
@@ -522,12 +522,12 @@ export function ProductDetailClient({
                     onClick={handleAddToCart}
                     disabled={isOutOfStock || isSchemaLoading}
                     className={`
-                      min-w-[220px] flex-1 rounded-full py-3.5 text-sm font-medium uppercase tracking-wide transition-all duration-300
+                      min-w-[220px] flex-1 rounded-lg py-3.5 text-sm font-semibold uppercase tracking-wide transition-all duration-300
                       flex items-center justify-center gap-2
                       ${
                         isOutOfStock || isSchemaLoading
                           ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                          : "bg-[#8A6B37] text-white hover:bg-[#755a2d]"
+                          : "bg-[#0F172A] text-white hover:bg-[#1E293B]"
                       }
                     `}
                   >
@@ -544,8 +544,8 @@ export function ProductDetailClient({
                       flex h-10 w-10 items-center justify-center text-neutral-900 transition-all
                       ${
                         isWishlisted
-                          ? "text-[#8A6B37]"
-                          : "hover:text-[#8A6B37]"
+                          ? "text-[#16A34A]"
+                          : "hover:text-[#16A34A]"
                       }
                     `}
                   >
@@ -557,7 +557,7 @@ export function ProductDetailClient({
                   </button>
                   <button
                     onClick={handleShare}
-                    className="flex h-10 w-10 items-center justify-center text-neutral-900 transition-colors hover:text-[#8A6B37]"
+                    className="flex h-10 w-10 items-center justify-center text-[#0B1220] transition-colors hover:text-[#16A34A]"
                   >
                     <Share2 className="h-5 w-5 stroke-[1.5]" />
                   </button>
@@ -570,7 +570,7 @@ export function ProductDetailClient({
                 productName={product.name}
               />
 
-              <div className="border-t border-neutral-200 pt-1">
+              <div className="border-t border-[#D7DEE8] pt-1">
                 {[
                   {
                     id: "features",
@@ -586,10 +586,10 @@ export function ProductDetailClient({
                           <Package className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Kalite
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Secili koleksiyon standardi
+                          Uyumluluk
+                        </p>
+                            <p className="text-sm font-medium text-[#0B1220]">
+                              Araç ihtiyacına göre ürün seçimi
                             </p>
                           </div>
                         </div>
@@ -597,10 +597,10 @@ export function ProductDetailClient({
                           <BadgeCheck className="h-5 w-5 stroke-[1.5] text-neutral-500" />
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                              Hazırlık
-                            </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Ozenli paketleme
+                          Tedarik
+                        </p>
+                            <p className="text-sm font-medium text-[#0B1220]">
+                              Güvenilir ürün ve net stok bilgisi
                             </p>
                           </div>
                         </div>
@@ -610,8 +610,8 @@ export function ProductDetailClient({
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
                               Teslimat
                             </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              1-3 is gunu hazirlik
+                            <p className="text-sm font-medium text-[#0B1220]">
+                              Teslimat seçeneği sepette netleşir
                             </p>
                           </div>
                         </div>
@@ -621,8 +621,8 @@ export function ProductDetailClient({
                             <p className="text-[10px] uppercase tracking-wider text-neutral-500">
                               Destek
                             </p>
-                            <p className="text-sm font-medium text-neutral-900">
-                              Siparis sonrasi takip
+                            <p className="text-sm font-medium text-[#0B1220]">
+                              Sipariş ve uyumluluk soruları için destek
                             </p>
                           </div>
                         </div>
@@ -639,8 +639,8 @@ export function ProductDetailClient({
                             Kargo Bilgileri
                           </h4>
                           <p>
-                            Siparişleriniz mağaza operasyon takvimine göre hazırlanır.
-                            Kargo ve teslimat avantajları sepet ekranında netleşir.
+                            Siparişiniz ürün stok ve teslimat bölgesine göre hazırlanır.
+                            Kargo seçeneği ve ücret bilgisi sepet/ödeme adımında netleşir.
                           </p>
                         </div>
                         <div>
@@ -648,18 +648,18 @@ export function ProductDetailClient({
                             İade Politikası
                           </h4>
                           <p>
-                            Ürünleri teslim aldıktan sonra 14 gün içinde koşulsuz
-                            iade edebilirsiniz. Ürünün kullanılmamış ve orijinal
-                            ambalajında olması gerekmektedir.
+                            İade ve değişim koşulları ürün niteliğine, kullanım durumuna
+                            ve yasal süreçlere göre değerlendirilir. Destek ekibi süreçte
+                            size yönlendirme sağlar.
                           </p>
                         </div>
                         <div>
                           <h4 className="mb-1 font-medium text-neutral-900">
-                            Kişiselleştirme
+                            Uyumluluk
                           </h4>
                           <p>
-                            Ürüne özel seçenekler varsa teslimat süresi ve fiyat
-                            bilgisi sepet öncesinde güncellenir.
+                            Aracınız için doğru ürün olduğundan emin değilseniz sipariş
+                            öncesinde Hemenaku destek kanalından yardım alabilirsiniz.
                           </p>
                         </div>
                       </div>
@@ -699,7 +699,7 @@ export function ProductDetailClient({
               </div>
 
               {product.sku && (
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-[#64748B]">
                   ÜRÜN KODU: <span className="font-mono">{product.sku}</span>
                 </p>
               )}
@@ -719,17 +719,17 @@ export function ProductDetailClient({
       </div>
 
       {visibleGroupedProducts.length > 0 ? (
-        <section className="border-t border-neutral-200 py-12 lg:py-16">
+        <section className="border-t border-[#D7DEE8] bg-white py-12 lg:py-16">
           <div className="container-premium">
             <div className="mb-8 space-y-2">
               <span className="block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Keşfedin
+                Uyumluluk
               </span>
-              <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
-                Bu Gruptaki Diğer Ürünler
+              <h2 className="text-2xl tracking-tight text-[#0B1220] lg:text-3xl">
+                Bu ürünle birlikte incelenebilecek seçenekler
               </h2>
-              <p className="max-w-2xl text-sm leading-6 text-neutral-500">
-                Bu ürünle birlikte gruplandırılan diğer ürünleri inceleyin.
+              <p className="max-w-2xl text-sm leading-6 text-[#526176]">
+                Aynı grup içindeki ürünleri karşılaştırarak doğru akü veya oto elektrik seçimine yaklaşın.
               </p>
             </div>
 
@@ -759,10 +759,10 @@ export function ProductDetailClient({
                         <Link
                           key={`${group.id}-${item.productId}`}
                           href={productHref}
-                          className="group rounded-[28px] border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-[0_18px_40px_rgba(15,23,42,0.06)]"
+                          className="group rounded-lg border border-[#D7DEE8] bg-white p-4 transition-all hover:border-[#94A3B8] hover:shadow-[0_18px_40px_rgba(15,23,42,0.06)]"
                         >
                           <div className="flex gap-4">
-                            <div className="relative h-28 w-24 overflow-hidden rounded-[20px] bg-neutral-100 sm:h-32 sm:w-28">
+                            <div className="relative h-28 w-24 overflow-hidden rounded-lg bg-[#EEF2F7] sm:h-32 sm:w-28">
                               {imageUrl ? (
                                 <Image
                                   src={imageUrl}
@@ -773,7 +773,7 @@ export function ProductDetailClient({
                                   unoptimized={usesProxiedImage}
                                 />
                               ) : (
-                                <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
+                                <div className="flex h-full w-full items-center justify-center text-sm text-[#64748B]">
                                   Görsel yok
                                 </div>
                               )}
@@ -781,11 +781,11 @@ export function ProductDetailClient({
 
                             <div className="flex min-w-0 flex-1 flex-col justify-between gap-3">
                               <div className="space-y-2">
-                                <h4 className="line-clamp-2 text-base font-medium text-neutral-900 transition-colors group-hover:text-neutral-600">
+                                <h4 className="line-clamp-2 text-base font-medium text-[#0B1220] transition-colors group-hover:text-[#166534]">
                                   {item.name}
                                 </h4>
                                 {typeof item.price === "number" ? (
-                                  <div className="text-sm font-semibold text-neutral-900">
+                                  <div className="text-sm font-semibold text-[#0B1220]">
                                     {formatPrice(item.price)}
                                   </div>
                                 ) : null}
@@ -793,8 +793,8 @@ export function ProductDetailClient({
                                   <div
                                     className={`text-sm ${
                                       item.stock && item.stock > 0
-                                        ? "text-neutral-500"
-                                        : "text-neutral-400"
+                                        ? "text-[#166534]"
+                                        : "text-[#64748B]"
                                     }`}
                                   >
                                     {stockText}
@@ -802,7 +802,7 @@ export function ProductDetailClient({
                                 ) : null}
                               </div>
 
-                              <div className="inline-flex items-center gap-2 text-sm font-medium text-neutral-900 transition-colors group-hover:text-neutral-600">
+                              <div className="inline-flex items-center gap-2 text-sm font-medium text-[#0B1220] transition-colors group-hover:text-[#166534]">
                                 İncele
                                 <ChevronRight className="h-4 w-4" />
                               </div>
@@ -820,22 +820,22 @@ export function ProductDetailClient({
       ) : null}
 
       <section
-        className="border-t border-neutral-200 py-16 lg:py-20"
-        style={{ backgroundColor: "#f8f8f8f8" }}
+        className="border-t border-[#D7DEE8] py-16 lg:py-20"
+        style={{ backgroundColor: "#F5F7FA" }}
       >
         <div className="container-premium">
           <div className="mb-10 flex items-center justify-between">
             <div>
               <span className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                Keşfedin
+                Benzer seçenekler
               </span>
-              <h2 className="text-2xl tracking-tight text-neutral-900 lg:text-3xl">
+              <h2 className="text-2xl tracking-tight text-[#0B1220] lg:text-3xl">
                 Benzer Ürünler
               </h2>
             </div>
             <Link
                   href={buildPath("/urunler")}
-              className="hidden items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-600 sm:flex"
+              className="hidden items-center gap-1 font-medium text-[#0B1220] transition-colors hover:text-[#166534] sm:flex"
             >
               Tümünü Gör
               <ChevronRight className="w-5 h-5" />

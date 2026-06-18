@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7faf9;
-  --foreground: #111827;
+  --background: #f5f7fa;
+  --foreground: #0b1220;
 
   /* Brand Palette */
-  --primary: #0f766e;
+  --primary: #0f172a;
   --primary-foreground: #ffffff;
 
-  --secondary: #fff7ed;
-  --secondary-foreground: #9a3412;
+  --secondary: #fef9c3;
+  --secondary-foreground: #713f12;
 
-  --muted: #eef2f1;
-  --muted-foreground: #5f6f6b;
+  --muted: #edf2f7;
+  --muted-foreground: #526176;
 
   /* shadcn/ui required variables */
   --card: #ffffff;
   --card-foreground: #111827;
   --popover: #ffffff;
   --popover-foreground: #111827;
-  --accent: #ea580c;
+  --accent: #facc15;
   --accent-foreground: #ffffff;
   --destructive: #ff3b30;
   --destructive-foreground: #ffffff;
-  --border: #dbe5e2;
-  --input: #dbe5e2;
-  --ring: #0f766e;
+  --border: #d7dee8;
+  --input: #d7dee8;
+  --ring: #22c55e;
 
   /* Apple Design Tokens */
   --apple-blue: #0071E3;
@@ -93,7 +93,7 @@
   --radius-xl: var(--radius-xl);
   --radius-2xl: var(--radius-2xl);
 
-  --store-font-heading: "Playfair Display", Georgia, serif;
+  --store-font-heading: "Inter", system-ui, sans-serif;
   --store-font-body: "Inter", system-ui, sans-serif;
   --store-font-menu: var(--store-font-body);
   --store-font-product-title: var(--store-font-body);
@@ -144,7 +144,7 @@
 }
 
 body {
-  background: #f7faf9;
+  background: #f5f7fa;
   color: var(--foreground);
   font-family: var(--store-font-body);
   font-size: var(--store-font-base-size);
@@ -159,7 +159,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--store-font-heading);
+  font-family: "Inter", system-ui, sans-serif !important;
   font-weight: var(--store-font-heading-weight);
   letter-spacing: 0;
   line-height: 1.08;
@@ -186,31 +186,31 @@ textarea {
 
 /* Brand color overrides */
 .bg-primary {
-  background-color: #0f766e !important;
+  background-color: #0f172a !important;
 }
 
 .text-primary {
-  color: #0f766e !important;
+  color: #0f172a !important;
 }
 
 .border-primary {
-  border-color: #0f766e !important;
+  border-color: #0f172a !important;
 }
 
 .ring-primary {
-  --tw-ring-color: #0f766e !important;
+  --tw-ring-color: #22c55e !important;
 }
 
 .bg-primary\/10 {
-  background-color: rgba(15, 118, 110, 0.1) !important;
+  background-color: rgba(15, 23, 42, 0.1) !important;
 }
 
 .border-primary\/10 {
-  border-color: rgba(15, 118, 110, 0.1) !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
 }
 
 .border-primary\/20 {
-  border-color: rgba(15, 118, 110, 0.2) !important;
+  border-color: rgba(15, 23, 42, 0.2) !important;
 }
 
 .text-primary-foreground {
@@ -219,15 +219,15 @@ textarea {
 
 .bg-primary-foreground {
   background-color: #ffffff !important;
-  color: #0f766e !important;
+  color: #0f172a !important;
 }
 
 .text-secondary-foreground {
-  color: #9a3412 !important;
+  color: #713f12 !important;
 }
 
 .bg-secondary {
-  background-color: #fff7ed !important;
+  background-color: #fef9c3 !important;
 }
 
 @keyframes marquee {
@@ -293,7 +293,7 @@ textarea {
 }
 
 .font-serif {
-  font-family: var(--store-font-heading);
+  font-family: "Inter", system-ui, sans-serif !important;
 }
 
 .store-nav-text {

@@ -75,11 +75,11 @@ export default function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4">
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F7FA] p-4">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center"
+          className="w-full max-w-md rounded-lg border border-[#D7DEE8] bg-white p-8 text-center shadow-xl shadow-slate-950/5"
         >
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-emerald-600" />
@@ -95,7 +95,7 @@ export default function ForgotPasswordPage() {
           </p>
           <Link
             href="/giris"
-            className="inline-block bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-[#115E59] transition-colors"
+            className="inline-block rounded-lg bg-[#0F172A] px-8 py-3 font-bold text-white transition-colors hover:bg-[#1E293B]"
           >
             Giris Sayfasina Git
           </Link>
@@ -105,7 +105,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF5F5] to-[#FFE5E5] flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-[#F5F7FA] p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <motion.div 
@@ -117,7 +117,7 @@ export default function ForgotPasswordPage() {
             {showLogoImage ? (
               <img src={SITE_LOGO_PATH} alt={SITE_NAME} className="h-16 w-auto mx-auto" />
             ) : (
-              <span className="font-serif text-3xl font-semibold tracking-tight text-gray-900">
+              <span className="text-3xl font-semibold tracking-tight text-[#0B1220]">
                 {SITE_NAME}
               </span>
             )}
@@ -129,10 +129,10 @@ export default function ForgotPasswordPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-xl p-8"
+          className="rounded-lg border border-[#D7DEE8] bg-white p-8 shadow-xl shadow-slate-950/5"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#ECFDF5]">
               <Shield className="w-5 h-5 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">
@@ -172,7 +172,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-[#115E59] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0F172A] py-3 font-bold text-white transition-colors hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>

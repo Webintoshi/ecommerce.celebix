@@ -24,23 +24,22 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F7FAF9]">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-2xl mx-auto text-center">
+      <div className="min-h-screen bg-[#F5F7FA]">
+        <div className="container-premium py-16">
+          <div className="mx-auto max-w-2xl text-center">
             <div className="mx-auto mb-7 h-44 max-w-md overflow-hidden rounded-lg">
               <DefaultDemoPlaceholder id="placeholder-12" label="Sepetiniz sizi bekliyor" compact />
             </div>
-            <div className="w-20 h-20 bg-[#F0FDFA] rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShoppingBag className="w-10 h-10 text-[#0F766E]" />
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-lg bg-[#ECFDF5]">
+              <ShoppingBag className="h-10 w-10 text-[#16A34A]" />
             </div>
-            <h1 className="text-3xl font-semibold text-[#111827] mb-4">Sepetiniz Bos</h1>
-            <p className="text-[#526B66] mb-8 leading-7">
-              Sepetinizde henüz ürün bulunmamaktadır. Alışverişe devam etmek
-              için ürünlerimize göz atın.
+            <h1 className="mb-4 text-3xl font-semibold text-[#0B1220]">Sepetiniz boş</h1>
+            <p className="mb-8 leading-7 text-[#526176]">
+              Aracınız için uygun akü ve oto elektrik ürünlerini inceleyerek alışverişe başlayabilirsiniz.
             </p>
             <Link
               href="/urunler"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-[#0F766E] text-white rounded-full font-semibold hover:bg-[#115E59] transition-all"
+              className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#0F172A] px-8 py-4 font-semibold text-white transition-all hover:bg-[#1E293B]"
             >
               Alışverişe Başla
             </Link>
@@ -51,26 +50,26 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7FAF9]">
-      <div className="border-b border-[#DDE7E4] bg-white py-8">
-        <div className="container mx-auto px-4">
-          <p className="text-xs font-semibold uppercase text-[#0F766E]">Sepet</p>
-          <h1 className="mt-2 text-2xl md:text-3xl font-semibold text-[#111827]">
+    <div className="min-h-screen bg-[#F5F7FA]">
+      <div className="border-b border-[#D7DEE8] bg-white py-8">
+        <div className="container-premium">
+          <p className="text-xs font-semibold uppercase text-[#166534]">Sepet</p>
+          <h1 className="mt-2 text-2xl font-semibold text-[#0B1220] md:text-3xl">
             Sepetim ({getTotalItems()} ürün)
           </h1>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+      <div className="container-premium py-8">
+        <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
               <div
                 key={item.id}
-                className="bg-white rounded-lg p-4 md:p-6 shadow-sm border border-[#DDE7E4]"
+                className="rounded-lg border border-[#D7DEE8] bg-white p-4 shadow-sm md:p-6"
               >
-                <div className="flex gap-4">
-                  <div className="w-20 h-20 md:w-24 md:h-24 bg-[#F0FDFA] rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-4xl">
+                <div className="flex flex-col gap-4 sm:flex-row">
+                  <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#EEF2F7] text-4xl">
                     {item.product.images && item.product.images.length > 0 ? (
                       <img
                         src={item.product.images[0]}
@@ -86,10 +85,10 @@ export default function CartPage() {
                     )}
                   </div>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <Link
                       href={`/urunler/${item.product.slug}`}
-                      className="font-semibold text-[#111827] hover:text-[#0F766E] block mb-2"
+                      className="mb-2 block font-semibold text-[#0B1220] hover:text-[#166534]"
                     >
                       {item.product.name}
                     </Link>
@@ -104,11 +103,11 @@ export default function CartPage() {
                     )}
                   </div>
 
-                  <div className="flex flex-col items-end gap-3">
-                    <div className="flex items-center border border-[#DDE7E4] rounded-lg">
+                  <div className="flex flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
+                    <div className="flex items-center rounded-lg border border-[#D7DEE8]">
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-[#F0FDFA] transition-colors"
+                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-[#EEF2F7]"
                         aria-label="Azalt"
                       >
                         <Minus className="w-4 h-4" />
@@ -118,7 +117,7 @@ export default function CartPage() {
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-[#F0FDFA] transition-colors"
+                        className="flex h-10 w-10 items-center justify-center transition-colors hover:bg-[#EEF2F7]"
                         aria-label="Arttır"
                       >
                         <Plus className="w-4 h-4" />
@@ -135,8 +134,8 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-[#DDE7E4] flex justify-end">
-                  <span className="font-semibold text-[#111827]">
+                <div className="mt-4 flex justify-end border-t border-[#D7DEE8] pt-4">
+                  <span className="font-semibold text-[#0B1220]">
                     Toplam: {formatPrice(item.unitPrice * item.quantity)}
                   </span>
                 </div>
@@ -145,8 +144,8 @@ export default function CartPage() {
           </div>
 
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg p-6 shadow-sm border border-[#DDE7E4] sticky top-24">
-              <h2 className="text-xl font-semibold text-[#111827] mb-6">Sipariş Özeti</h2>
+            <div className="sticky top-24 rounded-lg border border-[#D7DEE8] bg-white p-6 shadow-sm">
+              <h2 className="mb-6 text-xl font-semibold text-[#0B1220]">Sipariş Özeti</h2>
 
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between">
@@ -158,7 +157,7 @@ export default function CartPage() {
                   <span className="text-muted">Kargo</span>
                   <span className="font-medium">
                     {shipping === 0 ? (
-                    <span className="text-[#0F766E]">Ücretsiz</span>
+                    <span className="text-[#166534]">Ücretsiz</span>
                     ) : (
                       formatPrice(shipping)
                     )}
@@ -166,28 +165,28 @@ export default function CartPage() {
                 </div>
 
                 {shipping > 0 && shippingThreshold != null && (
-                  <div className="text-xs text-[#526B66] bg-[#F0FDFA] p-3 rounded-lg">
+                  <div className="rounded-lg bg-[#ECFDF5] p-3 text-xs text-[#526176]">
                     {formatPrice(SHIPPING_THRESHOLD - subtotal)} daha alırsanız
                     kargo ücretsiz!
                   </div>
                 )}
 
-                <div className="flex justify-between text-lg font-bold pt-4 border-t border-[#DDE7E4]">
+                <div className="flex justify-between border-t border-[#D7DEE8] pt-4 text-lg font-bold">
                   <span>Toplam</span>
-                  <span className="text-[#0F766E]">{formatPrice(total)}</span>
+                  <span className="text-[#166534]">{formatPrice(total)}</span>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <Link
                   href="/odeme"
-                  className="block w-full text-center px-6 py-4 bg-[#0F766E] text-white rounded-lg font-semibold hover:bg-[#115E59] transition-all"
+                  className="block w-full rounded-lg bg-[#0F172A] px-6 py-4 text-center font-semibold text-white transition-all hover:bg-[#1E293B]"
                 >
                   Siparişi Tamamla
                 </Link>
                 <Link
                   href="/urunler"
-                  className="block w-full text-center px-6 py-4 border border-[#DDE7E4] rounded-lg font-semibold hover:border-[#0F766E] hover:text-[#0F766E] transition-all"
+                  className="block w-full rounded-lg border border-[#D7DEE8] px-6 py-4 text-center font-semibold transition-all hover:border-[#22C55E] hover:text-[#166534]"
                 >
                   Alışverişe Devam Et
                 </Link>

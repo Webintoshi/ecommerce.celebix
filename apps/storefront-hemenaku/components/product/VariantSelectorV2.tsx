@@ -95,7 +95,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       className={cn(
                         "relative h-11 w-11 overflow-hidden rounded-full border-2 transition-all duration-200",
                         isSelected
-                          ? "border-[#8A6B37] ring-2 ring-[#8A6B37]/30"
+                          ? "border-[#22C55E] ring-2 ring-[#22C55E]/25"
                           : "border-gray-300 hover:border-gray-400",
                         isOutOfStock && "cursor-not-allowed opacity-50",
                       )}
@@ -116,7 +116,7 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                           </div>
                         )}
                       </div>
-                      {isSelected ? <div className="absolute inset-0 rounded-full border-2 border-[#8A6B37]" /> : null}
+                      {isSelected ? <div className="absolute inset-0 rounded-full border-2 border-[#22C55E]" /> : null}
                     </button>
                   );
                 })}
@@ -137,10 +137,10 @@ export function VariantSelectorV2({ variants, selectedIndex, onSelect }: Props) 
                       className={cn(
                         "relative rounded-full border px-4 py-2 text-xs font-medium transition-all duration-200",
                         isSelected
-                          ? "border-[#8A6B37] bg-[#8A6B37] text-white"
+                          ? "border-[#0F172A] bg-[#0F172A] text-white"
                           : isOutOfStock
                             ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                            : "border-gray-300 bg-white text-[#8A6B37] hover:border-[#8A6B37]",
+                            : "border-gray-300 bg-white text-[#0F172A] hover:border-[#22C55E]",
                       )}
                     >
                       {isSelected ? <Check className="mr-1 inline h-4 w-4" /> : null}

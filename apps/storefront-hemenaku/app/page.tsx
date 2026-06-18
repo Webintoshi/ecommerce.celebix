@@ -11,22 +11,22 @@ import { buildAbsoluteRequestUrl, getRequestOrigin } from "@/lib/request-origin"
 import { STOREFRONT_RUNTIME } from "@/lib/storefront-runtime";
 
 const HOME_UI_COPY = {
-  categoriesEyebrow: "Kesif",
-  categoriesHeading: "Hemenaku vitrininden secimler",
-  viewAllLabel: "Tumunu Gor",
+  categoriesEyebrow: "Kategori vitrini",
+  categoriesHeading: "Aracınız için ihtiyaç duyulan ana ürün grupları",
+  viewAllLabel: "Tümünü Gör",
   productGroups: [
-    { title: "Cok Satanlar", subtitle: "Populer Secimler" },
-    { title: "One Cikanlar", subtitle: "Hemenaku Secimi" },
-    { title: "Yeni Seckiler", subtitle: "Yeni Eklenenler" },
-    { title: "Tamamlayicilar", subtitle: "Birlikte Iyi Gider" },
+    { title: "Akü seçenekleri", subtitle: "Araç enerjisi" },
+    { title: "Oto elektrik", subtitle: "Teknik destek" },
+    { title: "Şarj ve bakım", subtitle: "Bakım ürünleri" },
+    { title: "Tamamlayıcılar", subtitle: "Aksesuarlar" },
   ],
-  storesEyebrow: "Destek ve Teslimat",
-  storesHeading: "Siparis oncesinden teslimata kadar net alisveris akisi",
+  storesEyebrow: "Uyumluluk desteği",
+  storesHeading: "Hangi akü uygun emin değil misiniz?",
   storesDescription:
-    "Hemenaku, hizli karar vermeyi kolaylastiran temiz vitrin, guvenli odeme adimlari ve ulasilabilir destek kanallariyla tasarlandi.",
-  storesLinkLabel: "Iletisim bilgilerini gor",
-  testimonialsHeading: "Alisveris guvenceleri",
-  testimonialsCountLabel: "Guvenli odeme, seffaf teslimat ve siparis sonrasi destek tek akista.",
+    "Araç modeliniz, kullanım ihtiyacınız ve teslimat beklentinize göre doğru ürüne yönelmek için Hemenaku destek kanalına ulaşın.",
+  storesLinkLabel: "Destek Al",
+  testimonialsHeading: "Neden Hemenaku?",
+  testimonialsCountLabel: "Doğru ürün yönlendirmesi, güvenilir tedarik, hızlı destek ve kolay sipariş deneyimi.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
