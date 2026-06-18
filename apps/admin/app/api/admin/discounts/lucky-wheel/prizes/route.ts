@@ -13,6 +13,7 @@ import {
   luckyWheelPrizeUpdateSchema,
   luckyWheelPrizesReplaceSchema,
 } from "@/app/api/admin/discounts/lucky-wheel/_shared";
+import { buildOptionalModuleDisabledPayload, isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,6 +25,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, prizes });
   } catch (error) {
     console.error("Lucky wheel prizes GET error:", error);
+    if (isMissingDatabaseObjectError(error)) {
+      return NextResponse.json({
+        success: true,
+        prizes: [],
+        ...buildOptionalModuleDisabledPayload("lucky_wheel_prizes"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,

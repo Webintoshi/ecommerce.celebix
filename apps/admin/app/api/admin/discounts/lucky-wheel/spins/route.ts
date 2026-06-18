@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_LUCKY_WHEEL_CONFIG_ID, listLuckyWheelSpins } from "@/lib/lucky-wheel";
 import { enforceLuckyWheelAdminRateLimit } from "@/app/api/admin/discounts/lucky-wheel/_shared";
+import { buildOptionalModuleDisabledPayload, isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,6 +16,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, spins, stats });
   } catch (error) {
     console.error("Lucky wheel spins GET error:", error);
+    if (isMissingDatabaseObjectError(error)) {
+      return NextResponse.json({
+        success: true,
+        spins: [],
+        stats: { total: 0, today: 0, winners: 0 },
+        ...buildOptionalModuleDisabledPayload("lucky_wheel_spins"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLuckyWheelAdminConfig, saveLuckyWheelConfig, DEFAULT_LUCKY_WHEEL_CONFIG_ID } from "@/lib/lucky-wheel";
 import { enforceLuckyWheelAdminRateLimit, luckyWheelConfigSchema } from "@/app/api/admin/discounts/lucky-wheel/_shared";
+import { buildOptionalModuleDisabledPayload, isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,6 +13,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, config });
   } catch (error) {
     console.error("Lucky wheel config GET error:", error);
+    if (isMissingDatabaseObjectError(error)) {
+      return NextResponse.json({
+        success: true,
+        config: null,
+        ...buildOptionalModuleDisabledPayload("lucky_wheel_configs"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,

@@ -1,6 +1,7 @@
 import { createServerClient, type Address } from "@/lib/supabase";
 import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
 import { queryAdminLightPostgres, queryAdminLightPostgresOne } from "@/lib/db/light-postgres-client";
+import { isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 export interface CustomerAddressInput {
   type?: string;
@@ -162,13 +163,13 @@ async function hydrateLightPostgresCustomers(rows: LightPostgresCustomerRow[]) {
         select
           id,
           customer_id,
-          type,
-          title,
-          company,
+          label as type,
+          label as title,
+          null::text as company,
           first_name,
           last_name,
           phone,
-          address,
+          address_line1 as address,
           address_line1,
           address_line2,
           city,
@@ -294,27 +295,8 @@ function buildAddressRow(customerId: string, address: CustomerAddressInput, inde
   };
 }
 
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message?: unknown }).message || "");
-  }
-
-  return String(error || "");
-}
-
 function isMissingSchemaError(error: unknown): boolean {
-  const message = toErrorMessage(error).toLowerCase();
-
-  return (
-    message.includes("does not exist") ||
-    message.includes("schema cache") ||
-    message.includes("relation") ||
-    message.includes("column")
-  );
+  return isMissingDatabaseObjectError(error);
 }
 
 async function runOptionalCustomerCleanup(
@@ -352,21 +334,21 @@ export async function getCustomers(options?: {
       select
         id,
         email,
-        user_id,
+        null::text as user_id,
         first_name,
         last_name,
         phone,
         status,
         total_orders,
         total_spent,
-        last_order_at,
+        last_order_date as last_order_at,
         notes,
         tags,
-        external_customer_id,
-        accepts_email_marketing,
-        accepts_sms_marketing,
-        tax_exempt,
-        is_active,
+        null::text as external_customer_id,
+        false as accepts_email_marketing,
+        false as accepts_sms_marketing,
+        false as tax_exempt,
+        true as is_active,
         created_at,
         updated_at
       from public.customers
@@ -432,21 +414,21 @@ export async function getCustomerById(id: string) {
         select
           id,
           email,
-          user_id,
+          null::text as user_id,
           first_name,
           last_name,
           phone,
           status,
           total_orders,
           total_spent,
-          last_order_at,
+          last_order_date as last_order_at,
           notes,
           tags,
-          external_customer_id,
-          accepts_email_marketing,
-          accepts_sms_marketing,
-          tax_exempt,
-          is_active,
+          null::text as external_customer_id,
+          false as accepts_email_marketing,
+          false as accepts_sms_marketing,
+          false as tax_exempt,
+          true as is_active,
           created_at,
           updated_at
         from public.customers
@@ -490,21 +472,21 @@ export async function getCustomerByEmail(email: string) {
         select
           id,
           email,
-          user_id,
+          null::text as user_id,
           first_name,
           last_name,
           phone,
           status,
           total_orders,
           total_spent,
-          last_order_at,
+          last_order_date as last_order_at,
           notes,
           tags,
-          external_customer_id,
-          accepts_email_marketing,
-          accepts_sms_marketing,
-          tax_exempt,
-          is_active,
+          null::text as external_customer_id,
+          false as accepts_email_marketing,
+          false as accepts_sms_marketing,
+          false as tax_exempt,
+          true as is_active,
           created_at,
           updated_at
         from public.customers

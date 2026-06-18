@@ -8,6 +8,7 @@ import {
   mergeCouponWithMetadata,
   saveCouponMetadataMap,
 } from "./_shared";
+import { buildOptionalModuleDisabledPayload, isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 const metadataSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -69,6 +70,14 @@ export async function GET() {
     return NextResponse.json({ success: true, discounts });
   } catch (error) {
     console.error("Error fetching discounts:", error);
+    if (isMissingDatabaseObjectError(error)) {
+      return NextResponse.json({
+        success: true,
+        discounts: [],
+        ...buildOptionalModuleDisabledPayload("coupons"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -178,4 +187,3 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
-

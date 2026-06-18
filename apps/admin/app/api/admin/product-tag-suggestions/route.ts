@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { normalizeProductTag } from "@/lib/product-tags";
+import { buildOptionalModuleDisabledPayload, isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 30;
@@ -43,6 +44,14 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching product tag suggestions:", error);
+    if (isMissingDatabaseObjectError(error)) {
+      return NextResponse.json({
+        success: true,
+        tags: [],
+        ...buildOptionalModuleDisabledPayload("product_tag_suggestions"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,

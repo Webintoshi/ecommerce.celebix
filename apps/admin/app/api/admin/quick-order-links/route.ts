@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApiAuth } from "@/lib/admin-api-auth";
 import { createQuickOrderLink, listQuickOrderLinks } from "@/lib/db/quick-order-links";
+import { buildOptionalModuleDisabledPayload, isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 export const runtime = "nodejs";
 
@@ -54,6 +55,14 @@ export async function GET() {
     return NextResponse.json({ success: true, links });
   } catch (error) {
     console.error("Quick order links list failed:", error);
+    if (isMissingDatabaseObjectError(error)) {
+      return NextResponse.json({
+        success: true,
+        links: [],
+        ...buildOptionalModuleDisabledPayload("quick_order_links"),
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,

@@ -8,6 +8,7 @@ import {
   upsertAbandonedCart,
 } from "@/lib/db/abandoned-carts";
 import { requireAdminApiAuth } from "@/lib/admin-api-auth";
+import { buildOptionalModuleDisabledPayload, isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 function getDb() {
   return createServerClient();
@@ -99,6 +100,15 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching abandoned carts:", error);
+    if (isMissingDatabaseObjectError(error)) {
+      return NextResponse.json({
+        success: true,
+        carts: [],
+        pagination: { page: 1, limit: 20, total: 0, pages: 0 },
+        ...buildOptionalModuleDisabledPayload("abandoned_carts"),
+      });
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

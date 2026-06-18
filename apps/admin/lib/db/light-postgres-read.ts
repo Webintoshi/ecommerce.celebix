@@ -10,6 +10,7 @@ import {
 } from "../../../../packages/platform-config/src/light-postgres-customization-read";
 import { queryAdminLightPostgres, queryAdminLightPostgresOne } from "@/lib/db/light-postgres-client";
 import { shouldUseLightPostgresAdmin } from "@/lib/db/admin-database-mode";
+import { isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
 
 type JsonScalar = string | number | boolean | null;
 type JsonValue = JsonScalar | JsonValue[] | { [key: string]: JsonValue };
@@ -357,9 +358,17 @@ export async function maybeListAdminCustomizationSchemas() {
     return undefined;
   }
 
-  return listLightPostgresCustomizationSchemas(
-    executeLightPostgres,
-  ) as Promise<LightPostgresCustomizationSchemaSummary[]>;
+  try {
+    return await listLightPostgresCustomizationSchemas(
+      executeLightPostgres,
+    ) as LightPostgresCustomizationSchemaSummary[];
+  } catch (error) {
+    if (isMissingDatabaseObjectError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 export async function maybeGetAdminCustomizationSchemaById(id: string) {
@@ -367,10 +376,18 @@ export async function maybeGetAdminCustomizationSchemaById(id: string) {
     return undefined;
   }
 
-  return getLightPostgresCustomizationSchemaDetailById(
-    executeLightPostgres,
-    id,
-  ) as Promise<LightPostgresCustomizationSchemaDetail | null>;
+  try {
+    return await getLightPostgresCustomizationSchemaDetailById(
+      executeLightPostgres,
+      id,
+    ) as LightPostgresCustomizationSchemaDetail | null;
+  } catch (error) {
+    if (isMissingDatabaseObjectError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function maybeGetAdminCustomizationSchemaForProduct(productId: string) {
@@ -378,8 +395,16 @@ export async function maybeGetAdminCustomizationSchemaForProduct(productId: stri
     return undefined;
   }
 
-  return getLightPostgresCustomizationSchemaForProduct(
-    executeLightPostgres,
-    productId,
-  ) as Promise<LightPostgresCustomizationSchemaPayload | null>;
+  try {
+    return await getLightPostgresCustomizationSchemaForProduct(
+      executeLightPostgres,
+      productId,
+    ) as LightPostgresCustomizationSchemaPayload | null;
+  } catch (error) {
+    if (isMissingDatabaseObjectError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
