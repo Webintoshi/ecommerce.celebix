@@ -166,6 +166,20 @@ const OPTIONAL_CATEGORY_COLUMNS = new Set([
   "geo_data",
 ]);
 
+const LIGHT_POSTGRES_CATEGORY_JSON_COLUMNS = ["seo_keywords", "faq", "geo_data"] as const;
+
+function serializeLightPostgresJsonValue(value: unknown): unknown {
+  if (value === undefined || value === null || typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value) || typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return value;
+}
+
 function getMissingCategoryColumn(error: unknown): string | null {
   if (!error || typeof error !== "object" || !("message" in error)) return null;
   const message = String(error.message ?? "");
@@ -196,10 +210,12 @@ function pruneUnsupportedLightPostgresCategoryFields<T extends Record<string, un
   }
 
   const nextPayload = { ...payload };
-  delete nextPayload.icon;
-  delete nextPayload.is_active;
-  delete nextPayload.faq;
-  delete nextPayload.geo_data;
+  for (const column of LIGHT_POSTGRES_CATEGORY_JSON_COLUMNS) {
+    if (column in nextPayload) {
+      nextPayload[column] = serializeLightPostgresJsonValue(nextPayload[column]);
+    }
+  }
+
   return nextPayload;
 }
 
@@ -627,7 +643,7 @@ export async function POST(request: NextRequest) {
       let insertPayload: Record<string, unknown> = pruneUnsupportedLightPostgresCategoryFields({
         name: sanitizeString(data.name, 200),
         slug: sanitizeString(String(data.slug).toLowerCase(), 100),
-        description: data.description ? sanitizeContent(String(data.description), 2000) : null,
+        description: data.description !== undefined ? sanitizeContent(String(data.description), 2000) : "",
         image: await mirrorCategoryImageIfNeeded(data.image, imageSlugFallback, imageNameFallback),
         parent_id: data.parent_id ? String(data.parent_id) : null,
         icon: data.icon ? sanitizeString(String(data.icon), 50) : "paket",
