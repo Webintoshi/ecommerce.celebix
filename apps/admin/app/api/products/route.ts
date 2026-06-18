@@ -203,16 +203,23 @@ const OPTIONAL_PRODUCT_VARIANT_COLUMNS = new Set([
 ]);
 
 const LIGHT_POSTGRES_PRODUCT_JSON_COLUMNS = [
+    "images",
     "images_v2",
+    "tags",
     "dimensions",
+    "related_products",
+    "complementary_products",
+    "seo_keywords",
     "faq",
     "geo_data",
+    "allergens",
     "vitamins",
     "shopify_metadata",
     "shopify_metafields",
 ] as const;
 
 const LIGHT_POSTGRES_VARIANT_JSON_COLUMNS = [
+    "images",
     "attributes",
     "shopify_metadata",
 ] as const;

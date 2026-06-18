@@ -1,5 +1,5 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { BUCKET_NAME, PUBLIC_URL, r2Client } from "@/lib/r2";
+import { BUCKET_NAME, getR2PublicBaseUrls, r2Client } from "@/lib/r2";
 
 type AssetPayload = {
   body: Buffer;
@@ -18,7 +18,7 @@ function normalizeBaseUrl(value?: string | null) {
 function getConfiguredBaseUrls() {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || "";
   const candidates = [
-    PUBLIC_URL,
+    ...getR2PublicBaseUrls(),
     process.env.R2_PUBLIC_URL,
     process.env.NEXT_PUBLIC_R2_PUBLIC_URL,
     accountId && BUCKET_NAME

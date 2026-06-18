@@ -354,6 +354,8 @@ export async function getCustomers(options?: {
       from public.customers
     `;
 
+    whereClauses.push("coalesce(status, 'active') <> 'deleted'");
+
     if (whereClauses.length > 0) {
       sql += ` where ${whereClauses.join(" and ")}`;
     }
@@ -608,6 +610,38 @@ export async function replaceCustomerAddresses(customerId: string, addresses: Cu
  * Delete customer (admin)
  */
 export async function deleteCustomer(id: string) {
+  if (shouldUseLightPostgresAdmin()) {
+    const [orderCount] = await queryAdminLightPostgres<{ count: string }>(
+      "select count(*)::text as count from public.orders where customer_id = $1",
+      [id],
+    );
+
+    if (Number(orderCount?.count || 0) > 0) {
+      await queryAdminLightPostgres(
+        `
+          update public.customers
+          set
+            status = 'deleted',
+            notes = trim(both chr(10) from concat(coalesce(notes, ''), chr(10), 'Deleted from admin panel; historical orders retained.'))
+          where id = $1
+        `,
+        [id],
+      );
+      return true;
+    }
+
+    await queryAdminLightPostgres(
+      "delete from public.customer_preferred_products where customer_id = $1",
+      [id],
+    );
+    await queryAdminLightPostgres(
+      "delete from public.customer_addresses where customer_id = $1",
+      [id],
+    );
+    await queryAdminLightPostgres("delete from public.customers where id = $1", [id]);
+    return true;
+  }
+
   const serverClient = createServerClient();
 
   // Keep historical records but detach them from the customer before delete.
