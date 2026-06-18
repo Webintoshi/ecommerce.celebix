@@ -76,6 +76,15 @@ export async function GET(request: NextRequest) {
     ).range(from, to);
 
     if (error) {
+      if (isMissingDatabaseObjectError(error)) {
+        return NextResponse.json({
+          success: true,
+          carts: [],
+          pagination: { page, limit, total: 0, pages: 0 },
+          ...buildOptionalModuleDisabledPayload("abandoned_carts"),
+        });
+      }
+
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -85,6 +94,15 @@ export async function GET(request: NextRequest) {
     );
 
     if (countError) {
+      if (isMissingDatabaseObjectError(countError)) {
+        return NextResponse.json({
+          success: true,
+          carts: data || [],
+          pagination: { page, limit, total: 0, pages: 0 },
+          ...buildOptionalModuleDisabledPayload("abandoned_carts"),
+        });
+      }
+
       return NextResponse.json({ error: countError.message }, { status: 500 });
     }
 

@@ -24,7 +24,9 @@ export function isMissingDatabaseObjectError(error: unknown): boolean {
     message.includes("schema cache") ||
     message.includes("relation") ||
     message.includes("column") ||
-    message.includes("compatibility table destegi bulunamadi")
+    message.includes("compatibility table destegi bulunamadi") ||
+    message.includes("tablolari bulunamadi") ||
+    message.includes("tablosu bulunamadi")
   );
 }
 
