@@ -297,14 +297,6 @@ export function Footer() {
           <p className="text-xs text-gray-500">
             &copy; {currentYear} {storeInfo?.name || SITE_NAME}. {copy.footerRights}
           </p>
-          <a
-            href="https://celebix.co"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] uppercase tracking-[0.2em] text-gray-400 transition-colors hover:text-white"
-          >
-            Powered by Celebix
-          </a>
         </div>
       </div>
     </footer>
