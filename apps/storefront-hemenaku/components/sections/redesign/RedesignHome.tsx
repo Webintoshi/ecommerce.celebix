@@ -1,9 +1,7 @@
 import { CategoriesSection } from "./CategoriesSection";
-import { HeroSection, StorefrontCtaSection } from "./ExistingSections";
-import { BlogPreviewSection } from "./BlogPreviewSection";
+import { HeroSection } from "./ExistingSections";
 import { ProductShowcaseSections } from "./ProductShowcaseSections";
-import { StoreLocationsSection } from "./StoreLocationsSection";
-import { TestimonialsSection } from "./TestimonialsSection";
+import { VisualPromoRail, VisualServiceStrip, VisualSupportSection } from "./VisualHomeSections";
 import type { HomepageData } from "@/lib/homepage";
 import type { BlogPost } from "@/types/blog";
 
@@ -28,14 +26,15 @@ interface RedesignHomeProps {
   };
 }
 
-export default function RedesignHome({ data, storesHref, blogPosts = [], uiCopy }: RedesignHomeProps) {
+export default function RedesignHome({ data, storesHref: _storesHref, blogPosts: _blogPosts = [], uiCopy }: RedesignHomeProps) {
   return (
-    <main className="min-h-screen bg-[#F5F7FA]">
+    <main className="min-h-screen bg-[#F3F6FA]">
       <HeroSection slides={data.heroBanners || []} />
+      <VisualPromoRail categories={data.categories} products={(data.allProducts as never[]) || []} />
       <CategoriesSection
         initialCategories={(data.categories as never[]) || []}
-        eyebrow={uiCopy?.categoriesEyebrow}
-        heading={uiCopy?.categoriesHeading}
+        eyebrow={uiCopy?.categoriesEyebrow || "Kategoriler"}
+        heading={uiCopy?.categoriesHeading || "Akü seçenekleri"}
       />
       <ProductShowcaseSections
         categories={data.featuredCategories}
@@ -44,22 +43,8 @@ export default function RedesignHome({ data, storesHref, blogPosts = [], uiCopy 
         groupCopy={uiCopy?.productGroups}
         viewAllLabel={uiCopy?.viewAllLabel}
       />
-      <StoreLocationsSection
-        eyebrow={uiCopy?.storesEyebrow}
-        heading={uiCopy?.storesHeading}
-        description={uiCopy?.storesDescription}
-        linkLabel={uiCopy?.storesLinkLabel}
-        storesHref={storesHref}
-        heroBanners={data.heroBanners}
-        promoBanners={data.promoBanners}
-      />
-      <TestimonialsSection
-        heading={uiCopy?.testimonialsHeading}
-        countLabel={uiCopy?.testimonialsCountLabel}
-        items={data.testimonials}
-      />
-      <BlogPreviewSection posts={blogPosts} />
-      <StorefrontCtaSection />
+      <VisualServiceStrip />
+      <VisualSupportSection heroBanners={data.heroBanners} products={(data.allProducts as never[]) || []} />
     </main>
   );
 }

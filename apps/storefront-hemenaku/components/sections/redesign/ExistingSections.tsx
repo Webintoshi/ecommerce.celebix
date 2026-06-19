@@ -6,9 +6,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, BatteryCharging, Car, ChevronLeft, ChevronRight, Headphones, Leaf, Shield, Check, Truck, Clock, Sparkles, Mail, Send, Award, Heart, Users, Wrench, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROUTES, SITE_NAME, SITE_TAGLINE } from "@/lib/constants";
+import { isProxiedStorefrontAssetUrl, resolveStorefrontAssetUrl } from "@/lib/asset-url";
+import { ROUTES } from "@/lib/constants";
 import { DefaultDemoPlaceholder } from "@/components/placeholders/DefaultDemoPlaceholder";
-import { DEFAULT_DEMO_THEME, DEFAULT_TRUST_ITEMS } from "@/lib/default-demo-theme";
+import { DEFAULT_TRUST_ITEMS } from "@/lib/default-demo-theme";
 import { Marquee } from "../Marquee";
 import { useStorefrontRoute } from "@/lib/storefront-route-context";
 
@@ -43,6 +44,7 @@ interface HeroSlide {
 
 export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   const [current, setCurrent] = useState(0);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const { buildPath } = useStorefrontRoute();
   const usableSlides = (slides || []).filter((slide) => slide.desktop || slide.mobile);
   const hasSlides = usableSlides.length > 0;
@@ -61,33 +63,35 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
   }, [usableSlides.length]);
 
   const slide = hasSlides ? usableSlides[current] : null;
+  const desktopImage = resolveStorefrontAssetUrl(slide?.desktop || slide?.mobile || "");
+  const mobileImage = resolveStorefrontAssetUrl(slide?.mobile || slide?.desktop || "");
+  const slideId = String(slide?.id ?? "hero");
+  const hasHeroImage = Boolean(slide && (desktopImage || mobileImage) && !imageErrors[slideId]);
+  const desktopUsesProxy = isProxiedStorefrontAssetUrl(desktopImage);
+  const mobileUsesProxy = isProxiedStorefrontAssetUrl(mobileImage);
   const trustCards = [
-    { label: DEFAULT_TRUST_ITEMS[0] || "Hızlı teslimat", text: "Sipariş ve teslimat adımları net görünür.", icon: Truck },
-    { label: DEFAULT_TRUST_ITEMS[1] || "Güvenilir ürün seçimi", text: "Akü ve oto elektrik odağıyla sade vitrin.", icon: Shield },
-    { label: DEFAULT_TRUST_ITEMS[2] || "Araç uyumluluğu desteği", text: "Doğru ürün için destek kanalı hazır.", icon: Car },
-    { label: DEFAULT_TRUST_ITEMS[3] || "Kolay sipariş", text: "Sepet ve ödeme akışı mobilde okunaklı.", icon: Check },
+    { label: DEFAULT_TRUST_ITEMS[0] || "Hızlı teslimat", icon: Truck },
+    { label: DEFAULT_TRUST_ITEMS[2] || "Doğru ürün desteği", icon: Wrench },
+    { label: DEFAULT_TRUST_ITEMS[3] || "Kolay sipariş", icon: Check },
   ];
 
   return (
     <section className="relative overflow-hidden border-b border-[#172133] bg-[#08111F] text-white">
       <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:44px_44px]" />
       <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#FACC15,#22C55E,#38BDF8)]" />
-      <div className="relative mx-auto max-w-[1500px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
-        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-14">
-          <div className="min-w-0">
-            <Link href={buildPath(ROUTES.home)} className="mb-7 inline-flex text-sm font-semibold uppercase text-white/60">
-              {SITE_NAME}
-            </Link>
+      <div className="relative mx-auto max-w-[1500px] px-5 pb-10 pt-7 sm:px-8 sm:pb-14 sm:pt-10 lg:px-12 lg:py-16">
+        <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:gap-14">
+          <div className="order-2 min-w-0 lg:order-1">
             <h1
-              className="max-w-3xl text-4xl font-semibold leading-[1.04] tracking-normal text-white sm:text-5xl lg:text-6xl"
+              className="max-w-2xl text-4xl font-semibold leading-[1.02] tracking-normal text-white sm:text-5xl lg:text-6xl"
               style={{ fontFamily: "Inter, system-ui, sans-serif" }}
             >
-              Aracınız için doğru akü, hızlı ve güvenilir teslimat
+              Doğru akü, hızlı çözüm
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-              Hemenaku ile aracınıza uygun akü seçeneklerini keşfedin; güvenilir ürünler, kolay sipariş ve hızlı destek.
+            <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
+              Aracınıza uygun akü seçeneklerini keşfedin.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
                 href={buildPath(ROUTES.products)}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#FACC15] px-6 py-3 text-sm font-semibold text-[#0B1220] transition hover:bg-[#FDE047]"
@@ -100,52 +104,65 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-white/18 bg-white/8 px-6 py-3 text-sm font-semibold text-white transition hover:border-[#22C55E]/70 hover:bg-white/12"
               >
                 <Headphones className="h-4 w-4" />
-                Bize Ulaşın
+                Destek Al
               </Link>
             </div>
-            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-7 grid grid-cols-3 gap-2 sm:max-w-xl">
               {trustCards.map((item) => {
                 const Icon = item.icon;
                 return (
                   <div
                     key={item.label}
-                    className="rounded-lg border border-white/10 bg-white/[0.06] p-4 shadow-[0_18px_48px_-42px_rgba(0,0,0,0.7)]"
+                    className="rounded-lg border border-white/10 bg-white/[0.06] px-3 py-4 text-center shadow-[0_18px_48px_-42px_rgba(0,0,0,0.7)]"
                   >
-                    <Icon className="mb-3 h-5 w-5 text-[#22C55E]" />
-                    <p className="text-sm font-semibold text-white">{item.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">{item.text}</p>
+                    <Icon className="mx-auto mb-2 h-5 w-5 text-[#22C55E]" />
+                    <p className="text-[11px] font-semibold leading-tight text-white sm:text-xs">{item.label}</p>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div className="relative min-w-0">
+          <div className="relative order-1 min-w-0 lg:order-2">
             <div className="relative overflow-hidden rounded-lg border border-white/10 bg-[#0F172A] shadow-[0_34px_110px_-66px_rgba(0,0,0,0.85)]">
-              <div className="relative aspect-[4/3] min-h-[320px]">
-                {slide ? (
+              <div className="relative aspect-[5/4] min-h-[300px] sm:aspect-[16/10] lg:aspect-[16/11] lg:min-h-[520px]">
+                {hasHeroImage ? (
                   <>
                     <div className="absolute inset-0 hidden md:block">
                       <Image
-                        src={slide.desktop || slide.mobile}
-                        alt={slide.alt || "Hemenaku vitrin görseli"}
+                        src={desktopImage || mobileImage}
+                        alt={slide?.alt || "Hemenaku vitrin görseli"}
                         fill
                         className="object-cover"
                         priority
                         sizes="(min-width: 1024px) 52vw, 100vw"
+                        unoptimized={desktopUsesProxy}
+                        onError={() =>
+                          setImageErrors((currentErrors) => ({
+                            ...currentErrors,
+                            [slideId]: true,
+                          }))
+                        }
                       />
                     </div>
                     <div className="absolute inset-0 block md:hidden">
                       <Image
-                        src={slide.mobile || slide.desktop}
-                        alt={slide.alt || "Hemenaku vitrin görseli"}
+                        src={mobileImage || desktopImage}
+                        alt={slide?.alt || "Hemenaku vitrin görseli"}
                         fill
                         className="object-cover"
                         priority
                         sizes="100vw"
+                        unoptimized={mobileUsesProxy}
+                        onError={() =>
+                          setImageErrors((currentErrors) => ({
+                            ...currentErrors,
+                            [slideId]: true,
+                          }))
+                        }
                       />
                     </div>
-                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,17,31,0.26),rgba(8,17,31,0.02))]" />
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,transparent,rgba(8,17,31,0.42))]" />
                   </>
                 ) : (
                   <div className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_72%_26%,rgba(250,204,21,0.2),transparent_22%),linear-gradient(135deg,#0B1220,#162033_58%,#0F172A)]">
@@ -190,9 +207,9 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
               </div>
               <div className="grid border-t border-white/10 bg-[#0B1220]/92 sm:grid-cols-3">
                 {[
-                  ["12V", "Akü odağı"],
-                  ["Uyum", "Araç desteği"],
-                  ["Hız", "Kolay sipariş"],
+                  ["12V", "Akü"],
+                  ["Uyum", "Destek"],
+                  ["Hız", "Sipariş"],
                 ].map(([label, text]) => (
                   <div key={label} className="border-t border-white/0 px-5 py-4 sm:border-l sm:border-white/10 first:sm:border-l-0">
                     <p className="text-lg font-semibold text-white">{label}</p>
