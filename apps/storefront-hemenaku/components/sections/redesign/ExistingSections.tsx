@@ -169,22 +169,22 @@ export function HeroSection({ slides = [] }: { slides?: HeroSlide[] }) {
                       <div className="absolute bottom-4 left-6 h-5 w-5 rounded-full border border-[#FACC15]/70" />
                       <div className="absolute bottom-4 right-8 h-5 w-5 rounded-full border border-[#22C55E]/70" />
                     </div>
-                    <div className="pointer-events-none absolute bottom-4 right-4 w-[min(78%,430px)] rounded-lg border border-white/16 bg-[#07111F]/72 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.34)] backdrop-blur-sm sm:bottom-6 sm:right-6 sm:p-5">
-                      <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="pointer-events-none absolute bottom-4 right-4 w-[min(74%,300px)] rounded-lg border border-white/16 bg-[#07111F]/72 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.34)] backdrop-blur-sm sm:bottom-6 sm:right-6 sm:w-[min(78%,430px)] sm:p-5">
+                      <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
                         <div className="flex items-center gap-2">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#FACC15] text-[#0B1220]">
-                            <BatteryCharging className="h-5 w-5" />
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#FACC15] text-[#0B1220] sm:h-9 sm:w-9">
+                            <BatteryCharging className="h-4 w-4 sm:h-5 sm:w-5" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold leading-tight text-white">12V enerji</p>
-                            <p className="text-[11px] text-slate-400">Araç uyumu</p>
+                            <p className="text-xs font-semibold leading-tight text-white sm:text-sm">12V enerji</p>
+                            <p className="hidden text-[11px] text-slate-400 sm:block">Araç uyumu</p>
                           </div>
                         </div>
                         <Zap className="h-5 w-5 text-[#22C55E]" />
                       </div>
-                      <div className="relative h-14 rounded-md border border-white/16 bg-white/8 px-3 py-2">
+                      <div className="relative h-10 rounded-md border border-white/16 bg-white/8 px-2 py-2 sm:h-14 sm:px-3">
                         <div className="absolute -right-2 top-1/2 h-6 w-2 -translate-y-1/2 rounded-r border-y border-r border-white/16 bg-white/8" />
-                        <div className="grid h-full grid-cols-6 gap-1.5">
+                        <div className="grid h-full grid-cols-6 gap-1 sm:gap-1.5">
                           {[0, 1, 2, 3, 4, 5].map((item) => (
                             <div
                               key={item}
