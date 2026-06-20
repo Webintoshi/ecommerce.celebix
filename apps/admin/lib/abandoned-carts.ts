@@ -67,10 +67,15 @@ function readString(value: unknown): string | null {
 }
 
 function buildCustomerName(cart: any) {
+  const explicitName = readString(cart.customerName ?? cart.customer_name ?? cart.name);
+  if (explicitName) {
+    return explicitName;
+  }
+
   const firstName = readString(cart.firstName ?? cart.first_name);
   const lastName = readString(cart.lastName ?? cart.last_name);
   const fullName = `${firstName || ""} ${lastName || ""}`.trim();
-  return readString(cart.customerName) || fullName || "Anonim sepet";
+  return fullName || "Anonim sepet";
 }
 
 function normalizeAbandonedCartItems(items: unknown): AbandonedCartItem[] {

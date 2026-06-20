@@ -41,6 +41,49 @@ function readString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function readRowString(row: AbandonedCartApiRow, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function splitFullName(fullName: string | null) {
+  if (!fullName) {
+    return { firstName: null, lastName: null };
+  }
+
+  const parts = fullName.split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? null,
+    lastName: parts.slice(1).join(" ") || null,
+  };
+}
+
+function resolveCustomerNameParts(row: AbandonedCartApiRow) {
+  const explicitFullName = readRowString(row, "customerName", "customer_name", "name");
+
+  if (explicitFullName) {
+    return splitFullName(explicitFullName);
+  }
+
+  const firstName = readRowString(row, "firstName", "first_name");
+  const lastName = readRowString(row, "lastName", "last_name");
+
+  if (firstName || lastName) {
+    return { firstName, lastName };
+  }
+
+  return {
+    firstName: readRowString(row, "billingFirstName", "billing_first_name"),
+    lastName: readRowString(row, "billingLastName", "billing_last_name"),
+  };
+}
+
 function readNumber(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -90,8 +133,7 @@ function buildCustomerName(firstName: string | null, lastName: string | null) {
 
 function mapAdminAbandonedCart(row: AbandonedCartApiRow) {
   const items = normalizeItems(row.items);
-  const firstName = readString(row.first_name ?? row.firstName);
-  const lastName = readString(row.last_name ?? row.lastName);
+  const { firstName, lastName } = resolveCustomerNameParts(row);
   const email = readString(row.email ?? row.customerEmail);
   const phone = readString(row.phone ?? row.customerPhone);
   const status = normalizeStatus(row);
@@ -301,14 +343,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = getDb();
     const body = await request.json();
+    const { firstName, lastName } = resolveCustomerNameParts(body);
 
     const cart = await upsertAbandonedCart(
       {
         cartId: body.cart_id,
         sessionId: body.session_id,
         customerId: body.customer_id,
-        firstName: body.first_name,
-        lastName: body.last_name,
+        firstName,
+        lastName,
         email: body.email,
         phone: body.phone,
         isAnonymous: body.is_anonymous,
@@ -395,6 +438,15 @@ export async function PATCH(request: NextRequest) {
 
     const nowIso = new Date().toISOString();
     const updateData: Record<string, unknown> = {};
+    const { firstName, lastName } = resolveCustomerNameParts(body);
+
+    if (firstName) {
+      updateData.first_name = firstName;
+    }
+
+    if (lastName) {
+      updateData.last_name = lastName;
+    }
 
     if (typeof status === "string" && status.trim()) {
       updateData.status = status;

@@ -567,8 +567,65 @@ function normalizeTimestampValue(value: unknown): string | null {
   return null;
 }
 
+function readPayloadString(payload: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function splitPayloadFullName(fullName: string | null): { firstName: string | null; lastName: string | null } {
+  if (!fullName) {
+    return { firstName: null, lastName: null };
+  }
+
+  const parts = fullName.split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? null,
+    lastName: parts.slice(1).join(" ") || null,
+  };
+}
+
+function normalizeAbandonedCartNamePayload(payload: Record<string, unknown>): void {
+  const fullName = readPayloadString(payload, "customerName", "customer_name", "name");
+  const splitName = splitPayloadFullName(fullName);
+  const firstName =
+    splitName.firstName ??
+    readPayloadString(payload, "firstName", "first_name", "billingFirstName", "billing_first_name");
+  const lastName =
+    splitName.lastName ??
+    readPayloadString(payload, "lastName", "last_name", "billingLastName", "billing_last_name");
+
+  if (firstName && !readPayloadString(payload, "first_name")) {
+    payload.first_name = firstName;
+  }
+
+  if (lastName && !readPayloadString(payload, "last_name")) {
+    payload.last_name = lastName;
+  }
+
+  for (const alias of [
+    "customerName",
+    "customer_name",
+    "name",
+    "firstName",
+    "lastName",
+    "billingFirstName",
+    "billingLastName",
+    "billing_first_name",
+    "billing_last_name",
+  ]) {
+    delete payload[alias];
+  }
+}
+
 function normalizeAbandonedCartWritePayload(payload: Record<string, unknown>): Record<string, unknown> {
   const next = { ...payload };
+  normalizeAbandonedCartNamePayload(next);
 
   if ("items" in next) {
     next.items = serializeJsonbValue(next.items, []);
