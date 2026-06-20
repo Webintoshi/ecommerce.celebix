@@ -3,15 +3,61 @@ import { createServerClient } from "@/lib/supabase";
 import {
   deleteLatestOpenAbandonedCartForSession,
   findAbandonedCartByLookup,
+  isAbandonedCartUnavailableError,
   markAbandonedCartAsRecovered,
   syncAbandonedCartStatuses,
   upsertAbandonedCart,
 } from "@/lib/db/abandoned-carts";
 import { requireAdminApiAuth } from "@/lib/admin-api-auth";
 import { buildOptionalModuleDisabledPayload, isMissingDatabaseObjectError } from "@/lib/db/light-postgres-compat";
+import {
+  DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+  isAdminAbandonedCartDisabled,
+} from "@/lib/light-postgres-readiness";
 
 function getDb() {
   return createServerClient();
+}
+
+function buildDisabledResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      code: DERYCRAFT_TEMPORARILY_DISABLED_CODE,
+      error: "Abandoned cart ozelligi DeryCraft light_postgres provasinda gecici olarak pasif.",
+    },
+    { status: 503 },
+  );
+}
+
+function isAbandonedCartReadUnavailable(error: unknown) {
+  return isMissingDatabaseObjectError(error) || isAbandonedCartUnavailableError(error);
+}
+
+function buildSafeEmptyResponse({
+  carts = [],
+  page = 1,
+  limit = 20,
+  message = "Abandoned cart tablosu bu runtime icin henuz hazir degil.",
+}: {
+  carts?: unknown[];
+  page?: number;
+  limit?: number;
+  message?: string;
+} = {}) {
+  return NextResponse.json({
+    success: true,
+    code: "abandoned_cart_unavailable",
+    message,
+    carts,
+    pagination: {
+      page,
+      limit,
+      total: 0,
+      pages: 0,
+    },
+    ...buildOptionalModuleDisabledPayload("abandoned_carts", message),
+  });
 }
 
 function applyFilters(
@@ -51,6 +97,10 @@ function applyFilters(
 }
 
 export async function GET(request: NextRequest) {
+  if (isAdminAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const { response } = await requireAdminApiAuth();
     if (response) {
@@ -76,15 +126,9 @@ export async function GET(request: NextRequest) {
     ).range(from, to);
 
     if (error) {
-      if (isMissingDatabaseObjectError(error)) {
-        return NextResponse.json({
-          success: true,
-          carts: [],
-          pagination: { page, limit, total: 0, pages: 0 },
-          ...buildOptionalModuleDisabledPayload("abandoned_carts"),
-        });
+      if (isAbandonedCartReadUnavailable(error)) {
+        return buildSafeEmptyResponse({ page, limit });
       }
-
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -94,15 +138,9 @@ export async function GET(request: NextRequest) {
     );
 
     if (countError) {
-      if (isMissingDatabaseObjectError(countError)) {
-        return NextResponse.json({
-          success: true,
-          carts: data || [],
-          pagination: { page, limit, total: 0, pages: 0 },
-          ...buildOptionalModuleDisabledPayload("abandoned_carts"),
-        });
+      if (isAbandonedCartReadUnavailable(countError)) {
+        return buildSafeEmptyResponse({ carts: data || [], page, limit });
       }
-
       return NextResponse.json({ error: countError.message }, { status: 500 });
     }
 
@@ -118,15 +156,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching abandoned carts:", error);
-    if (isMissingDatabaseObjectError(error)) {
-      return NextResponse.json({
-        success: true,
-        carts: [],
-        pagination: { page: 1, limit: 20, total: 0, pages: 0 },
-        ...buildOptionalModuleDisabledPayload("abandoned_carts"),
-      });
+    if (isAbandonedCartReadUnavailable(error)) {
+      return buildSafeEmptyResponse();
     }
-
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -135,12 +167,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isAdminAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const supabase = getDb();
     const body = await request.json();
 
     const cart = await upsertAbandonedCart(
       {
+        cartId: body.cart_id,
         sessionId: body.session_id,
         customerId: body.customer_id,
         firstName: body.first_name,
@@ -152,6 +189,7 @@ export async function POST(request: NextRequest) {
         total: typeof body.total === "number" ? body.total : undefined,
         itemCount: typeof body.item_count === "number" ? body.item_count : undefined,
         status: body.status,
+        checkoutStartedAt: typeof body.checkout_started_at === "string" ? body.checkout_started_at : undefined,
       },
       supabase
     );
@@ -159,6 +197,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, cart });
   } catch (error) {
     console.error("Error creating/updating abandoned cart:", error);
+    if (isAbandonedCartUnavailableError(error)) {
+      return NextResponse.json(
+        { success: false, code: "abandoned_cart_unavailable", error: "Abandoned cart tablosu hazir degil." },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
@@ -167,6 +211,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  if (isAdminAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const { response } = await requireAdminApiAuth();
     if (response) {
@@ -188,6 +236,7 @@ export async function PATCH(request: NextRequest) {
       const cart = await markAbandonedCartAsRecovered(
         {
           id,
+          cartId: body.cart_id,
           sessionId: session_id,
           customerId: customer_id,
           email,
@@ -259,12 +308,24 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
+      if (isAbandonedCartUnavailableError(error)) {
+        return NextResponse.json(
+          { success: false, code: "abandoned_cart_unavailable", error: "Abandoned cart tablosu hazir degil." },
+          { status: 503 },
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, cart: data });
   } catch (error) {
     console.error("Error updating abandoned cart:", error);
+    if (isAbandonedCartUnavailableError(error)) {
+      return NextResponse.json(
+        { success: false, code: "abandoned_cart_unavailable", error: "Abandoned cart tablosu hazir degil." },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -273,6 +334,10 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (isAdminAbandonedCartDisabled()) {
+    return buildDisabledResponse();
+  }
+
   try {
     const supabase = getDb();
     const { searchParams } = new URL(request.url);
@@ -301,12 +366,18 @@ export async function DELETE(request: NextRequest) {
       .eq("id", id as string);
 
     if (error) {
+      if (isAbandonedCartUnavailableError(error)) {
+        return NextResponse.json({ success: true, code: "abandoned_cart_unavailable" });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting abandoned cart:", error);
+    if (isAbandonedCartUnavailableError(error)) {
+      return NextResponse.json({ success: true, code: "abandoned_cart_unavailable" });
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

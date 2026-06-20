@@ -30,6 +30,7 @@ import {
   deleteAbandonedCart,
   getAbandonedCartStats,
   getAbandonedCarts,
+  getLastAbandonedCartNotice,
   markCartAsRecovered,
   type AbandonedCart,
   type AbandonedCartItem,
@@ -993,6 +994,7 @@ export default function AbandonedCartsPage() {
   const [stats, setStats] = useState<AbandonedCartStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [readinessMessage, setReadinessMessage] = useState("");
   const [selectedCart, setSelectedCart] = useState<AbandonedCart | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -1014,6 +1016,7 @@ export default function AbandonedCartsPage() {
 
       setAllCarts(cartsData);
       setStats(cartStats);
+      setReadinessMessage(getLastAbandonedCartNotice()?.message || "");
       setLastUpdatedAt(new Date());
     } catch (error) {
       console.error("Error loading abandoned carts:", error);
@@ -1500,6 +1503,15 @@ export default function AbandonedCartsPage() {
                     className="rounded-[22px] border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-medium text-[#B91C1C]"
                   >
                     {errorMessage}
+                  </div>
+                ) : null}
+
+                {!errorMessage && readinessMessage ? (
+                  <div
+                    role="status"
+                    className="rounded-[22px] border border-[#FED7AA] bg-[#FFF7ED] px-4 py-3 text-sm font-medium text-[#9A3412]"
+                  >
+                    {readinessMessage}
                   </div>
                 ) : null}
 

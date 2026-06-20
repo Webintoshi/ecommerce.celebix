@@ -17,7 +17,34 @@ export type {
 
 let cachedCarts: AbandonedCart[] = [];
 let lastFetch: number = 0;
+let lastNotice: AbandonedCartNotice | null = null;
 const CACHE_DURATION = 60000; // 1 minute cache
+
+export type AbandonedCartNotice = {
+  code: string;
+  message: string;
+};
+
+export function getLastAbandonedCartNotice() {
+  return lastNotice;
+}
+
+function setNoticeFromPayload(payload: any) {
+  if (payload?.code) {
+    lastNotice = {
+      code: String(payload.code),
+      message:
+        typeof payload.message === "string"
+          ? payload.message
+          : typeof payload.error === "string"
+            ? payload.error
+            : "Abandoned cart kaynagi bu runtime icin hazir degil.",
+    };
+    return;
+  }
+
+  lastNotice = null;
+}
 
 function normalizeAbandonedCartItemImage(source: unknown): string {
   const rawSource = typeof source === "string" ? source.trim() : "";
@@ -50,6 +77,7 @@ async function fetchFromAPI(
 
     const response = await fetch(`/api/abandoned-carts?${params}`);
     const data = await response.json();
+    setNoticeFromPayload(data);
 
     if (data.success) {
       // Map snake_case to camelCase
@@ -79,9 +107,14 @@ async function fetchFromAPI(
         total: data.pagination?.total || 0,
       };
     }
+    setNoticeFromPayload(data);
     return { carts: [], total: 0 };
   } catch (error) {
     console.error("Error fetching from API:", error);
+    lastNotice = {
+      code: "abandoned_cart_fetch_failed",
+      message: "Terk sepet kaynagi su an okunamiyor; son cache veya bos liste gosteriliyor.",
+    };
     return { carts: cachedCarts, total: cachedCarts.length };
   }
 }
