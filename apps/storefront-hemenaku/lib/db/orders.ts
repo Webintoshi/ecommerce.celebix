@@ -331,7 +331,7 @@ export async function createOrder(orderData: {
             sessionId: orderData.abandonedCartSessionId || null,
             customerId: customerId || null,
             email: orderData.contactEmail || null,
-        }, serverClient);
+        }, { orderId: order.id }, serverClient);
     } catch (abandonedCartError) {
         console.error("Abandoned cart recovery sync error (createOrder):", abandonedCartError);
     }

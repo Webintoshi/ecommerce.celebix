@@ -33,6 +33,13 @@ type AppliedCoupon = {
   discountAmount: number;
 };
 
+const CART_ID_STORAGE_KEY = "celebix_storefront_cart_id";
+
+function getStoredCartId() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(CART_ID_STORAGE_KEY);
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, shipping: cartShipping, clearCart } = useCart();
@@ -67,19 +74,22 @@ export default function CheckoutPage() {
     
     const sessionId = localStorage.getItem("celebix_storefront_session_id");
     if (!sessionId) return;
+    const cartId = getStoredCartId();
 
     try {
       await fetch('/api/abandoned-carts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          cart_id: cartId,
           session_id: sessionId,
           email,
           first_name: firstName,
           last_name: lastName,
           phone,
           is_anonymous: false,
-          status: 'active'
+          status: 'active',
+          checkout_started_at: new Date().toISOString()
         })
       });
     } catch (error) {

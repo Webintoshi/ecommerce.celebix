@@ -3,8 +3,8 @@ import { createServerClient } from "@/lib/supabase";
 import {
   deleteLatestOpenAbandonedCartForSession,
   findAbandonedCartByLookup,
+  isAbandonedCartUnavailableError,
   markAbandonedCartAsRecovered,
-  syncAbandonedCartStatuses,
   upsertAbandonedCart,
 } from "@/lib/db/abandoned-carts";
 
@@ -12,92 +12,31 @@ function getDb() {
   return createServerClient();
 }
 
-function applyFilters(
-  query: any,
-  {
-    status,
-    search,
-    sort,
-  }: {
-    status: string | null;
-    search: string | null;
-    sort: string;
-  }
-) {
-  let nextQuery = query;
+function buildUnavailableResponse() {
+  return NextResponse.json({
+    success: true,
+    cart: null,
+    disabled: true,
+    code: "abandoned_cart_unavailable",
+    message: "Abandoned cart tracking is not available for this store runtime yet.",
+  });
+}
 
-  if (status === "all") {
-    nextQuery = nextQuery.neq("status", "cleared");
-  } else if (status === "recovered") {
-    nextQuery = nextQuery.eq("status", "recovered");
-  } else if (status) {
-    nextQuery = nextQuery.eq("status", status);
-  } else {
-    nextQuery = nextQuery.in("status", ["abandoned", "recovered"]);
-  }
-
-  if (search?.trim()) {
-    const term = search.trim();
-    nextQuery = nextQuery.or(
-      `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
-    );
-  }
-
-  const orderColumn = sort.startsWith("total") ? "total" : "created_at";
-  const ascending = sort === "date-asc" || sort === "total-asc";
-  return nextQuery.order(orderColumn, { ascending });
+function isRecoverableTrackingError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return message.includes("Yeni bir sepet kaydi icin urunler ve toplam tutar gereklidir");
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const supabase = getDb();
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status");
-    const search = searchParams.get("search");
-    const sort = searchParams.get("sort") || "date-desc";
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
-
-    await syncAbandonedCartStatuses(supabase);
-
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    const { data, error } = await applyFilters(
-      supabase.from("abandoned_carts").select("*"),
-      { status, search, sort }
-    ).range(from, to);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    const { count, error: countError } = await applyFilters(
-      supabase.from("abandoned_carts").select("*", { count: "exact", head: true }),
-      { status, search, sort }
-    );
-
-    if (countError) {
-      return NextResponse.json({ error: countError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      carts: data,
-      pagination: {
-        page,
-        limit,
-        total: count || 0,
-        pages: Math.ceil((count || 0) / limit),
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching abandoned carts:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
+  void request;
+  return NextResponse.json(
+    {
+      success: false,
+      code: "abandoned_cart_public_read_disabled",
+      error: "Abandoned cart records are not exposed from the storefront API.",
+    },
+    { status: 405 },
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -107,6 +46,7 @@ export async function POST(request: NextRequest) {
 
     const cart = await upsertAbandonedCart(
       {
+        cartId: body.cart_id,
         sessionId: body.session_id,
         customerId: body.customer_id,
         firstName: body.first_name,
@@ -118,6 +58,7 @@ export async function POST(request: NextRequest) {
         total: typeof body.total === "number" ? body.total : undefined,
         itemCount: typeof body.item_count === "number" ? body.item_count : undefined,
         status: body.status,
+        checkoutStartedAt: typeof body.checkout_started_at === "string" ? body.checkout_started_at : undefined,
       },
       supabase
     );
@@ -125,6 +66,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, cart });
   } catch (error) {
     console.error("Error creating/updating abandoned cart:", error);
+    if (isAbandonedCartUnavailableError(error) || isRecoverableTrackingError(error)) {
+      return buildUnavailableResponse();
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
@@ -149,6 +93,7 @@ export async function PATCH(request: NextRequest) {
       const cart = await markAbandonedCartAsRecovered(
         {
           id,
+          cartId: body.cart_id,
           sessionId: session_id,
           customerId: customer_id,
           email,
@@ -220,12 +165,18 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
+      if (isAbandonedCartUnavailableError(error)) {
+        return buildUnavailableResponse();
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, cart: data });
   } catch (error) {
     console.error("Error updating abandoned cart:", error);
+    if (isAbandonedCartUnavailableError(error)) {
+      return buildUnavailableResponse();
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -255,12 +206,18 @@ export async function DELETE(request: NextRequest) {
       .eq("id", id as string);
 
     if (error) {
+      if (isAbandonedCartUnavailableError(error)) {
+        return NextResponse.json({ success: true, disabled: true, code: "abandoned_cart_unavailable" });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting abandoned cart:", error);
+    if (isAbandonedCartUnavailableError(error)) {
+      return NextResponse.json({ success: true, disabled: true, code: "abandoned_cart_unavailable" });
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

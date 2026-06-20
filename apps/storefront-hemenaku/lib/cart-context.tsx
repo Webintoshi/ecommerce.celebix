@@ -9,6 +9,7 @@ import { fetchShippingZonesFromSettings, getCartShippingSummary, type ShippingZo
 import { getSessionId } from "@/lib/tracking";
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+const CART_ID_STORAGE_KEY = "celebix_storefront_cart_id";
 
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
@@ -98,6 +99,18 @@ function getOrCreateSessionId(): string {
   return getSessionId();
 }
 
+function getOrCreateCartId(): string {
+  if (typeof window === "undefined") return "";
+
+  let cartId = localStorage.getItem(CART_ID_STORAGE_KEY);
+  if (!cartId) {
+    cartId = `cart_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+    localStorage.setItem(CART_ID_STORAGE_KEY, cartId);
+  }
+
+  return cartId;
+}
+
 async function deleteStoredAbandonedCart() {
   try {
     const sessionId = getOrCreateSessionId();
@@ -116,12 +129,14 @@ async function saveToAbandonedCart(items: CartItem[]) {
   
   try {
     const sessionId = getOrCreateSessionId();
+    const cartId = getOrCreateCartId();
     const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
     
     const response = await fetch('/api/abandoned-carts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        cart_id: cartId,
         session_id: sessionId,
         items: items.map(item => ({
           id: item.id,
@@ -166,6 +181,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [lastAddedItem, setLastAddedItem] = useState<CartItem | null>(null);
   const [shippingZones, setShippingZones] = useState<ShippingZone[] | null>(null);
   const preserveServerCartRef = useRef(false);
+  const didRunInitialCartSyncRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -188,6 +204,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Save cart to localStorage and database whenever items change
   useEffect(() => {
     localStorage.setItem("celebix_storefront_cart", JSON.stringify(items));
+
+    if (!didRunInitialCartSyncRef.current) {
+      didRunInitialCartSyncRef.current = true;
+      if (items.length === 0) {
+        return;
+      }
+    }
 
     if (items.length === 0) {
       if (preserveServerCartRef.current) {

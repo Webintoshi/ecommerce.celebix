@@ -6,6 +6,8 @@ type ServerClient = ReturnType<typeof createServerClient>;
 
 type AbandonedCartRow = {
     id: string;
+    cart_id?: string | null;
+    store_slug?: string | null;
     customer_id?: string | null;
     session_id?: string | null;
     email?: string | null;
@@ -20,17 +22,22 @@ type AbandonedCartRow = {
     recovered?: boolean | null;
     recovered_at?: string | null;
     abandoned_at?: string | null;
+    checkout_started_at?: string | null;
+    last_activity_at?: string | null;
+    order_id?: string | null;
     created_at?: string | null;
 };
 
 type AbandonedCartLookup = {
     id?: string;
+    cartId?: string | null;
     sessionId?: string | null;
     customerId?: string | null;
     email?: string | null;
 };
 
 type UpsertAbandonedCartInput = {
+    cartId?: string | null;
     sessionId?: string | null;
     customerId?: string | null;
     firstName?: string | null;
@@ -42,6 +49,8 @@ type UpsertAbandonedCartInput = {
     total?: number;
     itemCount?: number;
     status?: AbandonedCartStatus | null;
+    checkoutStartedAt?: string | null;
+    orderId?: string | null;
 };
 
 export const ABANDONED_CART_TIMEOUT_MINUTES = 30;
@@ -58,11 +67,22 @@ function toErrorMessage(error: unknown): string {
 function isIgnorableSchemaError(error: unknown): boolean {
     const message = toErrorMessage(error).toLowerCase();
     return (
+        message.includes("abandoned_carts") ||
+        message.includes("compatibility table destegi bulunamadi") ||
+        message.includes("light_postgres compatibility") ||
+        message.includes("insert desteklenmiyor") ||
+        message.includes("update desteklenmiyor") ||
+        message.includes("delete desteklenmiyor") ||
+        message.includes("42p01") ||
         message.includes("column") ||
         message.includes("schema cache") ||
         message.includes("could not find") ||
         message.includes("does not exist")
     );
+}
+
+export function isAbandonedCartUnavailableError(error: unknown): boolean {
+    return isIgnorableSchemaError(error);
 }
 
 function normalizeStatus(
@@ -83,6 +103,7 @@ function isOpenCart(cart: AbandonedCartRow): boolean {
 
 function buildLookupTargets(lookup: AbandonedCartLookup) {
     return [
+        lookup.cartId ? { column: "cart_id", value: lookup.cartId } : null,
         lookup.sessionId ? { column: "session_id", value: lookup.sessionId } : null,
         lookup.customerId ? { column: "customer_id", value: lookup.customerId } : null,
         lookup.email ? { column: "email", value: lookup.email } : null,
@@ -103,6 +124,10 @@ function calculateItemCount(items?: Record<string, unknown>[] | null): number {
         }
         return sum + 1;
     }, 0);
+}
+
+function resolveStoreSlug(): string | null {
+    return process.env.NEXT_PUBLIC_STORE_SLUG?.trim() || process.env.STORE_SLUG?.trim() || null;
 }
 
 export async function findAbandonedCartByLookup(
@@ -189,6 +214,7 @@ export async function upsertAbandonedCart(
     serverClient: ServerClient = createServerClient()
 ) {
     const lookup = {
+        cartId: input.cartId,
         sessionId: input.sessionId,
         customerId: input.customerId,
         email: input.email,
@@ -217,6 +243,8 @@ export async function upsertAbandonedCart(
         !Boolean(input.customerId || existing?.customer_id || input.email || existing?.email);
 
     const payload = {
+        store_slug: existing?.store_slug ?? resolveStoreSlug(),
+        cart_id: input.cartId ?? existing?.cart_id ?? null,
         session_id: input.sessionId ?? existing?.session_id ?? null,
         customer_id: input.customerId ?? existing?.customer_id ?? null,
         first_name: input.firstName ?? existing?.first_name ?? null,
@@ -230,6 +258,12 @@ export async function upsertAbandonedCart(
         status: nextStatus,
         recovered: nextRecovered ? true : false,
         recovered_at: nextRecovered ? nowIso : null,
+        checkout_started_at:
+            input.checkoutStartedAt ??
+            existing?.checkout_started_at ??
+            (input.email || input.phone || input.firstName || input.lastName ? nowIso : null),
+        last_activity_at: nowIso,
+        order_id: input.orderId ?? existing?.order_id ?? null,
         abandoned_at:
             nextStatus === "abandoned"
                 ? existing?.abandoned_at ?? nowIso
@@ -261,18 +295,29 @@ export async function upsertAbandonedCart(
 
 export async function markAbandonedCartAsRecovered(
     lookup: AbandonedCartLookup,
-    serverClient: ServerClient = createServerClient()
+    optionsOrServerClient?: { orderId?: string | null } | ServerClient,
+    serverClient?: ServerClient
 ) {
-    const existing = await findAbandonedCartByLookup(lookup, { onlyOpen: true }, serverClient);
+    const resolvedServerClient =
+        optionsOrServerClient && typeof (optionsOrServerClient as ServerClient).from === "function"
+            ? (optionsOrServerClient as ServerClient)
+            : serverClient ?? createServerClient();
+    const options =
+        optionsOrServerClient && typeof (optionsOrServerClient as ServerClient).from === "function"
+            ? undefined
+            : (optionsOrServerClient as { orderId?: string | null } | undefined);
+    const existing = await findAbandonedCartByLookup(lookup, { onlyOpen: true }, resolvedServerClient);
     if (!existing) return null;
 
     const recoveredAt = new Date().toISOString();
-    const { data, error } = await serverClient
+    const { data, error } = await resolvedServerClient
         .from("abandoned_carts")
         .update({
             recovered: true,
             status: "recovered",
             recovered_at: recoveredAt,
+            last_activity_at: recoveredAt,
+            order_id: options?.orderId ?? existing.order_id ?? null,
             updated_at: recoveredAt,
         })
         .eq("id", existing.id)
@@ -305,6 +350,7 @@ export async function deleteLatestOpenAbandonedCartForSession(
 }
 
 export async function createAbandonedCart(data: {
+    cartId?: string;
     customerId?: string;
     sessionId?: string;
     email?: string;
@@ -317,6 +363,7 @@ export async function createAbandonedCart(data: {
     itemCount?: number;
 }) {
     return upsertAbandonedCart({
+        cartId: data.cartId,
         customerId: data.customerId,
         sessionId: data.sessionId,
         email: data.email,
