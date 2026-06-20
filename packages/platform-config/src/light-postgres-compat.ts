@@ -493,6 +493,112 @@ function normalizeJsonArray(value: unknown): unknown[] {
   return [];
 }
 
+function serializeJsonbValue(value: unknown, fallback: unknown): string {
+  if (value === null || value === undefined) {
+    return JSON.stringify(fallback);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return JSON.stringify(fallback);
+    }
+
+    try {
+      JSON.parse(trimmed);
+      return trimmed;
+    } catch {
+      return JSON.stringify(fallback);
+    }
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return JSON.stringify(fallback);
+  }
+}
+
+function normalizeNumberValue(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  return fallback;
+}
+
+function normalizeIntegerValue(value: unknown, fallback = 0): number {
+  return Math.trunc(normalizeNumberValue(value, fallback));
+}
+
+function normalizeBooleanValue(value: unknown, fallback = false): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+
+  return fallback;
+}
+
+function normalizeTimestampValue(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : value;
+  }
+
+  return null;
+}
+
+function normalizeAbandonedCartWritePayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...payload };
+
+  if ("items" in next) {
+    next.items = serializeJsonbValue(next.items, []);
+  }
+
+  if ("total" in next) {
+    next.total = normalizeNumberValue(next.total);
+  }
+
+  if ("item_count" in next) {
+    next.item_count = normalizeIntegerValue(next.item_count);
+  }
+
+  if ("is_anonymous" in next) {
+    next.is_anonymous = normalizeBooleanValue(next.is_anonymous, true);
+  }
+
+  if ("recovered" in next) {
+    next.recovered = normalizeBooleanValue(next.recovered);
+  }
+
+  for (const column of ["abandoned_at", "checkout_started_at", "recovered_at", "last_activity_at", "created_at", "updated_at"]) {
+    if (column in next) {
+      next[column] = normalizeTimestampValue(next[column]);
+    }
+  }
+
+  return next;
+}
+
 function aliasAbandonedCartRow(row: AbandonedCartRow): Record<string, unknown> {
   return {
     ...row,
@@ -1330,7 +1436,9 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
     const inserted: Record<string, unknown>[] = [];
 
     for (const entry of this.payload) {
-      const record = { ...entry };
+      const record = tableName === "abandoned_carts"
+        ? normalizeAbandonedCartWritePayload(entry)
+        : { ...entry };
       const columns = Object.keys(record);
       const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
       const values = columns.map((column) => record[column]);
@@ -1366,7 +1474,9 @@ class LightPostgresCompatQueryBuilder implements PromiseLike<QueryExecutionResul
       };
     }
 
-    const payload = { ...this.payload[0] };
+    const payload = tableName === "abandoned_carts"
+      ? normalizeAbandonedCartWritePayload(this.payload[0])
+      : { ...this.payload[0] };
     if (Object.keys(payload).length === 0) {
       return {
         data: null,
