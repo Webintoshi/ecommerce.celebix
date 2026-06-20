@@ -11,6 +11,49 @@ function getDb() {
   return createServerClient();
 }
 
+function readBodyString(body: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = body[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function splitFullName(fullName: string | null) {
+  if (!fullName) {
+    return { firstName: null, lastName: null };
+  }
+
+  const parts = fullName.split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? null,
+    lastName: parts.slice(1).join(" ") || null,
+  };
+}
+
+function resolveCustomerNameParts(body: Record<string, unknown>) {
+  const explicitFullName = readBodyString(body, "customerName", "customer_name", "name");
+
+  if (explicitFullName) {
+    return splitFullName(explicitFullName);
+  }
+
+  const firstName = readBodyString(body, "firstName", "first_name");
+  const lastName = readBodyString(body, "lastName", "last_name");
+
+  if (firstName || lastName) {
+    return { firstName, lastName };
+  }
+
+  return {
+    firstName: readBodyString(body, "billingFirstName", "billing_first_name"),
+    lastName: readBodyString(body, "billingLastName", "billing_last_name"),
+  };
+}
+
 function sanitizePublicAbandonedCart(cart: any) {
   if (!cart || typeof cart !== "object") {
     return null;
@@ -49,13 +92,14 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getDb();
     const body = await request.json();
+    const { firstName, lastName } = resolveCustomerNameParts(body);
 
     const cart = await upsertAbandonedCart(
       {
         sessionId: body.session_id,
         customerId: body.customer_id,
-        firstName: body.first_name,
-        lastName: body.last_name,
+        firstName,
+        lastName,
         email: body.email,
         phone: body.phone,
         isAnonymous: body.is_anonymous,
@@ -125,6 +169,15 @@ export async function PATCH(request: NextRequest) {
 
     const nowIso = new Date().toISOString();
     const updateData: Record<string, unknown> = {};
+    const { firstName, lastName } = resolveCustomerNameParts(body);
+
+    if (firstName) {
+      updateData.first_name = firstName;
+    }
+
+    if (lastName) {
+      updateData.last_name = lastName;
+    }
 
     if (typeof status === "string" && status.trim()) {
       updateData.status = status;
