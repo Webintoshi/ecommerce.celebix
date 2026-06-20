@@ -14,9 +14,125 @@ import {
   DERYCRAFT_TEMPORARILY_DISABLED_CODE,
   isAdminAbandonedCartDisabled,
 } from "@/lib/light-postgres-readiness";
+import type { UserRole } from "@/lib/permissions";
+
+const ABANDONED_CART_FULL_PII_ROLES: UserRole[] = ["super_admin"];
+
+type AbandonedCartApiRow = Record<string, unknown>;
 
 function getDb() {
   return createServerClient();
+}
+
+function requireAbandonedCartPiiAuth() {
+  return requireAdminApiAuth({ roles: ABANDONED_CART_FULL_PII_ROLES });
+}
+
+function buildPiiPolicyMeta() {
+  return {
+    piiPolicy: {
+      visibility: "full",
+      roles: ABANDONED_CART_FULL_PII_ROLES,
+    },
+  };
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function normalizeStatus(row: AbandonedCartApiRow) {
+  const status = readString(row.status);
+  if (status === "active" || status === "abandoned" || status === "recovered" || status === "cleared") {
+    return status;
+  }
+
+  return row.recovered ? "recovered" : "abandoned";
+}
+
+function normalizeItems(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === "object") as Record<string, unknown>[] : [];
+}
+
+function calculateItemCount(items: Record<string, unknown>[]) {
+  return items.reduce((total, item) => {
+    const quantity = item.quantity;
+    if (typeof quantity === "number" && Number.isFinite(quantity)) {
+      return total + quantity;
+    }
+
+    if (typeof quantity === "string") {
+      const parsed = Number(quantity);
+      return total + (Number.isFinite(parsed) ? parsed : 1);
+    }
+
+    return total + 1;
+  }, 0);
+}
+
+function buildCustomerName(firstName: string | null, lastName: string | null) {
+  const fullName = `${firstName || ""} ${lastName || ""}`.trim();
+  return fullName || "Anonim sepet";
+}
+
+function mapAdminAbandonedCart(row: AbandonedCartApiRow) {
+  const items = normalizeItems(row.items);
+  const firstName = readString(row.first_name ?? row.firstName);
+  const lastName = readString(row.last_name ?? row.lastName);
+  const email = readString(row.email ?? row.customerEmail);
+  const phone = readString(row.phone ?? row.customerPhone);
+  const status = normalizeStatus(row);
+  const itemCount = readNumber(row.item_count ?? row.itemCount) || calculateItemCount(items);
+  const lastActivityAt =
+    readString(row.last_activity_at ?? row.lastActivityAt) ||
+    readString(row.updated_at ?? row.updatedAt) ||
+    readString(row.created_at ?? row.createdAt);
+
+  return {
+    ...row,
+    cartId: readString(row.cart_id ?? row.cartId),
+    storeSlug: readString(row.store_slug ?? row.storeSlug),
+    customerId: readString(row.customer_id ?? row.customerId),
+    sessionId: readString(row.session_id ?? row.sessionId),
+    firstName,
+    lastName,
+    email,
+    phone,
+    customerName: buildCustomerName(firstName, lastName),
+    customerEmail: email,
+    customerPhone: phone,
+    items,
+    total: readNumber(row.total),
+    itemCount,
+    status,
+    lastActivityAt,
+    checkoutStartedAt: readString(row.checkout_started_at ?? row.checkoutStartedAt),
+    recovered: Boolean(row.recovered) || status === "recovered",
+    orderId: readString(row.order_id ?? row.orderId),
+    createdAt: readString(row.created_at ?? row.createdAt),
+    updatedAt: readString(row.updated_at ?? row.updatedAt),
+    recoveredAt: readString(row.recovered_at ?? row.recoveredAt),
+    abandonedAt: readString(row.abandoned_at ?? row.abandonedAt),
+    isAnonymous:
+      typeof row.is_anonymous === "boolean"
+        ? row.is_anonymous
+        : typeof row.isAnonymous === "boolean"
+          ? row.isAnonymous
+          : !Boolean(firstName || lastName || email || phone),
+  };
 }
 
 function buildDisabledResponse() {
@@ -57,6 +173,7 @@ function buildSafeEmptyResponse({
       pages: 0,
     },
     ...buildOptionalModuleDisabledPayload("abandoned_carts", message),
+    ...buildPiiPolicyMeta(),
   });
 }
 
@@ -102,7 +219,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { response } = await requireAdminApiAuth();
+    const { response } = await requireAbandonedCartPiiAuth();
     if (response) {
       return response;
     }
@@ -139,20 +256,25 @@ export async function GET(request: NextRequest) {
 
     if (countError) {
       if (isAbandonedCartReadUnavailable(countError)) {
-        return buildSafeEmptyResponse({ carts: data || [], page, limit });
+        return buildSafeEmptyResponse({
+          carts: ((data || []) as AbandonedCartApiRow[]).map(mapAdminAbandonedCart),
+          page,
+          limit,
+        });
       }
       return NextResponse.json({ error: countError.message }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      carts: data,
+      carts: ((data || []) as AbandonedCartApiRow[]).map(mapAdminAbandonedCart),
       pagination: {
         page,
         limit,
         total: count || 0,
         pages: Math.ceil((count || 0) / limit),
       },
+      ...buildPiiPolicyMeta(),
     });
   } catch (error) {
     console.error("Error fetching abandoned carts:", error);
@@ -172,6 +294,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { response } = await requireAbandonedCartPiiAuth();
+    if (response) {
+      return response;
+    }
+
     const supabase = getDb();
     const body = await request.json();
 
@@ -194,7 +321,7 @@ export async function POST(request: NextRequest) {
       supabase
     );
 
-    return NextResponse.json({ success: true, cart });
+    return NextResponse.json({ success: true, cart: mapAdminAbandonedCart(cart as AbandonedCartApiRow), ...buildPiiPolicyMeta() });
   } catch (error) {
     console.error("Error creating/updating abandoned cart:", error);
     if (isAbandonedCartUnavailableError(error)) {
@@ -216,7 +343,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { response } = await requireAdminApiAuth();
+    const { response } = await requireAbandonedCartPiiAuth();
     if (response) {
       return response;
     }
@@ -248,7 +375,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: "Cart not found" }, { status: 404 });
       }
 
-      return NextResponse.json({ success: true, cart });
+      return NextResponse.json({ success: true, cart: mapAdminAbandonedCart(cart as AbandonedCartApiRow), ...buildPiiPolicyMeta() });
     }
 
     const existing = await findAbandonedCartByLookup(
@@ -317,7 +444,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, cart: data });
+    return NextResponse.json({ success: true, cart: mapAdminAbandonedCart(data as AbandonedCartApiRow), ...buildPiiPolicyMeta() });
   } catch (error) {
     console.error("Error updating abandoned cart:", error);
     if (isAbandonedCartUnavailableError(error)) {
@@ -339,17 +466,15 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
+    const { response } = await requireAbandonedCartPiiAuth();
+    if (response) {
+      return response;
+    }
+
     const supabase = getDb();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const sessionId = searchParams.get("session_id");
-
-    if (id) {
-      const { response } = await requireAdminApiAuth();
-      if (response) {
-        return response;
-      }
-    }
 
     if (!id && !sessionId) {
       return NextResponse.json({ error: "Cart lookup required" }, { status: 400 });

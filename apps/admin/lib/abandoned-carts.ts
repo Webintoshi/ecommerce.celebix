@@ -62,6 +62,35 @@ function normalizeAbandonedCartItemImage(source: unknown): string {
   return resolveAdminAssetUrl(normalizedSource) || normalizedSource;
 }
 
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function buildCustomerName(cart: any) {
+  const firstName = readString(cart.firstName ?? cart.first_name);
+  const lastName = readString(cart.lastName ?? cart.last_name);
+  const fullName = `${firstName || ""} ${lastName || ""}`.trim();
+  return readString(cart.customerName) || fullName || "Anonim sepet";
+}
+
+function normalizeAbandonedCartItems(items: unknown): AbandonedCartItem[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items.map((item: any) => ({
+    ...item,
+    id: item.id || `${item.productId || item.product_id}:${item.variantId || item.variant_id}`,
+    productId: item.productId || item.product_id,
+    productName: item.productName || item.name || "",
+    productSlug: item.productSlug || item.product_slug || "",
+    productImage: normalizeAbandonedCartItemImage(item.productImage || item.image || ""),
+    variantId: item.variantId || item.variant_id,
+    variantName: item.variantName || item.variant_name || "",
+    stock: typeof item.stock === "number" ? item.stock : 0,
+  }));
+}
+
 async function fetchFromAPI(
   filters?: AbandonedCartFilters,
   sort?: AbandonedCartSort,
@@ -81,27 +110,37 @@ async function fetchFromAPI(
 
     if (data.success) {
       // Map snake_case to camelCase
-      const mappedCarts = (data.carts || []).map((cart: any) => ({
-        ...cart,
-        sessionId: cart.session_id,
-        createdAt: cart.created_at,
-        updatedAt: cart.updated_at,
-        recoveredAt: cart.recovered_at,
-        itemCount: cart.item_count,
-        isAnonymous: cart.is_anonymous,
-        status: cart.status ?? (cart.recovered ? "recovered" : "abandoned"),
-        items: (cart.items || []).map((item: any) => ({
-          ...item,
-          id: item.id || `${item.productId || item.product_id}:${item.variantId || item.variant_id}`,
-          productId: item.productId || item.product_id,
-          productName: item.productName || item.name || "",
-          productSlug: item.productSlug || item.product_slug || "",
-          productImage: normalizeAbandonedCartItemImage(item.productImage || item.image || ""),
-          variantId: item.variantId || item.variant_id,
-          variantName: item.variantName || item.variant_name || "",
-          stock: typeof item.stock === "number" ? item.stock : 0,
-        })),
-      }));
+      const mappedCarts = (data.carts || []).map((cart: any) => {
+        const items = normalizeAbandonedCartItems(cart.items);
+        const customerEmail = readString(cart.customerEmail ?? cart.email);
+        const customerPhone = readString(cart.customerPhone ?? cart.phone);
+
+        return {
+          ...cart,
+          cartId: cart.cartId ?? cart.cart_id ?? null,
+          storeSlug: cart.storeSlug ?? cart.store_slug ?? null,
+          customerId: cart.customerId ?? cart.customer_id ?? null,
+          sessionId: cart.sessionId ?? cart.session_id ?? null,
+          firstName: cart.firstName ?? cart.first_name ?? null,
+          lastName: cart.lastName ?? cart.last_name ?? null,
+          customerName: buildCustomerName(cart),
+          customerEmail,
+          customerPhone,
+          email: customerEmail,
+          phone: customerPhone,
+          createdAt: cart.createdAt ?? cart.created_at ?? null,
+          updatedAt: cart.updatedAt ?? cart.updated_at ?? null,
+          recoveredAt: cart.recoveredAt ?? cart.recovered_at ?? null,
+          abandonedAt: cart.abandonedAt ?? cart.abandoned_at ?? null,
+          lastActivityAt: cart.lastActivityAt ?? cart.last_activity_at ?? cart.updated_at ?? cart.created_at ?? null,
+          checkoutStartedAt: cart.checkoutStartedAt ?? cart.checkout_started_at ?? null,
+          orderId: cart.orderId ?? cart.order_id ?? null,
+          itemCount: cart.itemCount ?? cart.item_count ?? items.length,
+          isAnonymous: cart.isAnonymous ?? cart.is_anonymous ?? !Boolean(customerEmail || customerPhone),
+          status: cart.status ?? (cart.recovered ? "recovered" : "abandoned"),
+          items,
+        };
+      });
       return {
         carts: mappedCarts,
         total: data.pagination?.total || 0,

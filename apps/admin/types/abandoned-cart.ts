@@ -1,20 +1,30 @@
 export interface AbandonedCart {
   id: string;
+  cartId?: string | null;
+  storeSlug?: string | null;
   userId?: string;
-  sessionId?: string;
-  email?: string;
-  phone?: string;
-  firstName?: string;
-  lastName?: string;
+  customerId?: string | null;
+  sessionId?: string | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   isAnonymous: boolean;
   items: AbandonedCartItem[];
   total: number;
   itemCount: number;
   status?: "active" | "abandoned" | "recovered" | "cleared";
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string | null;
+  updatedAt: Date | string | null;
+  lastActivityAt?: Date | string | null;
+  checkoutStartedAt?: Date | string | null;
   recovered?: boolean;
-  recoveredAt?: Date;
+  recoveredAt?: Date | string | null;
+  abandonedAt?: Date | string | null;
+  orderId?: string | null;
 }
 
 export interface AbandonedCartItem {

@@ -151,32 +151,52 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function formatCartDate(value: Date | string | undefined) {
+function formatCartDate(value: Date | string | undefined | null) {
   return format(toDate(value), "d MMM yyyy", { locale: tr });
 }
 
-function formatCartDateTime(value: Date | string | undefined) {
+function formatCartDateTime(value: Date | string | undefined | null) {
   return format(toDate(value), "d MMM yyyy · HH:mm", { locale: tr });
 }
 
-function formatRelativeTime(value: Date | string | undefined) {
+function formatRelativeTime(value: Date | string | undefined | null) {
   return formatDistanceToNow(toDate(value), { locale: tr, addSuffix: true });
 }
 
 function getCustomerName(cart: AbandonedCart) {
+  if (cart.customerName?.trim()) {
+    return cart.customerName.trim();
+  }
+
   const name = `${cart.firstName || ""} ${cart.lastName || ""}`.trim();
-  return name || "Anonim Kullanıcı";
+  return name || "Anonim sepet";
+}
+
+function getCustomerEmail(cart: AbandonedCart) {
+  return cart.customerEmail || cart.email || "";
+}
+
+function getCustomerPhone(cart: AbandonedCart) {
+  return cart.customerPhone || cart.phone || "";
+}
+
+function getCartLastActivityAt(cart: AbandonedCart) {
+  return cart.lastActivityAt || cart.updatedAt || cart.createdAt;
+}
+
+function getCartCheckoutStartedAt(cart: AbandonedCart) {
+  return cart.checkoutStartedAt || null;
+}
+
+function formatOptionalCartDateTime(value: Date | string | undefined | null) {
+  return value ? formatCartDateTime(value) : "Henüz başlamadı";
 }
 
 function getCustomerInitials(cart: AbandonedCart) {
-  if (cart.isAnonymous) {
-    return "AN";
-  }
-
   const parts = getCustomerName(cart).split(" ").filter(Boolean);
 
   if (parts.length === 0) {
-    return "CU";
+    return "AS";
   }
 
   if (parts.length === 1) {
@@ -521,7 +541,9 @@ function CartDetailModal({
             >
               {getCustomerName(cart)}
             </h3>
-            <p className="mt-1 text-sm text-[#6B7280]">{formatCartDateTime(cart.createdAt)}</p>
+            <p className="mt-1 text-sm text-[#6B7280]">
+              Son aktivite: {formatCartDateTime(getCartLastActivityAt(cart))}
+            </p>
           </div>
           <button
             type="button"
@@ -534,11 +556,17 @@ function CartDetailModal({
         </div>
 
         <div className="space-y-5 p-5 sm:space-y-6 sm:p-6">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <InfoTile label="Sepet toplamı" value={formatCurrency(cart.total || 0)} valueClassName="text-[1.35rem]" />
             <InfoTile label="Ürün adedi" value={cart.itemCount.toString()} valueClassName="text-[1.35rem]" />
             <InfoTile label="Durum" value={getCartStatus(cart).label} />
             <InfoTile label="Geri kazanım" value={getRecoveryLabel(cart).label} />
+            <InfoTile label="Son aktivite" value={formatCartDateTime(getCartLastActivityAt(cart))} />
+            <InfoTile
+              label="Checkout başladı mı?"
+              value={getCartCheckoutStartedAt(cart) ? "Evet" : "Hayır"}
+              meta={formatOptionalCartDateTime(getCartCheckoutStartedAt(cart))}
+            />
           </div>
 
           <section>
@@ -547,8 +575,8 @@ function CartDetailModal({
             </h4>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <InfoTile label="Müşteri" value={getCustomerName(cart)} />
-              <InfoTile label="E-posta" value={cart.email || "E-posta bilgisi yok"} />
-              <InfoTile label="Telefon" value={cart.phone || "Telefon bilgisi yok"} />
+              <InfoTile label="E-posta" value={getCustomerEmail(cart) || "E-posta bilgisi yok"} />
+              <InfoTile label="Telefon" value={getCustomerPhone(cart) || "Telefon bilgisi yok"} />
               <InfoTile label="Kimlik" value={getCustomerIdentity(cart)} />
             </div>
           </section>
@@ -611,6 +639,7 @@ function MobileCartCard({
   const remainingItems = Math.max(cart.items.length - previewItems.length, 0);
   const recoveryMetaText =
     cart.recovered && cart.recoveredAt ? formatRelativeTime(cart.recoveredAt) : "İşlem bekliyor";
+  const checkoutStartedAt = getCartCheckoutStartedAt(cart);
 
   return (
     <article className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
@@ -625,8 +654,13 @@ function MobileCartCard({
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#FBFCFD] px-2.5 py-1 text-[11px] font-medium text-[#6B7280]">
           <CalendarClock className="h-3.5 w-3.5" />
-          {formatRelativeTime(cart.createdAt)}
+          {formatRelativeTime(getCartLastActivityAt(cart))}
         </span>
+        {checkoutStartedAt ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-2.5 py-1 text-[11px] font-semibold text-[#E85D04]">
+            Checkout başladı
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-4 flex gap-3">
@@ -641,11 +675,11 @@ function MobileCartCard({
           <div className="mt-2 space-y-1.5 text-[13px] text-[#6B7280]">
             <div className="flex items-center gap-2">
               <Mail className="h-4 w-4 shrink-0 text-[#9CA3AF]" />
-              <span className="truncate">{cart.email || "E-posta bilgisi yok"}</span>
+              <span className="truncate">{getCustomerEmail(cart) || "E-posta bilgisi yok"}</span>
             </div>
             <div className="flex items-center gap-2">
               <Phone className="h-4 w-4 shrink-0 text-[#9CA3AF]" />
-              <span className="truncate">{cart.phone || "Telefon bilgisi yok"}</span>
+              <span className="truncate">{getCustomerPhone(cart) || "Telefon bilgisi yok"}</span>
             </div>
           </div>
           <p className="mt-2 truncate text-[12px] font-medium text-[#9CA3AF]">{getCustomerIdentity(cart)}</p>
@@ -655,12 +689,16 @@ function MobileCartCard({
       <div className="mt-4 grid grid-cols-2 gap-2.5">
         <InfoTile label="Sepet Değeri" value={formatCurrency(cart.total || 0)} valueClassName="text-[#FF6A00]" />
         <InfoTile label="Ürün Adedi" value={cart.itemCount.toString()} />
-        <InfoTile label="Terk Tarihi" value={formatCartDate(cart.createdAt)} meta={format(toDate(cart.createdAt), "HH:mm")} />
         <InfoTile
-          label="Geri Kazanım"
-          value={recoveryMeta.label}
-          meta={recoveryMetaText}
-          valueClassName={recoveryMeta.className.includes("#16A34A") ? "text-[#16A34A]" : "text-[#3B82F6]"}
+          label="Son Aktivite"
+          value={formatCartDate(getCartLastActivityAt(cart))}
+          meta={format(toDate(getCartLastActivityAt(cart)), "HH:mm")}
+        />
+        <InfoTile
+          label="Checkout"
+          value={checkoutStartedAt ? "Başladı" : "Başlamadı"}
+          meta={checkoutStartedAt ? formatRelativeTime(checkoutStartedAt) : recoveryMetaText}
+          valueClassName={checkoutStartedAt ? "text-[#E85D04]" : "text-[#6B7280]"}
         />
       </div>
 
@@ -757,6 +795,7 @@ function DesktopCartCard({
   const previewItems = cart.items.slice(0, 2);
   const remainingItems = Math.max(cart.items.length - previewItems.length, 0);
   const StatusIcon = statusMeta.icon;
+  const checkoutStartedAt = getCartCheckoutStartedAt(cart);
 
   return (
     <article className="overflow-hidden rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
@@ -772,8 +811,13 @@ function DesktopCartCard({
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#FBFCFD] px-3 py-1.5 text-xs font-medium text-[#6B7280]">
             <CalendarClock className="h-3.5 w-3.5" />
-            {formatRelativeTime(cart.createdAt)}
+            {formatRelativeTime(getCartLastActivityAt(cart))}
           </span>
+          {checkoutStartedAt ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1.5 text-xs font-semibold text-[#E85D04]">
+              Checkout başladı
+            </span>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">
@@ -826,11 +870,11 @@ function DesktopCartCard({
               <div className="space-y-1 text-sm text-[#6B7280]">
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-[#9CA3AF]" />
-                  <span>{cart.email || "E-posta bilgisi yok"}</span>
+                  <span>{getCustomerEmail(cart) || "E-posta bilgisi yok"}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-[#9CA3AF]" />
-                  <span>{cart.phone || "Telefon bilgisi yok"}</span>
+                  <span>{getCustomerPhone(cart) || "Telefon bilgisi yok"}</span>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
@@ -865,13 +909,24 @@ function DesktopCartCard({
             </div>
             <div className="rounded-[20px] border border-[#E7EAF0] bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
-                Terk Tarihi
+                Son Aktivite
               </p>
               <p className="mt-2 text-sm font-semibold text-[#1F2937]">
-                {formatCartDate(cart.createdAt)}
+                {formatCartDate(getCartLastActivityAt(cart))}
               </p>
               <p className="mt-1 text-xs text-[#9CA3AF]">
-                {format(toDate(cart.createdAt), "HH:mm")}
+                {format(toDate(getCartLastActivityAt(cart)), "HH:mm")}
+              </p>
+            </div>
+            <div className="rounded-[20px] border border-[#E7EAF0] bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9CA3AF]">
+                Checkout
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[#1F2937]">
+                {checkoutStartedAt ? "Başladı" : "Başlamadı"}
+              </p>
+              <p className="mt-1 text-xs text-[#9CA3AF]">
+                {checkoutStartedAt ? formatCartDateTime(checkoutStartedAt) : "Checkout bilgisi yok"}
               </p>
             </div>
             <div className="rounded-[20px] border border-[#E7EAF0] bg-white p-4">
@@ -884,7 +939,7 @@ function DesktopCartCard({
                 </span>
               </div>
               <p className="mt-2 text-xs text-[#9CA3AF]">
-                {formatRelativeTime(cart.createdAt)}
+                {formatRelativeTime(cart.recoveredAt || getCartLastActivityAt(cart))}
               </p>
             </div>
           </div>
@@ -1070,8 +1125,8 @@ export default function AbandonedCartsPage() {
 
     const filtered = allCarts.filter((cart) => {
       const name = getCustomerName(cart).toLowerCase();
-      const email = (cart.email || "").toLowerCase();
-      const phone = (cart.phone || "").toLowerCase();
+      const email = getCustomerEmail(cart).toLowerCase();
+      const phone = getCustomerPhone(cart).toLowerCase();
       const matchesSearch =
         !searchLower ||
         name.includes(searchLower) ||

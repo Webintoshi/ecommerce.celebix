@@ -85,13 +85,7 @@ function isProtectedApi(request: NextRequest) {
   }
 
   if (pathname === "/api/abandoned-carts") {
-    if (request.method === "GET" || request.method === "PATCH") {
-      return true;
-    }
-
-    if (request.method === "DELETE") {
-      return request.nextUrl.searchParams.has("id");
-    }
+    return true;
   }
 
   if (pathname === "/api/lucky-wheel/admin") {
