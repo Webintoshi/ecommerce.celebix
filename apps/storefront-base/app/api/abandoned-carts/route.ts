@@ -4,7 +4,6 @@ import {
   deleteLatestOpenAbandonedCartForSession,
   findAbandonedCartByLookup,
   markAbandonedCartAsRecovered,
-  syncAbandonedCartStatuses,
   upsertAbandonedCart,
 } from "@/lib/db/abandoned-carts";
 
@@ -12,92 +11,38 @@ function getDb() {
   return createServerClient();
 }
 
-function applyFilters(
-  query: any,
-  {
-    status,
-    search,
-    sort,
-  }: {
-    status: string | null;
-    search: string | null;
-    sort: string;
-  }
-) {
-  let nextQuery = query;
-
-  if (status === "all") {
-    nextQuery = nextQuery.neq("status", "cleared");
-  } else if (status === "recovered") {
-    nextQuery = nextQuery.eq("status", "recovered");
-  } else if (status) {
-    nextQuery = nextQuery.eq("status", status);
-  } else {
-    nextQuery = nextQuery.in("status", ["abandoned", "recovered"]);
+function sanitizePublicAbandonedCart(cart: any) {
+  if (!cart || typeof cart !== "object") {
+    return null;
   }
 
-  if (search?.trim()) {
-    const term = search.trim();
-    nextQuery = nextQuery.or(
-      `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
-    );
-  }
-
-  const orderColumn = sort.startsWith("total") ? "total" : "created_at";
-  const ascending = sort === "date-asc" || sort === "total-asc";
-  return nextQuery.order(orderColumn, { ascending });
+  return {
+    id: typeof cart.id === "string" ? cart.id : null,
+    cartId: typeof cart.cart_id === "string" ? cart.cart_id : null,
+    status: typeof cart.status === "string" ? cart.status : cart.recovered ? "recovered" : "active",
+    total: typeof cart.total === "number" ? cart.total : Number(cart.total || 0),
+    itemCount: typeof cart.item_count === "number" ? cart.item_count : 0,
+    recovered: Boolean(cart.recovered),
+    checkoutStartedAt: typeof cart.checkout_started_at === "string" ? cart.checkout_started_at : null,
+    lastActivityAt:
+      typeof cart.last_activity_at === "string"
+        ? cart.last_activity_at
+        : typeof cart.updated_at === "string"
+          ? cart.updated_at
+          : null,
+  };
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const supabase = getDb();
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status");
-    const search = searchParams.get("search");
-    const sort = searchParams.get("sort") || "date-desc";
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
-
-    await syncAbandonedCartStatuses(supabase);
-
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    const { data, error } = await applyFilters(
-      supabase.from("abandoned_carts").select("*"),
-      { status, search, sort }
-    ).range(from, to);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    const { count, error: countError } = await applyFilters(
-      supabase.from("abandoned_carts").select("*", { count: "exact", head: true }),
-      { status, search, sort }
-    );
-
-    if (countError) {
-      return NextResponse.json({ error: countError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      carts: data,
-      pagination: {
-        page,
-        limit,
-        total: count || 0,
-        pages: Math.ceil((count || 0) / limit),
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching abandoned carts:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
+  void request;
+  return NextResponse.json(
+    {
+      success: false,
+      code: "abandoned_cart_public_read_disabled",
+      error: "Abandoned cart records are not exposed from the storefront API.",
+    },
+    { status: 405 },
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -122,7 +67,7 @@ export async function POST(request: NextRequest) {
       supabase
     );
 
-    return NextResponse.json({ success: true, cart });
+    return NextResponse.json({ success: true, cart: sanitizePublicAbandonedCart(cart) });
   } catch (error) {
     console.error("Error creating/updating abandoned cart:", error);
     return NextResponse.json(
@@ -160,7 +105,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: "Cart not found" }, { status: 404 });
       }
 
-      return NextResponse.json({ success: true, cart });
+      return NextResponse.json({ success: true, cart: sanitizePublicAbandonedCart(cart) });
     }
 
     const existing = await findAbandonedCartByLookup(
@@ -223,7 +168,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, cart: data });
+    return NextResponse.json({ success: true, cart: sanitizePublicAbandonedCart(data) });
   } catch (error) {
     console.error("Error updating abandoned cart:", error);
     return NextResponse.json(

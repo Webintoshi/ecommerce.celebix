@@ -12,6 +12,28 @@ function getDb() {
   return createServerClient();
 }
 
+function sanitizePublicAbandonedCart(cart: any) {
+  if (!cart || typeof cart !== "object") {
+    return null;
+  }
+
+  return {
+    id: typeof cart.id === "string" ? cart.id : null,
+    cartId: typeof cart.cart_id === "string" ? cart.cart_id : null,
+    status: typeof cart.status === "string" ? cart.status : cart.recovered ? "recovered" : "active",
+    total: typeof cart.total === "number" ? cart.total : Number(cart.total || 0),
+    itemCount: typeof cart.item_count === "number" ? cart.item_count : 0,
+    recovered: Boolean(cart.recovered),
+    checkoutStartedAt: typeof cart.checkout_started_at === "string" ? cart.checkout_started_at : null,
+    lastActivityAt:
+      typeof cart.last_activity_at === "string"
+        ? cart.last_activity_at
+        : typeof cart.updated_at === "string"
+          ? cart.updated_at
+          : null,
+  };
+}
+
 function buildUnavailableResponse() {
   return NextResponse.json({
     success: true,
@@ -63,7 +85,7 @@ export async function POST(request: NextRequest) {
       supabase
     );
 
-    return NextResponse.json({ success: true, cart });
+    return NextResponse.json({ success: true, cart: sanitizePublicAbandonedCart(cart) });
   } catch (error) {
     console.error("Error creating/updating abandoned cart:", error);
     if (isAbandonedCartUnavailableError(error) || isRecoverableTrackingError(error)) {
@@ -105,7 +127,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: "Cart not found" }, { status: 404 });
       }
 
-      return NextResponse.json({ success: true, cart });
+      return NextResponse.json({ success: true, cart: sanitizePublicAbandonedCart(cart) });
     }
 
     const existing = await findAbandonedCartByLookup(
@@ -171,7 +193,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, cart: data });
+    return NextResponse.json({ success: true, cart: sanitizePublicAbandonedCart(data) });
   } catch (error) {
     console.error("Error updating abandoned cart:", error);
     if (isAbandonedCartUnavailableError(error)) {

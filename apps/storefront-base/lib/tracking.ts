@@ -240,7 +240,7 @@ class Tracker {
         }
     }
 
-    async trackCheckout(step: string, cartItems: unknown[], cartTotal: number, email?: string, phone?: string) {
+    async trackCheckout(step: string, cartItems: unknown[], cartTotal: number, _email?: string, _phone?: string) {
         if (!this.sessionId) return;
 
         try {
@@ -252,8 +252,6 @@ class Tracker {
                     step,
                     cartItems,
                     cartTotal,
-                    email,
-                    phone,
                 }),
             });
         } catch (error) {

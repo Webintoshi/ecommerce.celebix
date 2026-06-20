@@ -5,7 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { sessionId, step, cartItems, cartTotal, email, phone } = body;
+        const { sessionId, step, cartItems, cartTotal } = body;
 
         if (!sessionId || !cartItems) {
             return NextResponse.json({ success: false, error: "Session ID and cart items required" }, { status: 400 });
@@ -30,8 +30,6 @@ export async function POST(request: NextRequest) {
                     step: step || "info",
                     cart_items: cartItems,
                     cart_total: cartTotal,
-                    email: email,
-                    phone: phone,
                     updated_at: new Date().toISOString(),
                     abandoned: false, // Reset abandoned status if user returns
                 })
@@ -43,8 +41,6 @@ export async function POST(request: NextRequest) {
                 step: step || "info",
                 cart_items: cartItems,
                 cart_total: cartTotal,
-                email: email,
-                phone: phone,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             });
