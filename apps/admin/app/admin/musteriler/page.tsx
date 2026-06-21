@@ -24,6 +24,7 @@ import {
   exportCustomersToCSV as exportCustomerRecordsToCSV,
   parseImportedCustomers as parseCustomerImportRows,
 } from "@/lib/customer-csv";
+import { AdminDataTable, AdminMetricCard, AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageShell";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 
 type ImportedCustomerRow = {
@@ -643,16 +644,12 @@ export default function CustomersPage({
         onChange={handleImport}
       />
 
-          <section className="overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)] md:rounded-[30px]">
-            <div className="border-b border-[var(--admin-border)] px-6 py-6 md:px-8 md:py-7">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
-                    Müşteriler
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+          <AdminPageHeader
+            sectionLabel="Müşteri"
+            title="Müşteriler"
+            description="Müşteri kayıtlarını, segment sinyallerini ve CSV içe/dışa aktarma akışlarını yönetin."
+            actions={
+              <>
                   <button
                     type="button"
                     onClick={handleDownloadTemplate}
@@ -685,17 +682,17 @@ export default function CustomersPage({
                     <Plus className="h-4 w-4" />
                     Yeni Müşteri
                   </Link>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-px bg-[#EEF1F4] md:grid-cols-2 xl:grid-cols-4">
+              </>
+            }
+            metrics={
+              <>
               <HeroMetric label="Toplam müşteri" value={metrics.total.toLocaleString("tr-TR")} />
               <HeroMetric label="Aktif müşteri" value={metrics.active.toLocaleString("tr-TR")} />
               <HeroMetric label="Pasif müşteri" value={metrics.inactive.toLocaleString("tr-TR")} />
               <HeroMetric label="Toplam harcama" value={formatPrice(metrics.totalRevenue)} />
-            </div>
-          </section>
+              </>
+            }
+          />
 
           {errorMessage ? (
             <div
@@ -809,7 +806,7 @@ export default function CustomersPage({
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)] md:rounded-[30px]">
+          <AdminDataTable>
             <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -1079,7 +1076,7 @@ export default function CustomersPage({
                 </div>
               </div>
             </div>
-          </section>
+          </AdminDataTable>
 
           <div className="sr-only" aria-live="polite" aria-atomic="true">
             {loading
@@ -1101,7 +1098,7 @@ interface StatCardProps {
 
 function HeroMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
+    <div className="bg-white px-5 py-5 md:px-6">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
         <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
@@ -1111,20 +1108,21 @@ function HeroMetric({ label, value }: { label: string; value: string }) {
 }
 
 function StatCard({ title, value, icon: Icon, tone }: StatCardProps) {
+  const resolvedTone = tone.includes("rose")
+    ? "danger"
+    : tone.includes("amber")
+      ? "warning"
+      : tone.includes("stone")
+        ? "neutral"
+        : "accent";
+
   return (
-    <div className="overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)] md:rounded-[28px]">
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="mt-2 text-[26px] font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-          </div>
-          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border bg-gradient-to-br shadow-sm ${tone}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-      </div>
-    </div>
+    <AdminMetricCard
+      label={title}
+      value={value}
+      icon={Icon}
+      tone={resolvedTone}
+    />
   );
 }
 
@@ -1146,23 +1144,20 @@ function statusText(status: Customer["status"]) {
 }
 
 function StatusBadge({ status }: { status: Customer["status"] }) {
-  const styles = {
-    active: "border-emerald-200 bg-emerald-100/90 text-emerald-700",
-    inactive: "border-stone-200 bg-stone-100 text-stone-700",
-    blocked: "border-rose-200 bg-rose-100/90 text-rose-700",
-  };
-
   const labels = {
     active: "Aktif",
     inactive: "Pasif",
     blocked: "Engelli",
   };
+  const tones = {
+    active: "success",
+    inactive: "neutral",
+    blocked: "danger",
+  } as const;
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}
-    >
+    <AdminStatusBadge tone={tones[status]}>
       {labels[status]}
-    </span>
+    </AdminStatusBadge>
   );
 }

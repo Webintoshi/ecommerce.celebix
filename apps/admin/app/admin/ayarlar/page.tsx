@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import {
   Store,
   Truck,
@@ -18,20 +19,20 @@ import Link from "next/link";
 const SETTINGS_SECTIONS = [
   {
     title: "Genel Ayarlar",
-    description: "Magaza adi, iletisim bilgileri, para birimi ve zaman dilimi.",
+    description: "Mağaza adı, iletişim bilgileri, para birimi ve zaman dilimi.",
     icon: Store,
     href: "/admin/ayarlar/genel",
     tone: "from-white to-white text-[var(--admin-accent)] border-[var(--admin-border)]",
   },
   {
     title: "Kargo ve Teslimat",
-    description: "Kargo bolgeleri, ucretler ve kargo firmasi entegrasyonlari.",
+    description: "Kargo bölgeleri, ücretler ve kargo firması entegrasyonları.",
     icon: Truck,
     href: "/admin/ayarlar/kargo",
     tone: "from-[#fff6ed] to-white text-[#d66a1f] border-[#f2c79d]",
   },
   {
-        title: "Ödeme Yöntemleri",
+    title: "Ödeme Yöntemleri",
     description: "Kredi kartı, havale/EFT ve kapıda ödeme ayarları.",
     icon: CreditCard,
     href: "/admin/ayarlar/odeme",
@@ -39,21 +40,21 @@ const SETTINGS_SECTIONS = [
   },
   {
     title: "Bildirimler",
-        description: "Müşteri e-postaları, SMS şablonları ve yönetici bildirimleri.",
+    description: "Müşteri e-postaları, SMS şablonları ve yönetici bildirimleri.",
     icon: Bell,
     href: "/admin/ayarlar/bildirimler",
     tone: "from-[#fdf1e7] to-white text-[#b86a32] border-[#edd2b7]",
   },
   {
-        title: "Yöneticiler ve İzinler",
-        description: "Yönetici hesapları, roller ve erişim yetkileri.",
+    title: "Yöneticiler ve İzinler",
+    description: "Yönetici hesapları, roller ve erişim yetkileri.",
     icon: ShieldCheck,
     href: "/admin/yoneticiler",
     tone: "from-[#f7efe8] to-white text-[#7c5a47] border-[#e3d4c6]",
   },
   {
-    title: "Dil ve Bolge",
-    description: "Magaza dili ve bolgesel ayarlar.",
+    title: "Dil ve Bölge",
+    description: "Mağaza dili ve bölgesel ayarlar.",
     icon: Globe2,
     href: "/admin/ayarlar/dil",
     tone: "from-white to-white text-[#c56a1f] border-[#efceae]",
@@ -77,25 +78,24 @@ const SETTINGS_SECTIONS = [
 export default function SettingsPage() {
   return (
     <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
-          <div className="inline-flex items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold tracking-[0.18em] text-[var(--admin-accent-hover)] uppercase">
-            Ayarlar
-          </div>
-          <div className="hidden" />
-        </section>
+      <AdminPageShell className="mx-auto max-w-7xl">
+        <AdminPageHeader
+          sectionLabel="Sistem"
+          title="Ayarlar"
+          description="Mağaza, operasyon ve entegrasyon ayarlarını tek merkezden yönetin. Kritik checkout ayarlarında değişiklik yapmadan önce canlı etkiyi kontrol edin."
+        />
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           {SETTINGS_SECTIONS.map((section) => (
             <Link
               key={section.href}
               href={section.href}
-              className="group flex min-h-[240px] flex-col justify-between rounded-[28px] border border-[var(--admin-border)] bg-white/90 p-6 text-left shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:bg-white hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+              className="group flex min-h-[220px] flex-col justify-between rounded-[20px] border border-[var(--admin-border)] bg-white p-5 text-left shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] md:rounded-[24px] md:p-6"
             >
               <div>
                 <div
                   className={cn(
-                    "mb-5 flex h-14 w-14 items-center justify-center rounded-[20px] border bg-gradient-to-br shadow-sm transition-transform duration-200 group-hover:scale-105",
+                    "mb-5 flex h-12 w-12 items-center justify-center rounded-[16px] border bg-gradient-to-br shadow-sm transition-transform duration-200 group-hover:scale-105",
                     section.tone
                   )}
                 >
@@ -107,8 +107,8 @@ export default function SettingsPage() {
                 <p className="mt-3 text-sm leading-6 text-[#7d6959]">{section.description}</p>
               </div>
 
-              <div className="mt-6 flex items-center justify-between rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition-all group-hover:border-[var(--admin-accent-border)] group-hover:bg-[var(--admin-accent-soft)] group-hover:text-[var(--admin-accent-hover)]">
-                <span>Ayari ac</span>
+              <div className="mt-6 flex items-center justify-between rounded-[16px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition-all group-hover:border-[var(--admin-accent-border)] group-hover:bg-[var(--admin-accent-soft)] group-hover:text-[var(--admin-accent-hover)]">
+                <span>Ayarı aç</span>
                 <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             </Link>
@@ -125,13 +125,13 @@ export default function SettingsPage() {
               </p>
             </div>
             <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[var(--admin-heading)] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25">
-              Incelemeye Basla
+              İncelemeye Başla
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
           <div className="hidden" />
         </section>
-      </div>
+      </AdminPageShell>
     </div>
   );
 }

@@ -8,6 +8,7 @@
   --admin-touch-target: 48px;
   --admin-bg: #F7F8FA;
   --admin-surface: #FFFFFF;
+  --admin-muted-surface: #FBFCFD;
   --admin-border: #E7EAF0;
   --admin-heading: #1F2937;
   --admin-text: #374151;
@@ -19,6 +20,9 @@
   --admin-accent-border: #FFD7BF;
   --admin-success: #16A34A;
   --admin-success-soft: #EAF8EF;
+  --admin-warning: #B45309;
+  --admin-warning-soft: #FFF7E8;
+  --admin-warning-border: #FDE68A;
   --admin-danger: #EF4444;
   --admin-danger-soft: #FDECEC;
   --admin-info: #3B82F6;
@@ -74,10 +78,11 @@
   --radius-2xl: 24px;
 
   /* Shadow System */
+  --shadow-xs: 0 6px 16px rgba(17, 24, 39, 0.035);
   --shadow-sm: 0 8px 20px rgba(17, 24, 39, 0.04);
-  --shadow-md: 0 14px 34px rgba(17, 24, 39, 0.05);
+  --shadow-md: 0 12px 28px rgba(17, 24, 39, 0.05);
   --shadow-lg: 0 18px 42px rgba(17, 24, 39, 0.07);
-  --shadow-xl: 0 26px 60px rgba(17, 24, 39, 0.09);
+  --shadow-xl: 0 24px 56px rgba(17, 24, 39, 0.09);
   --shadow-2xl: 0 34px 90px rgba(17, 24, 39, 0.14);
 }
 
@@ -177,12 +182,12 @@ html {
   }
 
   .admin-panel {
-    @apply rounded-[24px] border bg-white shadow-[0_14px_34px_rgba(17,24,39,0.05)];
+    @apply rounded-[20px] border bg-white shadow-[var(--shadow-sm)] md:rounded-[24px];
     border-color: var(--admin-border);
   }
 
   .admin-toolbar {
-    @apply rounded-[22px] border bg-white p-3 md:p-4;
+    @apply rounded-[18px] border bg-white p-3 md:rounded-[20px] md:p-4;
     border-color: var(--admin-border);
   }
 
@@ -211,22 +216,22 @@ html {
   }
 
   .admin-hero-surface {
-    @apply relative overflow-hidden rounded-[32px] border bg-white shadow-[var(--shadow-md)];
+    @apply relative overflow-hidden rounded-[24px] border bg-white shadow-[var(--shadow-sm)];
     border-color: var(--admin-border);
   }
 
   .admin-card-surface {
-    @apply rounded-[28px] border bg-white shadow-[var(--shadow-md)];
+    @apply rounded-[20px] border bg-white shadow-[var(--shadow-sm)] md:rounded-[24px];
     border-color: var(--admin-border);
   }
 
   .admin-list-surface {
-    @apply overflow-hidden rounded-[30px] border bg-white shadow-[var(--shadow-md)];
+    @apply overflow-hidden rounded-[20px] border bg-white shadow-[var(--shadow-sm)] md:rounded-[24px];
     border-color: var(--admin-border);
   }
 
   .admin-soft-surface {
-    @apply rounded-[24px] border bg-[#FCFDFE];
+    @apply rounded-[18px] border bg-[#FCFDFE] md:rounded-[20px];
     border-color: var(--admin-border);
   }
 

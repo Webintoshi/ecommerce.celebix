@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { motion } from "framer-motion";
+import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   DashboardAnalysisSummaryItem,
@@ -401,26 +402,22 @@ function DashboardTopStrip({
   ];
 
   return (
-    <section className={cn(SURFACE, "px-4 py-4 md:px-5")}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">
-            {getPeriodLabel(selectedPeriod)} özeti
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {chips.map((chip) => (
-              <span
-                key={chip}
-                className="inline-flex min-h-[34px] items-center rounded-full border border-[var(--admin-border)] bg-[rgba(247,248,250,0.84)] px-3 py-1.5 text-[12px] font-medium text-[var(--admin-text-secondary)]"
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <label className="inline-flex min-h-[48px] items-center gap-3 rounded-[16px] border border-[var(--admin-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-heading)] shadow-[0_6px_18px_rgba(17,24,39,0.04)]">
+    <AdminPageHeader
+      sectionLabel="Ana panel"
+      title="Mağaza sağlığı"
+      description="Satış, sipariş, stok ve müşteri aktivitesi sinyallerini tek ekranda takip edin."
+      statusSlot={chips.map((chip) => (
+        <span
+          key={chip}
+          className="inline-flex min-h-[34px] items-center rounded-full border border-[var(--admin-border)] bg-[rgba(247,248,250,0.84)] px-3 py-1.5 text-[12px] font-medium text-[var(--admin-text-secondary)]"
+        >
+          {chip}
+        </span>
+      ))}
+      actions={
+        <label className="inline-flex min-h-[46px] items-center gap-3 rounded-[16px] border border-[var(--admin-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-heading)] shadow-[var(--shadow-xs)]">
           <CalendarDays className="h-4.5 w-4.5 text-[var(--admin-accent-hover)]" />
+          <span className="sr-only">{getPeriodLabel(selectedPeriod)} özeti</span>
           <select
             value={selectedPeriod}
             onChange={(event) => onPeriodChange(event.target.value as TimeRange)}
@@ -434,8 +431,8 @@ function DashboardTopStrip({
             ))}
           </select>
         </label>
-      </div>
-    </section>
+      }
+    />
   );
 }
 

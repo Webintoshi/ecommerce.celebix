@@ -1,21 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState, type ComponentType, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Home, Menu, Package, RefreshCw, Tag } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
-import { StoreInfoProvider, useStoreInfo } from "@/lib/store-info-context";
 import { cn } from "@/lib/utils";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 type MobileSurface = "sidebar" | "notifications" | "toshi" | null;
 const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
 
-function getShellMeta(pathname: string, storeName: string) {
+function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/siparisler")) {
     return {
       title: "Siparişler",
@@ -59,8 +58,8 @@ function getShellMeta(pathname: string, storeName: string) {
   }
 
   return {
-    title: `${storeName} Yönetim Paneli`,
-    subtitle: `${storeName} mağazasının operasyonlarını yönetin.`,
+    title: "Yönetim paneli",
+    subtitle: "Ortak kontrol merkezi.",
   };
 }
 
@@ -201,16 +200,15 @@ function MobileToshiDockButton({
   );
 }
 
-function AdminLayoutShell({
+export default function AdminLayoutClient({
   children,
   initialProfile,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   initialProfile: InitialAdminProfile | null;
 }) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const { storeInfo } = useStoreInfo();
   const [isMobile, setIsMobile] = useState(false);
   const [activeMobileSurface, setActiveMobileSurface] = useState<MobileSurface>(null);
   const [desktopToshiOpen, setDesktopToshiOpen] = useState(false);
@@ -222,11 +220,7 @@ function AdminLayoutShell({
     summary: string;
   } | null>(null);
 
-  const resolvedStoreName = (storeInfo?.name || "Mağaza").trim() || "Mağaza";
-  const shellMeta = useMemo(
-    () => getShellMeta(pathname, resolvedStoreName),
-    [pathname, resolvedStoreName],
-  );
+  const shellMeta = useMemo(() => getShellMeta(pathname), [pathname]);
   const rootAdmin = useMemo(() => isAdminRoot(pathname), [pathname]);
   const isOrdersRoute = pathname.startsWith("/admin/siparisler");
   const isProductsRoute = pathname.startsWith("/admin/urunler");
@@ -432,7 +426,7 @@ function AdminLayoutShell({
           )}
         >
           {isMobile && !rootAdmin ? (
-          <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[1.25rem] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[0_10px_24px_rgba(17,24,39,0.055)] backdrop-blur-xl md:hidden">
+          <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[20px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[var(--shadow-xs)] backdrop-blur-xl md:hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex items-center gap-3">
                   <button
@@ -468,7 +462,7 @@ function AdminLayoutShell({
                   type="button"
                   onClick={handleRefresh}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
-                  aria-label="Sayfayi yenile"
+                  aria-label="Sayfayı yenile"
                 >
                   <RefreshCw className="h-4 w-4" />
                 </button>
@@ -530,16 +524,5 @@ function AdminLayoutShell({
         />
       </AdminClientBoundary>
     </div>
-  );
-}
-
-export default function AdminLayoutClient(props: {
-  children: React.ReactNode;
-  initialProfile: InitialAdminProfile | null;
-}) {
-  return (
-    <StoreInfoProvider>
-      <AdminLayoutShell {...props} />
-    </StoreInfoProvider>
   );
 }

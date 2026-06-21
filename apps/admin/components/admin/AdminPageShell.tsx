@@ -1,49 +1,88 @@
 import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
+import type { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, ReactNode } from "react";
+
+type AdminTone = "neutral" | "accent" | "success" | "warning" | "danger" | "info" | "purple";
 
 export function AdminPageShell({
   children,
   className,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("space-y-4 md:space-y-7", className)}>{children}</div>;
+  return <div className={cn("space-y-4 md:space-y-6", className)}>{children}</div>;
 }
 
 export function AdminPageHeader({
   badge,
+  sectionLabel,
+  breadcrumbs,
   title,
   description,
   actions,
+  primaryAction,
+  secondaryActions,
+  statusSlot,
   metrics,
+  className,
 }: {
   badge?: string;
+  sectionLabel?: string;
+  breadcrumbs?: ReactNode;
   title: string;
   description?: string;
-  actions?: React.ReactNode;
-  metrics?: React.ReactNode;
+  actions?: ReactNode;
+  primaryAction?: ReactNode;
+  secondaryActions?: ReactNode;
+  statusSlot?: ReactNode;
+  metrics?: ReactNode;
+  className?: string;
 }) {
+  const resolvedSectionLabel = sectionLabel ?? badge;
+  const resolvedActions = actions ?? (
+    primaryAction || secondaryActions ? (
+      <>
+        {secondaryActions}
+        {primaryAction}
+      </>
+    ) : null
+  );
+
   return (
-    <section className="overflow-hidden rounded-[24px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-md)] md:rounded-[28px]">
-      <div className="border-b border-[var(--admin-border)] px-4 py-4 md:px-6 md:py-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            {badge ? (
-              <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)] md:text-[11px]">
-                {badge}
+    <section
+      className={cn(
+        "overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-sm)] md:rounded-[24px]",
+        className,
+      )}
+    >
+      <div className={cn("px-4 py-4 md:px-6 md:py-5", metrics ? "border-b border-[var(--admin-border)]" : "")}>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 flex-1">
+            {breadcrumbs ? <div className="mb-3">{breadcrumbs}</div> : null}
+            {resolvedSectionLabel ? (
+              <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)] md:text-[11px]">
+                {resolvedSectionLabel}
               </div>
             ) : null}
-            <h1 className="mt-3 text-[1.95rem] font-semibold tracking-[-0.045em] text-[var(--admin-heading)] md:text-[2.25rem]">
+            <h1 className={cn(
+              "text-[1.75rem] font-semibold tracking-[-0.035em] text-[var(--admin-heading)] md:text-[2.05rem]",
+              resolvedSectionLabel || breadcrumbs ? "mt-3" : "",
+            )}>
               {title}
             </h1>
             {description ? (
-              <p className="mt-2.5 hidden max-w-3xl text-[15px] leading-6 text-[var(--admin-text-secondary)] md:block">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)] md:text-[15px]">
                 {description}
               </p>
             ) : null}
+            {statusSlot ? <div className="mt-3 flex flex-wrap items-center gap-2">{statusSlot}</div> : null}
           </div>
-          {actions ? <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">{actions}</div> : null}
+          {resolvedActions ? (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
+              {resolvedActions}
+            </div>
+          ) : null}
         </div>
       </div>
       {metrics ? <div className="grid grid-cols-2 gap-px bg-[var(--admin-border)] xl:grid-cols-4">{metrics}</div> : null}
@@ -57,15 +96,15 @@ export function AdminPanel({
   header,
   footer,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
-  header?: React.ReactNode;
-  footer?: React.ReactNode;
+  header?: ReactNode;
+  footer?: ReactNode;
 }) {
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-md)] md:rounded-[28px]",
+        "overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-sm)] md:rounded-[24px]",
         className,
       )}
     >
@@ -80,7 +119,7 @@ export function AdminToolbar({
   children,
   className,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
@@ -99,7 +138,7 @@ export function AdminSearchInput({
   className,
   inputClassName,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & {
+}: InputHTMLAttributes<HTMLInputElement> & {
   inputClassName?: string;
 }) {
   return (
@@ -121,8 +160,8 @@ export function AdminBadge({
   tone = "neutral",
   className,
 }: {
-  children: React.ReactNode;
-  tone?: "neutral" | "accent" | "success" | "danger" | "info";
+  children: ReactNode;
+  tone?: AdminTone;
   className?: string;
 }) {
   return (
@@ -131,8 +170,10 @@ export function AdminBadge({
         "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium leading-none",
         tone === "accent" && "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
         tone === "success" && "border-[color-mix(in_srgb,var(--admin-success)_22%,white)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
+        tone === "warning" && "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
         tone === "danger" && "border-[color-mix(in_srgb,var(--admin-danger)_18%,white)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
         tone === "info" && "border-[color-mix(in_srgb,var(--admin-info)_18%,white)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
+        tone === "purple" && "border-[color-mix(in_srgb,var(--admin-purple)_18%,white)] bg-[var(--admin-purple-soft)] text-[var(--admin-purple)]",
         tone === "neutral" && "border-[var(--admin-border)] bg-[#F9FAFB] text-[var(--admin-text-secondary)]",
         className,
       )}
@@ -142,12 +183,169 @@ export function AdminBadge({
   );
 }
 
+export function AdminStatusBadge({
+  children,
+  label,
+  tone = "neutral",
+  size = "md",
+  className,
+}: {
+  children?: ReactNode;
+  label?: ReactNode;
+  tone?: AdminTone;
+  size?: "sm" | "md";
+  className?: string;
+}) {
+  return (
+    <AdminBadge
+      tone={tone}
+      className={cn(
+        "font-semibold",
+        size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-3 py-1.5 text-xs",
+        className,
+      )}
+    >
+      {children ?? label}
+    </AdminBadge>
+  );
+}
+
+export function AdminMetricCard({
+  label,
+  value,
+  context,
+  delta,
+  icon: Icon,
+  tone = "neutral",
+  loading = false,
+  compact = false,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  context?: ReactNode;
+  delta?: ReactNode;
+  icon?: ComponentType<{ className?: string }>;
+  tone?: AdminTone;
+  loading?: boolean;
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-[18px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-xs)] md:rounded-[20px]",
+        compact ? "min-h-[112px]" : "min-h-[138px] md:p-5",
+        className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-[var(--admin-text-secondary)]">{label}</p>
+          {loading ? (
+            <div className="mt-3 h-8 w-24 animate-pulse rounded-xl bg-[var(--admin-muted-surface)]" />
+          ) : (
+            <div className={cn("mt-2 truncate font-semibold tracking-[-0.04em] text-[var(--admin-heading)]", compact ? "text-[1.35rem]" : "text-[1.65rem] md:text-[1.85rem]")}>
+              {value}
+            </div>
+          )}
+        </div>
+        {Icon ? (
+          <div
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border md:h-12 md:w-12",
+              tone === "accent" && "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
+              tone === "success" && "border-[color-mix(in_srgb,var(--admin-success)_20%,white)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
+              tone === "warning" && "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
+              tone === "danger" && "border-[color-mix(in_srgb,var(--admin-danger)_18%,white)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
+              tone === "info" && "border-[color-mix(in_srgb,var(--admin-info)_18%,white)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
+              tone === "purple" && "border-[color-mix(in_srgb,var(--admin-purple)_18%,white)] bg-[var(--admin-purple-soft)] text-[var(--admin-purple)]",
+              tone === "neutral" && "border-[var(--admin-border)] bg-[var(--admin-muted-surface)] text-[var(--admin-text-secondary)]",
+            )}
+          >
+            <Icon className="h-5 w-5" />
+          </div>
+        ) : null}
+      </div>
+      {context || delta ? (
+        <div className="mt-4 flex items-center justify-between gap-3 text-xs">
+          {context ? <p className="min-w-0 truncate font-medium text-[var(--admin-text-secondary)]">{context}</p> : <span />}
+          {delta ? <span className="shrink-0 rounded-full border border-[var(--admin-border)] bg-[var(--admin-muted-surface)] px-2 py-1 font-semibold text-[var(--admin-text)]">{delta}</span> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function AdminDataTable({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-sm)] md:rounded-[24px]",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function AdminCallout({
+  children,
+  tone = "info",
+  icon,
+  className,
+}: {
+  children: ReactNode;
+  tone?: "info" | "success" | "warning" | "danger" | "neutral";
+  icon?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-3 rounded-[18px] border px-4 py-3 text-sm font-medium",
+        tone === "info" && "border-[color-mix(in_srgb,var(--admin-info)_18%,white)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
+        tone === "success" && "border-[color-mix(in_srgb,var(--admin-success)_20%,white)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
+        tone === "warning" && "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
+        tone === "danger" && "border-[color-mix(in_srgb,var(--admin-danger)_18%,white)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
+        tone === "neutral" && "border-[var(--admin-border)] bg-[var(--admin-muted-surface)] text-[var(--admin-text-secondary)]",
+        className,
+      )}
+    >
+      {icon ? <span className="mt-0.5 shrink-0">{icon}</span> : null}
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+export function AdminLoadingState({
+  label = "Kayıtlar hazırlanıyor",
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center justify-center rounded-[20px] border border-[var(--admin-border)] bg-white px-5 py-12 text-sm font-medium text-[var(--admin-text-secondary)] shadow-[var(--shadow-sm)]", className)}>
+      <span className="mr-3 h-4 w-4 animate-spin rounded-full border-2 border-[var(--admin-accent-border)] border-t-[var(--admin-accent)]" />
+      {label}
+    </div>
+  );
+}
+
 export function AdminActionButton({
   children,
   tone = "secondary",
   className,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
   tone?: "primary" | "secondary" | "danger" | "ghost";
 }) {
   return (
@@ -174,15 +372,15 @@ export function AdminEmptyState({
   action,
   className,
 }: {
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   title: string;
   description?: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-[24px] border border-dashed border-[var(--admin-border)] bg-[#FCFDFE] px-5 py-10 text-center", className)}>
-      {icon ? <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]">{icon}</div> : null}
+    <div className={cn("rounded-[20px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-muted-surface)] px-5 py-10 text-center md:rounded-[24px]", className)}>
+      {icon ? <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[16px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]">{icon}</div> : null}
       <h3 className="text-lg font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">{title}</h3>
       {description ? <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--admin-text-secondary)]">{description}</p> : null}
       {action ? <div className="mt-5 flex justify-center">{action}</div> : null}

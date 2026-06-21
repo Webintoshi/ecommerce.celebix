@@ -39,6 +39,7 @@ import {
 import { extractAdminStoredAssetUrl, resolveAdminDirectAssetUrl } from "@/lib/asset-url";
 import { buildStorefrontUrl } from "@/lib/store-runtime";
 import { cn } from "@/lib/utils";
+import { AdminMetricCard, AdminPageHeader } from "@/components/admin/AdminPageShell";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -294,39 +295,30 @@ function MetricCard({
 }) {
   const deltaState =
     typeof delta !== "number" ? null : delta === 0 ? "neutral" : delta > 0 ? "positive" : "negative";
+  const resolvedTone = tone.includes("#BBF7D0")
+    ? "success"
+    : tone.includes("#FDE68A")
+      ? "warning"
+      : tone.includes("#DDD6FE")
+        ? "purple"
+        : "accent";
 
   return (
-    <div className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] md:rounded-[26px] md:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[13px] font-medium text-[#6B7280] md:text-sm">{title}</p>
-          <p className="mt-2 truncate text-[1.3rem] font-semibold tracking-[-0.05em] text-[#1F2937] md:text-[1.75rem]">
-            {value}
-          </p>
-        </div>
-        <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border md:h-14 md:w-14", tone)}>
-          <Icon className="h-5 w-5 md:h-6 md:w-6" />
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium text-[#6B7280] md:text-xs">{context}</p>
-        {deltaState ? (
-          <span
-            className={cn(
-              "inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold",
-              deltaState === "positive" && "border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]",
-              deltaState === "negative" && "border-[#FECACA] bg-[#FDECEC] text-[#EF4444]",
-              deltaState === "neutral" && "border-[#E7EAF0] bg-[#F7F8FA] text-[#6B7280]",
-            )}
-          >
-            {deltaState === "neutral"
-              ? "Sabit"
-              : `${delta! > 0 ? "↑" : "↓"} %${Math.abs(delta ?? 0).toFixed(0)}`}
-          </span>
-        ) : null}
-      </div>
-    </div>
+    <AdminMetricCard
+      label={title}
+      value={value}
+      icon={Icon}
+      tone={resolvedTone}
+      context={context}
+      delta={
+        deltaState
+          ? deltaState === "neutral"
+            ? "Sabit"
+            : `${delta! > 0 ? "+" : "-"} %${Math.abs(delta ?? 0).toFixed(0)}`
+          : undefined
+      }
+      compact
+    />
   );
 }
 
@@ -1249,23 +1241,19 @@ export default function AbandonedCartsPage() {
     <main className="min-h-0 bg-[#F7F8FA]">
       <div className="mx-auto max-w-[1600px] px-3 pb-4 pt-1 md:px-5 md:pb-6 md:pt-1 lg:px-8">
         <div className="space-y-4 md:space-y-6">
-          <section className="rounded-[26px] border border-[#E7EAF0] bg-white px-4 py-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:hidden">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-2">
-                <span className="inline-flex items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#E85D04]">
-                  Celebix Admin
+          <AdminPageHeader
+            sectionLabel="Operasyon"
+            title="Terk Edilen Sepetler"
+            description="Terk edilen sepetleri takip edin, kurtarma fırsatlarını ve müşteri sinyallerini tek yerden izleyin."
+            statusSlot={
+              lastUpdatedAt ? (
+                <span className="text-xs font-medium text-[#9CA3AF]">
+                  Son güncelleme: {formatCartDateTime(lastUpdatedAt)}
                 </span>
-                <div>
-                  <h1 className="text-[1.8rem] font-semibold tracking-[-0.05em] text-[#1F2937]">
-                    Terkedilen Sepetler
-                  </h1>
-                  <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                    Terk edilen sepetleri takip edin, kurtarma fırsatlarını yönetin.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-2">
+              ) : null
+            }
+            actions={
+              <>
                 <Link
                   href="/admin/ayarlar/bildirimler"
                   aria-label="Bildirim ayarları"
@@ -1294,75 +1282,9 @@ export default function AbandonedCartsPage() {
                     <RefreshCcw className="h-4 w-4" />
                   )}
                 </button>
-              </div>
-            </div>
-
-            {lastUpdatedAt ? (
-              <div className="mt-4 rounded-[18px] border border-[#EEF1F4] bg-[#FBFCFD] px-3.5 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
-                  Son güncelleme
-                </p>
-                <p className="mt-1 text-sm font-medium text-[#374151]">
-                  {formatCartDateTime(lastUpdatedAt)}
-                </p>
-              </div>
-            ) : null}
-          </section>
-
-          <section className="hidden rounded-[28px] border border-[#E7EAF0] bg-white px-6 py-6 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:block md:px-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-3">
-                <span className="inline-flex items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#E85D04]">
-                  Celebix Admin
-                </span>
-                <div className="space-y-2">
-                  <h1 className="text-[2rem] font-semibold tracking-[-0.05em] text-[#1F2937]">
-                    Terkedilen Sepetler
-                  </h1>
-                  <p className="max-w-2xl text-sm leading-6 text-[#6B7280] md:text-[0.95rem]">
-                    Terk edilen sepetleri takip edin, kurtarma fırsatlarını yönetin.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 lg:justify-end">
-                <Link
-                  href="/admin/ayarlar/bildirimler"
-                  aria-label="Bildirim ayarları"
-                  className={cn(
-                    buttonVariants({ variant: "secondary", size: "sm" }),
-                    "relative h-11 w-11 rounded-2xl border-[#E7EAF0] px-0 text-[#374151] shadow-none",
-                  )}
-                >
-                  <Bell className="h-4 w-4" />
-                  {activeTerk > 0 ? (
-                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#FF6A00]" />
-                  ) : null}
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleRefresh}
-                  aria-label="Sepetleri yenile"
-                  className={cn(
-                    buttonVariants({ variant: "secondary", size: "sm" }),
-                    "h-11 w-11 rounded-2xl border-[#E7EAF0] px-0 text-[#374151] shadow-none",
-                  )}
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {lastUpdatedAt ? (
-              <p className="mt-4 text-xs font-medium text-[#9CA3AF]">
-                Son güncelleme: {formatCartDateTime(lastUpdatedAt)}
-              </p>
-            ) : null}
-          </section>
+              </>
+            }
+          />
 
           {loading ? (
             <PageSkeleton />
