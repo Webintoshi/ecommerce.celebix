@@ -15,7 +15,7 @@ type PublishStatusSwitchProps = {
   className?: string;
 } & Omit<
   React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>,
-  "checked" | "defaultChecked" | "onCheckedChange" | "disabled" | "className" | "children"
+  "checked" | "defaultChecked" | "onCheckedChange" | "onChange" | "disabled" | "className" | "children"
 >;
 
 export function PublishStatusSwitch({

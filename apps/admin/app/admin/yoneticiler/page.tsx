@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Info, Loader2, Shield } from "lucide-react";
+import { AlertCircle, Info, Shield } from "lucide-react";
+import {
+  AdminCallout,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminStatusBadge,
+} from "@/components/admin/AdminPageShell";
 import { getRoleLabel, type UserRole } from "@/lib/permissions";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 
@@ -44,29 +52,26 @@ export default function AdminsPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-20">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Yöneticiler</h1>
-        <p className="text-gray-500">
-          Bu mağazaya atanmış yönetici hesaplarını görebilirsiniz.
-        </p>
-      </div>
+    <AdminPageShell className="mx-auto max-w-5xl pb-20">
+      <AdminPageHeader
+        sectionLabel="Sistem"
+        title="Yöneticiler"
+        description="Bu mağazaya atanmış yönetici hesaplarını ve rollerini read-only olarak görüntüleyin."
+        statusSlot={<AdminStatusBadge tone="warning">Owner panel üzerinden yönetilir</AdminStatusBadge>}
+      />
 
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-          <div className="space-y-2">
-            <p className="font-semibold">Yönetici hesapları burada oluşturulmaz.</p>
-            <p>
-              İşletme adminleri, super adminler ve affiliate yetkilendirmeleri sadece
-              <strong> Celebix owner paneli</strong> üzerinden atanır ve güncellenir.
-            </p>
-          </div>
+      <AdminCallout tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
+        <div className="space-y-1">
+          <p className="font-semibold">Yönetici hesapları burada oluşturulmaz.</p>
+          <p>
+            İşletme adminleri, super adminler ve affiliate yetkilendirmeleri sadece
+            <strong> Celebix owner paneli</strong> üzerinden atanır ve güncellenir.
+          </p>
         </div>
-      </div>
+      </AdminCallout>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="border-b border-gray-100 bg-gray-50/70 px-5 py-4">
+      <div className="overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-sm)] md:rounded-[24px]">
+        <div className="border-b border-[var(--admin-border)] bg-[var(--admin-muted-surface)] px-5 py-4">
           <h2 className="flex items-center gap-2 font-semibold text-gray-900">
             <Shield className="h-5 w-5 text-primary" />
             Atanmış Yöneticiler ({admins.length})
@@ -74,36 +79,35 @@ export default function AdminsPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center p-10">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
-          </div>
+          <AdminLoadingState label="Yöneticiler hazırlanıyor" className="m-5" />
         ) : error ? (
-          <div className="p-6 text-sm text-red-600">{error}</div>
+          <AdminCallout tone="danger" className="m-5">{error}</AdminCallout>
         ) : admins.length === 0 ? (
-          <div className="p-6 text-sm text-gray-500">
-            Bu mağazaya henüz owner panel üzerinden yönetici atanmamış.
-          </div>
+          <AdminEmptyState
+            className="m-5"
+            icon={<Shield className="h-6 w-6" />}
+            title="Atanmış yönetici yok"
+            description="Bu mağazaya henüz owner panel üzerinden yönetici atanmamış."
+          />
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-[var(--admin-border)]">
             {admins.map((admin) => (
-              <div key={admin.id} className="flex items-start justify-between gap-4 p-5">
+              <div key={admin.id} className="flex items-start justify-between gap-4 p-5 transition-colors hover:bg-[var(--admin-muted-surface)]">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-lg font-bold text-[var(--admin-accent-hover)]">
                     {admin.full_name?.[0]?.toUpperCase() || admin.email[0].toUpperCase()}
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-gray-900">{admin.full_name}</h3>
-                      <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                        {getRoleLabel(admin.role)}
-                      </span>
+                      <AdminStatusBadge tone="info" size="sm">{getRoleLabel(admin.role)}</AdminStatusBadge>
                     </div>
 
                     <p className="text-sm font-medium text-gray-500">{admin.email}</p>
 
                     {admin.task_definition ? (
-                      <div className="mt-2 flex max-w-md items-start gap-1.5 rounded-lg bg-gray-50 p-2 text-xs text-gray-500">
+                      <div className="mt-2 flex max-w-md items-start gap-1.5 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-muted-surface)] p-2 text-xs text-gray-500">
                         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
                         {admin.task_definition}
                       </div>
@@ -115,6 +119,6 @@ export default function AdminsPage() {
           </div>
         )}
       </div>
-    </div>
+    </AdminPageShell>
   );
 }

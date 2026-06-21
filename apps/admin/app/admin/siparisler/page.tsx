@@ -31,6 +31,7 @@ import {
 import type { CheckedState } from "@radix-ui/react-checkbox";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import { cn } from "@/lib/utils";
+import { AdminDataTable, AdminMetricCard, AdminPageHeader } from "@/components/admin/AdminPageShell";
 import {
   ORDER_STATUS_CONFIG,
   type Order,
@@ -515,41 +516,23 @@ function MetricCard({
   delta?: number | null;
 }) {
   const isPositive = (delta ?? 0) >= 0;
+  const resolvedTone = tone.includes("#BBF7D0")
+    ? "success"
+    : tone.includes("#FDE68A")
+      ? "warning"
+      : tone.includes("#BFDBFE")
+        ? "info"
+        : "accent";
 
   return (
-    <div className="rounded-[26px] border border-[#E7EAF0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-[#6B7280]">{title}</p>
-          <div className="flex items-end gap-3">
-            <p className="text-[1.75rem] font-semibold tracking-[-0.04em] text-[#1F2937]">
-              {value}
-            </p>
-            {typeof delta === "number" ? (
-              <span
-                className={cn(
-                  "inline-flex rounded-full border px-2 py-1 text-xs font-semibold",
-                  isPositive
-                    ? "border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]"
-                    : "border-[#FECACA] bg-[#FDECEC] text-[#EF4444]"
-                )}
-              >
-                {isPositive ? "↑" : "↓"} {formatChangePercent(delta)}
-              </span>
-            ) : null}
-          </div>
-          <p className="text-xs font-medium text-[#6B7280]">{context}</p>
-        </div>
-        <div
-          className={cn(
-            "flex h-14 w-14 items-center justify-center rounded-[1.1rem] border",
-            tone
-          )}
-        >
-          <Icon className="h-6 w-6" />
-        </div>
-      </div>
-    </div>
+    <AdminMetricCard
+      label={title}
+      value={value}
+      icon={Icon}
+      tone={resolvedTone}
+      context={context}
+      delta={typeof delta === "number" ? `${isPositive ? "+" : "-"} ${formatChangePercent(delta)}` : undefined}
+    />
   );
 }
 
@@ -1368,6 +1351,12 @@ export default function OrdersPage() {
     <main className="min-h-screen bg-[#F7F8FA]">
       <div className="mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-6">
+          <AdminPageHeader
+            sectionLabel="Operasyon"
+            title="Siparişler"
+            description="Sipariş, ödeme ve teslimat akışını tek listede takip edin. Durum değişiklikleri ve toplu işlemler mevcut akış mantığıyla çalışmaya devam eder."
+          />
+
           {loading ? (
             <OrdersPageSkeleton />
           ) : (
@@ -1417,7 +1406,7 @@ export default function OrdersPage() {
                 />
               </section>
 
-              <section className="rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
+              <AdminDataTable>
                 <div className="border-b border-[#EEF1F4] bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] px-4 py-4 md:px-6">
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -1815,7 +1804,7 @@ export default function OrdersPage() {
                     </div>
                   </>
                 )}
-              </section>
+              </AdminDataTable>
             </>
           )}
         </div>

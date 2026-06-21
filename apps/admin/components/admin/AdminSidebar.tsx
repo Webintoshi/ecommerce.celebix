@@ -508,7 +508,7 @@ export function AdminSidebar({
   };
 
   const desktopAsideClassName =
-    "sticky top-0 z-20 flex h-screen w-[13.75rem] shrink-0 flex-col bg-white xl:w-[14rem] 2xl:w-[14.5rem]";
+    "sticky top-0 z-20 flex h-screen w-[13.75rem] shrink-0 flex-col bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] shadow-[8px_0_24px_rgba(17,24,39,0.035)] xl:w-[14rem] 2xl:w-[14.5rem]";
 
   if (isMobile) {
     return (
@@ -544,7 +544,7 @@ export function AdminSidebar({
           onTouchEnd={handleDrawerTouchEnd}
           onTouchCancel={resetTouchTracking}
         >
-          <div className="flex h-full flex-col overflow-hidden rounded-l-[1.9rem] border-l border-[#E7EAF0] bg-[linear-gradient(180deg,rgba(255,255,255,0.99)_0%,rgba(247,248,250,0.99)_100%)] shadow-[-22px_0_48px_rgba(17,24,39,0.18)]">
+          <div className="flex h-full flex-col overflow-hidden rounded-l-[24px] border-l border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.99)_0%,rgba(247,248,250,0.99)_100%)] shadow-[-22px_0_48px_rgba(17,24,39,0.16)]">
             <div className="border-b border-[#EEF1F4] px-4 pb-4 pt-[max(env(safe-area-inset-top,0px),1rem)]">
               <div className="flex justify-center">
                 <span className="h-1.5 w-14 rounded-full bg-[#D8DDE5]" />
@@ -768,6 +768,7 @@ export function AdminSidebar({
                   </a>
                 ) : (
                   <button
+                    type="button"
                     onClick={handleLogout}
                     disabled={isSigningOut}
                     className="flex min-h-[48px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#FDECEC] hover:text-[#EF4444]"
@@ -795,8 +796,8 @@ export function AdminSidebar({
   }
 
   return (
-    <aside className={cn("border-l border-[var(--admin-border)]", desktopAsideClassName)}>
-      <div className="border-b border-[#EEF1F4] px-3.5 py-4">
+    <aside className={cn("border-r border-[var(--admin-border)]", desktopAsideClassName)}>
+      <div className="border-b border-[var(--admin-border)] px-3.5 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[1.05rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] shadow-[0_10px_24px_rgba(17,24,39,0.05)]">
             <Image
@@ -913,7 +914,7 @@ export function AdminSidebar({
                         )}
                       >
                         <div className="min-h-0">
-                          <div className="ml-5 border-l border-[#EEF1F4] pl-3 pt-0.5">
+                          <div className="ml-5 border-l border-[var(--admin-border)] pl-3 pt-0.5">
                             <div className="space-y-1">
                               {item.submenu?.map((sub) => {
                                 const isSubActive = pathMatches(pathname, sub.href);
@@ -956,7 +957,7 @@ export function AdminSidebar({
         ))}
       </nav>
 
-      <div className="space-y-1.5 border-t border-[#EEF1F4] px-3 py-3.5">
+      <div className="space-y-1.5 border-t border-[var(--admin-border)] bg-white/72 px-3 py-3.5">
         {isLogtoProvider ? (
           <a
             href={logtoLogoutHref}
@@ -967,6 +968,7 @@ export function AdminSidebar({
           </a>
         ) : (
           <button
+            type="button"
             onClick={handleLogout}
             disabled={isSigningOut}
             className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"

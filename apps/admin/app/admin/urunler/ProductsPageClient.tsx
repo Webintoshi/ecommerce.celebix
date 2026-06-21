@@ -22,6 +22,7 @@ import {
   Upload,
 } from "lucide-react";
 
+import { AdminDataTable, AdminEmptyState, AdminPageHeader } from "@/components/admin/AdminPageShell";
 import { PublishStatusSwitch } from "@/components/admin/PublishStatusSwitch";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import { buildCategoryLabelMap, buildProductCategoryTree } from "@/lib/admin-product-categories";
@@ -1212,23 +1213,12 @@ export default function ProductsPageClient({
     <main role="main" aria-busy={loading} className="min-h-screen bg-[#F7F8FA]">
       <div className="mx-auto max-w-[1680px] px-4 pb-4 pt-1 md:px-6 md:pb-6 md:pt-1 xl:px-8">
         <div className="space-y-5">
-          <section className="rounded-[28px] border border-[#E7EAF0] bg-white px-6 py-6 shadow-[0_18px_40px_rgba(15,23,42,0.04)] md:px-8">
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-              <div className="space-y-3">
-                <span className="inline-flex w-fit items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E85D04]">
-                  Celebix Admin
-                </span>
-                <div>
-                  <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#1F2937] md:text-[34px]">
-                    Ürün Yönetimi
-                  </h1>
-                  <p className="mt-2 max-w-2xl text-sm text-[#6B7280] md:text-[15px]">
-                    Ürünlerinizi yönetin, envanter durumunu ve görünürlüğünü kontrol edin.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+          <AdminPageHeader
+            sectionLabel="Katalog"
+            title="Ürün Yönetimi"
+            description="Ürünlerinizi yönetin, envanter durumunu ve görünürlüğünü kontrol edin."
+            actions={
+              <>
                 <button
                   type="button"
                   onClick={() => void (reorderMode ? handleExitReorderMode() : handleEnterReorderMode())}
@@ -1290,9 +1280,9 @@ export default function ProductsPageClient({
                   <Plus className="h-4 w-4" />
                   Yeni Ürün Ekle
                 </Link>
-              </div>
-            </div>
-          </section>
+              </>
+            }
+          />
 
           {(errorMessage || notice) && (
             <div aria-live="polite" className="space-y-3">
@@ -1317,7 +1307,7 @@ export default function ProductsPageClient({
             </div>
           )}
 
-          <section className="rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
+          <AdminDataTable>
             <div className="border-b border-[#EEF1F4] px-6 py-5 md:px-8">
               <div className="grid gap-4 xl:grid-cols-[minmax(320px,1.8fr)_repeat(4,minmax(0,1fr))_auto]">
                 <label className="relative block">
@@ -1561,15 +1551,12 @@ export default function ProductsPageClient({
                   {!loading && sortedProducts.length === 0 ? (
                     <tr>
                       <td colSpan={desktopProductTableColumnCount} className="px-5 py-14 text-center">
-                        <div className="mx-auto max-w-md space-y-3">
-                          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-[#F9FAFB] text-[#9CA3AF]">
-                            <Package className="h-6 w-6" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-[#1F2937]">Ürün bulunamadı</h3>
-                          <p className="text-sm leading-6 text-[#6B7280]">
-                            Mevcut filtrelerle eşleşen ürün yok. Filtreleri temizleyip tekrar deneyin veya yeni ürün ekleyin.
-                          </p>
-                        </div>
+                        <AdminEmptyState
+                          className="mx-auto max-w-lg border-0 bg-transparent py-4"
+                          icon={<Package className="h-6 w-6" />}
+                          title="Ürün bulunamadı"
+                          description="Mevcut filtrelerle eşleşen ürün yok. Filtreleri temizleyip tekrar deneyin veya yeni ürün ekleyin."
+                        />
                       </td>
                     </tr>
                   ) : null}
@@ -1783,15 +1770,11 @@ export default function ProductsPageClient({
                 : null}
 
               {!loading && sortedProducts.length === 0 ? (
-                <div className="rounded-[24px] border border-[#E7EAF0] bg-[#FCFDFE] px-5 py-10 text-center">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#9CA3AF]">
-                    <Package className="h-6 w-6" />
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold text-[#1F2937]">Ürün bulunamadı</h3>
-                  <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                    Filtreleri temizleyin veya yeni bir ürün ekleyin.
-                  </p>
-                </div>
+                <AdminEmptyState
+                  icon={<Package className="h-6 w-6" />}
+                  title="Ürün bulunamadı"
+                  description="Filtreleri temizleyin veya yeni bir ürün ekleyin."
+                />
               ) : null}
 
               {sortedProducts.map((product, index) => {
@@ -1956,7 +1939,7 @@ export default function ProductsPageClient({
                 );
               })}
             </div>
-          </section>
+          </AdminDataTable>
         </div>
       </div>
 
