@@ -103,6 +103,7 @@ export interface ProductVariant {
   barcode?: string;
   groupName?: string; // "Gramaj", "Renk"
   images?: string[];
+  isEnabled?: boolean; // Client-side matrix toggle; disabled rows are omitted from save payload.
   unit?: "adet" | "kg" | "g" | "lt" | "ml" | "paket" | "kutu";
   maxPurchaseQuantity?: number;
   warehouseLocation?: string;
