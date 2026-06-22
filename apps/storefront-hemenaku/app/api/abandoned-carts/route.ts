@@ -55,6 +55,14 @@ function resolveCustomerNameParts(body: Record<string, unknown>) {
   };
 }
 
+function resolveCustomerEmail(body: Record<string, unknown>) {
+  return readBodyString(body, "customerEmail", "customer_email", "email", "billingEmail");
+}
+
+function resolveCustomerPhone(body: Record<string, unknown>) {
+  return readBodyString(body, "customerPhone", "customer_phone", "phone", "billingPhone");
+}
+
 function sanitizePublicAbandonedCart(cart: any) {
   if (!cart || typeof cart !== "object") {
     return null;
@@ -109,6 +117,8 @@ export async function POST(request: NextRequest) {
     const supabase = getDb();
     const body = await request.json();
     const { firstName, lastName } = resolveCustomerNameParts(body);
+    const email = resolveCustomerEmail(body);
+    const phone = resolveCustomerPhone(body);
 
     const cart = await upsertAbandonedCart(
       {
@@ -117,8 +127,8 @@ export async function POST(request: NextRequest) {
         customerId: body.customer_id,
         firstName,
         lastName,
-        email: body.email,
-        phone: body.phone,
+        email,
+        phone,
         isAnonymous: body.is_anonymous,
         items: body.items,
         total: typeof body.total === "number" ? body.total : undefined,
@@ -146,7 +156,9 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = getDb();
     const body = await request.json();
-    const { id, session_id, customer_id, email, status, recovered } = body;
+    const { id, session_id, customer_id, status, recovered } = body;
+    const email = resolveCustomerEmail(body);
+    const phone = resolveCustomerPhone(body);
 
     if (!id && !session_id && !customer_id && !email) {
       return NextResponse.json(
@@ -199,6 +211,14 @@ export async function PATCH(request: NextRequest) {
 
     if (lastName) {
       updateData.last_name = lastName;
+    }
+
+    if (email) {
+      updateData.email = email;
+    }
+
+    if (phone) {
+      updateData.phone = phone;
     }
 
     if (typeof status === "string" && status.trim()) {
