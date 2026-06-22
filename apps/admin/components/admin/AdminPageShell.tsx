@@ -52,7 +52,7 @@ export function AdminPageHeader({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-sm)] md:rounded-[24px]",
+        "overflow-hidden rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-sm)]",
         className,
       )}
     >
@@ -104,7 +104,7 @@ export function AdminPanel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-sm)] md:rounded-[24px]",
+        "overflow-hidden rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-sm)]",
         className,
       )}
     >
@@ -125,7 +125,7 @@ export function AdminToolbar({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-[22px] border border-[var(--admin-border)] bg-white p-3 md:flex-row md:items-center md:justify-between md:p-4",
+        "flex flex-col gap-3 rounded-[16px] border border-[var(--admin-border)] bg-white p-3 md:flex-row md:items-center md:justify-between md:p-4",
         className,
       )}
     >
@@ -147,7 +147,7 @@ export function AdminSearchInput({
       <input
         {...props}
         className={cn(
-          "h-12 w-full rounded-2xl border border-[var(--admin-border)] bg-white py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]",
+          "h-12 w-full rounded-[14px] border border-[var(--admin-border)] bg-white py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]",
           inputClassName,
         )}
       />
@@ -234,7 +234,7 @@ export function AdminMetricCard({
   return (
     <div
       className={cn(
-        "rounded-[18px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-xs)] md:rounded-[20px]",
+        "rounded-[16px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-xs)]",
         compact ? "min-h-[112px]" : "min-h-[138px] md:p-5",
         className,
       )}
@@ -287,7 +287,7 @@ export function AdminDataTable({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-sm)] md:rounded-[24px]",
+        "overflow-hidden rounded-[16px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-sm)]",
         className,
       )}
     >
@@ -310,7 +310,7 @@ export function AdminCallout({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-[18px] border px-4 py-3 text-sm font-medium",
+        "flex items-start gap-3 rounded-[14px] border px-4 py-3 text-sm font-medium",
         tone === "info" && "border-[color-mix(in_srgb,var(--admin-info)_18%,white)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
         tone === "success" && "border-[color-mix(in_srgb,var(--admin-success)_20%,white)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
         tone === "warning" && "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
@@ -333,7 +333,7 @@ export function AdminLoadingState({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center justify-center rounded-[20px] border border-[var(--admin-border)] bg-white px-5 py-12 text-sm font-medium text-[var(--admin-text-secondary)] shadow-[var(--shadow-sm)]", className)}>
+    <div className={cn("flex items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-white px-5 py-12 text-sm font-medium text-[var(--admin-text-secondary)] shadow-[var(--shadow-sm)]", className)}>
       <span className="mr-3 h-4 w-4 animate-spin rounded-full border-2 border-[var(--admin-accent-border)] border-t-[var(--admin-accent)]" />
       {label}
     </div>
@@ -352,7 +352,7 @@ export function AdminActionButton({
     <button
       {...props}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-55",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-55",
         tone === "primary" && "bg-[var(--admin-accent)] text-white shadow-[0_12px_28px_rgba(255,106,0,0.22)] hover:bg-[var(--admin-accent-hover)]",
         tone === "secondary" && "border border-[var(--admin-border)] bg-white text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
         tone === "danger" && "border border-[color-mix(in_srgb,var(--admin-danger)_18%,white)] bg-white text-[var(--admin-danger)] hover:bg-[var(--admin-danger-soft)]",
@@ -379,7 +379,7 @@ export function AdminEmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-[20px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-muted-surface)] px-5 py-10 text-center md:rounded-[24px]", className)}>
+    <div className={cn("rounded-[16px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-muted-surface)] px-5 py-10 text-center", className)}>
       {icon ? <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[16px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]">{icon}</div> : null}
       <h3 className="text-lg font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">{title}</h3>
       {description ? <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--admin-text-secondary)]">{description}</p> : null}
@@ -389,5 +389,5 @@ export function AdminEmptyState({
 }
 
 export function AdminSkeletonBlock({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-[22px] border border-[var(--admin-border)] bg-[#FCFDFE] p-5", className)} />;
+  return <div className={cn("animate-pulse rounded-[16px] border border-[var(--admin-border)] bg-[#FCFDFE] p-5", className)} />;
 }
