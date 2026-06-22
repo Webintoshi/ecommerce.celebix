@@ -5,22 +5,31 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ElementType, type TouchEvent as ReactTouchEvent } from "react";
 import {
+  Archive,
+  BarChart3,
   Calculator,
   ChevronDown,
   ChevronRight,
   FileText,
-  Home,
+  Globe2,
+  Image as ImageIcon,
+  Languages,
+  LayoutDashboard,
+  Layers3,
   LogOut,
   Megaphone as MarketingIcon,
   Package,
   Percent,
   Search,
   Settings,
+  ShoppingBag,
   Store,
   Tag,
-  TrendingUp,
+  TicketPercent,
+  Truck,
   Users,
   Users as AdminsIcon,
+  WalletCards,
   X,
 } from "lucide-react";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
@@ -31,18 +40,24 @@ import { useStoreInfo } from "@/lib/store-info-context";
 import { cn } from "@/lib/utils";
 
 const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
-const MOBILE_QUICK_ACCESS_TITLES = ["Ana Sayfa", "Siparişler", "Ürünler", "Müşteriler", "Ayarlar"] as const;
+const MOBILE_QUICK_ACCESS_TITLES = ["Dashboard", "Siparişler", "Ürünler", "Müşteriler", "Genel Ayarlar"] as const;
+
+type MenuSubItem = {
+  title: string;
+  href: string;
+};
 
 interface MenuItem {
   title: string;
   icon: ElementType;
-  href: string;
-  badge?: number;
+  href?: string;
+  externalHref?: string;
+  badge?: number | string;
+  status?: "soon";
+  disabled?: boolean;
+  permissionHref?: string;
   permission?: AdminPermission;
-  submenu?: Array<{
-    title: string;
-    href: string;
-  }>;
+  submenu?: MenuSubItem[];
 }
 
 type MenuGroup = {
@@ -52,31 +67,17 @@ type MenuGroup = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { title: "Ana Sayfa", icon: Home, href: "/admin" },
+  { title: "Dashboard", icon: LayoutDashboard, href: "/admin" },
   {
     title: "Siparişler",
-    icon: Package,
+    icon: ShoppingBag,
     href: "/admin/siparisler",
     submenu: [
       { title: "Tüm Siparişler", href: "/admin/siparisler" },
-      { title: "Terk Edilen Sepetler", href: "/admin/siparisler/sepet-terk" },
       { title: "Hızlı Sipariş", href: "/admin/siparisler/hizli-siparis" },
     ],
   },
-  {
-    title: "Ürünler",
-    icon: Tag,
-    href: "/admin/urunler",
-    submenu: [
-      { title: "Ürün Yönetimi", href: "/admin/urunler" },
-      { title: "Koleksiyon Yönetimi", href: "/admin/urunler/koleksiyonlar" },
-      { title: "Marka Yönetimi", href: "/admin/urunler/markalar" },
-      { title: "Nitelikler", href: "/admin/urunler/nitelikler" },
-      { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar" },
-      { title: "Ekstralar", href: "/admin/urunler/ekstralar" },
-      { title: "Toplu Yükle (CSV)", href: "/admin/urunler/toplu-yukle" },
-    ],
-  },
+  { title: "Terk Sepetler", icon: Archive, href: "/admin/siparisler/sepet-terk", permissionHref: "/admin/siparisler" },
   {
     title: "Müşteriler",
     icon: Users,
@@ -88,6 +89,22 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
+    title: "Ürünler",
+    icon: Package,
+    href: "/admin/urunler",
+    submenu: [
+      { title: "Ürün Yönetimi", href: "/admin/urunler" },
+      { title: "Koleksiyon Yönetimi", href: "/admin/urunler/koleksiyonlar" },
+      { title: "Marka Yönetimi", href: "/admin/urunler/markalar" },
+      { title: "Nitelikler", href: "/admin/urunler/nitelikler" },
+      { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar" },
+      { title: "Ekstralar", href: "/admin/urunler/ekstralar" },
+      { title: "Toplu Yükle (CSV)", href: "/admin/urunler/toplu-yukle" },
+    ],
+  },
+  { title: "Kategoriler", icon: Layers3, permissionHref: "/admin/kategoriler", disabled: true, status: "soon" },
+  { title: "Medya", icon: ImageIcon, permissionHref: "/admin/medya", disabled: true, status: "soon" },
+  {
     title: "İndirimler",
     icon: Percent,
     href: "/admin/indirimler",
@@ -97,8 +114,21 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Şans Çarkı", href: "/admin/indirimler/sans-carki" },
     ],
   },
+  { title: "Kuponlar", icon: TicketPercent, permissionHref: "/admin/kuponlar", disabled: true, status: "soon" },
   {
-    title: "İçerik",
+    title: "Kampanyalar",
+    icon: MarketingIcon,
+    href: "/admin/pazarlama",
+    submenu: [
+      { title: "Kampanya Merkezi", href: "/admin/pazarlama" },
+      { title: "E-posta", href: "/admin/pazarlama/email" },
+      { title: "SMS", href: "/admin/pazarlama/phone" },
+      { title: "WhatsApp", href: "/admin/pazarlama/whatsapp" },
+    ],
+  },
+  { title: "Mağaza Görünümü", icon: Globe2, externalHref: STORE_RUNTIME.storefrontUrl },
+  {
+    title: "Sayfalar / Blog",
     icon: FileText,
     href: "/admin/cms",
     submenu: [
@@ -107,18 +137,13 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Politikalar", href: "/admin/cms/politikalar" },
     ],
   },
-  {
-    title: "Pazarlama",
-    icon: MarketingIcon,
-    href: "/admin/pazarlama",
-    submenu: [
-      { title: "Kampanyalar", href: "/admin/pazarlama" },
-      { title: "E-posta", href: "/admin/pazarlama/email" },
-      { title: "SMS", href: "/admin/pazarlama/phone" },
-      { title: "WhatsApp", href: "/admin/pazarlama/whatsapp" },
-    ],
-  },
-  { title: "Analizler", icon: TrendingUp, href: "/admin/analizler" },
+  { title: "Dil Ayarları", icon: Languages, href: "/admin/ayarlar/dil", permissionHref: "/admin/ayarlar" },
+  { title: "Ödeme", icon: WalletCards, href: "/admin/ayarlar/odeme", permissionHref: "/admin/ayarlar" },
+  { title: "Kargo", icon: Truck, href: "/admin/ayarlar/kargo", permissionHref: "/admin/ayarlar" },
+  { title: "Entegrasyonlar", icon: Store, href: "/admin/markets" },
+  { title: "Yöneticiler", icon: AdminsIcon, href: "/admin/yoneticiler" },
+  { title: "Genel Ayarlar", icon: Settings, href: "/admin/ayarlar" },
+  { title: "Analizler", icon: BarChart3, href: "/admin/analizler" },
   {
     title: "Muhasebe",
     icon: Calculator,
@@ -141,18 +166,16 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Hızlı İndeks", href: "/admin/seo-killer/hizli-index" },
     ],
   },
-  { title: "Marketplace", icon: Store, href: "/admin/markets" },
-  { title: "Yöneticiler", icon: AdminsIcon, href: "/admin/yoneticiler" },
-  { title: "Ayarlar", icon: Settings, href: "/admin/ayarlar" },
 ];
 
 const MENU_GROUPS: MenuGroup[] = [
-  { id: "general", label: "Genel", titles: ["Ana Sayfa"] },
-  { id: "catalog", label: "Katalog", titles: ["Siparişler", "Ürünler", "İçerik"] },
-  { id: "customers", label: "Müşteri", titles: ["Müşteriler", "İndirimler"] },
-  { id: "marketing", label: "Pazarlama", titles: ["Pazarlama", "SEO Araçları", "Marketplace"] },
-  { id: "reporting", label: "Raporlama", titles: ["Analizler", "Muhasebe"] },
-  { id: "system", label: "Sistem", titles: ["Yöneticiler", "Ayarlar"] },
+  { id: "home", label: "Ana", titles: ["Dashboard"] },
+  { id: "operations", label: "Operasyon", titles: ["Siparişler", "Terk Sepetler", "Müşteriler"] },
+  { id: "catalog", label: "Katalog", titles: ["Ürünler", "Kategoriler", "Medya"] },
+  { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Kuponlar", "Kampanyalar"] },
+  { id: "store", label: "Mağaza", titles: ["Mağaza Görünümü", "Sayfalar / Blog", "Dil Ayarları"] },
+  { id: "settings", label: "Ayarlar", titles: ["Ödeme", "Kargo", "Entegrasyonlar", "Yöneticiler", "Genel Ayarlar"] },
+  { id: "advanced", label: "Gelişmiş", titles: ["Analizler", "Muhasebe", "SEO Araçları"] },
 ];
 
 interface SidebarProps {
@@ -262,6 +285,7 @@ export function AdminSidebar({
     const autoExpand = MENU_ITEMS.filter(
       (item) =>
         item.submenu &&
+        item.href &&
         (pathMatches(pathname, item.href) || item.submenu.some((sub) => pathMatches(pathname, sub.href))),
     ).map((item) => item.title);
 
@@ -320,7 +344,13 @@ export function AdminSidebar({
     }
 
     return MENU_ITEMS.filter((item) => {
-      if (!hasPermission(role, item.href)) {
+      if (item.externalHref) {
+        return true;
+      }
+
+      const permissionPath = item.permissionHref ?? item.href;
+
+      if (!permissionPath || !hasPermission(role, permissionPath)) {
         return false;
       }
 
@@ -373,8 +403,9 @@ export function AdminSidebar({
 
   const getItemState = (item: MenuItem): MenuItemState => {
     const hasSubmenu = Boolean(item.submenu?.length);
-    const isDirectActive = pathMatches(pathname, item.href) && !hasSubmenu;
-    const isParentActive = hasSubmenu && pathMatches(pathname, item.href);
+    const itemHref = item.disabled || item.externalHref ? "" : item.href ?? "";
+    const isDirectActive = Boolean(itemHref) && pathMatches(pathname, itemHref) && !hasSubmenu;
+    const isParentActive = Boolean(itemHref) && hasSubmenu && pathMatches(pathname, itemHref);
     const isSubmenuActive = item.submenu?.some((sub) => pathMatches(pathname, sub.href)) ?? false;
     const isExpanded = expandedMenus.includes(item.title);
     const isActive = isDirectActive || isParentActive || isSubmenuActive;
@@ -508,7 +539,7 @@ export function AdminSidebar({
   };
 
   const desktopAsideClassName =
-    "sticky top-0 z-20 flex h-screen w-[13.75rem] shrink-0 flex-col bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] shadow-[8px_0_24px_rgba(17,24,39,0.035)] xl:w-[14rem] 2xl:w-[14.5rem]";
+    "sticky top-0 z-20 flex h-screen w-[16rem] shrink-0 flex-col bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] shadow-[10px_0_32px_rgba(17,24,39,0.045)] xl:w-[16.25rem] 2xl:w-[16.5rem]";
 
   if (isMobile) {
     return (
@@ -602,7 +633,9 @@ export function AdminSidebar({
                       return (
                         <Link
                           key={item.title}
-                          href={item.href}
+                          href={item.href ?? item.externalHref ?? "#"}
+                          target={item.externalHref ? "_blank" : undefined}
+                          rel={item.externalHref ? "noreferrer" : undefined}
                           aria-current={isActive ? "page" : undefined}
                           onClick={handleLeafClick}
                           className={cn(
@@ -644,10 +677,12 @@ export function AdminSidebar({
                   {filteredItems.map((item, index) => {
                     const { hasSubmenu, isExpanded, isActive } = getItemState(item);
                     const rowId = `admin-mobile-drawer-section-${index}`;
+                    const statusLabel = item.status === "soon" ? "Yakında" : item.badge;
 
                     const rowClasses = cn(
                       "group relative flex min-h-[58px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
                       isActive ? "bg-[#FFF1E8] text-[#E85D04]" : "bg-white text-[#374151]",
+                      item.disabled ? "cursor-not-allowed text-[#9CA3AF] active:scale-100" : "",
                     );
 
                     const content = (
@@ -669,9 +704,9 @@ export function AdminSidebar({
                         <span className="min-w-0 flex-1 truncate text-[14px] font-medium tracking-[-0.01em]">
                           {item.title}
                         </span>
-                        {item.badge ? (
+                        {statusLabel ? (
                           <span className="rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-2 py-0.5 text-[11px] font-medium text-[#6B7280]">
-                            {item.badge}
+                            {statusLabel}
                           </span>
                         ) : null}
                         <ChevronRight
@@ -686,7 +721,16 @@ export function AdminSidebar({
 
                     return (
                       <div key={item.title} className={cn(index > 0 ? "border-t border-[#EEF1F4]" : "")}>
-                        {hasSubmenu ? (
+                        {item.disabled ? (
+                          <button
+                            type="button"
+                            disabled
+                            aria-disabled="true"
+                            className={rowClasses}
+                          >
+                            {content}
+                          </button>
+                        ) : hasSubmenu ? (
                           <button
                             type="button"
                             onClick={() => toggleMenu(item.title)}
@@ -697,14 +741,26 @@ export function AdminSidebar({
                             {content}
                           </button>
                         ) : (
-                          <Link
-                            href={item.href}
-                            aria-current={isActive ? "page" : undefined}
-                            onClick={handleLeafClick}
-                            className={rowClasses}
-                          >
-                            {content}
-                          </Link>
+                          item.externalHref ? (
+                            <a
+                              href={item.externalHref}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={handleLeafClick}
+                              className={rowClasses}
+                            >
+                              {content}
+                            </a>
+                          ) : (
+                            <Link
+                              href={item.href ?? "#"}
+                              aria-current={isActive ? "page" : undefined}
+                              onClick={handleLeafClick}
+                              className={rowClasses}
+                            >
+                              {content}
+                            </Link>
+                          )
                         )}
 
                         {hasSubmenu ? (
@@ -797,7 +853,7 @@ export function AdminSidebar({
 
   return (
     <aside className={cn("border-r border-[var(--admin-border)]", desktopAsideClassName)}>
-      <div className="border-b border-[var(--admin-border)] px-3.5 py-4">
+      <div className="border-b border-[var(--admin-border)] px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[1.05rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] shadow-[0_10px_24px_rgba(17,24,39,0.05)]">
             <Image
@@ -827,7 +883,7 @@ export function AdminSidebar({
         </div>
       ) : null}
 
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3.5 py-4">
         {groupedItems.map((group) => (
           <section key={group.id} className="space-y-1.5">
             <div className="px-1">
@@ -839,12 +895,14 @@ export function AdminSidebar({
             <div className="space-y-1">
               {group.items.map((item) => {
                 const { hasSubmenu, isExpanded, isActive } = getItemState(item);
+                const statusLabel = item.status === "soon" ? "Yakında" : item.badge;
 
                 const rowClasses = cn(
-                  "group relative flex min-h-[44px] w-full items-center gap-3 rounded-[1rem] border border-transparent px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.14)]",
+                  "group relative flex min-h-[44px] w-full items-center gap-2.5 rounded-[1rem] border border-transparent px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.14)]",
                   isActive
                     ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
                     : "text-[var(--admin-text)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
+                  item.disabled ? "cursor-not-allowed opacity-70 hover:bg-transparent hover:text-[var(--admin-text)]" : "",
                 );
 
                 const iconShellClasses = cn(
@@ -866,9 +924,9 @@ export function AdminSidebar({
                       <item.icon className="h-[1rem] w-[1rem]" />
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{item.title}</span>
-                    {item.badge ? (
+                    {statusLabel ? (
                       <span className="rounded-full border border-[var(--admin-border)] bg-white px-2 py-0.5 text-[11px] font-medium text-[var(--admin-text-secondary)]">
-                        {item.badge}
+                        {statusLabel}
                       </span>
                     ) : null}
                     {hasSubmenu ? (
@@ -884,7 +942,16 @@ export function AdminSidebar({
 
                 return (
                   <div key={item.title} className="space-y-1">
-                    {hasSubmenu ? (
+                    {item.disabled ? (
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        className={rowClasses}
+                      >
+                        {content}
+                      </button>
+                    ) : hasSubmenu ? (
                       <button
                         type="button"
                         onClick={() => toggleMenu(item.title)}
@@ -895,14 +962,26 @@ export function AdminSidebar({
                         {content}
                       </button>
                     ) : (
-                      <Link
-                        href={item.href}
-                        aria-current={isActive ? "page" : undefined}
-                        onClick={handleLeafClick}
-                        className={rowClasses}
-                      >
-                        {content}
-                      </Link>
+                      item.externalHref ? (
+                        <a
+                          href={item.externalHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={handleLeafClick}
+                          className={rowClasses}
+                        >
+                          {content}
+                        </a>
+                      ) : (
+                        <Link
+                          href={item.href ?? "#"}
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={handleLeafClick}
+                          className={rowClasses}
+                        >
+                          {content}
+                        </Link>
+                      )
                     )}
 
                     {hasSubmenu ? (

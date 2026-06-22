@@ -3,11 +3,12 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Home, Menu, Package, RefreshCw, Tag } from "lucide-react";
+import { ArrowLeft, ExternalLink, Home, Menu, Package, RefreshCw, Sparkles, Store, Tag } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
+import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { cn } from "@/lib/utils";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
@@ -65,6 +66,131 @@ function getShellMeta(pathname: string) {
 
 function isAdminRoot(pathname: string) {
   return pathname === "/admin" || pathname === "/admin/";
+}
+
+function getAdminDisplayName(profile: InitialAdminProfile | null) {
+  const explicitName = profile?.fullName?.trim();
+
+  if (explicitName) {
+    return explicitName;
+  }
+
+  const emailPrefix = profile?.email?.split("@")[0]?.replace(/[._-]+/g, " ").trim();
+
+  return emailPrefix
+    ? emailPrefix.replace(/\b\w/g, (char) => char.toLocaleUpperCase("tr"))
+    : "Admin";
+}
+
+function getInitials(value: string) {
+  const parts = value.split(/\s+/).filter(Boolean);
+
+  return (parts.length > 0 ? parts : ["A"])
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toLocaleUpperCase("tr"))
+    .join("");
+}
+
+function DesktopTopbar({
+  title,
+  subtitle,
+  profile,
+  isToshiOpen,
+  toshiAlertCount,
+  isNotificationsOpen,
+  onNotificationsOpenChange,
+  onUnreadCountChange,
+  onRefresh,
+  onToggleToshi,
+}: {
+  title: string;
+  subtitle: string;
+  profile: InitialAdminProfile | null;
+  isToshiOpen: boolean;
+  toshiAlertCount?: number;
+  isNotificationsOpen: boolean;
+  onNotificationsOpenChange: (next: boolean) => void;
+  onUnreadCountChange: (count: number) => void;
+  onRefresh: () => void;
+  onToggleToshi: () => void;
+}) {
+  const displayName = getAdminDisplayName(profile);
+  const initials = getInitials(displayName);
+
+  return (
+    <header className="sticky top-4 z-30 mx-auto mb-4 hidden w-full max-w-[1560px] md:block">
+      <div className="flex min-h-[76px] items-center justify-between gap-4 rounded-[22px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-4 py-3 shadow-[0_16px_34px_rgba(17,24,39,0.055)] backdrop-blur-xl xl:px-5">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-text-muted)]">
+            Ortak admin
+          </p>
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-[1.15rem] font-semibold tracking-[-0.035em] text-[var(--admin-heading)]">
+              {title}
+            </h1>
+            <span className="hidden rounded-full border border-[var(--admin-success-soft)] bg-[var(--admin-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--admin-success)] lg:inline-flex">
+              Sağlıklı
+            </span>
+          </div>
+          <p className="mt-1 truncate text-[13px] text-[var(--admin-text-secondary)]">{subtitle}</p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <a
+            href={STORE_RUNTIME.storefrontUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="hidden min-h-11 items-center gap-2 rounded-[16px] border border-[var(--admin-border)] bg-white px-3.5 text-sm font-semibold text-[var(--admin-text)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] xl:inline-flex"
+          >
+            <Store className="h-4 w-4" />
+            Mağazayı görüntüle
+            <ExternalLink className="h-3.5 w-3.5 text-[var(--admin-text-muted)]" />
+          </a>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
+            aria-label="Sayfayı yenile"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <AdminNotificationCenter
+            isMobile={false}
+            isOpen={isNotificationsOpen}
+            onOpenChange={onNotificationsOpenChange}
+            onUnreadCountChange={onUnreadCountChange}
+          />
+          <button
+            type="button"
+            onClick={onToggleToshi}
+            aria-pressed={isToshiOpen}
+            className={cn(
+              "inline-flex min-h-11 items-center gap-2 rounded-[16px] border px-3.5 text-sm font-semibold shadow-[var(--shadow-xs)] transition-colors",
+              isToshiOpen
+                ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
+                : "border-[var(--admin-border)] bg-white text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
+            )}
+          >
+            <Sparkles className="h-4 w-4" />
+            Toshi
+            {toshiAlertCount && toshiAlertCount > 0 ? (
+              <span className="rounded-full bg-[var(--admin-heading)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                {toshiAlertCount > 9 ? "9+" : toshiAlertCount}
+              </span>
+            ) : null}
+          </button>
+          <div className="flex min-h-11 items-center gap-2 rounded-[16px] border border-[var(--admin-border)] bg-white px-2.5 shadow-[var(--shadow-xs)]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-[12px] bg-[var(--admin-heading)] text-[12px] font-bold text-white">
+              {initials}
+            </span>
+            <span className="hidden max-w-[9rem] truncate pr-1 text-sm font-semibold text-[var(--admin-heading)] 2xl:inline">
+              {displayName}
+            </span>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
 }
 
 function MobileDockButton({
@@ -213,7 +339,7 @@ export default function AdminLayoutClient({
   const [activeMobileSurface, setActiveMobileSurface] = useState<MobileSurface>(null);
   const [desktopToshiOpen, setDesktopToshiOpen] = useState(false);
   const [desktopNotificationsOpen, setDesktopNotificationsOpen] = useState(false);
-  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [, setNotificationUnreadCount] = useState(0);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [toshiAlertInfo, setToshiAlertInfo] = useState<{
     count: number;
@@ -469,6 +595,21 @@ export default function AdminLayoutClient({
               </div>
             </div>
           </div>
+          ) : null}
+
+          {!isMobile ? (
+            <DesktopTopbar
+              title={shellMeta.title}
+              subtitle={shellMeta.subtitle}
+              profile={initialProfile}
+              isToshiOpen={isToshiOpen}
+              toshiAlertCount={toshiAlertInfo?.count}
+              isNotificationsOpen={isNotificationsOpen}
+              onNotificationsOpenChange={handleNotificationsOpenChange}
+              onUnreadCountChange={setNotificationUnreadCount}
+              onRefresh={handleRefresh}
+              onToggleToshi={handleToggleToshi}
+            />
           ) : null}
 
           {children}
