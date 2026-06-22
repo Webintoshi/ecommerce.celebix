@@ -73,6 +73,7 @@ export const LIGHT_POSTGRES_REQUIRED_TABLES = [
   "payment_attempts",
   "payment_webhook_events",
   "payment_gateways",
+  "abandoned_carts",
   "auth_principals",
   "auth_store_memberships",
   "auth_store_customer_links",
@@ -681,6 +682,69 @@ CREATE TABLE IF NOT EXISTS public.payment_gateways (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.abandoned_carts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_slug text,
+  cart_id text,
+  customer_id text,
+  session_id text,
+  email text,
+  phone text,
+  first_name text,
+  last_name text,
+  is_anonymous boolean NOT NULL DEFAULT true,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  total numeric(12,2) NOT NULL DEFAULT 0,
+  item_count integer NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'active',
+  recovered boolean NOT NULL DEFAULT false,
+  recovered_at timestamptz,
+  abandoned_at timestamptz,
+  checkout_started_at timestamptz,
+  last_activity_at timestamptz NOT NULL DEFAULT now(),
+  order_id text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.abandoned_carts
+  ADD COLUMN IF NOT EXISTS store_slug text,
+  ADD COLUMN IF NOT EXISTS cart_id text,
+  ADD COLUMN IF NOT EXISTS customer_id text,
+  ADD COLUMN IF NOT EXISTS session_id text,
+  ADD COLUMN IF NOT EXISTS email text,
+  ADD COLUMN IF NOT EXISTS phone text,
+  ADD COLUMN IF NOT EXISTS first_name text,
+  ADD COLUMN IF NOT EXISTS last_name text,
+  ADD COLUMN IF NOT EXISTS is_anonymous boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS total numeric(12,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS item_count integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS recovered boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS recovered_at timestamptz,
+  ADD COLUMN IF NOT EXISTS abandoned_at timestamptz,
+  ADD COLUMN IF NOT EXISTS checkout_started_at timestamptz,
+  ADD COLUMN IF NOT EXISTS last_activity_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS order_id text,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'abandoned_carts_status_check'
+      AND conrelid = 'public.abandoned_carts'::regclass
+  ) THEN
+    ALTER TABLE public.abandoned_carts
+      ADD CONSTRAINT abandoned_carts_status_check
+      CHECK (status IN ('active', 'abandoned', 'recovered', 'cleared'));
+  END IF;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS public.auth_principals (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider text NOT NULL DEFAULT 'logto',
@@ -749,6 +813,13 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON public.order_items(order_
 CREATE INDEX IF NOT EXISTS idx_payment_attempts_order_id ON public.payment_attempts(order_id);
 CREATE INDEX IF NOT EXISTS idx_payment_attempts_provider_reference_id ON public.payment_attempts(provider_reference_id);
 CREATE INDEX IF NOT EXISTS idx_payment_webhook_events_payment_attempt_id ON public.payment_webhook_events(payment_attempt_id);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_store_slug ON public.abandoned_carts(store_slug);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_cart_id ON public.abandoned_carts(cart_id);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_session_id ON public.abandoned_carts(session_id);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_customer_id ON public.abandoned_carts(customer_id);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_email ON public.abandoned_carts(email);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_status ON public.abandoned_carts(status);
+CREATE INDEX IF NOT EXISTS idx_abandoned_carts_last_activity_at ON public.abandoned_carts(last_activity_at);
 CREATE INDEX IF NOT EXISTS idx_auth_principals_email ON public.auth_principals(email);
 CREATE INDEX IF NOT EXISTS idx_auth_store_memberships_store_slug ON public.auth_store_memberships(store_slug);
 
@@ -815,6 +886,11 @@ FOR EACH ROW EXECUTE FUNCTION public.celebix_set_updated_at();
 DROP TRIGGER IF EXISTS payment_gateways_set_updated_at ON public.payment_gateways;
 CREATE TRIGGER payment_gateways_set_updated_at
 BEFORE UPDATE ON public.payment_gateways
+FOR EACH ROW EXECUTE FUNCTION public.celebix_set_updated_at();
+
+DROP TRIGGER IF EXISTS abandoned_carts_set_updated_at ON public.abandoned_carts;
+CREATE TRIGGER abandoned_carts_set_updated_at
+BEFORE UPDATE ON public.abandoned_carts
 FOR EACH ROW EXECUTE FUNCTION public.celebix_set_updated_at();
 
 DROP TRIGGER IF EXISTS auth_principals_set_updated_at ON public.auth_principals;

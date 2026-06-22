@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import {
-  deleteLatestOpenAbandonedCartForSession,
+  type AbandonedCartStatus,
+  clearAbandonedCartByLookup,
   findAbandonedCartByLookup,
+  isAbandonedCartUnavailableError,
   markAbandonedCartAsRecovered,
   syncAbandonedCartStatuses,
   upsertAbandonedCart,
@@ -26,6 +28,114 @@ function buildDisabledResponse() {
     },
     { status: 503 },
   );
+}
+
+function buildUnavailableResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      code: "abandoned_cart_unavailable",
+      error: "Abandoned cart tablosu bu runtime icin henuz hazir degil.",
+    },
+    { status: 503 },
+  );
+}
+
+function readBodyString(body: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = body[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function readBodyNumber(body: Record<string, unknown>, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = body[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function readBodyBoolean(body: Record<string, unknown>, ...keys: string[]): boolean | undefined {
+  for (const key of keys) {
+    const value = body[key];
+    if (typeof value === "boolean") {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function splitFullName(fullName: string | null) {
+  if (!fullName) {
+    return { firstName: null, lastName: null };
+  }
+
+  const parts = fullName.split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? null,
+    lastName: parts.slice(1).join(" ") || null,
+  };
+}
+
+function resolveCustomerNameParts(body: Record<string, unknown>) {
+  const explicitFullName = readBodyString(body, "customerName", "customer_name", "name");
+
+  if (explicitFullName) {
+    return splitFullName(explicitFullName);
+  }
+
+  const firstName = readBodyString(body, "firstName", "first_name");
+  const lastName = readBodyString(body, "lastName", "last_name");
+
+  if (firstName || lastName) {
+    return { firstName, lastName };
+  }
+
+  return {
+    firstName: readBodyString(body, "billingFirstName", "billing_first_name"),
+    lastName: readBodyString(body, "billingLastName", "billing_last_name"),
+  };
+}
+
+function resolveCustomerEmail(body: Record<string, unknown>) {
+  return readBodyString(body, "customerEmail", "customer_email", "email", "billingEmail", "billing_email");
+}
+
+function resolveCustomerPhone(body: Record<string, unknown>) {
+  return readBodyString(body, "customerPhone", "customer_phone", "phone", "billingPhone", "billing_phone");
+}
+
+function resolveStatus(value: string | null): AbandonedCartStatus | null {
+  if (value === "active" || value === "abandoned" || value === "recovered" || value === "cleared") {
+    return value;
+  }
+
+  return null;
+}
+
+function resolveLookup(body: Record<string, unknown>) {
+  return {
+    id: readBodyString(body, "id") ?? undefined,
+    cartId: readBodyString(body, "cartId", "cart_id"),
+    sessionId: readBodyString(body, "sessionId", "session_id"),
+    customerId: readBodyString(body, "customerId", "customer_id"),
+    email: resolveCustomerEmail(body),
+  };
 }
 
 function applyFilters(
@@ -55,7 +165,7 @@ function applyFilters(
   if (search?.trim()) {
     const term = search.trim();
     nextQuery = nextQuery.or(
-      `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
+      `cart_id.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`,
     );
   }
 
@@ -64,13 +174,17 @@ function applyFilters(
   return nextQuery.order(orderColumn, { ascending });
 }
 
+async function requireSuperAdmin() {
+  return requireAdminApiAuth({ roles: ["super_admin"] });
+}
+
 export async function GET(request: NextRequest) {
   if (isAdminAbandonedCartDisabled()) {
     return buildDisabledResponse();
   }
 
   try {
-    const { response } = await requireAdminApiAuth();
+    const { response } = await requireSuperAdmin();
     if (response) {
       return response;
     }
@@ -94,6 +208,9 @@ export async function GET(request: NextRequest) {
     ).range(from, to);
 
     if (error) {
+      if (isAbandonedCartUnavailableError(error)) {
+        return buildUnavailableResponse();
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -103,6 +220,9 @@ export async function GET(request: NextRequest) {
     );
 
     if (countError) {
+      if (isAbandonedCartUnavailableError(countError)) {
+        return buildUnavailableResponse();
+      }
       return NextResponse.json({ error: countError.message }, { status: 500 });
     }
 
@@ -118,10 +238,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching abandoned carts:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    if (isAbandonedCartUnavailableError(error)) {
+      return buildUnavailableResponse();
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -131,32 +251,44 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { response } = await requireSuperAdmin();
+    if (response) {
+      return response;
+    }
+
     const supabase = getDb();
     const body = await request.json();
+    const { firstName, lastName } = resolveCustomerNameParts(body);
 
     const cart = await upsertAbandonedCart(
       {
-        sessionId: body.session_id,
-        customerId: body.customer_id,
-        firstName: body.first_name,
-        lastName: body.last_name,
-        email: body.email,
-        phone: body.phone,
-        isAnonymous: body.is_anonymous,
-        items: body.items,
-        total: typeof body.total === "number" ? body.total : undefined,
-        itemCount: typeof body.item_count === "number" ? body.item_count : undefined,
-        status: body.status,
+        cartId: readBodyString(body, "cartId", "cart_id"),
+        sessionId: readBodyString(body, "sessionId", "session_id"),
+        customerId: readBodyString(body, "customerId", "customer_id"),
+        firstName,
+        lastName,
+        email: resolveCustomerEmail(body),
+        phone: resolveCustomerPhone(body),
+        isAnonymous: readBodyBoolean(body, "isAnonymous", "is_anonymous"),
+        items: Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : undefined,
+        total: readBodyNumber(body, "total"),
+        itemCount: readBodyNumber(body, "itemCount", "item_count"),
+        status: resolveStatus(readBodyString(body, "status")),
+        checkoutStartedAt: readBodyString(body, "checkoutStartedAt", "checkout_started_at"),
+        orderId: readBodyString(body, "orderId", "order_id"),
       },
-      supabase
+      supabase,
     );
 
     return NextResponse.json({ success: true, cart });
   } catch (error) {
     console.error("Error creating/updating abandoned cart:", error);
+    if (isAbandonedCartUnavailableError(error)) {
+      return buildUnavailableResponse();
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -167,31 +299,26 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { response } = await requireAdminApiAuth();
+    const { response } = await requireSuperAdmin();
     if (response) {
       return response;
     }
 
     const supabase = getDb();
     const body = await request.json();
-    const { id, session_id, customer_id, email, status, recovered } = body;
+    const lookup = resolveLookup(body);
+    const status = readBodyString(body, "status");
+    const recovered = readBodyBoolean(body, "recovered");
 
-    if (!id && !session_id && !customer_id && !email) {
-      return NextResponse.json(
-        { error: "Cart lookup required" },
-        { status: 400 }
-      );
+    if (!lookup.id && !lookup.cartId && !lookup.sessionId && !lookup.customerId && !lookup.email) {
+      return NextResponse.json({ error: "Cart lookup required" }, { status: 400 });
     }
 
     if (recovered === true) {
       const cart = await markAbandonedCartAsRecovered(
-        {
-          id,
-          sessionId: session_id,
-          customerId: customer_id,
-          email,
-        },
-        supabase
+        lookup,
+        { orderId: readBodyString(body, "orderId", "order_id") },
+        supabase,
       );
 
       if (!cart) {
@@ -201,16 +328,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: true, cart });
     }
 
-    const existing = await findAbandonedCartByLookup(
-      {
-        id,
-        sessionId: session_id,
-        customerId: customer_id,
-        email,
-      },
-      undefined,
-      supabase
-    );
+    if (status === "cleared") {
+      const cart = await clearAbandonedCartByLookup(lookup, supabase);
+      return NextResponse.json({ success: true, cart });
+    }
+
+    const existing = await findAbandonedCartByLookup(lookup, undefined, supabase);
 
     if (!existing) {
       return NextResponse.json({ error: "Cart not found" }, { status: 404 });
@@ -218,8 +341,19 @@ export async function PATCH(request: NextRequest) {
 
     const nowIso = new Date().toISOString();
     const updateData: Record<string, unknown> = {};
+    const { firstName, lastName } = resolveCustomerNameParts(body);
+    const email = resolveCustomerEmail(body);
+    const phone = resolveCustomerPhone(body);
+    const orderId = readBodyString(body, "orderId", "order_id");
 
-    if (typeof status === "string" && status.trim()) {
+    if (firstName) updateData.first_name = firstName;
+    if (lastName) updateData.last_name = lastName;
+    if (email) updateData.email = email;
+    if (phone) updateData.phone = phone;
+    if (orderId) updateData.order_id = orderId;
+    if (email || phone || firstName || lastName) updateData.is_anonymous = false;
+
+    if (status) {
       updateData.status = status;
 
       if (status === "recovered") {
@@ -242,12 +376,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: "No update payload provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No update payload provided" }, { status: 400 });
     }
 
+    updateData.last_activity_at = nowIso;
     updateData.updated_at = nowIso;
 
     const { data, error } = await supabase
@@ -258,16 +390,19 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
+      if (isAbandonedCartUnavailableError(error)) {
+        return buildUnavailableResponse();
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, cart: data });
   } catch (error) {
     console.error("Error updating abandoned cart:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    if (isAbandonedCartUnavailableError(error)) {
+      return buildUnavailableResponse();
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -277,42 +412,32 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const supabase = getDb();
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    const sessionId = searchParams.get("session_id");
-
-    if (id) {
-      const { response } = await requireAdminApiAuth();
-      if (response) {
-        return response;
-      }
+    const { response } = await requireSuperAdmin();
+    if (response) {
+      return response;
     }
 
-    if (!id && !sessionId) {
+    const supabase = getDb();
+    const { searchParams } = new URL(request.url);
+    const lookup = {
+      id: searchParams.get("id") || undefined,
+      cartId: searchParams.get("cartId") || searchParams.get("cart_id"),
+      sessionId: searchParams.get("sessionId") || searchParams.get("session_id"),
+      customerId: searchParams.get("customerId") || searchParams.get("customer_id"),
+      email: searchParams.get("email"),
+    };
+
+    if (!lookup.id && !lookup.cartId && !lookup.sessionId && !lookup.customerId && !lookup.email) {
       return NextResponse.json({ error: "Cart lookup required" }, { status: 400 });
     }
 
-    if (sessionId && !id) {
-      await deleteLatestOpenAbandonedCartForSession(sessionId, supabase);
-      return NextResponse.json({ success: true });
-    }
-
-    const { error } = await supabase
-      .from("abandoned_carts")
-      .delete()
-      .eq("id", id as string);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
+    const cart = await clearAbandonedCartByLookup(lookup, supabase);
+    return NextResponse.json({ success: true, cart });
   } catch (error) {
-    console.error("Error deleting abandoned cart:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("Error clearing abandoned cart:", error);
+    if (isAbandonedCartUnavailableError(error)) {
+      return buildUnavailableResponse();
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

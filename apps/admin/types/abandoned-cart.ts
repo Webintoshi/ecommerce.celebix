@@ -1,7 +1,11 @@
 export interface AbandonedCart {
   id: string;
+  cartId?: string;
   userId?: string;
   sessionId?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   email?: string;
   phone?: string;
   firstName?: string;
@@ -13,8 +17,11 @@ export interface AbandonedCart {
   status?: "active" | "abandoned" | "recovered" | "cleared";
   createdAt: Date;
   updatedAt: Date;
+  checkoutStartedAt?: Date | string;
+  lastActivityAt?: Date | string;
   recovered?: boolean;
   recoveredAt?: Date;
+  orderId?: string;
 }
 
 export interface AbandonedCartItem {
