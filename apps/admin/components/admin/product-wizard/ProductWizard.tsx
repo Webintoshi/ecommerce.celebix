@@ -7,8 +7,10 @@ import { ArrowLeft, Save, ChevronRight, ChevronLeft, RefreshCw } from "lucide-re
 import Link from "next/link";
 import {
   ADMIN_PRODUCT_WIZARD_STEPS,
+  type AdminProductMode,
   type AdminProductWizardState,
 } from "@/types/admin-product-wizard";
+import type { ProductStatus, ProductVariant } from "@/types/product";
 import { buildGeneratedSku } from "@/lib/sku";
 import { extractPlainTextFromProductDescription } from "@celebix/platform-config/src/product-description-rich-text";
 
@@ -19,6 +21,10 @@ import { StepPricing } from "./steps/StepPricing";
 import { StepStock } from "./steps/StepStock";
 import { StepSEO } from "./steps/StepSEO";
 import { StepPreview } from "./steps/StepPreview";
+import { ProductTypePicker } from "./ProductTypePicker";
+import { SimpleProductQuickForm } from "./SimpleProductQuickForm";
+import { VariantProductQuickForm } from "./VariantProductQuickForm";
+import { createDraftOption } from "./VariantOptionBuilder";
 
 // Progress Stepper Component
 import { WizardStepper } from "./WizardStepper";
@@ -27,7 +33,65 @@ interface ProductWizardProps {
   productId?: string;
 }
 
+type ProductSaveIntent = "current" | "draft" | "offline" | "publish";
+
+const SLUG_CHAR_MAP: Record<string, string> = {
+  ş: "s",
+  Ş: "s",
+  ı: "i",
+  İ: "i",
+  ğ: "g",
+  Ğ: "g",
+  ü: "u",
+  Ü: "u",
+  ö: "o",
+  Ö: "o",
+  ç: "c",
+  Ç: "c",
+};
+
+function generateSlug(name: string) {
+  return name
+    .split("")
+    .map((char) => SLUG_CHAR_MAP[char] || char)
+    .join("")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function createDefaultVariant(existing?: ProductVariant): ProductVariant {
+  return {
+    id: existing?.id || `variant-${Date.now()}`,
+    name: existing?.name || "Varsayilan Varyant",
+    weight: existing?.weight || 0,
+    price: Number(existing?.price) || 0,
+    originalPrice: existing?.originalPrice,
+    cost: existing?.cost,
+    stock: Number(existing?.stock) || 0,
+    sku: existing?.sku || buildGeneratedSku(),
+    barcode: existing?.barcode,
+    groupName: existing?.groupName,
+    unit: existing?.unit || "adet",
+    images: existing?.images || [],
+    isEnabled: existing?.isEnabled !== false,
+    maxPurchaseQuantity: existing?.maxPurchaseQuantity,
+    warehouseLocation: existing?.warehouseLocation,
+  };
+}
+
 const INITIAL_STATE: AdminProductWizardState = {
+  productMode: undefined,
   name: "",
   slug: "",
   description: "",
@@ -38,17 +102,8 @@ const INITIAL_STATE: AdminProductWizardState = {
   brand: "",
   countryOfOrigin: "",
   images: [],
-  variants: [
-    {
-      id: `variant-${Date.now()}`,
-      name: "Varsayilan Varyant",
-      weight: 0,
-      price: 0,
-      stock: 50,
-      sku: buildGeneratedSku(),
-      unit: "adet",
-    },
-  ],
+  variantOptions: [],
+  variants: [createDefaultVariant({ stock: 50 } as ProductVariant)],
   taxRate: 0,
   discountRules: [],
   trackStock: true,
@@ -71,6 +126,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
   
   const [formData, setFormData] = useState<AdminProductWizardState>(INITIAL_STATE);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const isQuickCreateFlow = !productId && Boolean(formData.productMode);
 
   // Ürün verisini yükle (düzenleme modu)
   useEffect(() => {
@@ -86,7 +142,26 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
 
       if (data.success && data.product) {
         const p = data.product;
+        const loadedVariants = (Array.isArray(p.variants) ? p.variants : []).map((variant: Record<string, unknown>) => ({
+          id: variant.id as string,
+          name: variant.name as string,
+          weight: parseInt(String(variant.weight || 0), 10) || 0,
+          price: Number(variant.price),
+          originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
+          cost: variant.cost ? Number(variant.cost) : undefined,
+          stock: Number(variant.stock) || 0,
+          sku: (variant.sku as string) || "",
+          barcode: variant.barcode as string | undefined,
+          groupName: variant.group_name as string | undefined,
+          unit: (variant.unit as string) || "adet",
+          images: Array.isArray(variant.images) ? (variant.images as string[]) : [],
+          isEnabled: true,
+          maxPurchaseQuantity: variant.max_purchase_quantity as number | undefined,
+          warehouseLocation: variant.warehouse_location as string | undefined,
+        }));
+
         setFormData({
+          productMode: loadedVariants.length > 1 ? "variant" : "simple",
           name: p.name || "",
           slug: p.slug || "",
           description: p.description || "",
@@ -105,22 +180,8 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
               sortOrder: Number(image.sort_order) || 0,
             };
           }),
-          variants: (Array.isArray(p.variants) ? p.variants : []).map((variant: Record<string, unknown>) => ({
-            id: variant.id as string,
-            name: variant.name as string,
-            weight: parseInt(String(variant.weight || 0), 10) || 0,
-            price: Number(variant.price),
-            originalPrice: variant.original_price ? Number(variant.original_price) : undefined,
-            cost: variant.cost ? Number(variant.cost) : undefined,
-            stock: Number(variant.stock) || 0,
-            sku: (variant.sku as string) || "",
-            barcode: variant.barcode as string | undefined,
-            groupName: variant.group_name as string | undefined,
-            unit: (variant.unit as string) || "adet",
-            images: Array.isArray(variant.images) ? (variant.images as string[]) : [],
-            maxPurchaseQuantity: variant.max_purchase_quantity as number | undefined,
-            warehouseLocation: variant.warehouse_location as string | undefined,
-          })),
+          variantOptions: [],
+          variants: loadedVariants.length > 0 ? loadedVariants : [createDefaultVariant()],
           taxRate: p.tax_rate ?? 0,
           discountRules: p.discount_rules || [],
           trackStock: p.track_stock !== false,
@@ -218,20 +279,181 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
     }
   };
 
-  const handleSave = async (publish = false) => {
-    if (!validateStep(currentStep)) {
+  const handleProductModeSelect = (mode: AdminProductMode) => {
+    setErrors({});
+    setCurrentStep(1);
+    setFormData((prev) => ({
+      ...prev,
+      productMode: mode,
+      status: "draft",
+      variantOptions: mode === "variant" ? [createDraftOption()] : [],
+      variants: mode === "simple" ? [createDefaultVariant(prev.variants[0])] : [],
+    }));
+  };
+
+  const handleProductModeReset = () => {
+    setErrors({});
+    setFormData((prev) => ({
+      ...prev,
+      productMode: undefined,
+      variantOptions: [],
+      variants: [createDefaultVariant(prev.variants[0])],
+    }));
+  };
+
+  const getEnabledVariants = () => formData.variants.filter((variant) => variant.isEnabled !== false);
+
+  const validateQuickCreate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    const enabledVariants = getEnabledVariants();
+
+    if (!formData.name.trim()) {
+      newErrors.name = "Ürün adı gereklidir";
+    }
+
+    if (!formData.category) {
+      newErrors.category = "Kategori mevcut API kaydı için gereklidir";
+    }
+
+    if (formData.productMode === "simple") {
+      const primaryVariant = enabledVariants[0] || formData.variants[0];
+      if (!primaryVariant || Number(primaryVariant.price) <= 0) {
+        newErrors.price = "Satış fiyatı gereklidir";
+      }
+      if (primaryVariant && Number(primaryVariant.stock) < 0) {
+        newErrors.stock = "Stok negatif olamaz";
+      }
+    }
+
+    if (formData.productMode === "variant") {
+      const usableOptions = formData.variantOptions.filter(
+        (option) => option.name.trim() && option.values.some((value) => value.trim()),
+      );
+
+      if (usableOptions.length === 0 || enabledVariants.length === 0) {
+        newErrors.variantOptions = "En az bir seçenek ve değer girerek varyant matrix oluşturun";
+      }
+    }
+
+    const invalidVariant = enabledVariants.find(
+      (variant) =>
+        !variant.name?.trim() ||
+        !variant.sku?.trim() ||
+        variant.price === undefined ||
+        variant.price === null ||
+        Number(variant.price) < 0 ||
+        variant.stock === undefined ||
+        variant.stock === null ||
+        Number(variant.stock) < 0,
+    );
+
+    if (invalidVariant) {
+      newErrors.variantOptions = "Aktif varyantların isim, SKU, fiyat ve stok bilgisi geçerli olmalıdır";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const buildProductPayload = (saveIntent: ProductSaveIntent) => {
+    const name = formData.name.trim();
+    const slug = formData.slug.trim() || generateSlug(name);
+    const shortDescription = formData.shortDescription.trim() || name;
+    const description = extractPlainTextFromProductDescription(formData.description).trim()
+      ? formData.description
+      : `<p>${escapeHtml(shortDescription)}</p>`;
+    const seoTitle = formData.seo.title.trim() || name;
+    const seoDescription = formData.seo.description.trim() || shortDescription;
+    const enabledVariants = getEnabledVariants();
+    const variants = enabledVariants.length > 0 ? enabledVariants : [createDefaultVariant()];
+    const shouldPublish = saveIntent === "publish";
+    const forceDraftStatus = saveIntent === "draft" || saveIntent === "offline";
+    const nextStatus: ProductStatus = shouldPublish
+      ? "published"
+      : forceDraftStatus
+        ? "draft"
+        : formData.status;
+    const nextPublishedAt = shouldPublish
+      ? new Date().toISOString()
+      : nextStatus === "published"
+        ? formData.publishedAt
+        : null;
+
+    return {
+      id: productId,
+      name,
+      slug,
+      description,
+      short_description: shortDescription,
+      category: formData.category,
+      subcategory: formData.subcategory,
+      tags: formData.tags,
+      brand: formData.brand,
+      country_of_origin: formData.countryOfOrigin,
+      images: formData.images.map((img) => img.url),
+      images_v2: formData.images.map((img, idx) => ({
+        url: img.url,
+        alt: img.alt,
+        is_primary: img.isPrimary,
+        sort_order: idx,
+      })),
+      variants: variants.map((v, idx) => ({
+        id: v.id,
+        name: v.name || `${idx + 1}. Varyant`,
+        weight: String(v.weight || 0),
+        price: Number(v.price) || 0,
+        original_price: v.originalPrice,
+        cost: v.cost,
+        stock: Number(v.stock) || 0,
+        sku: v.sku || buildGeneratedSku({ context: `${name}-${idx}`, index: idx }),
+        barcode: v.barcode,
+        group_name: v.groupName,
+        unit: v.unit,
+        images: v.images,
+        max_purchase_quantity: v.maxPurchaseQuantity,
+        warehouse_location: v.warehouseLocation,
+      })),
+      tax_rate: formData.taxRate,
+      discount_rules: formData.discountRules,
+      track_stock: formData.trackStock,
+      low_stock_threshold: formData.lowStockThreshold,
+      seo_title: seoTitle,
+      seo_description: seoDescription,
+      seo_keywords: formData.seo.keywords,
+      seo_focus_keyword: formData.seo.focusKeyword,
+      og_image: formData.seo.ogImage,
+      canonical_url: formData.seo.canonicalUrl,
+      seo_robots: formData.seo.robots,
+      status: nextStatus,
+      is_draft: nextStatus !== "published",
+      published_at: nextPublishedAt,
+    };
+  };
+
+  const handleSave = async (intent: boolean | ProductSaveIntent = "current") => {
+    const saveIntent: ProductSaveIntent =
+      intent === true
+        ? "publish"
+        : intent === false
+          ? isQuickCreateFlow
+            ? "draft"
+            : "current"
+          : intent;
+    const isValid = isQuickCreateFlow ? validateQuickCreate() : validateStep(currentStep);
+    if (!isValid) {
       toast.error("Lütfen zorunlu alanları doldurun");
       return;
     }
 
     // Varyant validasyonu - en az bir varyant zorunlu
-    if (!formData.variants || formData.variants.length === 0) {
+    const enabledVariants = getEnabledVariants();
+    if (!enabledVariants || enabledVariants.length === 0) {
       toast.error("En az bir varyant eklemelisiniz");
       return;
     }
 
     // Her varyantın zorunlu alanlarını kontrol et
-    const invalidVariant = formData.variants.find(
+    const invalidVariant = enabledVariants.find(
       v => !v.name || !v.name.trim() || !v.sku || !v.sku.trim() || v.price === undefined || v.price === null || v.stock === undefined || v.stock === null
     );
 
@@ -241,7 +463,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
     }
 
     // Varyantların geçerliliğini kontrol et
-    for (const variant of formData.variants) {
+    for (const variant of enabledVariants) {
       if (variant.price < 0) {
         toast.error("Varyant fiyatı negatif olamaz");
         return;
@@ -255,57 +477,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
     setSaving(true);
 
     try {
-      const productData = {
-        id: productId,
-        name: formData.name,
-        slug: formData.slug,
-        description: formData.description,
-        short_description: formData.shortDescription,
-        category: formData.category,
-        subcategory: formData.subcategory,
-        tags: formData.tags,
-        brand: formData.brand,
-        country_of_origin: formData.countryOfOrigin,
-        images: formData.images.map((img) => img.url),
-        images_v2: formData.images.map((img, idx) => ({
-          url: img.url,
-          alt: img.alt,
-          is_primary: img.isPrimary,
-          sort_order: idx,
-        })),
-        variants: formData.variants.map((v) => ({
-          id: v.id,
-          name: v.name,
-          weight: String(v.weight),
-          price: v.price,
-          original_price: v.originalPrice,
-          cost: v.cost,
-          stock: v.stock,
-          sku: v.sku,
-          barcode: v.barcode,
-          group_name: v.groupName,
-          unit: v.unit,
-          images: v.images,
-          max_purchase_quantity: v.maxPurchaseQuantity,
-          warehouse_location: v.warehouseLocation,
-        })),
-        tax_rate: formData.taxRate,
-        discount_rules: formData.discountRules,
-        track_stock: formData.trackStock,
-        low_stock_threshold: formData.lowStockThreshold,
-        seo_title: formData.seo.title,
-        seo_description: formData.seo.description,
-        seo_keywords: formData.seo.keywords,
-        seo_focus_keyword: formData.seo.focusKeyword,
-        og_image: formData.seo.ogImage,
-        canonical_url: formData.seo.canonicalUrl,
-        seo_robots: formData.seo.robots,
-        // Makro besin değerleri
-        status: publish ? "published" : formData.status,
-        is_draft: !publish,
-        published_at: publish ? new Date().toISOString() : formData.publishedAt,
-      };
-
+      const productData = buildProductPayload(saveIntent);
       const url = "/api/products";
       const method = productId ? "PUT" : "POST";
 
@@ -334,14 +506,16 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
       setLastSaved(new Date());
       
       toast.success(
-        publish 
+        saveIntent === "publish"
           ? "Ürün başarıyla yayınlandı!" 
+          : saveIntent === "offline"
+            ? "Ürün satışa kapalı kaydedildi!"
           : productId 
             ? "Ürün başarıyla güncellendi!" 
             : "Ürün başarıyla oluşturuldu!"
       );
 
-      if (publish || !productId) {
+      if (saveIntent === "publish" || !productId) {
         router.push("/admin/urunler");
       }
     } catch (error: unknown) {
@@ -435,6 +609,128 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
         return null;
     }
   };
+
+  if (!productId && !formData.productMode) {
+    return <ProductTypePicker onSelect={handleProductModeSelect} />;
+  }
+
+  if (isQuickCreateFlow) {
+    const modeLabel = formData.productMode === "variant" ? "Varyasyonlu ürün" : "Basit ürün";
+
+    return (
+      <div className="admin-page-root min-h-screen bg-[#F7F8FA] text-stone-900">
+        <div className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/95 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 md:px-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
+              <Link
+                href="/admin/urunler"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
+                aria-label="Ürünler listesine dön"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+              <div>
+                <div className="inline-flex w-fit rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">
+                  {modeLabel}
+                </div>
+                <h1 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-stone-950">
+                  Yeni ürün oluştur
+                </h1>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleProductModeReset}
+                className="inline-flex h-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white px-4 text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
+              >
+                Ürün tipini değiştir
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave("draft")}
+                disabled={saving}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 text-sm font-semibold text-[var(--admin-accent-hover)] transition-colors hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Taslak Kaydet
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave("offline")}
+                disabled={saving}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[#D7DCE3] bg-[#FCFDFE] px-4 text-sm font-semibold text-stone-700 transition-colors hover:border-[var(--admin-accent-border)] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Satışa Kapalı Kaydet
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave("publish")}
+                disabled={saving}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,106,0,0.16)] transition-colors hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Yayınla
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8">
+          <div className="mb-5 rounded-[8px] border border-[#E7EAF0] bg-white px-5 py-4 text-sm leading-6 text-stone-600 shadow-sm">
+            {formData.productMode === "variant"
+              ? "Seçenekleri girin, matrix satırlarını kontrol edin ve hazır olduğunda kaydedin. SEO ve görsel alanları gelişmiş bölümlerde kalır."
+              : "Basit üründe önce ad, fiyat, stok ve kategoriyle kayda başlayın. Açıklama, görsel ve SEO alanlarını şimdi veya daha sonra tamamlayabilirsiniz."}
+          </div>
+
+          {formData.productMode === "variant" ? (
+            <VariantProductQuickForm data={formData} errors={errors} onChange={updateFormData} />
+          ) : (
+            <SimpleProductQuickForm data={formData} errors={errors} onChange={updateFormData} />
+          )}
+
+          <div className="sticky bottom-4 z-20 mt-6 rounded-[8px] border border-[var(--admin-border)] bg-white/95 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <p className="text-sm text-stone-500">
+                Kaydetmeden önce mevcut API için ürün adı, kategori ve en az bir geçerli varyant gerekir.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => handleSave("draft")}
+                  disabled={saving}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] disabled:opacity-50"
+                >
+                  {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Taslak Kaydet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSave("offline")}
+                  disabled={saving}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[#D7DCE3] bg-[#FCFDFE] px-4 text-sm font-semibold text-stone-700 transition-colors hover:bg-white disabled:opacity-50"
+                >
+                  {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Satışa Kapalı Kaydet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSave("publish")}
+                  disabled={saving}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#E85D04] disabled:opacity-50"
+                >
+                  {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Yayınla
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-page-root text-stone-900">
