@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink, Home, Menu, Package, RefreshCw, Sparkles, Store, Tag } from "lucide-react";
@@ -13,7 +12,6 @@ import { cn } from "@/lib/utils";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 type MobileSurface = "sidebar" | "notifications" | "toshi" | null;
-const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
 
 function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/siparisler")) {
@@ -252,75 +250,6 @@ function MobileDockButton({
         >
           {label}
         </span>
-      </span>
-    </button>
-  );
-}
-
-function MobileToshiDockButton({
-  active,
-  alertCount,
-  onClick,
-}: {
-  active?: boolean;
-  alertCount?: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={alertCount && alertCount > 0 ? `Toshi asistanı, ${alertCount} yeni uyarı` : "Toshi asistanını aç"}
-      aria-haspopup="dialog"
-      aria-pressed={active}
-      className="group relative flex min-w-[5.1rem] flex-col items-center justify-end px-1 pb-1 pt-0.5 focus-visible:outline-none"
-    >
-      <span
-        className={cn(
-          "pointer-events-none absolute left-1/2 top-[0.35rem] h-[4.2rem] w-[4.2rem] -translate-x-1/2 rounded-full bg-[var(--admin-bg)] blur-[18px] transition-opacity duration-200 ease-out",
-          active ? "opacity-100" : "opacity-45",
-        )}
-      />
-      <span
-        className={cn(
-          "relative flex h-[3.8rem] w-[3.8rem] -translate-y-[0.68rem] items-center justify-center rounded-full border p-[2px] shadow-[0_18px_30px_rgba(49,34,22,0.14),0_4px_10px_rgba(49,34,22,0.06)] transition-all duration-200 ease-out group-active:scale-[0.98]",
-          active
-            ? "border-[var(--admin-accent-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,241,232,0.92)_100%)]"
-            : "border-[rgba(255,255,255,0.82)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,248,250,0.96)_100%)]",
-        )}
-      >
-        <span className="pointer-events-none absolute inset-[1px] rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.4)_0%,rgba(255,255,255,0.08)_34%,rgba(255,255,255,0)_100%)]" />
-        <span className="relative block h-full w-full overflow-hidden rounded-full bg-white">
-          <Image
-            src={TOSHI_MASCOT_SRC}
-            alt=""
-            aria-hidden="true"
-            fill
-            sizes="64px"
-            className={cn(
-              "object-cover transition-transform duration-200 ease-out",
-              active ? "scale-[1.18]" : "scale-[1.14]",
-            )}
-            style={{ objectPosition: "50% 38%" }}
-            priority
-          />
-          <span className="pointer-events-none absolute inset-0 rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0.02)_42%,rgba(17,24,39,0.06)_100%)]" />
-          <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-white/45" />
-        </span>
-
-        {alertCount && alertCount > 0 ? (
-          <span className="absolute -right-1 -top-0.5 flex h-[1.2rem] min-w-[1.2rem] items-center justify-center rounded-full border border-white/85 bg-[var(--admin-heading)] px-1 text-[9px] font-bold text-white shadow-[0_6px_12px_rgba(17,24,39,0.16)]">
-            {alertCount > 9 ? "9+" : alertCount}
-          </span>
-        ) : null}
-      </span>
-      <span
-        className={cn(
-          "mt-[-0.08rem] text-[10px] font-semibold tracking-[0.01em] transition-all duration-200 ease-out",
-          active ? "text-[var(--admin-accent-hover)]" : "text-[var(--admin-text-secondary)]",
-        )}
-      >
-        Toshi
       </span>
     </button>
   );
@@ -626,13 +555,17 @@ export default function AdminLayoutClient({
           <div className="relative mx-auto w-full max-w-[30rem]">
             <span className="pointer-events-none absolute inset-x-0 bottom-0 top-[0.9rem] rounded-t-[1.4rem] border border-b-0 border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(247,248,250,0.84)_100%)] shadow-[0_-12px_24px_rgba(17,24,39,0.04)]" />
             <span className="pointer-events-none absolute inset-x-8 top-[1rem] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.88)_50%,rgba(255,255,255,0)_100%)]" />
-            <div className="relative grid w-full grid-cols-[1fr_1fr_auto_1fr_1fr] items-end gap-x-0.5 px-1.5 pb-0.5 pt-0.5">
+            <div className="relative grid w-full grid-cols-5 items-end gap-x-0.5 px-1.5 pb-0.5 pt-0.5">
               <MobileDockButton icon={Home} label="Ana" active={activeDockItem === "home"} onClick={handleHome} />
               <MobileDockButton icon={Package} label="Sipariş" active={activeDockItem === "orders"} onClick={handleOrders} />
-              <MobileToshiDockButton
+              <MobileDockButton
+                icon={Sparkles}
+                label={toshiAlertInfo?.count ? `Toshi ${toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}` : "Toshi"}
                 active={activeDockItem === "toshi"}
-                alertCount={toshiAlertInfo?.count}
                 onClick={handleToggleToshi}
+                ariaControls="toshi-assistant-panel"
+                ariaExpanded={isToshiOpen}
+                ariaHaspopup="dialog"
               />
               <MobileDockButton icon={Tag} label="Ürün" active={activeDockItem === "products"} onClick={handleProducts} />
               <MobileDockButton

@@ -7,7 +7,6 @@ import {
   Activity,
   Archive,
   ArrowDownRight,
-  ArrowRight,
   ArrowUpRight,
   CalendarDays,
   CheckCircle2,
@@ -20,7 +19,6 @@ import {
   Plus,
   ShoppingBag,
   Sparkles,
-  Truck,
   Users,
 } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
@@ -46,20 +44,8 @@ const PERIODS: Array<{ label: string; value: TimeRange }> = [
   { label: "Son 90 gün", value: "quarter" },
 ];
 
-const TOSHI_PROMPTS = [
-  "Satışları artırmak için öneriler sun",
-  "En çok satan ürünleri göster",
-  "Kampanya performansını analiz et",
-  "Bugünkü siparişleri özetle",
-];
-
-const TOSHI_MASCOT_SRC = "/branding/toshi-mascot-launcher.png";
-
 const SURFACE =
   "rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-[rgba(255,255,255,0.86)] shadow-none";
-
-const SUBTLE_SURFACE =
-  "rounded-[12px] border border-[rgba(226,231,238,0.78)] bg-[rgba(255,255,255,0.62)]";
 
 const KPI_TONES: Record<
   DashboardOverviewCard["tone"],
@@ -94,14 +80,6 @@ const KPI_TONES: Record<
     valueClassName: "text-[var(--admin-heading)]",
   },
 };
-
-function openToshi(prompt?: string) {
-  window.dispatchEvent(
-    new CustomEvent("celebix:toshi-open", {
-      detail: prompt ? { prompt } : undefined,
-    }),
-  );
-}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -274,45 +252,6 @@ function getAnalysisMeta(key: DashboardAnalysisSummaryItem["key"]) {
   }
 }
 
-function deriveToshiHighlight(dashboard: DashboardBootstrapData) {
-  const pendingCard = getOverviewCard(dashboard.overview.cards, "pending");
-  const revenueCard = getOverviewCard(dashboard.overview.cards, "revenue");
-
-  if (dashboard.lowStockProducts.length > 0) {
-    return {
-      title: `Stokta azalan ${dashboard.lowStockProducts.length} ürün var.`,
-      description: "Kritik seviyeleri hemen gözden geçirin.",
-      prompt: "Stokta azalan ürünleri göster",
-      icon: Package,
-    };
-  }
-
-  if ((pendingCard?.value ?? 0) > 0) {
-    return {
-      title: `${pendingCard?.value.toLocaleString("tr-TR")} bekleyen sipariş var.`,
-      description: "Hazırlık ve kargo akışını hızlandırın.",
-      prompt: "Bugünkü siparişleri özetle",
-      icon: Truck,
-    };
-  }
-
-  if ((revenueCard?.change ?? 0) < 0) {
-    return {
-      title: "Ciro trendi zayıflıyor.",
-      description: "Kampanya ve ürün performansını birlikte değerlendirin.",
-      prompt: "Kampanya performansını analiz et",
-      icon: Activity,
-    };
-  }
-
-  return {
-    title: "Mağaza görünümü stabil.",
-    description: "Hızlı fırsatları ve öne çıkan ürünleri birlikte gözden geçirin.",
-    prompt: "Satışları artırmak için öneriler sun",
-    icon: Sparkles,
-  };
-}
-
 function MiniSparkline({
   values,
   color,
@@ -379,78 +318,62 @@ function DashboardCard({
 }
 
 function DashboardTopStrip({
-  dashboard,
   selectedPeriod,
   onPeriodChange,
 }: {
-  dashboard: DashboardBootstrapData;
   selectedPeriod: TimeRange;
   onPeriodChange: (value: TimeRange) => void;
 }) {
-  const ordersCard = getOverviewCard(dashboard.overview.cards, "orders");
-  const revenueCard = getOverviewCard(dashboard.overview.cards, "revenue");
-  const pendingCard = getOverviewCard(dashboard.overview.cards, "pending");
-
-  const chips = [
-    `${ordersCard?.value.toLocaleString("tr-TR") ?? "0"} sipariş`,
-    `${formatCurrency(revenueCard?.value ?? 0)} satış`,
-    `${pendingCard?.value.toLocaleString("tr-TR") ?? "0"} bekleyen`,
-    `${dashboard.liveData.abandonedCarts.count.toLocaleString("tr-TR")} terk sepet`,
-  ];
-
   const quickActions = [
     { label: "Ürün ekle", href: "/admin/urunler/yeni", icon: Plus, primary: true },
-    { label: "Siparişleri görüntüle", href: "/admin/siparisler", icon: ShoppingBag },
-    { label: "Terk sepetleri gör", href: "/admin/siparisler/sepet-terk", icon: Archive },
+    { label: "Siparişler", href: "/admin/siparisler", icon: ShoppingBag },
+    { label: "Terk sepetler", href: "/admin/siparisler/sepet-terk", icon: Archive },
     { label: "Mağazayı görüntüle", href: STORE_RUNTIME.storefrontUrl, icon: Eye, external: true },
   ];
 
   return (
-    <section className="grid gap-4 border-b border-[rgba(226,231,238,0.72)] pb-4 md:pb-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+    <section className="grid gap-3 border-b border-[rgba(226,231,238,0.72)] pb-3 md:pb-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
-          Günlük kontrol merkezi
-        </p>
-        <h1 className="mt-3 text-[1.95rem] font-semibold tracking-[-0.05em] text-[var(--admin-heading)] md:text-[2.35rem]">
+        <h1 className="text-[1.78rem] font-semibold tracking-[-0.052em] text-[var(--admin-heading)] md:text-[2.05rem]">
           Mağaza özeti
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-secondary)] md:text-[15px]">
-          Satış, sipariş, stok ve müşteri sinyallerini tek ekranda takip edin; aksiyon gerektiren alanlara hızlıca geçin.
+        <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--admin-text-secondary)]">
+          Satış, sipariş ve stok durumunu takip edin.
         </p>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {chips.map((chip) => (
-            <span
-              key={chip}
-              className="inline-flex min-h-[28px] items-center rounded-[10px] bg-white/70 px-2.5 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)] ring-1 ring-[rgba(226,231,238,0.72)]"
-            >
-              {chip}
-            </span>
-          ))}
-        </div>
       </div>
 
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap xl:max-w-[720px] xl:justify-end">
-        <label className="inline-flex min-h-[42px] items-center gap-2 rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/80 px-3.5 py-2 text-sm font-semibold text-[var(--admin-heading)]">
-          <CalendarDays className="h-4.5 w-4.5 text-[var(--admin-accent-hover)]" />
-          <span className="sr-only">{getPeriodLabel(selectedPeriod)} özeti</span>
-          <select
-            value={selectedPeriod}
-            onChange={(event) => onPeriodChange(event.target.value as TimeRange)}
-            className="bg-transparent pr-3 text-sm font-semibold outline-none"
-            aria-label="Dashboard dönem seçici"
-          >
-            {PERIODS.map((period) => (
-              <option key={period.value} value={period.value}>
-                {period.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+      <div className="flex min-w-0 flex-col gap-2 xl:max-w-[760px] xl:items-end">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <label className="inline-flex min-h-[36px] flex-1 items-center gap-2 rounded-[10px] border border-[rgba(215,221,231,0.82)] bg-white/78 px-3 py-1.5 text-[13px] font-semibold text-[var(--admin-heading)] sm:flex-none">
+            <CalendarDays className="h-4 w-4 text-[var(--admin-accent-hover)]" />
+            <span className="sr-only">{getPeriodLabel(selectedPeriod)} özeti</span>
+            <select
+              value={selectedPeriod}
+              onChange={(event) => onPeriodChange(event.target.value as TimeRange)}
+              className="min-w-0 bg-transparent pr-2 text-[13px] font-semibold outline-none"
+              aria-label="Dashboard dönem seçici"
+            >
+              {PERIODS.map((period) => (
+                <option key={period.value} value={period.value}>
+                  {period.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="inline-flex min-h-[36px] items-center gap-2 rounded-[10px] border border-[rgba(215,221,231,0.72)] bg-white/62 px-3 text-[13px] font-semibold text-[var(--admin-text)]">
+            <ShoppingBag className="h-4 w-4 text-[var(--admin-text-muted)]" />
+            Online mağaza
+          </span>
+          <span className="inline-flex min-h-[36px] items-center gap-2 rounded-[10px] border border-[rgba(215,221,231,0.72)] bg-white/62 px-3 text-[13px] font-semibold text-[var(--admin-text-secondary)]">
+            <Percent className="h-4 w-4 text-[var(--admin-success)]" />
+            Önceki dönem
+          </span>
+        </div>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
           {quickActions.map((action) => {
             const ActionIcon = action.icon;
             const className = cn(
-              "inline-flex min-h-[42px] items-center justify-center gap-2 rounded-[12px] border px-3.5 text-sm font-semibold transition-colors",
+              "inline-flex min-h-[38px] items-center justify-center gap-2 rounded-[10px] border px-3 text-[13px] font-semibold transition-colors",
               action.primary
                 ? "border-[var(--admin-accent)] bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)]"
                 : "border-[rgba(215,221,231,0.82)] bg-white/80 text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
@@ -460,7 +383,7 @@ function DashboardTopStrip({
               return (
                 <a key={action.label} href={action.href} target="_blank" rel="noreferrer" className={className}>
                   <ActionIcon className="h-4 w-4" />
-                  <span>{action.label}</span>
+                  <span className="truncate">{action.label}</span>
                 </a>
               );
             }
@@ -468,7 +391,7 @@ function DashboardTopStrip({
             return (
               <Link key={action.label} href={action.href} className={className}>
                 <ActionIcon className="h-4 w-4" />
-                <span>{action.label}</span>
+                <span className="truncate">{action.label}</span>
               </Link>
             );
           })}
@@ -500,7 +423,7 @@ function buildDashboardMetrics(dashboard: DashboardBootstrapData): DashboardMetr
   return [
     {
       key: "revenue",
-      label: "Satış",
+      label: "Toplam satış",
       value: formatCurrency(revenueCard?.value ?? dashboard.stats.totalRevenue),
       href: revenueCard?.href ?? "/admin/analizler",
       context: `${getPeriodLabel(dashboard.overview.timeRange)} toplamı`,
@@ -511,7 +434,7 @@ function buildDashboardMetrics(dashboard: DashboardBootstrapData): DashboardMetr
     },
     {
       key: "orders",
-      label: "Siparişler",
+      label: "Sipariş sayısı",
       value: (ordersCard?.value ?? dashboard.stats.totalOrders).toLocaleString("tr-TR"),
       href: ordersCard?.href ?? "/admin/siparisler",
       context: "Yeni ve açık siparişler",
@@ -559,36 +482,36 @@ function KpiCard({ metric }: { metric: DashboardMetric }) {
     <Link
       href={metric.href}
       className={cn(
-        "group flex min-h-[112px] flex-col border-b border-r border-[rgba(226,231,238,0.82)] bg-white/50 p-4 transition-colors hover:bg-white/80 active:bg-white md:p-5",
+        "group flex min-h-[94px] flex-col border-b border-r border-[rgba(226,231,238,0.82)] bg-white/48 p-3.5 transition-colors hover:bg-white/82 active:bg-white md:p-4",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-[11px] border",
+            "flex h-8 w-8 items-center justify-center rounded-[10px] border",
             tone.iconShell,
           )}
         >
-          <Icon className="h-4.5 w-4.5" />
+          <Icon className="h-4 w-4" />
         </div>
         {metric.trend && metric.trend.length > 1 ? (
-          <div className="translate-x-1 translate-y-0.5 opacity-90">
+          <div className="hidden translate-x-1 opacity-90 md:block">
             <MiniSparkline values={metric.trend} color={tone.spark} />
           </div>
         ) : (
-          <span className="rounded-full bg-[var(--admin-muted-surface)] px-2 py-1 text-[11px] font-semibold text-[var(--admin-text-muted)]">
+          <span className="rounded-full bg-[var(--admin-muted-surface)] px-2 py-0.5 text-[10.5px] font-semibold text-[var(--admin-text-muted)]">
             Anlık
           </span>
         )}
       </div>
 
-      <div className="mt-4">
-        <p className="text-[12px] font-medium leading-5 text-[var(--admin-text-secondary)]">
+      <div className="mt-3">
+        <p className="truncate text-[12px] font-semibold leading-5 text-[var(--admin-text-secondary)]">
           {metric.label}
         </p>
         <p
           className={cn(
-            "mt-1.5 truncate text-[1.32rem] font-semibold tracking-[-0.045em] md:text-[1.46rem]",
+            "mt-0.5 truncate text-[1.28rem] font-semibold tracking-[-0.045em] md:text-[1.38rem]",
             tone.valueClassName,
           )}
         >
@@ -596,11 +519,11 @@ function KpiCard({ metric }: { metric: DashboardMetric }) {
         </p>
       </div>
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
         {metric.delta ? (
           <span
             className={cn(
-              "inline-flex items-center gap-1 text-[12px] font-semibold",
+              "inline-flex items-center gap-1 text-[11.5px] font-semibold",
               metric.delta.positive === null
                 ? "text-[var(--admin-text-secondary)]"
                 : metric.delta.positive
@@ -629,9 +552,9 @@ function KpiGrid({
 }) {
   if (isRefreshing) {
     return (
-      <section className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/70 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/66 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-[112px] rounded-none" />
+          <Skeleton key={index} className="h-[96px] rounded-none" />
         ))}
       </section>
     );
@@ -640,7 +563,7 @@ function KpiGrid({
   const metrics = buildDashboardMetrics(dashboard);
 
   return (
-    <section className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/70 sm:grid-cols-2 xl:grid-cols-5">
+    <section className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/66 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
       {metrics.map((metric) => (
         <KpiCard key={metric.key} metric={metric} />
       ))}
@@ -666,206 +589,170 @@ function SalesChartCard({
   const revenueDelta = formatDelta(
     previousRevenue === 0 ? 0 : ((currentRevenue - previousRevenue) / previousRevenue) * 100,
   );
+  const averageDailyRevenue = points.length > 0 ? currentRevenue / points.length : 0;
+  const averageOrderValue = currentOrders > 0 ? currentRevenue / currentOrders : 0;
+  const hasSalesData = currentRevenue > 0 || currentOrders > 0;
+  const summaryRows = [
+    {
+      label: "Toplam satış",
+      value: formatCurrency(currentRevenue),
+      delta: revenueDelta,
+    },
+    {
+      label: "Günlük ortalama",
+      value: formatCurrency(averageDailyRevenue),
+      delta: revenueDelta,
+    },
+    {
+      label: "Sipariş ortalaması",
+      value: formatCurrency(averageOrderValue),
+      delta: null,
+    },
+    {
+      label: "Sipariş",
+      value: currentOrders.toLocaleString("tr-TR"),
+      delta: null,
+    },
+  ];
 
   return (
     <DashboardCard
-      title="Satışlar"
+      title="Satış performansı"
+      className="xl:col-span-2"
       action={
-        <span className="inline-flex min-h-[34px] items-center rounded-full border border-[var(--admin-border)] bg-[rgba(247,248,250,0.84)] px-3 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)]">
+        <span className="inline-flex min-h-[32px] items-center rounded-[10px] border border-[var(--admin-border)] bg-[rgba(247,248,250,0.84)] px-3 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)]">
           {currentLabel}
         </span>
       }
+      bodyClassName="pt-3"
     >
-      <div className="space-y-4">
-        <div className="flex items-center gap-4 text-[12px] font-medium text-[var(--admin-text-secondary)]">
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--admin-accent)]" />
-            {currentLabel}
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--admin-text-muted)]" />
-            {previousLabel}
-          </span>
-        </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] xl:items-stretch">
+        <div>
+          <div className="mb-3 flex items-center gap-4 text-[12px] font-medium text-[var(--admin-text-secondary)]">
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[var(--admin-accent)]" />
+              {currentLabel}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[var(--admin-text-muted)]" />
+              {previousLabel}
+            </span>
+          </div>
 
-        {points.length > 0 ? (
-          <div className="h-[238px] md:h-[270px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={points} margin={{ top: 10, right: 4, left: -22, bottom: 6 }}>
-                <CartesianGrid stroke="rgba(231,234,240,0.9)" vertical={false} strokeDasharray="4 4" />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: "#9CA3AF", fontSize: 12 }}
-                  dy={8}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: "#9CA3AF", fontSize: 12 }}
-                  tickFormatter={formatCompactValue}
-                  width={46}
-                />
-                <Tooltip
-                  cursor={{ stroke: "#E7EAF0", strokeWidth: 1.2 }}
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload || payload.length === 0) {
-                      return null;
-                    }
+          {points.length > 0 ? (
+            <div className="relative h-[248px] min-h-[248px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={points} margin={{ top: 8, right: 10, left: -22, bottom: 6 }}>
+                  <CartesianGrid stroke="rgba(231,234,240,0.9)" vertical={false} strokeDasharray="4 4" />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                    dy={8}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                    tickFormatter={formatCompactValue}
+                    width={46}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: "#E7EAF0", strokeWidth: 1.2 }}
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || payload.length === 0) {
+                        return null;
+                      }
 
-                    const point = payload[0]?.payload as DashboardPerformancePoint;
+                      const point = payload[0]?.payload as DashboardPerformancePoint;
 
-                    return (
-                      <div className="rounded-[16px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
-                        <p className="text-sm font-semibold text-[var(--admin-heading)]">{label}</p>
-                        <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
-                          <div className="flex items-center justify-between gap-6">
-                            <span className="inline-flex items-center gap-2">
-                              <span className="h-2 w-2 rounded-full bg-[var(--admin-accent)]" />
-                              {currentLabel}
-                            </span>
-                            <span className="font-semibold text-[var(--admin-heading)]">
-                              {formatCurrency(point.currentRevenue)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between gap-6">
-                            <span className="inline-flex items-center gap-2">
-                              <span className="h-2 w-2 rounded-full bg-[var(--admin-text-muted)]" />
-                              {previousLabel}
-                            </span>
-                            <span className="font-semibold text-[var(--admin-heading)]">
-                              {formatCurrency(point.previousRevenue)}
-                            </span>
+                      return (
+                        <div className="rounded-[14px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
+                          <p className="text-sm font-semibold text-[var(--admin-heading)]">{label}</p>
+                          <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
+                            <div className="flex items-center justify-between gap-6">
+                              <span>{currentLabel}</span>
+                              <span className="font-semibold text-[var(--admin-heading)]">
+                                {formatCurrency(point.currentRevenue)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-6">
+                              <span>{previousLabel}</span>
+                              <span className="font-semibold text-[var(--admin-heading)]">
+                                {formatCurrency(point.previousRevenue)}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="previousRevenue"
-                  stroke="#9CA3AF"
-                  strokeWidth={2}
-                  strokeDasharray="6 6"
-                  dot={false}
-                  activeDot={{ r: 3, fill: "#9CA3AF" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="currentRevenue"
-                  stroke="#FF6A00"
-                  strokeWidth={3}
-                  dot={false}
-                  activeDot={{ r: 4, fill: "#FF6A00" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="flex h-[238px] items-center justify-center rounded-[20px] border border-dashed border-[var(--admin-border)] bg-[rgba(247,248,250,0.72)]">
-            <p className="text-sm text-[var(--admin-text-secondary)]">Grafik verisi bulunamadı.</p>
-          </div>
-        )}
-
-        <div className={cn(SUBTLE_SURFACE, "flex items-end justify-between gap-4 px-4 py-4")}>
-          <div>
-            <p className="text-[12px] font-medium text-[var(--admin-text-secondary)]">Toplam Ciro</p>
-            <p className="mt-2 text-[1.55rem] font-semibold tracking-[-0.05em] text-[var(--admin-heading)]">
-              {formatCurrency(currentRevenue)}
-            </p>
-          </div>
-          <div className="text-right">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 text-[12px] font-semibold",
-                revenueDelta.positive === null
-                  ? "text-[var(--admin-text-secondary)]"
-                  : revenueDelta.positive
-                    ? "text-[var(--admin-success)]"
-                    : "text-[var(--admin-danger)]",
-              )}
-            >
-              {revenueDelta.positive !== null ? (
-                revenueDelta.positive ? (
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowDownRight className="h-3.5 w-3.5" />
-                )
+                      );
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="previousRevenue"
+                    stroke="#9CA3AF"
+                    strokeWidth={2}
+                    strokeDasharray="6 6"
+                    dot={false}
+                    activeDot={{ r: 3, fill: "#9CA3AF" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="currentRevenue"
+                    stroke="#2563EB"
+                    strokeWidth={3}
+                    dot={false}
+                    activeDot={{ r: 4, fill: "#2563EB" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              {!hasSalesData ? (
+                <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center">
+                  <span className="rounded-[10px] border border-[var(--admin-border)] bg-white/92 px-3 py-2 text-[12px] font-semibold text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)]">
+                    Bu dönem için satış verisi yok.
+                  </span>
+                </div>
               ) : null}
-              {revenueDelta.compactLabel}
-            </span>
-            <p className="mt-2 text-[12px] text-[var(--admin-text-secondary)]">
-              {currentOrders.toLocaleString("tr-TR")} sipariş
-            </p>
-          </div>
-        </div>
-      </div>
-    </DashboardCard>
-  );
-}
-
-function ToshiCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
-  const highlight = deriveToshiHighlight(dashboard);
-  const HighlightIcon = highlight.icon;
-
-  return (
-    <DashboardCard title="Toshi önerileri" className="h-full" bodyClassName="pt-3">
-      <div className="flex h-full flex-col gap-3">
-        <div className="flex items-start gap-3">
-          <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full border border-[rgba(226,231,238,0.82)] bg-white">
-            <Image src={TOSHI_MASCOT_SRC} alt="Toshi" fill className="object-contain p-1.5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-[var(--admin-heading)]">Akıllı kontrol listesi</p>
-            <p className="mt-1 text-[13px] leading-5 text-[var(--admin-text-secondary)]">
-              Kritik sinyalleri kısa önerilere çevirir.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => openToshi(highlight.prompt)}
-          className="flex min-h-[68px] items-center justify-between gap-3 rounded-[12px] border border-[rgba(255,215,191,0.76)] bg-[rgba(255,241,232,0.68)] px-3.5 py-3 text-left transition-colors active:bg-[rgba(255,241,232,0.84)]"
-        >
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] bg-white/80 text-[var(--admin-accent-hover)]">
-              <HighlightIcon className="h-4.5 w-4.5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[var(--admin-heading)]">{highlight.title}</p>
-              <p className="mt-1 text-[13px] leading-5 text-[var(--admin-text-secondary)]">
-                {highlight.description}
-              </p>
             </div>
-          </div>
-          <ArrowRight className="h-4.5 w-4.5 flex-shrink-0 text-[var(--admin-accent-hover)]" />
-        </button>
-
-        <div className="divide-y divide-[rgba(231,234,240,0.82)]">
-          {TOSHI_PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => openToshi(prompt)}
-              className="flex min-h-[48px] w-full items-center justify-between gap-3 rounded-[10px] px-2 py-2.5 text-left text-[13px] font-medium text-[var(--admin-heading)] transition-colors hover:bg-white/75 active:bg-white"
-            >
-              <span className="min-w-0 truncate">{prompt}</span>
-              <ChevronRight className="h-4.5 w-4.5 flex-shrink-0 text-[var(--admin-text-muted)]" />
-            </button>
-          ))}
+          ) : (
+            <div className="flex h-[248px] items-center justify-center rounded-[12px] border border-dashed border-[var(--admin-border)] bg-[rgba(247,248,250,0.72)]">
+              <p className="text-sm text-[var(--admin-text-secondary)]">Bu dönem için satış verisi yok.</p>
+            </div>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => openToshi()}
-          className="mt-auto inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/80 px-4 py-2.5 text-sm font-semibold text-[var(--admin-heading)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] active:bg-white"
-        >
-          <Sparkles className="h-4.5 w-4.5" />
-          Toshi ile konuş
-        </button>
+        <div className="divide-y divide-[rgba(231,234,240,0.86)] rounded-[12px] border border-[rgba(226,231,238,0.82)] bg-[rgba(247,248,250,0.54)] px-4 py-2">
+          {summaryRows.map((row) => {
+            const RowDeltaIcon = row.delta?.positive === false ? ArrowDownRight : ArrowUpRight;
+
+            return (
+              <div key={row.label} className="flex min-h-[58px] items-center justify-between gap-4 py-3">
+                <p className="text-[13px] font-medium text-[var(--admin-text-secondary)]">{row.label}</p>
+                <div className="text-right">
+                  <p className="text-sm font-semibold tracking-[-0.015em] text-[var(--admin-heading)]">
+                    {row.value}
+                  </p>
+                  {row.delta ? (
+                    <span
+                      className={cn(
+                        "mt-1 inline-flex items-center gap-1 text-[11.5px] font-semibold",
+                        row.delta.positive === null
+                          ? "text-[var(--admin-text-secondary)]"
+                          : row.delta.positive
+                            ? "text-[var(--admin-success)]"
+                            : "text-[var(--admin-danger)]",
+                      )}
+                    >
+                      {row.delta.positive !== null ? <RowDeltaIcon className="h-3.5 w-3.5" /> : null}
+                      {row.delta.compactLabel}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </DashboardCard>
   );
@@ -938,7 +825,7 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
       ) : (
         <div className="rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[rgba(247,248,250,0.78)] px-5 py-10 text-center">
           <ShoppingBag className="mx-auto h-8 w-8 text-[var(--admin-text-muted)]" />
-          <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">Henüz sipariş görünmüyor.</p>
+          <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">Henüz sipariş yok.</p>
         </div>
       )}
     </DashboardCard>
@@ -996,9 +883,7 @@ function LowStockProductsCard({ products }: { products: DashboardLowStockProduct
       ) : (
         <div className="rounded-[18px] border border-dashed border-[rgba(22,163,74,0.2)] bg-[var(--admin-success-soft)] px-5 py-10 text-center">
           <Package className="mx-auto h-8 w-8 text-[var(--admin-success)]" />
-          <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">
-            Kritik stokta ürün bulunmuyor.
-          </p>
+          <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">Kritik stok yok.</p>
         </div>
       )}
     </DashboardCard>
@@ -1013,16 +898,12 @@ function AbandonedCartsCard({ dashboard }: { dashboard: DashboardBootstrapData }
     <DashboardCard title="Terk Sepetler" action={<ListHeaderAction href="/admin/siparisler/sepet-terk" />}>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div>
-          <p className="text-[13px] font-medium text-[var(--admin-text-secondary)]">
-            Kurtarma fırsatı
-          </p>
+          <p className="text-[13px] font-medium text-[var(--admin-text-secondary)]">Terk sepet</p>
           <p className="mt-2 text-[2rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)]">
             {count.toLocaleString("tr-TR")}
           </p>
           <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">
-            {count > 0
-              ? `${formatCurrency(total)} potansiyel sepet değeri takipte.`
-              : "Aktif terk sepet sinyali yok."}
+            {count > 0 ? `${formatCurrency(total)} potansiyel` : "Terk sepet yok."}
           </p>
         </div>
         <Link
@@ -1046,21 +927,21 @@ function TodoCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
   const tasks = [
     {
       title: "Bekleyen siparişleri kontrol et",
-      description: `${pendingOrders.toLocaleString("tr-TR")} sipariş hazırlık bekliyor.`,
+      description: `${pendingOrders.toLocaleString("tr-TR")} bekleyen`,
       href: "/admin/siparisler",
       active: pendingOrders > 0,
       icon: ShoppingBag,
     },
     {
       title: "Düşük stok uyarılarını kapat",
-      description: `${lowStockCount.toLocaleString("tr-TR")} ürün için stok kontrolü gerekli.`,
+      description: `${lowStockCount.toLocaleString("tr-TR")} ürün`,
       href: "/admin/urunler",
       active: lowStockCount > 0,
       icon: Package,
     },
     {
       title: "Terk sepet fırsatlarını incele",
-      description: `${abandonedCount.toLocaleString("tr-TR")} sepet kurtarma için hazır.`,
+      description: `${abandonedCount.toLocaleString("tr-TR")} sepet`,
       href: "/admin/siparisler/sepet-terk",
       active: abandonedCount > 0,
       icon: Archive,
@@ -1078,9 +959,6 @@ function TodoCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
             <CheckCircle2 className="mt-0.5 h-4.5 w-4.5 shrink-0 text-[var(--admin-success)]" />
             <div>
               <p className="text-sm font-semibold text-[var(--admin-heading)]">Bugün kritik aksiyon yok.</p>
-              <p className="mt-1 text-[13px] leading-5 text-[var(--admin-text-secondary)]">
-                Sipariş, stok ve terk sepet sinyalleri sakin görünüyor.
-              </p>
             </div>
           </div>
         ) : null}
@@ -1200,9 +1078,7 @@ function CustomerActivityCard({ activities }: { activities: DashboardCustomerAct
       ) : (
         <div className="rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[rgba(247,248,250,0.78)] px-5 py-10 text-center">
           <Activity className="mx-auto h-8 w-8 text-[var(--admin-text-muted)]" />
-          <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">
-            Henüz müşteri aktivitesi görünmüyor.
-          </p>
+          <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">Aktivite yok.</p>
         </div>
       )}
     </DashboardCard>
@@ -1256,15 +1132,15 @@ function InsightsStrip({ items }: { items: DashboardAnalysisSummaryItem[] }) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-4 md:space-y-5">
-      <Skeleton className="h-[126px] rounded-[12px]" />
-      <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] sm:grid-cols-2 xl:grid-cols-5">
+      <Skeleton className="h-[92px] rounded-[12px]" />
+      <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-[112px] rounded-none" />
+          <Skeleton key={index} className="h-[96px] rounded-none" />
         ))}
       </div>
+      <Skeleton className="h-[360px] rounded-[12px]" />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
         <div className="space-y-4">
-          <Skeleton className="h-[330px] rounded-[12px]" />
           <Skeleton className="h-[260px] rounded-[12px]" />
           <Skeleton className="h-[260px] rounded-[12px]" />
         </div>
@@ -1281,9 +1157,10 @@ function DashboardSkeleton() {
 function DashboardContentSkeleton() {
   return (
     <>
+      <Skeleton className="h-[360px] rounded-[12px]" />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
         <div className="space-y-4">
-          <Skeleton className="h-[330px] rounded-[12px]" />
+          <Skeleton className="h-[250px] rounded-[12px]" />
           <Skeleton className="h-[250px] rounded-[12px]" />
         </div>
         <div className="space-y-4">
@@ -1331,7 +1208,6 @@ export function DashboardHomeView({
         className="space-y-4 md:space-y-5"
       >
         <DashboardTopStrip
-          dashboard={dashboard}
           selectedPeriod={selectedPeriod}
           onPeriodChange={onPeriodChange}
         />
@@ -1349,25 +1225,25 @@ export function DashboardHomeView({
           <DashboardContentSkeleton />
         ) : (
           <>
+            <SalesChartCard
+              points={dashboard.performance.chart}
+              currentLabel={dashboard.performance.currentLabel}
+              previousLabel={dashboard.performance.previousLabel}
+              currentRevenue={dashboard.performance.currentRevenue}
+              previousRevenue={dashboard.performance.previousRevenue}
+              currentOrders={dashboard.performance.currentOrders}
+            />
+
             <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
               <div className="grid gap-4">
                 <RecentOrdersCard orders={dashboard.recentOrders} />
                 <AbandonedCartsCard dashboard={dashboard} />
                 <CustomerActivityCard activities={dashboard.customerActivities} />
-                <SalesChartCard
-                  points={dashboard.performance.chart}
-                  currentLabel={dashboard.performance.currentLabel}
-                  previousLabel={dashboard.performance.previousLabel}
-                  currentRevenue={dashboard.performance.currentRevenue}
-                  previousRevenue={dashboard.performance.previousRevenue}
-                  currentOrders={dashboard.performance.currentOrders}
-                />
               </div>
               <aside className="grid content-start gap-4">
                 <StoreStatusCard dashboard={dashboard} />
                 <LowStockProductsCard products={dashboard.lowStockProducts} />
                 <TodoCard dashboard={dashboard} />
-                <ToshiCard dashboard={dashboard} />
               </aside>
             </section>
 

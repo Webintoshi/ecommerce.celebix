@@ -34,7 +34,6 @@ const MAX_STORED_MESSAGES = 50;
 const MAX_GEMINI_MESSAGES = 10;
 const ALERT_CHECK_INTERVAL = 5 * 60 * 1000;
 const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
-const TOSHI_LAUNCHER_MASCOT_SRC = "/branding/toshi-mascot-launcher.png";
 const TOSHI_GRADIENT = "linear-gradient(135deg, #FF6A00 0%, #E85D04 100%)";
 
 function ToshiMark({
@@ -431,11 +430,6 @@ export default function ToshiAssistant({
     };
   }, [isAdmin, setPanelOpen]);
 
-  const handleOpen = () => {
-    setPanelOpen(true);
-    setIsMinimized(false);
-  };
-
   const sendMessage = useCallback(
     async (text?: string) => {
       const nextText = text ?? input.trim();
@@ -673,52 +667,6 @@ export default function ToshiAssistant({
 
   return (
     <>
-      {!isMobile && !panelIsOpen ? (
-        <button
-          onClick={handleOpen}
-          aria-label="Toshi AI asistanını aç (Ctrl+K)"
-          className="group fixed right-5 top-1/2 z-[9999] -translate-y-1/2"
-          style={{
-            filter: "drop-shadow(0 9px 18px rgba(255,106,0,0.16))",
-          }}
-        >
-          <div
-            className="relative flex h-[4.18rem] w-[4.18rem] items-center justify-center rounded-full border border-[var(--admin-accent-border)] transition-transform duration-200 group-hover:scale-[1.05] group-active:scale-[0.97]"
-            style={{
-              background: TOSHI_GRADIENT,
-              boxShadow: "0 10px 20px rgba(255,106,0,0.11), inset 0 1px 0 rgba(255,255,255,0.18)",
-            }}
-          >
-            <span className="pointer-events-none absolute inset-[3px] rounded-full bg-[var(--admin-bg)] opacity-55" />
-            <span className="relative block h-[3.94rem] w-[3.94rem] overflow-hidden rounded-full border border-white/82 bg-[linear-gradient(180deg,#fffdfa_0%,#fff7ef_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_7px_14px_rgba(122,72,28,0.1)]">
-              <Image
-                src={TOSHI_LAUNCHER_MASCOT_SRC}
-                alt="Toshi mascot"
-                fill
-                sizes="64px"
-                className="object-contain scale-[1.12] translate-y-px"
-                priority
-              />
-            </span>
-
-            {alertInfo && alertInfo.count > 0 ? (
-              <span
-                className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-lg"
-                style={{
-                  animation: "toshi-badge-pulse 2s ease-in-out infinite",
-                }}
-              >
-                {alertInfo.count > 9 ? "9+" : alertInfo.count}
-              </span>
-            ) : null}
-          </div>
-
-          <span className="pointer-events-none absolute right-[4.35rem] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-[var(--admin-heading)] px-2.5 py-1.5 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            {alertInfo && alertInfo.count > 0 ? alertInfo.summary : "Toshi'ye sor (Ctrl+K)"}
-          </span>
-        </button>
-      ) : null}
-
       {!isMobile && panelIsOpen ? (
         <div
           className="fixed bottom-6 right-6 z-[9999] flex flex-col overflow-hidden rounded-[26px] shadow-2xl"
