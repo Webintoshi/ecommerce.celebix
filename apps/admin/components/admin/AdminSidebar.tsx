@@ -274,7 +274,7 @@ export function AdminSidebar({
       return;
     }
 
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const mediaQuery = window.matchMedia("(max-width: 1024px)");
     const syncMobileState = () => setIsMobile(mediaQuery.matches);
     syncMobileState();
     mediaQuery.addEventListener("change", syncMobileState);
@@ -539,14 +539,14 @@ export function AdminSidebar({
   };
 
   const desktopAsideClassName =
-    "sticky top-0 z-20 flex h-screen w-[16rem] shrink-0 flex-col bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] shadow-[10px_0_32px_rgba(17,24,39,0.045)] xl:w-[16.25rem] 2xl:w-[16.5rem]";
+    "sticky top-0 z-20 flex h-screen w-[13.75rem] shrink-0 flex-col bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] shadow-[10px_0_32px_rgba(17,24,39,0.045)] xl:w-[14.25rem] 2xl:w-[15.25rem]";
 
   if (isMobile) {
     return (
       <>
         <div
           className={cn(
-            "fixed inset-0 z-[68] bg-[rgba(17,24,39,0.34)] backdrop-blur-[3px] transition-opacity duration-200 md:hidden",
+            "fixed inset-0 z-[68] bg-[rgba(17,24,39,0.34)] backdrop-blur-[3px] transition-opacity duration-200 min-[1025px]:hidden",
             mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0",
           )}
           aria-hidden={!mobileMenuOpen}
@@ -567,7 +567,7 @@ export function AdminSidebar({
           aria-label="Mobil yönetim menüsü"
           aria-hidden={!mobileMenuOpen}
           className={cn(
-            "fixed inset-y-0 right-0 z-[74] w-[min(91vw,24.75rem)] max-w-[24.75rem] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] md:hidden",
+            "fixed inset-y-0 right-0 z-[74] w-[min(91vw,24.75rem)] max-w-[24.75rem] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] min-[1025px]:hidden",
             mobileMenuOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
           )}
           onTouchStart={handleDrawerTouchStart}

@@ -629,7 +629,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
     return (
       <div className="admin-page-root min-h-screen bg-[#F7F8FA] text-stone-900">
         <div className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/95 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 md:px-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 md:px-6 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
             <div className="flex items-center gap-4">
               <Link
                 href="/admin/urunler"
@@ -700,12 +700,12 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             <SimpleProductQuickForm data={formData} errors={errors} onChange={updateFormData} />
           )}
 
-          <div className="sticky bottom-3 z-20 mt-6 rounded-[8px] border border-[var(--admin-border)] bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur lg:bottom-4 lg:p-3">
+          <div className="sticky bottom-3 z-20 mt-6 rounded-[8px] border border-[var(--admin-border)] bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur min-[1025px]:bottom-4 min-[1025px]:p-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="hidden min-w-0 text-sm text-stone-500 lg:block">
+              <p className="hidden min-w-0 text-sm text-stone-500 min-[1025px]:block">
                 Kaydetmeden önce mevcut API için ürün adı, kategori ve en az bir geçerli varyant gerekir.
               </p>
-              <div className="hidden flex-col gap-2 lg:flex lg:flex-row">
+              <div className="hidden flex-col gap-2 min-[1025px]:flex min-[1025px]:flex-row">
                 <button
                   type="button"
                   onClick={() => handleSave("draft")}
@@ -734,7 +734,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                   Yayınla
                 </button>
               </div>
-              <div className="flex w-full items-center gap-2 lg:hidden">
+              <div className="flex w-full items-center gap-2 min-[1025px]:hidden">
                 <button
                   type="button"
                   onClick={() => handleSave("publish")}
@@ -783,7 +783,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
       {/* Header */}
       <div className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-[#fcf6f0]/95 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 md:py-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-4 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
             <div className="flex items-center gap-4">
               <Link
                 href="/admin/urunler"

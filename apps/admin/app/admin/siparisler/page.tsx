@@ -664,7 +664,7 @@ function OrdersPageSkeleton() {
       </div>
 
       <div className="rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_220px_190px_auto_auto]">
+        <div className="grid gap-3 min-[1360px]:grid-cols-[minmax(0,1.3fr)_220px_190px_auto_auto]">
           <Skeleton className="h-12 rounded-2xl bg-[#EEF1F4]" />
           <Skeleton className="h-12 rounded-2xl bg-[#EEF1F4]" />
           <Skeleton className="h-12 rounded-2xl bg-[#EEF1F4]" />
@@ -678,7 +678,7 @@ function OrdersPageSkeleton() {
               key={index}
               className="rounded-[22px] border border-[#EEF1F4] bg-white px-4 py-4"
             >
-              <div className="grid gap-4 xl:grid-cols-[32px_minmax(0,1.6fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.1fr)_minmax(0,0.7fr)_84px] xl:items-center">
+              <div className="grid gap-4 min-[1400px]:grid-cols-[32px_minmax(0,1.6fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.1fr)_minmax(0,0.7fr)_84px] min-[1400px]:items-center">
                 <Skeleton className="h-5 w-5 rounded bg-[#EEF1F4]" />
                 <div className="space-y-2">
                   <Skeleton className="h-5 w-40 bg-[#EEF1F4]" />
@@ -862,7 +862,7 @@ function OrderListRow({
         checked ? "bg-[#FFF8F3]" : "hover:bg-[#FBFCFD]",
       )}
     >
-      <div className="grid gap-4 xl:grid-cols-[32px_minmax(0,1.65fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,0.72fr)_92px] xl:items-center">
+      <div className="grid gap-4 min-[1400px]:grid-cols-[32px_minmax(0,1.65fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,0.72fr)_92px] min-[1400px]:items-center">
         <div className="flex items-start pt-1">
           <Checkbox
             checked={checked}
@@ -1484,7 +1484,7 @@ export default function OrdersPage() {
                       </Button>
                     </div>
 
-                    <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_220px_190px_auto_auto]">
+                    <div className="grid gap-3 min-[1360px]:grid-cols-[minmax(0,1.35fr)_220px_190px_auto_auto]">
                       <label className="relative block">
                         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
                         <input
@@ -1715,7 +1715,7 @@ export default function OrdersPage() {
                   <EmptyState hasFilters={hasActiveFilters} onReset={handleResetFilters} />
                 ) : (
                   <>
-                    <div className="hidden border-b border-[#EEF1F4] bg-[#FBFCFD] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#9CA3AF] xl:grid xl:grid-cols-[32px_minmax(0,1.65fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,0.72fr)_92px] xl:gap-4 md:px-6">
+                    <div className="hidden border-b border-[#EEF1F4] bg-[#FBFCFD] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#9CA3AF] min-[1400px]:grid min-[1400px]:grid-cols-[32px_minmax(0,1.65fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,0.72fr)_92px] min-[1400px]:gap-4 md:px-6">
                       <span />
                       <span>Sipariş / Müşteri</span>
                       <span>Durum</span>

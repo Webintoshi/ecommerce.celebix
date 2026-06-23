@@ -11,7 +11,7 @@ export function AdminPageShell({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("space-y-4 md:space-y-6", className)}>{children}</div>;
+  return <div className={cn("min-w-0 space-y-4 xl:space-y-5", className)}>{children}</div>;
 }
 
 export function AdminPageHeader({
@@ -56,8 +56,8 @@ export function AdminPageHeader({
         className,
       )}
     >
-      <div className={cn("px-4 py-4 md:px-6 md:py-5", metrics ? "border-b border-[var(--admin-border)]" : "")}>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div className={cn("px-4 py-4 sm:px-5 xl:px-6 xl:py-5", metrics ? "border-b border-[var(--admin-border)]" : "")}>
+        <div className="flex min-w-0 flex-col gap-4 min-[1440px]:flex-row min-[1440px]:items-start min-[1440px]:justify-between">
           <div className="min-w-0 flex-1">
             {breadcrumbs ? <div className="mb-3">{breadcrumbs}</div> : null}
             {resolvedSectionLabel ? (
@@ -66,20 +66,20 @@ export function AdminPageHeader({
               </div>
             ) : null}
             <h1 className={cn(
-              "text-[1.75rem] font-semibold tracking-[-0.035em] text-[var(--admin-heading)] md:text-[2.05rem]",
+              "text-[1.55rem] font-semibold tracking-[-0.03em] text-[var(--admin-heading)] sm:text-[1.75rem] xl:text-[1.95rem]",
               resolvedSectionLabel || breadcrumbs ? "mt-3" : "",
             )}>
               {title}
             </h1>
             {description ? (
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)] md:text-[15px]">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)] xl:text-[15px]">
                 {description}
               </p>
             ) : null}
             {statusSlot ? <div className="mt-3 flex flex-wrap items-center gap-2">{statusSlot}</div> : null}
           </div>
           {resolvedActions ? (
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center min-[1440px]:w-auto min-[1440px]:justify-end">
               {resolvedActions}
             </div>
           ) : null}
@@ -108,9 +108,9 @@ export function AdminPanel({
         className,
       )}
     >
-      {header ? <div className="border-b border-[var(--admin-border)] px-4 py-4 md:px-6 md:py-5">{header}</div> : null}
-      <div className="p-4 md:p-6">{children}</div>
-      {footer ? <div className="border-t border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 md:px-6">{footer}</div> : null}
+      {header ? <div className="border-b border-[var(--admin-border)] px-4 py-4 sm:px-5 xl:px-6 xl:py-5">{header}</div> : null}
+      <div className="p-4 sm:p-5 xl:p-6">{children}</div>
+      {footer ? <div className="border-t border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 sm:px-5 xl:px-6">{footer}</div> : null}
     </section>
   );
 }
@@ -125,7 +125,7 @@ export function AdminToolbar({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-[16px] border border-[var(--admin-border)] bg-white p-3 md:flex-row md:items-center md:justify-between md:p-4",
+        "flex flex-col gap-3 rounded-[16px] border border-[var(--admin-border)] bg-white p-3 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between xl:p-4",
         className,
       )}
     >
@@ -234,8 +234,8 @@ export function AdminMetricCard({
   return (
     <div
       className={cn(
-        "rounded-[16px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-xs)]",
-        compact ? "min-h-[112px]" : "min-h-[138px] md:p-5",
+        "rounded-[16px] border border-[var(--admin-border)] bg-white p-3.5 shadow-[var(--shadow-xs)] xl:p-5",
+        compact ? "min-h-[104px]" : "min-h-[124px]",
         className,
       )}
     >
@@ -245,7 +245,7 @@ export function AdminMetricCard({
           {loading ? (
             <div className="mt-3 h-8 w-24 animate-pulse rounded-xl bg-[var(--admin-muted-surface)]" />
           ) : (
-            <div className={cn("mt-2 truncate font-semibold tracking-[-0.04em] text-[var(--admin-heading)]", compact ? "text-[1.35rem]" : "text-[1.65rem] md:text-[1.85rem]")}>
+            <div className={cn("mt-2 truncate font-semibold tracking-[-0.035em] text-[var(--admin-heading)]", compact ? "text-[1.3rem]" : "text-[1.55rem] xl:text-[1.8rem]")}>
               {value}
             </div>
           )}
@@ -253,7 +253,7 @@ export function AdminMetricCard({
         {Icon ? (
           <div
             className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border md:h-12 md:w-12",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border xl:h-12 xl:w-12",
               tone === "accent" && "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
               tone === "success" && "border-[color-mix(in_srgb,var(--admin-success)_20%,white)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
               tone === "warning" && "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
@@ -287,7 +287,7 @@ export function AdminDataTable({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[16px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-sm)]",
+        "min-w-0 max-w-full overflow-hidden rounded-[16px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-sm)]",
         className,
       )}
     >
@@ -352,7 +352,7 @@ export function AdminActionButton({
     <button
       {...props}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-55",
+        "inline-flex min-h-10 items-center justify-center gap-2 rounded-[14px] px-3.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-55 xl:min-h-11 xl:px-4",
         tone === "primary" && "bg-[var(--admin-accent)] text-white shadow-[0_12px_28px_rgba(255,106,0,0.22)] hover:bg-[var(--admin-accent-hover)]",
         tone === "secondary" && "border border-[var(--admin-border)] bg-white text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
         tone === "danger" && "border border-[color-mix(in_srgb,var(--admin-danger)_18%,white)] bg-white text-[var(--admin-danger)] hover:bg-[var(--admin-danger-soft)]",

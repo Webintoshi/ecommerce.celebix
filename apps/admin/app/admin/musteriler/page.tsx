@@ -704,7 +704,7 @@ export default function CustomersPage({
           ) : null}
 
       {false && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-amber-950">CSV ile müşteri içe aktar</h2>
             <p className="mt-1 text-sm text-amber-800">
@@ -748,7 +748,7 @@ export default function CustomersPage({
 
           <section className="rounded-[22px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:rounded-[30px] md:p-6">
             <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Filtreler ve işlemler</h2>
                 </div>
@@ -808,7 +808,7 @@ export default function CustomersPage({
 
           <AdminDataTable>
             <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Müşteri listesi</h2>
                 </div>
@@ -822,7 +822,7 @@ export default function CustomersPage({
 
             {filteredCustomers.length > 0 ? (
               <>
-                <div className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80 px-5 py-4 md:hidden">
+                <div className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80 px-5 py-4 min-[1025px]:hidden">
                   <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
                     <input
                       type="checkbox"
@@ -835,17 +835,17 @@ export default function CustomersPage({
                   </label>
                 </div>
 
-                <div className="space-y-3 p-5 md:hidden">
+                <div className="space-y-3 p-3.5 sm:p-5 min-[1025px]:hidden">
                   {filteredCustomers.map((customer) => {
                     const initials = `${customer.firstName.charAt(0) || "?"}${customer.lastName.charAt(0) || ""}`;
 
                     return (
                       <article
                         key={customer.id}
-                        className="rounded-[26px] border border-white/70 bg-white/85 p-5 shadow-sm transition-all hover:border-[var(--admin-border)] hover:bg-white hover:shadow-[var(--shadow-md)]"
+                        className="rounded-[22px] border border-white/70 bg-white/85 p-4 shadow-sm transition-all hover:border-[var(--admin-border)] hover:bg-white hover:shadow-[var(--shadow-md)] sm:p-5"
                       >
                         <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-3">
+                          <div className="flex min-w-0 items-start gap-3">
                             <input
                               type="checkbox"
                               aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini seç`}
@@ -863,7 +863,7 @@ export default function CustomersPage({
                             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent)] shadow-sm">
                               {initials}
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <Link
                                 href={`/admin/musteriler/${customer.id}`}
                                 className="text-base font-semibold tracking-[-0.02em] text-gray-950 transition-colors hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
@@ -920,8 +920,8 @@ export default function CustomersPage({
                   })}
                 </div>
 
-                <div className="hidden overflow-x-auto md:block">
-                  <table className="min-w-full text-left text-sm">
+                <div className="hidden overflow-x-auto min-[1025px]:block">
+                  <table className="min-w-[920px] text-left text-sm">
                     <thead className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80">
                       <tr>
                         <th className="w-14 px-6 py-4">

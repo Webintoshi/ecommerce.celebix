@@ -114,7 +114,7 @@ export function StepStock({
                 <span className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-medium text-[var(--admin-accent-hover)]">SKU: {variant.sku}</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 min-[1025px]:grid-cols-3">
                 {/* Stock */}
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Stok Adedi</label>

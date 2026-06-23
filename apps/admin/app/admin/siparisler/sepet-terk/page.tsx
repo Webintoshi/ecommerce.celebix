@@ -997,7 +997,7 @@ function MobilePagination({
   onNext: () => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-[#E7EAF0] bg-white px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)] md:hidden">
+    <div className="rounded-[24px] border border-[#E7EAF0] bg-white px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)] min-[1025px]:hidden">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
@@ -1325,7 +1325,7 @@ export default function AbandonedCartsPage() {
                 />
               </section>
 
-              <section className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:hidden">
+              <section className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] min-[1025px]:hidden">
                 <div className="space-y-3">
                   <label className="block">
                     <span className="sr-only">Sepetlerde ara</span>
@@ -1405,8 +1405,8 @@ export default function AbandonedCartsPage() {
                 </div>
               </section>
 
-              <section className="hidden rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:block">
-                <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_220px_220px_260px_auto]">
+              <section className="hidden rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.05)] min-[1025px]:block">
+                <div className="grid gap-3 min-[1360px]:grid-cols-[minmax(0,1.3fr)_220px_220px_260px_auto]">
                   <label className="relative block">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
                     <input
@@ -1498,7 +1498,7 @@ export default function AbandonedCartsPage() {
                   </section>
                 ) : (
                   <>
-                    <div className="space-y-3.5 md:hidden">
+                    <div className="space-y-3.5 min-[1025px]:hidden">
                       {paginatedCarts.map((cart) => (
                         <MobileCartCard
                           key={cart.id}
@@ -1510,7 +1510,7 @@ export default function AbandonedCartsPage() {
                       ))}
                     </div>
 
-                    <div className="hidden space-y-4 md:block">
+                    <div className="hidden space-y-4 min-[1025px]:block">
                       {paginatedCarts.map((cart) => (
                         <DesktopCartCard
                           key={cart.id}
@@ -1532,7 +1532,7 @@ export default function AbandonedCartsPage() {
                       onNext={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                     />
 
-                    <div className="hidden flex-col gap-4 rounded-[28px] border border-[#E7EAF0] bg-white px-5 py-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:flex md:flex-row md:items-center md:justify-between">
+                    <div className="hidden flex-col gap-4 rounded-[28px] border border-[#E7EAF0] bg-white px-5 py-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] min-[1025px]:flex min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
                       <p className="text-sm text-[#6B7280]">
                         {visibleStart} - {visibleEnd} / {filteredCarts.length} sepet gösteriliyor
                       </p>

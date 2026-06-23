@@ -332,9 +332,9 @@ function DashboardTopStrip({
   ];
 
   return (
-    <section className="grid gap-3 border-b border-[rgba(226,231,238,0.72)] pb-3 md:pb-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+    <section className="grid min-w-0 gap-3 border-b border-[rgba(226,231,238,0.72)] pb-3 md:pb-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
       <div className="min-w-0">
-        <h1 className="text-[1.78rem] font-semibold tracking-[-0.052em] text-[var(--admin-heading)] md:text-[2.05rem]">
+        <h1 className="text-[1.55rem] font-semibold tracking-[-0.04em] text-[var(--admin-heading)] sm:text-[1.75rem] xl:text-[1.95rem]">
           Mağaza özeti
         </h1>
         <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--admin-text-secondary)]">
@@ -552,7 +552,7 @@ function KpiGrid({
 }) {
   if (isRefreshing) {
     return (
-      <section className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/66 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      <section className="grid min-w-0 grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/66 sm:grid-cols-2 lg:grid-cols-3 min-[1360px]:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton key={index} className="h-[96px] rounded-none" />
         ))}
@@ -563,7 +563,7 @@ function KpiGrid({
   const metrics = buildDashboardMetrics(dashboard);
 
   return (
-    <section className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/66 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+    <section className="grid min-w-0 grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/66 sm:grid-cols-2 lg:grid-cols-3 min-[1360px]:grid-cols-5">
       {metrics.map((metric) => (
         <KpiCard key={metric.key} metric={metric} />
       ))}
@@ -1133,13 +1133,13 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-4 md:space-y-5">
       <Skeleton className="h-[92px] rounded-[12px]" />
-      <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] sm:grid-cols-2 lg:grid-cols-3 min-[1360px]:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton key={index} className="h-[96px] rounded-none" />
         ))}
       </div>
       <Skeleton className="h-[360px] rounded-[12px]" />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.62fr)]">
         <div className="space-y-4">
           <Skeleton className="h-[260px] rounded-[12px]" />
           <Skeleton className="h-[260px] rounded-[12px]" />
@@ -1158,7 +1158,7 @@ function DashboardContentSkeleton() {
   return (
     <>
       <Skeleton className="h-[360px] rounded-[12px]" />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.62fr)]">
         <div className="space-y-4">
           <Skeleton className="h-[250px] rounded-[12px]" />
           <Skeleton className="h-[250px] rounded-[12px]" />
@@ -1234,7 +1234,7 @@ export function DashboardHomeView({
               currentOrders={dashboard.performance.currentOrders}
             />
 
-            <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+            <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.62fr)]">
               <div className="grid gap-4">
                 <RecentOrdersCard orders={dashboard.recentOrders} />
                 <AbandonedCartsCard dashboard={dashboard} />

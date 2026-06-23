@@ -481,9 +481,9 @@ export function StepPricing({
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 min-[1025px]:grid-cols-2">
               {/* Variant Name */}
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 min-[1025px]:col-span-2">
                 <label className="text-sm font-semibold text-stone-700">
                   Varyant Adı <span className="text-rose-500">*</span>
                 </label>
@@ -504,7 +504,7 @@ export function StepPricing({
 
               {/* Variant Image Selector */}
               {productImages.length > 0 && (
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-2 min-[1025px]:col-span-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-stone-700">
                     <ImageIcon className="w-4 h-4" />
                     Varyant Görseli
@@ -722,7 +722,7 @@ export function StepPricing({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 min-[1025px]:grid-cols-3">
                 <select
                   value={rule.type}
                   onChange={(e) => {

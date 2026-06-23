@@ -116,21 +116,21 @@ function DesktopTopbar({
   const initials = getInitials(displayName);
 
   return (
-    <header className="sticky top-4 z-30 mx-auto mb-4 hidden w-full max-w-[1560px] md:block">
-      <div className="flex min-h-[76px] items-center justify-between gap-4 rounded-[22px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-4 py-3 shadow-[0_16px_34px_rgba(17,24,39,0.055)] backdrop-blur-xl xl:px-5">
+    <header className="sticky top-3 z-30 mx-auto mb-3 hidden w-full max-w-[1560px] min-[1025px]:block">
+      <div className="flex min-h-[68px] items-center justify-between gap-3 rounded-[18px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3.5 py-2.5 shadow-[0_14px_28px_rgba(17,24,39,0.05)] backdrop-blur-xl 2xl:px-5">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-text-muted)]">
             Ortak admin
           </p>
           <div className="mt-1 flex min-w-0 items-center gap-2">
-            <h1 className="truncate text-[1.15rem] font-semibold tracking-[-0.035em] text-[var(--admin-heading)]">
+            <h1 className="truncate text-[1.05rem] font-semibold tracking-[-0.03em] text-[var(--admin-heading)] xl:text-[1.12rem]">
               {title}
             </h1>
-            <span className="hidden rounded-full border border-[var(--admin-success-soft)] bg-[var(--admin-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--admin-success)] lg:inline-flex">
+            <span className="hidden rounded-full border border-[var(--admin-success-soft)] bg-[var(--admin-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--admin-success)] 2xl:inline-flex">
               Sağlıklı
             </span>
           </div>
-          <p className="mt-1 truncate text-[13px] text-[var(--admin-text-secondary)]">{subtitle}</p>
+          <p className="mt-1 hidden truncate text-[13px] text-[var(--admin-text-secondary)] xl:block">{subtitle}</p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -138,7 +138,7 @@ function DesktopTopbar({
             href={STORE_RUNTIME.storefrontUrl}
             target="_blank"
             rel="noreferrer"
-            className="hidden min-h-11 items-center gap-2 rounded-[16px] border border-[var(--admin-border)] bg-white px-3.5 text-sm font-semibold text-[var(--admin-text)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] xl:inline-flex"
+            className="hidden min-h-10 items-center gap-2 rounded-[14px] border border-[var(--admin-border)] bg-white px-3 text-sm font-semibold text-[var(--admin-text)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] 2xl:inline-flex"
           >
             <Store className="h-4 w-4" />
             Mağazayı görüntüle
@@ -147,7 +147,7 @@ function DesktopTopbar({
           <button
             type="button"
             onClick={onRefresh}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
             aria-label="Sayfayı yenile"
           >
             <RefreshCw className="h-4 w-4" />
@@ -162,23 +162,24 @@ function DesktopTopbar({
             type="button"
             onClick={onToggleToshi}
             aria-pressed={isToshiOpen}
+            aria-label="Toshi asistanını aç"
             className={cn(
-              "inline-flex min-h-11 items-center gap-2 rounded-[16px] border px-3.5 text-sm font-semibold shadow-[var(--shadow-xs)] transition-colors",
+              "inline-flex min-h-10 items-center gap-2 rounded-[14px] border px-3 text-sm font-semibold shadow-[var(--shadow-xs)] transition-colors",
               isToshiOpen
                 ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
                 : "border-[var(--admin-border)] bg-white text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
             )}
           >
             <Sparkles className="h-4 w-4" />
-            Toshi
+            <span className="hidden xl:inline">Toshi</span>
             {toshiAlertCount && toshiAlertCount > 0 ? (
               <span className="rounded-full bg-[var(--admin-heading)] px-1.5 py-0.5 text-[10px] font-bold text-white">
                 {toshiAlertCount > 9 ? "9+" : toshiAlertCount}
               </span>
             ) : null}
           </button>
-          <div className="flex min-h-11 items-center gap-2 rounded-[16px] border border-[var(--admin-border)] bg-white px-2.5 shadow-[var(--shadow-xs)]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-[12px] bg-[var(--admin-heading)] text-[12px] font-bold text-white">
+          <div className="flex min-h-10 items-center gap-2 rounded-[14px] border border-[var(--admin-border)] bg-white px-2 shadow-[var(--shadow-xs)]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-[11px] bg-[var(--admin-heading)] text-[12px] font-bold text-white">
               {initials}
             </span>
             <span className="hidden max-w-[9rem] truncate pr-1 text-sm font-semibold text-[var(--admin-heading)] 2xl:inline">
@@ -301,7 +302,7 @@ export default function AdminLayoutClient({
       return;
     }
 
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const mediaQuery = window.matchMedia("(max-width: 1024px)");
     const syncMobileState = () => setIsMobile(mediaQuery.matches);
 
     syncMobileState();
@@ -458,7 +459,7 @@ export default function AdminLayoutClient({
       <AdminClientBoundary
         name="AdminSidebar"
         fallback={
-          <div className="hidden h-dvh min-h-dvh w-[13.5rem] shrink-0 border-l border-[var(--admin-border)] bg-white xl:block xl:w-56 2xl:w-[14.5rem]" />
+          <div className="hidden h-dvh min-h-dvh w-[13.75rem] shrink-0 border-l border-[var(--admin-border)] bg-white min-[1025px]:block xl:w-[14.25rem] 2xl:w-[15.25rem]" />
         }
       >
         <AdminSidebar
@@ -470,18 +471,18 @@ export default function AdminLayoutClient({
 
       <main
         className={cn(
-          "min-w-0 flex-1 overflow-x-hidden",
+          "min-w-0 flex-1",
           isMobile ? "min-h-0 overflow-y-auto overscroll-y-contain" : "overflow-visible",
         )}
       >
         <div
           className={cn(
-            "px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-2 md:px-4 md:pb-5 md:pt-4 xl:px-5 xl:pb-5 xl:pt-5 2xl:px-6",
+            "px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-2 min-[1025px]:px-4 min-[1025px]:pb-5 min-[1025px]:pt-4 xl:px-5 xl:pb-5 xl:pt-5 2xl:px-6",
             isMobile ? "min-h-full" : "",
           )}
         >
           {isMobile && !rootAdmin ? (
-          <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[20px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[var(--shadow-xs)] backdrop-blur-xl md:hidden">
+          <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[20px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[var(--shadow-xs)] backdrop-blur-xl min-[1025px]:hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex items-center gap-3">
                   <button
@@ -548,7 +549,7 @@ export default function AdminLayoutClient({
       {isMobile ? (
         <nav
           aria-label="Alt gezinme"
-          className="pointer-events-auto fixed inset-x-0 bottom-0 z-[58] overflow-visible border-t border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(247,248,250,0.74)_0%,rgba(255,255,255,0.94)_24%,rgba(255,255,255,0.985)_100%)] px-3 pb-[var(--admin-mobile-dock-floor)] pt-2.5 shadow-[0_-16px_34px_rgba(17,24,39,0.08)] backdrop-blur-[24px] md:hidden"
+          className="pointer-events-auto fixed inset-x-0 bottom-0 z-[58] overflow-visible border-t border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(247,248,250,0.74)_0%,rgba(255,255,255,0.94)_24%,rgba(255,255,255,0.985)_100%)] px-3 pb-[var(--admin-mobile-dock-floor)] pt-2.5 shadow-[0_-16px_34px_rgba(17,24,39,0.08)] backdrop-blur-[24px] min-[1025px]:hidden"
         >
           <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.94)_50%,rgba(255,255,255,0)_100%)]" />
           <span className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-[linear-gradient(180deg,rgba(255,255,255,0.42)_0%,rgba(255,255,255,0)_100%)]" />

@@ -109,9 +109,9 @@ export function StepSEO({ seo, productName, productDescription, onChange, errors
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
         {/* Left Column - SEO Inputs */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 xl:col-span-2">
           {/* Focus Keyword */}
           <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
             <label className="text-sm font-semibold text-stone-700">

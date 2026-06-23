@@ -56,7 +56,7 @@ export function StepPreview({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
         <div className="space-y-6">
           <div className="rounded-[28px] border border-[var(--admin-border)] bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">

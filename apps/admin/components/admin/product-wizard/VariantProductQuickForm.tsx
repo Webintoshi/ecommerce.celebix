@@ -130,8 +130,8 @@ export function VariantProductQuickForm({ data, errors, onChange }: VariantProdu
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <label className="space-y-2 lg:col-span-2">
+        <div className="grid gap-4 xl:grid-cols-2">
+          <label className="space-y-2 xl:col-span-2">
             <span className="text-sm font-semibold text-stone-700">Ürün adı *</span>
             <input
               type="text"
@@ -208,7 +208,7 @@ export function VariantProductQuickForm({ data, errors, onChange }: VariantProdu
             />
           </label>
 
-          <div className="space-y-2 lg:col-span-2">
+          <div className="space-y-2 xl:col-span-2">
             <span className="text-sm font-semibold text-stone-700">Yayın durumu</span>
             <div className="grid gap-2 sm:grid-cols-2">
               {PRODUCT_STATUS_CHOICES.map((choice) => {
@@ -275,13 +275,13 @@ export function VariantProductQuickForm({ data, errors, onChange }: VariantProdu
           </span>
           <ChevronDown className="h-4 w-4 text-stone-400" />
         </summary>
-        <div className="grid gap-5 border-t border-[var(--admin-border)] p-5 lg:grid-cols-2">
-          <div className="space-y-3 rounded-[8px] border border-[#E7EAF0] bg-[#FCFDFE] p-4 lg:col-span-2">
+        <div className="grid gap-5 border-t border-[var(--admin-border)] p-4 sm:p-5 xl:grid-cols-2">
+          <div className="space-y-3 rounded-[8px] border border-[#E7EAF0] bg-[#FCFDFE] p-4 xl:col-span-2">
             <span className="flex items-center gap-2 text-sm font-semibold text-stone-700">
               <Truck className="h-4 w-4 text-[var(--admin-accent)]" />
               Matrix varsayılanları
             </span>
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 min-[1025px]:grid-cols-4">
               <label className="space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">Ağırlık</span>
                 <input
@@ -359,7 +359,7 @@ export function VariantProductQuickForm({ data, errors, onChange }: VariantProdu
             />
           </label>
 
-          <label className="space-y-2 lg:col-span-2">
+          <label className="space-y-2 xl:col-span-2">
             <span className="text-sm font-semibold text-stone-700">SEO açıklaması</span>
             <input
               type="text"
@@ -370,7 +370,7 @@ export function VariantProductQuickForm({ data, errors, onChange }: VariantProdu
             />
           </label>
 
-          <div className="space-y-2 lg:col-span-2">
+          <div className="space-y-2 xl:col-span-2">
             <span className="text-sm font-semibold text-stone-700">Detaylı açıklama</span>
             <RichTextEditor
               value={data.description}

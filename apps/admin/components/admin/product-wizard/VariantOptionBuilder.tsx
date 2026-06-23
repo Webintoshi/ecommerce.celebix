@@ -227,7 +227,7 @@ export function VariantOptionBuilder({
         </button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         {options.map((option, optionIndex) => (
           <div key={option.id} className="space-y-4 rounded-[8px] border border-[#E7EAF0] bg-[#FCFDFE] p-4">
             <div className="flex items-start justify-between gap-3">
@@ -307,7 +307,7 @@ export function VariantOptionBuilder({
       ) : null}
 
       <div className="rounded-[8px] border border-[#E7EAF0] bg-[#FCFDFE]">
-        <div className="flex flex-col gap-3 border-b border-[#E7EAF0] p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 border-b border-[#E7EAF0] p-4 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)]">
               Varyant matrix
@@ -352,7 +352,7 @@ export function VariantOptionBuilder({
         </div>
 
         {combinations.length > 0 ? (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain">
             <table className="min-w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-[#E7EAF0] bg-white text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
