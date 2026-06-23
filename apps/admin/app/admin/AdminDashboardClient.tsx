@@ -35,11 +35,11 @@ export default function AdminDashboardClient({
       if (response.success && response.data) {
         setDashboard(response.data);
       } else {
-        setErrorMessage("Dashboard verileri şu anda yenilenemedi.");
+        setErrorMessage("Panel verileri şu anda yenilenemedi.");
       }
     } catch (error) {
       console.error("Failed to refresh dashboard:", error);
-      setErrorMessage("Dashboard verileri alınırken bir sorun oluştu. Lütfen tekrar deneyin.");
+      setErrorMessage("Panel verileri alınırken bir sorun oluştu. Lütfen tekrar deneyin.");
     } finally {
       setIsRefreshing(false);
     }

@@ -112,7 +112,7 @@ export default async function AdminDashboardPage() {
     const initialData = await withServerTimeout(
       getAdminDashboardBootstrapData({ includeLiveData: false, timeRange: "week" }),
       7000,
-      "Dashboard ilk açılışta zaman aşımına uğradı.",
+      "Panel ilk açılışta zaman aşımına uğradı.",
     );
 
     return <AdminDashboardClient initialData={initialData} />;

@@ -374,7 +374,7 @@ function DashboardActionRail({
 
   return (
     <div
-      aria-label="Dashboard filtreleri"
+      aria-label="Panel filtreleri"
       className={cn(
         "min-w-0 bg-white",
         compact
@@ -413,7 +413,7 @@ function DashboardActionRail({
               value={selectedPeriod}
               onChange={(event) => onPeriodChange(event.target.value as TimeRange)}
               className="min-w-0 appearance-none bg-transparent pr-8 text-[14px] font-semibold outline-none"
-              aria-label="Dashboard dönem seçici"
+              aria-label="Panel dönem seçici"
             >
               {PERIODS.map((period) => (
                 <option key={period.value} value={period.value}>
