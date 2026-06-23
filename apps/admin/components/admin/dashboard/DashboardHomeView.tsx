@@ -428,7 +428,27 @@ function DashboardTopbarActionsPortal({
   const [target, setTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    setTarget(document.getElementById("admin-dashboard-topbar-actions"));
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const syncTarget = () => {
+      const nextTarget = document.getElementById("admin-dashboard-topbar-actions");
+      setTarget((currentTarget) => (currentTarget === nextTarget ? currentTarget : nextTarget));
+    };
+
+    syncTarget();
+    animationFrame = window.requestAnimationFrame(syncTarget);
+
+    const observer = new MutationObserver(syncTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+    };
   }, []);
 
   return (
