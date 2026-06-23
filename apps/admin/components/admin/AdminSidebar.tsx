@@ -45,6 +45,8 @@ const MOBILE_QUICK_ACCESS_TITLES = ["Dashboard", "Siparişler", "Ürünler", "M�
 type MenuSubItem = {
   title: string;
   href: string;
+  group?: string;
+  badge?: string;
 };
 
 interface MenuItem {
@@ -93,13 +95,21 @@ const MENU_ITEMS: MenuItem[] = [
     icon: Package,
     href: "/admin/urunler",
     submenu: [
-      { title: "Ürün Yönetimi", href: "/admin/urunler" },
-      { title: "Koleksiyon Yönetimi", href: "/admin/urunler/koleksiyonlar" },
-      { title: "Marka Yönetimi", href: "/admin/urunler/markalar" },
-      { title: "Nitelikler", href: "/admin/urunler/nitelikler" },
-      { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar" },
-      { title: "Ekstralar", href: "/admin/urunler/ekstralar" },
-      { title: "Toplu Yükle (CSV)", href: "/admin/urunler/toplu-yukle" },
+      { title: "Ürünler", href: "/admin/urunler", group: "Katalog" },
+      { title: "Yeni Ürün", href: "/admin/urunler/yeni", group: "Katalog" },
+      { title: "Kategoriler / Koleksiyonlar", href: "/admin/urunler/koleksiyonlar", group: "Katalog" },
+      { title: "Markalar", href: "/admin/urunler/markalar", group: "Katalog" },
+      { title: "Etiketler", href: "/admin/urunler/etiketler", group: "Katalog", badge: "Hazırlık" },
+      { title: "Nitelikler / Varyant Türleri", href: "/admin/urunler/nitelikler", group: "Katalog" },
+      { title: "Ürün Ekstraları", href: "/admin/urunler/ekstralar", group: "Katalog" },
+      { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar", group: "Katalog" },
+      { title: "Tanımlamalar", href: "/admin/urunler/tanimlamalar", group: "Katalog", badge: "Hub" },
+      { title: "Satın Alma", href: "/admin/urunler/satin-alma", group: "Operasyon", badge: "Hazırlık" },
+      { title: "Transferler", href: "/admin/urunler/transferler", group: "Operasyon", badge: "Hazırlık" },
+      { title: "Stok Sayımı", href: "/admin/urunler/stok-sayimi", group: "Operasyon", badge: "Planlandı" },
+      { title: "Fiyat Listeleri", href: "/admin/urunler/fiyat-listeleri", group: "Fiyat & Etiket", badge: "Analiz" },
+      { title: "Barkod Etiketleri", href: "/admin/urunler/barkod-etiketleri", group: "Fiyat & Etiket", badge: "Aday" },
+      { title: "Toplu Yükle (CSV)", href: "/admin/urunler/toplu-yukle", group: "Araçlar" },
     ],
   },
   { title: "Kategoriler", icon: Layers3, permissionHref: "/admin/kategoriler", disabled: true, status: "soon" },
@@ -774,30 +784,43 @@ export function AdminSidebar({
                             <div className="min-h-0">
                               <div className="pb-3 pl-[3.95rem] pr-3.5">
                                 <div className="space-y-1 border-l border-[#EEF1F4] pl-3">
-                                  {item.submenu?.map((sub) => {
+                                  {item.submenu?.map((sub, subIndex, submenu) => {
                                     const isSubActive = pathMatches(pathname, sub.href);
+                                    const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
+                                    const shouldShowGroup = Boolean(sub.group && sub.group !== previousGroup);
 
                                     return (
-                                      <Link
-                                        key={sub.href}
-                                        href={sub.href}
-                                        aria-current={isSubActive ? "page" : undefined}
-                                        onClick={handleLeafClick}
-                                        className={cn(
-                                          "flex min-h-[40px] items-center gap-2 rounded-[0.95rem] px-3 py-2 text-[13px] transition-colors duration-200 active:scale-[0.995]",
-                                          isSubActive
-                                            ? "bg-[#FFF1E8] text-[#E85D04]"
-                                            : "text-[#6B7280] hover:bg-[#F7F8FA] hover:text-[#374151]",
-                                        )}
-                                      >
-                                        <span
+                                      <div key={sub.href} className="space-y-1">
+                                        {shouldShowGroup ? (
+                                          <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">
+                                            {sub.group}
+                                          </p>
+                                        ) : null}
+                                        <Link
+                                          href={sub.href}
+                                          aria-current={isSubActive ? "page" : undefined}
+                                          onClick={handleLeafClick}
                                           className={cn(
-                                            "h-1.5 w-1.5 shrink-0 rounded-full",
-                                            isSubActive ? "bg-[#FF6A00]" : "bg-[#D1D5DB]",
+                                            "flex min-h-[40px] items-center gap-2 rounded-[0.95rem] px-3 py-2 text-[13px] transition-colors duration-200 active:scale-[0.995]",
+                                            isSubActive
+                                              ? "bg-[#FFF1E8] text-[#E85D04]"
+                                              : "text-[#6B7280] hover:bg-[#F7F8FA] hover:text-[#374151]",
                                           )}
-                                        />
-                                        <span className="truncate">{sub.title}</span>
-                                      </Link>
+                                        >
+                                          <span
+                                            className={cn(
+                                              "h-1.5 w-1.5 shrink-0 rounded-full",
+                                              isSubActive ? "bg-[#FF6A00]" : "bg-[#D1D5DB]",
+                                            )}
+                                          />
+                                          <span className="min-w-0 flex-1 truncate">{sub.title}</span>
+                                          {sub.badge ? (
+                                            <span className="shrink-0 rounded-full border border-[#E7EAF0] bg-white px-2 py-0.5 text-[10px] font-medium text-[#6B7280]">
+                                              {sub.badge}
+                                            </span>
+                                          ) : null}
+                                        </Link>
+                                      </div>
                                     );
                                   })}
                                 </div>
@@ -995,32 +1018,45 @@ export function AdminSidebar({
                         <div className="min-h-0">
                           <div className="ml-5 border-l border-[var(--admin-border)] pl-3 pt-0.5">
                             <div className="space-y-1">
-                              {item.submenu?.map((sub) => {
+                              {item.submenu?.map((sub, subIndex, submenu) => {
                                 const isSubActive = pathMatches(pathname, sub.href);
+                                const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
+                                const shouldShowGroup = Boolean(sub.group && sub.group !== previousGroup);
 
                                 return (
-                                  <Link
-                                    key={sub.href}
-                                    href={sub.href}
-                                    aria-current={isSubActive ? "page" : undefined}
-                                    onClick={handleLeafClick}
-                                    className={cn(
-                                      "group flex min-h-[38px] items-center gap-2 rounded-[0.85rem] px-3 py-2 text-[13px] transition-colors",
-                                      isSubActive
-                                        ? "bg-white text-[var(--admin-accent-hover)] shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
-                                        : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
-                                    )}
-                                  >
-                                    <span
+                                  <div key={sub.href} className="space-y-1">
+                                    {shouldShowGroup ? (
+                                      <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-text-muted)]">
+                                        {sub.group}
+                                      </p>
+                                    ) : null}
+                                    <Link
+                                      href={sub.href}
+                                      aria-current={isSubActive ? "page" : undefined}
+                                      onClick={handleLeafClick}
                                       className={cn(
-                                        "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+                                        "group flex min-h-[38px] items-center gap-2 rounded-[0.85rem] px-3 py-2 text-[13px] transition-colors",
                                         isSubActive
-                                          ? "bg-[var(--admin-accent)]"
-                                          : "bg-[#D1D5DB] group-hover:bg-[var(--admin-accent-border)]",
+                                          ? "bg-white text-[var(--admin-accent-hover)] shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
+                                          : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
                                       )}
-                                    />
-                                    <span className="truncate">{sub.title}</span>
-                                  </Link>
+                                    >
+                                      <span
+                                        className={cn(
+                                          "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+                                          isSubActive
+                                            ? "bg-[var(--admin-accent)]"
+                                            : "bg-[#D1D5DB] group-hover:bg-[var(--admin-accent-border)]",
+                                        )}
+                                      />
+                                      <span className="min-w-0 flex-1 truncate">{sub.title}</span>
+                                      {sub.badge ? (
+                                        <span className="shrink-0 rounded-full border border-[var(--admin-border)] bg-white px-2 py-0.5 text-[10px] font-medium text-[var(--admin-text-secondary)]">
+                                          {sub.badge}
+                                        </span>
+                                      ) : null}
+                                    </Link>
+                                  </div>
                                 );
                               })}
                             </div>
