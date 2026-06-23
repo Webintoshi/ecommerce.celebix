@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { motion } from "framer-motion";
-import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import type {
@@ -57,10 +56,10 @@ const TOSHI_PROMPTS = [
 const TOSHI_MASCOT_SRC = "/branding/toshi-mascot-launcher.png";
 
 const SURFACE =
-  "rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[0_10px_22px_rgba(17,24,39,0.045)]";
+  "rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-[rgba(255,255,255,0.86)] shadow-none";
 
 const SUBTLE_SURFACE =
-  "rounded-[14px] border border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,248,250,0.96)_100%)]";
+  "rounded-[12px] border border-[rgba(226,231,238,0.78)] bg-[rgba(255,255,255,0.62)]";
 
 const KPI_TONES: Record<
   DashboardOverviewCard["tone"],
@@ -357,22 +356,24 @@ function DashboardCard({
   title,
   action,
   className,
+  bodyClassName,
   children,
 }: {
   title: string;
   action?: ReactNode;
   className?: string;
+  bodyClassName?: string;
   children: ReactNode;
 }) {
   return (
     <section className={cn(SURFACE, "overflow-hidden", className)}>
       <div className="flex items-center justify-between gap-3 px-4 pb-0 pt-4 md:px-5 md:pt-5">
-        <h2 className="text-[1.05rem] font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
+        <h2 className="text-[0.98rem] font-semibold tracking-[-0.025em] text-[var(--admin-heading)]">
           {title}
         </h2>
         {action}
       </div>
-      <div className="px-4 py-4 md:px-5 md:py-5">{children}</div>
+      <div className={cn("px-4 py-4 md:px-5 md:py-5", bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -405,66 +406,75 @@ function DashboardTopStrip({
   ];
 
   return (
-    <AdminPageHeader
-      sectionLabel="Günlük kontrol merkezi"
-      title="Mağaza özeti"
-      description="Satış, sipariş, stok ve müşteri sinyallerini tek ekranda takip edin; aksiyon gerektiren alanlara hızlıca geçin."
-      statusSlot={chips.map((chip) => (
-        <span
-          key={chip}
-          className="inline-flex min-h-[32px] items-center rounded-full border border-[var(--admin-border)] bg-[rgba(247,248,250,0.84)] px-3 py-1.5 text-[12px] font-semibold text-[var(--admin-text-secondary)]"
-        >
-          {chip}
-        </span>
-      ))}
-      actions={
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-          <label className="inline-flex min-h-[44px] items-center gap-3 rounded-[14px] border border-[var(--admin-border)] bg-white px-3.5 py-2 text-sm font-semibold text-[var(--admin-heading)] shadow-[var(--shadow-xs)]">
-            <CalendarDays className="h-4.5 w-4.5 text-[var(--admin-accent-hover)]" />
-            <span className="sr-only">{getPeriodLabel(selectedPeriod)} özeti</span>
-            <select
-              value={selectedPeriod}
-              onChange={(event) => onPeriodChange(event.target.value as TimeRange)}
-              className="bg-transparent pr-3 text-sm font-semibold outline-none"
-              aria-label="Dashboard dönem seçici"
+    <section className="grid gap-4 border-b border-[rgba(226,231,238,0.72)] pb-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:pb-5">
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
+          Günlük kontrol merkezi
+        </p>
+        <h1 className="mt-3 text-[1.95rem] font-semibold tracking-[-0.05em] text-[var(--admin-heading)] md:text-[2.35rem]">
+          Mağaza özeti
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-secondary)] md:text-[15px]">
+          Satış, sipariş, stok ve müşteri sinyallerini tek ekranda takip edin; aksiyon gerektiren alanlara hızlıca geçin.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {chips.map((chip) => (
+            <span
+              key={chip}
+              className="inline-flex min-h-[28px] items-center rounded-[10px] bg-white/70 px-2.5 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)] ring-1 ring-[rgba(226,231,238,0.72)]"
             >
-              {PERIODS.map((period) => (
-                <option key={period.value} value={period.value}>
-                  {period.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            {quickActions.map((action) => {
-              const ActionIcon = action.icon;
-              const className = cn(
-                "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[14px] border px-3.5 text-sm font-semibold shadow-[var(--shadow-xs)] transition-colors",
-                action.primary
-                  ? "border-[var(--admin-accent)] bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)]"
-                  : "border-[var(--admin-border)] bg-white text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
-              );
+              {chip}
+            </span>
+          ))}
+        </div>
+      </div>
 
-              if (action.external) {
-                return (
-                  <a key={action.label} href={action.href} target="_blank" rel="noreferrer" className={className}>
-                    <ActionIcon className="h-4 w-4" />
-                    <span>{action.label}</span>
-                  </a>
-                );
-              }
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap md:max-w-[720px] md:justify-end">
+        <label className="inline-flex min-h-[42px] items-center gap-2 rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/80 px-3.5 py-2 text-sm font-semibold text-[var(--admin-heading)]">
+          <CalendarDays className="h-4.5 w-4.5 text-[var(--admin-accent-hover)]" />
+          <span className="sr-only">{getPeriodLabel(selectedPeriod)} özeti</span>
+          <select
+            value={selectedPeriod}
+            onChange={(event) => onPeriodChange(event.target.value as TimeRange)}
+            className="bg-transparent pr-3 text-sm font-semibold outline-none"
+            aria-label="Dashboard dönem seçici"
+          >
+            {PERIODS.map((period) => (
+              <option key={period.value} value={period.value}>
+                {period.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          {quickActions.map((action) => {
+            const ActionIcon = action.icon;
+            const className = cn(
+              "inline-flex min-h-[42px] items-center justify-center gap-2 rounded-[12px] border px-3.5 text-sm font-semibold transition-colors",
+              action.primary
+                ? "border-[var(--admin-accent)] bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)]"
+                : "border-[rgba(215,221,231,0.82)] bg-white/80 text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
+            );
 
+            if (action.external) {
               return (
-                <Link key={action.label} href={action.href} className={className}>
+                <a key={action.label} href={action.href} target="_blank" rel="noreferrer" className={className}>
                   <ActionIcon className="h-4 w-4" />
                   <span>{action.label}</span>
-                </Link>
+                </a>
               );
-            })}
-          </div>
+            }
+
+            return (
+              <Link key={action.label} href={action.href} className={className}>
+                <ActionIcon className="h-4 w-4" />
+                <span>{action.label}</span>
+              </Link>
+            );
+          })}
         </div>
-      }
-    />
+      </div>
+    </section>
   );
 }
 
@@ -549,14 +559,13 @@ function KpiCard({ metric }: { metric: DashboardMetric }) {
     <Link
       href={metric.href}
       className={cn(
-        SURFACE,
-        "group flex min-h-[154px] flex-col p-4 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] active:scale-[0.985] md:p-5",
+        "group flex min-h-[112px] flex-col border-b border-r border-[rgba(226,231,238,0.82)] bg-white/50 p-4 transition-colors hover:bg-white/80 active:bg-white md:p-5",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div
           className={cn(
-            "flex h-11 w-11 items-center justify-center rounded-[14px] border",
+            "flex h-9 w-9 items-center justify-center rounded-[11px] border",
             tone.iconShell,
           )}
         >
@@ -574,12 +583,12 @@ function KpiCard({ metric }: { metric: DashboardMetric }) {
       </div>
 
       <div className="mt-4">
-        <p className="text-[13px] font-medium leading-5 text-[var(--admin-text-secondary)]">
+        <p className="text-[12px] font-medium leading-5 text-[var(--admin-text-secondary)]">
           {metric.label}
         </p>
         <p
           className={cn(
-            "mt-2 truncate text-[1.48rem] font-semibold tracking-[-0.05em] md:text-[1.62rem]",
+            "mt-1.5 truncate text-[1.32rem] font-semibold tracking-[-0.045em] md:text-[1.46rem]",
             tone.valueClassName,
           )}
         >
@@ -587,7 +596,7 @@ function KpiCard({ metric }: { metric: DashboardMetric }) {
         </p>
       </div>
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-4">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-3">
         {metric.delta ? (
           <span
             className={cn(
@@ -620,9 +629,9 @@ function KpiGrid({
 }) {
   if (isRefreshing) {
     return (
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-5">
+      <section className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/70 sm:grid-cols-2 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-[154px] rounded-[16px]" />
+          <Skeleton key={index} className="h-[112px] rounded-none" />
         ))}
       </section>
     );
@@ -631,7 +640,7 @@ function KpiGrid({
   const metrics = buildDashboardMetrics(dashboard);
 
   return (
-    <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-5">
+    <section className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/70 sm:grid-cols-2 xl:grid-cols-5">
       {metrics.map((metric) => (
         <KpiCard key={metric.key} metric={metric} />
       ))}
@@ -802,16 +811,16 @@ function ToshiCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
   const HighlightIcon = highlight.icon;
 
   return (
-    <DashboardCard title="Toshi AI Asistan" className="h-full">
-      <div className="flex h-full flex-col gap-4">
+    <DashboardCard title="Toshi önerileri" className="h-full" bodyClassName="pt-3">
+      <div className="flex h-full flex-col gap-3">
         <div className="flex items-start gap-3">
-          <div className="relative h-11 w-11 flex-shrink-0 overflow-hidden rounded-full border border-[var(--admin-border)] bg-white shadow-[0_8px_18px_rgba(17,24,39,0.06)]">
+          <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full border border-[rgba(226,231,238,0.82)] bg-white">
             <Image src={TOSHI_MASCOT_SRC} alt="Toshi" fill className="object-contain p-1.5" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[var(--admin-heading)]">Öneriler ve hızlı aksiyonlar</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--admin-text-secondary)]">
-              Mağazanız için kritik sinyalleri yorumlar, hızlı aksiyon yolları açarım.
+            <p className="text-sm font-semibold text-[var(--admin-heading)]">Akıllı kontrol listesi</p>
+            <p className="mt-1 text-[13px] leading-5 text-[var(--admin-text-secondary)]">
+              Kritik sinyalleri kısa önerilere çevirir.
             </p>
           </div>
         </div>
@@ -819,10 +828,10 @@ function ToshiCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
         <button
           type="button"
           onClick={() => openToshi(highlight.prompt)}
-          className="flex min-h-[72px] items-center justify-between gap-3 rounded-[18px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-3 text-left transition-colors active:bg-[rgba(255,241,232,0.84)]"
+          className="flex min-h-[68px] items-center justify-between gap-3 rounded-[12px] border border-[rgba(255,215,191,0.76)] bg-[rgba(255,241,232,0.68)] px-3.5 py-3 text-left transition-colors active:bg-[rgba(255,241,232,0.84)]"
         >
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[14px] bg-white text-[var(--admin-accent-hover)]">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] bg-white/80 text-[var(--admin-accent-hover)]">
               <HighlightIcon className="h-4.5 w-4.5" />
             </span>
             <div className="min-w-0">
@@ -835,13 +844,13 @@ function ToshiCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
           <ArrowRight className="h-4.5 w-4.5 flex-shrink-0 text-[var(--admin-accent-hover)]" />
         </button>
 
-        <div className="divide-y divide-[rgba(231,234,240,0.88)] rounded-[18px] border border-[var(--admin-border)] bg-white">
+        <div className="divide-y divide-[rgba(231,234,240,0.82)]">
           {TOSHI_PROMPTS.map((prompt) => (
             <button
               key={prompt}
               type="button"
               onClick={() => openToshi(prompt)}
-              className="flex min-h-[54px] w-full items-center justify-between gap-3 px-4 py-3 text-left text-[14px] font-medium text-[var(--admin-heading)] transition-colors active:bg-[rgba(247,248,250,0.78)]"
+              className="flex min-h-[48px] w-full items-center justify-between gap-3 rounded-[10px] px-2 py-2.5 text-left text-[13px] font-medium text-[var(--admin-heading)] transition-colors hover:bg-white/75 active:bg-white"
             >
               <span className="min-w-0 truncate">{prompt}</span>
               <ChevronRight className="h-4.5 w-4.5 flex-shrink-0 text-[var(--admin-text-muted)]" />
@@ -852,10 +861,10 @@ function ToshiCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
         <button
           type="button"
           onClick={() => openToshi()}
-          className="mt-auto inline-flex min-h-[54px] items-center justify-center gap-2 rounded-[18px] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-transform active:scale-[0.985]"
+          className="mt-auto inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/80 px-4 py-2.5 text-sm font-semibold text-[var(--admin-heading)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] active:bg-white"
         >
           <Sparkles className="h-4.5 w-4.5" />
-          Toshi ile Sohbete Başla
+          Toshi ile konuş
         </button>
       </div>
     </DashboardCard>
@@ -1063,9 +1072,9 @@ function TodoCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
 
   return (
     <DashboardCard title="Yapılacaklar" action={<ListChecks className="h-4.5 w-4.5 text-[var(--admin-accent-hover)]" />}>
-      <div className="space-y-2.5">
+      <div className="space-y-1">
         {activeTasks.length === 0 ? (
-          <div className="mb-2 flex items-start gap-3 rounded-[14px] border border-[rgba(22,163,74,0.18)] bg-[var(--admin-success-soft)] px-3.5 py-3">
+          <div className="mb-2 flex items-start gap-3 rounded-[12px] border border-[rgba(22,163,74,0.18)] bg-[var(--admin-success-soft)] px-3.5 py-3">
             <CheckCircle2 className="mt-0.5 h-4.5 w-4.5 shrink-0 text-[var(--admin-success)]" />
             <div>
               <p className="text-sm font-semibold text-[var(--admin-heading)]">Bugün kritik aksiyon yok.</p>
@@ -1083,9 +1092,9 @@ function TodoCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
             <Link
               key={task.title}
               href={task.href}
-              className="flex min-h-[68px] items-center gap-3 rounded-[14px] border border-[var(--admin-border)] bg-white px-3.5 py-3 transition-colors hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
+              className="flex min-h-[62px] items-center gap-3 rounded-[10px] px-2.5 py-2.5 transition-colors hover:bg-white/75 active:bg-white"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--admin-muted-surface)] text-[var(--admin-text-secondary)]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--admin-muted-surface)] text-[var(--admin-text-secondary)]">
                 <TaskIcon className="h-4.5 w-4.5" />
               </span>
               <span className="min-w-0 flex-1">
@@ -1129,13 +1138,13 @@ function StoreStatusCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
 
   return (
     <DashboardCard title="Mağaza Durumu" action={<ListHeaderAction href="/admin/analizler" />}>
-      <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className="divide-y divide-[rgba(231,234,240,0.82)]">
         {statusItems.map((item) => (
-          <div key={item.label} className={cn(SUBTLE_SURFACE, "px-3.5 py-3")}>
-            <p className="text-[12px] font-medium text-[var(--admin-text-secondary)]">{item.label}</p>
+          <div key={item.label} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+            <p className="text-[13px] font-medium text-[var(--admin-text-secondary)]">{item.label}</p>
             <p
               className={cn(
-                "mt-2 text-[1rem] font-semibold tracking-[-0.025em]",
+                "text-sm font-semibold tracking-[-0.015em]",
                 item.tone === "success" && "text-[var(--admin-success)]",
                 item.tone === "warning" && "text-[var(--admin-warning)]",
                 item.tone === "info" && "text-[var(--admin-info)]",
@@ -1206,14 +1215,14 @@ function InsightsStrip({ items }: { items: DashboardAnalysisSummaryItem[] }) {
   }
 
   return (
-    <section className="hidden gap-3 xl:grid xl:grid-cols-4">
+    <section className="hidden overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/60 xl:grid xl:grid-cols-4">
       {items.map((item) => {
         const meta = getAnalysisMeta(item.key);
         const Icon = meta.icon as ComponentType<{ className?: string }>;
         const delta = formatDelta(item.change);
 
         return (
-          <div key={item.key} className={cn(SUBTLE_SURFACE, "px-4 py-4")}>
+          <div key={item.key} className="border-r border-[rgba(226,231,238,0.82)] px-4 py-4 last:border-r-0">
             <div className="flex items-start justify-between gap-3">
               <span className={cn("flex h-10 w-10 items-center justify-center rounded-[14px]", meta.shell)}>
                 <Icon className="h-4.5 w-4.5" />
@@ -1247,20 +1256,23 @@ function InsightsStrip({ items }: { items: DashboardAnalysisSummaryItem[] }) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-4 md:space-y-5">
-      <Skeleton className="h-[132px] rounded-[16px]" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-5">
+      <Skeleton className="h-[126px] rounded-[12px]" />
+      <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] sm:grid-cols-2 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-[154px] rounded-[16px]" />
+          <Skeleton key={index} className="h-[112px] rounded-none" />
         ))}
       </div>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]">
-        <Skeleton className="h-[420px] rounded-[16px]" />
-        <Skeleton className="h-[420px] rounded-[16px]" />
-      </div>
-      <div className="grid gap-4">
-        <Skeleton className="h-[330px] rounded-[16px]" />
-        <Skeleton className="h-[280px] rounded-[16px]" />
-        <Skeleton className="h-[280px] rounded-[16px]" />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+        <div className="space-y-4">
+          <Skeleton className="h-[330px] rounded-[12px]" />
+          <Skeleton className="h-[260px] rounded-[12px]" />
+          <Skeleton className="h-[260px] rounded-[12px]" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-[220px] rounded-[12px]" />
+          <Skeleton className="h-[260px] rounded-[12px]" />
+          <Skeleton className="h-[220px] rounded-[12px]" />
+        </div>
       </div>
     </div>
   );
@@ -1269,19 +1281,21 @@ function DashboardSkeleton() {
 function DashboardContentSkeleton() {
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]">
-        <Skeleton className="h-[420px] rounded-[16px]" />
-        <Skeleton className="h-[420px] rounded-[16px]" />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+        <div className="space-y-4">
+          <Skeleton className="h-[330px] rounded-[12px]" />
+          <Skeleton className="h-[250px] rounded-[12px]" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-[220px] rounded-[12px]" />
+          <Skeleton className="h-[260px] rounded-[12px]" />
+          <Skeleton className="h-[220px] rounded-[12px]" />
+        </div>
       </div>
-      <div className="hidden gap-3 xl:grid xl:grid-cols-4">
+      <div className="hidden overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] xl:grid xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-[132px] rounded-[14px]" />
+          <Skeleton key={index} className="h-[124px] rounded-none" />
         ))}
-      </div>
-      <div className="grid gap-4">
-        <Skeleton className="h-[330px] rounded-[16px]" />
-        <Skeleton className="h-[280px] rounded-[16px]" />
-        <Skeleton className="h-[280px] rounded-[16px]" />
       </div>
     </>
   );
@@ -1335,35 +1349,29 @@ export function DashboardHomeView({
           <DashboardContentSkeleton />
         ) : (
           <>
-            <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]">
-              <RecentOrdersCard orders={dashboard.recentOrders} />
+            <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
               <div className="grid gap-4">
+                <RecentOrdersCard orders={dashboard.recentOrders} />
                 <AbandonedCartsCard dashboard={dashboard} />
-                <LowStockProductsCard products={dashboard.lowStockProducts} />
+                <CustomerActivityCard activities={dashboard.customerActivities} />
+                <SalesChartCard
+                  points={dashboard.performance.chart}
+                  currentLabel={dashboard.performance.currentLabel}
+                  previousLabel={dashboard.performance.previousLabel}
+                  currentRevenue={dashboard.performance.currentRevenue}
+                  previousRevenue={dashboard.performance.previousRevenue}
+                  currentOrders={dashboard.performance.currentOrders}
+                />
               </div>
-            </section>
-
-            <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-              <SalesChartCard
-                points={dashboard.performance.chart}
-                currentLabel={dashboard.performance.currentLabel}
-                previousLabel={dashboard.performance.previousLabel}
-                currentRevenue={dashboard.performance.currentRevenue}
-                previousRevenue={dashboard.performance.previousRevenue}
-                currentOrders={dashboard.performance.currentOrders}
-              />
-              <div className="grid gap-4">
+              <aside className="grid content-start gap-4">
+                <StoreStatusCard dashboard={dashboard} />
+                <LowStockProductsCard products={dashboard.lowStockProducts} />
                 <TodoCard dashboard={dashboard} />
                 <ToshiCard dashboard={dashboard} />
-              </div>
+              </aside>
             </section>
 
             <InsightsStrip items={dashboard.analysisSummary.items} />
-
-            <section className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-              <StoreStatusCard dashboard={dashboard} />
-              <CustomerActivityCard activities={dashboard.customerActivities} />
-            </section>
           </>
         )}
       </motion.div>
