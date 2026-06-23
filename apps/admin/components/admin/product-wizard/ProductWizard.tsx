@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Save, ChevronRight, ChevronLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, ChevronRight, ChevronLeft, MoreHorizontal, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import {
   ADMIN_PRODUCT_WIZARD_STEPS,
@@ -272,10 +272,19 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
   };
 
   const handleStepClick = (stepId: number) => {
-    // Sadece geriye gitmeye veya tamamlanmış adımlara ilerlemeye izin ver
+    if (productId) {
+      setErrors({});
+      setCurrentStep(stepId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // Sadece geriye gitmeye veya mevcut adım geçerliyse ilerlemeye izin ver.
     if (stepId < currentStep || validateStep(currentStep)) {
       setCurrentStep(stepId);
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      toast.error("Bu adıma geçmeden önce mevcut adımdaki zorunlu alanları tamamlayın");
     }
   };
 
@@ -691,12 +700,12 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             <SimpleProductQuickForm data={formData} errors={errors} onChange={updateFormData} />
           )}
 
-          <div className="sticky bottom-4 z-20 mt-6 rounded-[8px] border border-[var(--admin-border)] bg-white/95 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <p className="text-sm text-stone-500">
+          <div className="sticky bottom-3 z-20 mt-6 rounded-[8px] border border-[var(--admin-border)] bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur sm:bottom-4 sm:p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="hidden min-w-0 text-sm text-stone-500 md:block">
                 Kaydetmeden önce mevcut API için ürün adı, kategori ve en az bir geçerli varyant gerekir.
               </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="hidden flex-col gap-2 sm:flex sm:flex-row">
                 <button
                   type="button"
                   onClick={() => handleSave("draft")}
@@ -724,6 +733,43 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                   {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Yayınla
                 </button>
+              </div>
+              <div className="flex w-full items-center gap-2 sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => handleSave("publish")}
+                  disabled={saving}
+                  className="inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#E85D04] disabled:opacity-50"
+                >
+                  {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Yayınla
+                </button>
+                <details className="group relative">
+                  <summary className="inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-stone-700 transition-colors hover:bg-[#FCFDFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 [&::-webkit-details-marker]:hidden">
+                    <MoreHorizontal className="h-5 w-5" />
+                    <span className="sr-only">Diğer kayıt seçenekleri</span>
+                  </summary>
+                  <div className="absolute bottom-full right-0 mb-2 w-[min(82vw,20rem)] rounded-[8px] border border-[var(--admin-border)] bg-white p-2 shadow-[0_18px_50px_rgba(15,23,42,0.14)]">
+                    <button
+                      type="button"
+                      onClick={() => handleSave("draft")}
+                      disabled={saving}
+                      className="flex h-10 w-full items-center gap-2 rounded-[8px] px-3 text-left text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] disabled:opacity-50"
+                    >
+                      {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Taslak Kaydet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSave("offline")}
+                      disabled={saving}
+                      className="mt-1 flex h-10 w-full items-center gap-2 rounded-[8px] px-3 text-left text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] disabled:opacity-50"
+                    >
+                      {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Satışa Kapalı Kaydet
+                    </button>
+                  </div>
+                </details>
               </div>
             </div>
           </div>
@@ -784,6 +830,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             steps={ADMIN_PRODUCT_WIZARD_STEPS}
             currentStep={currentStep}
             onStepClick={handleStepClick}
+            allowFutureSteps={Boolean(productId)}
           />
         </div>
       </div>
