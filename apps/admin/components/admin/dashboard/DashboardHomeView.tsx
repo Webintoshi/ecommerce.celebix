@@ -8,16 +8,16 @@ import {
   Activity,
   Archive,
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   CircleAlert,
-  Eye,
+  Globe2,
   ListChecks,
   Package,
-  Percent,
-  Plus,
   ShoppingBag,
   Sparkles,
   Users,
@@ -106,6 +106,13 @@ function formatCompactValue(value: number) {
   return value.toLocaleString("tr-TR");
 }
 
+function formatPercentValue(value: number) {
+  return `%${value.toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function formatDelta(change: number) {
   if (change === 0) {
     return {
@@ -168,11 +175,47 @@ function getPeriodLabel(value: TimeRange) {
   return PERIODS.find((period) => period.value === value)?.label ?? "Bu hafta";
 }
 
+function getAnalyticsPeriodLabel(value: TimeRange) {
+  switch (value) {
+    case "today":
+      return "Bugün";
+    case "week":
+      return "Son 7 Gün";
+    case "month":
+      return "Bu Ay";
+    case "quarter":
+      return "Son 90 Gün";
+    default:
+      return getPeriodLabel(value);
+  }
+}
+
 function getOverviewCard(
   cards: DashboardOverviewCard[],
   key: DashboardOverviewCard["key"],
 ) {
   return cards.find((card) => card.key === key) ?? null;
+}
+
+function getAnalysisItem(
+  items: DashboardAnalysisSummaryItem[],
+  key: DashboardAnalysisSummaryItem["key"],
+) {
+  return items.find((item) => item.key === key) ?? null;
+}
+
+function getStorefrontDisplayHost() {
+  const domain = STORE_RUNTIME.storefrontDomain?.trim();
+
+  if (domain && !domain.includes("localhost")) {
+    return domain;
+  }
+
+  try {
+    return new URL(STORE_RUNTIME.storefrontUrl).hostname;
+  } catch {
+    return STORE_RUNTIME.storefrontUrl.replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+  }
 }
 
 function getOrderStatusMeta(status: string) {
@@ -327,94 +370,83 @@ function DashboardActionRail({
   onPeriodChange: (value: TimeRange) => void;
   placement?: "topbar" | "mobile";
 }) {
-  const quickActions = [
-    { label: "Ürün ekle", href: "/admin/urunler/yeni", icon: Plus, primary: true },
-    { label: "Siparişler", href: "/admin/siparisler", icon: ShoppingBag },
-    { label: "Terk sepetler", href: "/admin/siparisler/sepet-terk", icon: Archive },
-    { label: "Mağazayı görüntüle", href: STORE_RUNTIME.storefrontUrl, icon: Eye, external: true },
-  ];
+  const compact = placement === "mobile";
 
   return (
-    <section
-      aria-label="Dashboard hızlı işlemleri"
+    <div
+      aria-label="Dashboard filtreleri"
       className={cn(
-        "min-w-0",
-        placement === "mobile"
-          ? "sticky top-[max(0.45rem,env(safe-area-inset-top))] z-20 mb-3 rounded-[18px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] p-3 shadow-[var(--shadow-xs)] backdrop-blur-xl min-[1025px]:hidden"
-          : "w-full",
+        "min-w-0 bg-white",
+        compact
+          ? "sticky top-[max(0.45rem,env(safe-area-inset-top))] z-20 mb-3 rounded-[18px] border border-[var(--admin-border)] p-3 shadow-[var(--shadow-xs)] backdrop-blur-xl min-[1025px]:hidden"
+          : "w-full border-b border-[rgba(226,231,238,0.92)] py-3",
       )}
     >
       <div
         className={cn(
-          "flex min-w-0 flex-col gap-2",
-          placement === "topbar" ? "items-stretch xl:items-end" : "",
+          "mx-auto flex min-w-0 items-center gap-2",
+          compact ? "flex-wrap" : "max-w-[1560px] justify-between",
         )}
       >
         <div
           className={cn(
             "flex min-w-0 flex-wrap items-center gap-2",
-            placement === "topbar" ? "justify-end" : "",
+            compact ? "w-full" : "flex-1",
           )}
         >
-          <label className="inline-flex min-h-[36px] flex-1 items-center gap-2 rounded-[10px] border border-[rgba(215,221,231,0.82)] bg-white/78 px-3 py-1.5 text-[13px] font-semibold text-[var(--admin-heading)] sm:flex-none">
+          <label className="relative inline-flex min-h-[42px] flex-1 items-center gap-2 rounded-[7px] border border-[rgba(215,221,231,0.9)] bg-white px-3.5 py-1.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.03)] sm:flex-none">
+            <ShoppingBag className="h-4.5 w-4.5 text-[var(--admin-text-muted)]" />
+            <span className="sr-only">Satış kanalı</span>
+            <select
+              className="min-w-0 appearance-none bg-transparent pr-8 text-[14px] font-semibold outline-none"
+              aria-label="Satış kanalı seçici"
+              defaultValue="all"
+            >
+              <option value="all">Tüm Satış Kanalları</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--admin-text-muted)]" />
+          </label>
+          <label className="relative inline-flex min-h-[42px] flex-1 items-center gap-2 rounded-[7px] border border-[rgba(215,221,231,0.9)] bg-white px-3.5 py-1.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.03)] sm:flex-none">
             <CalendarDays className="h-4 w-4 text-[var(--admin-accent-hover)]" />
-            <span className="sr-only">{getPeriodLabel(selectedPeriod)} özeti</span>
+            <span className="sr-only">{getAnalyticsPeriodLabel(selectedPeriod)} özeti</span>
             <select
               value={selectedPeriod}
               onChange={(event) => onPeriodChange(event.target.value as TimeRange)}
-              className="min-w-0 bg-transparent pr-2 text-[13px] font-semibold outline-none"
+              className="min-w-0 appearance-none bg-transparent pr-8 text-[14px] font-semibold outline-none"
               aria-label="Dashboard dönem seçici"
             >
               {PERIODS.map((period) => (
                 <option key={period.value} value={period.value}>
-                  {period.label}
+                  {getAnalyticsPeriodLabel(period.value)}
                 </option>
               ))}
             </select>
+            <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--admin-text-muted)]" />
           </label>
-          <span className="inline-flex min-h-[36px] items-center gap-2 rounded-[10px] border border-[rgba(215,221,231,0.72)] bg-white/62 px-3 text-[13px] font-semibold text-[var(--admin-text)]">
-            <ShoppingBag className="h-4 w-4 text-[var(--admin-text-muted)]" />
-            Online mağaza
-          </span>
-          <span className="inline-flex min-h-[36px] items-center gap-2 rounded-[10px] border border-[rgba(215,221,231,0.72)] bg-white/62 px-3 text-[13px] font-semibold text-[var(--admin-text-secondary)]">
-            <Percent className="h-4 w-4 text-[var(--admin-success)]" />
-            Önceki dönem
+          <span className="inline-flex min-h-[42px] flex-1 items-center gap-2 rounded-[7px] px-2 text-[14px] font-semibold text-[var(--admin-text-secondary)] sm:flex-none">
+            <ArrowDownRight className="h-4.5 w-4.5 rotate-45 text-[var(--admin-text-muted)]" />
+            Önceki döneme göre
           </span>
         </div>
         <div
           className={cn(
-            "grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap",
-            placement === "topbar" ? "sm:justify-end" : "",
+            "flex min-w-0 items-center gap-2",
+            compact ? "w-full justify-end" : "shrink-0 justify-end",
           )}
         >
-          {quickActions.map((action) => {
-            const ActionIcon = action.icon;
-            const className = cn(
-              "inline-flex min-h-[38px] items-center justify-center gap-2 rounded-[10px] border px-3 text-[13px] font-semibold transition-colors",
-              action.primary
-                ? "border-[var(--admin-accent)] bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)]"
-                : "border-[rgba(215,221,231,0.82)] bg-white/80 text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
-            );
-
-            if (action.external) {
-              return (
-                <a key={action.label} href={action.href} target="_blank" rel="noreferrer" className={className}>
-                  <ActionIcon className="h-4 w-4" />
-                  <span className="truncate">{action.label}</span>
-                </a>
-              );
-            }
-
-            return (
-              <Link key={action.label} href={action.href} className={className}>
-                <ActionIcon className="h-4 w-4" />
-                <span className="truncate">{action.label}</span>
-              </Link>
-            );
-          })}
+          <span className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-[7px] border border-[rgba(215,221,231,0.9)] bg-white text-[var(--admin-text-secondary)] shadow-[0_1px_2px_rgba(17,24,39,0.03)]">
+            <ListChecks className="h-5 w-5" />
+          </span>
+          <span className="inline-flex min-h-[42px] items-center gap-3 rounded-[7px] border border-[rgba(215,221,231,0.9)] bg-white px-3.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.03)]">
+            <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(226,231,238,0.82)]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--admin-text-muted)]" />
+            </span>
+            Ziyaretçi Yok
+            <ArrowRight className="h-4.5 w-4.5 text-[var(--admin-text-muted)]" />
+          </span>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -641,190 +673,377 @@ function KpiGrid({
   );
 }
 
-function SalesChartCard({
-  points,
-  currentLabel,
-  previousLabel,
-  currentRevenue,
-  previousRevenue,
-  currentOrders,
-}: {
-  points: DashboardPerformancePoint[];
-  currentLabel: string;
-  previousLabel: string;
-  currentRevenue: number;
-  previousRevenue: number;
-  currentOrders: number;
-}) {
+function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
+  const points = dashboard.performance.chart;
+  const currentLabel = dashboard.performance.currentLabel;
+  const previousLabel = dashboard.performance.previousLabel;
+  const currentRevenue = dashboard.performance.currentRevenue;
+  const previousRevenue = dashboard.performance.previousRevenue;
+  const currentOrders = dashboard.performance.currentOrders;
+  const previousOrders = dashboard.performance.previousOrders;
+  const conversionCard = getOverviewCard(dashboard.overview.cards, "conversion");
+  const visitorsItem = getAnalysisItem(dashboard.analysisSummary.items, "visitors");
+  const chartPoints =
+    points.length > 0
+      ? points
+      : ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((label) => ({
+          label,
+          currentRevenue: 0,
+          previousRevenue: 0,
+          currentOrders: 0,
+          previousOrders: 0,
+        }));
   const revenueDelta = formatDelta(
     previousRevenue === 0 ? 0 : ((currentRevenue - previousRevenue) / previousRevenue) * 100,
   );
-  const averageDailyRevenue = points.length > 0 ? currentRevenue / points.length : 0;
-  const averageOrderValue = currentOrders > 0 ? currentRevenue / currentOrders : 0;
-  const hasSalesData = currentRevenue > 0 || currentOrders > 0;
-  const summaryRows = [
+  const ordersDelta = formatDelta(
+    previousOrders === 0 ? 0 : ((currentOrders - previousOrders) / previousOrders) * 100,
+  );
+  const visitorDelta = formatDelta(visitorsItem?.change ?? 0);
+  const conversionDelta = formatDelta(conversionCard?.change ?? 0);
+  const visitors = visitorsItem?.value ?? dashboard.liveData.liveVisitors;
+  const hasSalesData = chartPoints.some((point) => point.currentRevenue > 0 || point.currentOrders > 0);
+  const metrics = [
     {
       label: "Toplam satış",
       value: formatCurrency(currentRevenue),
       delta: revenueDelta,
+      active: true,
     },
     {
-      label: "Günlük ortalama",
-      value: formatCurrency(averageDailyRevenue),
-      delta: revenueDelta,
-    },
-    {
-      label: "Sipariş ortalaması",
-      value: formatCurrency(averageOrderValue),
-      delta: null,
-    },
-    {
-      label: "Sipariş",
+      label: "Sipariş Sayısı",
       value: currentOrders.toLocaleString("tr-TR"),
-      delta: null,
+      delta: ordersDelta,
+    },
+    {
+      label: "Oturum Sayısı",
+      value: visitors.toLocaleString("tr-TR"),
+      delta: visitorDelta,
+    },
+    {
+      label: "Dönüşüm Oranı",
+      value: formatPercentValue(conversionCard?.value ?? 0),
+      delta: conversionDelta,
+    },
+    {
+      label: "İadeler",
+      value: formatCurrency(0),
+      delta: formatDelta(0),
     },
   ];
 
   return (
-    <DashboardCard
-      title="Satış performansı"
-      className="xl:col-span-2"
-      action={
-        <span className="inline-flex min-h-[32px] items-center rounded-[10px] border border-[var(--admin-border)] bg-[rgba(247,248,250,0.84)] px-3 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)]">
-          {currentLabel}
-        </span>
-      }
-      bodyClassName="pt-3"
-    >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] xl:items-stretch">
-        <div>
-          <div className="mb-3 flex items-center gap-4 text-[12px] font-medium text-[var(--admin-text-secondary)]">
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[var(--admin-accent)]" />
-              {currentLabel}
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[var(--admin-text-muted)]" />
-              {previousLabel}
-            </span>
-          </div>
+    <section className="overflow-hidden rounded-[8px] border border-[rgba(218,224,233,0.9)] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.03)]">
+      <div className="grid min-w-0 divide-y divide-[rgba(226,231,238,0.92)] md:grid-cols-2 md:divide-x md:divide-y-0 min-[1180px]:grid-cols-5">
+        {metrics.map((metric) => {
+          const MetricDeltaIcon = metric.delta.positive === false ? ArrowDownRight : ArrowUpRight;
 
-          {points.length > 0 ? (
-            <div className="relative h-[248px] min-h-[248px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={points} margin={{ top: 8, right: 10, left: -22, bottom: 6 }}>
-                  <CartesianGrid stroke="rgba(231,234,240,0.9)" vertical={false} strokeDasharray="4 4" />
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: "#9CA3AF", fontSize: 11 }}
-                    dy={8}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: "#9CA3AF", fontSize: 11 }}
-                    tickFormatter={formatCompactValue}
-                    width={46}
-                  />
-                  <Tooltip
-                    cursor={{ stroke: "#E7EAF0", strokeWidth: 1.2 }}
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload || payload.length === 0) {
-                        return null;
-                      }
-
-                      const point = payload[0]?.payload as DashboardPerformancePoint;
-
-                      return (
-                        <div className="rounded-[14px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
-                          <p className="text-sm font-semibold text-[var(--admin-heading)]">{label}</p>
-                          <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
-                            <div className="flex items-center justify-between gap-6">
-                              <span>{currentLabel}</span>
-                              <span className="font-semibold text-[var(--admin-heading)]">
-                                {formatCurrency(point.currentRevenue)}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between gap-6">
-                              <span>{previousLabel}</span>
-                              <span className="font-semibold text-[var(--admin-heading)]">
-                                {formatCurrency(point.previousRevenue)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="previousRevenue"
-                    stroke="#9CA3AF"
-                    strokeWidth={2}
-                    strokeDasharray="6 6"
-                    dot={false}
-                    activeDot={{ r: 3, fill: "#9CA3AF" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="currentRevenue"
-                    stroke="#2563EB"
-                    strokeWidth={3}
-                    dot={false}
-                    activeDot={{ r: 4, fill: "#2563EB" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-              {!hasSalesData ? (
-                <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center">
-                  <span className="rounded-[10px] border border-[var(--admin-border)] bg-white/92 px-3 py-2 text-[12px] font-semibold text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)]">
-                    Bu dönem için satış verisi yok.
-                  </span>
-                </div>
+          return (
+            <div key={metric.label} className="relative min-h-[112px] px-5 py-5">
+              {metric.active ? (
+                <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#6D5DF7]" />
               ) : null}
-            </div>
-          ) : (
-            <div className="flex h-[248px] items-center justify-center rounded-[12px] border border-dashed border-[var(--admin-border)] bg-[rgba(247,248,250,0.72)]">
-              <p className="text-sm text-[var(--admin-text-secondary)]">Bu dönem için satış verisi yok.</p>
-            </div>
-          )}
-        </div>
-
-        <div className="divide-y divide-[rgba(231,234,240,0.86)] rounded-[12px] border border-[rgba(226,231,238,0.82)] bg-[rgba(247,248,250,0.54)] px-4 py-2">
-          {summaryRows.map((row) => {
-            const RowDeltaIcon = row.delta?.positive === false ? ArrowDownRight : ArrowUpRight;
-
-            return (
-              <div key={row.label} className="flex min-h-[58px] items-center justify-between gap-4 py-3">
-                <p className="text-[13px] font-medium text-[var(--admin-text-secondary)]">{row.label}</p>
-                <div className="text-right">
-                  <p className="text-sm font-semibold tracking-[-0.015em] text-[var(--admin-heading)]">
-                    {row.value}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-semibold tracking-[-0.015em] text-[var(--admin-text-secondary)]">
+                    {metric.label}
                   </p>
-                  {row.delta ? (
-                    <span
-                      className={cn(
-                        "mt-1 inline-flex items-center gap-1 text-[11.5px] font-semibold",
-                        row.delta.positive === null
-                          ? "text-[var(--admin-text-secondary)]"
-                          : row.delta.positive
-                            ? "text-[var(--admin-success)]"
-                            : "text-[var(--admin-danger)]",
-                      )}
-                    >
-                      {row.delta.positive !== null ? <RowDeltaIcon className="h-3.5 w-3.5" /> : null}
-                      {row.delta.compactLabel}
-                    </span>
-                  ) : null}
+                  <p className="mt-3 truncate text-[1.65rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)]">
+                    {metric.value}
+                  </p>
                 </div>
+                <span
+                  className={cn(
+                    "mt-8 inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-[rgba(248,250,252,0.94)] px-2 py-1 text-[12px] font-semibold",
+                    metric.delta.positive === null
+                      ? "text-[var(--admin-text-secondary)]"
+                      : metric.delta.positive
+                        ? "text-[var(--admin-success)]"
+                        : "text-[var(--admin-danger)]",
+                  )}
+                >
+                  {metric.delta.positive !== null ? <MetricDeltaIcon className="h-3.5 w-3.5" /> : null}
+                  {metric.delta.positive === null ? formatPercentValue(0) : metric.delta.compactLabel}
+                </span>
               </div>
-            );
-          })}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="relative border-t border-[rgba(226,231,238,0.92)] px-4 pb-5 pt-4 md:px-6 md:pb-6">
+        <div className="mb-3 flex items-center justify-between gap-3 text-[12px] font-medium text-[var(--admin-text-secondary)]">
+          <span className="inline-flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#6D5DF7]" />
+            {currentLabel}
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[rgba(148,163,184,0.76)]" />
+            {previousLabel}
+          </span>
+        </div>
+        <div className="relative h-[360px] min-h-[360px] md:h-[430px] min-[1360px]:h-[520px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartPoints} margin={{ top: 14, right: 18, left: 0, bottom: 10 }}>
+              <CartesianGrid stroke="rgba(226,231,238,0.95)" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "#7B8494", fontSize: 12, fontWeight: 600 }}
+                dy={10}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "#7B8494", fontSize: 12, fontWeight: 600 }}
+                tickFormatter={(value) => `${formatCompactValue(Number(value))} ₺`}
+                width={58}
+              />
+              <Tooltip
+                cursor={{ stroke: "#DCE2EA", strokeWidth: 1.2 }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || payload.length === 0) {
+                    return null;
+                  }
+
+                  const point = payload[0]?.payload as DashboardPerformancePoint;
+
+                  return (
+                    <div className="rounded-[10px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
+                      <p className="text-sm font-semibold text-[var(--admin-heading)]">{label}</p>
+                      <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
+                        <div className="flex items-center justify-between gap-6">
+                          <span>{currentLabel}</span>
+                          <span className="font-semibold text-[var(--admin-heading)]">
+                            {formatCurrency(point.currentRevenue)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-6">
+                          <span>{previousLabel}</span>
+                          <span className="font-semibold text-[var(--admin-heading)]">
+                            {formatCurrency(point.previousRevenue)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="previousRevenue"
+                stroke="rgba(148,163,184,0.5)"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 3, fill: "#94A3B8" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="currentRevenue"
+                stroke="#6D5DF7"
+                strokeWidth={3.2}
+                dot={false}
+                activeDot={{ r: 4, fill: "#6D5DF7" }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+          {!hasSalesData ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
+              <span className="rounded-[7px] border border-[var(--admin-border)] bg-white/92 px-3 py-2 text-[12px] font-semibold text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)]">
+                Bu dönem için satış verisi yok.
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
-    </DashboardCard>
+    </section>
+  );
+}
+
+function SalesChannelsOverview({ dashboard }: { dashboard: DashboardBootstrapData }) {
+  const revenueDelta = formatDelta(
+    dashboard.performance.previousRevenue === 0
+      ? 0
+      : ((dashboard.performance.currentRevenue - dashboard.performance.previousRevenue) /
+          dashboard.performance.previousRevenue) *
+          100,
+  );
+  const channels = [
+    {
+      label: getStorefrontDisplayHost(),
+      value: formatCurrency(dashboard.performance.currentRevenue),
+      delta: revenueDelta,
+      icon: Globe2,
+    },
+    {
+      label: "Pazaryeri",
+      value: formatCurrency(0),
+      delta: formatDelta(0),
+      icon: ShoppingBag,
+    },
+    {
+      label: "Manuel Sipariş",
+      value: formatCurrency(0),
+      delta: formatDelta(0),
+      icon: Users,
+    },
+  ];
+
+  return (
+    <section className="rounded-[8px] border border-[rgba(226,231,238,0.9)] bg-[rgba(248,250,252,0.58)] px-3 py-3 md:px-4 md:py-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        {channels.map((channel) => {
+          const ChannelIcon = channel.icon;
+
+          return (
+            <div
+              key={channel.label}
+              className="min-h-[126px] rounded-[7px] border border-[rgba(226,231,238,0.92)] bg-white px-5 py-4 shadow-[0_1px_2px_rgba(17,24,39,0.02)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[7px] border border-[rgba(226,231,238,0.92)] bg-white text-[var(--admin-text-secondary)]">
+                    <ChannelIcon className="h-5 w-5" />
+                  </span>
+                  <p className="truncate text-[15px] font-semibold text-[var(--admin-text-secondary)]">
+                    {channel.label}
+                  </p>
+                </div>
+                <span className="rounded-[4px] bg-[rgba(248,250,252,0.94)] px-2 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)]">
+                  {channel.delta.positive === null ? formatPercentValue(0) : channel.delta.compactLabel}
+                </span>
+              </div>
+              <p className="mt-5 text-[1.55rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)]">
+                {channel.value}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function BestSellersPanel({ dashboard }: { dashboard: DashboardBootstrapData }) {
+  const hasOrders = dashboard.performance.currentOrders > 0 && dashboard.recentOrders.length > 0;
+
+  return (
+    <section className="min-h-[420px] rounded-[8px] border border-[rgba(226,231,238,0.9)] bg-white px-5 py-5 md:px-8 md:py-7">
+      <div className="flex items-center justify-between gap-3 border-b border-[rgba(226,231,238,0.92)] pb-5">
+        <h2 className="text-[1.15rem] font-semibold tracking-[-0.035em] text-[var(--admin-heading)]">
+          En Çok Satanlar
+        </h2>
+        <button
+          type="button"
+          className="inline-flex min-h-[40px] items-center gap-2 rounded-[7px] border border-[rgba(215,221,231,0.92)] bg-white px-3.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.03)]"
+        >
+          Ürünler
+          <ChevronDown className="h-4 w-4 text-[var(--admin-text-muted)]" />
+        </button>
+      </div>
+
+      {hasOrders ? (
+        <div className="divide-y divide-[rgba(226,231,238,0.86)]">
+          {dashboard.recentOrders.slice(0, 5).map((order) => (
+            <Link
+              key={order.id}
+              href={`/admin/siparisler/${order.id}`}
+              className="flex items-center justify-between gap-4 py-4"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[var(--admin-heading)]">
+                  Sipariş #{order.orderNumber}
+                </p>
+                <p className="mt-1 truncate text-[12px] text-[var(--admin-text-secondary)]">
+                  {formatOrderMeta(order.createdAt)}
+                </p>
+              </div>
+              <p className="shrink-0 text-sm font-semibold text-[var(--admin-heading)]">
+                {formatCurrency(order.total)}
+              </p>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="flex min-h-[330px] flex-col items-center justify-center text-center">
+          <div className="relative h-[104px] w-[156px]">
+            <span className="absolute left-8 top-7 h-12 w-12 rounded-[8px] bg-[rgba(109,93,247,0.08)]" />
+            <span className="absolute left-16 top-12 h-12 w-20 rounded-[8px] border border-[rgba(226,231,238,0.82)] bg-white shadow-[0_12px_28px_rgba(17,24,39,0.08)]" />
+            <span className="absolute left-2 top-3 h-12 w-[126px] rounded-[8px] border border-[rgba(226,231,238,0.78)] bg-white shadow-[0_10px_22px_rgba(17,24,39,0.06)]" />
+            <span className="absolute left-5 top-7 h-8 w-8 rounded-[6px] bg-[rgba(109,93,247,0.08)]" />
+            <span className="absolute left-16 top-8 h-2 w-[70px] rounded-full bg-[rgba(226,231,238,0.92)]" />
+            <span className="absolute left-16 top-12 h-2 w-[50px] rounded-full bg-[rgba(226,231,238,0.92)]" />
+          </div>
+          <p className="mt-4 text-[1.05rem] font-semibold tracking-[-0.025em] text-[var(--admin-heading)]">
+            Seçilen tarihte henüz satışınız bulunmamaktadır
+          </p>
+          <p className="mt-3 max-w-[30rem] text-sm leading-6 text-[var(--admin-text-secondary)]">
+            Çok satanlar listesini görebilmek için lütfen farklı bir tarih seçiniz.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GrowthMetricsPanel({ dashboard }: { dashboard: DashboardBootstrapData }) {
+  const addToCart = dashboard.liveData.today.addToCart;
+  const purchases = dashboard.liveData.today.purchases;
+  const averageOrderValue =
+    dashboard.performance.currentOrders > 0
+      ? dashboard.performance.currentRevenue / dashboard.performance.currentOrders
+      : 0;
+  const averageProductRevenue =
+    dashboard.stats.totalProducts > 0 ? dashboard.stats.totalRevenue / dashboard.stats.totalProducts : 0;
+  const averageCartSize = purchases > 0 ? addToCart / purchases : 0;
+  const rows = [
+    {
+      label: "Ort. İade Oranı",
+      value: formatPercentValue(0),
+      delta: formatDelta(0),
+    },
+    {
+      label: "Ort. Ürün Fiyatı",
+      value: formatCurrency(averageProductRevenue),
+      delta: formatDelta(0),
+    },
+    {
+      label: "Ort. Sipariş Tutarı",
+      value: formatCurrency(averageOrderValue),
+      delta: formatDelta(0),
+    },
+    {
+      label: "Ort. Sepet Büyüklüğü",
+      value: averageCartSize.toLocaleString("tr-TR", {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 2,
+      }),
+      delta: formatDelta(0),
+    },
+  ];
+
+  return (
+    <section className="rounded-[8px] border border-[rgba(226,231,238,0.9)] bg-white px-5 py-5 md:px-8 md:py-7">
+      <h2 className="border-b border-[rgba(226,231,238,0.92)] pb-5 text-[1.15rem] font-semibold tracking-[-0.035em] text-[var(--admin-heading)]">
+        Büyüme Metrikleri
+      </h2>
+      <div className="divide-y divide-[rgba(226,231,238,0.86)]">
+        {rows.map((row) => (
+          <div key={row.label} className="py-6">
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-[15px] font-semibold text-[var(--admin-text-secondary)]">{row.label}</p>
+              <span className="rounded-[4px] bg-[rgba(248,250,252,0.94)] px-2 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)]">
+                {row.delta.positive === null ? formatPercentValue(0) : row.delta.compactLabel}
+              </span>
+            </div>
+            <p className="mt-4 text-[1.6rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)]">
+              {row.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1201,23 +1420,12 @@ function InsightsStrip({ items }: { items: DashboardAnalysisSummaryItem[] }) {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-4 md:space-y-5">
-      <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] sm:grid-cols-2 lg:grid-cols-3 min-[1360px]:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-[96px] rounded-none" />
-        ))}
-      </div>
-      <Skeleton className="h-[360px] rounded-[12px]" />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.62fr)]">
-        <div className="space-y-4">
-          <Skeleton className="h-[260px] rounded-[12px]" />
-          <Skeleton className="h-[260px] rounded-[12px]" />
-        </div>
-        <div className="space-y-4">
-          <Skeleton className="h-[220px] rounded-[12px]" />
-          <Skeleton className="h-[260px] rounded-[12px]" />
-          <Skeleton className="h-[220px] rounded-[12px]" />
-        </div>
+    <div className="space-y-5">
+      <Skeleton className="h-[540px] rounded-[8px]" />
+      <Skeleton className="h-[160px] rounded-[8px]" />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.48fr)]">
+        <Skeleton className="h-[430px] rounded-[8px]" />
+        <Skeleton className="h-[430px] rounded-[8px]" />
       </div>
     </div>
   );
@@ -1226,22 +1434,11 @@ function DashboardSkeleton() {
 function DashboardContentSkeleton() {
   return (
     <>
-      <Skeleton className="h-[360px] rounded-[12px]" />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.62fr)]">
-        <div className="space-y-4">
-          <Skeleton className="h-[250px] rounded-[12px]" />
-          <Skeleton className="h-[250px] rounded-[12px]" />
-        </div>
-        <div className="space-y-4">
-          <Skeleton className="h-[220px] rounded-[12px]" />
-          <Skeleton className="h-[260px] rounded-[12px]" />
-          <Skeleton className="h-[220px] rounded-[12px]" />
-        </div>
-      </div>
-      <div className="hidden overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] xl:grid xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-[124px] rounded-none" />
-        ))}
+      <Skeleton className="h-[540px] rounded-[8px]" />
+      <Skeleton className="h-[160px] rounded-[8px]" />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.48fr)]">
+        <Skeleton className="h-[430px] rounded-[8px]" />
+        <Skeleton className="h-[430px] rounded-[8px]" />
       </div>
     </>
   );
@@ -1296,35 +1493,16 @@ export function DashboardHomeView({
           </div>
         ) : null}
 
-        <KpiGrid dashboard={dashboard} isRefreshing={isRefreshing} />
-
         {isRefreshing ? (
           <DashboardContentSkeleton />
         ) : (
           <>
-            <SalesChartCard
-              points={dashboard.performance.chart}
-              currentLabel={dashboard.performance.currentLabel}
-              previousLabel={dashboard.performance.previousLabel}
-              currentRevenue={dashboard.performance.currentRevenue}
-              previousRevenue={dashboard.performance.previousRevenue}
-              currentOrders={dashboard.performance.currentOrders}
-            />
-
-            <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.62fr)]">
-              <div className="grid gap-4">
-                <RecentOrdersCard orders={dashboard.recentOrders} />
-                <AbandonedCartsCard dashboard={dashboard} />
-                <CustomerActivityCard activities={dashboard.customerActivities} />
-              </div>
-              <aside className="grid content-start gap-4">
-                <StoreStatusCard dashboard={dashboard} />
-                <LowStockProductsCard products={dashboard.lowStockProducts} />
-                <TodoCard dashboard={dashboard} />
-              </aside>
+            <SalesChartCard dashboard={dashboard} />
+            <SalesChannelsOverview dashboard={dashboard} />
+            <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.48fr)]">
+              <BestSellersPanel dashboard={dashboard} />
+              <GrowthMetricsPanel dashboard={dashboard} />
             </section>
-
-            <InsightsStrip items={dashboard.analysisSummary.items} />
           </>
         )}
       </motion.div>

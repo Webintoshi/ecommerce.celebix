@@ -117,6 +117,14 @@ function DesktopTopbar({
   const displayName = getAdminDisplayName(profile);
   const initials = getInitials(displayName);
 
+  if (isDashboardRoot) {
+    return (
+      <header className="sticky top-0 z-30 mx-auto mb-5 hidden w-full min-[1025px]:block">
+        <div id="admin-dashboard-topbar-actions" className="bg-white/96 backdrop-blur-xl" />
+      </header>
+    );
+  }
+
   return (
     <header className="sticky top-3 z-30 mx-auto mb-3 hidden w-full max-w-[1560px] min-[1025px]:block">
       <div className="rounded-[18px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3.5 py-2.5 shadow-[0_14px_28px_rgba(17,24,39,0.05)] backdrop-blur-xl 2xl:px-5">
@@ -193,13 +201,6 @@ function DesktopTopbar({
             </div>
           </div>
         </div>
-
-        {isDashboardRoot ? (
-          <div
-            id="admin-dashboard-topbar-actions"
-            className="mt-2.5 flex min-w-0 justify-end border-t border-[rgba(226,231,238,0.72)] pt-2.5"
-          />
-        ) : null}
       </div>
     </header>
   );
@@ -329,6 +330,17 @@ export default function AdminLayoutClient({
       setKeyboardInset(0);
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    if (!rootAdmin) {
+      return;
+    }
+
+    setDesktopToshiOpen(false);
+    if (activeMobileSurface === "toshi") {
+      setActiveMobileSurface(null);
+    }
+  }, [activeMobileSurface, rootAdmin]);
 
   useEffect(() => {
     if (!isMobile || typeof window === "undefined" || !window.visualViewport) {
@@ -570,18 +582,25 @@ export default function AdminLayoutClient({
           <div className="relative mx-auto w-full max-w-[30rem]">
             <span className="pointer-events-none absolute inset-x-0 bottom-0 top-[0.9rem] rounded-t-[1.4rem] border border-b-0 border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(247,248,250,0.84)_100%)] shadow-[0_-12px_24px_rgba(17,24,39,0.04)]" />
             <span className="pointer-events-none absolute inset-x-8 top-[1rem] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.88)_50%,rgba(255,255,255,0)_100%)]" />
-            <div className="relative grid w-full grid-cols-5 items-end gap-x-0.5 px-1.5 pb-0.5 pt-0.5">
+            <div
+              className={cn(
+                "relative grid w-full items-end gap-x-0.5 px-1.5 pb-0.5 pt-0.5",
+                rootAdmin ? "grid-cols-4" : "grid-cols-5",
+              )}
+            >
               <MobileDockButton icon={Home} label="Ana" active={activeDockItem === "home"} onClick={handleHome} />
               <MobileDockButton icon={Package} label="Sipariş" active={activeDockItem === "orders"} onClick={handleOrders} />
-              <MobileDockButton
-                icon={Sparkles}
-                label={toshiAlertInfo?.count ? `Toshi ${toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}` : "Toshi"}
-                active={activeDockItem === "toshi"}
-                onClick={handleToggleToshi}
-                ariaControls="toshi-assistant-panel"
-                ariaExpanded={isToshiOpen}
-                ariaHaspopup="dialog"
-              />
+              {!rootAdmin ? (
+                <MobileDockButton
+                  icon={Sparkles}
+                  label={toshiAlertInfo?.count ? `Toshi ${toshiAlertInfo.count > 9 ? "9+" : toshiAlertInfo.count}` : "Toshi"}
+                  active={activeDockItem === "toshi"}
+                  onClick={handleToggleToshi}
+                  ariaControls="toshi-assistant-panel"
+                  ariaExpanded={isToshiOpen}
+                  ariaHaspopup="dialog"
+                />
+              ) : null}
               <MobileDockButton icon={Tag} label="Ürün" active={activeDockItem === "products"} onClick={handleProducts} />
               <MobileDockButton
                 icon={Menu}
@@ -597,21 +616,23 @@ export default function AdminLayoutClient({
         </nav>
       ) : null}
 
-      <AdminClientBoundary name="ToshiAssistant">
-        <ToshiAssistant
-          isMobile={isMobile}
-          isOpen={isToshiOpen}
-          onOpenChange={(next) => {
-            if (isMobile) {
-              setActiveMobileSurface(next ? "toshi" : null);
-              return;
-            }
+      {!rootAdmin ? (
+        <AdminClientBoundary name="ToshiAssistant">
+          <ToshiAssistant
+            isMobile={isMobile}
+            isOpen={isToshiOpen}
+            onOpenChange={(next) => {
+              if (isMobile) {
+                setActiveMobileSurface(next ? "toshi" : null);
+                return;
+              }
 
-            setDesktopToshiOpen(next);
-          }}
-          onAlertInfoChange={setToshiAlertInfo}
-        />
-      </AdminClientBoundary>
+              setDesktopToshiOpen(next);
+            }}
+            onAlertInfoChange={setToshiAlertInfo}
+          />
+        </AdminClientBoundary>
+      ) : null}
     </div>
   );
 }
