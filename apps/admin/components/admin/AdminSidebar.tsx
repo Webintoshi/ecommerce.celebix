@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ElementType, type TouchEvent as ReactTouchEvent } from "react";
@@ -33,13 +32,19 @@ import {
   X,
 } from "lucide-react";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
-import { hasActionPermission, hasPermission, type AdminPermission, type UserRole } from "@/lib/permissions";
+import {
+  getRoleLabel,
+  hasActionPermission,
+  hasPermission,
+  type AdminPermission,
+  type UserRole,
+} from "@/lib/permissions";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { cn } from "@/lib/utils";
 
-const ADMIN_BRAND_LOGO_SRC = "/branding/celebix-x.svg";
+const ADMIN_BRAND_LOGO_SRC = "https://celebix.net/Logo/koyu%20logo.svg";
 const MOBILE_QUICK_ACCESS_TITLES = ["Dashboard", "Siparişler", "Ürünler", "Müşteriler", "Genel Ayarlar"] as const;
 
 type MenuSubItem = {
@@ -244,6 +249,15 @@ function deriveAdminName(profile: InitialAdminProfile | null) {
     : "Admin Kullanıcı";
 }
 
+function deriveAdminInitials(name: string) {
+  const parts = name.split(/\s+/).filter(Boolean);
+
+  return (parts.length > 0 ? parts : ["A"])
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toLocaleUpperCase("tr"))
+    .join("");
+}
+
 export function AdminSidebar({
   isOpen = true,
   onClose,
@@ -266,9 +280,9 @@ export function AdminSidebar({
 
   const role: UserRole | null = resolvedProfile?.role || null;
   const adminFullName = deriveAdminName(resolvedProfile);
+  const adminInitials = deriveAdminInitials(adminFullName);
+  const adminRoleLabel = role ? getRoleLabel(role) : "Admin";
   const siteName = (storeInfo?.name || STORE_RUNTIME.name).trim();
-  const siteHeading = /admin/i.test(siteName) ? siteName : `${siteName} Admin`;
-  const siteLogo = storeInfo?.logoUrl || ADMIN_BRAND_LOGO_SRC;
   const mobileMenuOpen = isMobile ? isOpen : true;
   const isLogtoProvider = process.env.NEXT_PUBLIC_ADMIN_AUTH_PROVIDER === "logto";
   const logtoLogoutHref = "/api/auth/logout?next=%2Fadmin%2Flogin%3Flogged_out%3D1";
@@ -549,7 +563,7 @@ export function AdminSidebar({
   };
 
   const desktopAsideClassName =
-    "sticky top-0 z-20 flex h-screen w-[13.75rem] shrink-0 flex-col bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] shadow-[10px_0_32px_rgba(17,24,39,0.045)] xl:w-[14.25rem] 2xl:w-[15.25rem]";
+    "sticky top-0 z-20 flex h-screen w-[16.25rem] shrink-0 flex-col bg-[#2A2A2A] text-white shadow-[12px_0_34px_rgba(0,0,0,0.18)] xl:w-[16.75rem] 2xl:w-[17.5rem]";
 
   if (isMobile) {
     return (
@@ -585,34 +599,26 @@ export function AdminSidebar({
           onTouchEnd={handleDrawerTouchEnd}
           onTouchCancel={resetTouchTracking}
         >
-          <div className="flex h-full flex-col overflow-hidden rounded-l-[24px] border-l border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.99)_0%,rgba(247,248,250,0.99)_100%)] shadow-[-22px_0_48px_rgba(17,24,39,0.16)]">
-            <div className="border-b border-[#EEF1F4] px-4 pb-4 pt-[max(env(safe-area-inset-top,0px),1rem)]">
+          <div className="flex h-full flex-col overflow-hidden rounded-l-[24px] border-l border-white/10 bg-[#2A2A2A] text-white shadow-[-22px_0_48px_rgba(0,0,0,0.28)]">
+            <div className="border-b border-white/10 px-4 pb-4 pt-[max(env(safe-area-inset-top,0px),1rem)]">
               <div className="flex justify-center">
-                <span className="h-1.5 w-14 rounded-full bg-[#D8DDE5]" />
+                <span className="h-1.5 w-14 rounded-full bg-white/20" />
               </div>
 
-              <div className="mt-4 flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[1.15rem] border border-[#E7EAF0] bg-[#F7F8FA] shadow-[0_10px_24px_rgba(17,24,39,0.05)]">
-                  <Image
-                    src={siteLogo}
-                    alt={siteName}
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-cover"
-                    unoptimized
+              <div className="mt-4 flex items-center gap-3">
+                <div className="flex min-h-[54px] min-w-0 flex-1 items-center rounded-[1.15rem] border border-white/10 bg-white px-3.5 shadow-[0_14px_28px_rgba(0,0,0,0.16)]">
+                  <img
+                    src={ADMIN_BRAND_LOGO_SRC}
+                    alt="Celebix"
+                    className="h-9 w-auto max-w-[9.5rem] object-contain"
                   />
-                </div>
-
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="truncate text-[17px] font-semibold tracking-[-0.03em] text-[#1F2937]">{siteName}</p>
-                  <p className="mt-1 truncate text-[14px] text-[#6B7280]">{adminFullName}</p>
                 </div>
 
                 <button
                   ref={closeButtonRef}
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-[#E7EAF0] bg-white text-[#6B7280] shadow-[0_12px_26px_rgba(17,24,39,0.06)] transition-colors active:scale-[0.98]"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-white/15 bg-white/8 text-white/75 shadow-[0_12px_26px_rgba(0,0,0,0.16)] transition-colors active:scale-[0.98] hover:bg-white/12 hover:text-white"
                   aria-label="Menüyü kapat"
                 >
                   <X className="h-[1.1rem] w-[1.1rem]" />
@@ -622,7 +628,7 @@ export function AdminSidebar({
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pb-4 pt-4">
               {!role && !isRecoveringProfile ? (
-                <div className="rounded-[1.15rem] border border-[#E7EAF0] bg-[#F7F8FA] px-3.5 py-3 text-[13px] font-medium text-[#6B7280]">
+                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.06] px-3.5 py-3 text-[13px] font-medium text-white/62">
                   Yetki bilgisi yüklenemedi.
                 </div>
               ) : null}
@@ -630,7 +636,7 @@ export function AdminSidebar({
               {quickAccessItems.length > 0 ? (
                 <section className={cn("space-y-3.5", !role && !isRecoveringProfile ? "mt-4" : "")}>
                   <div className="px-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6B7280]">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">
                       Hızlı Erişim
                     </p>
                   </div>
@@ -648,21 +654,21 @@ export function AdminSidebar({
                           rel={item.externalHref ? "noreferrer" : undefined}
                           aria-current={isActive ? "page" : undefined}
                           onClick={handleLeafClick}
-                          className={cn(
-                            "group flex min-h-[78px] items-center gap-3 rounded-[1.35rem] border px-3.5 py-3.5 transition-all duration-200 active:scale-[0.99]",
-                            isWideCard ? "col-span-2" : "",
-                            isActive
-                              ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
-                              : "border-[#E7EAF0] bg-white text-[#374151]",
-                          )}
+                            className={cn(
+                              "group flex min-h-[78px] items-center gap-3 rounded-[1.35rem] border px-3.5 py-3.5 transition-all duration-200 active:scale-[0.99]",
+                              isWideCard ? "col-span-2" : "",
+                              isActive
+                                ? "border-[#FE6100]/70 bg-[#FE6100] text-white shadow-[0_12px_24px_rgba(254,97,0,0.2)]"
+                                : "border-white/10 bg-white/[0.06] text-white/88 hover:bg-white/[0.1] hover:text-white",
+                            )}
                         >
                           <span
                             className={cn(
-                              "flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border transition-colors",
-                              isActive
-                                ? "border-[#FFD7BF] bg-white text-[#FF6A00]"
-                                : "border-[#EEF1F4] bg-[#F7F8FA] text-[#6B7280]",
-                            )}
+                                "flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border transition-colors",
+                                isActive
+                                  ? "border-white/70 bg-white text-[#FE6100]"
+                                  : "border-white/10 bg-black/10 text-white/72",
+                              )}
                           >
                             <item.icon className="h-[1.1rem] w-[1.1rem]" />
                           </span>
@@ -678,35 +684,35 @@ export function AdminSidebar({
 
               <section className={cn("space-y-3.5", quickAccessItems.length > 0 || (!role && !isRecoveringProfile) ? "mt-5" : "")}>
                 <div className="px-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6B7280]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">
                     Tüm Alanlar
                   </p>
                 </div>
 
-                <div className="overflow-hidden rounded-[1.4rem] border border-[#E7EAF0] bg-white">
+                <div className="overflow-hidden rounded-[1.4rem] border border-white/10 bg-black/10">
                   {filteredItems.map((item, index) => {
                     const { hasSubmenu, isExpanded, isActive } = getItemState(item);
                     const rowId = `admin-mobile-drawer-section-${index}`;
                     const statusLabel = item.status === "soon" ? "Yakında" : item.badge;
 
-                    const rowClasses = cn(
-                      "group relative flex min-h-[58px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
-                      isActive ? "bg-[#FFF1E8] text-[#E85D04]" : "bg-white text-[#374151]",
-                      item.disabled ? "cursor-not-allowed text-[#9CA3AF] active:scale-100" : "",
-                    );
+                      const rowClasses = cn(
+                        "group relative flex min-h-[58px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
+                        isActive ? "bg-[#37373B] text-white" : "bg-transparent text-white/82 hover:bg-white/[0.06] hover:text-white",
+                        item.disabled ? "cursor-not-allowed text-white/34 active:scale-100 hover:bg-transparent hover:text-white/34" : "",
+                      );
 
                     const content = (
                       <>
                         <span
                           className={cn(
-                            "pointer-events-none absolute bottom-3 left-0 top-3 w-[3px] rounded-full bg-[#FF6A00] transition-opacity duration-200",
+                              "pointer-events-none absolute bottom-3 left-0 top-3 w-[3px] rounded-full bg-[#FF6A00] transition-opacity duration-200",
                             isActive ? "opacity-100" : "opacity-0",
                           )}
                         />
                         <span
                           className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] transition-colors",
-                            isActive ? "bg-white text-[#FF6A00]" : "bg-[#F7F8FA] text-[#6B7280]",
+                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] transition-colors",
+                              isActive ? "bg-[#FE6100] text-white" : "bg-white/[0.08] text-white/72",
                           )}
                         >
                           <item.icon className="h-[1.05rem] w-[1.05rem]" />
@@ -715,22 +721,22 @@ export function AdminSidebar({
                           {item.title}
                         </span>
                         {statusLabel ? (
-                          <span className="rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-2 py-0.5 text-[11px] font-medium text-[#6B7280]">
+                          <span className="rounded-full border border-white/10 bg-white/[0.08] px-2 py-0.5 text-[11px] font-medium text-white/58">
                             {statusLabel}
                           </span>
                         ) : null}
                         <ChevronRight
                           className={cn(
-                            "h-4 w-4 shrink-0 text-[#9CA3AF] transition-transform duration-200",
-                            hasSubmenu && isExpanded ? "rotate-90 text-[#FF6A00]" : "",
-                            !hasSubmenu && isActive ? "text-[#FF6A00]" : "",
+                              "h-4 w-4 shrink-0 text-white/40 transition-transform duration-200",
+                              hasSubmenu && isExpanded ? "rotate-90 text-[#FF6A00]" : "",
+                              !hasSubmenu && isActive ? "text-[#FF6A00]" : "",
                           )}
                         />
                       </>
                     );
 
                     return (
-                      <div key={item.title} className={cn(index > 0 ? "border-t border-[#EEF1F4]" : "")}>
+                        <div key={item.title} className={cn(index > 0 ? "border-t border-white/[0.06]" : "")}>
                         {item.disabled ? (
                           <button
                             type="button"
@@ -783,7 +789,7 @@ export function AdminSidebar({
                           >
                             <div className="min-h-0">
                               <div className="pb-3 pl-[3.95rem] pr-3.5">
-                                <div className="space-y-1 border-l border-[#EEF1F4] pl-3">
+                                  <div className="space-y-1 border-l border-white/10 pl-3">
                                   {item.submenu?.map((sub, subIndex, submenu) => {
                                     const isSubActive = pathMatches(pathname, sub.href);
                                     const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
@@ -792,7 +798,7 @@ export function AdminSidebar({
                                     return (
                                       <div key={sub.href} className="space-y-1">
                                         {shouldShowGroup ? (
-                                          <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">
+                                            <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/34">
                                             {sub.group}
                                           </p>
                                         ) : null}
@@ -801,21 +807,21 @@ export function AdminSidebar({
                                           aria-current={isSubActive ? "page" : undefined}
                                           onClick={handleLeafClick}
                                           className={cn(
-                                            "flex min-h-[40px] items-center gap-2 rounded-[0.95rem] px-3 py-2 text-[13px] transition-colors duration-200 active:scale-[0.995]",
-                                            isSubActive
-                                              ? "bg-[#FFF1E8] text-[#E85D04]"
-                                              : "text-[#6B7280] hover:bg-[#F7F8FA] hover:text-[#374151]",
+                                              "flex min-h-[40px] items-center gap-2 rounded-[0.95rem] px-3 py-2 text-[13px] transition-colors duration-200 active:scale-[0.995]",
+                                              isSubActive
+                                                ? "bg-white/[0.1] text-white"
+                                                : "text-white/62 hover:bg-white/[0.06] hover:text-white",
                                           )}
                                         >
                                           <span
                                             className={cn(
                                               "h-1.5 w-1.5 shrink-0 rounded-full",
-                                              isSubActive ? "bg-[#FF6A00]" : "bg-[#D1D5DB]",
+                                                isSubActive ? "bg-[#FF6A00]" : "bg-white/22",
                                             )}
                                           />
                                           <span className="min-w-0 flex-1 truncate">{sub.title}</span>
                                           {sub.badge ? (
-                                            <span className="shrink-0 rounded-full border border-[#E7EAF0] bg-white px-2 py-0.5 text-[10px] font-medium text-[#6B7280]">
+                                              <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.08] px-2 py-0.5 text-[10px] font-medium text-white/58">
                                               {sub.badge}
                                             </span>
                                           ) : null}
@@ -835,12 +841,26 @@ export function AdminSidebar({
               </section>
             </div>
 
-            <div className="border-t border-[#EEF1F4] bg-white/96 px-4 pb-[max(env(safe-area-inset-bottom,0px),1rem)] pt-3.5">
-              <div className="space-y-1.5">
+            <div className="border-t border-white/10 bg-[#232323] px-4 pb-[max(env(safe-area-inset-bottom,0px),1rem)] pt-3.5">
+              <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.06] p-3.5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/18 text-[13px] font-semibold text-white">
+                    {adminInitials}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-white">{adminFullName}</p>
+                    <p className="mt-0.5 truncate text-[12.5px] text-white/52">
+                      {siteName} · {adminRoleLabel}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-2 space-y-1">
                 {isLogtoProvider ? (
                   <a
                     href={logtoLogoutHref}
-                    className="flex min-h-[48px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#FDECEC] hover:text-[#EF4444]"
+                    className="flex min-h-[46px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
                   >
                     <LogOut className="h-[1rem] w-[1rem] shrink-0" />
                     <span>Çıkış Yap</span>
@@ -850,7 +870,7 @@ export function AdminSidebar({
                     type="button"
                     onClick={handleLogout}
                     disabled={isSigningOut}
-                    className="flex min-h-[48px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#FDECEC] hover:text-[#EF4444]"
+                    className="flex min-h-[46px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
                   >
                     <LogOut className="h-[1rem] w-[1rem] shrink-0" />
                     <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
@@ -861,7 +881,7 @@ export function AdminSidebar({
                   href={STORE_RUNTIME.storefrontUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex min-h-[48px] items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-[#6B7280] transition-colors duration-200 active:scale-[0.99] hover:bg-[#F7F8FA] hover:text-[#1F2937]"
+                  className="flex min-h-[46px] items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-white/[0.08] hover:text-white"
                 >
                   <Store className="h-[1rem] w-[1rem] shrink-0" />
                   <span>Siteye Dön</span>
@@ -875,42 +895,28 @@ export function AdminSidebar({
   }
 
   return (
-    <aside className={cn("border-r border-[var(--admin-border)]", desktopAsideClassName)}>
-      <div className="border-b border-[var(--admin-border)] px-4 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[1.05rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] shadow-[0_10px_24px_rgba(17,24,39,0.05)]">
-            <Image
-              src={siteLogo}
-              alt={siteName}
-              width={40}
-              height={40}
-              className="h-full w-full object-cover"
-              unoptimized
-            />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[14.5px] font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">
-              {siteHeading}
-            </p>
-            <p className="mt-0.5 truncate text-[12.5px] text-[var(--admin-text-secondary)]">
-              {adminFullName}
-            </p>
-          </div>
+    <aside className={cn("border-r border-white/10", desktopAsideClassName)}>
+      <div className="border-b border-white/10 px-5 py-5">
+        <div className="flex min-h-[58px] items-center rounded-[1.15rem] border border-white/10 bg-white px-4 shadow-[0_16px_30px_rgba(0,0,0,0.18)]">
+          <img
+            src={ADMIN_BRAND_LOGO_SRC}
+            alt="Celebix"
+            className="h-10 w-auto max-w-[11.25rem] object-contain"
+          />
         </div>
       </div>
 
       {!role && !isRecoveringProfile ? (
-        <div className="mx-3.5 mt-3 rounded-[1rem] border border-[var(--admin-border)] bg-[var(--admin-bg)] px-3 py-2.5 text-[13px] font-medium text-[var(--admin-text-secondary)]">
+        <div className="mx-4 mt-4 rounded-[1rem] border border-white/10 bg-white/[0.06] px-3 py-2.5 text-[13px] font-medium text-white/62">
           Yetki bilgisi yüklenemedi.
         </div>
       ) : null}
 
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3.5 py-4">
+      <nav className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {groupedItems.map((group) => (
           <section key={group.id} className="space-y-1.5">
             <div className="px-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-text-secondary)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">
                 {group.label}
               </p>
             </div>
@@ -921,18 +927,18 @@ export function AdminSidebar({
                 const statusLabel = item.status === "soon" ? "Yakında" : item.badge;
 
                 const rowClasses = cn(
-                  "group relative flex min-h-[44px] w-full items-center gap-2.5 rounded-[1rem] border border-transparent px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.14)]",
+                  "group relative flex min-h-[48px] w-full items-center gap-3 rounded-[0.95rem] border border-transparent px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(254,97,0,0.32)]",
                   isActive
-                    ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
-                    : "text-[var(--admin-text)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
-                  item.disabled ? "cursor-not-allowed opacity-70 hover:bg-transparent hover:text-[var(--admin-text)]" : "",
+                    ? "bg-[#37373B] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
+                    : "text-white/84 hover:bg-white/[0.06] hover:text-white",
+                  item.disabled ? "cursor-not-allowed text-white/34 hover:bg-transparent hover:text-white/34" : "",
                 );
 
                 const iconShellClasses = cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] border transition-colors",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.85rem] border transition-colors",
                   isActive
-                    ? "border-[var(--admin-accent-border)] bg-white text-[var(--admin-accent-hover)]"
-                    : "border-[#EEF1F4] bg-[var(--admin-bg)] text-[var(--admin-text-secondary)] group-hover:border-[var(--admin-accent-border)] group-hover:text-[var(--admin-accent-hover)]",
+                    ? "border-[#FE6100]/70 bg-[#FE6100] text-white"
+                    : "border-white/10 bg-black/10 text-white/72 group-hover:border-white/16 group-hover:text-white",
                 );
 
                 const content = (
@@ -948,16 +954,16 @@ export function AdminSidebar({
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{item.title}</span>
                     {statusLabel ? (
-                      <span className="rounded-full border border-[var(--admin-border)] bg-white px-2 py-0.5 text-[11px] font-medium text-[var(--admin-text-secondary)]">
+                      <span className="rounded-full border border-white/10 bg-white/[0.08] px-2 py-0.5 text-[11px] font-medium text-white/58">
                         {statusLabel}
                       </span>
                     ) : null}
                     {hasSubmenu ? (
                       <ChevronDown
-                        className={cn(
-                          "h-4 w-4 shrink-0 text-[var(--admin-text-muted)] transition-transform duration-200 group-hover:text-[var(--admin-accent-hover)]",
-                          isExpanded ? "rotate-180" : "rotate-0",
-                        )}
+                          className={cn(
+                            "h-4 w-4 shrink-0 text-white/42 transition-transform duration-200 group-hover:text-white/72",
+                            isExpanded ? "rotate-180" : "rotate-0",
+                          )}
                       />
                     ) : null}
                   </>
@@ -1016,7 +1022,7 @@ export function AdminSidebar({
                         )}
                       >
                         <div className="min-h-0">
-                          <div className="ml-5 border-l border-[var(--admin-border)] pl-3 pt-0.5">
+                            <div className="ml-5 border-l border-white/10 pl-3 pt-0.5">
                             <div className="space-y-1">
                               {item.submenu?.map((sub, subIndex, submenu) => {
                                 const isSubActive = pathMatches(pathname, sub.href);
@@ -1026,7 +1032,7 @@ export function AdminSidebar({
                                 return (
                                   <div key={sub.href} className="space-y-1">
                                     {shouldShowGroup ? (
-                                      <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-text-muted)]">
+                                        <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/34">
                                         {sub.group}
                                       </p>
                                     ) : null}
@@ -1034,26 +1040,26 @@ export function AdminSidebar({
                                       href={sub.href}
                                       aria-current={isSubActive ? "page" : undefined}
                                       onClick={handleLeafClick}
-                                      className={cn(
-                                        "group flex min-h-[38px] items-center gap-2 rounded-[0.85rem] px-3 py-2 text-[13px] transition-colors",
-                                        isSubActive
-                                          ? "bg-white text-[var(--admin-accent-hover)] shadow-[0_8px_18px_rgba(17,24,39,0.05)]"
-                                          : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]",
-                                      )}
+                                        className={cn(
+                                          "group flex min-h-[38px] items-center gap-2 rounded-[0.85rem] px-3 py-2 text-[13px] transition-colors",
+                                          isSubActive
+                                            ? "bg-white/[0.1] text-white"
+                                            : "text-white/62 hover:bg-white/[0.06] hover:text-white",
+                                        )}
                                     >
                                       <span
                                         className={cn(
                                           "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
-                                          isSubActive
-                                            ? "bg-[var(--admin-accent)]"
-                                            : "bg-[#D1D5DB] group-hover:bg-[var(--admin-accent-border)]",
+                                            isSubActive
+                                              ? "bg-[#FE6100]"
+                                              : "bg-white/22 group-hover:bg-white/42",
                                         )}
                                       />
                                       <span className="min-w-0 flex-1 truncate">{sub.title}</span>
-                                      {sub.badge ? (
-                                        <span className="shrink-0 rounded-full border border-[var(--admin-border)] bg-white px-2 py-0.5 text-[10px] font-medium text-[var(--admin-text-secondary)]">
-                                          {sub.badge}
-                                        </span>
+                                        {sub.badge ? (
+                                          <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.08] px-2 py-0.5 text-[10px] font-medium text-white/58">
+                                            {sub.badge}
+                                          </span>
                                       ) : null}
                                     </Link>
                                   </div>
@@ -1072,11 +1078,26 @@ export function AdminSidebar({
         ))}
       </nav>
 
-      <div className="space-y-1.5 border-t border-[var(--admin-border)] bg-white/72 px-3 py-3.5">
+      <div className="border-t border-white/10 bg-[#232323] px-4 py-4">
+        <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.06] p-3.5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/18 text-[13px] font-semibold text-white">
+              {adminInitials}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-white">{adminFullName}</p>
+              <p className="mt-0.5 truncate text-[12.5px] text-white/52">
+                {siteName} · {adminRoleLabel}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 space-y-1">
         {isLogtoProvider ? (
           <a
             href={logtoLogoutHref}
-            className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"
+            className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-white/62 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
           >
             <LogOut className="h-[1rem] w-[1rem] shrink-0" />
             <span>Çıkış Yap</span>
@@ -1086,7 +1107,7 @@ export function AdminSidebar({
             type="button"
             onClick={handleLogout}
             disabled={isSigningOut}
-            className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]"
+            className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-white/62 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
           >
             <LogOut className="h-[1rem] w-[1rem] shrink-0" />
             <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
@@ -1097,11 +1118,12 @@ export function AdminSidebar({
           href={STORE_RUNTIME.storefrontUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-[var(--admin-text-secondary)] transition-colors hover:bg-[var(--admin-bg)] hover:text-[var(--admin-heading)]"
+          className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-white/62 transition-colors hover:bg-white/[0.08] hover:text-white"
         >
           <Store className="h-[1rem] w-[1rem] shrink-0" />
           <span>Siteye Dön</span>
         </Link>
+        </div>
       </div>
     </aside>
   );
