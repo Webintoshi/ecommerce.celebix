@@ -700,12 +700,12 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             <SimpleProductQuickForm data={formData} errors={errors} onChange={updateFormData} />
           )}
 
-          <div className="sticky bottom-3 z-20 mt-6 rounded-[8px] border border-[var(--admin-border)] bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur sm:bottom-4 sm:p-3">
+          <div className="sticky bottom-3 z-20 mt-6 rounded-[8px] border border-[var(--admin-border)] bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur lg:bottom-4 lg:p-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="hidden min-w-0 text-sm text-stone-500 md:block">
+              <p className="hidden min-w-0 text-sm text-stone-500 lg:block">
                 Kaydetmeden önce mevcut API için ürün adı, kategori ve en az bir geçerli varyant gerekir.
               </p>
-              <div className="hidden flex-col gap-2 sm:flex sm:flex-row">
+              <div className="hidden flex-col gap-2 lg:flex lg:flex-row">
                 <button
                   type="button"
                   onClick={() => handleSave("draft")}
@@ -734,7 +734,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                   Yayınla
                 </button>
               </div>
-              <div className="flex w-full items-center gap-2 sm:hidden">
+              <div className="flex w-full items-center gap-2 lg:hidden">
                 <button
                   type="button"
                   onClick={() => handleSave("publish")}
