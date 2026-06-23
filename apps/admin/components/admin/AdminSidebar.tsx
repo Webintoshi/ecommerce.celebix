@@ -11,9 +11,9 @@ import {
   ChevronRight,
   FileText,
   Globe2,
+  Home,
   Image as ImageIcon,
   Languages,
-  LayoutDashboard,
   Layers3,
   LogOut,
   Megaphone as MarketingIcon,
@@ -45,7 +45,6 @@ import { useStoreInfo } from "@/lib/store-info-context";
 import { cn } from "@/lib/utils";
 
 const ADMIN_BRAND_LOGO_SRC = "https://celebix.net/Logo/koyu%20logo.svg";
-const MOBILE_QUICK_ACCESS_TITLES = ["Dashboard", "Siparişler", "Ürünler", "Müşteriler", "Genel Ayarlar"] as const;
 
 type MenuSubItem = {
   title: string;
@@ -74,7 +73,7 @@ type MenuGroup = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { title: "Dashboard", icon: LayoutDashboard, href: "/admin" },
+  { title: "Giriş", icon: Home, href: "/admin" },
   {
     title: "Siparişler",
     icon: ShoppingBag,
@@ -184,7 +183,7 @@ const MENU_ITEMS: MenuItem[] = [
 ];
 
 const MENU_GROUPS: MenuGroup[] = [
-  { id: "home", label: "Ana", titles: ["Dashboard"] },
+  { id: "home", label: "Ana", titles: ["Giriş"] },
   { id: "operations", label: "Operasyon", titles: ["Siparişler", "Terk Sepetler", "Müşteriler"] },
   { id: "catalog", label: "Katalog", titles: ["Ürünler", "Kategoriler", "Medya"] },
   { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Kuponlar", "Kampanyalar"] },
@@ -417,14 +416,6 @@ export function AdminSidebar({
     return groups;
   }, [filteredItems]);
 
-  const quickAccessItems = useMemo(() => {
-    const itemsByTitle = new Map(filteredItems.map((item) => [item.title, item]));
-
-    return MOBILE_QUICK_ACCESS_TITLES.map((title) => itemsByTitle.get(title)).filter(
-      (item): item is MenuItem => Boolean(item),
-    );
-  }, [filteredItems]);
-
   const getItemState = (item: MenuItem): MenuItemState => {
     const hasSubmenu = Boolean(item.submenu?.length);
     const itemHref = item.disabled || item.externalHref ? "" : item.href ?? "";
@@ -563,7 +554,7 @@ export function AdminSidebar({
   };
 
   const desktopAsideClassName =
-    "sticky top-0 z-20 flex h-screen w-[16.25rem] shrink-0 flex-col bg-[#2A2A2A] text-white shadow-[12px_0_34px_rgba(0,0,0,0.18)] xl:w-[16.75rem] 2xl:w-[17.5rem]";
+    "sticky top-0 z-20 flex h-screen w-[15rem] shrink-0 flex-col bg-[#2A2A2A] text-white shadow-[12px_0_34px_rgba(0,0,0,0.18)] xl:w-[15.5rem] 2xl:w-[16rem]";
 
   if (isMobile) {
     return (
@@ -600,17 +591,17 @@ export function AdminSidebar({
           onTouchCancel={resetTouchTracking}
         >
           <div className="flex h-full flex-col overflow-hidden rounded-l-[24px] border-l border-white/10 bg-[#2A2A2A] text-white shadow-[-22px_0_48px_rgba(0,0,0,0.28)]">
-            <div className="border-b border-white/10 px-4 pb-4 pt-[max(env(safe-area-inset-top,0px),1rem)]">
+            <div className="border-b border-white/10 px-4 pb-3 pt-[max(env(safe-area-inset-top,0px),0.85rem)]">
               <div className="flex justify-center">
                 <span className="h-1.5 w-14 rounded-full bg-white/20" />
               </div>
 
-              <div className="mt-4 flex items-center gap-3">
-                <div className="flex min-h-[54px] min-w-0 flex-1 items-center rounded-[1.15rem] border border-white/10 bg-white px-3.5 shadow-[0_14px_28px_rgba(0,0,0,0.16)]">
+              <div className="mt-3 flex items-center gap-2.5">
+                <div className="flex min-h-[44px] min-w-0 flex-1 items-center rounded-[0.9rem] border border-white/10 bg-white px-3 shadow-[0_10px_20px_rgba(0,0,0,0.14)]">
                   <img
                     src={ADMIN_BRAND_LOGO_SRC}
                     alt="Celebix"
-                    className="h-9 w-auto max-w-[9.5rem] object-contain"
+                    className="h-7 w-auto max-w-[8.5rem] object-contain"
                   />
                 </div>
 
@@ -618,7 +609,7 @@ export function AdminSidebar({
                   ref={closeButtonRef}
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-white/15 bg-white/8 text-white/75 shadow-[0_12px_26px_rgba(0,0,0,0.16)] transition-colors active:scale-[0.98] hover:bg-white/12 hover:text-white"
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.85rem] border border-white/15 bg-white/8 text-white/75 shadow-[0_10px_20px_rgba(0,0,0,0.14)] transition-colors active:scale-[0.98] hover:bg-white/12 hover:text-white"
                   aria-label="Menüyü kapat"
                 >
                   <X className="h-[1.1rem] w-[1.1rem]" />
@@ -626,77 +617,28 @@ export function AdminSidebar({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pb-4 pt-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3.5 pb-3 pt-3">
               {!role && !isRecoveringProfile ? (
-                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.06] px-3.5 py-3 text-[13px] font-medium text-white/62">
+                <div className="rounded-[0.9rem] border border-white/10 bg-white/[0.06] px-3 py-2.5 text-[12.5px] font-medium text-white/62">
                   Yetki bilgisi yüklenemedi.
                 </div>
               ) : null}
 
-              {quickAccessItems.length > 0 ? (
-                <section className={cn("space-y-3.5", !role && !isRecoveringProfile ? "mt-4" : "")}>
-                  <div className="px-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">
-                      Hızlı Erişim
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {quickAccessItems.map((item, index) => {
-                      const { isActive } = getItemState(item);
-                      const isWideCard = quickAccessItems.length % 2 === 1 && index === quickAccessItems.length - 1;
-
-                      return (
-                        <Link
-                          key={item.title}
-                          href={item.href ?? item.externalHref ?? "#"}
-                          target={item.externalHref ? "_blank" : undefined}
-                          rel={item.externalHref ? "noreferrer" : undefined}
-                          aria-current={isActive ? "page" : undefined}
-                          onClick={handleLeafClick}
-                            className={cn(
-                              "group flex min-h-[78px] items-center gap-3 rounded-[1.35rem] border px-3.5 py-3.5 transition-all duration-200 active:scale-[0.99]",
-                              isWideCard ? "col-span-2" : "",
-                              isActive
-                                ? "border-[#FE6100]/70 bg-[#FE6100] text-white shadow-[0_12px_24px_rgba(254,97,0,0.2)]"
-                                : "border-white/10 bg-white/[0.06] text-white/88 hover:bg-white/[0.1] hover:text-white",
-                            )}
-                        >
-                          <span
-                            className={cn(
-                                "flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border transition-colors",
-                                isActive
-                                  ? "border-white/70 bg-white text-[#FE6100]"
-                                  : "border-white/10 bg-black/10 text-white/72",
-                              )}
-                          >
-                            <item.icon className="h-[1.1rem] w-[1.1rem]" />
-                          </span>
-                          <span className="min-w-0 truncate text-[14px] font-semibold tracking-[-0.01em]">
-                            {item.title}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </section>
-              ) : null}
-
-              <section className={cn("space-y-3.5", quickAccessItems.length > 0 || (!role && !isRecoveringProfile) ? "mt-5" : "")}>
-                <div className="px-1">
+              <section className={cn("space-y-2.5", !role && !isRecoveringProfile ? "mt-3" : "")}>
+                <div className="px-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">
-                    Tüm Alanlar
+                    Menü
                   </p>
                 </div>
 
-                <div className="overflow-hidden rounded-[1.4rem] border border-white/10 bg-black/10">
+                <div className="overflow-hidden rounded-[1rem] border border-white/10 bg-black/10">
                   {filteredItems.map((item, index) => {
                     const { hasSubmenu, isExpanded, isActive } = getItemState(item);
                     const rowId = `admin-mobile-drawer-section-${index}`;
                     const statusLabel = item.status === "soon" ? "Yakında" : item.badge;
 
                       const rowClasses = cn(
-                        "group relative flex min-h-[58px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
+                        "group relative flex min-h-[46px] w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
                         isActive ? "bg-[#37373B] text-white" : "bg-transparent text-white/82 hover:bg-white/[0.06] hover:text-white",
                         item.disabled ? "cursor-not-allowed text-white/34 active:scale-100 hover:bg-transparent hover:text-white/34" : "",
                       );
@@ -711,13 +653,13 @@ export function AdminSidebar({
                         />
                         <span
                           className={cn(
-                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.95rem] transition-colors",
-                              isActive ? "bg-[#FE6100] text-white" : "bg-white/[0.08] text-white/72",
+                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.75rem] transition-colors",
+                              isActive ? "bg-white/[0.1] text-white" : "bg-white/[0.06] text-white/72",
                           )}
                         >
-                          <item.icon className="h-[1.05rem] w-[1.05rem]" />
+                          <item.icon className="h-[0.98rem] w-[0.98rem]" />
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-[14px] font-medium tracking-[-0.01em]">
+                        <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium tracking-[-0.005em]">
                           {item.title}
                         </span>
                         {statusLabel ? (
@@ -727,7 +669,7 @@ export function AdminSidebar({
                         ) : null}
                         <ChevronRight
                           className={cn(
-                              "h-4 w-4 shrink-0 text-white/40 transition-transform duration-200",
+                              "h-3.5 w-3.5 shrink-0 text-white/40 transition-transform duration-200",
                               hasSubmenu && isExpanded ? "rotate-90 text-[#FF6A00]" : "",
                               !hasSubmenu && isActive ? "text-[#FF6A00]" : "",
                           )}
@@ -788,8 +730,8 @@ export function AdminSidebar({
                             )}
                           >
                             <div className="min-h-0">
-                              <div className="pb-3 pl-[3.95rem] pr-3.5">
-                                  <div className="space-y-1 border-l border-white/10 pl-3">
+                              <div className="pb-2 pl-[3.3rem] pr-3">
+                                  <div className="space-y-0.5 border-l border-white/10 pl-2.5">
                                   {item.submenu?.map((sub, subIndex, submenu) => {
                                     const isSubActive = pathMatches(pathname, sub.href);
                                     const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
@@ -798,7 +740,7 @@ export function AdminSidebar({
                                     return (
                                       <div key={sub.href} className="space-y-1">
                                         {shouldShowGroup ? (
-                                            <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/34">
+                                            <p className="px-2.5 pt-1.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-white/34">
                                             {sub.group}
                                           </p>
                                         ) : null}
@@ -807,7 +749,7 @@ export function AdminSidebar({
                                           aria-current={isSubActive ? "page" : undefined}
                                           onClick={handleLeafClick}
                                           className={cn(
-                                              "flex min-h-[40px] items-center gap-2 rounded-[0.95rem] px-3 py-2 text-[13px] transition-colors duration-200 active:scale-[0.995]",
+                                              "flex min-h-[34px] items-center gap-2 rounded-[0.75rem] px-2.5 py-1.5 text-[12.5px] transition-colors duration-200 active:scale-[0.995]",
                                               isSubActive
                                                 ? "bg-white/[0.1] text-white"
                                                 : "text-white/62 hover:bg-white/[0.06] hover:text-white",
@@ -841,26 +783,26 @@ export function AdminSidebar({
               </section>
             </div>
 
-            <div className="border-t border-white/10 bg-[#232323] px-4 pb-[max(env(safe-area-inset-bottom,0px),1rem)] pt-3.5">
-              <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.06] p-3.5">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/18 text-[13px] font-semibold text-white">
+            <div className="border-t border-white/10 bg-[#232323] px-3.5 pb-[max(env(safe-area-inset-bottom,0px),0.8rem)] pt-2.5">
+              <div className="rounded-[0.95rem] border border-white/10 bg-white/[0.05] p-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/18 text-[12px] font-semibold text-white">
                     {adminInitials}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-white">{adminFullName}</p>
-                    <p className="mt-0.5 truncate text-[12.5px] text-white/52">
+                    <p className="truncate text-[13.5px] font-semibold tracking-[-0.01em] text-white">{adminFullName}</p>
+                    <p className="mt-0.5 truncate text-[11.5px] text-white/52">
                       {siteName} · {adminRoleLabel}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-2 space-y-1">
+              <div className="mt-1.5">
                 {isLogtoProvider ? (
                   <a
                     href={logtoLogoutHref}
-                    className="flex min-h-[46px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+                    className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[0.8rem] px-3 text-[13px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
                   >
                     <LogOut className="h-[1rem] w-[1rem] shrink-0" />
                     <span>Çıkış Yap</span>
@@ -870,22 +812,12 @@ export function AdminSidebar({
                     type="button"
                     onClick={handleLogout}
                     disabled={isSigningOut}
-                    className="flex min-h-[46px] w-full items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+                    className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[0.8rem] px-3 text-[13px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
                   >
                     <LogOut className="h-[1rem] w-[1rem] shrink-0" />
                     <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
                   </button>
                 )}
-
-                <Link
-                  href={STORE_RUNTIME.storefrontUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex min-h-[46px] items-center gap-3 rounded-[1rem] px-3.5 text-[14px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-white/[0.08] hover:text-white"
-                >
-                  <Store className="h-[1rem] w-[1rem] shrink-0" />
-                  <span>Siteye Dön</span>
-                </Link>
               </div>
             </div>
           </div>
@@ -896,38 +828,38 @@ export function AdminSidebar({
 
   return (
     <aside className={cn("border-r border-white/10", desktopAsideClassName)}>
-      <div className="border-b border-white/10 px-5 py-5">
-        <div className="flex min-h-[58px] items-center rounded-[1.15rem] border border-white/10 bg-white px-4 shadow-[0_16px_30px_rgba(0,0,0,0.18)]">
+      <div className="border-b border-white/10 px-4 py-3.5">
+        <div className="flex min-h-[44px] items-center rounded-[0.9rem] border border-white/10 bg-white px-3 shadow-[0_10px_20px_rgba(0,0,0,0.14)]">
           <img
             src={ADMIN_BRAND_LOGO_SRC}
             alt="Celebix"
-            className="h-10 w-auto max-w-[11.25rem] object-contain"
+            className="h-7 w-auto max-w-[8.75rem] object-contain"
           />
         </div>
       </div>
 
       {!role && !isRecoveringProfile ? (
-        <div className="mx-4 mt-4 rounded-[1rem] border border-white/10 bg-white/[0.06] px-3 py-2.5 text-[13px] font-medium text-white/62">
+        <div className="mx-3.5 mt-3 rounded-[0.9rem] border border-white/10 bg-white/[0.06] px-3 py-2.5 text-[12.5px] font-medium text-white/62">
           Yetki bilgisi yüklenemedi.
         </div>
       ) : null}
 
-      <nav className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <nav className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3">
         {groupedItems.map((group) => (
-          <section key={group.id} className="space-y-1.5">
-            <div className="px-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">
+          <section key={group.id} className="space-y-1">
+            <div className="px-1.5">
+              <p className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-white/38">
                 {group.label}
               </p>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {group.items.map((item) => {
                 const { hasSubmenu, isExpanded, isActive } = getItemState(item);
                 const statusLabel = item.status === "soon" ? "Yakında" : item.badge;
 
                 const rowClasses = cn(
-                  "group relative flex min-h-[48px] w-full items-center gap-3 rounded-[0.95rem] border border-transparent px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(254,97,0,0.32)]",
+                  "group relative flex min-h-[42px] w-full items-center gap-2.5 rounded-[0.75rem] border border-transparent px-2.5 py-2 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(254,97,0,0.32)]",
                   isActive
                     ? "bg-[#37373B] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
                     : "text-white/84 hover:bg-white/[0.06] hover:text-white",
@@ -935,9 +867,9 @@ export function AdminSidebar({
                 );
 
                 const iconShellClasses = cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.85rem] border transition-colors",
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.65rem] border transition-colors",
                   isActive
-                    ? "border-[#FE6100]/70 bg-[#FE6100] text-white"
+                    ? "border-white/12 bg-white/[0.1] text-white"
                     : "border-white/10 bg-black/10 text-white/72 group-hover:border-white/16 group-hover:text-white",
                 );
 
@@ -950,9 +882,9 @@ export function AdminSidebar({
                       )}
                     />
                     <span className={iconShellClasses}>
-                      <item.icon className="h-[1rem] w-[1rem]" />
+                      <item.icon className="h-[0.96rem] w-[0.96rem]" />
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{item.title}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{item.title}</span>
                     {statusLabel ? (
                       <span className="rounded-full border border-white/10 bg-white/[0.08] px-2 py-0.5 text-[11px] font-medium text-white/58">
                         {statusLabel}
@@ -961,7 +893,7 @@ export function AdminSidebar({
                     {hasSubmenu ? (
                       <ChevronDown
                           className={cn(
-                            "h-4 w-4 shrink-0 text-white/42 transition-transform duration-200 group-hover:text-white/72",
+                            "h-3.5 w-3.5 shrink-0 text-white/42 transition-transform duration-200 group-hover:text-white/72",
                             isExpanded ? "rotate-180" : "rotate-0",
                           )}
                       />
@@ -1022,8 +954,8 @@ export function AdminSidebar({
                         )}
                       >
                         <div className="min-h-0">
-                            <div className="ml-5 border-l border-white/10 pl-3 pt-0.5">
-                            <div className="space-y-1">
+                            <div className="ml-4 border-l border-white/10 pl-2.5 pt-0.5">
+                            <div className="space-y-0.5">
                               {item.submenu?.map((sub, subIndex, submenu) => {
                                 const isSubActive = pathMatches(pathname, sub.href);
                                 const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
@@ -1032,7 +964,7 @@ export function AdminSidebar({
                                 return (
                                   <div key={sub.href} className="space-y-1">
                                     {shouldShowGroup ? (
-                                        <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/34">
+                                        <p className="px-2.5 pt-1.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-white/34">
                                         {sub.group}
                                       </p>
                                     ) : null}
@@ -1041,7 +973,7 @@ export function AdminSidebar({
                                       aria-current={isSubActive ? "page" : undefined}
                                       onClick={handleLeafClick}
                                         className={cn(
-                                          "group flex min-h-[38px] items-center gap-2 rounded-[0.85rem] px-3 py-2 text-[13px] transition-colors",
+                                          "group flex min-h-[32px] items-center gap-2 rounded-[0.7rem] px-2.5 py-1.5 text-[12.5px] transition-colors",
                                           isSubActive
                                             ? "bg-white/[0.1] text-white"
                                             : "text-white/62 hover:bg-white/[0.06] hover:text-white",
@@ -1078,26 +1010,26 @@ export function AdminSidebar({
         ))}
       </nav>
 
-      <div className="border-t border-white/10 bg-[#232323] px-4 py-4">
-        <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.06] p-3.5">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/18 text-[13px] font-semibold text-white">
+      <div className="border-t border-white/10 bg-[#232323] px-3.5 py-2.5">
+        <div className="rounded-[0.95rem] border border-white/10 bg-white/[0.05] p-2.5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/18 text-[12px] font-semibold text-white">
               {adminInitials}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-white">{adminFullName}</p>
-              <p className="mt-0.5 truncate text-[12.5px] text-white/52">
+              <p className="truncate text-[13.5px] font-semibold tracking-[-0.01em] text-white">{adminFullName}</p>
+              <p className="mt-0.5 truncate text-[11.5px] text-white/52">
                 {siteName} · {adminRoleLabel}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="mt-2 space-y-1">
+        <div className="mt-1.5">
         {isLogtoProvider ? (
           <a
             href={logtoLogoutHref}
-            className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-white/62 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+            className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[0.8rem] px-3 text-[13px] font-medium text-white/62 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
           >
             <LogOut className="h-[1rem] w-[1rem] shrink-0" />
             <span>Çıkış Yap</span>
@@ -1107,22 +1039,12 @@ export function AdminSidebar({
             type="button"
             onClick={handleLogout}
             disabled={isSigningOut}
-            className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-white/62 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+            className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[0.8rem] px-3 text-[13px] font-medium text-white/62 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
           >
             <LogOut className="h-[1rem] w-[1rem] shrink-0" />
             <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
           </button>
         )}
-
-        <Link
-          href={STORE_RUNTIME.storefrontUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[14px] font-medium text-white/62 transition-colors hover:bg-white/[0.08] hover:text-white"
-        >
-          <Store className="h-[1rem] w-[1rem] shrink-0" />
-          <span>Siteye Dön</span>
-        </Link>
         </div>
       </div>
     </aside>
