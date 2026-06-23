@@ -406,7 +406,7 @@ function DashboardTopStrip({
   ];
 
   return (
-    <section className="grid gap-4 border-b border-[rgba(226,231,238,0.72)] pb-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:pb-5">
+    <section className="grid gap-4 border-b border-[rgba(226,231,238,0.72)] pb-4 md:pb-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
       <div className="min-w-0">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
           Günlük kontrol merkezi
@@ -429,7 +429,7 @@ function DashboardTopStrip({
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap md:max-w-[720px] md:justify-end">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap xl:max-w-[720px] xl:justify-end">
         <label className="inline-flex min-h-[42px] items-center gap-2 rounded-[12px] border border-[rgba(215,221,231,0.82)] bg-white/80 px-3.5 py-2 text-sm font-semibold text-[var(--admin-heading)]">
           <CalendarDays className="h-4.5 w-4.5 text-[var(--admin-accent-hover)]" />
           <span className="sr-only">{getPeriodLabel(selectedPeriod)} özeti</span>
