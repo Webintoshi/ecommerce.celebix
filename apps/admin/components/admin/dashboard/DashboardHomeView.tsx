@@ -1,8 +1,9 @@
 "use client";
 
-import type { ComponentType, ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import {
   Activity,
   Archive,
@@ -317,12 +318,14 @@ function DashboardCard({
   );
 }
 
-function DashboardTopStrip({
+function DashboardActionRail({
   selectedPeriod,
   onPeriodChange,
+  placement = "topbar",
 }: {
   selectedPeriod: TimeRange;
   onPeriodChange: (value: TimeRange) => void;
+  placement?: "topbar" | "mobile";
 }) {
   const quickActions = [
     { label: "Ürün ekle", href: "/admin/urunler/yeni", icon: Plus, primary: true },
@@ -332,18 +335,27 @@ function DashboardTopStrip({
   ];
 
   return (
-    <section className="grid gap-3 border-b border-[rgba(226,231,238,0.72)] pb-3 md:pb-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-      <div className="min-w-0">
-        <h1 className="text-[1.78rem] font-semibold tracking-[-0.052em] text-[var(--admin-heading)] md:text-[2.05rem]">
-          Mağaza özeti
-        </h1>
-        <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--admin-text-secondary)]">
-          Satış, sipariş ve stok durumunu takip edin.
-        </p>
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-2 xl:max-w-[760px] xl:items-end">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <section
+      aria-label="Dashboard hızlı işlemleri"
+      className={cn(
+        "min-w-0",
+        placement === "mobile"
+          ? "sticky top-[max(0.45rem,env(safe-area-inset-top))] z-20 mb-3 rounded-[18px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] p-3 shadow-[var(--shadow-xs)] backdrop-blur-xl md:hidden"
+          : "w-full",
+      )}
+    >
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-2",
+          placement === "topbar" ? "items-stretch xl:items-end" : "",
+        )}
+      >
+        <div
+          className={cn(
+            "flex min-w-0 flex-wrap items-center gap-2",
+            placement === "topbar" ? "justify-end" : "",
+          )}
+        >
           <label className="inline-flex min-h-[36px] flex-1 items-center gap-2 rounded-[10px] border border-[rgba(215,221,231,0.82)] bg-white/78 px-3 py-1.5 text-[13px] font-semibold text-[var(--admin-heading)] sm:flex-none">
             <CalendarDays className="h-4 w-4 text-[var(--admin-accent-hover)]" />
             <span className="sr-only">{getPeriodLabel(selectedPeriod)} özeti</span>
@@ -369,7 +381,12 @@ function DashboardTopStrip({
             Önceki dönem
           </span>
         </div>
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+        <div
+          className={cn(
+            "grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap",
+            placement === "topbar" ? "sm:justify-end" : "",
+          )}
+        >
           {quickActions.map((action) => {
             const ActionIcon = action.icon;
             const className = cn(
@@ -398,6 +415,39 @@ function DashboardTopStrip({
         </div>
       </div>
     </section>
+  );
+}
+
+function DashboardTopbarActionsPortal({
+  selectedPeriod,
+  onPeriodChange,
+}: {
+  selectedPeriod: TimeRange;
+  onPeriodChange: (value: TimeRange) => void;
+}) {
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setTarget(document.getElementById("admin-dashboard-topbar-actions"));
+  }, []);
+
+  return (
+    <>
+      {target
+        ? createPortal(
+            <DashboardActionRail
+              selectedPeriod={selectedPeriod}
+              onPeriodChange={onPeriodChange}
+            />,
+            target,
+          )
+        : null}
+      <DashboardActionRail
+        selectedPeriod={selectedPeriod}
+        onPeriodChange={onPeriodChange}
+        placement="mobile"
+      />
+    </>
   );
 }
 
@@ -1132,7 +1182,6 @@ function InsightsStrip({ items }: { items: DashboardAnalysisSummaryItem[] }) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-4 md:space-y-5">
-      <Skeleton className="h-[92px] rounded-[12px]" />
       <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.82)] sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton key={index} className="h-[96px] rounded-none" />
@@ -1192,7 +1241,15 @@ export function DashboardHomeView({
   errorMessage?: string;
 }) {
   if (!dashboard) {
-    return <DashboardSkeleton />;
+    return (
+      <>
+        <DashboardTopbarActionsPortal
+          selectedPeriod={selectedPeriod}
+          onPeriodChange={onPeriodChange}
+        />
+        <DashboardSkeleton />
+      </>
+    );
   }
 
   return (
@@ -1207,7 +1264,7 @@ export function DashboardHomeView({
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className="space-y-4 md:space-y-5"
       >
-        <DashboardTopStrip
+        <DashboardTopbarActionsPortal
           selectedPeriod={selectedPeriod}
           onPeriodChange={onPeriodChange}
         />
