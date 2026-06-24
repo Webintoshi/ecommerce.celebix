@@ -53,6 +53,13 @@ type UmamiConfig = {
   websiteId: string;
 };
 
+export type UmamiConfigPresence = {
+  baseUrlPresent: boolean;
+  apiTokenPresent: boolean;
+  websiteIdPresent: boolean;
+  configured: boolean;
+};
+
 function normalizeEnvKeySuffix(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, "_").toUpperCase();
 }
@@ -89,6 +96,19 @@ function getUmamiConfig(): UmamiConfig | null {
 
 export function isUmamiConfigured(): boolean {
   return Boolean(getUmamiConfig());
+}
+
+export function getUmamiConfigPresence(): UmamiConfigPresence {
+  const baseUrlPresent = Boolean(getScopedEnv("UMAMI_BASE_URL"));
+  const apiTokenPresent = Boolean(getScopedEnv("UMAMI_API_TOKEN"));
+  const websiteIdPresent = Boolean(getScopedEnv("UMAMI_WEBSITE_ID"));
+
+  return {
+    baseUrlPresent,
+    apiTokenPresent,
+    websiteIdPresent,
+    configured: baseUrlPresent && apiTokenPresent && websiteIdPresent,
+  };
 }
 
 async function umamiFetch<T>(

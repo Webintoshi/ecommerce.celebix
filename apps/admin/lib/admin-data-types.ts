@@ -121,11 +121,26 @@ export type LiveAnalyticsSnapshot = {
   recentEvents: LiveAnalyticsEvent[];
 };
 
+export type DashboardTrafficSource = "umami" | "plausible" | "internal" | "none";
+
+export type DashboardAnalyticsStatus = {
+  provider: "umami";
+  source: DashboardTrafficSource;
+  umami: {
+    baseUrlPresent: boolean;
+    apiTokenPresent: boolean;
+    websiteIdPresent: boolean;
+    configured: boolean;
+  };
+  storefrontTracking: "internal" | "unknown" | "none";
+};
+
 export type DashboardBootstrapData = {
   stats: DashboardStats;
   recentOrders: DashboardRecentOrder[];
   lowStockProducts: DashboardLowStockProduct[];
   liveData: LiveAnalyticsSnapshot;
+  analyticsStatus: DashboardAnalyticsStatus;
   overview: DashboardOverview;
   performance: DashboardPerformance;
   analysisSummary: DashboardAnalysisSummary;

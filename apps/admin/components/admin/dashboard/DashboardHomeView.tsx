@@ -25,6 +25,12 @@ import {
 import { Line, LineChart, ResponsiveContainer, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  buildDashboardAnalyticsStatus,
+  buildDashboardGrowthRows,
+  buildDashboardSalesChannels,
+  getSalesSummaryPanelTitle,
+} from "@/lib/dashboard-presentation";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import type {
   DashboardAnalysisSummaryItem,
@@ -364,22 +370,37 @@ function DashboardCard({
 function DashboardActionRail({
   selectedPeriod,
   onPeriodChange,
+  analyticsStatus,
   placement = "topbar",
 }: {
   selectedPeriod: TimeRange;
   onPeriodChange: (value: TimeRange) => void;
+  analyticsStatus?: DashboardBootstrapData["analyticsStatus"];
   placement?: "topbar" | "mobile";
 }) {
   const compact = placement === "mobile";
+  const analyticsPresentation = analyticsStatus
+    ? buildDashboardAnalyticsStatus(analyticsStatus)
+    : null;
+  const controlClassName =
+    "group relative inline-flex min-h-[42px] flex-1 items-center gap-2 rounded-[7px] border border-[rgba(224,228,235,0.96)] bg-[#f9f9f9] px-3.5 py-1.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.025)] transition-colors hover:border-[var(--admin-accent-border)] hover:bg-white focus-within:border-[var(--admin-accent-hover)] focus-within:ring-2 focus-within:ring-[rgba(255,106,0,0.14)] sm:flex-none";
+  const chevronClassName =
+    "pointer-events-none absolute right-3 h-4 w-4 text-[var(--admin-text-secondary)] transition-colors group-hover:text-[var(--admin-accent-hover)]";
+  const analyticsToneClassName =
+    analyticsPresentation?.tone === "success"
+      ? "border-[rgba(22,163,74,0.2)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]"
+      : analyticsPresentation?.tone === "warning"
+        ? "border-[rgba(245,158,11,0.24)] bg-[rgba(255,247,237,0.78)] text-[var(--admin-warning)]"
+        : "border-[var(--admin-accent-border)] bg-[rgba(255,241,232,0.72)] text-[var(--admin-accent-hover)]";
 
   return (
     <div
       aria-label="Panel filtreleri"
       className={cn(
-        "min-w-0 bg-white",
+        "min-w-0",
         compact
-          ? "sticky top-[max(0.45rem,env(safe-area-inset-top))] z-20 mb-3 rounded-[18px] border border-[var(--admin-border)] p-3 shadow-[var(--shadow-xs)] backdrop-blur-xl min-[1025px]:hidden"
-          : "w-full border-b border-[rgba(226,231,238,0.92)] py-3",
+          ? "sticky top-[max(0.45rem,env(safe-area-inset-top))] z-20 mb-3 rounded-[18px] border border-[rgba(224,228,235,0.88)] bg-[rgba(255,255,255,0.94)] p-3 shadow-[var(--shadow-xs)] backdrop-blur-xl min-[1025px]:hidden"
+          : "w-full border-b border-[rgba(224,228,235,0.86)] bg-[rgba(255,255,255,0.92)] py-3",
       )}
     >
       <div
@@ -394,8 +415,8 @@ function DashboardActionRail({
             compact ? "w-full" : "flex-1",
           )}
         >
-          <label className="relative inline-flex min-h-[42px] flex-1 items-center gap-2 rounded-[7px] border border-[rgba(215,221,231,0.9)] bg-white px-3.5 py-1.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.03)] sm:flex-none">
-            <ShoppingBag className="h-4.5 w-4.5 text-[var(--admin-text-muted)]" />
+          <label className={controlClassName}>
+            <ShoppingBag className="h-4.5 w-4.5 text-[var(--admin-accent-hover)]" />
             <span className="sr-only">Satış kanalı</span>
             <select
               className="min-w-0 appearance-none bg-transparent pr-8 text-[14px] font-semibold outline-none"
@@ -404,10 +425,10 @@ function DashboardActionRail({
             >
               <option value="all">Tüm Satış Kanalları</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--admin-text-muted)]" />
+            <ChevronDown className={chevronClassName} />
           </label>
-          <label className="relative inline-flex min-h-[42px] flex-1 items-center gap-2 rounded-[7px] border border-[rgba(215,221,231,0.9)] bg-white px-3.5 py-1.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.03)] sm:flex-none">
-            <CalendarDays className="h-4 w-4 text-[var(--admin-accent-hover)]" />
+          <label className={controlClassName}>
+            <CalendarDays className="h-4.5 w-4.5 text-[var(--admin-accent-hover)]" />
             <span className="sr-only">{getAnalyticsPeriodLabel(selectedPeriod)} özeti</span>
             <select
               value={selectedPeriod}
@@ -421,10 +442,12 @@ function DashboardActionRail({
                 </option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--admin-text-muted)]" />
+            <ChevronDown className={chevronClassName} />
           </label>
           <span className="inline-flex min-h-[42px] flex-1 items-center gap-2 rounded-[7px] px-2 text-[14px] font-semibold text-[var(--admin-text-secondary)] sm:flex-none">
-            <ArrowDownRight className="h-4.5 w-4.5 rotate-45 text-[var(--admin-text-muted)]" />
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]">
+              <ArrowDownRight className="h-4 w-4 rotate-45" />
+            </span>
             Önceki döneme göre
           </span>
         </div>
@@ -434,15 +457,32 @@ function DashboardActionRail({
             compact ? "w-full justify-end" : "shrink-0 justify-end",
           )}
         >
-          <span className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-[7px] border border-[rgba(215,221,231,0.9)] bg-white text-[var(--admin-text-secondary)] shadow-[0_1px_2px_rgba(17,24,39,0.03)]">
+          <span className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-[7px] border border-[rgba(224,228,235,0.96)] bg-[#f9f9f9] text-[var(--admin-text-secondary)] shadow-[0_1px_2px_rgba(17,24,39,0.025)] transition-colors hover:border-[var(--admin-accent-border)] hover:bg-white hover:text-[var(--admin-accent-hover)]">
             <ListChecks className="h-5 w-5" />
           </span>
-          <span className="inline-flex min-h-[42px] items-center gap-3 rounded-[7px] border border-[rgba(215,221,231,0.9)] bg-white px-3.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.03)]">
-            <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(226,231,238,0.82)]">
-              <span className="h-2.5 w-2.5 rounded-full bg-[var(--admin-text-muted)]" />
+          <span
+            title={analyticsPresentation?.details}
+            className={cn(
+              "inline-flex min-h-[42px] max-w-full items-center gap-3 rounded-[7px] border px-3.5 text-[14px] font-semibold shadow-[0_1px_2px_rgba(255,106,0,0.06)]",
+              analyticsToneClassName,
+            )}
+          >
+            <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-white">
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full",
+                  analyticsPresentation?.tone === "success"
+                    ? "bg-[var(--admin-success)]"
+                    : analyticsPresentation?.tone === "warning"
+                      ? "bg-[var(--admin-warning)]"
+                      : "bg-[var(--admin-accent)]",
+                )}
+              />
             </span>
-            Ziyaretçi Yok
-            <ArrowRight className="h-4.5 w-4.5 text-[var(--admin-text-muted)]" />
+            <span className="min-w-0 truncate">
+              {analyticsPresentation?.label ?? "Analytics kontrol ediliyor"}
+            </span>
+            <ArrowRight className="h-4.5 w-4.5 shrink-0" />
           </span>
         </div>
       </div>
@@ -453,9 +493,11 @@ function DashboardActionRail({
 function DashboardTopbarActionsPortal({
   selectedPeriod,
   onPeriodChange,
+  analyticsStatus,
 }: {
   selectedPeriod: TimeRange;
   onPeriodChange: (value: TimeRange) => void;
+  analyticsStatus?: DashboardBootstrapData["analyticsStatus"];
 }) {
   const [target, setTarget] = useState<HTMLElement | null>(null);
 
@@ -490,6 +532,7 @@ function DashboardTopbarActionsPortal({
             <DashboardActionRail
               selectedPeriod={selectedPeriod}
               onPeriodChange={onPeriodChange}
+              analyticsStatus={analyticsStatus}
             />,
             target,
           )
@@ -497,6 +540,7 @@ function DashboardTopbarActionsPortal({
       <DashboardActionRail
         selectedPeriod={selectedPeriod}
         onPeriodChange={onPeriodChange}
+        analyticsStatus={analyticsStatus}
         placement="mobile"
       />
     </>
@@ -542,7 +586,8 @@ type SalesChartMetric = {
   key: SalesChartMetricKey;
   label: string;
   value: string;
-  delta: ReturnType<typeof formatDelta>;
+  delta?: ReturnType<typeof formatDelta>;
+  badgeLabel?: string;
   currentDataKey: SalesChartDataKey;
   previousDataKey: SalesChartDataKey;
   formatChartValue: (value: number) => string;
@@ -723,16 +768,7 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
   const previousOrders = dashboard.performance.previousOrders;
   const conversionCard = getOverviewCard(dashboard.overview.cards, "conversion");
   const visitorsItem = getAnalysisItem(dashboard.analysisSummary.items, "visitors");
-  const chartPoints =
-    points.length > 0
-      ? points
-      : ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((label) => ({
-          label,
-          currentRevenue: 0,
-          previousRevenue: 0,
-          currentOrders: 0,
-          previousOrders: 0,
-        }));
+  const chartPoints = points;
   const revenueDelta = formatDelta(
     previousRevenue === 0 ? 0 : ((currentRevenue - previousRevenue) / previousRevenue) * 100,
   );
@@ -799,8 +835,8 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
     {
       key: "returns",
       label: "İadeler",
-      value: formatCurrency(0),
-      delta: formatDelta(0),
+      value: "Bağlı değil",
+      badgeLabel: "Yakında",
       currentDataKey: "currentReturns",
       previousDataKey: "previousReturns",
       formatChartValue: formatCurrency,
@@ -824,7 +860,8 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
           className="grid min-w-[850px] grid-cols-5 divide-x divide-[rgba(218,224,233,0.92)] bg-[rgba(249,249,249,0.92)] min-[1180px]:min-w-0"
         >
           {metrics.map((metric) => {
-            const MetricDeltaIcon = metric.delta.positive === false ? ArrowDownRight : ArrowUpRight;
+            const MetricDeltaIcon =
+              metric.delta?.positive === false ? ArrowDownRight : ArrowUpRight;
             const isReturnsMetric = metric.label === "İadeler";
             const isActive = metric.key === activeMetric.key;
 
@@ -858,19 +895,25 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
                       <p className="truncate text-[1.45rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)] min-[1180px]:text-[1.58rem]">
                         {metric.value}
                       </p>
-                      <span
-                        className={cn(
-                          "inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-[rgba(255,255,255,0.55)] px-2 py-1 text-[12px] font-semibold",
-                          metric.delta.positive === null
-                            ? "text-[var(--admin-text-secondary)]"
-                            : metric.delta.positive
-                              ? "text-[var(--admin-success)]"
-                              : "text-[var(--admin-danger)]",
-                        )}
-                      >
-                        {metric.delta.positive !== null ? <MetricDeltaIcon className="h-3.5 w-3.5" /> : null}
-                        {metric.delta.positive === null ? formatPercentValue(0) : metric.delta.compactLabel}
-                      </span>
+                      {metric.delta ? (
+                        <span
+                          className={cn(
+                            "inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-[rgba(255,255,255,0.55)] px-2 py-1 text-[12px] font-semibold",
+                            metric.delta.positive === null
+                              ? "text-[var(--admin-text-secondary)]"
+                              : metric.delta.positive
+                                ? "text-[var(--admin-success)]"
+                                : "text-[var(--admin-danger)]",
+                          )}
+                        >
+                          {metric.delta.positive !== null ? <MetricDeltaIcon className="h-3.5 w-3.5" /> : null}
+                          {metric.delta.positive === null ? "Sabit" : metric.delta.compactLabel}
+                        </span>
+                      ) : (
+                        <span className="inline-flex shrink-0 rounded-[4px] bg-[rgba(248,250,252,0.95)] px-2 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)]">
+                          {metric.badgeLabel ?? "Veri yok"}
+                        </span>
+                      )}
                     </div>
                   </div>
                   {isReturnsMetric ? (
@@ -892,93 +935,106 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
         id="dashboard-performance-chart"
         className="relative border-t border-[rgba(226,231,238,0.92)] bg-[var(--admin-bg)] px-4 pb-5 pt-4 md:px-6 md:pb-6"
       >
-        <div className="mb-3 flex items-center justify-between gap-3 text-[12px] font-medium text-[var(--admin-text-secondary)]">
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[var(--admin-accent)]" />
-            {currentLabel} · {activeMetric.label}
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[rgba(148,163,184,0.76)]" />
-            {previousLabel} · {activeMetric.label}
-          </span>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 text-[12px] font-medium text-[var(--admin-text-secondary)]">
+          <div>
+            <p className="text-[14px] font-semibold text-[var(--admin-heading)]">Satış performansı</p>
+            <p className="mt-1 text-[12px] text-[var(--admin-text-secondary)]">
+              Kaynak: sipariş ve ciro aggregate verileri.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[var(--admin-accent)]" />
+              {currentLabel} · {activeMetric.label}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[rgba(148,163,184,0.76)]" />
+              {previousLabel} · {activeMetric.label}
+            </span>
+          </div>
         </div>
-        <div className="relative h-[360px] min-h-[360px] md:h-[430px] min-[1360px]:h-[520px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 14, right: 18, left: 0, bottom: 10 }}>
-              <CartesianGrid stroke="rgba(226,231,238,0.95)" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: "#7B8494", fontSize: 12, fontWeight: 600 }}
-                dy={10}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: "#7B8494", fontSize: 12, fontWeight: 600 }}
-                tickFormatter={(value) => activeMetric.formatTickValue(Number(value))}
-                width={58}
-              />
-              <Tooltip
-                cursor={{ stroke: "#DCE2EA", strokeWidth: 1.2 }}
-                content={({ active, payload, label }) => {
-                  if (!active || !payload || payload.length === 0) {
-                    return null;
-                  }
+        <div className="relative min-h-[360px] md:min-h-[430px] min-[1360px]:min-h-[520px]">
+          {hasActiveMetricData ? (
+            <ResponsiveContainer width="100%" height={360} minWidth={320} minHeight={320}>
+              <LineChart data={chartData} margin={{ top: 14, right: 18, left: 0, bottom: 10 }}>
+                <CartesianGrid stroke="rgba(226,231,238,0.95)" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: "#7B8494", fontSize: 12, fontWeight: 600 }}
+                  dy={10}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: "#7B8494", fontSize: 12, fontWeight: 600 }}
+                  tickFormatter={(value) => activeMetric.formatTickValue(Number(value))}
+                  width={58}
+                />
+                <Tooltip
+                  cursor={{ stroke: "#DCE2EA", strokeWidth: 1.2 }}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload || payload.length === 0) {
+                      return null;
+                    }
 
-                  const point = payload[0]?.payload as SalesChartPoint;
-                  const currentValue = getSalesChartPointValue(point, activeMetric.currentDataKey);
-                  const previousValue = getSalesChartPointValue(point, activeMetric.previousDataKey);
+                    const point = payload[0]?.payload as SalesChartPoint;
+                    const currentValue = getSalesChartPointValue(point, activeMetric.currentDataKey);
+                    const previousValue = getSalesChartPointValue(point, activeMetric.previousDataKey);
 
-                  return (
-                    <div className="rounded-[10px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
-                      <p className="text-sm font-semibold text-[var(--admin-heading)]">
-                        {label} · {activeMetric.label}
-                      </p>
-                      <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
-                        <div className="flex items-center justify-between gap-6">
-                          <span>{currentLabel}</span>
-                          <span className="font-semibold text-[var(--admin-heading)]">
-                            {activeMetric.formatChartValue(currentValue)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-6">
-                          <span>{previousLabel}</span>
-                          <span className="font-semibold text-[var(--admin-heading)]">
-                            {activeMetric.formatChartValue(previousValue)}
-                          </span>
+                    return (
+                      <div className="rounded-[10px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
+                        <p className="text-sm font-semibold text-[var(--admin-heading)]">
+                          {label} · {activeMetric.label}
+                        </p>
+                        <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
+                          <div className="flex items-center justify-between gap-6">
+                            <span>{currentLabel}</span>
+                            <span className="font-semibold text-[var(--admin-heading)]">
+                              {activeMetric.formatChartValue(currentValue)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-6">
+                            <span>{previousLabel}</span>
+                            <span className="font-semibold text-[var(--admin-heading)]">
+                              {activeMetric.formatChartValue(previousValue)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey={activeMetric.previousDataKey}
-                stroke="rgba(148,163,184,0.5)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 3, fill: "#94A3B8" }}
-              />
-              <Line
-                type="monotone"
-                dataKey={activeMetric.currentDataKey}
-                stroke="#FF6A00"
-                strokeWidth={3.2}
-                dot={false}
-                activeDot={{ r: 4, fill: "#FF6A00" }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-          {!hasActiveMetricData ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
-              <span className="rounded-[7px] border border-[var(--admin-border)] bg-white/92 px-3 py-2 text-[12px] font-semibold text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)]">
+                    );
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey={activeMetric.previousDataKey}
+                  stroke="rgba(148,163,184,0.5)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 3, fill: "#94A3B8" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey={activeMetric.currentDataKey}
+                  stroke="#FF6A00"
+                  strokeWidth={3.2}
+                  dot={false}
+                  activeDot={{ r: 4, fill: "#FF6A00" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex min-h-[360px] flex-col items-center justify-center rounded-[8px] border border-dashed border-[rgba(226,231,238,0.96)] bg-white/58 px-5 text-center md:min-h-[430px] min-[1360px]:min-h-[520px]">
+              <Activity className="h-8 w-8 text-[var(--admin-text-muted)]" />
+              <p className="mt-4 text-sm font-semibold text-[var(--admin-heading)]">
                 {activeMetric.emptyMessage}
-              </span>
+              </p>
+              <p className="mt-2 max-w-[28rem] text-[12px] leading-5 text-[var(--admin-text-secondary)]">
+                Gerçek veri gelene kadar grafik serisi çizilmiyor; statik sıfır veri canlı metrik gibi gösterilmez.
+              </p>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     </section>
@@ -986,44 +1042,38 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
 }
 
 function SalesChannelsOverview({ dashboard }: { dashboard: DashboardBootstrapData }) {
-  const revenueDelta = formatDelta(
+  const storefrontRevenueChange =
     dashboard.performance.previousRevenue === 0
       ? 0
       : ((dashboard.performance.currentRevenue - dashboard.performance.previousRevenue) /
           dashboard.performance.previousRevenue) *
-          100,
-  );
-  const channels = [
-    {
-      label: getStorefrontDisplayHost(),
-      value: formatCurrency(dashboard.performance.currentRevenue),
-      delta: revenueDelta,
-      icon: Globe2,
-    },
-    {
-      label: "Pazaryeri",
-      value: formatCurrency(0),
-      delta: formatDelta(0),
-      icon: ShoppingBag,
-    },
-    {
-      label: "Manuel Sipariş",
-      value: formatCurrency(0),
-      delta: formatDelta(0),
-      icon: Users,
-    },
-  ];
+          100;
+  const channels = buildDashboardSalesChannels({
+    storefrontHost: getStorefrontDisplayHost(),
+    storefrontRevenue: dashboard.performance.currentRevenue,
+    storefrontRevenueChange,
+  });
+  const iconMap = {
+    storefront: Globe2,
+    marketplace: ShoppingBag,
+    manual: Users,
+  };
 
   return (
     <section className="rounded-[8px] border border-[rgba(226,231,238,0.9)] bg-[rgba(248,250,252,0.58)] px-3 py-3 md:px-4 md:py-4">
       <div className="grid gap-3 md:grid-cols-3">
         {channels.map((channel) => {
-          const ChannelIcon = channel.icon;
+          const ChannelIcon = iconMap[channel.key];
 
           return (
             <div
-              key={channel.label}
-              className="min-h-[126px] rounded-[7px] border border-[rgba(226,231,238,0.92)] bg-white px-5 py-4 shadow-[0_1px_2px_rgba(17,24,39,0.02)]"
+              key={channel.key}
+              className={cn(
+                "min-h-[126px] rounded-[7px] border px-5 py-4 shadow-[0_1px_2px_rgba(17,24,39,0.02)]",
+                channel.state === "connected"
+                  ? "border-[rgba(226,231,238,0.92)] bg-white"
+                  : "border-dashed border-[rgba(226,231,238,0.96)] bg-[rgba(249,249,249,0.72)]",
+              )}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2.5">
@@ -1034,11 +1084,25 @@ function SalesChannelsOverview({ dashboard }: { dashboard: DashboardBootstrapDat
                     {channel.label}
                   </p>
                 </div>
-                <span className="rounded-[4px] bg-[rgba(248,250,252,0.94)] px-2 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)]">
-                  {channel.delta.positive === null ? formatPercentValue(0) : channel.delta.compactLabel}
+                <span
+                  className={cn(
+                    "rounded-[4px] px-2 py-1 text-[12px] font-semibold",
+                    channel.state === "connected"
+                      ? "bg-[rgba(248,250,252,0.94)] text-[var(--admin-text-secondary)]"
+                      : "bg-white text-[var(--admin-text-muted)]",
+                  )}
+                >
+                  {channel.badge}
                 </span>
               </div>
-              <p className="mt-5 text-[1.55rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)]">
+              <p
+                className={cn(
+                  "mt-5 text-[1.55rem] font-semibold tracking-[-0.055em]",
+                  channel.state === "connected"
+                    ? "text-[var(--admin-heading)]"
+                    : "text-[var(--admin-text-secondary)]",
+                )}
+              >
                 {channel.value}
               </p>
             </div>
@@ -1051,18 +1115,19 @@ function SalesChannelsOverview({ dashboard }: { dashboard: DashboardBootstrapDat
 
 function BestSellersPanel({ dashboard }: { dashboard: DashboardBootstrapData }) {
   const hasOrders = dashboard.performance.currentOrders > 0 && dashboard.recentOrders.length > 0;
+  const title = getSalesSummaryPanelTitle(false);
 
   return (
     <section className="min-h-[420px] rounded-[8px] border border-[rgba(226,231,238,0.9)] bg-white px-5 py-5 md:px-8 md:py-7">
       <div className="flex items-center justify-between gap-3 border-b border-[rgba(226,231,238,0.92)] pb-5">
         <h2 className="text-[1.15rem] font-semibold tracking-[-0.035em] text-[var(--admin-heading)]">
-          En Çok Satanlar
+          {title}
         </h2>
         <button
           type="button"
           className="inline-flex min-h-[40px] items-center gap-2 rounded-[7px] border border-[rgba(215,221,231,0.92)] bg-white px-3.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.03)]"
         >
-          Ürünler
+          Siparişler
           <ChevronDown className="h-4 w-4 text-[var(--admin-text-muted)]" />
         </button>
       </div>
@@ -1100,10 +1165,10 @@ function BestSellersPanel({ dashboard }: { dashboard: DashboardBootstrapData }) 
             <span className="absolute left-16 top-12 h-2 w-[50px] rounded-full bg-[rgba(226,231,238,0.92)]" />
           </div>
           <p className="mt-4 text-[1.05rem] font-semibold tracking-[-0.025em] text-[var(--admin-heading)]">
-            Seçilen tarihte henüz satışınız bulunmamaktadır
+            Seçilen tarihte henüz satış kaydı yok.
           </p>
           <p className="mt-3 max-w-[30rem] text-sm leading-6 text-[var(--admin-text-secondary)]">
-            Çok satanlar listesini görebilmek için lütfen farklı bir tarih seçiniz.
+            Gerçek bestseller aggregate bağlı olmadığı için bu panel son satılan siparişleri gösterir.
           </p>
         </div>
       )}
@@ -1118,34 +1183,11 @@ function GrowthMetricsPanel({ dashboard }: { dashboard: DashboardBootstrapData }
     dashboard.performance.currentOrders > 0
       ? dashboard.performance.currentRevenue / dashboard.performance.currentOrders
       : 0;
-  const averageProductRevenue =
-    dashboard.stats.totalProducts > 0 ? dashboard.stats.totalRevenue / dashboard.stats.totalProducts : 0;
   const averageCartSize = purchases > 0 ? addToCart / purchases : 0;
-  const rows = [
-    {
-      label: "Ort. İade Oranı",
-      value: formatPercentValue(0),
-      delta: formatDelta(0),
-    },
-    {
-      label: "Ort. Ürün Fiyatı",
-      value: formatCurrency(averageProductRevenue),
-      delta: formatDelta(0),
-    },
-    {
-      label: "Ort. Sipariş Tutarı",
-      value: formatCurrency(averageOrderValue),
-      delta: formatDelta(0),
-    },
-    {
-      label: "Ort. Sepet Büyüklüğü",
-      value: averageCartSize.toLocaleString("tr-TR", {
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 2,
-      }),
-      delta: formatDelta(0),
-    },
-  ];
+  const rows = buildDashboardGrowthRows({
+    averageOrderValue,
+    averageCartSize,
+  });
 
   return (
     <section className="rounded-[8px] border border-[rgba(226,231,238,0.9)] bg-white px-5 py-5 md:px-8 md:py-7">
@@ -1157,11 +1199,23 @@ function GrowthMetricsPanel({ dashboard }: { dashboard: DashboardBootstrapData }
           <div key={row.label} className="py-6">
             <div className="flex items-start justify-between gap-4">
               <p className="text-[15px] font-semibold text-[var(--admin-text-secondary)]">{row.label}</p>
-              <span className="rounded-[4px] bg-[rgba(248,250,252,0.94)] px-2 py-1 text-[12px] font-semibold text-[var(--admin-text-secondary)]">
-                {row.delta.positive === null ? formatPercentValue(0) : row.delta.compactLabel}
+              <span
+                className={cn(
+                  "rounded-[4px] px-2 py-1 text-[12px] font-semibold",
+                  row.state === "live"
+                    ? "bg-[var(--admin-success-soft)] text-[var(--admin-success)]"
+                    : "bg-[rgba(248,250,252,0.94)] text-[var(--admin-text-secondary)]",
+                )}
+              >
+                {row.badge}
               </span>
             </div>
-            <p className="mt-4 text-[1.6rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)]">
+            <p
+              className={cn(
+                "mt-4 text-[1.6rem] font-semibold tracking-[-0.055em]",
+                row.state === "live" ? "text-[var(--admin-heading)]" : "text-[var(--admin-text-secondary)]",
+              )}
+            >
               {row.value}
             </p>
           </div>
@@ -1189,9 +1243,6 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
         <div className="divide-y divide-[rgba(231,234,240,0.88)]">
           {orders.map((order) => {
             const status = getOrderStatusMeta(order.status);
-            const customerName =
-              order.customerName ||
-              `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`.trim();
 
             return (
               <Link
@@ -1223,11 +1274,8 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
                       </span>
                     </div>
                   </div>
-                  <p className="mt-3 text-[14px] font-medium text-[var(--admin-text)]">
-                    {customerName}
-                  </p>
-                  <p className="mt-1 text-[12px] text-[var(--admin-text-secondary)]">
-                    Sipariş detayını aç
+                  <p className="mt-3 text-[12px] text-[var(--admin-text-secondary)]">
+                    Ana panelde müşteri PII gösterilmez; detay için siparişi aç.
                   </p>
                 </div>
                 <ChevronRight className="h-4.5 w-4.5 flex-shrink-0 text-[var(--admin-text-muted)]" />
@@ -1404,6 +1452,7 @@ function TodoCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
 }
 
 function StoreStatusCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
+  const analyticsPresentation = buildDashboardAnalyticsStatus(dashboard.analyticsStatus);
   const statusItems = [
     {
       label: "Admin çalışma durumu",
@@ -1425,6 +1474,21 @@ function StoreStatusCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
       value: (dashboard.stats.lowStockProducts || dashboard.lowStockProducts.length).toLocaleString("tr-TR"),
       tone: dashboard.lowStockProducts.length > 0 ? "warning" : "success",
     },
+    {
+      label: "Analytics",
+      value: analyticsPresentation.label,
+      tone:
+        analyticsPresentation.tone === "success"
+          ? "success"
+          : analyticsPresentation.tone === "warning"
+            ? "warning"
+            : "neutral",
+    },
+    {
+      label: "Trafik kaynağı",
+      value: analyticsPresentation.sourceLabel,
+      tone: "neutral",
+    },
   ];
 
   return (
@@ -1435,7 +1499,7 @@ function StoreStatusCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
             <p className="text-[13px] font-medium text-[var(--admin-text-secondary)]">{item.label}</p>
             <p
               className={cn(
-                "text-sm font-semibold tracking-[-0.015em]",
+                "max-w-[14rem] text-right text-sm font-semibold tracking-[-0.015em]",
                 item.tone === "success" && "text-[var(--admin-success)]",
                 item.tone === "warning" && "text-[var(--admin-warning)]",
                 item.tone === "info" && "text-[var(--admin-info)]",
@@ -1608,6 +1672,7 @@ export function DashboardHomeView({
         <DashboardTopbarActionsPortal
           selectedPeriod={selectedPeriod}
           onPeriodChange={onPeriodChange}
+          analyticsStatus={dashboard.analyticsStatus}
         />
 
         {errorMessage ? (
@@ -1623,6 +1688,14 @@ export function DashboardHomeView({
           <>
             <SalesChartCard dashboard={dashboard} />
             <SalesChannelsOverview dashboard={dashboard} />
+            <section className="grid min-w-0 gap-5 lg:grid-cols-2">
+              <AbandonedCartsCard dashboard={dashboard} />
+              <StoreStatusCard dashboard={dashboard} />
+            </section>
+            <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.48fr)]">
+              <RecentOrdersCard orders={dashboard.recentOrders} />
+              <LowStockProductsCard products={dashboard.lowStockProducts} />
+            </section>
             <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.48fr)]">
               <BestSellersPanel dashboard={dashboard} />
               <GrowthMetricsPanel dashboard={dashboard} />

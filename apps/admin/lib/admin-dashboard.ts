@@ -6,6 +6,7 @@ import { getLiveAnalyticsSnapshot } from "@/lib/live-analytics";
 import { getDashboardAnalyticsPayload } from "@/lib/dashboard-analytics";
 import { listAdminProductReviews } from "@/lib/product-reviews";
 import type {
+  DashboardAnalyticsStatus,
   DashboardBootstrapData,
   DashboardCustomerActivity,
   DashboardLowStockProduct,
@@ -92,6 +93,20 @@ function getEmptyLiveAnalyticsSnapshot(): LiveAnalyticsSnapshot {
       purchases: 0,
     },
     recentEvents: [],
+  };
+}
+
+function getEmptyDashboardAnalyticsStatus(): DashboardAnalyticsStatus {
+  return {
+    provider: "umami",
+    source: "none",
+    umami: {
+      baseUrlPresent: false,
+      apiTokenPresent: false,
+      websiteIdPresent: false,
+      configured: false,
+    },
+    storefrontTracking: "unknown",
   };
 }
 
@@ -413,6 +428,7 @@ export async function getAdminDashboardBootstrapData(
       recentOrders,
       lowStockProducts: Array.from(lowStockProductsMap.values()).slice(0, 6),
       liveData,
+      analyticsStatus: analytics.analyticsStatus ?? getEmptyDashboardAnalyticsStatus(),
       overview: buildOverviewCards(timeRange, analytics, pendingOrders),
       performance: {
         timeRange,

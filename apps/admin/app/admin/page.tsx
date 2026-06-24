@@ -45,6 +45,17 @@ function getEmptyDashboardData(): DashboardBootstrapData {
       },
       recentEvents: [],
     },
+    analyticsStatus: {
+      provider: "umami",
+      source: "none",
+      umami: {
+        baseUrlPresent: false,
+        apiTokenPresent: false,
+        websiteIdPresent: false,
+        configured: false,
+      },
+      storefrontTracking: "unknown",
+    },
     overview: {
       timeRange: "week",
       cards: [

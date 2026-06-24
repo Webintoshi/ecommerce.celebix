@@ -2,10 +2,15 @@ import "server-only";
 
 import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
-import { fetchUmamiAggregate } from "@/lib/analytics/umami";
+import { fetchUmamiAggregate, getUmamiConfigPresence } from "@/lib/analytics/umami";
 import { fetchPlausibleAggregate } from "@/lib/analytics/plausible";
 import { syncAbandonedCartStatuses } from "@/lib/db/abandoned-carts";
-import type { DashboardAnalysisSummary, DashboardAnalysisSummaryItem } from "@/lib/admin-data-types";
+import type {
+  DashboardAnalysisSummary,
+  DashboardAnalysisSummaryItem,
+  DashboardAnalyticsStatus,
+  DashboardTrafficSource,
+} from "@/lib/admin-data-types";
 import type { AnalyticsStats, TimeRange, TrendData } from "@/types/analytics";
 
 type OrderRow = {
@@ -39,10 +44,17 @@ type DashboardAnalyticsPayload = {
     addToCart: number;
     purchases: number;
   };
+  analyticsStatus: DashboardAnalyticsStatus;
   labels: {
     current: string;
     previous: string;
   };
+};
+
+type TrafficAggregateResult = {
+  visitors: number;
+  pageViews: number;
+  source: DashboardTrafficSource;
 };
 
 function toNumber(value: number | string | null | undefined): number {
@@ -188,7 +200,7 @@ async function getFallbackTrafficAggregate(
   supabase: ReturnType<typeof createServerClient>,
   startDate: string,
   endDate: string,
-) {
+): Promise<TrafficAggregateResult> {
   const [{ count: pageViewsCount }, visitorCount] = await Promise.all([
     supabase
       .from("page_views")
@@ -223,6 +235,7 @@ async function getFallbackTrafficAggregate(
   return {
     visitors: visitorCount,
     pageViews: Number(pageViewsCount || 0),
+    source: "internal",
   };
 }
 
@@ -236,6 +249,7 @@ async function fetchTrafficAggregate(
     return {
       visitors: umami.visitors,
       pageViews: umami.pageviews,
+      source: "umami" as const,
     };
   }
 
@@ -244,10 +258,21 @@ async function fetchTrafficAggregate(
     return {
       visitors: plausible.visitors,
       pageViews: plausible.pageviews,
+      source: "plausible" as const,
     };
   }
 
   return getFallbackTrafficAggregate(supabase, startDate, endDate);
+}
+
+function buildAnalyticsStatus(source: DashboardTrafficSource): DashboardAnalyticsStatus {
+  return {
+    provider: "umami",
+    source,
+    umami: getUmamiConfigPresence(),
+    // The storefront uses the platform's first-party analytics endpoint; raw PII is not exposed here.
+    storefrontTracking: "internal",
+  };
 }
 
 async function getEventCount(
@@ -506,6 +531,7 @@ export async function getDashboardAnalyticsPayload(
         addToCart: currentAddToCart,
         purchases: currentOrderStats.allOrdersCount,
       },
+      analyticsStatus: buildAnalyticsStatus(currentTraffic.source),
       labels,
     };
   });
