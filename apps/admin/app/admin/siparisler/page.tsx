@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowDownToLine,
@@ -10,28 +10,27 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
   ClipboardList,
   Copy,
   Eye,
   Filter,
+  GripVertical,
+  Info,
   Loader2,
-  ListChecks,
-  MapPin,
   MoreHorizontal,
   Package2,
+  Plus,
   Printer,
   RefreshCcw,
   Search,
-  ShoppingBag,
+  SlidersHorizontal,
   Truck,
-  UserRound,
   XCircle,
 } from "lucide-react";
 import type { CheckedState } from "@radix-ui/react-checkbox";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import { cn } from "@/lib/utils";
-import { AdminDataTable, AdminMetricCard, AdminPageHeader } from "@/components/admin/AdminPageShell";
+import { AdminDataTable } from "@/components/admin/AdminPageShell";
 import {
   ORDER_STATUS_CONFIG,
   type Order,
@@ -62,12 +61,21 @@ type DisplayOrderItem = Order["items"][number] & {
 type DisplayOrder = Omit<Order, "items" | "shippingAddress"> & {
   items: DisplayOrderItem[];
   shippingAddress: DisplayAddress;
+  salesChannel?: string;
 };
 
 type SortOption = "newest" | "oldest" | "highest" | "lowest";
 type DateRangeOption = "all" | "today" | "last7" | "last30" | "thisMonth";
 type FulfillmentState = "none" | "waiting" | "preparing" | "shipped" | "delivered";
 type ActiveFilterKey = "search" | "status" | "date" | "payment" | "fulfillment";
+type OrderColumnKey =
+  | "order"
+  | "date"
+  | "customer"
+  | "status"
+  | "payment"
+  | "total"
+  | "channel";
 type BulkAction =
   | ""
   | "confirm"
@@ -78,6 +86,26 @@ type BulkAction =
   | "export";
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
+
+const DEFAULT_VISIBLE_COLUMNS: Record<OrderColumnKey, boolean> = {
+  order: true,
+  date: true,
+  customer: true,
+  status: true,
+  payment: true,
+  total: true,
+  channel: true,
+};
+
+const ORDER_TABLE_COLUMNS: { key: OrderColumnKey; label: string }[] = [
+  { key: "order", label: "Sipariş" },
+  { key: "date", label: "Tarih" },
+  { key: "customer", label: "Müşteri" },
+  { key: "status", label: "Sipariş Durumu" },
+  { key: "payment", label: "Ödeme Durumu" },
+  { key: "total", label: "Toplam Tutar" },
+  { key: "channel", label: "Satış Kanalı" },
+];
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "newest", label: "En yeni" },
@@ -134,7 +162,7 @@ const ORDER_STATUS_SEQUENCE: OrderStatus[] = [
 
 const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
   pending: "border-[#FDE68A] bg-[#FFF7E8] text-[#B45309]",
-  confirmed: "border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]",
+  confirmed: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   preparing: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   shipped: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   delivered: "border-[#BBF7D0] bg-[#EAF8EF] text-[#15803D]",
@@ -144,18 +172,28 @@ const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
 
 const PAYMENT_STATUS_STYLES: Record<PaymentStatus, string> = {
   pending: "border-[#FDE68A] bg-[#FFF7E8] text-[#B45309]",
-  processing: "border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]",
+  processing: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   completed: "border-[#BBF7D0] bg-[#EAF8EF] text-[#15803D]",
   failed: "border-[#FECACA] bg-[#FDECEC] text-[#DC2626]",
   refunded: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
 };
 
 const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  pending: "Bekliyor",
+  pending: "Ödeme Bekleniyor",
   processing: "İşleniyor",
   completed: "Başarılı",
   failed: "Başarısız",
   refunded: "İade edildi",
+};
+
+const ORDER_TABLE_STATUS_LABELS: Record<OrderStatus, string> = {
+  pending: "Oluşturuldu",
+  confirmed: "Onaylandı",
+  preparing: "Hazırlanıyor",
+  shipped: "Kargolandı",
+  delivered: "Teslim edildi",
+  cancelled: "İptal",
+  refunded: "İade",
 };
 
 const FULFILLMENT_STATUS_META: Record<
@@ -168,7 +206,7 @@ const FULFILLMENT_STATUS_META: Record<
   },
   waiting: {
     label: "Bekliyor",
-    className: "border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]",
+    className: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   },
   preparing: {
     label: "Hazırlanıyor",
@@ -273,6 +311,16 @@ function transformOrder(dbOrder: Record<string, unknown>): DisplayOrder {
     notes: typeof dbOrder.notes === "string" ? dbOrder.notes : undefined,
     couponCode:
       typeof dbOrder.coupon_code === "string" ? dbOrder.coupon_code : undefined,
+    salesChannel:
+      typeof dbOrder.sales_channel === "string"
+        ? dbOrder.sales_channel
+        : typeof dbOrder.channel === "string"
+          ? dbOrder.channel
+          : typeof dbOrder.source === "string"
+            ? dbOrder.source
+            : typeof dbOrder.order_source === "string"
+              ? dbOrder.order_source
+              : undefined,
   };
 }
 
@@ -339,6 +387,20 @@ function getLocationLabel(order: DisplayOrder) {
   return city || district || "Konum bilgisi yok";
 }
 
+function getSalesChannelLabel(order: DisplayOrder) {
+  const rawChannel = order.salesChannel?.trim();
+  if (rawChannel) return rawChannel;
+  if (order.paymentMethod === "cash-on-delivery") return "Manuel Sipariş";
+  return "Online Mağaza";
+}
+
+function formatOrderDateLabel(date: Date) {
+  const today = startOfDay(new Date()).getTime();
+  const target = startOfDay(date).getTime();
+  if (target === today) return "Bugün";
+  return formatDate(date);
+}
+
 function getFulfillmentState(status: OrderStatus): FulfillmentState {
   if (status === "preparing") return "preparing";
   if (status === "shipped") return "shipped";
@@ -376,70 +438,6 @@ function matchesDateRange(order: DisplayOrder, range: DateRangeOption) {
   const monthStart = startOfMonth(now);
   const nextMonthStart = startOfNextMonth(now);
   return orderTime >= monthStart.getTime() && orderTime < nextMonthStart.getTime();
-}
-
-function getPeriodComparison(range: "last7" | "last30" | "today") {
-  const now = new Date();
-  const todayStart = startOfDay(now);
-  const tomorrowStart = addDays(todayStart, 1);
-
-  if (range === "today") {
-    return {
-      currentStart: todayStart,
-      currentEnd: tomorrowStart,
-      previousStart: addDays(todayStart, -1),
-      previousEnd: todayStart,
-    };
-  }
-
-  if (range === "last7") {
-    return {
-      currentStart: startOfDay(addDays(now, -6)),
-      currentEnd: tomorrowStart,
-      previousStart: startOfDay(addDays(now, -13)),
-      previousEnd: startOfDay(addDays(now, -6)),
-    };
-  }
-
-  return {
-    currentStart: startOfDay(addDays(now, -29)),
-    currentEnd: tomorrowStart,
-    previousStart: startOfDay(addDays(now, -59)),
-    previousEnd: startOfDay(addDays(now, -29)),
-  };
-}
-
-function countOrdersBetween(
-  orders: DisplayOrder[],
-  start: Date,
-  end: Date,
-  field: "count" | "revenue" = "count"
-) {
-  const scoped = orders.filter((order) => {
-    const time = order.createdAt.getTime();
-    return time >= start.getTime() && time < end.getTime();
-  });
-
-  if (field === "revenue") {
-    return scoped.reduce((sum, order) => sum + order.total, 0);
-  }
-
-  return scoped.length;
-}
-
-function getChangePercent(current: number, previous: number) {
-  if (previous === 0) {
-    if (current === 0) return 0;
-    return 100;
-  }
-
-  return ((current - previous) / previous) * 100;
-}
-
-function formatChangePercent(value: number) {
-  const absolute = Math.abs(value);
-  if (!Number.isFinite(absolute)) return "%0";
-  return `%${absolute.toFixed(0)}`;
 }
 
 function getOptionLabel<T extends string>(
@@ -500,109 +498,6 @@ function exportOrdersCsv(orders: DisplayOrder[]) {
   downloadCsv("siparisler.csv", rows);
 }
 
-function MetricCard({
-  title,
-  value,
-  icon: Icon,
-  tone,
-  context,
-  delta,
-}: {
-  title: string;
-  value: string;
-  icon: typeof ShoppingBag;
-  tone: string;
-  context: string;
-  delta?: number | null;
-}) {
-  const isPositive = (delta ?? 0) >= 0;
-  const resolvedTone = tone.includes("#BBF7D0")
-    ? "success"
-    : tone.includes("#FDE68A")
-      ? "warning"
-      : tone.includes("#BFDBFE")
-        ? "info"
-        : "accent";
-
-  return (
-    <AdminMetricCard
-      label={title}
-      value={value}
-      icon={Icon}
-      tone={resolvedTone}
-      context={context}
-      delta={typeof delta === "number" ? `${isPositive ? "+" : "-"} ${formatChangePercent(delta)}` : undefined}
-    />
-  );
-}
-
-function ToolbarMetaChip({
-  icon: Icon,
-  label,
-  value,
-  toneClassName,
-}: {
-  icon: typeof ShoppingBag;
-  label: string;
-  value: string;
-  toneClassName: string;
-}) {
-  return (
-    <div className="inline-flex min-h-[54px] items-center gap-3 rounded-[20px] border border-[#E7EAF0] bg-white px-3.5 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
-      <span
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border",
-          toneClassName,
-        )}
-      >
-        <Icon className="h-4.5 w-4.5" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">
-          {label}
-        </p>
-        <p className="mt-1 truncate text-sm font-semibold text-[#1F2937]">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function StatusChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex min-h-[42px] shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium whitespace-nowrap transition-all",
-        active
-          ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04] shadow-[0_10px_22px_rgba(255,106,0,0.12)]"
-          : "border-[#E7EAF0] bg-white text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]"
-      )}
-    >
-      <span>{label}</span>
-      <span
-        className={cn(
-          "rounded-full px-2 py-0.5 text-xs font-semibold",
-          active ? "bg-white text-[#E85D04]" : "bg-[#F3F4F6] text-[#6B7280]"
-        )}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
 function ActiveFilterChip({
   label,
   onClear,
@@ -620,6 +515,114 @@ function ActiveFilterChip({
       <span className="truncate">{label}</span>
       <XCircle className="h-3.5 w-3.5 text-[#9CA3AF]" />
     </button>
+  );
+}
+
+function TableHeaderCell({
+  children,
+  sortable = false,
+  active = false,
+  onClick,
+  className,
+}: {
+  children: ReactNode;
+  sortable?: boolean;
+  active?: boolean;
+  onClick?: () => void;
+  className?: string;
+}) {
+  const content = (
+    <>
+      <span>{children}</span>
+      {sortable ? (
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 transition-colors",
+            active ? "text-[#E85D04]" : "text-[#8A94A6]",
+          )}
+        />
+      ) : null}
+    </>
+  );
+
+  return (
+    <th
+      scope="col"
+      className={cn(
+        "whitespace-nowrap px-4 py-3 text-left text-[14px] font-semibold text-[#5E6878]",
+        className,
+      )}
+    >
+      {sortable && onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="inline-flex items-center gap-2 transition-colors hover:text-[#E85D04]"
+        >
+          {content}
+        </button>
+      ) : (
+        <span className="inline-flex items-center gap-2">{content}</span>
+      )}
+    </th>
+  );
+}
+
+function ColumnSettingsMenu({
+  visibleColumns,
+  onToggleColumn,
+}: {
+  visibleColumns: Record<OrderColumnKey, boolean>;
+  onToggleColumn: (column: OrderColumnKey) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Tablo sütunlarını düzenle"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] shadow-[0_1px_2px_rgba(17,24,39,0.025)] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+        >
+          <SlidersHorizontal className="h-5 w-5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-[280px] rounded-[12px] border-[#E1E6EF] bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)]"
+      >
+        {ORDER_TABLE_COLUMNS.map((column) => {
+          const enabled = visibleColumns[column.key];
+
+          return (
+            <DropdownMenuItem
+              key={column.key}
+              onSelect={(event) => {
+                event.preventDefault();
+                onToggleColumn(column.key);
+              }}
+              className="flex cursor-pointer items-center gap-3 rounded-[8px] px-3 py-2.5 text-[14px] font-semibold text-[#1F2937] focus:bg-[#FFF8F3] focus:text-[#E85D04]"
+            >
+              <GripVertical className="h-4 w-4 shrink-0 text-[#8A94A6]" />
+              <span className="min-w-0 flex-1 truncate">{column.label}</span>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors",
+                  enabled ? "bg-[#FF6A00]" : "bg-[#D6DEE8]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.24)] transition-transform",
+                    enabled ? "translate-x-[18px]" : "translate-x-0.5",
+                  )}
+                />
+              </span>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -644,67 +647,42 @@ function ToneBadge({
 
 function OrdersPageSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="rounded-[26px] border border-[#E7EAF0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="w-full space-y-3">
-                <Skeleton className="h-4 w-28 bg-[#EEF1F4]" />
-                <Skeleton className="h-9 w-24 bg-[#EEF1F4]" />
-                <Skeleton className="h-3 w-32 bg-[#EEF1F4]" />
-              </div>
-              <Skeleton className="h-14 w-14 rounded-[1.1rem] bg-[#EEF1F4]" />
-            </div>
+    <div>
+      <div className="border-b border-[#E8EDF4] px-4 py-5 md:px-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row">
+            <Skeleton className="h-11 w-full rounded-[7px] bg-[#EEF1F4] sm:max-w-[420px]" />
+            <Skeleton className="h-11 w-28 rounded-[7px] bg-[#EEF1F4]" />
           </div>
-        ))}
+          <div className="flex gap-2">
+            <Skeleton className="h-11 w-11 rounded-[7px] bg-[#EEF1F4]" />
+            <Skeleton className="h-11 w-11 rounded-[7px] bg-[#EEF1F4]" />
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-        <div className="grid gap-3 min-[1360px]:grid-cols-[minmax(0,1.3fr)_220px_190px_auto_auto]">
-          <Skeleton className="h-12 rounded-2xl bg-[#EEF1F4]" />
-          <Skeleton className="h-12 rounded-2xl bg-[#EEF1F4]" />
-          <Skeleton className="h-12 rounded-2xl bg-[#EEF1F4]" />
-          <Skeleton className="h-12 rounded-2xl bg-[#EEF1F4]" />
-          <Skeleton className="h-12 rounded-2xl bg-[#EEF1F4]" />
-        </div>
-
-        <div className="mt-6 space-y-3">
-          {Array.from({ length: 5 }).map((_, index) => (
+      <div className="max-w-full overflow-x-auto">
+        <div className="min-w-[1180px]">
+          <div className="grid grid-cols-[48px_150px_130px_260px_170px_190px_150px_190px_104px] bg-[#EEF2F6] px-4 py-3">
+            {Array.from({ length: 9 }).map((_, index) => (
+              <Skeleton key={index} className="h-5 w-20 rounded bg-[#E1E6EF]" />
+            ))}
+          </div>
+          {Array.from({ length: 5 }).map((_, rowIndex) => (
             <div
-              key={index}
-              className="rounded-[22px] border border-[#EEF1F4] bg-white px-4 py-4"
+              key={rowIndex}
+              className="grid grid-cols-[48px_150px_130px_260px_170px_190px_150px_190px_104px] border-b border-[#EEF1F4] px-4 py-4"
             >
-              <div className="grid gap-4 min-[1400px]:grid-cols-[32px_minmax(0,1.6fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.1fr)_minmax(0,0.7fr)_84px] min-[1400px]:items-center">
-                <Skeleton className="h-5 w-5 rounded bg-[#EEF1F4]" />
-                <div className="space-y-2">
-                  <Skeleton className="h-5 w-40 bg-[#EEF1F4]" />
-                  <Skeleton className="h-3 w-52 bg-[#EEF1F4]" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-24 rounded-full bg-[#EEF1F4]" />
-                  <Skeleton className="h-3 w-28 bg-[#EEF1F4]" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-20 rounded-full bg-[#EEF1F4]" />
-                  <Skeleton className="h-6 w-24 rounded-full bg-[#EEF1F4]" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-10 w-full rounded-xl bg-[#EEF1F4]" />
-                  <Skeleton className="h-3 w-24 bg-[#EEF1F4]" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-5 w-20 bg-[#EEF1F4]" />
-                  <Skeleton className="h-3 w-24 bg-[#EEF1F4]" />
-                </div>
-                <div className="flex gap-2">
-                  <Skeleton className="h-10 w-10 rounded-xl bg-[#EEF1F4]" />
-                  <Skeleton className="h-10 w-10 rounded-xl bg-[#EEF1F4]" />
-                </div>
-              </div>
+              {Array.from({ length: 9 }).map((__, cellIndex) => (
+                <Skeleton
+                  key={cellIndex}
+                  className={cn(
+                    "h-6 rounded bg-[#EEF1F4]",
+                    cellIndex === 0 ? "w-5" : "w-24",
+                    cellIndex === 3 ? "w-44" : "",
+                  )}
+                />
+              ))}
             </div>
           ))}
         </div>
@@ -841,149 +819,133 @@ function OrderListRow({
   checked,
   onCheckedChange,
   onQuickStatusChange,
+  visibleColumns,
 }: {
   order: DisplayOrder;
   checked: boolean;
   onCheckedChange: (checked: CheckedState) => void;
   onQuickStatusChange: (orderId: string, status: OrderStatus) => Promise<void>;
+  visibleColumns: Record<OrderColumnKey, boolean>;
 }) {
-  const statusMeta = ORDER_STATUS_CONFIG[order.status];
   const paymentClass = PAYMENT_STATUS_STYLES[order.paymentStatus];
-  const fulfillmentMeta = getFulfillmentLabel(order.status);
-  const primaryItem = order.items[0];
-  const otherItemsCount = Math.max(order.items.length - 1, 0);
   const customerEmail = getCustomerEmail(order);
+  const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <article
+    <tr
       aria-selected={checked}
       className={cn(
-        "border-b border-[#EEF1F4] px-4 py-4 transition-colors md:px-6",
-        checked ? "bg-[#FFF8F3]" : "hover:bg-[#FBFCFD]",
+        "border-b border-[#EEF1F4] text-[14px] transition-colors last:border-b-0",
+        checked ? "bg-[#FFF8F3]" : "bg-white hover:bg-[#FFFCF9]",
       )}
     >
-      <div className="grid gap-4 min-[1400px]:grid-cols-[32px_minmax(0,1.65fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,0.72fr)_92px] min-[1400px]:items-center">
-        <div className="flex items-start pt-1">
-          <Checkbox
-            checked={checked}
-            onCheckedChange={onCheckedChange}
-            className="h-5 w-5 rounded-md border-[#D1D5DB] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00]"
-            aria-label={`#${order.orderNumber} siparişini seç`}
-          />
-        </div>
+      <td className="w-12 px-4 py-4 align-middle">
+        <Checkbox
+          checked={checked}
+          onCheckedChange={onCheckedChange}
+          className="h-5 w-5 rounded-md border-[#D7DEE8] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00]"
+          aria-label={`#${order.orderNumber} siparişini seç`}
+        />
+      </td>
 
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-[#6B7280]">
+      {visibleColumns.order ? (
+        <td className="min-w-[150px] px-4 py-4 align-middle">
+          <div className="flex items-center gap-2">
             <Link
               href={`/admin/siparisler/${order.id}`}
-              className="text-base font-semibold tracking-[-0.02em] text-[#1F2937] transition-colors hover:text-[#E85D04]"
+              className="font-semibold tracking-[-0.01em] text-[#111827] transition-colors hover:text-[#E85D04]"
             >
-              #{order.orderNumber}
+              {order.orderNumber}
             </Link>
-            <span className="text-[#D1D5DB]">•</span>
-            <span>{formatDate(order.createdAt)}</span>
-            <span className="text-[#D1D5DB]">•</span>
-            <span>{formatTime(order.createdAt)}</span>
+            {order.couponCode ? (
+              <span className="rounded-[6px] border border-[#FFD7BF] bg-[#FFF1E8] px-2 py-0.5 text-[11px] font-semibold text-[#E85D04]">
+                Kupon
+              </span>
+            ) : null}
           </div>
+        </td>
+      ) : null}
 
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-[#374151]">
-              <UserRound className="h-4 w-4 text-[#9CA3AF]" />
-              <span>{getCustomerName(order)}</span>
-            </div>
-            <div className="text-sm text-[#6B7280]">{customerEmail}</div>
+      {visibleColumns.date ? (
+        <td className="min-w-[130px] px-4 py-4 align-middle">
+          <div className="space-y-1">
+            <p className="font-semibold text-[#1F2937]">{formatOrderDateLabel(order.createdAt)}</p>
+            <p className="text-[13px] font-medium text-[#6B7280]">{formatTime(order.createdAt)}</p>
           </div>
-        </div>
+        </td>
+      ) : null}
 
-        <div className="space-y-2">
+      {visibleColumns.customer ? (
+        <td className="min-w-[260px] px-4 py-4 align-middle">
+          <div className="min-w-0 space-y-1">
+            <p className="max-w-[260px] truncate font-semibold text-[#1F2937]">
+              {getCustomerName(order)}
+            </p>
+            <p className="max-w-[260px] truncate text-[13px] font-medium text-[#6B7280]">
+              {customerEmail}
+            </p>
+          </div>
+        </td>
+      ) : null}
+
+      {visibleColumns.status ? (
+        <td className="min-w-[170px] px-4 py-4 align-middle">
           <ToneBadge
-            label={statusMeta.label}
+            label={ORDER_TABLE_STATUS_LABELS[order.status]}
             className={ORDER_STATUS_STYLES[order.status]}
           />
-          <p className="text-sm text-[#6B7280]">{statusMeta.description}</p>
-        </div>
+        </td>
+      ) : null}
 
-        <div className="space-y-3">
+      {visibleColumns.payment ? (
+        <td className="min-w-[190px] px-4 py-4 align-middle">
+          <ToneBadge
+            label={PAYMENT_STATUS_LABELS[order.paymentStatus]}
+            className={paymentClass}
+          />
+        </td>
+      ) : null}
+
+      {visibleColumns.total ? (
+        <td className="min-w-[150px] px-4 py-4 align-middle">
           <div className="space-y-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9CA3AF]">
-              Ödeme
+            <p className="font-semibold text-[#111827]">{formatPrice(order.total)}</p>
+            <p className="text-[13px] font-semibold text-[#E85D04]">
+              {itemCount.toLocaleString("tr-TR")} ürün
+            </p>
+          </div>
+        </td>
+      ) : null}
+
+      {visibleColumns.channel ? (
+        <td className="min-w-[190px] px-4 py-4 align-middle">
+          <div className="inline-flex min-w-0 items-center gap-2 text-[#1F2937]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9] text-[#6B7280]">
+              <ClipboardList className="h-4 w-4" />
             </span>
-            <div>
-              <ToneBadge
-                label={PAYMENT_STATUS_LABELS[order.paymentStatus]}
-                className={paymentClass}
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9CA3AF]">
-              Fulfillment
+            <span className="max-w-[140px] truncate font-semibold">
+              {getSalesChannelLabel(order)}
             </span>
-            <div>
-              <ToneBadge
-                label={fulfillmentMeta.label}
-                className={fulfillmentMeta.className}
-              />
-            </div>
           </div>
-        </div>
+        </td>
+      ) : null}
 
-        <div className="flex gap-3">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] border border-[#E7EAF0] bg-[#F9F9F9]">
-            {primaryItem?.imageUrl ? (
-              <div
-                className="h-full w-full bg-cover bg-center"
-                style={{ backgroundImage: `url(${primaryItem.imageUrl})` }}
-              />
-            ) : (
-              <Package2 className="h-6 w-6 text-[#9CA3AF]" />
-            )}
-          </div>
-
-          <div className="min-w-0 space-y-1.5">
-            <p className="line-clamp-2 text-sm font-medium leading-5 text-[#374151]">
-              {primaryItem?.productName || "Ürün bilgisi yok"}
-              {primaryItem?.variantName ? ` · ${primaryItem.variantName}` : ""}
-            </p>
-            <div className="inline-flex items-center gap-1.5 text-xs text-[#6B7280]">
-              <MapPin className="h-3.5 w-3.5 text-[#FF6A00]" />
-              <span>{getLocationLabel(order)}</span>
-            </div>
-            <p className="text-xs text-[#9CA3AF]">
-              {primaryItem ? `${primaryItem.quantity} adet` : "0 adet"}
-              {otherItemsCount > 0 ? ` · +${otherItemsCount} ürün kalemi` : " · 1 ürün kalemi"}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-1 xl:text-right">
-          <p className="text-lg font-semibold tracking-[-0.03em] text-[#1F2937]">
-            {formatPrice(order.total)}
-          </p>
-          {order.discount > 0 ? (
-            <p className="text-xs font-medium text-[#16A34A]">
-              {formatPrice(order.discount)} indirim uygulandı
-            </p>
-          ) : (
-            <p className="text-xs text-[#9CA3AF]">İndirim uygulanmadı</p>
-          )}
-        </div>
-
-        <div className="flex items-center justify-start gap-2 xl:justify-end">
+      <td className="w-[104px] px-4 py-4 align-middle">
+        <div className="flex items-center justify-end gap-2">
           <Link
             href={`/admin/siparisler/${order.id}`}
             aria-label={`#${order.orderNumber} detayını görüntüle`}
             className={cn(
               buttonVariants({ variant: "secondary", size: "sm" }),
-              "h-10 w-10 rounded-xl border-[#E7EAF0] px-0 text-[#374151] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+              "h-9 w-9 rounded-[7px] border-[#E1E6EF] bg-white px-0 text-[#6B7280] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
             )}
           >
             <Eye className="h-4 w-4" />
           </Link>
           <RowActionMenu order={order} onQuickStatusChange={onQuickStatusChange} />
         </div>
-      </div>
-    </article>
+      </td>
+    </tr>
   );
 }
 
@@ -998,13 +960,14 @@ export default function OrdersPage() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | "all">("all");
   const [fulfillmentFilter, setFulfillmentFilter] = useState<FulfillmentState | "all">("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState<BulkAction>("");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [visibleColumns, setVisibleColumns] =
+    useState<Record<OrderColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isBulkRunning, setIsBulkRunning] = useState(false);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const loadOrders = async () => {
     setErrorMessage("");
@@ -1019,7 +982,6 @@ export default function OrdersPage() {
       }
 
       setOrders((data.orders || []).map(transformOrder));
-      setLastUpdatedAt(new Date());
     } catch (error) {
       console.error("Failed to load orders:", error);
       setErrorMessage(
@@ -1072,23 +1034,6 @@ export default function OrdersPage() {
       return searchMatches && dateMatches && paymentMatches && fulfillmentMatches;
     });
   }, [dateRange, fulfillmentFilter, orders, paymentFilter, searchQuery]);
-
-  const statusTabs = useMemo(() => {
-    const counts = ORDER_STATUS_SEQUENCE.map((status) => ({
-      value: status,
-      label: ORDER_STATUS_CONFIG[status].label,
-      count: baseFilteredOrders.filter((order) => order.status === status).length,
-    }));
-
-    return [
-      {
-        value: "all" as const,
-        label: "Tümü",
-        count: baseFilteredOrders.length,
-      },
-      ...counts,
-    ];
-  }, [baseFilteredOrders]);
 
   const filteredOrders = useMemo(() => {
     const scoped = baseFilteredOrders.filter((order) =>
@@ -1144,45 +1089,6 @@ export default function OrdersPage() {
     dateRange !== "all" ||
     paymentFilter !== "all" ||
     fulfillmentFilter !== "all";
-
-  const totalOrders = orders.length;
-  const todayComparison = getPeriodComparison("today");
-  const last7Comparison = getPeriodComparison("last7");
-  const last30Comparison = getPeriodComparison("last30");
-
-  const totalOrdersDelta = getChangePercent(
-    countOrdersBetween(orders, last7Comparison.currentStart, last7Comparison.currentEnd),
-    countOrdersBetween(orders, last7Comparison.previousStart, last7Comparison.previousEnd)
-  );
-
-  const todayOrders = countOrdersBetween(
-    orders,
-    todayComparison.currentStart,
-    todayComparison.currentEnd
-  );
-  const todayOrdersDelta = getChangePercent(
-    todayOrders,
-    countOrdersBetween(orders, todayComparison.previousStart, todayComparison.previousEnd)
-  );
-
-  const pendingActionableOrders = orders.filter((order) =>
-    ["pending", "confirmed", "preparing", "shipped"].includes(order.status)
-  );
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-  const revenueDelta = getChangePercent(
-    countOrdersBetween(
-      orders,
-      last30Comparison.currentStart,
-      last30Comparison.currentEnd,
-      "revenue"
-    ),
-    countOrdersBetween(
-      orders,
-      last30Comparison.previousStart,
-      last30Comparison.previousEnd,
-      "revenue"
-    )
-  );
 
   const activeFilterChips = useMemo(
     () =>
@@ -1261,6 +1167,20 @@ export default function OrdersPage() {
       }
 
       return current.filter((id) => id !== orderId);
+    });
+  };
+
+  const handleToggleColumn = (column: OrderColumnKey) => {
+    setVisibleColumns((current) => {
+      const visibleCount = Object.values(current).filter(Boolean).length;
+      if (current[column] && visibleCount <= 1) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [column]: !current[column],
+      };
     });
   };
 
@@ -1350,143 +1270,45 @@ export default function OrdersPage() {
   return (
     <main className="min-h-screen bg-[#F9F9F9]">
       <div className="mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
-        <div className="space-y-6">
-          <AdminPageHeader
-            sectionLabel="Operasyon"
-            title="Siparişler"
-            description="Sipariş, ödeme ve teslimat akışını tek listede takip edin. Durum değişiklikleri ve toplu işlemler mevcut akış mantığıyla çalışmaya devam eder."
-          />
+        <section className="overflow-hidden rounded-[10px] border border-[#E1E6EF] bg-white shadow-none">
+          <header className="flex min-h-[76px] flex-col gap-3 border-b border-[#E8EDF4] px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <h1 className="truncate text-[1.45rem] font-semibold tracking-[-0.03em] text-[#111827]">
+                Siparişler
+              </h1>
+              <Info className="h-4.5 w-4.5 shrink-0 text-[#7B8797]" aria-hidden="true" />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 gap-2 rounded-[7px] border-[#E1E6EF] bg-white px-4 text-[14px] font-semibold text-[#1F2937] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                onClick={() => exportOrdersCsv(filteredOrders)}
+              >
+                <ArrowDownToLine className="h-4.5 w-4.5 text-[#6B7280]" />
+                Dışa Aktar
+              </Button>
+              <Link
+                href="/admin/siparisler/hizli-siparis"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-[7px] bg-[#FF6A00] px-4 text-[14px] font-semibold text-white shadow-[0_12px_24px_rgba(255,106,0,0.16)] transition-colors hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+              >
+                <Plus className="h-4.5 w-4.5" />
+                Sipariş Oluştur
+              </Link>
+            </div>
+          </header>
 
           {loading ? (
             <OrdersPageSkeleton />
           ) : (
-            <>
-              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <MetricCard
-                  title="Toplam Sipariş"
-                  value={totalOrders.toLocaleString("tr-TR")}
-                  icon={ShoppingBag}
-                  tone="border-[#FFD7BF] bg-[#FFF1E8] text-[#FF6A00]"
-                  context="Son 7 güne göre"
-                  delta={totalOrdersDelta}
-                />
-                <MetricCard
-                  title="Bugünkü Sipariş"
-                  value={todayOrders.toLocaleString("tr-TR")}
-                  icon={CalendarRange}
-                  tone="border-[#BFDBFE] bg-[#EAF2FF] text-[#3B82F6]"
-                  context={`Dün: ${countOrdersBetween(
-                    orders,
-                    todayComparison.previousStart,
-                    todayComparison.previousEnd
-                  ).toLocaleString("tr-TR")}`}
-                  delta={todayOrdersDelta}
-                />
-                <MetricCard
-                  title="Bekleyen İşlem"
-                  value={pendingActionableOrders.length.toLocaleString("tr-TR")}
-                  icon={ListChecks}
-                  tone="border-[#FDE68A] bg-[#FFF7E8] text-[#F59E0B]"
-                  context={`Onay ${orders.filter((order) => order.status === "confirmed").length} · Hazırlık ${orders.filter((order) => order.status === "preparing").length} · Kargo ${orders.filter((order) => order.status === "shipped").length}`}
-                />
-                <MetricCard
-                  title="Toplam Ciro"
-                  value={formatPrice(totalRevenue)}
-                  icon={CircleDollarSign}
-                  tone="border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]"
-                  context={`Son 30 gün: ${formatPrice(
-                    countOrdersBetween(
-                      orders,
-                      last30Comparison.currentStart,
-                      last30Comparison.currentEnd,
-                      "revenue"
-                    )
-                  )}`}
-                  delta={revenueDelta}
-                />
-              </section>
-
-              <AdminDataTable>
-                <div className="border-b border-[#EEF1F4] bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] px-4 py-4 md:px-6">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex min-h-[30px] items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#E85D04]">
-                            Sipariş akışı
-                          </span>
-                          {lastUpdatedAt ? (
-                            <span className="text-xs font-medium text-[#9CA3AF]">
-                              Son yenileme: {formatDate(lastUpdatedAt)} · {formatTime(lastUpdatedAt)}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <div className="flex flex-wrap gap-2.5">
-                          <ToolbarMetaChip
-                            icon={ShoppingBag}
-                            label="Görünür kayıt"
-                            value={filteredOrders.length.toLocaleString("tr-TR")}
-                            toneClassName="border-[#DCE9FF] bg-[#F1F6FF] text-[#2563EB]"
-                          />
-                          <ToolbarMetaChip
-                            icon={ClipboardList}
-                            label="Bu sayfa"
-                            value={filteredOrders.length === 0 ? "0" : `${visibleStart}-${visibleEnd}`}
-                            toneClassName="border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
-                          />
-                          <ToolbarMetaChip
-                            icon={Filter}
-                            label="Aktif filtre"
-                            value={activeFilterCount > 0 ? `${activeFilterCount} filtre` : "Temiz"}
-                            toneClassName="border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
-                          />
-                        </div>
-
-                        {activeFilterCount > 0 ? (
-                          <div className="flex flex-wrap items-center gap-2">
-                            {activeFilterChips.map((filter) => (
-                              <ActiveFilterChip
-                                key={filter.key}
-                                label={filter.label}
-                                onClear={() => clearActiveFilter(filter.key)}
-                              />
-                            ))}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 rounded-full px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
-                              onClick={handleResetFilters}
-                            >
-                              Tümünü temizle
-                            </Button>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-[#6B7280]">
-                            Arama ve durum filtreleri temiz. Liste tüm operasyon akışını gösteriyor.
-                          </p>
-                        )}
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="min-h-[44px] gap-2 self-start rounded-2xl border-[#E7EAF0] px-4 text-[#374151] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
-                        onClick={handleRefresh}
-                      >
-                        {isRefreshing ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCcw className="h-4 w-4" />
-                        )}
-                        Yenile
-                      </Button>
-                    </div>
-
-                    <div className="grid gap-3 min-[1360px]:grid-cols-[minmax(0,1.35fr)_220px_190px_auto_auto]">
-                      <label className="relative block">
-                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+            <AdminDataTable className="rounded-none border-0 shadow-none">
+              <div className="border-b border-[#E8EDF4] bg-white px-4 py-5 md:px-5">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-center min-[1180px]:justify-between">
+                    <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                      <label className="relative block w-full sm:max-w-[420px]">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[#7B8797]" />
                         <input
                           type="text"
                           value={searchQuery}
@@ -1494,20 +1316,88 @@ export default function OrdersPage() {
                             setSearchQuery(event.target.value);
                             setCurrentPage(1);
                           }}
-                          placeholder="Sipariş numarası, müşteri adı veya e-posta ile ara"
-                          className="h-12 w-full rounded-2xl border border-[#E7EAF0] bg-white pl-11 pr-4 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                          placeholder="Tabloda arama yapın"
+                          className="h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white pl-11 pr-4 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
                         />
                       </label>
 
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className={cn(
+                          "h-11 justify-center gap-2 rounded-[7px] border-[#E1E6EF] bg-white px-4 text-[14px] font-semibold text-[#1F2937] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
+                          showAdvancedFilters || activeFilterCount > 0
+                            ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
+                            : "",
+                        )}
+                        onClick={() => setShowAdvancedFilters((current) => !current)}
+                        aria-expanded={showAdvancedFilters}
+                        aria-controls="orders-advanced-filters"
+                      >
+                        <Filter className="h-4.5 w-4.5" />
+                        Filtre
+                        {activeFilterCount > 0 ? (
+                          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold text-[#E85D04]">
+                            {activeFilterCount}
+                          </span>
+                        ) : null}
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="h-11 w-11 rounded-[7px] border-[#E1E6EF] bg-white px-0 text-[#6B7280] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                        onClick={handleRefresh}
+                        aria-label="Sipariş listesini yenile"
+                      >
+                        {isRefreshing ? (
+                          <Loader2 className="h-4.5 w-4.5 animate-spin" />
+                        ) : (
+                          <RefreshCcw className="h-4.5 w-4.5" />
+                        )}
+                      </Button>
+                      <ColumnSettingsMenu
+                        visibleColumns={visibleColumns}
+                        onToggleColumn={handleToggleColumn}
+                      />
+                    </div>
+                  </div>
+
+                  {showAdvancedFilters ? (
+                    <div
+                      id="orders-advanced-filters"
+                      className="grid gap-3 rounded-[10px] border border-[#E8EDF4] bg-[#F9F9F9] p-3 md:grid-cols-2 xl:grid-cols-5"
+                    >
                       <div className="relative">
-                        <CalendarRange className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                        <select
+                          value={statusFilter}
+                          onChange={(event) => {
+                            setStatusFilter(event.target.value as OrderStatus | "all");
+                            setCurrentPage(1);
+                          }}
+                          className="h-11 w-full appearance-none rounded-[7px] border border-[#E1E6EF] bg-white px-3 pr-9 text-[14px] font-medium text-[#374151] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
+                        >
+                          <option value="all">Tüm durumlar</option>
+                          {ORDER_STATUS_SEQUENCE.map((status) => (
+                            <option key={status} value={status}>
+                              {ORDER_TABLE_STATUS_LABELS[status]}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
+                      </div>
+
+                      <div className="relative">
+                        <CalendarRange className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
                         <select
                           value={dateRange}
                           onChange={(event) => {
                             setDateRange(event.target.value as DateRangeOption);
                             setCurrentPage(1);
                           }}
-                          className="h-12 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white pl-11 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                          className="h-11 w-full appearance-none rounded-[7px] border border-[#E1E6EF] bg-white pl-9 pr-9 text-[14px] font-medium text-[#374151] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
                         >
                           {DATE_RANGE_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1515,14 +1405,52 @@ export default function OrdersPage() {
                             </option>
                           ))}
                         </select>
-                        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
+                      </div>
+
+                      <div className="relative">
+                        <select
+                          value={paymentFilter}
+                          onChange={(event) => {
+                            setPaymentFilter(event.target.value as PaymentStatus | "all");
+                            setCurrentPage(1);
+                          }}
+                          className="h-11 w-full appearance-none rounded-[7px] border border-[#E1E6EF] bg-white px-3 pr-9 text-[14px] font-medium text-[#374151] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
+                        >
+                          {PAYMENT_FILTER_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
+                      </div>
+
+                      <div className="relative">
+                        <select
+                          value={fulfillmentFilter}
+                          onChange={(event) => {
+                            setFulfillmentFilter(
+                              event.target.value as FulfillmentState | "all",
+                            );
+                            setCurrentPage(1);
+                          }}
+                          className="h-11 w-full appearance-none rounded-[7px] border border-[#E1E6EF] bg-white px-3 pr-9 text-[14px] font-medium text-[#374151] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
+                        >
+                          {FULFILLMENT_FILTER_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
                       </div>
 
                       <div className="relative">
                         <select
                           value={sortBy}
                           onChange={(event) => setSortBy(event.target.value as SortOption)}
-                          className="h-12 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white px-4 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                          className="h-11 w-full appearance-none rounded-[7px] border border-[#E1E6EF] bg-white px-3 pr-9 text-[14px] font-medium text-[#374151] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
                         >
                           {SORT_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1530,284 +1458,250 @@ export default function OrdersPage() {
                             </option>
                           ))}
                         </select>
-                        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
                       </div>
-
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className={cn(
-                          "justify-center gap-2 rounded-2xl border-[#E7EAF0] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
-                          showAdvancedFilters || activeFilterCount > 0
-                            ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
-                            : ""
-                        )}
-                        onClick={() => setShowAdvancedFilters((current) => !current)}
-                        aria-expanded={showAdvancedFilters}
-                        aria-controls="orders-advanced-filters"
-                      >
-                        <Filter className="h-4 w-4" />
-                        Filtreler
-                        {activeFilterCount > 0 ? (
-                          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold text-[#E85D04]">
-                            {activeFilterCount}
-                          </span>
-                        ) : null}
-                      </Button>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="justify-center gap-2 rounded-2xl"
-                        onClick={() => exportOrdersCsv(filteredOrders)}
-                      >
-                        <ArrowDownToLine className="h-4 w-4" />
-                        Dışa aktar
-                      </Button>
                     </div>
+                  ) : null}
 
-                    {showAdvancedFilters ? (
-                      <div
-                        id="orders-advanced-filters"
-                        className="grid gap-3 rounded-[22px] border border-[#EEF1F4] bg-[#FBFCFD] p-3 md:grid-cols-2"
-                      >
-                        <div className="relative">
-                          <select
-                            value={paymentFilter}
-                            onChange={(event) => {
-                              setPaymentFilter(event.target.value as PaymentStatus | "all");
-                              setCurrentPage(1);
-                            }}
-                            className="h-11 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white px-4 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
-                          >
-                            {PAYMENT_FILTER_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
-                        </div>
-
-                        <div className="relative">
-                          <select
-                            value={fulfillmentFilter}
-                            onChange={(event) => {
-                              setFulfillmentFilter(
-                                event.target.value as FulfillmentState | "all"
-                              );
-                              setCurrentPage(1);
-                            }}
-                            className="h-11 w-full appearance-none rounded-2xl border border-[#E7EAF0] bg-white px-4 pr-10 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
-                          >
-                            {FULFILLMENT_FILTER_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                      <div className="-mx-1 overflow-x-auto pb-1">
-                        <div className="flex min-w-max gap-2 px-1 xl:min-w-0 xl:flex-wrap">
-                          {statusTabs.map((tab) => (
-                            <StatusChip
-                              key={tab.value}
-                              label={tab.label}
-                              count={tab.count}
-                              active={statusFilter === tab.value}
-                              onClick={() => {
-                                setStatusFilter(tab.value as OrderStatus | "all");
-                                setCurrentPage(1);
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm font-medium text-[#6B7280]">
-                        {filteredOrders.length.toLocaleString("tr-TR")} kayıt bulundu
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-b border-[#EEF1F4] bg-[#FBFCFD] px-4 py-3 md:px-6">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={pageSelectionState}
-                          onCheckedChange={handleTogglePageSelection}
-                          className="h-5 w-5 rounded-md border-[#D1D5DB] data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00]"
-                          aria-label="Bu sayfadaki siparişleri seç"
-                        />
-                        <span className="text-sm font-medium text-[#374151]">
-                          {hasSelection
-                            ? `${selectedIds.length} sipariş seçildi`
-                            : "Bu sayfadaki siparişleri seç"}
-                        </span>
-                      </div>
-
-                      {hasSelection ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedIds([]);
-                              setBulkAction("");
-                            }}
-                            className="inline-flex h-10 items-center rounded-xl border border-[#E7EAF0] bg-white px-3 text-sm font-medium text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04]"
-                          >
-                            Seçimi temizle
-                          </button>
-                          <div className="relative">
-                            <select
-                              value={bulkAction}
-                              onChange={(event) => setBulkAction(event.target.value as BulkAction)}
-                              className="h-10 appearance-none rounded-xl border border-[#E7EAF0] bg-white px-3 pr-9 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
-                            >
-                              {BULK_ACTION_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={selectedIds.length === 0 || !bulkAction}
-                            loading={isBulkRunning}
-                            className="rounded-xl"
-                            onClick={runBulkAction}
-                          >
-                            Uygula
-                          </Button>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-[#6B7280]">
-                          Çoklu durum güncelleme ve dışa aktarma için seçim yapın.
-                        </p>
-                      )}
-                    </div>
-
-                    <p className="text-sm text-[#6B7280]">
-                      {visibleStart}-{visibleEnd} / {filteredOrders.length} sipariş
-                    </p>
-                  </div>
-                </div>
-
-                {errorMessage ? (
-                  <div
-                    role="alert"
-                    className="border-b border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-medium text-[#B91C1C] md:px-6"
-                  >
-                    {errorMessage}
-                  </div>
-                ) : null}
-
-                {filteredOrders.length === 0 ? (
-                  <EmptyState hasFilters={hasActiveFilters} onReset={handleResetFilters} />
-                ) : (
-                  <>
-                    <div className="hidden border-b border-[#EEF1F4] bg-[#FBFCFD] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#9CA3AF] min-[1400px]:grid min-[1400px]:grid-cols-[32px_minmax(0,1.65fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,0.72fr)_92px] min-[1400px]:gap-4 md:px-6">
-                      <span />
-                      <span>Sipariş / Müşteri</span>
-                      <span>Durum</span>
-                      <span>Ödeme / Fulfillment</span>
-                      <span>Ürün / Teslimat</span>
-                      <span>Tutar</span>
-                      <span className="text-right">Aksiyonlar</span>
-                    </div>
-
-                    <div>
-                      {paginatedOrders.map((order) => (
-                        <OrderListRow
-                          key={order.id}
-                          order={order}
-                          checked={selectedIds.includes(order.id)}
-                          onCheckedChange={(checked) =>
-                            handleToggleOrderSelection(order.id, checked)
-                          }
-                          onQuickStatusChange={updateOrderStatus}
+                  {activeFilterCount > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {activeFilterChips.map((filter) => (
+                        <ActiveFilterChip
+                          key={filter.key}
+                          label={filter.label}
+                          onClear={() => clearActiveFilter(filter.key)}
                         />
                       ))}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 rounded-[7px] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                        onClick={handleResetFilters}
+                      >
+                        Tümünü temizle
+                      </Button>
                     </div>
+                  ) : null}
 
-                    <div className="flex flex-col gap-4 border-t border-[#EEF1F4] bg-[#FBFCFD] px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-                      <div className="flex items-center gap-3 text-sm text-[#6B7280]">
-                        <span>Sayfa başına</span>
+                  {hasSelection ? (
+                    <div className="flex flex-col gap-3 rounded-[10px] border border-[#FFD7BF] bg-[#FFF8F3] p-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-[#1F2937]">
+                          {selectedIds.length} sipariş seçildi
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedIds([]);
+                            setBulkAction("");
+                          }}
+                          className="inline-flex h-9 items-center rounded-[7px] border border-[#FFD7BF] bg-white px-3 text-sm font-semibold text-[#E85D04] transition-colors hover:bg-[#FFF1E8]"
+                        >
+                          Seçimi temizle
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
                         <div className="relative">
                           <select
-                            value={pageSize}
-                            onChange={(event) => {
-                              setPageSize(Number(event.target.value));
-                              setCurrentPage(1);
-                            }}
-                            className="h-10 appearance-none rounded-xl border border-[#E7EAF0] bg-white px-3 pr-8 text-sm text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                            value={bulkAction}
+                            onChange={(event) => setBulkAction(event.target.value as BulkAction)}
+                            className="h-9 appearance-none rounded-[7px] border border-[#FFD7BF] bg-white px-3 pr-9 text-sm text-[#374151] outline-none focus:border-[#E85D04] focus:ring-4 focus:ring-[#FFF1E8]"
                           >
-                            {ITEMS_PER_PAGE_OPTIONS.map((size) => (
-                              <option key={size} value={size}>
-                                {size}
+                            {BULK_ACTION_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
                               </option>
                             ))}
                           </select>
-                          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
                         </div>
-                        <span>kayıt</span>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-end md:self-auto">
-                        <button
+                        <Button
                           type="button"
-                          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                          disabled={currentPage === 1}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
+                          size="sm"
+                          disabled={selectedIds.length === 0 || !bulkAction}
+                          loading={isBulkRunning}
+                          className="h-9 rounded-[7px] bg-[#FF6A00] px-4 text-white hover:bg-[#E85D04]"
+                          onClick={runBulkAction}
                         >
-                          <ChevronLeft className="h-4 w-4" />
-                        </button>
-
-                        <div className="flex items-center gap-1">
-                          {paginationNumbers.map((pageNumber) => (
-                            <button
-                              key={pageNumber}
-                              type="button"
-                              onClick={() => setCurrentPage(pageNumber)}
-                              className={cn(
-                                "inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition-colors",
-                                pageNumber === currentPage
-                                  ? "bg-[#FF6A00] text-white shadow-[0_12px_24px_rgba(255,106,0,0.18)]"
-                                  : "border border-[#E7EAF0] bg-white text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]"
-                              )}
-                            >
-                              {pageNumber}
-                            </button>
-                          ))}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCurrentPage((page) => Math.min(totalPages, page + 1))
-                          }
-                          disabled={currentPage === totalPages}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
+                          Uygula
+                        </Button>
                       </div>
                     </div>
-                  </>
-                )}
-              </AdminDataTable>
-            </>
+                  ) : null}
+                </div>
+              </div>
+
+              {errorMessage ? (
+                <div
+                  role="alert"
+                  className="border-b border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-medium text-[#B91C1C] md:px-5"
+                >
+                  {errorMessage}
+                </div>
+              ) : null}
+
+              {filteredOrders.length === 0 ? (
+                <EmptyState hasFilters={hasActiveFilters} onReset={handleResetFilters} />
+              ) : (
+                <>
+                  <div className="max-w-full overflow-x-auto">
+                    <table className="w-full min-w-[1180px] border-collapse">
+                      <thead className="bg-[#EEF2F6]">
+                        <tr>
+                          <th scope="col" className="w-12 px-4 py-3 text-left">
+                            <Checkbox
+                              checked={pageSelectionState}
+                              onCheckedChange={handleTogglePageSelection}
+                              className="h-5 w-5 rounded-md border-[#D7DEE8] bg-white data-[state=checked]:border-[#FF6A00] data-[state=checked]:bg-[#FF6A00]"
+                              aria-label="Bu sayfadaki siparişleri seç"
+                            />
+                          </th>
+                          {visibleColumns.order ? (
+                            <TableHeaderCell
+                              sortable
+                              className="w-[150px]"
+                              onClick={() =>
+                                setSortBy(sortBy === "newest" ? "oldest" : "newest")
+                              }
+                              active={sortBy === "newest" || sortBy === "oldest"}
+                            >
+                              Sipariş
+                            </TableHeaderCell>
+                          ) : null}
+                          {visibleColumns.date ? (
+                            <TableHeaderCell
+                              sortable
+                              className="w-[130px]"
+                              onClick={() =>
+                                setSortBy(sortBy === "newest" ? "oldest" : "newest")
+                              }
+                              active={sortBy === "newest" || sortBy === "oldest"}
+                            >
+                              Tarih
+                            </TableHeaderCell>
+                          ) : null}
+                          {visibleColumns.customer ? (
+                            <TableHeaderCell className="w-[260px]">Müşteri</TableHeaderCell>
+                          ) : null}
+                          {visibleColumns.status ? (
+                            <TableHeaderCell className="w-[170px]">
+                              Sipariş Durumu
+                            </TableHeaderCell>
+                          ) : null}
+                          {visibleColumns.payment ? (
+                            <TableHeaderCell className="w-[190px]">
+                              Ödeme Durumu
+                            </TableHeaderCell>
+                          ) : null}
+                          {visibleColumns.total ? (
+                            <TableHeaderCell
+                              sortable
+                              className="w-[150px]"
+                              onClick={() =>
+                                setSortBy(sortBy === "highest" ? "lowest" : "highest")
+                              }
+                              active={sortBy === "highest" || sortBy === "lowest"}
+                            >
+                              Toplam Tutar
+                            </TableHeaderCell>
+                          ) : null}
+                          {visibleColumns.channel ? (
+                            <TableHeaderCell className="w-[190px]">Satış Kanalı</TableHeaderCell>
+                          ) : null}
+                          <th scope="col" className="w-[104px] px-4 py-3 text-right">
+                            <span className="sr-only">Aksiyonlar</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedOrders.map((order) => (
+                          <OrderListRow
+                            key={order.id}
+                            order={order}
+                            checked={selectedIds.includes(order.id)}
+                            visibleColumns={visibleColumns}
+                            onCheckedChange={(checked) =>
+                              handleToggleOrderSelection(order.id, checked)
+                            }
+                            onQuickStatusChange={updateOrderStatus}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-col gap-4 border-t border-[#E8EDF4] bg-white px-4 py-4 md:flex-row md:items-center md:justify-between md:px-5">
+                    <div className="flex flex-wrap items-center gap-3 text-[14px] font-medium text-[#5E6878]">
+                      <span>Satır Adedi:</span>
+                      <div className="relative">
+                        <select
+                          value={pageSize}
+                          onChange={(event) => {
+                            setPageSize(Number(event.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className="h-9 appearance-none rounded-[7px] border border-[#E1E6EF] bg-white px-3 pr-8 text-[14px] font-semibold text-[#1F2937] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
+                        >
+                          {ITEMS_PER_PAGE_OPTIONS.map((size) => (
+                            <option key={size} value={size}>
+                              {size}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
+                      </div>
+                      <span>
+                        {visibleStart} - {visibleEnd} / {filteredOrders.length} Sipariş
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end md:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                        disabled={currentPage === 1}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {paginationNumbers.map((pageNumber) => (
+                          <button
+                            key={pageNumber}
+                            type="button"
+                            onClick={() => setCurrentPage(pageNumber)}
+                            className={cn(
+                              "inline-flex h-9 min-w-9 items-center justify-center rounded-[7px] px-3 text-sm font-semibold transition-colors",
+                              pageNumber === currentPage
+                                ? "bg-[#FF6A00] text-white shadow-[0_10px_20px_rgba(255,106,0,0.16)]"
+                                : "border border-[#E1E6EF] bg-white text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]",
+                            )}
+                          >
+                            {pageNumber}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentPage((page) => Math.min(totalPages, page + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </AdminDataTable>
           )}
-        </div>
+        </section>
       </div>
     </main>
   );
