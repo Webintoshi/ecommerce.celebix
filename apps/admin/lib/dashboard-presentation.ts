@@ -183,3 +183,7 @@ export function buildDashboardGrowthRows(args: {
 export function getSalesSummaryPanelTitle(hasRealBestSellerData: boolean) {
   return hasRealBestSellerData ? "En Çok Satanlar" : "Son Satılanlar";
 }
+
+export function getDashboardAnalyticsHref() {
+  return "/admin#dashboard-analytics";
+}

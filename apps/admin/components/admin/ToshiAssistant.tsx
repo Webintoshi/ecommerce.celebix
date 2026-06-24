@@ -56,7 +56,7 @@ function ToshiMark({
 
 function getQuickPrompts(pathname: string): string[] {
   if (pathname === "/admin" || pathname === "/admin/") {
-    return ["Mağaza özeti", "Bekleyen siparişler", "Düşük stok uyarıları", "Müşteri istatistikleri"];
+    return ["Mağaza özeti", "Umami trafik özeti", "Bekleyen siparişler", "Düşük stok uyarıları"];
   }
 
   if (pathname.startsWith("/admin/siparisler")) {
@@ -73,10 +73,6 @@ function getQuickPrompts(pathname: string): string[] {
 
   if (pathname.startsWith("/admin/indirimler")) {
     return ["Aktif indirimler", "%20 indirimde kâr marjı hesapla", "İndirim önerisi"];
-  }
-
-  if (pathname.startsWith("/admin/analizler")) {
-    return ["Mağaza özeti", "Gelir analizi", "Ortalama sipariş değeri", "Büyüme oranı"];
   }
 
   if (pathname.startsWith("/admin/pazarlama")) {
@@ -101,7 +97,6 @@ function getPageContext(pathname: string): string {
     "/admin/urunler": "Ürünler. Katalog, stok ve ürün yönetimi.",
     "/admin/musteriler": "Müşteriler. Profil, segment ve sipariş geçmişi.",
     "/admin/indirimler": "İndirimler. Kampanya ve kupon akışı.",
-    "/admin/analizler": "Analizler. Satış trendi ve performans verileri.",
     "/admin/cms": "CMS. Blog, sayfa ve politika içerikleri.",
     "/admin/seo-killer": "SEO. Arama görünürlüğü ve içerik optimizasyonu.",
     "/admin/pazarlama": "Pazarlama. Kampanya araçları ve mesaj akışı.",

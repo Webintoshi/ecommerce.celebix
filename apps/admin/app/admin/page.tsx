@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import AdminDashboardClient from "./AdminDashboardClient";
 import { getAdminDashboardBootstrapData } from "@/lib/admin-dashboard";
 import type { DashboardBootstrapData } from "@/lib/admin-data-types";
+import { getDashboardAnalyticsHref } from "@/lib/dashboard-presentation";
 import { withServerTimeout } from "@/lib/server-timeout";
 
 export const metadata: Metadata = {
@@ -74,7 +75,7 @@ function getEmptyDashboardData(): DashboardBootstrapData {
           label: "Haftalık Ciro",
           value: 0,
           change: 0,
-          href: "/admin/analizler",
+          href: getDashboardAnalyticsHref(),
           format: "currency",
           tone: "emerald",
           trend: [],
@@ -84,7 +85,7 @@ function getEmptyDashboardData(): DashboardBootstrapData {
           label: "Dönüşüm Oranı",
           value: 0,
           change: 0,
-          href: "/admin/analizler",
+          href: getDashboardAnalyticsHref(),
           format: "percent",
           tone: "violet",
           trend: [],

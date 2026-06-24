@@ -35,13 +35,6 @@ function getShellMeta(pathname: string) {
     };
   }
 
-  if (pathname.startsWith("/admin/analizler")) {
-    return {
-      title: "Analizler",
-      subtitle: "KPI ve operasyon metriklerini izleyin.",
-    };
-  }
-
   if (pathname.startsWith("/admin/cms")) {
     return {
       title: "İçerik",

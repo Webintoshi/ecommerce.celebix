@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ElementType, type TouchEvent as ReactTouchEvent } from "react";
 import {
   Archive,
-  BarChart3,
   Calculator,
   ChevronDown,
   ChevronRight,
@@ -157,7 +156,6 @@ const MENU_ITEMS: MenuItem[] = [
   { title: "Entegrasyonlar", icon: Store, href: "/admin/markets" },
   { title: "Yöneticiler", icon: AdminsIcon, href: "/admin/yoneticiler" },
   { title: "Genel Ayarlar", icon: Settings, href: "/admin/ayarlar" },
-  { title: "Analizler", icon: BarChart3, href: "/admin/analizler" },
   {
     title: "Muhasebe",
     icon: Calculator,
@@ -189,7 +187,7 @@ const MENU_GROUPS: MenuGroup[] = [
   { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Kuponlar", "Kampanyalar"] },
   { id: "store", label: "Mağaza", titles: ["Mağaza Görünümü", "Sayfalar / Blog", "Dil Ayarları"] },
   { id: "settings", label: "Ayarlar", titles: ["Ödeme", "Kargo", "Entegrasyonlar", "Yöneticiler", "Genel Ayarlar"] },
-  { id: "advanced", label: "Gelişmiş", titles: ["Analizler", "Muhasebe", "SEO Araçları"] },
+  { id: "advanced", label: "Gelişmiş", titles: ["Muhasebe", "SEO Araçları"] },
 ];
 
 interface SidebarProps {

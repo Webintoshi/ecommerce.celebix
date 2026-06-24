@@ -5,6 +5,7 @@ import {
   buildDashboardAnalyticsStatus,
   buildDashboardGrowthRows,
   buildDashboardSalesChannels,
+  getDashboardAnalyticsHref,
   getSalesSummaryPanelTitle,
 } from "./dashboard-presentation";
 
@@ -54,5 +55,10 @@ describe("dashboard presentation safety", () => {
 
   it("renames recent-order proxy panels away from best-seller wording", () => {
     assert.equal(getSalesSummaryPanelTitle(false), "Son Satılanlar");
+  });
+
+  it("keeps analytics inside the dashboard instead of linking to a separate page", () => {
+    assert.equal(getDashboardAnalyticsHref(), "/admin#dashboard-analytics");
+    assert.notEqual(getDashboardAnalyticsHref(), "/admin/analizler");
   });
 });

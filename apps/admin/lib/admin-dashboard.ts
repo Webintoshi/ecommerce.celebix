@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
 import { getLiveAnalyticsSnapshot } from "@/lib/live-analytics";
 import { getDashboardAnalyticsPayload } from "@/lib/dashboard-analytics";
+import { getDashboardAnalyticsHref } from "@/lib/dashboard-presentation";
 import { listAdminProductReviews } from "@/lib/product-reviews";
 import type {
   DashboardAnalyticsStatus,
@@ -192,7 +193,7 @@ function buildOverviewCards(
         label: revenueLabel,
         value: analytics.stats.revenue,
         change: analytics.stats.revenueChange,
-        href: "/admin/analizler",
+        href: getDashboardAnalyticsHref(),
         format: "currency",
         tone: "emerald",
         trend: analytics.trendData.map((item) => item.revenue),
@@ -202,7 +203,7 @@ function buildOverviewCards(
         label: "Dönüşüm Oranı",
         value: analytics.stats.conversionRate,
         change: analytics.stats.conversionChange,
-        href: "/admin/analizler",
+        href: getDashboardAnalyticsHref(),
         format: "percent",
         tone: "violet",
         trend: [],
