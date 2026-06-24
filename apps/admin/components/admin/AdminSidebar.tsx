@@ -597,7 +597,7 @@ export function AdminSidebar({
               </div>
 
               <div className="mt-3 flex items-center gap-2.5">
-                <div className="flex min-h-[36px] min-w-0 flex-1 items-center px-1">
+                <div className="flex min-h-[36px] min-w-0 flex-1 items-center justify-center px-1">
                   <img
                     src={ADMIN_BRAND_LOGO_SRC}
                     alt="Celebix"
@@ -784,28 +784,26 @@ export function AdminSidebar({
               </section>
             </div>
 
-            <div className="border-t border-white/10 bg-[#232323] px-3.5 pb-[max(env(safe-area-inset-bottom,0px),0.8rem)] pt-2.5">
-              <div className="rounded-[0.95rem] border border-white/10 bg-white/[0.05] p-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/18 text-[12px] font-semibold text-white">
-                    {adminInitials}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-semibold tracking-[-0.01em] text-white">{adminFullName}</p>
-                    <p className="mt-0.5 truncate text-[11.5px] text-white/52">
-                      {siteName} · {adminRoleLabel}
-                    </p>
-                  </div>
+            <div className="border-t border-white/10 bg-[#232323] px-3.5 pb-[max(env(safe-area-inset-bottom,0px),0.65rem)] pt-2">
+              <div className="flex items-center gap-2 px-1">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/14 bg-black/14 text-[10.5px] font-semibold text-white">
+                  {adminInitials}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12.5px] font-semibold tracking-[-0.005em] text-white">{adminFullName}</p>
+                  <p className="truncate text-[10.5px] text-white/48">
+                    {siteName} · {adminRoleLabel}
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-1.5">
+              <div className="mt-1">
                 {isLogtoProvider ? (
                   <a
                     href={logtoLogoutHref}
-                    className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[0.8rem] px-3 text-[13px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+                    className="flex min-h-[30px] w-full items-center gap-2 rounded-[0.65rem] px-1.5 text-[12px] font-medium text-white/54 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
                   >
-                    <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+                    <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
                     <span>Çıkış Yap</span>
                   </a>
                 ) : (
@@ -813,9 +811,9 @@ export function AdminSidebar({
                     type="button"
                     onClick={handleLogout}
                     disabled={isSigningOut}
-                    className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[0.8rem] px-3 text-[13px] font-medium text-white/62 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+                    className="flex min-h-[30px] w-full items-center gap-2 rounded-[0.65rem] px-1.5 text-[12px] font-medium text-white/54 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
                   >
-                    <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+                    <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
                     <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
                   </button>
                 )}
@@ -830,7 +828,7 @@ export function AdminSidebar({
   return (
     <aside className={cn("border-r border-white/10", desktopAsideClassName)}>
       <div className="border-b border-white/10 px-4 py-3">
-        <div className="flex min-h-[34px] items-center px-1">
+        <div className="flex min-h-[34px] items-center justify-center px-1">
           <img
             src={ADMIN_BRAND_LOGO_SRC}
             alt="Celebix"
@@ -1012,28 +1010,26 @@ export function AdminSidebar({
         ))}
       </nav>
 
-      <div className="border-t border-white/10 bg-[#232323] px-3.5 py-2.5">
-        <div className="rounded-[0.95rem] border border-white/10 bg-white/[0.05] p-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/18 text-[12px] font-semibold text-white">
-              {adminInitials}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[13.5px] font-semibold tracking-[-0.01em] text-white">{adminFullName}</p>
-              <p className="mt-0.5 truncate text-[11.5px] text-white/52">
-                {siteName} · {adminRoleLabel}
-              </p>
-            </div>
+      <div className="border-t border-white/10 bg-[#232323] px-3.5 py-2">
+        <div className="flex items-center gap-2 px-1">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/14 bg-black/14 text-[10.5px] font-semibold text-white">
+            {adminInitials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-semibold tracking-[-0.005em] text-white">{adminFullName}</p>
+            <p className="truncate text-[10.5px] text-white/48">
+              {siteName} · {adminRoleLabel}
+            </p>
           </div>
         </div>
 
-        <div className="mt-1.5">
+        <div className="mt-1">
         {isLogtoProvider ? (
           <a
             href={logtoLogoutHref}
-            className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[0.8rem] px-3 text-[13px] font-medium text-white/62 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+            className="flex min-h-[30px] w-full items-center gap-2 rounded-[0.65rem] px-1.5 text-[12px] font-medium text-white/54 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
           >
-            <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+            <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
             <span>Çıkış Yap</span>
           </a>
         ) : (
@@ -1041,9 +1037,9 @@ export function AdminSidebar({
             type="button"
             onClick={handleLogout}
             disabled={isSigningOut}
-            className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[0.8rem] px-3 text-[13px] font-medium text-white/62 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+            className="flex min-h-[30px] w-full items-center gap-2 rounded-[0.65rem] px-1.5 text-[12px] font-medium text-white/54 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
           >
-            <LogOut className="h-[1rem] w-[1rem] shrink-0" />
+            <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
             <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
           </button>
         )}
