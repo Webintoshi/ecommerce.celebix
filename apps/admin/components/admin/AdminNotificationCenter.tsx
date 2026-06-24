@@ -396,7 +396,7 @@ export function AdminNotificationCenter({
   }, [loadStatus]);
 
   const shellClassName = isMobile
-    ? "fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[72] overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,248,250,0.98)_100%)] shadow-[var(--shadow-md)] backdrop-blur-2xl"
+    ? "fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[72] overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(249,249,249,0.98)_100%)] shadow-[var(--shadow-md)] backdrop-blur-2xl"
     : "absolute right-0 top-[calc(100%+0.75rem)] z-[72] w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/96 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl";
 
   return (

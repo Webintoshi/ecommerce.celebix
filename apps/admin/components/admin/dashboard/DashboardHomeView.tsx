@@ -515,6 +515,45 @@ type DashboardMetric = {
   delta?: ReturnType<typeof formatDelta>;
 };
 
+type SalesChartMetricKey = "revenue" | "orders" | "sessions" | "conversion" | "returns";
+
+type SalesChartDataKey =
+  | "currentRevenue"
+  | "previousRevenue"
+  | "currentOrders"
+  | "previousOrders"
+  | "currentSessions"
+  | "previousSessions"
+  | "currentConversion"
+  | "previousConversion"
+  | "currentReturns"
+  | "previousReturns";
+
+type SalesChartPoint = DashboardPerformancePoint & {
+  currentSessions: number;
+  previousSessions: number;
+  currentConversion: number;
+  previousConversion: number;
+  currentReturns: number;
+  previousReturns: number;
+};
+
+type SalesChartMetric = {
+  key: SalesChartMetricKey;
+  label: string;
+  value: string;
+  delta: ReturnType<typeof formatDelta>;
+  currentDataKey: SalesChartDataKey;
+  previousDataKey: SalesChartDataKey;
+  formatChartValue: (value: number) => string;
+  formatTickValue: (value: number) => string;
+  emptyMessage: string;
+};
+
+function getSalesChartPointValue(point: SalesChartPoint, key: SalesChartDataKey) {
+  return Number(point[key] ?? 0);
+}
+
 function buildDashboardMetrics(dashboard: DashboardBootstrapData): DashboardMetric[] {
   const ordersCard = getOverviewCard(dashboard.overview.cards, "orders");
   const revenueCard = getOverviewCard(dashboard.overview.cards, "revenue");
@@ -674,6 +713,7 @@ function KpiGrid({
 }
 
 function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
+  const [activeMetricKey, setActiveMetricKey] = useState<SalesChartMetricKey>("revenue");
   const points = dashboard.performance.chart;
   const currentLabel = dashboard.performance.currentLabel;
   const previousLabel = dashboard.performance.previousLabel;
@@ -702,52 +742,116 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
   const visitorDelta = formatDelta(visitorsItem?.change ?? 0);
   const conversionDelta = formatDelta(conversionCard?.change ?? 0);
   const visitors = visitorsItem?.value ?? dashboard.liveData.liveVisitors;
-  const hasSalesData = chartPoints.some((point) => point.currentRevenue > 0 || point.currentOrders > 0);
-  const metrics = [
+  const chartData: SalesChartPoint[] = chartPoints.map((point) => ({
+    ...point,
+    currentSessions: 0,
+    previousSessions: 0,
+    currentConversion: 0,
+    previousConversion: 0,
+    currentReturns: 0,
+    previousReturns: 0,
+  }));
+  const metrics: SalesChartMetric[] = [
     {
+      key: "revenue",
       label: "Toplam Satış",
       value: formatCurrency(currentRevenue),
       delta: revenueDelta,
-      active: true,
+      currentDataKey: "currentRevenue",
+      previousDataKey: "previousRevenue",
+      formatChartValue: formatCurrency,
+      formatTickValue: (value) => `${formatCompactValue(value)} ₺`,
+      emptyMessage: "Bu dönem için satış verisi yok.",
     },
     {
+      key: "orders",
       label: "Sipariş Sayısı",
       value: currentOrders.toLocaleString("tr-TR"),
       delta: ordersDelta,
+      currentDataKey: "currentOrders",
+      previousDataKey: "previousOrders",
+      formatChartValue: (value) => value.toLocaleString("tr-TR"),
+      formatTickValue: formatCompactValue,
+      emptyMessage: "Bu dönem için sipariş verisi yok.",
     },
     {
+      key: "sessions",
       label: "Oturum Sayısı",
       value: visitors.toLocaleString("tr-TR"),
       delta: visitorDelta,
+      currentDataKey: "currentSessions",
+      previousDataKey: "previousSessions",
+      formatChartValue: (value) => value.toLocaleString("tr-TR"),
+      formatTickValue: formatCompactValue,
+      emptyMessage: "Oturum trend verisi henüz yok.",
     },
     {
+      key: "conversion",
       label: "Dönüşüm Oranı",
       value: formatPercentValue(conversionCard?.value ?? 0),
       delta: conversionDelta,
+      currentDataKey: "currentConversion",
+      previousDataKey: "previousConversion",
+      formatChartValue: formatPercentValue,
+      formatTickValue: formatPercentValue,
+      emptyMessage: "Dönüşüm trend verisi henüz yok.",
     },
     {
+      key: "returns",
       label: "İadeler",
       value: formatCurrency(0),
       delta: formatDelta(0),
+      currentDataKey: "currentReturns",
+      previousDataKey: "previousReturns",
+      formatChartValue: formatCurrency,
+      formatTickValue: (value) => `${formatCompactValue(value)} ₺`,
+      emptyMessage: "Bu dönem için iade verisi yok.",
     },
   ];
+  const activeMetric = metrics.find((metric) => metric.key === activeMetricKey) ?? metrics[0];
+  const hasActiveMetricData = chartData.some(
+    (point) =>
+      getSalesChartPointValue(point, activeMetric.currentDataKey) > 0 ||
+      getSalesChartPointValue(point, activeMetric.previousDataKey) > 0,
+  );
 
   return (
     <section className="overflow-hidden rounded-[8px] border border-[rgba(218,224,233,0.9)] bg-[var(--admin-bg)] shadow-none">
       <div className="overflow-x-auto">
-        <div className="grid min-w-[850px] grid-cols-5 divide-x divide-[rgba(218,224,233,0.92)] bg-[rgba(246,247,249,0.92)] min-[1180px]:min-w-0">
+        <div
+          role="tablist"
+          aria-label="Grafik metriği"
+          className="grid min-w-[850px] grid-cols-5 divide-x divide-[rgba(218,224,233,0.92)] bg-[rgba(249,249,249,0.92)] min-[1180px]:min-w-0"
+        >
           {metrics.map((metric) => {
             const MetricDeltaIcon = metric.delta.positive === false ? ArrowDownRight : ArrowUpRight;
             const isReturnsMetric = metric.label === "İadeler";
+            const isActive = metric.key === activeMetric.key;
 
             return (
-              <div key={metric.label} className="relative min-h-[82px] px-4 py-4 min-[1180px]:px-5">
-                {metric.active ? (
+              <button
+                key={metric.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls="dashboard-performance-chart"
+                onClick={() => setActiveMetricKey(metric.key)}
+                className={cn(
+                  "relative min-h-[82px] w-full cursor-pointer px-4 py-4 text-left transition-colors hover:bg-white/72 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-accent)] focus-visible:ring-offset-[-2px] min-[1180px]:px-5",
+                  isActive ? "bg-white/72" : "bg-transparent",
+                )}
+              >
+                {isActive ? (
                   <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--admin-accent)]" />
                 ) : null}
                 <div className="flex h-full min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-semibold tracking-[-0.015em] text-[var(--admin-text-secondary)] min-[1180px]:text-[15px]">
+                    <p
+                      className={cn(
+                        "truncate text-[14px] font-semibold tracking-[-0.015em] min-[1180px]:text-[15px]",
+                        isActive ? "text-[var(--admin-heading)]" : "text-[var(--admin-text-secondary)]",
+                      )}
+                    >
                       {metric.label}
                     </p>
                     <div className="mt-2 flex min-w-0 items-center gap-2">
@@ -778,26 +882,29 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
                     </span>
                   ) : null}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
 
-      <div className="relative border-t border-[rgba(226,231,238,0.92)] bg-[var(--admin-bg)] px-4 pb-5 pt-4 md:px-6 md:pb-6">
+      <div
+        id="dashboard-performance-chart"
+        className="relative border-t border-[rgba(226,231,238,0.92)] bg-[var(--admin-bg)] px-4 pb-5 pt-4 md:px-6 md:pb-6"
+      >
         <div className="mb-3 flex items-center justify-between gap-3 text-[12px] font-medium text-[var(--admin-text-secondary)]">
           <span className="inline-flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[var(--admin-accent)]" />
-            {currentLabel}
+            {currentLabel} · {activeMetric.label}
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[rgba(148,163,184,0.76)]" />
-            {previousLabel}
+            {previousLabel} · {activeMetric.label}
           </span>
         </div>
         <div className="relative h-[360px] min-h-[360px] md:h-[430px] min-[1360px]:h-[520px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartPoints} margin={{ top: 14, right: 18, left: 0, bottom: 10 }}>
+            <LineChart data={chartData} margin={{ top: 14, right: 18, left: 0, bottom: 10 }}>
               <CartesianGrid stroke="rgba(226,231,238,0.95)" vertical={false} />
               <XAxis
                 dataKey="label"
@@ -810,7 +917,7 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
                 tickLine={false}
                 axisLine={false}
                 tick={{ fill: "#7B8494", fontSize: 12, fontWeight: 600 }}
-                tickFormatter={(value) => `${formatCompactValue(Number(value))} ₺`}
+                tickFormatter={(value) => activeMetric.formatTickValue(Number(value))}
                 width={58}
               />
               <Tooltip
@@ -820,22 +927,26 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
                     return null;
                   }
 
-                  const point = payload[0]?.payload as DashboardPerformancePoint;
+                  const point = payload[0]?.payload as SalesChartPoint;
+                  const currentValue = getSalesChartPointValue(point, activeMetric.currentDataKey);
+                  const previousValue = getSalesChartPointValue(point, activeMetric.previousDataKey);
 
                   return (
                     <div className="rounded-[10px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
-                      <p className="text-sm font-semibold text-[var(--admin-heading)]">{label}</p>
+                      <p className="text-sm font-semibold text-[var(--admin-heading)]">
+                        {label} · {activeMetric.label}
+                      </p>
                       <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
                         <div className="flex items-center justify-between gap-6">
                           <span>{currentLabel}</span>
                           <span className="font-semibold text-[var(--admin-heading)]">
-                            {formatCurrency(point.currentRevenue)}
+                            {activeMetric.formatChartValue(currentValue)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-6">
                           <span>{previousLabel}</span>
                           <span className="font-semibold text-[var(--admin-heading)]">
-                            {formatCurrency(point.previousRevenue)}
+                            {activeMetric.formatChartValue(previousValue)}
                           </span>
                         </div>
                       </div>
@@ -845,7 +956,7 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
               />
               <Line
                 type="monotone"
-                dataKey="previousRevenue"
+                dataKey={activeMetric.previousDataKey}
                 stroke="rgba(148,163,184,0.5)"
                 strokeWidth={2}
                 dot={false}
@@ -853,7 +964,7 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
               />
               <Line
                 type="monotone"
-                dataKey="currentRevenue"
+                dataKey={activeMetric.currentDataKey}
                 stroke="#FF6A00"
                 strokeWidth={3.2}
                 dot={false}
@@ -861,10 +972,10 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
               />
             </LineChart>
           </ResponsiveContainer>
-          {!hasSalesData ? (
+          {!hasActiveMetricData ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
               <span className="rounded-[7px] border border-[var(--admin-border)] bg-white/92 px-3 py-2 text-[12px] font-semibold text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)]">
-                Bu dönem için satış verisi yok.
+                {activeMetric.emptyMessage}
               </span>
             </div>
           ) : null}
@@ -1125,7 +1236,7 @@ function RecentOrdersCard({ orders }: { orders: DashboardRecentOrder[] }) {
           })}
         </div>
       ) : (
-        <div className="rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[rgba(247,248,250,0.78)] px-5 py-10 text-center">
+        <div className="rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[rgba(249,249,249,0.78)] px-5 py-10 text-center">
           <ShoppingBag className="mx-auto h-8 w-8 text-[var(--admin-text-muted)]" />
           <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">Henüz sipariş yok.</p>
         </div>
@@ -1149,7 +1260,7 @@ function LowStockProductsCard({ products }: { products: DashboardLowStockProduct
                 href={`/admin/urunler/${product.id}/duzenle`}
                 className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0 active:opacity-80"
               >
-                <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-[14px] border border-[var(--admin-border)] bg-[rgba(247,248,250,0.86)]">
+                <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-[14px] border border-[var(--admin-border)] bg-[rgba(249,249,249,0.86)]">
                   {product.imageUrl ? (
                     <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
                   ) : (
@@ -1378,7 +1489,7 @@ function CustomerActivityCard({ activities }: { activities: DashboardCustomerAct
           ))}
         </div>
       ) : (
-        <div className="rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[rgba(247,248,250,0.78)] px-5 py-10 text-center">
+        <div className="rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[rgba(249,249,249,0.78)] px-5 py-10 text-center">
           <Activity className="mx-auto h-8 w-8 text-[var(--admin-text-muted)]" />
           <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">Aktivite yok.</p>
         </div>
