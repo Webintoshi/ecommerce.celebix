@@ -795,26 +795,27 @@ export function AdminSidebar({
                     {siteName} · {adminRoleLabel}
                   </p>
                 </div>
-              </div>
-
-              <div className="mt-1">
                 {isLogtoProvider ? (
                   <a
                     href={logtoLogoutHref}
-                    className="flex min-h-[30px] w-full items-center gap-2 rounded-[0.65rem] px-1.5 text-[12px] font-medium text-white/54 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+                    aria-label="Çıkış yap"
+                    title="Çıkış Yap"
+                    className="flex h-7 shrink-0 items-center gap-1.5 rounded-[0.6rem] px-2 text-[11.5px] font-medium text-white/52 transition-colors duration-200 active:scale-[0.98] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
                   >
                     <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
-                    <span>Çıkış Yap</span>
+                    <span>Çıkış</span>
                   </a>
                 ) : (
                   <button
                     type="button"
                     onClick={handleLogout}
                     disabled={isSigningOut}
-                    className="flex min-h-[30px] w-full items-center gap-2 rounded-[0.65rem] px-1.5 text-[12px] font-medium text-white/54 transition-colors duration-200 active:scale-[0.99] hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+                    aria-label="Çıkış yap"
+                    title="Çıkış Yap"
+                    className="flex h-7 shrink-0 items-center gap-1.5 rounded-[0.6rem] px-2 text-[11.5px] font-medium text-white/52 transition-colors duration-200 active:scale-[0.98] hover:bg-[#4A2A2A] hover:text-[#FF8A8A] disabled:opacity-60"
                   >
                     <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
-                    <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
+                    <span>{isSigningOut ? "..." : "Çıkış"}</span>
                   </button>
                 )}
               </div>
@@ -1021,28 +1022,29 @@ export function AdminSidebar({
               {siteName} · {adminRoleLabel}
             </p>
           </div>
-        </div>
-
-        <div className="mt-1">
-        {isLogtoProvider ? (
-          <a
-            href={logtoLogoutHref}
-            className="flex min-h-[30px] w-full items-center gap-2 rounded-[0.65rem] px-1.5 text-[12px] font-medium text-white/54 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
-          >
-            <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
-            <span>Çıkış Yap</span>
-          </a>
-        ) : (
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={isSigningOut}
-            className="flex min-h-[30px] w-full items-center gap-2 rounded-[0.65rem] px-1.5 text-[12px] font-medium text-white/54 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
-          >
-            <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
-            <span>{isSigningOut ? "Çıkış yapılıyor..." : "Çıkış Yap"}</span>
-          </button>
-        )}
+          {isLogtoProvider ? (
+            <a
+              href={logtoLogoutHref}
+              aria-label="Çıkış yap"
+              title="Çıkış Yap"
+              className="flex h-7 shrink-0 items-center gap-1.5 rounded-[0.6rem] px-2 text-[11.5px] font-medium text-white/52 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A]"
+            >
+              <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
+              <span>Çıkış</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isSigningOut}
+              aria-label="Çıkış yap"
+              title="Çıkış Yap"
+              className="flex h-7 shrink-0 items-center gap-1.5 rounded-[0.6rem] px-2 text-[11.5px] font-medium text-white/52 transition-colors hover:bg-[#4A2A2A] hover:text-[#FF8A8A] disabled:opacity-60"
+            >
+              <LogOut className="h-[0.9rem] w-[0.9rem] shrink-0" />
+              <span>{isSigningOut ? "..." : "Çıkış"}</span>
+            </button>
+          )}
         </div>
       </div>
     </aside>
