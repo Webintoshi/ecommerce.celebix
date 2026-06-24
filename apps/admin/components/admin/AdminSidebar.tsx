@@ -44,7 +44,7 @@ import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { useStoreInfo } from "@/lib/store-info-context";
 import { cn } from "@/lib/utils";
 
-const ADMIN_BRAND_LOGO_SRC = "https://celebix.net/Logo/koyu%20logo.svg";
+const ADMIN_BRAND_LOGO_SRC = "/Logo/celebix-beyaz-logo.svg";
 
 type MenuSubItem = {
   title: string;
@@ -597,11 +597,11 @@ export function AdminSidebar({
               </div>
 
               <div className="mt-3 flex items-center gap-2.5">
-                <div className="flex min-h-[44px] min-w-0 flex-1 items-center rounded-[0.9rem] border border-white/10 bg-white px-3 shadow-[0_10px_20px_rgba(0,0,0,0.14)]">
+                <div className="flex min-h-[36px] min-w-0 flex-1 items-center px-1">
                   <img
                     src={ADMIN_BRAND_LOGO_SRC}
                     alt="Celebix"
-                    className="h-7 w-auto max-w-[8.5rem] object-contain"
+                    className="h-6 w-auto max-w-[7.75rem] object-contain"
                   />
                 </div>
 
@@ -828,12 +828,12 @@ export function AdminSidebar({
 
   return (
     <aside className={cn("border-r border-white/10", desktopAsideClassName)}>
-      <div className="border-b border-white/10 px-4 py-3.5">
-        <div className="flex min-h-[44px] items-center rounded-[0.9rem] border border-white/10 bg-white px-3 shadow-[0_10px_20px_rgba(0,0,0,0.14)]">
+      <div className="border-b border-white/10 px-4 py-3">
+        <div className="flex min-h-[34px] items-center px-1">
           <img
             src={ADMIN_BRAND_LOGO_SRC}
             alt="Celebix"
-            className="h-7 w-auto max-w-[8.75rem] object-contain"
+            className="h-6 w-auto max-w-[7.75rem] object-contain"
           />
         </div>
       </div>
