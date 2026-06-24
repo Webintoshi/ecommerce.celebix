@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextResponse } from "next/server";
 import type { UserRole } from "@/lib/permissions";
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
 
 const ADMIN_ROLE_COOKIE_NAME = "celebix-admin-role";
 const ADMIN_ROLE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
@@ -16,18 +15,45 @@ export type AdminRoleCookiePayload = {
   role: UserRole;
 };
 
+function readEnvValue(name: string): string | null {
+  const value = process.env[name]?.trim().replace(/^["']|["']$/g, "");
+  return value || null;
+}
+
+function getAdminRoleCookieSigningSecret(): string {
+  const secret =
+    readEnvValue("SUPABASE_SERVICE_ROLE_KEY") ??
+    readEnvValue("ADMIN_COOKIE_SECRET") ??
+    readEnvValue("LOGTO_COOKIE_SECRET");
+
+  if (!secret) {
+    throw new Error("Admin role cookie signing secret is not configured");
+  }
+
+  return secret;
+}
+
+function isSecureAdminRuntime(): boolean {
+  const url =
+    readEnvValue("NEXT_PUBLIC_ADMIN_URL") ??
+    readEnvValue("ADMIN_URL") ??
+    readEnvValue("NEXT_PUBLIC_SUPABASE_URL");
+
+  return url ? url.startsWith("https://") : true;
+}
+
 function getAdminRoleCookieOptions() {
   return {
     path: "/",
     sameSite: "lax" as const,
     httpOnly: true,
-    secure: getSupabaseUrl().startsWith("https://"),
+    secure: isSecureAdminRuntime(),
     maxAge: ADMIN_ROLE_COOKIE_MAX_AGE,
   };
 }
 
 function signValue(payload: string): string {
-  return createHmac("sha256", getSupabaseServiceRoleKey())
+  return createHmac("sha256", getAdminRoleCookieSigningSecret())
     .update(payload)
     .digest("base64url");
 }

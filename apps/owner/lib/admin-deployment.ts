@@ -153,6 +153,81 @@ function getSharedRedisEnvEntries(): Record<string, string> {
   return entries;
 }
 
+function readEnvMapValue(env: Record<string, string>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = env[key]?.trim() || process.env[key]?.trim() || "";
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function resolveLightPostgresAdminAuthEnv(
+  store: StoreConfig,
+  existingEnv: Record<string, string>,
+  runtimeUrl: string,
+): Record<string, string> {
+  const issuer = readEnvMapValue(existingEnv, "LOGTO_ISSUER", "LOGTO_ENDPOINT");
+  const adminAppId =
+    existingEnv.LOGTO_ADMIN_APP_ID?.trim() ||
+    existingEnv.LOGTO_APP_ID?.trim() ||
+    store.logto?.adminAppId?.trim() ||
+    process.env.LOGTO_ADMIN_APP_ID?.trim() ||
+    process.env.LOGTO_APP_ID?.trim() ||
+    "";
+  const adminAppSecret = readEnvMapValue(existingEnv, "LOGTO_ADMIN_APP_SECRET", "LOGTO_APP_SECRET");
+  const cookieSecret = readEnvMapValue(existingEnv, "LOGTO_COOKIE_SECRET", "ADMIN_COOKIE_SECRET");
+  const authConfigured =
+    (existingEnv.AUTH_SETUP_STATUS?.trim() === "configured" ||
+      existingEnv.NEXT_PUBLIC_AUTH_SETUP_STATUS?.trim() === "configured" ||
+      store.logto?.adminAppStatus === "configured") &&
+    Boolean(issuer && adminAppId && adminAppSecret && cookieSecret);
+
+  if (!authConfigured) {
+    return {
+      AUTH_SETUP_STATUS: "blocked_auth_setup",
+      NEXT_PUBLIC_AUTH_SETUP_STATUS: "blocked_auth_setup",
+    };
+  }
+
+  const envEntries: Record<string, string> = {
+    ADMIN_AUTH_PROVIDER: "logto",
+    NEXT_PUBLIC_ADMIN_AUTH_PROVIDER: "logto",
+    AUTH_SETUP_STATUS: "configured",
+    NEXT_PUBLIC_AUTH_SETUP_STATUS: "configured",
+    LOGTO_CALLBACK_URL:
+      existingEnv.LOGTO_CALLBACK_URL?.trim() || `${runtimeUrl.replace(/\/+$/, "")}/callback`,
+    LOGTO_POST_LOGOUT_REDIRECT_URL:
+      existingEnv.LOGTO_POST_LOGOUT_REDIRECT_URL?.trim() ||
+      existingEnv.LOGTO_POST_LOGOUT_REDIRECT_URI?.trim() ||
+      `${runtimeUrl.replace(/\/+$/, "")}/admin/login`,
+  };
+
+  for (const key of [
+    "LOGTO_ISSUER",
+    "LOGTO_ENDPOINT",
+    "LOGTO_ADMIN_APP_ID",
+    "LOGTO_APP_ID",
+    "LOGTO_ADMIN_APP_SECRET",
+    "LOGTO_APP_SECRET",
+    "LOGTO_COOKIE_SECRET",
+    "ADMIN_COOKIE_SECRET",
+  ] as const) {
+    const value =
+      key === "LOGTO_ADMIN_APP_ID" && adminAppId
+        ? adminAppId
+        : existingEnv[key]?.trim() || process.env[key]?.trim() || "";
+
+    if (value) {
+      envEntries[key] = value;
+    }
+  }
+
+  return envEntries;
+}
+
 async function readAdminEnvEntries(
   store: StoreConfig,
   options?: { deploymentMarker?: string | null },
@@ -178,8 +253,7 @@ async function readAdminEnvEntries(
       LIGHT_POSTGRES_DATABASE_NAME: runtimeDatabaseName,
       LIGHT_POSTGRES_DATABASE_SSLMODE: runtimeSslMode,
       NEXT_PUBLIC_RUNTIME_DATABASE_MODE: "light_postgres",
-      AUTH_SETUP_STATUS: "blocked_auth_setup",
-      NEXT_PUBLIC_AUTH_SETUP_STATUS: "blocked_auth_setup",
+      ...resolveLightPostgresAdminAuthEnv(store, existingEnv, runtimeUrl),
       NEXT_PUBLIC_SITE_URL: `https://${store.domains.storefront}`,
       NEXT_PUBLIC_ADMIN_URL: runtimeUrl,
       NEXT_PUBLIC_STORE_NAME: store.name,
