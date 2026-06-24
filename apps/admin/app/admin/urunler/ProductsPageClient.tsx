@@ -42,7 +42,7 @@ const SURFACE_FOCUS_RING =
 const CATEGORY_BADGE_STYLES = [
   "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   "border-[#DCE9FF] bg-[#F1F6FF] text-[#3B82F6]",
-  "border-[#E6DCF9] bg-[#F6F1FF] text-[#8B5CF6]",
+  "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
   "border-[#D8F0E0] bg-[#EAF8EF] text-[#16A34A]",
 ];
 
@@ -174,7 +174,7 @@ function getProductStatusMeta(product: AdminProductListItem) {
     return {
       label: "Taslak",
       description: "Henüz yayına hazır değil",
-      tone: "border-[#E6DCF9] bg-[#F3EEFF] text-[#8B5CF6]",
+      tone: "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
     };
   }
 

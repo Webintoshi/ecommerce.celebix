@@ -31,10 +31,10 @@ const EMOJI_OPTIONS = ["🎁", "🎉", "💰", "🏆", "⭐", "🔥", "💎", "�
 const PRESET_COLORS = [
   { primary: "#FF6B35", secondary: "#FFE66D", name: "Turuncu" },
   { primary: "#7B1113", secondary: "#F1DADB", name: "Celebix Bordo" },
-  { primary: "#4F46E5", secondary: "#C7D2FE", name: "İndigo" },
+  { primary: "#E85D04", secondary: "#FFF1E8", name: "Koyu Turuncu" },
   { primary: "#059669", secondary: "#A7F3D0", name: "Yeşil" },
   { primary: "#DC2626", secondary: "#FECACA", name: "Kırmızı" },
-  { primary: "#7C3AED", secondary: "#DDD6FE", name: "Mor" },
+  { primary: "#FF6A00", secondary: "#FFD7BF", name: "Celebix Turuncu" },
 ];
 
 function defaultConfig(): LuckyWheelConfig {

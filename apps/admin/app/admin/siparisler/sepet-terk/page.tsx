@@ -299,9 +299,7 @@ function MetricCard({
     ? "success"
     : tone.includes("#FDE68A")
       ? "warning"
-      : tone.includes("#DDD6FE")
-        ? "purple"
-        : "accent";
+      : "accent";
 
   return (
     <AdminMetricCard
@@ -1321,7 +1319,7 @@ export default function AbandonedCartsPage() {
                   context="Son 24 saatte"
                   delta={averageDelta}
                   icon={Package2}
-                  tone="border-[#DDD6FE] bg-[#F3EEFF] text-[#8B5CF6]"
+                  tone="border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
                 />
               </section>
 

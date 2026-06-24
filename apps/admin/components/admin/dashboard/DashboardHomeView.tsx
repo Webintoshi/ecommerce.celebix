@@ -70,8 +70,8 @@ const KPI_TONES: Record<
   },
   violet: {
     iconShell:
-      "border-[rgba(139,92,246,0.18)] bg-[var(--admin-purple-soft)] text-[var(--admin-purple)]",
-    spark: "#8B5CF6",
+      "border-[rgba(255,106,0,0.18)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
+    spark: "#FF6A00",
     valueClassName: "text-[var(--admin-heading)]",
   },
   amber: {
@@ -743,7 +743,7 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
             return (
               <div key={metric.label} className="relative min-h-[82px] px-4 py-4 min-[1180px]:px-5">
                 {metric.active ? (
-                  <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#6D5DF7]" />
+                  <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--admin-accent)]" />
                 ) : null}
                 <div className="flex h-full min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -787,7 +787,7 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
       <div className="relative border-t border-[rgba(226,231,238,0.92)] bg-[var(--admin-bg)] px-4 pb-5 pt-4 md:px-6 md:pb-6">
         <div className="mb-3 flex items-center justify-between gap-3 text-[12px] font-medium text-[var(--admin-text-secondary)]">
           <span className="inline-flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#6D5DF7]" />
+            <span className="h-2 w-2 rounded-full bg-[var(--admin-accent)]" />
             {currentLabel}
           </span>
           <span className="inline-flex items-center gap-2">
@@ -854,10 +854,10 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
               <Line
                 type="monotone"
                 dataKey="currentRevenue"
-                stroke="#6D5DF7"
+                stroke="#FF6A00"
                 strokeWidth={3.2}
                 dot={false}
-                activeDot={{ r: 4, fill: "#6D5DF7" }}
+                activeDot={{ r: 4, fill: "#FF6A00" }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -981,10 +981,10 @@ function BestSellersPanel({ dashboard }: { dashboard: DashboardBootstrapData }) 
       ) : (
         <div className="flex min-h-[330px] flex-col items-center justify-center text-center">
           <div className="relative h-[104px] w-[156px]">
-            <span className="absolute left-8 top-7 h-12 w-12 rounded-[8px] bg-[rgba(109,93,247,0.08)]" />
+            <span className="absolute left-8 top-7 h-12 w-12 rounded-[8px] bg-[rgba(255,106,0,0.08)]" />
             <span className="absolute left-16 top-12 h-12 w-20 rounded-[8px] border border-[rgba(226,231,238,0.82)] bg-white shadow-[0_12px_28px_rgba(17,24,39,0.08)]" />
             <span className="absolute left-2 top-3 h-12 w-[126px] rounded-[8px] border border-[rgba(226,231,238,0.78)] bg-white shadow-[0_10px_22px_rgba(17,24,39,0.06)]" />
-            <span className="absolute left-5 top-7 h-8 w-8 rounded-[6px] bg-[rgba(109,93,247,0.08)]" />
+            <span className="absolute left-5 top-7 h-8 w-8 rounded-[6px] bg-[rgba(255,106,0,0.08)]" />
             <span className="absolute left-16 top-8 h-2 w-[70px] rounded-full bg-[rgba(226,231,238,0.92)]" />
             <span className="absolute left-16 top-12 h-2 w-[50px] rounded-full bg-[rgba(226,231,238,0.92)]" />
           </div>

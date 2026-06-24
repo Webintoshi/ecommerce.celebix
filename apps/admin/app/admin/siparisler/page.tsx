@@ -135,8 +135,8 @@ const ORDER_STATUS_SEQUENCE: OrderStatus[] = [
 const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
   pending: "border-[#FDE68A] bg-[#FFF7E8] text-[#B45309]",
   confirmed: "border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]",
-  preparing: "border-[#D8B4FE] bg-[#F3EEFF] text-[#7C3AED]",
-  shipped: "border-[#C7D2FE] bg-[#EEF2FF] text-[#4F46E5]",
+  preparing: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
+  shipped: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   delivered: "border-[#BBF7D0] bg-[#EAF8EF] text-[#15803D]",
   cancelled: "border-[#FECACA] bg-[#FDECEC] text-[#DC2626]",
   refunded: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
@@ -176,7 +176,7 @@ const FULFILLMENT_STATUS_META: Record<
   },
   shipped: {
     label: "Kargolandı",
-    className: "border-[#DDD6FE] bg-[#F3EEFF] text-[#7C3AED]",
+    className: "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]",
   },
   delivered: {
     label: "Teslim edildi",
@@ -1439,7 +1439,7 @@ export default function OrdersPage() {
                             icon={Filter}
                             label="Aktif filtre"
                             value={activeFilterCount > 0 ? `${activeFilterCount} filtre` : "Temiz"}
-                            toneClassName="border-[#E6DCF9] bg-[#F3EEFF] text-[#7C3AED]"
+                            toneClassName="border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
                           />
                         </div>
 
