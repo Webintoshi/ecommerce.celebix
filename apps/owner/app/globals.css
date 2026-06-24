@@ -2262,6 +2262,12 @@ tbody td strong {
   }
 }
 
+@media (min-width: 960px) {
+  .form-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .field {
   display: flex;
   flex-direction: column;
