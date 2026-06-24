@@ -627,7 +627,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
     const modeLabel = formData.productMode === "variant" ? "Varyasyonlu ürün" : "Basit ürün";
 
     return (
-      <div className="admin-page-root min-h-screen bg-[#F7F8FA] text-stone-900">
+      <div className="admin-page-root min-h-screen bg-[#F9F9F9] text-stone-900">
         <div className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/95 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 md:px-6 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
             <div className="flex items-center gap-4">

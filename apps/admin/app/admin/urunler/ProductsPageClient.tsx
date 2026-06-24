@@ -1210,7 +1210,7 @@ export default function ProductsPageClient({
   const tableSelectionActive = sortedProducts.length > 0 && selectedProducts.length === sortedProducts.length;
 
   return (
-    <main role="main" aria-busy={loading} className="min-h-screen bg-[#F7F8FA]">
+    <main role="main" aria-busy={loading} className="min-h-screen bg-[#F9F9F9]">
       <div className="mx-auto max-w-[1680px] px-3 pb-4 pt-1 sm:px-4 min-[1025px]:px-5 min-[1025px]:pb-5 xl:px-6">
         <div className="space-y-5">
           <AdminPageHeader

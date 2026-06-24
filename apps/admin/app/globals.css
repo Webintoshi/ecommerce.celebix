@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F6F7F9;
+  --background: #F9F9F9;
   --foreground: #1F2937;
   --font-sans-stack: var(--font-inter), "Inter", "Segoe UI", "SF Pro Text", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-serif-stack: var(--font-lora), "Lora", Georgia, Cambria, "Times New Roman", Times, serif;
   --admin-touch-target: 48px;
-  --admin-bg: #F6F7F9;
+  --admin-bg: #F9F9F9;
   --admin-surface: #FFFFFF;
   --admin-muted-surface: #FBFCFD;
   --admin-border: #E3E7EE;
@@ -35,7 +35,7 @@
   --primary-foreground: #FFFFFF;
   --secondary: #F3F4F6;
   --secondary-foreground: #374151;
-  --muted: #F7F8FA;
+  --muted: #F9F9F9;
   --muted-foreground: #6B7280;
 
   /* shadcn/ui required variables */

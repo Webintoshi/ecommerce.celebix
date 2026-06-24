@@ -798,7 +798,7 @@ export default function CategoryManager() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] px-1 pb-8 text-[#1F2937]">
+    <div className="min-h-screen bg-[#F9F9F9] px-1 pb-8 text-[#1F2937]">
       <div className="mx-auto max-w-[1480px] space-y-6">
         <section className="rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

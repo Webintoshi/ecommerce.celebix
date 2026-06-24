@@ -34,7 +34,7 @@ const PRODUCT_TYPE_OPTIONS: Array<{
 
 export function ProductTypePicker({ onSelect }: ProductTypePickerProps) {
   return (
-    <div className="admin-page-root min-h-screen bg-[#F7F8FA] px-4 py-8 text-stone-900 md:px-6 md:py-10">
+    <div className="admin-page-root min-h-screen bg-[#F9F9F9] px-4 py-8 text-stone-900 md:px-6 md:py-10">
       <div className="mx-auto max-w-5xl space-y-8">
         <div className="space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
@@ -62,7 +62,7 @@ export function ProductTypePicker({ onSelect }: ProductTypePickerProps) {
                 className={cn(
                   "group flex min-h-[260px] flex-col items-start justify-between rounded-[8px] border border-[#E7EAF0] bg-white p-6 text-left shadow-[0_18px_50px_rgba(15,23,42,0.06)] transition-all",
                   "hover:-translate-y-0.5 hover:border-[var(--admin-accent-border)] hover:shadow-[0_22px_58px_rgba(255,106,0,0.10)]",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F8FA]",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F9F9F9]",
                 )}
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.20)]">

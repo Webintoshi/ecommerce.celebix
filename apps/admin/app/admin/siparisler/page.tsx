@@ -929,7 +929,7 @@ function OrderListRow({
         </div>
 
         <div className="flex gap-3">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] border border-[#E7EAF0] bg-[#F7F8FA]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] border border-[#E7EAF0] bg-[#F9F9F9]">
             {primaryItem?.imageUrl ? (
               <div
                 className="h-full w-full bg-cover bg-center"
@@ -1348,7 +1348,7 @@ export default function OrdersPage() {
   }, [currentPage, totalPages]);
 
   return (
-    <main className="min-h-screen bg-[#F7F8FA]">
+    <main className="min-h-screen bg-[#F9F9F9]">
       <div className="mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
         <div className="space-y-6">
           <AdminPageHeader

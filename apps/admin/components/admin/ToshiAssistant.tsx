@@ -529,7 +529,7 @@ export default function ToshiAssistant({
 
   const panelContent = (
     <>
-      <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#f7f8fa_100%)] px-4 py-4">
+      <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#f9f9f9_100%)] px-4 py-4">
         <div className="grid gap-2.5">
           {alertInfo ? (
             <div className="rounded-[1.35rem] border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-3.5 text-sm text-[var(--admin-accent-hover)] shadow-[0_12px_24px_rgba(255,106,0,0.08)]">

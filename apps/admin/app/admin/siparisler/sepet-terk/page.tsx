@@ -118,7 +118,7 @@ function AbandonedCartItemImage({
 
   if (!currentSource || didFail) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-[#F7F8FA] text-[#9CA3AF]">
+      <div className="flex h-full w-full items-center justify-center bg-[#F9F9F9] text-[#9CA3AF]">
         <Package2 className="h-5 w-5" />
       </div>
     );
@@ -254,7 +254,7 @@ function getCartStatus(cart: AbandonedCart) {
     },
     cleared: {
       label: "Temizlendi",
-      className: "border-[#E5E7EB] bg-[#F7F8FA] text-[#6B7280]",
+      className: "border-[#E5E7EB] bg-[#F9F9F9] text-[#6B7280]",
       icon: CheckCircle2,
     },
   } as const;
@@ -586,7 +586,7 @@ function CartDetailModal({
                   key={item.id}
                   className="flex flex-col gap-3 rounded-[22px] border border-[#E7EAF0] bg-white p-4 sm:flex-row sm:items-center"
                 >
-                  <div className="h-[4.5rem] w-[4.5rem] overflow-hidden rounded-[18px] border border-[#E7EAF0] bg-[#F7F8FA] sm:h-20 sm:w-20">
+                  <div className="h-[4.5rem] w-[4.5rem] overflow-hidden rounded-[18px] border border-[#E7EAF0] bg-[#F9F9F9] sm:h-20 sm:w-20">
                     <AbandonedCartItemImage src={item.productImage} alt={item.productName} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -594,7 +594,7 @@ function CartDetailModal({
                     <p className="mt-1 text-sm text-[#6B7280]">{item.variantName || "Varsayılan varyant"}</p>
                   </div>
                   <div className="flex items-center gap-2 sm:text-right">
-                    <span className="rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-3 py-1 text-xs font-semibold text-[#6B7280]">
+                    <span className="rounded-full border border-[#E7EAF0] bg-[#F9F9F9] px-3 py-1 text-xs font-semibold text-[#6B7280]">
                       x{item.quantity}
                     </span>
                     <p className="text-base font-semibold text-[#FF6A00]">
@@ -638,7 +638,7 @@ function MobileCartCard({
           <StatusIcon className="h-3.5 w-3.5" />
           {statusMeta.label}
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-2.5 py-1 text-[11px] font-semibold text-[#6B7280]">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#F9F9F9] px-2.5 py-1 text-[11px] font-semibold text-[#6B7280]">
           <UserRound className="h-3.5 w-3.5" />
           {cart.isAnonymous ? "Anonim kullanıcı" : "Kayıtlı kullanıcı"}
         </span>
@@ -654,7 +654,7 @@ function MobileCartCard({
       </div>
 
       <div className="mt-4 flex gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] border border-[#E7EAF0] bg-[#F7F8FA] text-[#6B7280]">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] border border-[#E7EAF0] bg-[#F9F9F9] text-[#6B7280]">
           <span className="text-sm font-semibold tracking-[0.02em]">{getCustomerInitials(cart)}</span>
         </div>
 
@@ -708,7 +708,7 @@ function MobileCartCard({
               key={item.id}
               className="flex items-center gap-3 rounded-[18px] border border-[#E7EAF0] bg-white p-3"
             >
-              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[16px] border border-[#E7EAF0] bg-[#F7F8FA]">
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[16px] border border-[#E7EAF0] bg-[#F9F9F9]">
                 <AbandonedCartItemImage src={item.productImage} alt={item.productName} />
               </div>
               <div className="min-w-0 flex-1">
@@ -718,7 +718,7 @@ function MobileCartCard({
                   {formatCurrency((item.price || 0) * (item.quantity || 0))}
                 </p>
               </div>
-              <span className="rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-2 py-1 text-xs font-semibold text-[#6B7280]">
+              <span className="rounded-full border border-[#E7EAF0] bg-[#F9F9F9] px-2 py-1 text-xs font-semibold text-[#6B7280]">
                 x{item.quantity}
               </span>
             </div>
@@ -795,7 +795,7 @@ function DesktopCartCard({
             <StatusIcon className="h-3.5 w-3.5" />
             {statusMeta.label}
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-3 py-1.5 text-xs font-semibold text-[#6B7280]">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E7EAF0] bg-[#F9F9F9] px-3 py-1.5 text-xs font-semibold text-[#6B7280]">
             <UserRound className="h-3.5 w-3.5" />
             {cart.isAnonymous ? "Anonim kullanıcı" : "Kayıtlı kullanıcı"}
           </span>
@@ -950,7 +950,7 @@ function DesktopCartCard({
                 key={item.id}
                 className="flex items-center gap-3 rounded-[20px] border border-[#E7EAF0] bg-white p-3"
               >
-                <div className="h-16 w-16 overflow-hidden rounded-2xl border border-[#E7EAF0] bg-[#F7F8FA]">
+                <div className="h-16 w-16 overflow-hidden rounded-2xl border border-[#E7EAF0] bg-[#F9F9F9]">
                   <AbandonedCartItemImage src={item.productImage} alt={item.productName} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -960,7 +960,7 @@ function DesktopCartCard({
                     {formatCurrency((item.price || 0) * (item.quantity || 0))}
                   </p>
                 </div>
-                <span className="rounded-full border border-[#E7EAF0] bg-[#F7F8FA] px-2 py-1 text-xs font-semibold text-[#6B7280]">
+                <span className="rounded-full border border-[#E7EAF0] bg-[#F9F9F9] px-2 py-1 text-xs font-semibold text-[#6B7280]">
                   x{item.quantity}
                 </span>
               </div>
@@ -1236,7 +1236,7 @@ export default function AbandonedCartsPage() {
   };
 
   return (
-    <main className="min-h-0 bg-[#F7F8FA]">
+    <main className="min-h-0 bg-[#F9F9F9]">
       <div className="mx-auto max-w-[1600px] px-3 pb-4 pt-1 md:px-5 md:pb-6 md:pt-1 lg:px-8">
         <div className="space-y-4 md:space-y-6">
           <AdminPageHeader
