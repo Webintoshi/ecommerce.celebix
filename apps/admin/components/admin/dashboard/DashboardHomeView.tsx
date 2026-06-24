@@ -525,7 +525,7 @@ function buildDashboardMetrics(dashboard: DashboardBootstrapData): DashboardMetr
   return [
     {
       key: "revenue",
-      label: "Toplam satış",
+      label: "Toplam Satış",
       value: formatCurrency(revenueCard?.value ?? dashboard.stats.totalRevenue),
       href: revenueCard?.href ?? "/admin/analizler",
       context: `${getPeriodLabel(dashboard.overview.timeRange)} toplamı`,
@@ -733,45 +733,58 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
   ];
 
   return (
-    <section className="overflow-hidden rounded-[8px] border border-[rgba(218,224,233,0.9)] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.03)]">
-      <div className="grid min-w-0 divide-y divide-[rgba(226,231,238,0.92)] md:grid-cols-2 md:divide-x md:divide-y-0 min-[1180px]:grid-cols-5">
-        {metrics.map((metric) => {
-          const MetricDeltaIcon = metric.delta.positive === false ? ArrowDownRight : ArrowUpRight;
+    <section className="overflow-hidden rounded-[8px] border border-[rgba(218,224,233,0.9)] bg-[var(--admin-bg)] shadow-none">
+      <div className="overflow-x-auto">
+        <div className="grid min-w-[850px] grid-cols-5 divide-x divide-[rgba(218,224,233,0.92)] bg-[rgba(246,247,249,0.92)] min-[1180px]:min-w-0">
+          {metrics.map((metric) => {
+            const MetricDeltaIcon = metric.delta.positive === false ? ArrowDownRight : ArrowUpRight;
+            const isReturnsMetric = metric.label === "İadeler";
 
-          return (
-            <div key={metric.label} className="relative min-h-[112px] px-5 py-5">
-              {metric.active ? (
-                <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#6D5DF7]" />
-              ) : null}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-semibold tracking-[-0.015em] text-[var(--admin-text-secondary)]">
-                    {metric.label}
-                  </p>
-                  <p className="mt-3 truncate text-[1.65rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)]">
-                    {metric.value}
-                  </p>
+            return (
+              <div key={metric.label} className="relative min-h-[82px] px-4 py-4 min-[1180px]:px-5">
+                {metric.active ? (
+                  <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#6D5DF7]" />
+                ) : null}
+                <div className="flex h-full min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-semibold tracking-[-0.015em] text-[var(--admin-text-secondary)] min-[1180px]:text-[15px]">
+                      {metric.label}
+                    </p>
+                    <div className="mt-2 flex min-w-0 items-center gap-2">
+                      <p className="truncate text-[1.45rem] font-semibold tracking-[-0.055em] text-[var(--admin-heading)] min-[1180px]:text-[1.58rem]">
+                        {metric.value}
+                      </p>
+                      <span
+                        className={cn(
+                          "inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-[rgba(255,255,255,0.55)] px-2 py-1 text-[12px] font-semibold",
+                          metric.delta.positive === null
+                            ? "text-[var(--admin-text-secondary)]"
+                            : metric.delta.positive
+                              ? "text-[var(--admin-success)]"
+                              : "text-[var(--admin-danger)]",
+                        )}
+                      >
+                        {metric.delta.positive !== null ? <MetricDeltaIcon className="h-3.5 w-3.5" /> : null}
+                        {metric.delta.positive === null ? formatPercentValue(0) : metric.delta.compactLabel}
+                      </span>
+                    </div>
+                  </div>
+                  {isReturnsMetric ? (
+                    <span
+                      aria-hidden="true"
+                      className="-mr-0.5 mt-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[rgba(218,224,233,0.95)] bg-[rgba(255,255,255,0.58)] text-[var(--admin-text-secondary)]"
+                    >
+                      <ArrowRight className="h-4.5 w-4.5" />
+                    </span>
+                  ) : null}
                 </div>
-                <span
-                  className={cn(
-                    "mt-8 inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-[rgba(248,250,252,0.94)] px-2 py-1 text-[12px] font-semibold",
-                    metric.delta.positive === null
-                      ? "text-[var(--admin-text-secondary)]"
-                      : metric.delta.positive
-                        ? "text-[var(--admin-success)]"
-                        : "text-[var(--admin-danger)]",
-                  )}
-                >
-                  {metric.delta.positive !== null ? <MetricDeltaIcon className="h-3.5 w-3.5" /> : null}
-                  {metric.delta.positive === null ? formatPercentValue(0) : metric.delta.compactLabel}
-                </span>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      <div className="relative border-t border-[rgba(226,231,238,0.92)] px-4 pb-5 pt-4 md:px-6 md:pb-6">
+      <div className="relative border-t border-[rgba(226,231,238,0.92)] bg-[var(--admin-bg)] px-4 pb-5 pt-4 md:px-6 md:pb-6">
         <div className="mb-3 flex items-center justify-between gap-3 text-[12px] font-medium text-[var(--admin-text-secondary)]">
           <span className="inline-flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[#6D5DF7]" />
