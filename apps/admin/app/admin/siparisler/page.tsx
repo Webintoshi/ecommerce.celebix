@@ -1269,7 +1269,7 @@ export default function OrdersPage() {
 
   return (
     <main className="min-h-screen bg-[#F9F9F9]">
-      <div className="mx-auto max-w-[1600px] px-3 py-3 md:px-5 md:py-5 lg:px-8">
+      <div className="w-full px-0 py-3 md:py-5">
         <section className="min-w-0">
           <header className="flex min-h-[72px] flex-col gap-3 border-b border-[#E1E6EF] px-0 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
