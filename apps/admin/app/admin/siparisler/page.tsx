@@ -1269,9 +1269,9 @@ export default function OrdersPage() {
 
   return (
     <main className="min-h-screen bg-[#F9F9F9]">
-      <div className="mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
-        <section className="overflow-hidden rounded-[10px] border border-[#E1E6EF] bg-white shadow-none">
-          <header className="flex min-h-[76px] flex-col gap-3 border-b border-[#E8EDF4] px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-5">
+      <div className="mx-auto max-w-[1600px] px-3 py-3 md:px-5 md:py-5 lg:px-8">
+        <section className="min-w-0">
+          <header className="flex min-h-[72px] flex-col gap-3 border-b border-[#E1E6EF] px-0 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <h1 className="truncate text-[1.45rem] font-semibold tracking-[-0.03em] text-[#111827]">
                 Siparişler
@@ -1302,8 +1302,8 @@ export default function OrdersPage() {
           {loading ? (
             <OrdersPageSkeleton />
           ) : (
-            <AdminDataTable className="rounded-none border-0 shadow-none">
-              <div className="border-b border-[#E8EDF4] bg-white px-4 py-5 md:px-5">
+            <AdminDataTable className="rounded-none border-0 bg-transparent shadow-none">
+              <div className="border-b border-[#E1E6EF] bg-[#F9F9F9] px-0 py-4 md:py-5">
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-center min-[1180px]:justify-between">
                     <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
@@ -1368,7 +1368,7 @@ export default function OrdersPage() {
                   {showAdvancedFilters ? (
                     <div
                       id="orders-advanced-filters"
-                      className="grid gap-3 rounded-[10px] border border-[#E8EDF4] bg-[#F9F9F9] p-3 md:grid-cols-2 xl:grid-cols-5"
+                      className="grid gap-3 border-y border-[#E1E6EF] bg-[#F9F9F9] py-3 md:grid-cols-2 xl:grid-cols-5"
                     >
                       <div className="relative">
                         <select
@@ -1632,7 +1632,7 @@ export default function OrdersPage() {
                     </table>
                   </div>
 
-                  <div className="flex flex-col gap-4 border-t border-[#E8EDF4] bg-white px-4 py-4 md:flex-row md:items-center md:justify-between md:px-5">
+                  <div className="flex flex-col gap-4 border-t border-[#E1E6EF] bg-[#F9F9F9] px-0 py-4 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-wrap items-center gap-3 text-[14px] font-medium text-[#5E6878]">
                       <span>Satır Adedi:</span>
                       <div className="relative">
