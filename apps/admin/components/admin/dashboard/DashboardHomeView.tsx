@@ -400,7 +400,7 @@ function DashboardActionRail({
         "min-w-0",
         compact
           ? "sticky top-[max(0.45rem,env(safe-area-inset-top))] z-20 mb-3 rounded-[18px] border border-[rgba(224,228,235,0.88)] bg-[rgba(255,255,255,0.94)] p-3 shadow-[var(--shadow-xs)] backdrop-blur-xl min-[1025px]:hidden"
-          : "w-full border-b border-[rgba(224,228,235,0.86)] bg-[rgba(255,255,255,0.92)] py-3",
+          : "w-full border-b border-[rgba(224,228,235,0.86)] bg-[var(--admin-bg)] py-3",
       )}
     >
       <div

@@ -119,8 +119,8 @@ function DesktopTopbar({
 
   if (isDashboardRoot) {
     return (
-      <header className="sticky top-0 z-30 mx-auto mb-5 hidden w-full min-[1025px]:block">
-        <div id="admin-dashboard-topbar-actions" className="bg-white/96 backdrop-blur-xl" />
+      <header className="sticky top-0 z-30 mx-auto mb-5 hidden w-full bg-[var(--admin-bg)] min-[1025px]:block">
+        <div id="admin-dashboard-topbar-actions" className="bg-[var(--admin-bg)]" />
       </header>
     );
   }
