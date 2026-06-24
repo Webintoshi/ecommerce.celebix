@@ -13,6 +13,7 @@ describe("dashboard presentation safety", () => {
   it("marks disconnected analytics without exposing config values", () => {
     const status = buildDashboardAnalyticsStatus({
       provider: "umami",
+      state: "analytics_not_configured",
       source: "internal",
       umami: {
         baseUrlPresent: true,
@@ -27,6 +28,24 @@ describe("dashboard presentation safety", () => {
     assert.equal(status.label, "Analytics bağlantısı yapılandırılmadı");
     assert.equal(status.details.includes("API token"), true);
     assert.equal(status.details.includes("http"), false);
+  });
+
+  it("distinguishes configured fetch failures from missing analytics config", () => {
+    const status = buildDashboardAnalyticsStatus({
+      provider: "umami",
+      state: "analytics_fetch_failed",
+      source: "internal",
+      umami: {
+        baseUrlPresent: true,
+        apiTokenPresent: true,
+        websiteIdPresent: true,
+        configured: true,
+      },
+      storefrontTracking: "internal",
+    });
+
+    assert.equal(status.state, "fetch_failed");
+    assert.equal(status.label, "Analytics yapılandırıldı, veri alınamadı");
   });
 
   it("does not present disconnected sales channels as zero revenue", () => {

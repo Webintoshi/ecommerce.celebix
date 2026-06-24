@@ -100,12 +100,18 @@ function getEmptyLiveAnalyticsSnapshot(): LiveAnalyticsSnapshot {
 function getEmptyDashboardAnalyticsStatus(): DashboardAnalyticsStatus {
   return {
     provider: "umami",
+    state: "analytics_not_configured",
     source: "none",
     umami: {
       baseUrlPresent: false,
       apiTokenPresent: false,
       websiteIdPresent: false,
       configured: false,
+      selectedKeys: {
+        baseUrl: null,
+        apiToken: null,
+        websiteId: null,
+      },
     },
     storefrontTracking: "unknown",
   };

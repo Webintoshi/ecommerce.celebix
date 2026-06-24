@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  resolveUmamiConfigFromEnv,
+  type UmamiConfig,
+  type UmamiConfigPresence,
+} from "@/lib/analytics/umami-config";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 
 type UmamiAggregateResult = {
@@ -47,51 +52,11 @@ export type UmamiRealtimeSnapshot = {
   topBrowsers: Array<{ label: string; count: number }>;
 };
 
-type UmamiConfig = {
-  baseUrl: string;
-  apiToken: string;
-  websiteId: string;
-};
-
-export type UmamiConfigPresence = {
-  baseUrlPresent: boolean;
-  apiTokenPresent: boolean;
-  websiteIdPresent: boolean;
-  configured: boolean;
-};
-
-function normalizeEnvKeySuffix(value: string): string {
-  return value.replace(/[^A-Za-z0-9]/g, "_").toUpperCase();
-}
-
-function getEnv(name: string): string | null {
-  const value = process.env[name];
-  if (!value || value.trim().length === 0) {
-    return null;
-  }
-
-  return value.trim();
-}
-
-function getScopedEnv(name: string): string | null {
-  const scopedName = `${name}_${normalizeEnvKeySuffix(STORE_RUNTIME.slug)}`;
-  return getEnv(scopedName) ?? getEnv(name);
-}
-
 function getUmamiConfig(): UmamiConfig | null {
-  const baseUrl = getScopedEnv("UMAMI_BASE_URL");
-  const apiToken = getScopedEnv("UMAMI_API_TOKEN");
-  const websiteId = getScopedEnv("UMAMI_WEBSITE_ID");
-
-  if (!baseUrl || !apiToken || !websiteId) {
-    return null;
-  }
-
-  return {
-    baseUrl: baseUrl.replace(/\/+$/, ""),
-    apiToken,
-    websiteId,
-  };
+  return resolveUmamiConfigFromEnv({
+    env: process.env,
+    storeSlug: STORE_RUNTIME.slug,
+  }).config;
 }
 
 export function isUmamiConfigured(): boolean {
@@ -99,16 +64,10 @@ export function isUmamiConfigured(): boolean {
 }
 
 export function getUmamiConfigPresence(): UmamiConfigPresence {
-  const baseUrlPresent = Boolean(getScopedEnv("UMAMI_BASE_URL"));
-  const apiTokenPresent = Boolean(getScopedEnv("UMAMI_API_TOKEN"));
-  const websiteIdPresent = Boolean(getScopedEnv("UMAMI_WEBSITE_ID"));
-
-  return {
-    baseUrlPresent,
-    apiTokenPresent,
-    websiteIdPresent,
-    configured: baseUrlPresent && apiTokenPresent && websiteIdPresent,
-  };
+  return resolveUmamiConfigFromEnv({
+    env: process.env,
+    storeSlug: STORE_RUNTIME.slug,
+  }).presence;
 }
 
 async function umamiFetch<T>(

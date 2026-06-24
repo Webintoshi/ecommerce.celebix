@@ -265,11 +265,21 @@ async function fetchTrafficAggregate(
   return getFallbackTrafficAggregate(supabase, startDate, endDate);
 }
 
-function buildAnalyticsStatus(source: DashboardTrafficSource): DashboardAnalyticsStatus {
+function buildAnalyticsStatus(traffic: TrafficAggregateResult): DashboardAnalyticsStatus {
+  const umami = getUmamiConfigPresence();
+  const state: DashboardAnalyticsStatus["state"] = !umami.configured
+    ? "analytics_not_configured"
+    : traffic.source !== "umami"
+      ? "analytics_fetch_failed"
+      : traffic.visitors === 0 && traffic.pageViews === 0
+        ? "analytics_empty"
+        : "analytics_configured";
+
   return {
     provider: "umami",
-    source,
-    umami: getUmamiConfigPresence(),
+    state,
+    source: traffic.source,
+    umami,
     // The storefront uses the platform's first-party analytics endpoint; raw PII is not exposed here.
     storefrontTracking: "internal",
   };
@@ -531,7 +541,7 @@ export async function getDashboardAnalyticsPayload(
         addToCart: currentAddToCart,
         purchases: currentOrderStats.allOrdersCount,
       },
-      analyticsStatus: buildAnalyticsStatus(currentTraffic.source),
+      analyticsStatus: buildAnalyticsStatus(currentTraffic),
       labels,
     };
   });

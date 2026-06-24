@@ -21,7 +21,7 @@ function formatDelta(change: number) {
 }
 
 export type DashboardAnalyticsPresentation = {
-  state: "configured" | "fallback" | "missing";
+  state: "configured" | "fetch_failed" | "empty" | "missing";
   label: string;
   details: string;
   tone: "success" | "warning" | "neutral";
@@ -67,7 +67,7 @@ export function buildDashboardAnalyticsStatus(
     !status.umami.websiteIdPresent ? "Website ID" : null,
   ].filter((item): item is string => Boolean(item));
 
-  if (!status.umami.configured) {
+  if (!status.umami.configured || status.state === "analytics_not_configured") {
     return {
       state: "missing",
       label: "Analytics bağlantısı yapılandırılmadı",
@@ -76,6 +76,35 @@ export function buildDashboardAnalyticsStatus(
           ? `Eksik: ${missingParts.join(", ")}. Değerler gizli tutulur.`
           : "Umami bağlantısı eksik görünüyor. Değerler gizli tutulur.",
       tone: "warning",
+      sourceLabel: getTrafficSourceLabel(status.source),
+      storefrontLabel:
+        status.storefrontTracking === "internal"
+          ? "Storefront internal tracking aktif"
+          : "Storefront tracking doğrulanmadı",
+    };
+  }
+
+  if (status.state === "analytics_fetch_failed" || status.source !== "umami") {
+    return {
+      state: "fetch_failed",
+      label: "Analytics yapılandırıldı, veri alınamadı",
+      details:
+        "Umami ayarları mevcut; API çağrısı bu aralıkta sonuç döndürmediği için fallback trafik kaynağı kullanıldı.",
+      tone: "neutral",
+      sourceLabel: getTrafficSourceLabel(status.source),
+      storefrontLabel:
+        status.storefrontTracking === "internal"
+          ? "Storefront internal tracking aktif"
+          : "Storefront tracking doğrulanmadı",
+    };
+  }
+
+  if (status.state === "analytics_empty") {
+    return {
+      state: "empty",
+      label: "Umami bağlı, seçili dönemde trafik yok",
+      details: "Umami API çalıştı; seçili dönem için trafik verisi sıfır döndü.",
+      tone: "neutral",
       sourceLabel: getTrafficSourceLabel(status.source),
       storefrontLabel:
         status.storefrontTracking === "internal"
@@ -99,9 +128,9 @@ export function buildDashboardAnalyticsStatus(
   }
 
   return {
-    state: "fallback",
-    label: "Umami yapılandırıldı, trafik fallback ile izleniyor",
-    details: "Umami ayarları mevcut; dashboard bu aralıkta fallback trafik kaynağını kullandı.",
+    state: "fetch_failed",
+    label: "Analytics yapılandırıldı, veri alınamadı",
+    details: "Umami ayarları mevcut; dashboard bu aralıkta beklenen Umami yanıtını alamadı.",
     tone: "neutral",
     sourceLabel: getTrafficSourceLabel(status.source),
     storefrontLabel:

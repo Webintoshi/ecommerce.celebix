@@ -123,14 +123,26 @@ export type LiveAnalyticsSnapshot = {
 
 export type DashboardTrafficSource = "umami" | "plausible" | "internal" | "none";
 
+export type DashboardAnalyticsState =
+  | "analytics_configured"
+  | "analytics_not_configured"
+  | "analytics_fetch_failed"
+  | "analytics_empty";
+
 export type DashboardAnalyticsStatus = {
   provider: "umami";
+  state: DashboardAnalyticsState;
   source: DashboardTrafficSource;
   umami: {
     baseUrlPresent: boolean;
     apiTokenPresent: boolean;
     websiteIdPresent: boolean;
     configured: boolean;
+    selectedKeys?: {
+      baseUrl: string | null;
+      apiToken: string | null;
+      websiteId: string | null;
+    };
   };
   storefrontTracking: "internal" | "unknown" | "none";
 };
