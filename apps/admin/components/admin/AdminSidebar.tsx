@@ -601,7 +601,8 @@ export function AdminSidebar({
                   <img
                     src={ADMIN_BRAND_LOGO_SRC}
                     alt="Celebix"
-                    className="h-6 w-auto max-w-[7.75rem] object-contain"
+                    className="block object-contain"
+                    style={{ width: "136px", height: "auto" }}
                   />
                 </div>
 
@@ -833,7 +834,8 @@ export function AdminSidebar({
           <img
             src={ADMIN_BRAND_LOGO_SRC}
             alt="Celebix"
-            className="h-6 w-auto max-w-[7.75rem] object-contain"
+            className="block object-contain"
+            style={{ width: "136px", height: "auto" }}
           />
         </div>
       </div>
