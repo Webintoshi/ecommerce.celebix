@@ -705,7 +705,7 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
   const hasSalesData = chartPoints.some((point) => point.currentRevenue > 0 || point.currentOrders > 0);
   const metrics = [
     {
-      label: "Toplam satış",
+      label: "Toplam Satış",
       value: formatCurrency(currentRevenue),
       delta: revenueDelta,
       active: true,
