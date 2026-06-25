@@ -287,8 +287,8 @@ export default function SegmentsPage() {
           ) : null}
 
           <section className="border-y border-[#E1E6EF] bg-[#F9F9F9]">
-            <div className="flex flex-col gap-3 px-4 py-4 md:px-6 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
-              <div className="grid flex-1 grid-cols-1 gap-3 min-[1025px]:max-w-[820px] min-[1025px]:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="flex flex-col gap-3 px-4 py-3 md:px-6 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
+              <div className="flex flex-1 flex-col gap-2 min-[1025px]:max-w-[760px] min-[1025px]:flex-row min-[1025px]:items-center">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8794]" />
                   <input
@@ -297,13 +297,13 @@ export default function SegmentsPage() {
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     aria-label="Tabloda segment ara"
-                    className="h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white pl-11 pr-4 text-sm font-medium text-[#111827] outline-none transition placeholder:text-[#7B8794] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
+                    className="h-10 w-full min-[1025px]:w-[560px] rounded-[6px] border border-[#DDE3EC] bg-white pl-10 pr-4 text-sm font-medium text-[#111827] outline-none transition placeholder:text-[#7B8794] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
                   />
                 </label>
 
                 <span
                   aria-live="polite"
-                  className="inline-flex h-11 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-sm font-semibold text-[#6B7280]"
+                  className="text-sm font-semibold text-[#6B7280] min-[1025px]:whitespace-nowrap"
                 >
                   {loading
                     ? "Hazırlanıyor"
@@ -311,12 +311,12 @@ export default function SegmentsPage() {
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 min-[1025px]:justify-end">
-                <span className="rounded-[7px] border border-[#E1E6EF] bg-white px-3 py-2 text-sm font-semibold text-[#6B7280]">
-                  Toplam {segmentCount.toLocaleString("tr-TR")}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold text-[#6B7280] min-[1025px]:justify-end">
+                <span>
+                  <span className="text-[#111827]">{segmentCount.toLocaleString("tr-TR")}</span> toplam
                 </span>
-                <span className="rounded-[7px] border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-2 text-sm font-semibold text-[#E85D04]">
-                  {matchedCustomers.toLocaleString("tr-TR")} eşleşme
+                <span className="text-[#E85D04]">
+                  <span>{matchedCustomers.toLocaleString("tr-TR")}</span> eşleşme
                 </span>
               </div>
             </div>
@@ -337,7 +337,7 @@ export default function SegmentsPage() {
                   {filtered.map((segment) => (
                     <article
                       key={segment.id}
-                      className="rounded-[8px] border border-[#E1E6EF] bg-white p-4 shadow-none transition hover:border-[#FFD7BF] sm:p-5"
+                      className="rounded-[7px] border border-[#E1E6EF] bg-white p-4 shadow-none transition hover:border-[#FFD7BF]"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
@@ -349,7 +349,7 @@ export default function SegmentsPage() {
                             {segment.description || "Bu segment için açıklama eklenmemiş."}
                           </p>
                         </div>
-                        <span className="shrink-0 rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9] px-2.5 py-1 text-xs font-semibold text-[#6B7280]">
+                        <span className="shrink-0 text-xs font-semibold text-[#6B7280]">
                           {segment.members.length.toLocaleString("tr-TR")} müşteri
                         </span>
                       </div>
@@ -359,7 +359,7 @@ export default function SegmentsPage() {
                         <MobileInfoCard label="Güncelleme" value={formatDate(segment.updatedAt)} />
                       </div>
 
-                      <div className="mt-4 rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9] px-3 py-2 text-sm text-[#6B7280]">
+                      <div className="mt-4 border-t border-[#E1E6EF] pt-3 text-sm text-[#6B7280]">
                         {segment.conditions.slice(0, 2).map(conditionText).join(" · ")}
                         {segment.conditions.length > 2 ? ` · +${segment.conditions.length - 2} kural` : ""}
                       </div>
@@ -375,7 +375,7 @@ export default function SegmentsPage() {
                           type="button"
                           onClick={() => removeSegment(segment.id, segment.name)}
                           aria-label={`${segment.name} segmentini sil`}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-rose-100 bg-white text-[#6B7280] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#7B8794] transition hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -388,48 +388,49 @@ export default function SegmentsPage() {
                   <table className="w-full min-w-[1040px] text-left text-sm">
                     <thead className="bg-[#EEF2F6]">
                       <tr>
-                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Segment</th>
-                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Kural Mantığı</th>
-                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Koşullar</th>
-                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Eşleşen Müşteri</th>
-                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Son Güncelleme</th>
-                        <th className="px-5 py-4 text-right text-[13px] font-semibold text-[#4B5563]">İşlemler</th>
+                        <th className="px-4 py-3 text-[13px] font-semibold text-[#4B5563]">Segment</th>
+                        <th className="px-4 py-3 text-[13px] font-semibold text-[#4B5563]">Kural</th>
+                        <th className="px-4 py-3 text-[13px] font-semibold text-[#4B5563]">Koşullar</th>
+                        <th className="px-4 py-3 text-[13px] font-semibold text-[#4B5563]">Eşleşme</th>
+                        <th className="px-4 py-3 text-[13px] font-semibold text-[#4B5563]">Güncelleme</th>
+                        <th className="px-4 py-3 text-right text-[13px] font-semibold text-[#4B5563]">İşlemler</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.map((segment) => (
                         <tr key={segment.id} className="group border-b border-[#E1E6EF] last:border-b-0 hover:bg-white">
-                          <td className="max-w-[340px] px-5 py-5 align-top">
+                          <td className="max-w-[420px] px-4 py-4 align-top">
                             <div className="font-semibold text-[#111827]">{segment.name}</div>
-                            <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#6B7280]">
+                            <p className="mt-1 line-clamp-1 text-sm leading-5 text-[#6B7280]">
                               {segment.description || "Bu segment için açıklama eklenmemiş."}
                             </p>
                           </td>
-                          <td className="px-5 py-5 align-top">
+                          <td className="px-4 py-4 align-top">
                             <LogicBadge logic={segment.logic} />
                           </td>
-                          <td className="max-w-[360px] px-5 py-5 align-top">
-                            <div className="space-y-1.5">
+                          <td className="max-w-[360px] px-4 py-4 align-top">
+                            <div className="space-y-1">
                               {segment.conditions.slice(0, 2).map((condition, index) => (
-                                <div key={`${segment.id}-${index}`} className="text-sm font-medium text-[#374151]">
+                                <div key={`${segment.id}-${index}`} className="text-sm font-medium leading-5 text-[#374151]">
                                   {conditionText(condition)}
                                 </div>
                               ))}
                               {segment.conditions.length > 2 ? (
-                                <div className="text-sm font-semibold text-[#E85D04]">
+                                <div className="text-xs font-semibold text-[#E85D04]">
                                   +{segment.conditions.length - 2} kural
                                 </div>
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-5 py-5 align-top">
-                            <div className="font-semibold text-[#111827]">{segment.members.length.toLocaleString("tr-TR")}</div>
-                            <div className="mt-1 text-sm text-[#6B7280]">müşteri</div>
+                          <td className="px-4 py-4 align-top">
+                            <div className="text-sm font-semibold text-[#111827]">
+                              {segment.members.length.toLocaleString("tr-TR")} <span className="font-medium text-[#6B7280]">müşteri</span>
+                            </div>
                           </td>
-                          <td className="px-5 py-5 align-top">
-                            <div className="font-medium text-[#111827]">{formatDate(segment.updatedAt)}</div>
+                          <td className="px-4 py-4 align-top">
+                            <div className="text-sm font-medium leading-5 text-[#111827]">{formatDate(segment.updatedAt)}</div>
                           </td>
-                          <td className="px-5 py-5 text-right align-top">
+                          <td className="px-4 py-4 text-right align-top">
                             <div className="flex items-center justify-end gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                               <ActionButton label={`${segment.name} segmentini görüntüle`} onClick={() => setViewSegmentId(segment.id)}>
                                 <Eye className="h-4 w-4" />
@@ -441,7 +442,7 @@ export default function SegmentsPage() {
                                 type="button"
                                 onClick={() => removeSegment(segment.id, segment.name)}
                                 aria-label={`${segment.name} segmentini sil`}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-rose-100 bg-white text-[#6B7280] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#7B8794] transition hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -477,8 +478,8 @@ export default function SegmentsPage() {
               </div>
             )}
 
-            <div className="border-t border-[#E1E6EF] bg-[#F9F9F9] px-4 py-4 md:px-6">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="border-t border-[#E1E6EF] bg-[#F9F9F9] px-4 py-3 md:px-6">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <p aria-live="polite" className="text-sm font-medium text-[#6B7280]">
                   <span className="font-semibold text-[#111827]">{filtered.length.toLocaleString("tr-TR")}</span> segment gösteriliyor
                   {activeSearch ? " · arama aktif" : ""}
@@ -797,7 +798,8 @@ function SegmentMembersModal({
 
 function LogicBadge({ logic }: { logic: Segment["logic"] }) {
   return (
-    <span className="inline-flex rounded-[5px] border border-[#FFD7BF] bg-[#FFF1E8] px-2.5 py-1 text-xs font-semibold text-[#E85D04]">
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E85D04]">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#FF6A00]" aria-hidden="true" />
       {logic === "all" ? "Tüm koşullar" : "Herhangi bir koşul"}
     </span>
   );
@@ -817,7 +819,7 @@ function ActionButton({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#7B8794] transition hover:bg-[#FFF1E8] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
     >
       {children}
     </button>
