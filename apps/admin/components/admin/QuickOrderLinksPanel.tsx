@@ -1,12 +1,32 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Copy, ExternalLink, Link2, Loader2, Mail, MapPin, Package, Plus, RefreshCw, Search, ShieldCheck, ShoppingBag, Trash2, User, XCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  Info,
+  Link2,
+  Loader2,
+  Mail,
+  MessageSquareText,
+  Package,
+  Plus,
+  RefreshCw,
+  Search,
+  ShoppingBag,
+  Tag,
+  Trash2,
+  User,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import { buildStorefrontUrl } from "@/lib/store-runtime";
+import { cn } from "@/lib/utils";
 
 type ProductVariantRecord = {
   id: string;
@@ -29,6 +49,32 @@ type PaymentGatewayRecord = {
   description: string;
   gateway: string;
   status: string;
+};
+
+type CustomerAddressRecord = {
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  address_line1?: string | null;
+  addressLine?: string | null;
+  city?: string | null;
+  district?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  is_default?: boolean | null;
+};
+
+type CustomerSearchRecord = {
+  id: string;
+  email: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  total_orders?: number | string | null;
+  total_spent?: number | string | null;
+  addresses?: CustomerAddressRecord[];
 };
 
 type QuickOrderAddress = {
@@ -89,10 +135,36 @@ const EMPTY_ADDRESS: QuickOrderAddress = {
 const STATUS_STYLES: Record<QuickOrderLinkRecord["status"], string> = {
   active: "border-emerald-200 bg-emerald-50 text-emerald-700",
   opened: "border-sky-200 bg-sky-50 text-sky-700",
-  paid: "border-violet-200 bg-violet-50 text-violet-700",
+  paid: "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
   cancelled: "border-rose-200 bg-rose-50 text-rose-700",
   expired: "border-amber-200 bg-amber-50 text-amber-700",
 };
+
+const STATUS_LABELS: Record<QuickOrderLinkRecord["status"], string> = {
+  active: "Aktif",
+  opened: "Açıldı",
+  paid: "Ödendi",
+  cancelled: "İptal",
+  expired: "Süresi doldu",
+};
+
+const ADDRESS_FIELDS: Array<{ key: keyof QuickOrderAddress; label: string }> = [
+  { key: "firstName", label: "Ad" },
+  { key: "lastName", label: "Soyad" },
+  { key: "phone", label: "Telefon" },
+  { key: "city", label: "Şehir" },
+  { key: "district", label: "İlçe" },
+  { key: "postalCode", label: "Posta kodu" },
+  { key: "country", label: "Ülke" },
+];
+
+const EXPIRY_OPTIONS = [
+  { value: 4, label: "4 saat geçerli" },
+  { value: 12, label: "12 saat geçerli" },
+  { value: 24, label: "24 saat geçerli" },
+  { value: 48, label: "48 saat geçerli" },
+  { value: 72, label: "72 saat geçerli" },
+];
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -116,16 +188,116 @@ function makeLineId(productId: string, variantId: string) {
   return `${productId}:${variantId}`;
 }
 
+function getCustomerName(customer: CustomerSearchRecord) {
+  return [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim() || customer.email;
+}
+
+function normalizeCustomerAddress(customer: CustomerSearchRecord): QuickOrderAddress {
+  const address = customer.addresses?.find((item) => item.is_default) ?? customer.addresses?.[0];
+
+  return {
+    firstName: address?.first_name || customer.first_name || "",
+    lastName: address?.last_name || customer.last_name || "",
+    phone: address?.phone || customer.phone || "",
+    address: address?.address || address?.address_line1 || address?.addressLine || "",
+    city: address?.city || "",
+    district: address?.district || address?.state || "",
+    postalCode: address?.postal_code || "",
+    country: address?.country || "Türkiye",
+  };
+}
+
+function buildSavedNote(note: string, internalTag: string) {
+  const cleanNote = note.trim();
+  const cleanTag = internalTag.trim();
+
+  if (cleanNote && cleanTag) {
+    return `${cleanNote}\nEtiket: ${cleanTag}`;
+  }
+
+  if (cleanTag) {
+    return `Etiket: ${cleanTag}`;
+  }
+
+  return cleanNote;
+}
+
+function Panel({
+  title,
+  icon,
+  children,
+  actions,
+  className,
+}: {
+  title: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("overflow-hidden rounded-[7px] border border-[#E1E6EF] bg-white", className)}>
+      <div className="flex min-h-[58px] items-center justify-between gap-4 border-b border-[#EEF1F5] px-5 py-3 md:px-6">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {icon ? <span className="text-[#7B8797]">{icon}</span> : null}
+          <h2 className="truncate text-[1.05rem] font-semibold tracking-[-0.03em] text-[#111827]">{title}</h2>
+          <Info className="h-4 w-4 shrink-0 text-[#7B8797]" />
+        </div>
+        {actions}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function TextField({
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  min,
+  id,
+  className,
+}: {
+  value: string | number;
+  onChange: (value: string) => void;
+  placeholder: string;
+  type?: "text" | "email" | "number";
+  min?: number;
+  id?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      id={id}
+      type={type}
+      min={min}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      className={cn(
+        "h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white px-3.5 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FF6A00] focus:ring-2 focus:ring-[rgba(255,106,0,0.12)]",
+        className,
+      )}
+    />
+  );
+}
+
 export function QuickOrderLinksPanel() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerResults, setCustomerResults] = useState<CustomerSearchRecord[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [shippingAddress, setShippingAddress] = useState<QuickOrderAddress>(EMPTY_ADDRESS);
   const [billingAddress, setBillingAddress] = useState<QuickOrderAddress>(EMPTY_ADDRESS);
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
   const [shippingCost, setShippingCost] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [note, setNote] = useState("");
+  const [internalTag, setInternalTag] = useState("");
   const [expiresInHours, setExpiresInHours] = useState(24);
   const [lines, setLines] = useState<QuickOrderLine[]>([]);
   const [paymentGateways, setPaymentGateways] = useState<PaymentGatewayRecord[]>([]);
@@ -165,20 +337,56 @@ export function QuickOrderLinksPanel() {
         setSearchResults(response.products || []);
       } catch (error) {
         console.error("Quick order product search failed:", error);
+        toast.error("Ürün araması tamamlanamadı.");
       } finally {
         setLoadingProducts(false);
       }
-    }, 350);
+    }, 300);
 
     return () => window.clearTimeout(timeout);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(async () => {
+      if (selectedCustomerId) {
+        setCustomerResults([]);
+        setLoadingCustomers(false);
+        return;
+      }
+
+      if (!customerSearch.trim()) {
+        setCustomerResults([]);
+        return;
+      }
+
+      setLoadingCustomers(true);
+
+      try {
+        const response = await fetchAdminJson<{
+          success: boolean;
+          customers: CustomerSearchRecord[];
+        }>(`/api/customers?limit=8&search=${encodeURIComponent(customerSearch.trim())}`, {
+          timeoutMs: 12000,
+        });
+
+        setCustomerResults(response.customers || []);
+      } catch (error) {
+        console.error("Quick order customer search failed:", error);
+        toast.error("Müşteri araması tamamlanamadı.");
+      } finally {
+        setLoadingCustomers(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [customerSearch, selectedCustomerId]);
 
   useEffect(() => {
     const bootstrap = async () => {
       await Promise.all([loadLinks(), loadGateways()]);
     };
 
-    bootstrap();
+    void bootstrap();
   }, []);
 
   const subtotal = useMemo(
@@ -199,7 +407,7 @@ export function QuickOrderLinksPanel() {
       }>("/api/admin/quick-order-links", { timeoutMs: 15000 });
       setLinks(response.links || []);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Hizli siparis linkleri yuklenemedi.");
+      toast.error(error instanceof Error ? error.message : "Hızlı sipariş linkleri yüklenemedi.");
     } finally {
       setLinksLoading(false);
     }
@@ -219,7 +427,7 @@ export function QuickOrderLinksPanel() {
       setPaymentGateways(eligible);
       setAllowedGatewayIds(eligible.map((gateway) => gateway.id));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Ödeme yontemleri yuklenemedi.");
+      toast.error(error instanceof Error ? error.message : "Ödeme yöntemleri yüklenemedi.");
     }
   }
 
@@ -252,6 +460,19 @@ export function QuickOrderLinksPanel() {
     });
   }
 
+  function selectCustomer(customer: CustomerSearchRecord) {
+    const name = getCustomerName(customer);
+    const nextAddress = normalizeCustomerAddress(customer);
+
+    setSelectedCustomerId(customer.id);
+    setCustomerName(name === customer.email ? "" : name);
+    setCustomerEmail(customer.email);
+    setCustomerPhone(customer.phone || nextAddress.phone);
+    setCustomerSearch(name);
+    setShippingAddress(nextAddress);
+    setCustomerResults([]);
+  }
+
   function updateLine(lineId: string, updates: Partial<QuickOrderLine>) {
     setLines((current) =>
       current.map((line) => (line.id === lineId ? { ...line, ...updates } : line)),
@@ -262,16 +483,34 @@ export function QuickOrderLinksPanel() {
     setLines((current) => current.filter((line) => line.id !== lineId));
   }
 
+  function updateShippingAddress(key: keyof QuickOrderAddress, value: string) {
+    setShippingAddress((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function updateBillingAddress(key: keyof QuickOrderAddress, value: string) {
+    setBillingAddress((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
   function resetBuilder() {
     setCustomerEmail("");
     setCustomerName("");
     setCustomerPhone("");
+    setCustomerSearch("");
+    setCustomerResults([]);
+    setSelectedCustomerId(null);
     setShippingAddress(EMPTY_ADDRESS);
     setBillingAddress(EMPTY_ADDRESS);
     setBillingSameAsShipping(true);
     setShippingCost(0);
     setDiscount(0);
     setNote("");
+    setInternalTag("");
     setExpiresInHours(24);
     setLines([]);
     setSearchQuery("");
@@ -286,15 +525,15 @@ export function QuickOrderLinksPanel() {
     }
 
     if (!lines.length) {
-      toast.error("En az bir urun secmelisiniz.");
+      toast.error("En az bir ürün seçmelisiniz.");
       return;
     }
-
 
     setSaving(true);
 
     try {
       const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
+      const savedNote = buildSavedNote(note, internalTag);
       const response = await fetchAdminJson<{
         success: boolean;
         link: QuickOrderLinkRecord;
@@ -313,7 +552,7 @@ export function QuickOrderLinksPanel() {
             billingAddress: billingSameAsShipping ? shippingAddress : billingAddress,
             shippingCost,
             discount,
-            note: note || null,
+            note: savedNote || null,
             allowedPaymentMethodIds: allowedGatewayIds,
             expiresAt,
             items: lines.map((line) => ({
@@ -331,10 +570,10 @@ export function QuickOrderLinksPanel() {
       });
 
       setLinks((current) => [response.link, ...current]);
-      toast.success("Hizli siparis linki olusturuldu.");
+      toast.success("Hızlı sipariş linki oluşturuldu.");
       resetBuilder();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Hizli siparis linki olusturulamadi.");
+      toast.error(error instanceof Error ? error.message : "Hızlı sipariş linki oluşturulamadı.");
     } finally {
       setSaving(false);
     }
@@ -374,9 +613,18 @@ export function QuickOrderLinksPanel() {
       });
 
       setLinks((current) => [response.link, ...current]);
-      toast.success("Link kopyalandi.");
+      toast.success("Link kopyalandı.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Link kopyalanamadi.");
+      toast.error(error instanceof Error ? error.message : "Link kopyalanamadı.");
+    }
+  }
+
+  async function copyLink(token: string) {
+    try {
+      await navigator.clipboard.writeText(quickOrderUrl(token));
+      toast.success("Link kopyalandı.");
+    } catch {
+      toast.error("Link kopyalanamadı.");
     }
   }
 
@@ -384,211 +632,358 @@ export function QuickOrderLinksPanel() {
     return buildStorefrontUrl(`/odeme/hizli/${token}`);
   }
 
+  const selectedCustomerLabel = selectedCustomerId ? "Seçili müşteri" : "Yeni müşteri";
+
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
-        <div className="border-b border-[var(--admin-border)] px-6 py-6 md:px-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
-                <Link2 className="h-3.5 w-3.5" />
-                Hızlı Sipariş
-              </div>
-              <h1 className="text-3xl font-semibold tracking-[-0.05em] text-gray-950">Müşteriye özel ödeme linki oluştur</h1>
-              <p className="max-w-3xl text-sm leading-6 text-gray-500">
-                Ürünleri seç, müşteri bilgilerini gir ve tek tıkla özel bir ödeme linki üret. Müşteri bu linkte kalemleri değiştiremeden ödeme ekranına gider.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              Varsayılan geçerlilik: <span className="font-semibold">24 saat</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.2fr_0.8fr] md:px-8">
-          <div className="space-y-6">
-            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <User className="h-4 w-4 text-[var(--admin-accent)]" />
-                Müşteri bilgileri
-              </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <input value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} placeholder="Müşteri e-postası" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
-                <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Müşteri adı" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
-                <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="Telefon" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
-                <input type="number" min={1} value={expiresInHours} onChange={(event) => setExpiresInHours(Math.max(1, Number(event.target.value) || 24))} placeholder="Geçerlilik (saat)" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
-              </div>
-            </div>
-
-            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <MapPin className="h-4 w-4 text-[var(--admin-accent)]" />
-                Teslimat ve fatura adresi
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {[
-                  ["firstName", "Ad"],
-                  ["lastName", "Soyad"],
-                  ["phone", "Telefon"],
-                  ["city", "Şehir"],
-                  ["district", "İlçe"],
-                  ["postalCode", "Posta kodu"],
-                  ["country", "Ülke"],
-                ].map(([key, label]) => (
+    <div className="space-y-5">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="min-w-0 space-y-5">
+          <Panel title="Sipariş Detayı" icon={<Package className="h-5 w-5" />}>
+            <div className="space-y-5 p-5 md:p-6">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.48fr)]">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
                   <input
-                    key={key}
-                    value={shippingAddress[key as keyof QuickOrderAddress]}
-                    onChange={(event) =>
-                      setShippingAddress((current) => ({
-                        ...current,
-                        [key]: event.target.value,
-                      }))
-                    }
-                    placeholder={label}
-                    className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Ürün ara..."
+                    className="h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white py-2 pl-10 pr-4 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FF6A00] focus:ring-2 focus:ring-[rgba(255,106,0,0.12)]"
+                  />
+                </div>
+                <label className="relative block">
+                  <select
+                    value={expiresInHours}
+                    onChange={(event) => setExpiresInHours(Number(event.target.value) || 24)}
+                    className="h-11 w-full appearance-none rounded-[7px] border border-[#E1E6EF] bg-white px-3.5 pr-10 text-[14px] font-medium text-[#111827] outline-none transition focus:border-[#FF6A00] focus:ring-2 focus:ring-[rgba(255,106,0,0.12)]"
+                  >
+                    {EXPIRY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label} - ₺ / TRY
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
+                </label>
+              </div>
+
+              {searchQuery.trim() ? (
+                <div className="overflow-hidden rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9]">
+                  {loadingProducts ? (
+                    <div className="flex min-h-[88px] items-center justify-center gap-2 text-sm font-medium text-[#6B7280]">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Ürünler aranıyor...
+                    </div>
+                  ) : searchResults.length ? (
+                    <div className="divide-y divide-[#E1E6EF]">
+                      {searchResults.map((product) => (
+                        <div key={product.id} className="bg-white p-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9]">
+                              {product.images?.[0] ? (
+                                <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <ShoppingBag className="h-4 w-4 text-[#9CA3AF]" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-[14px] font-semibold text-[#111827]">{product.name}</p>
+                              <p className="mt-0.5 text-xs font-medium text-[#7B8797]">{product.variants.length} varyant</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 grid gap-2">
+                            {product.variants.map((variant) => (
+                              <button
+                                key={variant.id}
+                                type="button"
+                                onClick={() => addVariant(product, variant)}
+                                className="flex items-center justify-between gap-3 rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9] px-3 py-2.5 text-left transition hover:border-[#FFB985] hover:bg-[#FFF7F0]"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-[13px] font-semibold text-[#111827]">{variant.name}</p>
+                                  <p className="mt-0.5 truncate text-xs text-[#7B8797]">{variant.sku || "SKU yok"}</p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3">
+                                  <span className="text-[13px] font-semibold text-[#111827]">
+                                    {formatPrice(Number(variant.price) || 0)}
+                                  </span>
+                                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-[7px] bg-[#FF6A00] text-white">
+                                    <Plus className="h-4 w-4" />
+                                  </span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex min-h-[88px] items-center justify-center text-sm font-medium text-[#7B8797]">
+                      Sonuç bulunamadı.
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              <div className="min-h-[300px] rounded-[7px] border border-dashed border-[#E1E6EF] bg-[#FCFCFC]">
+                {lines.length ? (
+                  <div className="divide-y divide-[#EEF1F5]">
+                    {lines.map((line) => (
+                      <div key={line.id} className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_9rem_9rem_2.5rem] md:items-center">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9]">
+                            {line.image ? (
+                              <img src={line.image} alt={line.productName} className="h-full w-full object-cover" />
+                            ) : (
+                              <Package className="h-5 w-5 text-[#9CA3AF]" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[14px] font-semibold text-[#111827]">{line.productName}</p>
+                            <p className="mt-1 truncate text-xs font-medium text-[#7B8797]">
+                              {line.variantName} {line.sku ? `• ${line.sku}` : ""}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-[#FF6A00] md:hidden">
+                              {formatPrice(line.quantity * line.unitPrice)}
+                            </p>
+                          </div>
+                        </div>
+                        <TextField
+                          type="number"
+                          min={1}
+                          value={line.quantity}
+                          onChange={(value) => updateLine(line.id, { quantity: Math.max(1, Number(value) || 1) })}
+                          placeholder="Adet"
+                        />
+                        <TextField
+                          type="number"
+                          min={0}
+                          value={line.unitPrice}
+                          onChange={(value) => updateLine(line.id, { unitPrice: Math.max(0, Number(value) || 0) })}
+                          placeholder="Birim fiyat"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeLine(line.id)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50"
+                          aria-label={`${line.productName} satırını kaldır`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex min-h-[300px] flex-col items-center justify-center px-6 text-center">
+                    <div className="relative h-[92px] w-[152px]">
+                      <div className="absolute left-8 top-8 h-12 w-28 rounded-[7px] border border-[#EEF1F5] bg-white shadow-[0_12px_28px_rgba(17,24,39,0.05)]" />
+                      <div className="absolute left-0 top-0 flex h-14 w-36 items-center gap-2 rounded-[7px] border border-[#EEF1F5] bg-white px-3 shadow-[0_14px_34px_rgba(17,24,39,0.08)]">
+                        <span className="h-9 w-9 rounded-[6px] bg-[#FFF1E8]" />
+                        <span className="min-w-0 flex-1 space-y-1">
+                          <span className="block h-2 rounded-full bg-[#E7ECF2]" />
+                          <span className="block h-2 w-2/3 rounded-full bg-[#E7ECF2]" />
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-5 text-[1rem] font-semibold tracking-[-0.02em] text-[#111827]">Siparişleriniz burada gösterilecek</p>
+                    <p className="mt-2 max-w-[26rem] text-sm leading-6 text-[#6B7280]">
+                      Ürün arayarak hızlı ödeme linkine eklenecek kalemleri gerçek katalogdan seçebilirsiniz.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Müşteri" icon={<User className="h-5 w-5" />}>
+            <div className="space-y-5 p-5 md:p-6">
+              <div className="relative max-w-2xl">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
+                <input
+                  value={customerSearch}
+                  onChange={(event) => {
+                    setCustomerSearch(event.target.value);
+                    setSelectedCustomerId(null);
+                  }}
+                  placeholder="Müşteri ara"
+                  className="h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white py-2 pl-10 pr-4 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FF6A00] focus:ring-2 focus:ring-[rgba(255,106,0,0.12)]"
+                />
+                {customerSearch.trim() && customerResults.length ? (
+                  <div className="absolute z-20 mt-2 max-h-80 w-full overflow-auto rounded-[7px] border border-[#E1E6EF] bg-white shadow-[0_18px_40px_rgba(17,24,39,0.12)]">
+                    {customerResults.map((customer) => (
+                      <button
+                        key={customer.id}
+                        type="button"
+                        onClick={() => selectCustomer(customer)}
+                        className="flex w-full items-center justify-between gap-3 border-b border-[#EEF1F5] px-4 py-3 text-left last:border-b-0 hover:bg-[#FFF7F0]"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-[#111827]">{getCustomerName(customer)}</span>
+                          <span className="mt-0.5 block truncate text-xs text-[#7B8797]">{customer.email}</span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold text-[#FF6A00]">
+                          {Number(customer.total_orders) || 0} sipariş
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <TextField type="email" value={customerEmail} onChange={setCustomerEmail} placeholder="E-posta" />
+                <TextField value={customerName} onChange={setCustomerName} placeholder="Ad soyad" />
+                <TextField value={customerPhone} onChange={setCustomerPhone} placeholder="Telefon" />
+              </div>
+
+              <div className="inline-flex items-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9] px-3 py-2 text-xs font-semibold text-[#6B7280]">
+                {selectedCustomerId ? <Check className="h-3.5 w-3.5 text-[#16A34A]" /> : <User className="h-3.5 w-3.5" />}
+                {loadingCustomers ? "Müşteri aranıyor..." : selectedCustomerLabel}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Teslimat Bilgileri" icon={<Mail className="h-5 w-5" />}>
+            <div className="space-y-5 p-5 md:p-6">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {ADDRESS_FIELDS.map((field) => (
+                  <TextField
+                    key={field.key}
+                    value={shippingAddress[field.key]}
+                    onChange={(value) => updateShippingAddress(field.key, value)}
+                    placeholder={field.label}
                   />
                 ))}
                 <textarea
                   value={shippingAddress.address}
-                  onChange={(event) => setShippingAddress((current) => ({ ...current, address: event.target.value }))}
+                  onChange={(event) => updateShippingAddress("address", event.target.value)}
                   placeholder="Adres"
-                  rows={4}
-                  className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)] md:col-span-2"
+                  rows={3}
+                  className="min-h-[96px] rounded-[7px] border border-[#E1E6EF] bg-white px-3.5 py-3 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FF6A00] focus:ring-2 focus:ring-[rgba(255,106,0,0.12)] md:col-span-2 xl:col-span-3"
                 />
               </div>
 
-              <label className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+              <label className="inline-flex items-center gap-2 text-sm font-medium text-[#374151]">
                 <input
                   type="checkbox"
                   checked={billingSameAsShipping}
                   onChange={(event) => setBillingSameAsShipping(event.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="h-4 w-4 rounded border-[#CDD5E1] accent-[#FF6A00]"
                 />
                 Fatura adresi teslimat adresi ile aynı
               </label>
 
               {!billingSameAsShipping ? (
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  {[
-                    ["firstName", "Fatura adı"],
-                    ["lastName", "Fatura soyadı"],
-                    ["phone", "Fatura telefonu"],
-                    ["city", "Fatura şehri"],
-                    ["district", "Fatura ilçesi"],
-                    ["postalCode", "Fatura posta kodu"],
-                    ["country", "Fatura ülkesi"],
-                  ].map(([key, label]) => (
-                    <input
-                      key={key}
-                      value={billingAddress[key as keyof QuickOrderAddress]}
-                      onChange={(event) =>
-                        setBillingAddress((current) => ({
-                          ...current,
-                          [key]: event.target.value,
-                        }))
-                      }
-                      placeholder={label}
-                      className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]"
+                <div className="grid gap-3 rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9] p-4 md:grid-cols-2 xl:grid-cols-3">
+                  {ADDRESS_FIELDS.map((field) => (
+                    <TextField
+                      key={field.key}
+                      value={billingAddress[field.key]}
+                      onChange={(value) => updateBillingAddress(field.key, value)}
+                      placeholder={`Fatura ${field.label.toLocaleLowerCase("tr")}`}
                     />
                   ))}
                   <textarea
                     value={billingAddress.address}
-                    onChange={(event) => setBillingAddress((current) => ({ ...current, address: event.target.value }))}
+                    onChange={(event) => updateBillingAddress("address", event.target.value)}
                     placeholder="Fatura adresi"
-                    rows={4}
-                    className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)] md:col-span-2"
+                    rows={3}
+                    className="min-h-[96px] rounded-[7px] border border-[#E1E6EF] bg-white px-3.5 py-3 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FF6A00] focus:ring-2 focus:ring-[rgba(255,106,0,0.12)] md:col-span-2 xl:col-span-3"
                   />
                 </div>
               ) : null}
             </div>
+          </Panel>
+        </div>
 
-            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <Package className="h-4 w-4 text-[var(--admin-accent)]" />
-                Ürün seç
+        <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+          <Panel title="Sipariş Özeti">
+            <div className="space-y-4 p-5 md:p-6">
+              <div className="flex items-center justify-between text-sm text-[#6B7280]">
+                <span>Ara Toplam</span>
+                <span className="font-semibold text-[#111827]">{formatPrice(subtotal)}</span>
               </div>
 
-              <div className="relative mt-4">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Ürün veya varyant ara"
-                  className="w-full rounded-2xl border border-gray-200 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[var(--admin-accent)]"
+              <label className="grid gap-2 text-sm font-medium text-[#6B7280]">
+                <span className="text-[#FF6A00]">Fiyat Arttır/Azalt</span>
+                <TextField
+                  type="number"
+                  min={0}
+                  value={discount}
+                  onChange={(value) => setDiscount(Math.max(0, Number(value) || 0))}
+                  placeholder="İndirim"
                 />
+              </label>
+
+              <label className="grid gap-2 text-sm font-medium text-[#6B7280]">
+                <span className="text-[#FF6A00]">Kargo Ekle</span>
+                <TextField
+                  type="number"
+                  min={0}
+                  value={shippingCost}
+                  onChange={(value) => setShippingCost(Math.max(0, Number(value) || 0))}
+                  placeholder="Kargo"
+                />
+              </label>
+
+              <div className="border-t border-[#EEF1F5] pt-4">
+                <div className="flex items-center justify-between text-[15px] font-semibold text-[#111827]">
+                  <span>Toplam</span>
+                  <span>{formatPrice(total)}</span>
+                </div>
               </div>
 
-              <div className="mt-4 space-y-3">
-                {loadingProducts ? (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
-                    Ürünler aranıyor...
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  searchResults.map((product) => (
-                    <div key={product.id} className="rounded-2xl border border-gray-200 bg-[#fafafa] p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white">
-                          {product.images?.[0] ? (
-                            <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <ShoppingBag className="h-4 w-4 text-gray-400" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-950">{product.name}</p>
-                          <p className="text-xs text-gray-500">{product.variants.length} varyant</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 grid gap-2">
-                        {product.variants.map((variant) => (
-                          <button
-                            key={variant.id}
-                            type="button"
-                            onClick={() => addVariant(product, variant)}
-                            className="flex items-center justify-between rounded-xl border border-white bg-white px-3 py-3 text-left text-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[#fff9f4]"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-900">{variant.name}</p>
-                              <p className="text-xs text-gray-500">{variant.sku || "SKU yok"}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-semibold text-gray-900">{formatPrice(Number(variant.price) || 0)}</span>
-                              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--admin-accent)] text-white">
-                                <Plus className="h-4 w-4" />
-                              </span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                ) : searchQuery.trim() ? (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
-                    Sonuç bulunamadı.
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
-                    Arama yaparak ürün varyantlarını hızlı siparişe ekleyin.
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={handleCreateLink}
+                disabled={saving}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[7px] bg-[#FF6A00] px-4 text-sm font-semibold text-white transition hover:bg-[#E85D04] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                {saving ? "Oluşturuluyor..." : "Ödeme linki oluştur"}
+              </button>
+              <button
+                type="button"
+                onClick={resetBuilder}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white text-sm font-semibold text-[#374151] transition hover:border-[#FFB985] hover:text-[#E85D04]"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Temizle
+              </button>
             </div>
-          </div>
+          </Panel>
 
-          <div className="space-y-6">
-            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <ShieldCheck className="h-4 w-4 text-[var(--admin-accent)]" />
-                İzinli ödeme yöntemleri
-              </div>
-              <p className="mt-2 text-xs leading-5 text-gray-500">
-                Secim yapmazsan bu linkte tum aktif online odeme yontemleri gorunur.
-              </p>
-              <div className="mt-4 space-y-2">
-                {paymentGateways.map((gateway) => (
-                  <label key={gateway.id} className="flex items-start gap-3 rounded-xl border border-gray-200 px-3 py-3 text-sm">
+          <Panel title="Müşteri Notu" icon={<MessageSquareText className="h-5 w-5" />}>
+            <div className="p-5 md:p-6">
+              <textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                rows={6}
+                className="min-h-[150px] w-full resize-y rounded-[7px] border border-[#E1E6EF] bg-white px-3.5 py-3 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FF6A00] focus:ring-2 focus:ring-[rgba(255,106,0,0.12)]"
+              />
+            </div>
+          </Panel>
+
+          <Panel title="Etiketler" icon={<Tag className="h-5 w-5" />}>
+            <div className="space-y-2 p-5 md:p-6">
+              <label className="text-sm font-medium text-[#6B7280]" htmlFor="quick-order-internal-tag">
+                Etiket
+              </label>
+              <TextField
+                id="quick-order-internal-tag"
+                value={internalTag}
+                onChange={setInternalTag}
+                placeholder=""
+                className="h-10"
+              />
+            </div>
+          </Panel>
+
+          <Panel title="Ödeme Yöntemi" icon={<CreditCard className="h-5 w-5" />}>
+            <div className="space-y-2 p-5 md:p-6">
+              {paymentGateways.length ? (
+                paymentGateways.map((gateway) => (
+                  <label key={gateway.id} className="flex cursor-pointer items-start gap-3 rounded-[7px] border border-[#E1E6EF] bg-white px-3 py-3 text-sm transition hover:border-[#FFB985]">
                     <input
                       type="checkbox"
                       checked={allowedGatewayIds.includes(gateway.id)}
@@ -599,218 +994,127 @@ export function QuickOrderLinksPanel() {
                             : current.filter((item) => item !== gateway.id),
                         )
                       }
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                      className="mt-0.5 h-4 w-4 rounded border-[#CDD5E1] accent-[#FF6A00]"
                     />
-                    <div>
-                      <p className="font-medium text-gray-900">{gateway.name}</p>
-                      <p className="mt-1 text-xs text-gray-500">{gateway.description}</p>
-                    </div>
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-semibold text-[#111827]">{gateway.name}</span>
+                      <span className="mt-1 block text-xs leading-5 text-[#7B8797]">{gateway.description}</span>
+                    </span>
                   </label>
-                ))}
-              </div>
+                ))
+              ) : (
+                <div className="rounded-[7px] border border-dashed border-[#E1E6EF] bg-[#F9F9F9] px-3 py-4 text-sm text-[#7B8797]">
+                  Aktif online ödeme yöntemi bulunamadı.
+                </div>
+              )}
             </div>
+          </Panel>
+        </aside>
+      </div>
 
-            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <Mail className="h-4 w-4 text-[var(--admin-accent)]" />
-                Tutar ve not
-              </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <input type="number" min={0} value={shippingCost} onChange={(event) => setShippingCost(Number(event.target.value) || 0)} placeholder="Kargo ücreti" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
-                <input type="number" min={0} value={discount} onChange={(event) => setDiscount(Number(event.target.value) || 0)} placeholder="İndirim" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
-                <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} placeholder="Yönetici notu" className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)] md:col-span-2" />
-              </div>
-            </div>
-
-            <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">Sipariş özeti</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={resetBuilder}
-                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:border-gray-300 hover:text-gray-900"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Temizle
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {lines.length ? (
-                  lines.map((line) => (
-                    <div key={line.id} className="rounded-2xl border border-gray-200 bg-[#fafafa] p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-gray-950">{line.productName}</p>
-                          <p className="mt-1 text-xs text-gray-500">{line.variantName}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeLine(line.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <input type="number" min={1} value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: Math.max(1, Number(event.target.value) || 1) })} className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
-                        <input type="number" min={0} value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: Math.max(0, Number(event.target.value) || 0) })} className="rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[var(--admin-accent)]" />
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between text-sm text-gray-500">
-                        <span>{line.sku || "SKU yok"}</span>
-                        <span className="font-semibold text-gray-900">{formatPrice(line.quantity * line.unitPrice)}</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
-                    Henüz ürün eklenmedi.
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 space-y-2 rounded-2xl bg-[#FCFDFE] p-4 text-sm">
-                <div className="flex items-center justify-between text-gray-600">
-                  <span>Ara toplam</span>
-                  <span>{formatPrice(subtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-gray-600">
-                  <span>Kargo</span>
-                  <span>{formatPrice(shippingCost)}</span>
-                </div>
-                <div className="flex items-center justify-between text-gray-600">
-                  <span>İndirim</span>
-                  <span>-{formatPrice(discount)}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-[var(--admin-border)] pt-3 text-base font-semibold text-gray-950">
-                  <span>Toplam</span>
-                  <span>{formatPrice(total)}</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCreateLink}
-                disabled={saving}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#e85a00] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                {saving ? "Link oluşturuluyor..." : "Hızlı sipariş linki oluştur"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
-        <div className="border-b border-[var(--admin-border)] px-6 py-5 md:px-8">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-gray-950">Oluşturulan linkler</h2>
-              <p className="mt-1 text-sm text-gray-500">Aktif, açılmış, ödenmiş ve süresi dolmuş linkleri tek yerden yönet.</p>
-            </div>
-            <button
-              type="button"
-              onClick={loadLinks}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:border-gray-300 hover:text-gray-900"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Yenile
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-3 p-5 md:p-6">
+      <Panel
+        title="Oluşturulan Linkler"
+        actions={
+          <button
+            type="button"
+            onClick={loadLinks}
+            className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-sm font-semibold text-[#374151] transition hover:border-[#FFB985] hover:text-[#E85D04]"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Yenile
+          </button>
+        }
+      >
+        <div className="p-4 md:p-5">
           {linksLoading ? (
-            <div className="flex items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-4 py-8 text-sm text-gray-500">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <div className="flex min-h-[110px] items-center justify-center gap-2 rounded-[7px] border border-dashed border-[#E1E6EF] bg-[#F9F9F9] text-sm font-medium text-[#6B7280]">
+              <Loader2 className="h-4 w-4 animate-spin" />
               Linkler yükleniyor...
             </div>
           ) : links.length ? (
-            links.map((link) => (
-              <motion.article
-                key={link.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-[24px] border border-gray-200 bg-white p-5"
-              >
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${STATUS_STYLES[link.status]}`}>
-                        {link.status}
-                      </span>
-                      <span className="text-sm text-gray-500">{formatDateTime(link.expires_at)} tarihine kadar geçerli</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-950">{link.customer_name || link.customer_email}</h3>
-                    <p className="text-sm text-gray-500">{link.customer_email}</p>
-                    <p className="text-sm text-gray-600">
-                      {link.items[0]?.product_name}
-                      {link.items.length > 1 ? ` + ${link.items.length - 1} ürün` : ""}
-                    </p>
-                  </div>
-
-                  <div className="space-y-3 xl:text-right">
-                    <p className="text-2xl font-semibold tracking-[-0.04em] text-gray-950">{formatPrice(link.total)}</p>
-                    <p className="text-xs text-gray-500">Toplam {link.items.length} ürün kalemi</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(quickOrderUrl(link.token));
-                      toast.success("Link kopyalandı.");
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-950"
-                  >
-                    <Copy className="h-4 w-4" />
-                    Kopyala
-                  </button>
-                  <Link
-                    href={quickOrderUrl(link.token)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-950"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Önizleme aç
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleDuplicateLink(link.id)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-950"
-                  >
-                    <Copy className="h-4 w-4" />
-                    Kopyasını oluştur
-                  </button>
-                  {link.status !== "paid" && link.status !== "cancelled" ? (
-                    <button
-                      type="button"
-                      onClick={() => handleCancelLink(link.id)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      İptal et
-                    </button>
-                  ) : null}
-                </div>
-              </motion.article>
-            ))
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead className="border-b border-[#E1E6EF] bg-[#F9F9F9] text-xs font-semibold uppercase tracking-[0.08em] text-[#6B7280]">
+                  <tr>
+                    <th className="px-4 py-3">Müşteri</th>
+                    <th className="px-4 py-3">Ürün</th>
+                    <th className="px-4 py-3">Durum</th>
+                    <th className="px-4 py-3">Geçerlilik</th>
+                    <th className="px-4 py-3 text-right">Toplam</th>
+                    <th className="px-4 py-3 text-right">Aksiyon</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EEF1F5]">
+                  {links.map((link) => (
+                    <tr key={link.id} className="bg-white align-middle">
+                      <td className="max-w-[18rem] px-4 py-3">
+                        <p className="truncate font-semibold text-[#111827]">{link.customer_name || link.customer_email}</p>
+                        <p className="mt-0.5 truncate text-xs text-[#7B8797]">{link.customer_email}</p>
+                      </td>
+                      <td className="max-w-[18rem] px-4 py-3">
+                        <p className="truncate text-[#374151]">
+                          {link.items[0]?.product_name || "Ürün yok"}
+                          {link.items.length > 1 ? ` + ${link.items.length - 1} ürün` : ""}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold", STATUS_STYLES[link.status])}>
+                          {STATUS_LABELS[link.status]}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-[#6B7280]">{formatDateTime(link.expires_at)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-[#111827]">{formatPrice(link.total)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyLink(link.token)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition hover:border-[#FFB985] hover:text-[#E85D04]"
+                            aria-label="Linki kopyala"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                          <Link
+                            href={quickOrderUrl(link.token)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition hover:border-[#FFB985] hover:text-[#E85D04]"
+                            aria-label="Önizleme aç"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateLink(link.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition hover:border-[#FFB985] hover:text-[#E85D04]"
+                            aria-label="Kopyasını oluştur"
+                          >
+                            <Link2 className="h-4 w-4" />
+                          </button>
+                          {link.status !== "paid" && link.status !== "cancelled" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelLink(link.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50"
+                              aria-label="Linki iptal et"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
+            <div className="flex min-h-[130px] items-center justify-center rounded-[7px] border border-dashed border-[#E1E6EF] bg-[#F9F9F9] text-center text-sm font-medium text-[#7B8797]">
               Henüz hızlı sipariş linki oluşturulmadı.
             </div>
           )}
         </div>
-      </section>
+      </Panel>
     </div>
   );
 }
-
-
