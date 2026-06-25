@@ -89,6 +89,7 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Tüm Müşteriler", href: "/admin/musteriler" },
       { title: "Segmentler", href: "/admin/musteriler/segmentler" },
+      { title: "Etiketler", href: "/admin/musteriler/etiketler" },
       { title: "Yeni Müşteri", href: "/admin/musteriler/yeni" },
     ],
   },
