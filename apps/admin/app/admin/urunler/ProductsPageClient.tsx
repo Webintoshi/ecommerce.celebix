@@ -1303,64 +1303,78 @@ export default function ProductsPageClient({
           )}
 
           <AdminDataTable className="rounded-none border-0 bg-transparent shadow-none">
-            <div className="border-b border-[#E1E6EF] bg-[#F9F9F9] px-0 py-4 md:py-5">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-center min-[1180px]:justify-between">
-                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-                    <label className="relative block w-full sm:max-w-[460px]">
-                      <Search className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[#7B8797]" />
-                      <input
-                        type="search"
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Tabloda arama yapın"
-                        className={cn(
-                          "h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white pl-11 pr-4 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]",
-                          SURFACE_FOCUS_RING,
-                        )}
-                      />
-                    </label>
+            <div className="border-b border-[#E1E6EF] bg-[#F9F9F9] px-0 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-sm text-[#6B7280]">
+                  {sortedProducts.length} ürün görüntüleniyor
+                </span>
+                <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-sm text-[#6B7280]">
+                  {activeProducts} aktif
+                </span>
+                <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-sm text-[#6B7280]">
+                  {draftProducts} taslak
+                </span>
+                <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-sm text-[#6B7280]">
+                  {lowStockProducts} düşük stok
+                </span>
+                {reorderMode ? (
+                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#FFD7BF] bg-[#FFF1E8] px-3 text-sm text-[#E85D04]">
+                    Manuel sıralama modu açık
+                  </span>
+                ) : null}
 
-                    <button
-                      type="button"
-                      onClick={() => setShowFilters((current) => !current)}
-                      aria-expanded={showFilters}
-                      aria-controls="products-advanced-filters"
+                <div className="flex min-w-[280px] flex-1 flex-wrap items-center gap-2 lg:flex-none">
+                  <label className="relative block w-full sm:w-[320px] xl:w-[360px]">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8797]" />
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Tabloda arama yapın"
                       className={cn(
-                        "inline-flex h-11 items-center justify-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-[14px] font-semibold text-[#1F2937] shadow-none transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
-                        showFilters || activeFilterCount > 0 ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]" : "",
+                        "h-10 w-full rounded-[7px] border border-[#E1E6EF] bg-white pl-10 pr-3 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]",
                         SURFACE_FOCUS_RING,
                       )}
-                    >
-                      <SlidersHorizontal className="h-4.5 w-4.5" />
-                      Filtre
-                      {activeFilterCount > 0 ? (
-                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold text-[#E85D04]">
-                          {activeFilterCount}
-                        </span>
-                      ) : null}
-                    </button>
-                  </div>
+                    />
+                  </label>
 
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void loadProducts()}
-                      className={cn(
-                        "inline-flex h-11 w-11 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] shadow-none transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
-                        SURFACE_FOCUS_RING,
-                      )}
-                      aria-label="Ürün listesini yenile"
-                    >
-                      <RefreshCw className={cn("h-4.5 w-4.5", loading ? "animate-spin" : "")} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters((current) => !current)}
+                    aria-expanded={showFilters}
+                    aria-controls="products-advanced-filters"
+                    className={cn(
+                      "inline-flex h-10 items-center justify-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-3.5 text-[14px] font-semibold text-[#1F2937] shadow-none transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
+                      showFilters || activeFilterCount > 0 ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]" : "",
+                      SURFACE_FOCUS_RING,
+                    )}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Filtre
+                    {activeFilterCount > 0 ? (
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold text-[#E85D04]">
+                        {activeFilterCount}
+                      </span>
+                    ) : null}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void loadProducts()}
+                    className={cn(
+                      "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] shadow-none transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
+                      SURFACE_FOCUS_RING,
+                    )}
+                    aria-label="Ürün listesini yenile"
+                  >
+                    <RefreshCw className={cn("h-4 w-4", loading ? "animate-spin" : "")} />
+                  </button>
                 </div>
 
                 {showFilters ? (
                   <div
                     id="products-advanced-filters"
-                    className="grid gap-3 border-y border-[#E1E6EF] bg-[#F9F9F9] py-3 md:grid-cols-2 xl:grid-cols-5"
+                    className="mt-3 grid w-full gap-3 border-t border-[#E1E6EF] bg-[#F9F9F9] pt-3 md:grid-cols-2 xl:grid-cols-5"
                   >
                     <select
                       value={categoryFilter}
@@ -1437,26 +1451,6 @@ export default function ProductsPageClient({
                     </button>
                   </div>
                 ) : null}
-
-                <div className="flex flex-wrap items-center gap-2 text-sm text-[#6B7280]">
-                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3">
-                  {sortedProducts.length} ürün görüntüleniyor
-                </span>
-                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3">
-                  {activeProducts} aktif
-                </span>
-                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3">
-                  {draftProducts} taslak
-                </span>
-                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3">
-                  {lowStockProducts} düşük stok
-                </span>
-                {reorderMode ? (
-                    <span className="inline-flex h-8 items-center rounded-[7px] border border-[#FFD7BF] bg-[#FFF1E8] px-3 text-[#E85D04]">
-                    Manuel sıralama modu açık
-                  </span>
-                ) : null}
-                </div>
               </div>
             </div>
 
