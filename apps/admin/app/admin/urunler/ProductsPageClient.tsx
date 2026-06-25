@@ -303,6 +303,7 @@ export default function ProductsPageClient({
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
   const [bulkAction, setBulkAction] = useState<BulkAction>("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(initialError);
@@ -1134,6 +1135,12 @@ export default function ProductsPageClient({
   const activeProducts = products.filter((product) => !product.isDraft && product.isActive).length;
   const draftProducts = products.filter((product) => product.isDraft).length;
   const lowStockProducts = products.filter((product) => getPrimaryVariant(product).stock <= 10).length;
+  const activeFilterCount = [
+    categoryFilter !== "all",
+    statusFilter !== "all",
+    stockFilter !== "all",
+    sortMode !== "newest",
+  ].filter(Boolean).length;
   const startRow = reorderMode ? (sortedProducts.length > 0 ? 1 : 0) : (pagination.page - 1) * pagination.limit + 1;
   const endRow = reorderMode ? sortedProducts.length : startRow + sortedProducts.length - 1;
   const desktopProductTableColumnCount = reorderMode ? 9 : 8;
@@ -1211,12 +1218,12 @@ export default function ProductsPageClient({
 
   return (
     <main role="main" aria-busy={loading} className="min-h-screen bg-[#F9F9F9]">
-      <div className="mx-auto max-w-[1680px] px-3 pb-4 pt-1 sm:px-4 min-[1025px]:px-5 min-[1025px]:pb-5 xl:px-6">
-        <div className="space-y-5">
+      <div className="w-full px-0 py-3 md:py-5">
+        <div className="space-y-4">
           <AdminPageHeader
             sectionLabel="Katalog"
-            title="Ürün Yönetimi"
-            description="Ürünlerinizi yönetin, envanter durumunu ve görünürlüğünü kontrol edin."
+            title="Ürünler"
+            description="Katalog, stok ve görünürlük akışını yönetin."
             actions={
               <>
                 <button
@@ -1224,37 +1231,25 @@ export default function ProductsPageClient({
                   onClick={() => void (reorderMode ? handleExitReorderMode() : handleEnterReorderMode())}
                   disabled={loading || reorderingProductId !== null}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                    "inline-flex h-11 items-center gap-2 rounded-[7px] border px-4 text-[14px] font-semibold shadow-none transition-colors",
                     reorderMode
                       ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
-                      : "border-[#E7EAF0] bg-white text-[#374151] hover:bg-[#F9FAFB]",
+                      : "border-[#E1E6EF] bg-white text-[#1F2937] hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
                     SURFACE_FOCUS_RING,
                   )}
                 >
-                  <GripVertical className="h-4 w-4" />
-                  {reorderMode ? "Sıralamayı Bitir" : "Sıralamayı Düzenle"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => void loadProducts()}
-                  className={cn(
-                    "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] hover:text-[#1F2937]",
-                    SURFACE_FOCUS_RING,
-                  )}
-                  aria-label="Ürün listesini yenile"
-                >
-                  <RefreshCw className={cn("h-4 w-4", loading ? "animate-spin" : "")} />
+                  <GripVertical className="h-4.5 w-4.5" />
+                  {reorderMode ? "Bitir" : "Sırala"}
                 </button>
 
                 <Link
                   href="/admin/urunler/toplu-yukle"
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border border-[#E7EAF0] bg-white px-4 py-2.5 text-sm font-medium text-[#374151] transition-colors hover:bg-[#F9FAFB]",
+                    "inline-flex h-11 items-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-[14px] font-semibold text-[#1F2937] shadow-none transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
                     SURFACE_FOCUS_RING,
                   )}
                 >
-                  <Upload className="h-4 w-4" />
+                  <Upload className="h-4.5 w-4.5" />
                   İçe Aktar
                 </Link>
 
@@ -1262,23 +1257,23 @@ export default function ProductsPageClient({
                   type="button"
                   onClick={handleExport}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border border-[#E7EAF0] bg-white px-4 py-2.5 text-sm font-medium text-[#374151] transition-colors hover:bg-[#F9FAFB]",
+                    "inline-flex h-11 items-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-[14px] font-semibold text-[#1F2937] shadow-none transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
                     SURFACE_FOCUS_RING,
                   )}
                 >
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4.5 w-4.5" />
                   Dışa Aktar
                 </button>
 
                 <Link
                   href="/admin/urunler/yeni"
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl bg-[#FF6A00] px-4 py-2.5 text-sm font-medium text-white shadow-[0_10px_24px_rgba(255,106,0,0.18)] transition-colors hover:bg-[#E85D04]",
+                    "inline-flex h-11 items-center gap-2 rounded-[7px] bg-[#FF6A00] px-4 text-[14px] font-semibold text-white shadow-[0_12px_24px_rgba(255,106,0,0.16)] transition-colors hover:bg-[#E85D04]",
                     SURFACE_FOCUS_RING,
                   )}
                 >
-                  <Plus className="h-4 w-4" />
-                  Yeni Ürün Ekle
+                  <Plus className="h-4.5 w-4.5" />
+                  Ürün Ekle
                 </Link>
               </>
             }
@@ -1287,7 +1282,7 @@ export default function ProductsPageClient({
           {(errorMessage || notice) && (
             <div aria-live="polite" className="space-y-3">
               {errorMessage ? (
-                <div className="rounded-2xl border border-[#F5D3D3] bg-[#FDECEC] px-4 py-3 text-sm font-medium text-[#B91C1C]">
+                <div className="rounded-[10px] border border-[#F5D3D3] bg-[#FDECEC] px-4 py-3 text-sm font-medium text-[#B91C1C]">
                   {errorMessage}
                 </div>
               ) : null}
@@ -1295,7 +1290,7 @@ export default function ProductsPageClient({
               {notice ? (
                 <div
                   className={cn(
-                    "rounded-2xl border px-4 py-3 text-sm font-medium",
+                    "rounded-[10px] border px-4 py-3 text-sm font-medium",
                     notice.tone === "success"
                       ? "border-[#CFECD7] bg-[#EAF8EF] text-[#166534]"
                       : "border-[#F5D3D3] bg-[#FDECEC] text-[#B91C1C]",
@@ -1307,124 +1302,168 @@ export default function ProductsPageClient({
             </div>
           )}
 
-          <AdminDataTable>
-            <div className="border-b border-[#EEF1F4] px-4 py-4 xl:px-6 xl:py-5">
-              <div className="grid gap-4 min-[1360px]:grid-cols-[minmax(320px,1.8fr)_repeat(4,minmax(0,1fr))_auto]">
-                <label className="relative block">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Ürün adı, SKU veya kategori ara..."
-                    className={cn(
-                      "h-12 w-full rounded-2xl border border-[#E7EAF0] bg-white pl-11 pr-4 text-sm text-[#1F2937] placeholder:text-[#9CA3AF]",
-                      SURFACE_FOCUS_RING,
-                    )}
-                  />
-                </label>
+          <AdminDataTable className="rounded-none border-0 bg-transparent shadow-none">
+            <div className="border-b border-[#E1E6EF] bg-[#F9F9F9] px-0 py-4 md:py-5">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-center min-[1180px]:justify-between">
+                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                    <label className="relative block w-full sm:max-w-[460px]">
+                      <Search className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[#7B8797]" />
+                      <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder="Tabloda arama yapın"
+                        className={cn(
+                          "h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white pl-11 pr-4 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]",
+                          SURFACE_FOCUS_RING,
+                        )}
+                      />
+                    </label>
 
-                <select
-                  value={categoryFilter}
-                  onChange={(event) => setCategoryFilter(event.target.value)}
-                  className={cn(
-                    "h-12 rounded-2xl border border-[#E7EAF0] bg-white px-4 text-sm text-[#374151]",
-                    SURFACE_FOCUS_RING,
-                  )}
-                >
-                  {categoryFilters.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters((current) => !current)}
+                      aria-expanded={showFilters}
+                      aria-controls="products-advanced-filters"
+                      className={cn(
+                        "inline-flex h-11 items-center justify-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-[14px] font-semibold text-[#1F2937] shadow-none transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
+                        showFilters || activeFilterCount > 0 ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]" : "",
+                        SURFACE_FOCUS_RING,
+                      )}
+                    >
+                      <SlidersHorizontal className="h-4.5 w-4.5" />
+                      Filtre
+                      {activeFilterCount > 0 ? (
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold text-[#E85D04]">
+                          {activeFilterCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  </div>
 
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                  className={cn(
-                    "h-12 rounded-2xl border border-[#E7EAF0] bg-white px-4 text-sm text-[#374151]",
-                    SURFACE_FOCUS_RING,
-                  )}
-                >
-                  <option value="all">Tüm durumlar</option>
-                  <option value="active">Aktif</option>
-                  <option value="draft">Taslak</option>
-                  <option value="passive">Pasif</option>
-                </select>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void loadProducts()}
+                      className={cn(
+                        "inline-flex h-11 w-11 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] shadow-none transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
+                        SURFACE_FOCUS_RING,
+                      )}
+                      aria-label="Ürün listesini yenile"
+                    >
+                      <RefreshCw className={cn("h-4.5 w-4.5", loading ? "animate-spin" : "")} />
+                    </button>
+                  </div>
+                </div>
 
-                <select
-                  value={stockFilter}
-                  onChange={(event) => setStockFilter(event.target.value as StockFilter)}
-                  className={cn(
-                    "h-12 rounded-2xl border border-[#E7EAF0] bg-white px-4 text-sm text-[#374151]",
-                    SURFACE_FOCUS_RING,
-                  )}
-                >
-                  <option value="all">Tüm stoklar</option>
-                  <option value="in-stock">Stok iyi</option>
-                  <option value="low">Düşük stok</option>
-                  <option value="out">Stok yok</option>
-                </select>
+                {showFilters ? (
+                  <div
+                    id="products-advanced-filters"
+                    className="grid gap-3 border-y border-[#E1E6EF] bg-[#F9F9F9] py-3 md:grid-cols-2 xl:grid-cols-5"
+                  >
+                    <select
+                      value={categoryFilter}
+                      onChange={(event) => setCategoryFilter(event.target.value)}
+                      className={cn(
+                        "h-11 rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-[14px] font-medium text-[#374151] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]",
+                        SURFACE_FOCUS_RING,
+                      )}
+                    >
+                      {categoryFilters.map((category) => (
+                        <option key={category.value} value={category.value}>
+                          {category.label}
+                        </option>
+                      ))}
+                    </select>
 
-                <select
-                  value={sortMode}
-                  onChange={(event) => setSortMode(event.target.value as SortMode)}
-                  disabled={reorderMode}
-                  className={cn(
-                    "h-12 rounded-2xl border border-[#E7EAF0] bg-white px-4 text-sm text-[#374151] disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]",
-                    SURFACE_FOCUS_RING,
-                  )}
-                >
-                  <option value="newest">Sıralama: En yeni</option>
-                  <option value="oldest">Sıralama: En eski</option>
-                  <option value="name-asc">Sıralama: Ad (A-Z)</option>
-                  <option value="name-desc">Sıralama: Ad (Z-A)</option>
-                  <option value="price-desc">Sıralama: Fiyat yüksek</option>
-                  <option value="price-asc">Sıralama: Fiyat düşük</option>
-                  <option value="stock-desc">Sıralama: Stok yüksek</option>
-                  <option value="stock-asc">Sıralama: Stok düşük</option>
-                  <option value="manual">Sıralama: Manuel</option>
-                </select>
+                    <select
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                      className={cn(
+                        "h-11 rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-[14px] font-medium text-[#374151] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]",
+                        SURFACE_FOCUS_RING,
+                      )}
+                    >
+                      <option value="all">Tüm durumlar</option>
+                      <option value="active">Aktif</option>
+                      <option value="draft">Taslak</option>
+                      <option value="passive">Pasif</option>
+                    </select>
 
-                <button
-                  type="button"
-                  onClick={handleClearFilters}
-                  className={cn(
-                    "inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#E7EAF0] bg-white px-4 text-sm font-medium text-[#374151] transition-colors hover:bg-[#F9FAFB]",
-                    SURFACE_FOCUS_RING,
-                  )}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Filtreleri Temizle
-                </button>
-              </div>
+                    <select
+                      value={stockFilter}
+                      onChange={(event) => setStockFilter(event.target.value as StockFilter)}
+                      className={cn(
+                        "h-11 rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-[14px] font-medium text-[#374151] outline-none focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]",
+                        SURFACE_FOCUS_RING,
+                      )}
+                    >
+                      <option value="all">Tüm stoklar</option>
+                      <option value="in-stock">Stok iyi</option>
+                      <option value="low">Düşük stok</option>
+                      <option value="out">Stok yok</option>
+                    </select>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-[#6B7280]">
-                <span className="inline-flex items-center rounded-full border border-[#EEF1F4] bg-[#F9FAFB] px-3 py-1.5">
+                    <select
+                      value={sortMode}
+                      onChange={(event) => setSortMode(event.target.value as SortMode)}
+                      disabled={reorderMode}
+                      className={cn(
+                        "h-11 rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-[14px] font-medium text-[#374151] outline-none transition disabled:cursor-not-allowed disabled:bg-[#F4F5F7] disabled:text-[#9CA3AF] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]",
+                        SURFACE_FOCUS_RING,
+                      )}
+                    >
+                      <option value="newest">En yeni</option>
+                      <option value="oldest">En eski</option>
+                      <option value="name-asc">Ad (A-Z)</option>
+                      <option value="name-desc">Ad (Z-A)</option>
+                      <option value="price-desc">Fiyat yüksek</option>
+                      <option value="price-asc">Fiyat düşük</option>
+                      <option value="stock-desc">Stok yüksek</option>
+                      <option value="stock-asc">Stok düşük</option>
+                      <option value="manual">Manuel</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={handleClearFilters}
+                      className={cn(
+                        "inline-flex h-11 items-center justify-center gap-2 rounded-[7px] border border-[#FFD7BF] bg-[#FFF8F3] px-4 text-[14px] font-semibold text-[#E85D04] transition-colors hover:bg-[#FFF1E8]",
+                        SURFACE_FOCUS_RING,
+                      )}
+                    >
+                      Filtreleri Temizle
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-2 text-sm text-[#6B7280]">
+                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3">
                   {sortedProducts.length} ürün görüntüleniyor
                 </span>
-                <span className="inline-flex items-center rounded-full border border-[#EEF1F4] bg-[#F9FAFB] px-3 py-1.5">
+                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3">
                   {activeProducts} aktif
                 </span>
-                <span className="inline-flex items-center rounded-full border border-[#EEF1F4] bg-[#F9FAFB] px-3 py-1.5">
+                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3">
                   {draftProducts} taslak
                 </span>
-                <span className="inline-flex items-center rounded-full border border-[#EEF1F4] bg-[#F9FAFB] px-3 py-1.5">
+                  <span className="inline-flex h-8 items-center rounded-[7px] border border-[#E1E6EF] bg-white px-3">
                   {lowStockProducts} düşük stok
                 </span>
                 {reorderMode ? (
-                  <span className="inline-flex items-center rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1.5 text-[#E85D04]">
+                    <span className="inline-flex h-8 items-center rounded-[7px] border border-[#FFD7BF] bg-[#FFF1E8] px-3 text-[#E85D04]">
                     Manuel sıralama modu açık
                   </span>
                 ) : null}
+                </div>
               </div>
             </div>
 
-            <div className="border-b border-[#EEF1F4] px-4 py-4 xl:px-6">
+            <div className="border-b border-[#E1E6EF] bg-[#F9F9F9] px-0 py-4">
               <div className="flex flex-col gap-4 min-[1360px]:flex-row min-[1360px]:items-center min-[1360px]:justify-between">
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-3 rounded-2xl border border-[#E7EAF0] bg-white px-4 py-2.5 text-sm text-[#374151]">
+                  <label className="inline-flex h-11 items-center gap-3 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-sm font-medium text-[#374151]">
                     <input
                       type="checkbox"
                       checked={tableSelectionActive}
@@ -1442,7 +1481,7 @@ export default function ProductsPageClient({
                     value={bulkAction}
                     onChange={(event) => setBulkAction(event.target.value as BulkAction)}
                     className={cn(
-                      "h-11 rounded-2xl border border-[#E7EAF0] bg-white px-4 text-sm text-[#374151]",
+                      "h-11 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-sm font-medium text-[#374151]",
                       SURFACE_FOCUS_RING,
                     )}
                   >
@@ -1458,7 +1497,7 @@ export default function ProductsPageClient({
                     onClick={() => void handleBulkActionApply()}
                     disabled={!bulkAction || selectedProducts.length === 0}
                     className={cn(
-                      "inline-flex h-11 items-center justify-center rounded-2xl bg-[#1F2937] px-4 text-sm font-medium text-white transition-colors hover:bg-[#111827] disabled:cursor-not-allowed disabled:bg-[#D1D5DB]",
+                      "inline-flex h-11 items-center justify-center rounded-[7px] bg-[#1F2937] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#111827] disabled:cursor-not-allowed disabled:bg-[#D1D5DB]",
                       SURFACE_FOCUS_RING,
                     )}
                   >
@@ -1472,7 +1511,7 @@ export default function ProductsPageClient({
                   <span>
                     {startRow > 0 ? `${startRow} - ${endRow}` : 0} / {reorderMode ? sortedProducts.length : pagination.total} ürün
                   </span>
-                  <label className="inline-flex items-center gap-2 rounded-2xl border border-[#E7EAF0] bg-white px-3 py-2">
+                  <label className="inline-flex h-10 items-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-3">
                     <span>Satır sayısı</span>
                     <select
                       value={rowsPerPage}
@@ -1494,7 +1533,7 @@ export default function ProductsPageClient({
                         onClick={() => void loadProducts(pagination.page - 1)}
                         disabled={pagination.page <= 1}
                         className={cn(
-                          "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-50",
+                          "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-50",
                           SURFACE_FOCUS_RING,
                         )}
                         aria-label="Önceki sayfa"
@@ -1509,7 +1548,7 @@ export default function ProductsPageClient({
                         onClick={() => void loadProducts(pagination.page + 1)}
                         disabled={pagination.page >= pagination.totalPages}
                         className={cn(
-                          "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-50",
+                          "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-50",
                           SURFACE_FOCUS_RING,
                         )}
                         aria-label="Sonraki sayfa"
@@ -1522,25 +1561,25 @@ export default function ProductsPageClient({
               </div>
             </div>
 
-            <div className="hidden overflow-x-auto min-[1025px]:block">
-              <table className="min-w-[980px] border-collapse">
+            <div className="hidden max-w-full overflow-x-auto min-[1025px]:block">
+              <table className="w-full min-w-[1180px] border-collapse">
                 <thead>
-                  <tr className="border-b border-[#EEF1F4] bg-[#FCFDFE] text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
-                    {reorderMode ? <th className="w-[132px] px-5 py-4">Sırala</th> : null}
-                    <th className="w-[72px] px-5 py-4 text-center">Seç</th>
-                    <th className="px-5 py-4">Ürün</th>
-                    <th className="px-4 py-4">SKU</th>
-                    <th className="px-4 py-4">Fiyat</th>
-                    <th className="px-4 py-4">Stok</th>
-                    <th className="px-4 py-4">Durum</th>
-                    <th className="px-4 py-4 text-center">Yayında</th>
-                    <th className="px-5 py-4 text-right">İşlemler</th>
+                  <tr className="border-b border-[#E1E6EF] bg-[#EEF2F6] text-left text-[14px] font-semibold text-[#4B5563]">
+                    {reorderMode ? <th className="w-[132px] px-4 py-3">Sırala</th> : null}
+                    <th className="w-[68px] px-4 py-3 text-center">Seç</th>
+                    <th className="px-4 py-3">Ürün</th>
+                    <th className="px-4 py-3">SKU</th>
+                    <th className="px-4 py-3">Fiyat</th>
+                    <th className="px-4 py-3">Stok</th>
+                    <th className="px-4 py-3">Durum</th>
+                    <th className="px-4 py-3 text-center">Yayında</th>
+                    <th className="px-4 py-3 text-right">İşlemler</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading && sortedProducts.length === 0
                     ? Array.from({ length: 8 }).map((_, index) => (
-                        <tr key={`skeleton-${index}`} className="border-b border-[#EEF1F4]">
+                        <tr key={`skeleton-${index}`} className="border-b border-[#E1E6EF] bg-white">
                           <td className="px-5 py-5" colSpan={desktopProductTableColumnCount}>
                             <div className="h-12 animate-pulse rounded-2xl bg-[#F3F4F6]" />
                           </td>
@@ -1573,11 +1612,11 @@ export default function ProductsPageClient({
                     const canMoveDown = reorderMode && index < sortedProducts.length - 1;
 
                     return (
-                      <tr key={product.id} className="border-b border-[#EEF1F4] align-top transition-colors hover:bg-[#FAFBFC]">
+                      <tr key={product.id} className="border-b border-[#E1E6EF] bg-white align-top transition-colors hover:bg-[#FFF8F3]">
                         {reorderMode ? (
-                          <td className="px-5 py-4">
+                          <td className="px-4 py-4">
                             <div className="flex items-center gap-2">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#9CA3AF]">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#9CA3AF]">
                                 {reorderingProductId === product.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin text-[#E85D04]" />
                                 ) : (
@@ -1590,7 +1629,7 @@ export default function ProductsPageClient({
                                   onClick={() => void handleManualReorder(product.id, "up")}
                                   disabled={!canMoveUp || reorderingProductId !== null}
                                   className={cn(
-                                    "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40",
+                                    "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40",
                                     SURFACE_FOCUS_RING,
                                   )}
                                   aria-label={`${product.name} ürününü yukarı taşı`}
@@ -1602,7 +1641,7 @@ export default function ProductsPageClient({
                                   onClick={() => void handleManualReorder(product.id, "down")}
                                   disabled={!canMoveDown || reorderingProductId !== null}
                                   className={cn(
-                                    "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40",
+                                    "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40",
                                     SURFACE_FOCUS_RING,
                                   )}
                                   aria-label={`${product.name} ürününü aşağı taşı`}
@@ -1614,7 +1653,7 @@ export default function ProductsPageClient({
                           </td>
                         ) : null}
 
-                        <td className="px-5 py-4 text-center align-middle">
+                        <td className="px-4 py-4 text-center align-middle">
                           <input
                             type="checkbox"
                             checked={selectedProducts.includes(product.id)}
@@ -1627,16 +1666,16 @@ export default function ProductsPageClient({
                           />
                         </td>
 
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex min-w-[320px] items-start gap-4">
                             {product.images.length > 0 ? (
                               <img
                                 src={product.images[0]}
                                 alt={product.name}
-                                className="h-16 w-16 rounded-2xl border border-[#E7EAF0] object-cover"
+                                className="h-14 w-14 rounded-[8px] border border-[#E1E6EF] object-cover"
                               />
                             ) : (
-                              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-[#F9FAFB] text-[#9CA3AF]">
+                              <div className="flex h-14 w-14 items-center justify-center rounded-[8px] border border-[#E1E6EF] bg-[#F9F9F9] text-[#9CA3AF]">
                                 <Package className="h-5 w-5" />
                               </div>
                             )}
@@ -1647,7 +1686,7 @@ export default function ProductsPageClient({
                               </div>
                               <span
                                 className={cn(
-                                  "inline-flex max-w-full rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.08em]",
+                                  "inline-flex max-w-full rounded-[7px] border px-2.5 py-1 text-[11px] font-semibold",
                                   getCategoryColor(product.category),
                                 )}
                               >
@@ -1666,7 +1705,7 @@ export default function ProductsPageClient({
                         <td className="px-4 py-4">
                           <span
                             className={cn(
-                              "inline-flex min-w-[88px] items-center justify-center whitespace-nowrap rounded-full border px-3 py-1.5 text-center text-sm font-medium leading-none",
+                              "inline-flex min-w-[88px] items-center justify-center whitespace-nowrap rounded-[7px] border px-3 py-1.5 text-center text-sm font-medium leading-none",
                               stockMeta.tone,
                             )}
                           >
@@ -1676,7 +1715,7 @@ export default function ProductsPageClient({
 
                         <td className="px-4 py-4">
                           <div className="space-y-2">
-                            <span className={cn("inline-flex rounded-full border px-3 py-1.5 text-xs font-medium", statusMeta.tone)}>
+                            <span className={cn("inline-flex rounded-[7px] border px-3 py-1.5 text-xs font-semibold", statusMeta.tone)}>
                               {statusMeta.label}
                             </span>
                             {statusMeta.description ? (
@@ -1702,7 +1741,7 @@ export default function ProductsPageClient({
                               target="_blank"
                               rel="noreferrer"
                               className={cn(
-                                "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:bg-[#F9FAFB] hover:text-[#1F2937]",
+                                "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
                                 SURFACE_FOCUS_RING,
                               )}
                               aria-label={`${product.name} vitrinde görüntüle`}
@@ -1713,7 +1752,7 @@ export default function ProductsPageClient({
                             <Link
                               href={`/admin/urunler/${product.id}/duzenle`}
                               className={cn(
-                                "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#1F2937] transition-colors hover:bg-[#F9FAFB]",
+                                "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#1F2937] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
                                 SURFACE_FOCUS_RING,
                               )}
                               aria-label={`${product.name} düzenle`}
@@ -1726,10 +1765,10 @@ export default function ProductsPageClient({
                               onClick={() => void handleToggleFeatured(product)}
                               disabled={isFeaturedUpdating || (!isFeatured && homepageFeaturedState.disabled)}
                               className={cn(
-                                "inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                                "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                                 isFeatured
                                   ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
-                                  : "border-[#E7EAF0] bg-white text-[#6B7280] hover:bg-[#F9FAFB] hover:text-[#1F2937]",
+                                  : "border-[#E1E6EF] bg-white text-[#6B7280] hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
                                 SURFACE_FOCUS_RING,
                               )}
                               aria-label={`${product.name} öne çıkar`}
@@ -1746,7 +1785,7 @@ export default function ProductsPageClient({
                               type="button"
                               onClick={() => void handleDelete(product.id)}
                               className={cn(
-                                "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#F5D3D3] bg-white text-[#EF4444] transition-colors hover:bg-[#FDECEC]",
+                                "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#F5D3D3] bg-white text-[#EF4444] transition-colors hover:bg-[#FDECEC]",
                                 SURFACE_FOCUS_RING,
                               )}
                               aria-label={`${product.name} sil`}
@@ -1789,7 +1828,7 @@ export default function ProductsPageClient({
                 return (
                   <article
                     key={product.id}
-                    className="rounded-[20px] border border-[#E7EAF0] bg-white p-3.5 shadow-[0_12px_24px_rgba(15,23,42,0.04)] sm:p-4"
+                    className="rounded-[12px] border border-[#E1E6EF] bg-white p-3.5 shadow-[0_8px_18px_rgba(15,23,42,0.035)] sm:p-4"
                   >
                     <div className="flex items-start gap-3">
                       <input
@@ -1807,10 +1846,10 @@ export default function ProductsPageClient({
                         <img
                           src={product.images[0]}
                           alt={product.name}
-                          className="h-16 w-16 rounded-2xl border border-[#E7EAF0] object-cover"
+                          className="h-14 w-14 rounded-[8px] border border-[#E1E6EF] object-cover"
                         />
                       ) : (
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-[#F9FAFB] text-[#9CA3AF]">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-[8px] border border-[#E1E6EF] bg-[#F9F9F9] text-[#9CA3AF]">
                           <Package className="h-5 w-5" />
                         </div>
                       )}
@@ -1821,7 +1860,7 @@ export default function ProductsPageClient({
                             <h3 className="break-words text-[15px] font-semibold text-[#1F2937]">{product.name}</h3>
                             <span
                               className={cn(
-                                "mt-2 inline-flex max-w-full rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.08em]",
+                                "mt-2 inline-flex max-w-full rounded-[7px] border px-2.5 py-1 text-[11px] font-semibold",
                                 getCategoryColor(product.category),
                               )}
                             >
@@ -1837,10 +1876,10 @@ export default function ProductsPageClient({
                         </div>
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-medium", statusMeta.tone)}>
+                          <span className={cn("inline-flex rounded-[7px] border px-3 py-1 text-xs font-semibold", statusMeta.tone)}>
                             {statusMeta.label}
                           </span>
-                          <span className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-medium", stockMeta.tone)}>
+                          <span className={cn("inline-flex rounded-[7px] border px-3 py-1 text-xs font-semibold", stockMeta.tone)}>
                             {stockMeta.label}
                           </span>
                         </div>
@@ -1859,7 +1898,7 @@ export default function ProductsPageClient({
                         <div className={cn("mt-4 flex flex-wrap items-center gap-2", reorderMode ? "justify-between" : "justify-end")}>
                           {reorderMode ? (
                             <div className="flex items-center gap-2">
-                              <span className="inline-flex h-9 items-center gap-1.5 rounded-2xl border border-[#E7EAF0] bg-white px-3 text-xs font-medium text-[#6B7280]">
+                              <span className="inline-flex h-9 items-center gap-1.5 rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-xs font-medium text-[#6B7280]">
                                 {reorderingProductId === product.id ? (
                                   <Loader2 className="h-3.5 w-3.5 animate-spin text-[#E85D04]" />
                                 ) : (
@@ -1872,7 +1911,7 @@ export default function ProductsPageClient({
                                 onClick={() => void handleManualReorder(product.id, "up")}
                                 disabled={index === 0 || reorderingProductId !== null}
                                 className={cn(
-                                  "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] disabled:opacity-40",
+                                  "inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] disabled:opacity-40",
                                   SURFACE_FOCUS_RING,
                                 )}
                                 aria-label={`${product.name} ürününü yukarı taşı`}
@@ -1884,7 +1923,7 @@ export default function ProductsPageClient({
                                 onClick={() => void handleManualReorder(product.id, "down")}
                                 disabled={index === sortedProducts.length - 1 || reorderingProductId !== null}
                                 className={cn(
-                                  "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] disabled:opacity-40",
+                                  "inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] disabled:opacity-40",
                                   SURFACE_FOCUS_RING,
                                 )}
                                 aria-label={`${product.name} ürününü aşağı taşı`}
@@ -1897,7 +1936,7 @@ export default function ProductsPageClient({
                             <Link
                               href={`/admin/urunler/${product.id}/duzenle`}
                               className={cn(
-                                "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#1F2937]",
+                                "inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#1F2937]",
                                 SURFACE_FOCUS_RING,
                               )}
                             >
@@ -1908,10 +1947,10 @@ export default function ProductsPageClient({
                               onClick={() => void handleToggleFeatured(product)}
                               disabled={isFeaturedUpdating || (!isFeatured && homepageFeaturedState.disabled)}
                               className={cn(
-                                "inline-flex h-9 w-9 items-center justify-center rounded-2xl border disabled:opacity-50",
+                                "inline-flex h-9 w-9 items-center justify-center rounded-[7px] border disabled:opacity-50",
                                 isFeatured
                                   ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
-                                  : "border-[#E7EAF0] bg-white text-[#6B7280]",
+                                  : "border-[#E1E6EF] bg-white text-[#6B7280]",
                                 SURFACE_FOCUS_RING,
                               )}
                             >
@@ -1925,7 +1964,7 @@ export default function ProductsPageClient({
                               type="button"
                               onClick={() => void handleDelete(product.id)}
                               className={cn(
-                                "inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#F5D3D3] bg-white text-[#EF4444]",
+                                "inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#F5D3D3] bg-white text-[#EF4444]",
                                 SURFACE_FOCUS_RING,
                               )}
                             >
