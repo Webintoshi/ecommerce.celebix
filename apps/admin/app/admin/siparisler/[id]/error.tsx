@@ -10,12 +10,6 @@ export default function Error({ error }: { error: Error & { digest?: string } })
             </div>
             <h1 className="text-xl font-bold text-gray-900 mb-2">Bir Hata Oluştu</h1>
             <p className="text-gray-500 mb-6">{error.message}</p>
-            <a
-                href="/admin/siparisler"
-                className="inline-flex items-center gap-2 px-6 py-2 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-            >
-                Sipariş Listesine Dön
-            </a>
         </div>
     );
 }

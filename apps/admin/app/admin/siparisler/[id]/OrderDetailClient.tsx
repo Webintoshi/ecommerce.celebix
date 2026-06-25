@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-    ArrowLeft,
     CheckCircle2,
     CircleAlert,
     Printer,
@@ -304,13 +303,6 @@ export function OrderDetailClient({
                     <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white via-[#fffdfb] to-[#faf4ee] shadow-[var(--shadow-md)] no-print">
                         <div className="flex flex-col gap-5 border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                                <Link
-                                    href="/admin/siparisler"
-                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                                >
-                                    <ArrowLeft className="h-5 w-5" />
-                                </Link>
-
                                 <div className="space-y-3">
                                     <div className="flex flex-wrap items-center gap-3">
                                         <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">

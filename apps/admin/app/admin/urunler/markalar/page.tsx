@@ -144,12 +144,6 @@ export default async function BrandsManagementPage() {
                 >
                   Toplu Yükle
                 </Link>
-                <Link
-                  href="/admin/urunler"
-                  className="inline-flex items-center justify-center rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                >
-                  Ürün Yönetimine Dön
-                </Link>
               </div>
             </div>
           </div>

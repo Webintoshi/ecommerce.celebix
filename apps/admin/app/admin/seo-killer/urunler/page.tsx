@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   ExternalLink,
   Filter,
@@ -503,13 +502,6 @@ export default function ProductSEOPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <Link
-            href="/admin/seo-killer"
-            className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 transition hover:text-gray-700"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            SEO Merkezi
-          </Link>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <Package className="h-7 w-7 text-primary" />
             Ürün SEO Kontrol Paneli

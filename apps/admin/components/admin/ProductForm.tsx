@@ -8,7 +8,6 @@ import {
   Upload,
   X,
   Save,
-  ArrowLeft,
   Image as ImageIcon,
   Package,
   Sparkles,
@@ -524,13 +523,6 @@ export default function ProductForm({ productId }: ProductFormProps) {
         {/* Header Section */}
         <div className="mb-10 flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
           <div className="space-y-2">
-            <Link
-              href="/admin/urunler"
-              className="inline-flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-primary transition-colors uppercase tracking-widest"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Ürün Listesine Dön
-            </Link>
             <h1 className="text-4xl font-black text-gray-900 tracking-tight">
               {productId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}
             </h1>

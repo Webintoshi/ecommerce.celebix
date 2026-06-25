@@ -10,8 +10,7 @@ import { maybeGetAdminCustomizationSchemaById } from "@/lib/db/light-postgres-re
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { createServerClient } from "@/lib/supabase";
 import { LivePreview } from "@/components/admin/customization/live-preview";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 
 export const metadata: Metadata = {
   title: `Onizleme | ${STORE_RUNTIME.name} Admin`,
@@ -80,11 +79,6 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <Link href={`/admin/urunler/ekstralar/${id}`}>
-              <Button variant="ghost" size="sm" className="h-10 w-10 p-0">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">
                 {schema.name}
@@ -93,12 +87,6 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
             </div>
           </div>
 
-          <Link href={`/admin/urunler/ekstralar/${id}`}>
-            <Button variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Editöre Dön
-            </Button>
-          </Link>
         </div>
       </header>
 

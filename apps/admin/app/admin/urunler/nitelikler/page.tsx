@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Plus,
-  ChevronLeft,
   Palette,
   Ruler,
   Weight,
@@ -206,13 +205,6 @@ export default function VariantAttributesPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-                  <Link
-                    href="/admin/urunler"
-                    aria-label="Ürünler listesine dön"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </Link>
                   <Link
                     href="/admin/urunler/nitelikler/yeni"
                     className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"

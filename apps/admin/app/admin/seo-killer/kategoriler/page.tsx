@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
     FolderOpen,
     Save,
-    ArrowLeft,
     Eye,
     Code,
     Sparkles,
@@ -509,10 +508,6 @@ export default function CategorySEOPage() {
             {/* Header */}
             <div className="flex items-start justify-between">
                 <div>
-                    <Link href="/admin/seo-killer" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-2">
-                        <ArrowLeft className="w-4 h-4" />
-                        SEO Merkezi
-                    </Link>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                         <FolderOpen className="w-7 h-7 text-purple-600" />
                         Kategori SEO Yönetimi

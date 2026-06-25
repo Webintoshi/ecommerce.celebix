@@ -1,5 +1,4 @@
-import { ArrowLeft, FileX } from "lucide-react";
-import Link from "next/link";
+import { FileX } from "lucide-react";
 
 export default function NotFound() {
     return (
@@ -9,13 +8,6 @@ export default function NotFound() {
             </div>
             <h1 className="text-xl font-bold text-gray-900 mb-2">Sipariş Bulunamadı</h1>
             <p className="text-gray-500 mb-6">Aradığınız sipariş mevcut değil veya silinmiş.</p>
-            <Link
-                href="/admin/siparisler"
-                className="inline-flex items-center gap-2 px-6 py-2 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-            >
-                <ArrowLeft className="w-4 h-4" />
-                Sipariş Listesine Dön
-            </Link>
         </div>
     );
 }

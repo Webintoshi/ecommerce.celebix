@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, Eye, FileText, PenTool } from "lucide-react";
+import { Clock, Eye, FileText, PenTool } from "lucide-react";
 import { fetchBlogStrategySnapshot } from "@/lib/blog-strategy-client";
 import { fetchCmsPages } from "@/lib/cms-pages";
 import type { CmsPage } from "@/types/cms";
@@ -78,13 +78,6 @@ export default function CmsDashboard() {
             <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
               İçerik Yönetimi
             </div>
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Geri
-            </Link>
           </div>
           <div className="hidden" />
         </section>

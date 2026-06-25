@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType, ElementType } from "react";
 import {
   CheckCircle2,
-  ChevronLeft,
   ExternalLink,
   Loader2,
   Package,
@@ -454,14 +453,6 @@ export default function MarketsPage() {
     return (
       <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
         <div className="max-w-6xl mx-auto space-y-6">
-          <button
-            onClick={() => setView("list")}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Tum Pazaryerlerine Don
-          </button>
-
           <div className={cn("overflow-hidden rounded-[30px] border bg-white p-6 shadow-[var(--shadow-md)]", isConnected ? "border-emerald-200" : hasError ? "border-rose-200" : "border-[var(--admin-border)]")}>
             <div className="flex items-center gap-4">
               <ProviderLogo

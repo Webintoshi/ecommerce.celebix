@@ -267,12 +267,6 @@ export default function BulkUploadPage() {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/admin/urunler"
-                  className="inline-flex items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                >
-                  Ürünlere Dön
-                </Link>
                 {!isFeedMode ? (
                   <button
                     type="button"

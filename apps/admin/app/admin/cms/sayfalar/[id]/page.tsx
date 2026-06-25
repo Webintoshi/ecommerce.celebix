@@ -1,8 +1,6 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import {
   getManagedContentPageDefinition,
   isManagedContentPageSlug,
@@ -84,13 +82,6 @@ export default function EditManagedContentPage({
         {!loading && error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center shadow-sm">
             <p className="text-sm font-medium text-red-700">{error}</p>
-            <Link
-              href="/admin/cms/sayfalar"
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Sayfa listesine don
-            </Link>
           </div>
         ) : null}
 

@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getCategoryById, addCategory, updateCategory } from "@/lib/categories";
 import { CategoryFormData, CategoryInfo } from "@/types/category";
-import { ArrowLeft, Save, X, Upload, Image as ImageIcon, FolderOpen } from "lucide-react";
-import Link from "next/link";
+import { Save, X, Upload, Image as ImageIcon, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUPPORTED_IMAGE_ACCEPT, SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL } from "@celebix/platform-config/src/image-formats";
 
@@ -173,12 +172,6 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link
-            href="/admin/urunler/koleksiyonlar"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
           <h1 className="text-xl md:text-2xl font-bold text-gray-900">
             {categoryId ? "Koleksiyonu Düzenle" : "Yeni Koleksiyon Ekle"}
           </h1>

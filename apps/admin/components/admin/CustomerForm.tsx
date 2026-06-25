@@ -2,9 +2,7 @@
 
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  ArrowLeft,
   Loader2,
   Mail,
   MapPin,
@@ -275,16 +273,10 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
             title={pageTitle}
             description="Müşteri kaydını ve iletişim tercihlerini düzenleyin."
             actions={
-              <>
-                <Link href="/admin/musteriler" aria-label="Müşterilere dön" className={secondaryActionClass}>
-                  <ArrowLeft className="h-4 w-4" />
-                  Müşteriler
-                </Link>
-                <button type="submit" form="customer-form" disabled={saving} className={primaryActionClass}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Kaydet
-                </button>
-              </>
+              <button type="submit" form="customer-form" disabled={saving} className={primaryActionClass}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Kaydet
+              </button>
             }
           />
 

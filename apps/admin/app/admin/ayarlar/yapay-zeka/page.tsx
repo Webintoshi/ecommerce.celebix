@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-    ArrowLeft,
     Brain,
     Eye,
     EyeOff,
@@ -13,7 +12,6 @@ import {
     Zap,
     Sparkles,
 } from "lucide-react";
-import Link from "next/link";
 
 type AIProvider = "gemini" | "claude" | "deepseek";
 
@@ -177,12 +175,6 @@ export default function AISettingsPage() {
         <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-8">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <Link
-                    href="/admin/ayarlar"
-                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                    <ArrowLeft className="w-5 h-5 text-gray-600" />
-                </Link>
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
                         <Brain className="w-6 h-6 text-purple-600" />

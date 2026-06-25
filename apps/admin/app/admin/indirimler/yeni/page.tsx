@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { DiscountForm } from "@/components/admin/discount-form";
 import { AdminDiscountPayload } from "@/types/discount";
 import { useState } from "react";
@@ -54,14 +52,6 @@ export default function NewDiscountPage() {
                 </p>
               </div>
             </div>
-
-            <Link
-              href="/admin/indirimler"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              İndirimlere Dön
-            </Link>
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-px overflow-hidden rounded-[24px] border border-white/70 bg-[#EEF1F4] shadow-inner md:grid-cols-3">

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import {
-  ArrowLeft,
   ArrowRight,
   Calendar,
   CheckCircle2,
@@ -135,12 +134,6 @@ export default function BlogListingPage() {
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-3xl space-y-4">
               <div className="flex items-center gap-3">
-                <Link
-                  href="/admin/cms"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600 transition-colors hover:border-amber-300 hover:text-stone-900"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Link>
                 <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-amber-800">
                   Blog yönetimi
                 </span>

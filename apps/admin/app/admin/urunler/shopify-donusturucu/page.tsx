@@ -268,12 +268,6 @@ export default function ShopifyConverterPage() {
                   Shopify ciktilarini panelin toplu yukleme yapisina sicak, daha rahat taranan bir is akisi icinde hazirlayin.
                 </p>
               </div>
-              <Link
-                href="/admin/urunler"
-                className="inline-flex items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-              >
-                Geri Dön
-              </Link>
             </div>
           </div>
         </section>

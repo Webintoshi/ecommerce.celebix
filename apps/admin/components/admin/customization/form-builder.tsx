@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   DndContext,
   closestCenter,
@@ -16,7 +15,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, Layers, Loader2, Plus, Save, Settings } from "lucide-react";
+import { Eye, Layers, Loader2, Plus, Save, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { CustomizationSchema, CustomizationStep } from "@/types/product-customization";
@@ -242,12 +241,6 @@ export function FormBuilder({
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <Link href="/admin/urunler/ekstralar">
-              <Button variant="ghost" className="h-10 w-10 p-0">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-
             <div>
               <h1 className="text-xl font-semibold text-gray-900">{schema.name}</h1>
               <p className="text-sm text-gray-500">

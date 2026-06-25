@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowLeft, RefreshCw, Save } from "lucide-react";
+import { RefreshCw, Save } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentProviderLogo } from "@/components/admin/payment-provider-logo";
 import { PaymentGatewayForm } from "@/components/admin/payment-gateway-form";
@@ -60,13 +59,6 @@ export default function NewPaymentGatewayPage() {
     <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            href="/admin/ayarlar/odeme"
-            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all text-sm font-medium"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Geri Don
-          </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{"Yeni \u00d6deme Altyap\u0131s\u0131"}</h1>
           </div>

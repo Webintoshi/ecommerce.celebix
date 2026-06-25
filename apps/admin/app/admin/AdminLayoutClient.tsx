@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Home, Menu, Package, RefreshCw, Sparkles, Tag } from "lucide-react";
+import { Home, Menu, Package, RefreshCw, Sparkles, Tag } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
@@ -356,10 +356,6 @@ export default function AdminLayoutClient({
     setDesktopNotificationsOpen(false);
   }, [isMobile, pathname]);
 
-  const handleBack = () => {
-    router.back();
-  };
-
   const handleHome = () => {
     setActiveMobileSurface(null);
     setDesktopNotificationsOpen(false);
@@ -466,15 +462,6 @@ export default function AdminLayoutClient({
           <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[20px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[var(--shadow-xs)] backdrop-blur-xl min-[1025px]:hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
-                    aria-label="Geri git"
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </button>
-
                 <div className="min-w-0">
                   <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">
                     Modül

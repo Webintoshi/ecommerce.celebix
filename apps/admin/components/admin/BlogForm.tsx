@@ -2,9 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  ArrowLeft,
   BarChart3,
   Eye,
   Image as ImageIcon,
@@ -350,12 +348,6 @@ export function BlogForm({ initialData }: BlogFormProps) {
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            href="/admin/cms/blog"
-            className="rounded-lg border border-transparent p-2 hover:border-gray-200 hover:bg-white"
-          >
-            <ArrowLeft className="h-5 w-5 text-gray-600" />
-          </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
               {initialData ? "Yaziyi Duzenle" : "Yeni Yazi Ekle"}

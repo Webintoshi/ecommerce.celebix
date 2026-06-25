@@ -6,6 +6,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -15,8 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
-import Link from "next/link";
+import { Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createSchemaRequestSchema,
@@ -110,15 +110,6 @@ export default function NewSchemaPage() {
             <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3 md:gap-4">
-                  <Link href="/admin/urunler/ekstralar">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-11 w-11 rounded-2xl border border-stone-200 bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                  </Link>
                   <div className="space-y-3">
                     <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                       Yeni ekstra semasi
@@ -310,4 +301,3 @@ export default function NewSchemaPage() {
     </main>
   );
 }
-

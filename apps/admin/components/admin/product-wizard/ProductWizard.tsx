@@ -3,8 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Save, ChevronRight, ChevronLeft, MoreHorizontal, RefreshCw } from "lucide-react";
-import Link from "next/link";
+import { Save, ChevronRight, ChevronLeft, MoreHorizontal, RefreshCw } from "lucide-react";
 import {
   ADMIN_PRODUCT_WIZARD_STEPS,
   type AdminProductMode,
@@ -631,13 +630,6 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
         <div className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/95 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 md:px-6 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
             <div className="flex items-center gap-4">
-              <Link
-                href="/admin/urunler"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
-                aria-label="Ürünler listesine dön"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
               <div>
                 <div className="inline-flex w-fit rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">
                   {modeLabel}
@@ -785,13 +777,6 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
         <div className="container mx-auto px-4 py-4 md:py-5">
           <div className="flex flex-col gap-4 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
             <div className="flex items-center gap-4">
-              <Link
-                href="/admin/urunler"
-                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-stone-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8]"
-                aria-label="Ürünler listesine dön"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
               <div>
                 <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                   {productId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}

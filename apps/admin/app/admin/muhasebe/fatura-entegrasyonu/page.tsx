@@ -6,7 +6,6 @@ import type { ElementType } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronLeft,
   Loader2,
   MoreHorizontal,
   Plug,
@@ -452,14 +451,6 @@ export default function AccountingIntegrationsPage() {
     return (
       <div className="admin-page-root text-[var(--admin-heading)]">
         <div className="mx-auto max-w-7xl px-6 py-8 md:px-8 md:py-10">
-          <button
-            onClick={() => setView("list")}
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Tüm entegrasyonlara dön
-          </button>
-
           <section className="relative overflow-hidden rounded-[34px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
             <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-4">

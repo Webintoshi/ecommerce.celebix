@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Save,
-  ArrowLeft,
   Eye,
   Settings,
   FileText,
@@ -14,7 +13,6 @@ import {
   FileEdit,
   Archive,
 } from "lucide-react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -133,12 +131,6 @@ export function PageForm({
     <form className="space-y-8" onSubmit={handleSubmit}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            href={backHref}
-            className="rounded-lg border border-transparent p-2 transition-colors hover:border-gray-200 hover:bg-white"
-          >
-            <ArrowLeft className="h-5 w-5 text-gray-600" />
-          </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
               {formTitle || (initialData ? "Sayfayi Duzenle" : "Yeni Sayfa Ekle")}

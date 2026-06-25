@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { DiscountForm } from "@/components/admin/discount-form";
 import { AdminDiscount, AdminDiscountPayload } from "@/types/discount";
 
@@ -76,10 +75,6 @@ export default function EditDiscountPage() {
     return (
       <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
         <div className="max-w-4xl mx-auto space-y-4">
-          <Link href="/admin/indirimler" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
-            <ArrowLeft className="w-4 h-4" />
-            İndirim listesine dön
-          </Link>
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error || "İndirim bulunamadı."}
           </div>
@@ -92,9 +87,6 @@ export default function EditDiscountPage() {
     <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
-          <Link href="/admin/indirimler" className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">İndirimi Düzenle</h1>
             <p className="text-sm text-gray-500 mt-1">Kod: {discount.code}</p>
@@ -106,4 +98,3 @@ export default function EditDiscountPage() {
     </div>
   );
 }
-

@@ -4,7 +4,6 @@ import { useEffect, useState, type ElementType } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Calendar,
   CheckCircle,
@@ -24,6 +23,7 @@ import {
   TrendingUp,
   Truck,
   XCircle,
+  RotateCcw,
 } from "lucide-react";
 
 interface CustomerDetailPageProps {
@@ -221,7 +221,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
       shipped: { label: "Kargolandı", color: "border-indigo-200 bg-indigo-50 text-indigo-700", icon: Truck },
       delivered: { label: "Teslim Edildi", color: "border-emerald-200 bg-emerald-50 text-emerald-700", icon: CheckCircle },
       cancelled: { label: "İptal", color: "border-rose-200 bg-rose-50 text-rose-700", icon: XCircle },
-      refunded: { label: "İade", color: "border-orange-200 bg-orange-50 text-orange-700", icon: ArrowLeft },
+      refunded: { label: "İade", color: "border-orange-200 bg-orange-50 text-orange-700", icon: RotateCcw },
     };
 
     const config = configs[status] || configs.pending;
@@ -288,12 +288,6 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
           <div className={`${panelClass} px-6 py-14 text-center`}>
             <h1 className="text-xl font-semibold text-gray-950">Müşteri Bulunamadı</h1>
             <p className="mt-2 text-sm text-gray-500">Aradığınız müşteri mevcut değil.</p>
-            <Link
-              href="/admin/musteriler"
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-            >
-              Müşterilere Dön
-            </Link>
           </div>
         </div>
       </main>
@@ -323,14 +317,6 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
           <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
             <div className="flex flex-col gap-5 border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <Link
-                  href="/admin/musteriler"
-                  aria-label="Müşteri listesine dön"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Link>
-
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
                     {fullName}
