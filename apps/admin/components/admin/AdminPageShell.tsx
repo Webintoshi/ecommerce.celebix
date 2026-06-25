@@ -1,3 +1,6 @@
+"use client";
+
+import { AdminTopbarBridge } from "@/components/admin/AdminTopbarChrome";
 import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
 import type { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, ReactNode } from "react";
@@ -48,45 +51,41 @@ export function AdminPageHeader({
       </>
     ) : null
   );
+  const hasHeaderBody = Boolean(breadcrumbs || statusSlot || resolvedActions);
+
+  const bridge = <AdminTopbarBridge title={title} subtitle={description} actions={resolvedActions} />;
+
+  if (!hasHeaderBody && !metrics) {
+    return bridge;
+  }
 
   return (
-    <section
-      className={cn(
-        "overflow-hidden rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-sm)]",
-        className,
-      )}
-    >
-      <div className={cn("px-4 py-4 sm:px-5 xl:px-6 xl:py-5", metrics ? "border-b border-[var(--admin-border)]" : "")}>
-        <div className="flex min-w-0 flex-col gap-4 min-[1440px]:flex-row min-[1440px]:items-start min-[1440px]:justify-between">
-          <div className="min-w-0 flex-1">
-            {breadcrumbs ? <div className="mb-3">{breadcrumbs}</div> : null}
+    <>
+      {bridge}
+      <section className={cn("space-y-3", className)}>
+        {breadcrumbs || statusSlot || resolvedActions ? (
+          <div className="space-y-3 min-[1025px]:hidden">
+            {breadcrumbs ? <div>{breadcrumbs}</div> : null}
             {resolvedSectionLabel ? (
               <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)] md:text-[11px]">
                 {resolvedSectionLabel}
               </div>
             ) : null}
-            <h1 className={cn(
-              "text-[1.55rem] font-semibold tracking-[-0.03em] text-[var(--admin-heading)] sm:text-[1.75rem] xl:text-[1.95rem]",
-              resolvedSectionLabel || breadcrumbs ? "mt-3" : "",
-            )}>
-              {title}
-            </h1>
-            {description ? (
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)] xl:text-[15px]">
-                {description}
-              </p>
+            {statusSlot ? <div className="flex flex-wrap items-center gap-2">{statusSlot}</div> : null}
+            {resolvedActions ? (
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                {resolvedActions}
+              </div>
             ) : null}
-            {statusSlot ? <div className="mt-3 flex flex-wrap items-center gap-2">{statusSlot}</div> : null}
           </div>
-          {resolvedActions ? (
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center min-[1440px]:w-auto min-[1440px]:justify-end">
-              {resolvedActions}
-            </div>
-          ) : null}
-        </div>
-      </div>
-      {metrics ? <div className="grid grid-cols-2 gap-px bg-[var(--admin-border)] xl:grid-cols-4">{metrics}</div> : null}
-    </section>
+        ) : null}
+        {metrics ? (
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-border)] xl:grid-cols-4">
+            {metrics}
+          </div>
+        ) : null}
+      </section>
+    </>
   );
 }
 

@@ -15,7 +15,6 @@ import {
   Eye,
   Filter,
   GripVertical,
-  Info,
   Loader2,
   MoreHorizontal,
   Package2,
@@ -31,6 +30,7 @@ import type { CheckedState } from "@radix-ui/react-checkbox";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import { cn } from "@/lib/utils";
 import { AdminDataTable } from "@/components/admin/AdminPageShell";
+import { AdminTopbarBridge } from "@/components/admin/AdminTopbarChrome";
 import {
   ORDER_STATUS_CONFIG,
   type Order,
@@ -1269,36 +1269,32 @@ export default function OrdersPage() {
 
   return (
     <main className="min-h-screen bg-[#F9F9F9]">
+      <AdminTopbarBridge
+        title="Siparişler"
+        subtitle="Sipariş, ödeme ve teslimat akışını yönetin."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 gap-2 rounded-[7px] border-[#E1E6EF] bg-white px-4 text-[14px] font-semibold text-[#1F2937] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+              onClick={() => exportOrdersCsv(filteredOrders)}
+            >
+              <ArrowDownToLine className="h-4.5 w-4.5 text-[#6B7280]" />
+              Dışa Aktar
+            </Button>
+            <Link
+              href="/admin/siparisler/hizli-siparis"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-[7px] bg-[#FF6A00] px-4 text-[14px] font-semibold text-white shadow-[0_12px_24px_rgba(255,106,0,0.16)] transition-colors hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+            >
+              <Plus className="h-4.5 w-4.5" />
+              Sipariş Oluştur
+            </Link>
+          </>
+        }
+      />
       <div className="w-full px-0 py-3 md:py-5">
         <section className="min-w-0">
-          <header className="flex min-h-[72px] flex-col gap-3 border-b border-[#E1E6EF] px-0 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <h1 className="truncate text-[1.45rem] font-semibold tracking-[-0.03em] text-[#111827]">
-                Siparişler
-              </h1>
-              <Info className="h-4.5 w-4.5 shrink-0 text-[#7B8797]" aria-hidden="true" />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 gap-2 rounded-[7px] border-[#E1E6EF] bg-white px-4 text-[14px] font-semibold text-[#1F2937] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
-                onClick={() => exportOrdersCsv(filteredOrders)}
-              >
-                <ArrowDownToLine className="h-4.5 w-4.5 text-[#6B7280]" />
-                Dışa Aktar
-              </Button>
-              <Link
-                href="/admin/siparisler/hizli-siparis"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[7px] bg-[#FF6A00] px-4 text-[14px] font-semibold text-white shadow-[0_12px_24px_rgba(255,106,0,0.16)] transition-colors hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
-              >
-                <Plus className="h-4.5 w-4.5" />
-                Sipariş Oluştur
-              </Link>
-            </div>
-          </header>
-
           {loading ? (
             <OrdersPageSkeleton />
           ) : (

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, ExternalLink, Home, Menu, Package, RefreshCw, Sparkles, Store, Tag } from "lucide-react";
+import { ArrowLeft, Home, Menu, Package, RefreshCw, Sparkles, Tag } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
 import { AdminNotificationCenter } from "@/components/admin/AdminNotificationCenter";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminTopbarChromeProvider, type AdminTopbarChromeState } from "@/components/admin/AdminTopbarChrome";
 import ToshiAssistant from "@/components/admin/ToshiAssistant";
-import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { cn } from "@/lib/utils";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
@@ -59,57 +59,27 @@ function isAdminRoot(pathname: string) {
   return pathname === "/admin" || pathname === "/admin/";
 }
 
-function getAdminDisplayName(profile: InitialAdminProfile | null) {
-  const explicitName = profile?.fullName?.trim();
-
-  if (explicitName) {
-    return explicitName;
-  }
-
-  const emailPrefix = profile?.email?.split("@")[0]?.replace(/[._-]+/g, " ").trim();
-
-  return emailPrefix
-    ? emailPrefix.replace(/\b\w/g, (char) => char.toLocaleUpperCase("tr"))
-    : "Admin";
-}
-
-function getInitials(value: string) {
-  const parts = value.split(/\s+/).filter(Boolean);
-
-  return (parts.length > 0 ? parts : ["A"])
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toLocaleUpperCase("tr"))
-    .join("");
-}
-
 function DesktopTopbar({
   title,
   subtitle,
-  profile,
   isDashboardRoot,
   isToshiOpen,
   toshiAlertCount,
   isNotificationsOpen,
   onNotificationsOpenChange,
   onUnreadCountChange,
-  onRefresh,
   onToggleToshi,
 }: {
   title: string;
   subtitle: string;
-  profile: InitialAdminProfile | null;
   isDashboardRoot: boolean;
   isToshiOpen: boolean;
   toshiAlertCount?: number;
   isNotificationsOpen: boolean;
   onNotificationsOpenChange: (next: boolean) => void;
   onUnreadCountChange: (count: number) => void;
-  onRefresh: () => void;
   onToggleToshi: () => void;
 }) {
-  const displayName = getAdminDisplayName(profile);
-  const initials = getInitials(displayName);
-
   if (isDashboardRoot) {
     return (
       <header className="sticky top-0 z-30 mx-auto mb-5 hidden w-full bg-[var(--admin-bg)] min-[1025px]:block">
@@ -130,34 +100,12 @@ function DesktopTopbar({
               <h1 className="truncate text-[0.98rem] font-semibold leading-5 tracking-[-0.03em] text-[var(--admin-heading)] xl:text-[1.04rem]">
                 {title}
               </h1>
-              <span className="hidden rounded-full border border-[var(--admin-success-soft)] bg-[var(--admin-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--admin-success)] 2xl:inline-flex">
-                Sağlıklı
-              </span>
             </div>
             <p className="sr-only">{subtitle}</p>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {!isDashboardRoot ? (
-              <a
-                href={STORE_RUNTIME.storefrontUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="hidden min-h-9 items-center gap-2 rounded-[12px] border border-[var(--admin-border)] bg-white px-2.5 text-[13px] font-semibold text-[var(--admin-text)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] 2xl:inline-flex"
-              >
-                <Store className="h-3.5 w-3.5" />
-                Mağazayı görüntüle
-                <ExternalLink className="h-3 w-3 text-[var(--admin-text-muted)]" />
-              </a>
-            ) : null}
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
-              aria-label="Sayfayı yenile"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </button>
+            <div id="admin-page-topbar-actions" className="flex shrink-0 items-center gap-2" />
             <AdminNotificationCenter
               isMobile={false}
               isOpen={isNotificationsOpen}
@@ -184,14 +132,6 @@ function DesktopTopbar({
                 </span>
               ) : null}
             </button>
-            <div className="flex min-h-9 items-center gap-2 rounded-[12px] border border-[var(--admin-border)] bg-white px-1.5 shadow-[var(--shadow-xs)]">
-              <span className="flex h-7 w-7 items-center justify-center rounded-[9px] bg-[var(--admin-heading)] text-[11px] font-bold text-white">
-                {initials}
-              </span>
-              <span className="hidden max-w-[9rem] truncate pr-1 text-[13px] font-semibold text-[var(--admin-heading)] 2xl:inline">
-                {displayName}
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -278,12 +218,14 @@ export default function AdminLayoutClient({
   const [desktopNotificationsOpen, setDesktopNotificationsOpen] = useState(false);
   const [, setNotificationUnreadCount] = useState(0);
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const [pageChrome, setPageChrome] = useState<AdminTopbarChromeState | null>(null);
   const [toshiAlertInfo, setToshiAlertInfo] = useState<{
     count: number;
     summary: string;
   } | null>(null);
 
   const shellMeta = useMemo(() => getShellMeta(pathname), [pathname]);
+  const activeShellMeta = pageChrome ?? shellMeta;
   const rootAdmin = useMemo(() => isAdminRoot(pathname), [pathname]);
   const isOrdersRoute = pathname.startsWith("/admin/siparisler");
   const isProductsRoute = pathname.startsWith("/admin/urunler");
@@ -323,6 +265,27 @@ export default function AdminLayoutClient({
       setKeyboardInset(0);
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    setPageChrome(null);
+  }, [pathname]);
+
+  const handleTopbarChromeChange = useCallback((nextChrome: AdminTopbarChromeState | null) => {
+    setPageChrome((current) => {
+      if (!nextChrome) {
+        return current ? null : current;
+      }
+
+      if (current?.title === nextChrome.title && current?.subtitle === nextChrome.subtitle) {
+        return current;
+      }
+
+      return {
+        subtitle: nextChrome.subtitle,
+        title: nextChrome.title,
+      };
+    });
+  }, []);
 
   useEffect(() => {
     if (!rootAdmin) {
@@ -518,9 +481,9 @@ export default function AdminLayoutClient({
                   </p>
                   <h1
                     className="mt-0.5 truncate text-[15px] font-semibold tracking-[-0.02em] text-[var(--admin-heading)] md:text-base"
-                    title={shellMeta.subtitle}
+                    title={activeShellMeta.subtitle}
                   >
-                    {shellMeta.title}
+                    {activeShellMeta.title}
                   </h1>
                 </div>
               </div>
@@ -547,21 +510,21 @@ export default function AdminLayoutClient({
 
           {!isMobile ? (
             <DesktopTopbar
-              title={shellMeta.title}
-              subtitle={shellMeta.subtitle}
-              profile={initialProfile}
+              title={activeShellMeta.title ?? shellMeta.title}
+              subtitle={activeShellMeta.subtitle ?? shellMeta.subtitle}
               isDashboardRoot={rootAdmin}
               isToshiOpen={isToshiOpen}
               toshiAlertCount={toshiAlertInfo?.count}
               isNotificationsOpen={isNotificationsOpen}
               onNotificationsOpenChange={handleNotificationsOpenChange}
               onUnreadCountChange={setNotificationUnreadCount}
-              onRefresh={handleRefresh}
               onToggleToshi={handleToggleToshi}
             />
           ) : null}
 
-          {children}
+          <AdminTopbarChromeProvider onChange={handleTopbarChromeChange}>
+            {children}
+          </AdminTopbarChromeProvider>
         </div>
       </main>
 
