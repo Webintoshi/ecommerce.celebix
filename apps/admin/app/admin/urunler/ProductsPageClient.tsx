@@ -45,6 +45,7 @@ const CATEGORY_BADGE_STYLES = [
   "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
   "border-[#D8F0E0] bg-[#EAF8EF] text-[#16A34A]",
 ];
+const PRODUCT_TABLE_NAME_LIMIT = 44;
 
 type Notice = {
   tone: "success" | "error";
@@ -153,6 +154,7 @@ function getStockMeta(stock: number) {
     return {
       label: "Stok yok",
       tone: "border-[#F5D3D3] bg-[#FDECEC] text-[#EF4444]",
+      textTone: "text-[#EF4444]",
     };
   }
 
@@ -160,12 +162,14 @@ function getStockMeta(stock: number) {
     return {
       label: `${stock} adet`,
       tone: "border-[#FCE1B5] bg-[#FFF7E8] text-[#B45309]",
+      textTone: "text-[#B45309]",
     };
   }
 
   return {
     label: `${stock} adet`,
     tone: "border-[#CFECD7] bg-[#EAF8EF] text-[#16A34A]",
+    textTone: "text-[#16A34A]",
   };
 }
 
@@ -175,6 +179,7 @@ function getProductStatusMeta(product: AdminProductListItem) {
       label: "Taslak",
       description: "Henüz yayına hazır değil",
       tone: "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
+      textTone: "text-[#E85D04]",
     };
   }
 
@@ -183,6 +188,7 @@ function getProductStatusMeta(product: AdminProductListItem) {
       label: "Pasif",
       description: null,
       tone: "border-[#F5D3D3] bg-[#FDECEC] text-[#EF4444]",
+      textTone: "text-[#EF4444]",
     };
   }
 
@@ -190,7 +196,19 @@ function getProductStatusMeta(product: AdminProductListItem) {
     label: "Aktif",
     description: null,
     tone: "border-[#CFECD7] bg-[#EAF8EF] text-[#16A34A]",
+    textTone: "text-[#16A34A]",
   };
+}
+
+function truncateTableText(value: string, maxLength = PRODUCT_TABLE_NAME_LIMIT) {
+  const trimmedValue = value.trim();
+  const chars = Array.from(trimmedValue);
+
+  if (chars.length <= maxLength) {
+    return trimmedValue;
+  }
+
+  return `${chars.slice(0, maxLength).join("").trimEnd()}...`;
 }
 
 function transformProduct(dbProduct: Record<string, unknown>): AdminProductListItem {
@@ -1558,15 +1576,15 @@ export default function ProductsPageClient({
             <div className="hidden max-w-full overflow-x-hidden min-[1025px]:block">
               <table className="w-full table-fixed border-collapse">
                 <colgroup>
-                  {reorderMode ? <col style={{ width: 112 }} /> : null}
+                  {reorderMode ? <col style={{ width: 104 }} /> : null}
                   <col style={{ width: 48 }} />
-                  <col />
-                  <col style={{ width: 106 }} />
-                  <col style={{ width: 90 }} />
+                  <col style={{ width: reorderMode ? 280 : 380 }} />
+                  <col style={{ width: 132 }} />
                   <col style={{ width: 96 }} />
-                  <col style={{ width: 104 }} />
+                  <col style={{ width: 98 }} />
+                  <col style={{ width: 118 }} />
                   <col style={{ width: 74 }} />
-                  <col style={{ width: 140 }} />
+                  <col style={{ width: 168 }} />
                 </colgroup>
                 <thead>
                   <tr className="border-b border-[#E1E6EF] bg-[#EEF2F6] text-left text-[13px] font-semibold text-[#4B5563]">
@@ -1617,7 +1635,7 @@ export default function ProductsPageClient({
                     const canMoveDown = reorderMode && index < sortedProducts.length - 1;
 
                     return (
-                      <tr key={product.id} className="border-b border-[#E1E6EF] bg-white align-top transition-colors hover:bg-[#FFF8F3]">
+                      <tr key={product.id} className="border-b border-[#E1E6EF] bg-white align-middle transition-colors hover:bg-[#FFF8F3]">
                         {reorderMode ? (
                           <td className="px-2.5 py-3">
                             <div className="flex items-center gap-1.5">
@@ -1685,18 +1703,13 @@ export default function ProductsPageClient({
                               </div>
                             )}
 
-                            <div className="min-w-0 space-y-1.5">
-                              <div className="line-clamp-2 break-words text-[14px] font-semibold leading-5 text-[#1F2937]">
-                                {product.name}
-                              </div>
-                              <span
-                                className={cn(
-                                  "inline-flex max-w-full rounded-[7px] border px-2 py-0.5 text-[11px] font-semibold",
-                                  getCategoryColor(product.category),
-                                )}
+                            <div className="min-w-0">
+                              <div
+                                className="truncate text-[14px] font-semibold leading-5 text-[#1F2937]"
+                                title={product.name}
                               >
-                                <span className="truncate">{getCategoryLabel(product.category)}</span>
-                              </span>
+                                {truncateTableText(product.name)}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -1708,23 +1721,18 @@ export default function ProductsPageClient({
                         <td className="px-3 py-3">{renderPrice(primaryVariant)}</td>
 
                         <td className="px-3 py-3">
-                          <span
-                            className={cn(
-                              "inline-flex min-w-[78px] items-center justify-center whitespace-nowrap rounded-[7px] border px-2.5 py-1.5 text-center text-[13px] font-medium leading-none",
-                              stockMeta.tone,
-                            )}
-                          >
+                          <span className={cn("text-[14px] font-semibold leading-5", stockMeta.textTone)}>
                             {stockMeta.label}
                           </span>
                         </td>
 
                         <td className="px-3 py-3">
-                          <div className="space-y-1.5">
-                            <span className={cn("inline-flex rounded-[7px] border px-2.5 py-1.5 text-xs font-semibold", statusMeta.tone)}>
+                          <div>
+                            <span className={cn("text-[14px] font-semibold leading-5", statusMeta.textTone)}>
                               {statusMeta.label}
                             </span>
                             {statusMeta.description ? (
-                              <div className="line-clamp-2 text-[11px] leading-4 text-[#6B7280]">{statusMeta.description}</div>
+                              <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#6B7280]">{statusMeta.description}</div>
                             ) : null}
                           </div>
                         </td>
@@ -1740,7 +1748,7 @@ export default function ProductsPageClient({
                           />
                         </td>
 
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-3">
                           <div className="flex items-center justify-end gap-1">
                             <Link
                               href={buildStorefrontProductUrl(product.slug)}
