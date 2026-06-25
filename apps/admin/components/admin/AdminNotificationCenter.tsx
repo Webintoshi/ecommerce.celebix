@@ -406,11 +406,11 @@ export function AdminNotificationCenter({
         onClick={() => setOpenState(!open)}
         className={cn(
           "relative inline-flex items-center justify-center border border-[var(--admin-border)] bg-white text-[var(--admin-text)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:rgba(255,106,0,0.12)]",
-          isMobile ? "h-11 w-11 rounded-[18px]" : "h-10 w-10 rounded-2xl",
+          isMobile ? "h-11 w-11 rounded-[18px]" : "h-9 w-9 rounded-[12px]",
         )}
         aria-label="Bildirim merkezi"
       >
-        <Bell className="h-5 w-5" />
+        <Bell className={isMobile ? "h-5 w-5" : "h-4 w-4"} />
         {unreadCount > 0 ? (
           <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--admin-accent)] px-1 text-[10px] font-bold text-white shadow-lg">
             {unreadCount > 9 ? "9+" : unreadCount}

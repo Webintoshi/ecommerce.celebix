@@ -119,22 +119,22 @@ function DesktopTopbar({
   }
 
   return (
-    <header className="sticky top-0 z-30 mb-3 hidden w-full border-b border-[rgba(224,228,235,0.86)] bg-[rgba(249,249,249,0.96)] backdrop-blur-xl min-[1025px]:block">
-      <div className="mx-auto max-w-[1560px] px-4 py-2.5 2xl:px-5">
-        <div className="flex min-h-[48px] items-center justify-between gap-3">
+    <header className="sticky top-0 z-30 mb-2 hidden w-full border-b border-[rgba(224,228,235,0.86)] bg-[rgba(249,249,249,0.96)] backdrop-blur-xl min-[1025px]:block">
+      <div className="mx-auto max-w-[1560px] px-4 py-1.5 2xl:px-5">
+        <div className="flex min-h-11 items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-text-muted)]">
+            <p className="text-[10px] font-semibold uppercase leading-3 tracking-[0.16em] text-[var(--admin-text-muted)]">
               Ortak admin
             </p>
-            <div className="mt-1 flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-[1.05rem] font-semibold tracking-[-0.03em] text-[var(--admin-heading)] xl:text-[1.12rem]">
+            <div className="mt-0.5 flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-[0.98rem] font-semibold leading-5 tracking-[-0.03em] text-[var(--admin-heading)] xl:text-[1.04rem]">
                 {title}
               </h1>
               <span className="hidden rounded-full border border-[var(--admin-success-soft)] bg-[var(--admin-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--admin-success)] 2xl:inline-flex">
                 Sağlıklı
               </span>
             </div>
-            <p className="mt-1 hidden truncate text-[13px] text-[var(--admin-text-secondary)] xl:block">{subtitle}</p>
+            <p className="sr-only">{subtitle}</p>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
@@ -143,20 +143,20 @@ function DesktopTopbar({
                 href={STORE_RUNTIME.storefrontUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="hidden min-h-10 items-center gap-2 rounded-[14px] border border-[var(--admin-border)] bg-white px-3 text-sm font-semibold text-[var(--admin-text)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] 2xl:inline-flex"
+                className="hidden min-h-9 items-center gap-2 rounded-[12px] border border-[var(--admin-border)] bg-white px-2.5 text-[13px] font-semibold text-[var(--admin-text)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] 2xl:inline-flex"
               >
-                <Store className="h-4 w-4" />
+                <Store className="h-3.5 w-3.5" />
                 Mağazayı görüntüle
-                <ExternalLink className="h-3.5 w-3.5 text-[var(--admin-text-muted)]" />
+                <ExternalLink className="h-3 w-3 text-[var(--admin-text-muted)]" />
               </a>
             ) : null}
             <button
               type="button"
               onClick={onRefresh}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-[var(--shadow-xs)] transition-colors hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
               aria-label="Sayfayı yenile"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-3.5 w-3.5" />
             </button>
             <AdminNotificationCenter
               isMobile={false}
@@ -170,13 +170,13 @@ function DesktopTopbar({
               aria-pressed={isToshiOpen}
               aria-label="Toshi asistanını aç"
               className={cn(
-                "inline-flex min-h-10 items-center gap-2 rounded-[14px] border px-3 text-sm font-semibold shadow-[var(--shadow-xs)] transition-colors",
+                "inline-flex min-h-9 items-center gap-2 rounded-[12px] border px-2.5 text-[13px] font-semibold shadow-[var(--shadow-xs)] transition-colors",
                 isToshiOpen
                   ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
                   : "border-[var(--admin-border)] bg-white text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
               )}
             >
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-3.5 w-3.5" />
               <span className="hidden xl:inline">Toshi</span>
               {toshiAlertCount && toshiAlertCount > 0 ? (
                 <span className="rounded-full bg-[var(--admin-heading)] px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -184,11 +184,11 @@ function DesktopTopbar({
                 </span>
               ) : null}
             </button>
-            <div className="flex min-h-10 items-center gap-2 rounded-[14px] border border-[var(--admin-border)] bg-white px-2 shadow-[var(--shadow-xs)]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-[11px] bg-[var(--admin-heading)] text-[12px] font-bold text-white">
+            <div className="flex min-h-9 items-center gap-2 rounded-[12px] border border-[var(--admin-border)] bg-white px-1.5 shadow-[var(--shadow-xs)]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-[9px] bg-[var(--admin-heading)] text-[11px] font-bold text-white">
                 {initials}
               </span>
-              <span className="hidden max-w-[9rem] truncate pr-1 text-sm font-semibold text-[var(--admin-heading)] 2xl:inline">
+              <span className="hidden max-w-[9rem] truncate pr-1 text-[13px] font-semibold text-[var(--admin-heading)] 2xl:inline">
                 {displayName}
               </span>
             </div>
