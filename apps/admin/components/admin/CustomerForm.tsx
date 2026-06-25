@@ -288,7 +288,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
             }
           />
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.48fr)_minmax(300px,0.72fr)]">
+          <div className="grid grid-cols-1 gap-4 pt-2 min-[1025px]:pt-4 xl:grid-cols-[minmax(0,1.48fr)_minmax(300px,0.72fr)]">
             <div className="space-y-4">
               <section className={panelClass}>
                 <div className={sectionHeaderClass}>
