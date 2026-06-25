@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
-import Link from "next/link";
 import {
-  Bell,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
@@ -39,7 +37,7 @@ import {
 import { extractAdminStoredAssetUrl, resolveAdminDirectAssetUrl } from "@/lib/asset-url";
 import { buildStorefrontUrl } from "@/lib/store-runtime";
 import { cn } from "@/lib/utils";
-import { AdminMetricCard, AdminPageHeader } from "@/components/admin/AdminPageShell";
+import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -295,28 +293,35 @@ function MetricCard({
 }) {
   const deltaState =
     typeof delta !== "number" ? null : delta === 0 ? "neutral" : delta > 0 ? "positive" : "negative";
-  const resolvedTone = tone.includes("#BBF7D0")
-    ? "success"
-    : tone.includes("#FDE68A")
-      ? "warning"
-      : "accent";
 
   return (
-    <AdminMetricCard
-      label={title}
-      value={value}
-      icon={Icon}
-      tone={resolvedTone}
-      context={context}
-      delta={
-        deltaState
-          ? deltaState === "neutral"
-            ? "Sabit"
-            : `${delta! > 0 ? "+" : "-"} %${Math.abs(delta ?? 0).toFixed(0)}`
-          : undefined
-      }
-      compact
-    />
+    <div className="group relative min-h-[112px] border-b border-r border-[#E1E6EF] bg-[#F9F9F9] px-4 py-4 transition-colors hover:bg-white md:px-5">
+      <span
+        className={cn(
+          "absolute inset-x-0 bottom-0 h-[3px] opacity-0 transition-opacity group-hover:opacity-100",
+          tone,
+        )}
+      />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-semibold text-[#6B7280]">{title}</p>
+          <p className="mt-3 truncate text-[1.55rem] font-semibold tracking-[-0.04em] text-[#111827]">
+            {value}
+          </p>
+        </div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#FF6A00]">
+          <Icon className="h-4.5 w-4.5" />
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <span className="truncate text-[12px] font-medium text-[#6B7280]">{context}</span>
+        {deltaState ? (
+          <span className="rounded-[5px] bg-white px-2 py-1 text-[12px] font-semibold text-[#6B7280]">
+            {deltaState === "neutral" ? "Sabit" : `${delta! > 0 ? "+" : "-"} %${Math.abs(delta ?? 0).toFixed(0)}`}
+          </span>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -344,7 +349,7 @@ function SelectField({
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-12 w-full appearance-none rounded-[18px] border border-[#E7EAF0] bg-white px-4 pr-10 text-[16px] text-[#374151] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8] md:text-sm"
+          className="h-11 w-full appearance-none rounded-[7px] border border-[#E1E6EF] bg-white px-4 pr-10 text-[16px] font-medium text-[#374151] outline-none transition focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8] md:text-sm"
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -475,8 +480,8 @@ function EmptyState({
   onReset: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-14 text-center md:px-8 md:py-16">
-      <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A] md:h-20 md:w-20">
+    <div className="flex min-h-[460px] flex-col items-center justify-center px-6 py-14 text-center md:px-8 md:py-16">
+      <div className="flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-[12px] border border-[#FFD7BF] bg-[#FFF1E8] text-[#FF6A00] md:h-20 md:w-20">
         <CheckCircle2 className="h-8 w-8 md:h-9 md:w-9" />
       </div>
       <h3 className="mt-5 text-lg font-semibold tracking-[-0.03em] text-[#1F2937] md:text-xl">
@@ -491,7 +496,7 @@ function EmptyState({
         <Button
           type="button"
           variant="secondary"
-          className="mt-5 rounded-[16px] border border-[#E7EAF0] bg-white text-[#374151] shadow-none"
+          className="mt-5 rounded-[7px] border border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04] shadow-none hover:bg-[#FFE7D8]"
           onClick={onReset}
         >
           Filtreleri temizle
@@ -1204,6 +1209,7 @@ export default function AbandonedCartsPage() {
   const visibleStart = filteredCarts.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
   const visibleEnd = Math.min(currentPage * ITEMS_PER_PAGE, filteredCarts.length);
   const sortLabel = useMemo(() => getSortLabel(sort), [sort]);
+  const activeFilterSummary = hasActiveFilters ? `${filteredCarts.length} sonuç` : "Filtre yok";
 
   const paginationNumbers = useMemo(() => {
     if (totalPages <= 5) {
@@ -1236,9 +1242,9 @@ export default function AbandonedCartsPage() {
   };
 
   return (
-    <main className="min-h-0 bg-[#F9F9F9]">
-      <div className="mx-auto max-w-[1600px] px-3 pb-4 pt-1 md:px-5 md:pb-6 md:pt-1 lg:px-8">
-        <div className="space-y-4 md:space-y-6">
+    <main className="min-h-screen bg-[#F9F9F9]">
+      <div className="w-full px-0 py-3 md:py-5">
+        <div className="space-y-4">
           <AdminPageHeader
             sectionLabel="Operasyon"
             title="Terk Edilen Sepetler"
@@ -1251,36 +1257,21 @@ export default function AbandonedCartsPage() {
               ) : null
             }
             actions={
-              <>
-                <Link
-                  href="/admin/ayarlar/bildirimler"
-                  aria-label="Bildirim ayarları"
-                  className={cn(
-                    buttonVariants({ variant: "secondary", size: "sm" }),
-                    "relative h-11 w-11 rounded-2xl border-[#E7EAF0] bg-white px-0 text-[#374151] shadow-none",
-                  )}
-                >
-                  <Bell className="h-4 w-4" />
-                  {activeTerk > 0 ? (
-                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#FF6A00]" />
-                  ) : null}
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleRefresh}
-                  aria-label="Sepetleri yenile"
-                  className={cn(
-                    buttonVariants({ variant: "secondary", size: "sm" }),
-                    "h-11 w-11 rounded-2xl border-[#E7EAF0] bg-white px-0 text-[#374151] shadow-none",
-                  )}
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="h-4 w-4" />
-                  )}
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                aria-label="Sepetleri yenile"
+                className={cn(
+                  buttonVariants({ variant: "secondary", size: "sm" }),
+                  "h-11 w-11 rounded-[7px] border-[#E1E6EF] bg-white px-0 text-[#374151] shadow-none hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
+                )}
+              >
+                {isRefreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCcw className="h-4 w-4" />
+                )}
+              </button>
             }
           />
 
@@ -1288,14 +1279,14 @@ export default function AbandonedCartsPage() {
             <PageSkeleton />
           ) : (
             <>
-              <section className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
+              <section className="grid overflow-hidden rounded-[8px] border border-[#E1E6EF] bg-[#E1E6EF] md:grid-cols-2 xl:grid-cols-4">
                 <MetricCard
                   title="Toplam Sepet"
                   value={safeStats.total.toLocaleString("tr-TR")}
                   context="Son 24 saatte"
                   delta={totalDelta}
                   icon={ShoppingCart}
-                  tone="border-[#FFD7BF] bg-[#FFF1E8] text-[#FF6A00]"
+                  tone="bg-[#FF6A00] opacity-100"
                 />
                 <MetricCard
                   title="Aktif Terk"
@@ -1303,7 +1294,7 @@ export default function AbandonedCartsPage() {
                   context="Son 24 saatte"
                   delta={activeDelta}
                   icon={CalendarClock}
-                  tone="border-[#FDE68A] bg-[#FFF7E8] text-[#F59E0B]"
+                  tone="bg-[#FF6A00]"
                 />
                 <MetricCard
                   title="Toplam Değer"
@@ -1311,7 +1302,7 @@ export default function AbandonedCartsPage() {
                   context="Son 24 saatte"
                   delta={totalValueDelta}
                   icon={Wallet}
-                  tone="border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A]"
+                  tone="bg-[#FF6A00]"
                 />
                 <MetricCard
                   title="Ortalama Sepet"
@@ -1319,7 +1310,7 @@ export default function AbandonedCartsPage() {
                   context="Son 24 saatte"
                   delta={averageDelta}
                   icon={Package2}
-                  tone="border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
+                  tone="bg-[#FF6A00]"
                 />
               </section>
 
@@ -1403,7 +1394,7 @@ export default function AbandonedCartsPage() {
                 </div>
               </section>
 
-              <section className="hidden rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.05)] min-[1025px]:block">
+              <section className="hidden border-b border-t border-[#E1E6EF] bg-[#F9F9F9] py-4 min-[1025px]:block">
                 <div className="grid gap-3 min-[1360px]:grid-cols-[minmax(0,1.3fr)_220px_220px_260px_auto]">
                   <label className="relative block">
                     <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
@@ -1415,7 +1406,7 @@ export default function AbandonedCartsPage() {
                         setCurrentPage(1);
                       }}
                       placeholder="İsim, e-posta veya telefon ile ara"
-                      className="h-12 w-full rounded-2xl border border-[#E7EAF0] bg-white pl-11 pr-4 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#FFD7BF] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]"
+                      className="h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white pl-11 pr-4 text-sm font-medium text-[#1F2937] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
                     />
                   </label>
 
@@ -1455,14 +1446,14 @@ export default function AbandonedCartsPage() {
                     labelClassName="sr-only"
                   />
 
-                  <div className="flex items-end justify-between gap-3 xl:justify-end">
-                    <span className="rounded-full border border-[#E7EAF0] bg-[#FBFCFD] px-3 py-2 text-sm font-medium text-[#6B7280]">
-                      {filteredCarts.length} sonuç
+                  <div className="flex items-center justify-between gap-3 xl:justify-end">
+                    <span className="rounded-[7px] border border-[#E1E6EF] bg-white px-3 py-2 text-sm font-semibold text-[#6B7280]">
+                      {activeFilterSummary}
                     </span>
                     <Button
                       type="button"
                       variant="outline"
-                      className="rounded-2xl"
+                      className="h-11 rounded-[7px] border-[#FFD7BF] bg-[#FFF1E8] px-4 text-sm font-semibold text-[#E85D04] shadow-none hover:bg-[#FFE7D8]"
                       onClick={handleResetFilters}
                     >
                       Filtreleri Temizle
@@ -1491,7 +1482,7 @@ export default function AbandonedCartsPage() {
                 ) : null}
 
                 {filteredCarts.length === 0 ? (
-                  <section className="rounded-[24px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:rounded-[28px]">
+                  <section className="border-b border-[#E1E6EF] bg-[#F9F9F9]">
                     <EmptyState hasFilters={hasActiveFilters} onReset={handleResetFilters} />
                   </section>
                 ) : (
@@ -1530,7 +1521,7 @@ export default function AbandonedCartsPage() {
                       onNext={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                     />
 
-                    <div className="hidden flex-col gap-4 rounded-[28px] border border-[#E7EAF0] bg-white px-5 py-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] min-[1025px]:flex min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
+                    <div className="hidden flex-col gap-4 border-t border-[#E1E6EF] bg-[#F9F9F9] px-0 py-4 min-[1025px]:flex min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
                       <p className="text-sm text-[#6B7280]">
                         {visibleStart} - {visibleEnd} / {filteredCarts.length} sepet gösteriliyor
                       </p>

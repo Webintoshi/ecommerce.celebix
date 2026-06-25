@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ElementType, type TouchEvent as ReactTouchEvent } from "react";
 import {
-  Archive,
   Calculator,
   ChevronDown,
   ChevronRight,
@@ -80,9 +79,9 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Tüm Siparişler", href: "/admin/siparisler" },
       { title: "Hızlı Sipariş", href: "/admin/siparisler/hizli-siparis" },
+      { title: "Terk Sepetler", href: "/admin/siparisler/sepet-terk" },
     ],
   },
-  { title: "Terk Sepetler", icon: Archive, href: "/admin/siparisler/sepet-terk", permissionHref: "/admin/siparisler" },
   {
     title: "Müşteriler",
     icon: Users,
@@ -182,7 +181,7 @@ const MENU_ITEMS: MenuItem[] = [
 
 const MENU_GROUPS: MenuGroup[] = [
   { id: "home", label: "Ana", titles: ["Giriş"] },
-  { id: "operations", label: "Operasyon", titles: ["Siparişler", "Terk Sepetler", "Müşteriler"] },
+  { id: "operations", label: "Operasyon", titles: ["Siparişler", "Müşteriler"] },
   { id: "catalog", label: "Katalog", titles: ["Ürünler", "Kategoriler", "Medya"] },
   { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Kuponlar", "Kampanyalar"] },
   { id: "store", label: "Mağaza", titles: ["Mağaza Görünümü", "Sayfalar / Blog", "Dil Ayarları"] },
@@ -221,6 +220,14 @@ type MenuItemState = {
 
 function pathMatches(pathname: string, href: string) {
   return pathname === href || (href !== "/admin" && pathname.startsWith(`${href}/`));
+}
+
+function submenuPathMatches(pathname: string, href: string, parentHref?: string) {
+  if (href === parentHref) {
+    return pathname === href;
+  }
+
+  return pathMatches(pathname, href);
 }
 
 function deriveAdminName(profile: InitialAdminProfile | null) {
@@ -419,7 +426,7 @@ export function AdminSidebar({
     const itemHref = item.disabled || item.externalHref ? "" : item.href ?? "";
     const isDirectActive = Boolean(itemHref) && pathMatches(pathname, itemHref) && !hasSubmenu;
     const isParentActive = Boolean(itemHref) && hasSubmenu && pathMatches(pathname, itemHref);
-    const isSubmenuActive = item.submenu?.some((sub) => pathMatches(pathname, sub.href)) ?? false;
+    const isSubmenuActive = item.submenu?.some((sub) => submenuPathMatches(pathname, sub.href, item.href)) ?? false;
     const isExpanded = expandedMenus.includes(item.title);
     const isActive = isDirectActive || isParentActive || isSubmenuActive;
 
@@ -732,7 +739,7 @@ export function AdminSidebar({
                               <div className="pb-2 pl-[3.3rem] pr-3">
                                   <div className="space-y-0.5 border-l border-white/10 pl-2.5">
                                   {item.submenu?.map((sub, subIndex, submenu) => {
-                                    const isSubActive = pathMatches(pathname, sub.href);
+                                    const isSubActive = submenuPathMatches(pathname, sub.href, item.href);
                                     const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
                                     const shouldShowGroup = Boolean(sub.group && sub.group !== previousGroup);
 
@@ -956,7 +963,7 @@ export function AdminSidebar({
                             <div className="ml-4 border-l border-white/10 pl-2.5 pt-0.5">
                             <div className="space-y-0.5">
                               {item.submenu?.map((sub, subIndex, submenu) => {
-                                const isSubActive = pathMatches(pathname, sub.href);
+                                const isSubActive = submenuPathMatches(pathname, sub.href, item.href);
                                 const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
                                 const shouldShowGroup = Boolean(sub.group && sub.group !== previousGroup);
 
