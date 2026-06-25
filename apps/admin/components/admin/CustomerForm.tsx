@@ -16,6 +16,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 
 interface AddressInput {
   title: string;
@@ -52,10 +53,23 @@ interface CustomerFormProps {
 }
 
 const panelClass =
-  "rounded-[28px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]";
+  "overflow-hidden border-y border-[#E1E6EF] bg-[#F9F9F9]";
 
 const inputClass =
-  "w-full rounded-2xl border border-[#e8d8ca] bg-white/90 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15";
+  "h-10 w-full rounded-[6px] border border-[#DDE3EC] bg-white px-3 text-sm font-medium text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]";
+
+const labelClass = "mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-[#6B7280]";
+
+const sectionHeaderClass = "border-b border-[#E1E6EF] px-4 py-3 md:px-6";
+
+const sectionIconClass =
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-[#E1E6EF] bg-white text-[#E85D04]";
+
+const primaryActionClass =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[7px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(255,106,0,0.18)] transition hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const secondaryActionClass =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[7px] border border-[#DDE3EC] bg-white px-4 text-sm font-semibold text-[#374151] transition hover:border-[#FFD7BF] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]";
 
 const statusOptions: Array<{
   value: CustomerFormData["status"];
@@ -241,10 +255,10 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
 
   if (loading) {
     return (
-      <main className="admin-page-root">
-        <div className="mx-auto flex min-h-[420px] max-w-[1600px] items-center justify-center px-4 py-10 md:px-6 lg:px-8">
-          <div className="inline-flex items-center gap-3 rounded-full border border-[var(--admin-accent-border)] bg-white/90 px-5 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-[var(--admin-accent)]" />
+      <main className="min-h-screen bg-[#F9F9F9]">
+        <div className="flex min-h-[420px] items-center justify-center px-4 py-10">
+          <div className="inline-flex items-center gap-3 rounded-[7px] border border-[#FFD7BF] bg-white px-4 py-2.5 text-sm font-semibold text-[#E85D04]">
+            <Loader2 className="h-4 w-4 animate-spin text-[#FF6A00]" />
             Müşteri bilgileri hazırlanıyor
           </div>
         </div>
@@ -253,59 +267,46 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
   }
 
   return (
-    <main className="admin-page-root">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="hidden" />
-        <div className="hidden" />
-      </div>
-
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
-            <div className="flex flex-col gap-4 border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-3 md:gap-4">
-                <Link
-                  href="/admin/musteriler"
-                  aria-label="Müşterilere dön"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                >
-                  <ArrowLeft className="h-5 w-5" />
+    <main className="min-h-screen bg-[#F9F9F9]">
+      <div className="w-full px-0 py-3 md:py-5">
+        <form id="customer-form" onSubmit={handleSubmit} className="space-y-4">
+          <AdminPageHeader
+            sectionLabel="Müşteri"
+            title={pageTitle}
+            description="Müşteri kaydını ve iletişim tercihlerini düzenleyin."
+            actions={
+              <>
+                <Link href="/admin/musteriler" aria-label="Müşterilere dön" className={secondaryActionClass}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Müşteriler
                 </Link>
-                <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
-                  {pageTitle}
-                </div>
-              </div>
+                <button type="submit" form="customer-form" disabled={saving} className={primaryActionClass}>
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Kaydet
+                </button>
+              </>
+            }
+          />
 
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Kaydet
-              </button>
-            </div>
-          </section>
-
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
-            <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.48fr)_minmax(300px,0.72fr)]">
+            <div className="space-y-4">
               <section className={panelClass}>
-                <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
+                <div className={sectionHeaderClass}>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
-                      <User className="h-5 w-5" />
+                    <div className={sectionIconClass}>
+                      <User className="h-4 w-4" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Kişisel Bilgiler</h2>
-                      <p className="text-sm text-gray-500">Temel iletişim ve kimlik alanlarını düzenleyin.</p>
+                      <h2 className="text-base font-semibold tracking-[-0.02em] text-[#111827]">Kişisel Bilgiler</h2>
+                      <p className="text-sm text-[#6B7280]">Temel iletişim ve kimlik alanları.</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-5 p-5 md:p-6">
+                <div className="space-y-4 px-4 py-4 md:px-6">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <label htmlFor="customer-first-name" className="mb-2 block text-sm font-medium text-gray-700">
+                      <label htmlFor="customer-first-name" className={labelClass}>
                         Ad
                       </label>
                       <input
@@ -318,7 +319,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                       />
                     </div>
                     <div>
-                      <label htmlFor="customer-last-name" className="mb-2 block text-sm font-medium text-gray-700">
+                      <label htmlFor="customer-last-name" className={labelClass}>
                         Soyad
                       </label>
                       <input
@@ -333,7 +334,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="customer-email" className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="customer-email" className={labelClass}>
                       E-posta
                     </label>
                     <div className="relative">
@@ -350,7 +351,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="customer-phone" className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="customer-phone" className={labelClass}>
                       Telefon
                     </label>
                     <div className="relative">
@@ -369,30 +370,30 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
               </section>
 
               <section className={panelClass}>
-                <div className="flex flex-col gap-4 border-b border-[var(--admin-border)] px-5 py-5 md:px-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className={`${sectionHeaderClass} flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between`}>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
-                      <MapPin className="h-5 w-5" />
+                    <div className={sectionIconClass}>
+                      <MapPin className="h-4 w-4" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Adresler</h2>
-                      <p className="text-sm text-gray-500">Teslimat ve fatura adreslerini mobil uyumlu kartlarla yönetin.</p>
+                      <h2 className="text-base font-semibold tracking-[-0.02em] text-[#111827]">Adresler</h2>
+                      <p className="text-sm text-[#6B7280]">Teslimat ve fatura adresleri.</p>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleAddAddress}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                    className={secondaryActionClass}
                   >
                     <Plus className="h-4 w-4" />
                     Adres Ekle
                   </button>
                 </div>
 
-                <div className="space-y-4 p-5 md:p-6">
+                <div className="space-y-3 px-4 py-4 md:px-6">
                   {formData.addresses.length === 0 ? (
-                    <div className="rounded-[24px] border border-dashed border-[#e8d7c7] bg-white/70 px-5 py-8 text-center text-sm text-[#8b7768]">
+                    <div className="rounded-[7px] border border-dashed border-[#FFD7BF] bg-white px-4 py-6 text-center text-sm font-medium text-[#6B7280]">
                       Henüz adres eklenmedi.
                     </div>
                   ) : null}
@@ -400,18 +401,19 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                   {formData.addresses.map((address, index) => (
                     <section
                       key={index}
-                      className="rounded-[24px] border border-[var(--admin-border)] bg-white/80 p-4 shadow-sm sm:p-5"
+                      className="rounded-[7px] border border-[#E1E6EF] bg-white p-4"
                       aria-label={`Adres ${index + 1}`}
                     >
-                      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">
+                      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#E85D04]">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#FF6A00]" aria-hidden="true" />
                           Adres {index + 1}
                         </div>
                         {formData.addresses.length > 1 ? (
                           <button
                             type="button"
                             onClick={() => handleRemoveAddress(index)}
-                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                            className="inline-flex h-8 items-center justify-center gap-2 rounded-[6px] px-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
                           >
                             <Trash2 className="h-4 w-4" />
                             Kaldır
@@ -421,7 +423,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
 
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div className="md:col-span-2">
-                          <label htmlFor={`address-title-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-title-${index}`} className={labelClass}>
                             Adres Başlığı
                           </label>
                           <input
@@ -435,7 +437,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                         </div>
 
                         <div>
-                          <label htmlFor={`address-first-name-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-first-name-${index}`} className={labelClass}>
                             Ad
                           </label>
                           <input
@@ -447,7 +449,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                           />
                         </div>
                         <div>
-                          <label htmlFor={`address-last-name-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-last-name-${index}`} className={labelClass}>
                             Soyad
                           </label>
                           <input
@@ -460,7 +462,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label htmlFor={`address-company-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-company-${index}`} className={labelClass}>
                             Firma
                           </label>
                           <input
@@ -474,7 +476,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label htmlFor={`address-line-1-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-line-1-${index}`} className={labelClass}>
                             Adres
                           </label>
                           <input
@@ -488,7 +490,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label htmlFor={`address-line-2-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-line-2-${index}`} className={labelClass}>
                             Adres Satırı 2
                           </label>
                           <input
@@ -502,7 +504,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                         </div>
 
                         <div>
-                          <label htmlFor={`address-city-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-city-${index}`} className={labelClass}>
                             Şehir
                           </label>
                           <input
@@ -515,7 +517,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                           />
                         </div>
                         <div>
-                          <label htmlFor={`address-district-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-district-${index}`} className={labelClass}>
                             İlçe
                           </label>
                           <input
@@ -529,7 +531,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                         </div>
 
                         <div>
-                          <label htmlFor={`address-postal-code-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-postal-code-${index}`} className={labelClass}>
                             Posta Kodu
                           </label>
                           <input
@@ -541,7 +543,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                           />
                         </div>
                         <div>
-                          <label htmlFor={`address-phone-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-phone-${index}`} className={labelClass}>
                             Telefon
                           </label>
                           <input
@@ -554,7 +556,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label htmlFor={`address-country-${index}`} className="mb-2 block text-sm font-medium text-gray-700">
+                          <label htmlFor={`address-country-${index}`} className={labelClass}>
                             Ülke
                           </label>
                           <input
@@ -572,38 +574,42 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
               </section>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4 xl:self-start">
               <section className={panelClass}>
-                <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
+                <div className={sectionHeaderClass}>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
-                      <ShieldCheck className="h-5 w-5" />
+                    <div className={sectionIconClass}>
+                      <ShieldCheck className="h-4 w-4" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Durum ve Ayarlar</h2>
-                      <p className="text-sm text-gray-500">Müşterinin yönetim görünümünü ve tercihlerini belirleyin.</p>
+                      <h2 className="text-base font-semibold tracking-[-0.02em] text-[#111827]">Durum ve Ayarlar</h2>
+                      <p className="text-sm text-[#6B7280]">Görünüm ve iletişim tercihleri.</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-5 p-5 md:p-6">
-                  <div className="space-y-3" role="radiogroup" aria-label="Müşteri durumu">
+                <div className="space-y-4 px-4 py-4 md:px-6">
+                  <div className="space-y-2" role="radiogroup" aria-label="Müşteri durumu">
                     {statusOptions.map((option) => {
                       const checked = formData.status === option.value;
 
                       return (
                         <label
                           key={option.value}
-                          className={`flex cursor-pointer items-center justify-between gap-4 rounded-[22px] border px-4 py-3 transition-all ${
+                          className={`flex cursor-pointer items-center justify-between gap-3 rounded-[7px] border px-3 py-2.5 transition ${
                             checked
-                              ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] shadow-sm"
-                              : "border-[var(--admin-border)] bg-white/80 hover:border-[var(--admin-accent-border)] hover:bg-white"
+                              ? "border-[#FFD7BF] bg-[#FFF1E8]"
+                              : "border-[#E1E6EF] bg-white hover:border-[#FFD7BF]"
                           }`}
                         >
-                          <div>
-                            <div className="text-sm font-semibold text-gray-900">{option.label}</div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${checked ? "bg-[#FF6A00]" : "bg-[#CBD5E1]"}`}
+                              aria-hidden="true"
+                            />
+                            <div className="text-sm font-semibold text-[#111827]">{option.label}</div>
                           </div>
-                          <div className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${option.tone}`}>
+                          <div className={`rounded-[5px] border px-2 py-0.5 text-[11px] font-semibold ${option.tone}`}>
                             {option.label}
                           </div>
                           <input
@@ -612,7 +618,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                             value={option.value}
                             checked={checked}
                             onChange={(e) => setFormData({ ...formData, status: e.target.value as CustomerFormData["status"] })}
-                            className="h-4 w-4 border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+                            className="h-4 w-4 border-[#DDE3EC] text-[#FF6A00] focus:ring-[#FF6A00]"
                           />
                         </label>
                       );
@@ -620,7 +626,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="external-customer-id" className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="external-customer-id" className={labelClass}>
                       Harici Müşteri ID
                     </label>
                     <input
@@ -654,24 +660,24 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
               </section>
 
               <section className={panelClass}>
-                <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
+                <div className={sectionHeaderClass}>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
-                      <Tags className="h-5 w-5" />
+                    <div className={sectionIconClass}>
+                      <Tags className="h-4 w-4" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold tracking-[-0.02em] text-gray-950">Etiketler ve Notlar</h2>
-                      <p className="text-sm text-gray-500">Ek segmentler ve ekip notları için düzenli alanlar.</p>
+                      <h2 className="text-base font-semibold tracking-[-0.02em] text-[#111827]">Etiketler ve Notlar</h2>
+                      <p className="text-sm text-[#6B7280]">Segment ve ekip notları.</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-5 p-5 md:p-6">
+                <div className="space-y-4 px-4 py-4 md:px-6">
                   <div>
-                    <label htmlFor="customer-tag-input" className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="customer-tag-input" className={labelClass}>
                       Etiket ekle
                     </label>
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         id="customer-tag-input"
                         type="text"
@@ -684,7 +690,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                       <button
                         type="button"
                         onClick={handleAddTag}
-                        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                        className={`${secondaryActionClass} shrink-0`}
                       >
                         <Plus className="h-4 w-4" />
                         Ekle
@@ -697,28 +703,28 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                       formData.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-sm font-medium text-[var(--admin-accent-hover)]"
+                          className="inline-flex items-center gap-2 rounded-[6px] border border-[#FFD7BF] bg-[#FFF1E8] px-2.5 py-1 text-sm font-semibold text-[#E85D04]"
                         >
                           {tag}
                           <button
                             type="button"
                             aria-label={`${tag} etiketini kaldır`}
                             onClick={() => handleRemoveTag(tag)}
-                            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[#a7643c] transition hover:bg-[#ffe8d8] hover:text-rose-600"
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-[5px] text-[#B45309] transition hover:bg-white hover:text-rose-600"
                           >
                             x
                           </button>
                         </span>
                       ))
                     ) : (
-                      <div className="rounded-[20px] border border-dashed border-[#e8d7c7] bg-white/70 px-4 py-4 text-sm text-[#8b7768]">
+                      <div className="rounded-[7px] border border-dashed border-[#FFD7BF] bg-white px-3 py-3 text-sm font-medium text-[#6B7280]">
                         Henüz etiket eklenmedi.
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label htmlFor="customer-notes" className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="customer-notes" className={labelClass}>
                       Notlar
                     </label>
                     <textarea
@@ -726,7 +732,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       rows={6}
-                      className={`${inputClass} resize-y`}
+                      className={`${inputClass} h-auto min-h-32 resize-y py-3`}
                       placeholder="Müşteri hakkında ekip içi notlar"
                     />
                   </div>
@@ -750,11 +756,11 @@ function ToggleCard({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-[22px] border border-[var(--admin-border)] bg-white/80 px-4 py-3 transition-all hover:border-[var(--admin-accent-border)] hover:bg-white">
-      <span className="text-sm font-medium text-gray-800">{label}</span>
-      <div className="flex items-center gap-3">
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-[7px] border border-[#E1E6EF] bg-white px-3 py-2.5 transition hover:border-[#FFD7BF]">
+      <span className="text-sm font-semibold text-[#374151]">{label}</span>
+      <div className="flex items-center gap-2">
         <span
-          className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+          className={`rounded-[5px] border px-2 py-0.5 text-[11px] font-semibold ${
             checked
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
               : "border-stone-200 bg-stone-50 text-stone-600"
@@ -766,7 +772,7 @@ function ToggleCard({
           type="checkbox"
           checked={checked}
           onChange={(event) => onChange(event.target.checked)}
-          className="h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+          className="h-4 w-4 rounded border-[#DDE3EC] text-[#FF6A00] focus:ring-[#FF6A00]"
         />
       </div>
     </label>
