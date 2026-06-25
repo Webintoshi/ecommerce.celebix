@@ -238,17 +238,17 @@ function renderPrice(primaryVariant: AdminProductVariant) {
   if (primaryVariant.originalPrice && primaryVariant.originalPrice > primaryVariant.price) {
     return (
       <div className="space-y-1">
-        <div className="text-sm text-[#9CA3AF] line-through">
+        <div className="text-xs text-[#9CA3AF] line-through">
           {formatCurrency(primaryVariant.originalPrice)}
         </div>
-        <div className="text-base font-semibold text-[#1F2937]">
+        <div className="text-[15px] font-semibold text-[#1F2937]">
           {formatCurrency(primaryVariant.price)}
         </div>
       </div>
     );
   }
 
-  return <div className="text-base font-semibold text-[#1F2937]">{formatCurrency(primaryVariant.price)}</div>;
+  return <div className="text-[15px] font-semibold text-[#1F2937]">{formatCurrency(primaryVariant.price)}</div>;
 }
 
 function buildCsv(rows: AdminProductListItem[]) {
@@ -1561,19 +1561,30 @@ export default function ProductsPageClient({
               </div>
             </div>
 
-            <div className="hidden max-w-full overflow-x-auto min-[1025px]:block">
-              <table className="w-full min-w-[1180px] border-collapse">
+            <div className="hidden max-w-full overflow-x-hidden min-[1025px]:block">
+              <table className="w-full table-fixed border-collapse">
+                <colgroup>
+                  {reorderMode ? <col style={{ width: 112 }} /> : null}
+                  <col style={{ width: 48 }} />
+                  <col />
+                  <col style={{ width: 106 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 96 }} />
+                  <col style={{ width: 104 }} />
+                  <col style={{ width: 74 }} />
+                  <col style={{ width: 140 }} />
+                </colgroup>
                 <thead>
-                  <tr className="border-b border-[#E1E6EF] bg-[#EEF2F6] text-left text-[14px] font-semibold text-[#4B5563]">
-                    {reorderMode ? <th className="w-[132px] px-4 py-3">Sırala</th> : null}
-                    <th className="w-[68px] px-4 py-3 text-center">Seç</th>
-                    <th className="px-4 py-3">Ürün</th>
-                    <th className="px-4 py-3">SKU</th>
-                    <th className="px-4 py-3">Fiyat</th>
-                    <th className="px-4 py-3">Stok</th>
-                    <th className="px-4 py-3">Durum</th>
-                    <th className="px-4 py-3 text-center">Yayında</th>
-                    <th className="px-4 py-3 text-right">İşlemler</th>
+                  <tr className="border-b border-[#E1E6EF] bg-[#EEF2F6] text-left text-[13px] font-semibold text-[#4B5563]">
+                    {reorderMode ? <th className="px-2.5 py-3">Sırala</th> : null}
+                    <th className="px-2.5 py-3 text-center">Seç</th>
+                    <th className="px-3 py-3">Ürün</th>
+                    <th className="px-3 py-3">SKU</th>
+                    <th className="px-3 py-3">Fiyat</th>
+                    <th className="px-3 py-3">Stok</th>
+                    <th className="px-3 py-3">Durum</th>
+                    <th className="px-2 py-3 text-center">Yayında</th>
+                    <th className="px-3 py-3 text-right">İşlemler</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1614,8 +1625,8 @@ export default function ProductsPageClient({
                     return (
                       <tr key={product.id} className="border-b border-[#E1E6EF] bg-white align-top transition-colors hover:bg-[#FFF8F3]">
                         {reorderMode ? (
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2">
+                          <td className="px-2.5 py-3">
+                            <div className="flex items-center gap-1.5">
                               <div className="flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#9CA3AF]">
                                 {reorderingProductId === product.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin text-[#E85D04]" />
@@ -1653,7 +1664,7 @@ export default function ProductsPageClient({
                           </td>
                         ) : null}
 
-                        <td className="px-4 py-4 text-center align-middle">
+                        <td className="px-2.5 py-3 text-center align-middle">
                           <input
                             type="checkbox"
                             checked={selectedProducts.includes(product.id)}
@@ -1666,27 +1677,27 @@ export default function ProductsPageClient({
                           />
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex min-w-[320px] items-start gap-4">
+                        <td className="px-3 py-3">
+                          <div className="flex min-w-0 items-start gap-3">
                             {product.images.length > 0 ? (
                               <img
                                 src={product.images[0]}
                                 alt={product.name}
-                                className="h-14 w-14 rounded-[8px] border border-[#E1E6EF] object-cover"
+                                className="h-11 w-11 shrink-0 rounded-[8px] border border-[#E1E6EF] object-cover"
                               />
                             ) : (
-                              <div className="flex h-14 w-14 items-center justify-center rounded-[8px] border border-[#E1E6EF] bg-[#F9F9F9] text-[#9CA3AF]">
-                                <Package className="h-5 w-5" />
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-[#E1E6EF] bg-[#F9F9F9] text-[#9CA3AF]">
+                                <Package className="h-4.5 w-4.5" />
                               </div>
                             )}
 
-                            <div className="min-w-0 space-y-2">
-                              <div className="truncate text-[15px] font-semibold text-[#1F2937]">
+                            <div className="min-w-0 space-y-1.5">
+                              <div className="line-clamp-2 break-words text-[14px] font-semibold leading-5 text-[#1F2937]">
                                 {product.name}
                               </div>
                               <span
                                 className={cn(
-                                  "inline-flex max-w-full rounded-[7px] border px-2.5 py-1 text-[11px] font-semibold",
+                                  "inline-flex max-w-full rounded-[7px] border px-2 py-0.5 text-[11px] font-semibold",
                                   getCategoryColor(product.category),
                                 )}
                               >
@@ -1696,16 +1707,16 @@ export default function ProductsPageClient({
                           </div>
                         </td>
 
-                        <td className="px-4 py-4 text-sm font-medium text-[#374151]">
+                        <td className="break-all px-3 py-3 text-[13px] font-medium leading-5 text-[#374151]">
                           {primaryVariant.sku || "-"}
                         </td>
 
-                        <td className="px-4 py-4">{renderPrice(primaryVariant)}</td>
+                        <td className="px-3 py-3">{renderPrice(primaryVariant)}</td>
 
-                        <td className="px-4 py-4">
+                        <td className="px-3 py-3">
                           <span
                             className={cn(
-                              "inline-flex min-w-[88px] items-center justify-center whitespace-nowrap rounded-[7px] border px-3 py-1.5 text-center text-sm font-medium leading-none",
+                              "inline-flex min-w-[78px] items-center justify-center whitespace-nowrap rounded-[7px] border px-2.5 py-1.5 text-center text-[13px] font-medium leading-none",
                               stockMeta.tone,
                             )}
                           >
@@ -1713,51 +1724,52 @@ export default function ProductsPageClient({
                           </span>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="space-y-2">
-                            <span className={cn("inline-flex rounded-[7px] border px-3 py-1.5 text-xs font-semibold", statusMeta.tone)}>
+                        <td className="px-3 py-3">
+                          <div className="space-y-1.5">
+                            <span className={cn("inline-flex rounded-[7px] border px-2.5 py-1.5 text-xs font-semibold", statusMeta.tone)}>
                               {statusMeta.label}
                             </span>
                             {statusMeta.description ? (
-                              <div className="text-xs text-[#6B7280]">{statusMeta.description}</div>
+                              <div className="line-clamp-2 text-[11px] leading-4 text-[#6B7280]">{statusMeta.description}</div>
                             ) : null}
                           </div>
                         </td>
 
-                        <td className="px-4 py-4 text-center">
+                        <td className="px-2 py-3 text-center">
                           <PublishStatusSwitch
                             checked={product.isActive}
                             loading={isPublishUpdating}
                             onChange={(checked) => void handleTogglePublished(product, checked)}
                             aria-label={`${product.name} ürününü ${product.isActive ? "yayından kaldır" : "yayına al"}`}
+                            labelVisible={false}
                             className="mx-auto"
                           />
                         </td>
 
-                        <td className="px-5 py-4">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-end gap-1">
                             <Link
                               href={buildStorefrontProductUrl(product.slug)}
                               target="_blank"
                               rel="noreferrer"
                               className={cn(
-                                "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
+                                "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
                                 SURFACE_FOCUS_RING,
                               )}
                               aria-label={`${product.name} vitrinde görüntüle`}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3.5 w-3.5" />
                             </Link>
 
                             <Link
                               href={`/admin/urunler/${product.id}/duzenle`}
                               className={cn(
-                                "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#1F2937] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
+                                "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#1F2937] transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
                                 SURFACE_FOCUS_RING,
                               )}
                               aria-label={`${product.name} düzenle`}
                             >
-                              <Edit3 className="h-4 w-4" />
+                              <Edit3 className="h-3.5 w-3.5" />
                             </Link>
 
                             <button
@@ -1765,7 +1777,7 @@ export default function ProductsPageClient({
                               onClick={() => void handleToggleFeatured(product)}
                               disabled={isFeaturedUpdating || (!isFeatured && homepageFeaturedState.disabled)}
                               className={cn(
-                                "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                                "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                                 isFeatured
                                   ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
                                   : "border-[#E1E6EF] bg-white text-[#6B7280] hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04]",
@@ -1775,9 +1787,9 @@ export default function ProductsPageClient({
                               title={homepageFeaturedState.reason || "Öne çıkar"}
                             >
                               {isFeaturedUpdating ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               ) : (
-                                <Star className={cn("h-4 w-4", isFeatured ? "fill-current" : "")} />
+                                <Star className={cn("h-3.5 w-3.5", isFeatured ? "fill-current" : "")} />
                               )}
                             </button>
 
@@ -1785,12 +1797,12 @@ export default function ProductsPageClient({
                               type="button"
                               onClick={() => void handleDelete(product.id)}
                               className={cn(
-                                "inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#F5D3D3] bg-white text-[#EF4444] transition-colors hover:bg-[#FDECEC]",
+                                "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border border-[#F5D3D3] bg-white text-[#EF4444] transition-colors hover:bg-[#FDECEC]",
                                 SURFACE_FOCUS_RING,
                               )}
                               aria-label={`${product.name} sil`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </td>
