@@ -5,17 +5,14 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import {
-  Calendar,
   Download,
   Edit,
   Eye,
   FileSpreadsheet,
   Plus,
   Search,
-  ShieldAlert,
   Trash2,
   Upload,
-  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Customer } from "@/types/customer";
@@ -24,7 +21,7 @@ import {
   exportCustomersToCSV as exportCustomerRecordsToCSV,
   parseImportedCustomers as parseCustomerImportRows,
 } from "@/lib/customer-csv";
-import { AdminDataTable, AdminMetricCard, AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageShell";
+import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageShell";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 
 type ImportedCustomerRow = {
@@ -363,17 +360,6 @@ export default function CustomersPage({
     }
   }, [initialCustomers.length]);
 
-  const metrics = useMemo(
-    () => ({
-      total: customers.length,
-      active: customers.filter((customer) => customer.status === "active").length,
-      inactive: customers.filter((customer) => customer.status === "inactive").length,
-      blocked: customers.filter((customer) => customer.status === "blocked").length,
-      totalRevenue: customers.reduce((total, customer) => total + customer.totalSpent, 0),
-    }),
-    [customers]
-  );
-
   const filteredCustomers = useMemo(
     () =>
       customers.filter((customer) => {
@@ -623,73 +609,54 @@ export default function CustomersPage({
     filteredCustomers.length > 0 && selectedCustomers.length === filteredCustomers.length;
 
   return (
-    <main
-      role="main"
-      aria-busy={loading}
-      className="admin-page-root"
-    >
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="hidden" />
-        <div className="hidden" />
-        <div className="hidden" />
-      </div>
-
-      <div className="relative mx-auto max-w-[1600px] px-3 py-4 md:px-5 md:py-6 lg:px-8">
-        <div className="space-y-8">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".csv,text/csv"
-        className="hidden"
-        onChange={handleImport}
-      />
+    <main role="main" aria-busy={loading} className="min-h-screen bg-[#F9F9F9]">
+      <div className="w-full px-0 py-3 md:py-5">
+        <div className="space-y-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleImport}
+          />
 
           <AdminPageHeader
             sectionLabel="Müşteri"
             title="Müşteriler"
-            description="Müşteri kayıtlarını, segment sinyallerini ve CSV içe/dışa aktarma akışlarını yönetin."
             actions={
               <>
-                  <button
-                    type="button"
-                    onClick={handleDownloadTemplate}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                  >
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Şablon İndir
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={importing}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Upload className="h-4 w-4" />
-                    {importing ? "İçe Aktarılıyor..." : "İçe Aktar"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleExport}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                  >
-                    <Download className="h-4 w-4" />
-                    Dışa Aktar
-                  </button>
-                  <Link
-                    href="/admin/musteriler/yeni"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Yeni Müşteri
-                  </Link>
-              </>
-            }
-            metrics={
-              <>
-              <HeroMetric label="Toplam müşteri" value={metrics.total.toLocaleString("tr-TR")} />
-              <HeroMetric label="Aktif müşteri" value={metrics.active.toLocaleString("tr-TR")} />
-              <HeroMetric label="Pasif müşteri" value={metrics.inactive.toLocaleString("tr-TR")} />
-              <HeroMetric label="Toplam harcama" value={formatPrice(metrics.totalRevenue)} />
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="inline-flex h-11 items-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-sm font-semibold text-[#374151] shadow-none transition hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Şablon
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing}
+                  className="inline-flex h-11 items-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-sm font-semibold text-[#374151] shadow-none transition hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Upload className="h-4 w-4" />
+                  {importing ? "İçe Aktarılıyor" : "İçe Aktar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  className="inline-flex h-11 items-center gap-2 rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-sm font-semibold text-[#374151] shadow-none transition hover:border-[#FFD7BF] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+                >
+                  <Download className="h-4 w-4" />
+                  Dışa Aktar
+                </button>
+                <Link
+                  href="/admin/musteriler/yeni"
+                  className="inline-flex h-11 items-center gap-2 rounded-[7px] bg-[#FF6A00] px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.18)] transition hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Müşteri Ekle
+                </Link>
               </>
             }
           />
@@ -697,137 +664,66 @@ export default function CustomersPage({
           {errorMessage ? (
             <div
               aria-live="assertive"
-              className="rounded-[24px] border border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 px-5 py-4 text-sm font-medium text-rose-700 shadow-sm"
+              className="border-y border-rose-200 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700"
             >
               {errorMessage}
             </div>
           ) : null}
-
-      {false && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <div className="flex flex-col gap-3 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-amber-950">CSV ile müşteri içe aktar</h2>
-            <p className="mt-1 text-sm text-amber-800">
-              Desteklenen sütunlar: <span className="font-medium">Ad</span>, <span className="font-medium">Soyad</span>,{" "}
-              <span className="font-medium">E-posta</span>, <span className="font-medium">Telefon</span>,{" "}
-              <span className="font-medium">Durum</span>, <span className="font-medium">Not</span>. E-posta alanı zorunludur.
-            </p>
-          </div>
-          <div className="text-xs text-amber-900">
-            Aynı e-posta ile gelen kayıtlar yeni müşteri oluşturmaz; mevcut müşteriyle eşleştirilir.
-          </div>
-        </div>
-      </div>}
-
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              title="Görünen kayıt"
-              value={filteredCustomers.length.toLocaleString("tr-TR")}
-              icon={Search}
-              tone="border-[var(--admin-accent-border)] from-white to-white text-[var(--admin-accent)]"
-            />
-            <StatCard
-              title="Seçili müşteri"
-              value={selectedCustomers.length.toLocaleString("tr-TR")}
-              icon={UserCheck}
-              tone="border-amber-200/70 from-amber-50 to-white text-amber-700"
-            />
-            <StatCard
-              title="Engellenen"
-              value={metrics.blocked.toLocaleString("tr-TR")}
-              icon={ShieldAlert}
-              tone="border-rose-200/70 from-rose-50 to-white text-rose-700"
-            />
-            <StatCard
-              title="Ort. sipariş değeri"
-              value={metrics.total > 0 ? formatPrice(metrics.totalRevenue / Math.max(metrics.total, 1)) : formatPrice(0)}
-              icon={Calendar}
-              tone="border-stone-200 from-stone-50 to-white text-stone-700"
-            />
-          </section>
-
-          <section className="rounded-[22px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:rounded-[30px] md:p-6">
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-3 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Filtreler ve işlemler</h2>
-                </div>
-                <div
-                  aria-live="polite"
-                  className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-white px-3 py-2 text-sm font-medium text-gray-600"
-                >
-                  <UserCheck className="h-4 w-4 text-[var(--admin-accent)]" />
-                  {loading ? "Kayıtlar hazırlanıyor" : `${filteredCustomers.length.toLocaleString("tr-TR")} kayıt bulundu`}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_220px_auto]">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <section className="border-y border-[#E1E6EF] bg-[#F9F9F9]">
+            <div className="flex flex-col gap-3 px-4 py-4 md:px-6 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
+              <div className="grid flex-1 grid-cols-1 gap-3 min-[1025px]:max-w-[760px] min-[1025px]:grid-cols-[minmax(0,1fr)_190px]">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8794]" />
                   <input
                     type="text"
-                    placeholder="İsim, e-posta veya telefon ile ara"
+                    placeholder="Tabloda arama yapın"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    aria-label="İsim, e-posta veya telefon ile müşteri ara"
-                    className="w-full rounded-2xl border border-[var(--admin-border)] bg-white/85 py-3 pl-11 pr-4 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
+                    aria-label="Tabloda müşteri ara"
+                    className="h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white pl-11 pr-4 text-sm font-medium text-[#111827] outline-none transition placeholder:text-[#7B8794] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
                   />
-                </div>
+                </label>
 
                 <select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
                   aria-label="Müşteri durumuna göre filtrele"
-                  className="cursor-pointer rounded-2xl border border-[var(--admin-border)] bg-white/85 px-4 py-3 text-sm text-gray-700 shadow-sm transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
+                  className="h-11 cursor-pointer rounded-[7px] border border-[#E1E6EF] bg-white px-4 text-sm font-semibold text-[#374151] outline-none transition focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
                 >
                   <option value="all">Tüm durumlar</option>
                   <option value="active">Aktif</option>
                   <option value="inactive">Pasif</option>
                   <option value="blocked">Engelli</option>
                 </select>
-
-                <div className="flex flex-wrap items-center justify-start gap-3 xl:justify-end">
-                  {selectedCustomers.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={handleBulkDelete}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 shadow-sm transition-all hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Seçilenleri Sil ({selectedCustomers.length})
-                    </button>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-[#e8d7c7] bg-white/70 px-4 py-3 text-sm text-[#8b7768]">
-                      Toplu silme için kayıt seçin
-                    </div>
-                  )}
-                </div>
               </div>
-            </div>
-          </section>
 
-          <AdminDataTable>
-            <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
-              <div className="flex flex-col gap-3 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-gray-950">Müşteri listesi</h2>
-                </div>
-                <div aria-live="polite" className="text-sm text-gray-500">
+              <div className="flex flex-wrap items-center gap-2 min-[1025px]:justify-end">
+                <span aria-live="polite" className="rounded-[7px] border border-[#E1E6EF] bg-white px-3 py-2 text-sm font-semibold text-[#6B7280]">
                   {loading
-                    ? "Müşteriler hazırlanıyor"
-                    : `${filteredCustomers.length.toLocaleString("tr-TR")} müşteri gösteriliyor`}
-                </div>
+                    ? "Hazırlanıyor"
+                    : `${filteredCustomers.length.toLocaleString("tr-TR")} kayıt`}
+                </span>
+                {selectedCustomers.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleBulkDelete}
+                    className="inline-flex h-11 items-center gap-2 rounded-[7px] border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Seçilenleri Sil ({selectedCustomers.length})
+                  </button>
+                ) : null}
               </div>
             </div>
 
             {filteredCustomers.length > 0 ? (
               <>
-                <div className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80 px-5 py-4 min-[1025px]:hidden">
-                  <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
+                <div className="border-t border-[#E1E6EF] bg-[#F9F9F9] px-4 py-3 min-[1025px]:hidden">
+                  <label className="inline-flex items-center gap-3 text-sm font-semibold text-[#374151]">
                     <input
                       type="checkbox"
                       aria-label="Tüm görünen müşterileri seç"
-                      className="h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+                      className="h-4 w-4 rounded border-[#CBD5E1] text-[#FF6A00] focus:ring-[#FF6A00]"
                       checked={allVisibleSelected}
                       onChange={(event) => handleSelectAll(event.target.checked)}
                     />
@@ -838,18 +734,19 @@ export default function CustomersPage({
                 <div className="space-y-3 p-3.5 sm:p-5 min-[1025px]:hidden">
                   {filteredCustomers.map((customer) => {
                     const initials = `${customer.firstName.charAt(0) || "?"}${customer.lastName.charAt(0) || ""}`;
+                    const hasContactPermission = customer.acceptsEmailMarketing || customer.acceptsSmsMarketing;
 
                     return (
                       <article
                         key={customer.id}
-                        className="rounded-[22px] border border-white/70 bg-white/85 p-4 shadow-sm transition-all hover:border-[var(--admin-border)] hover:bg-white hover:shadow-[var(--shadow-md)] sm:p-5"
+                        className="rounded-[8px] border border-[#E1E6EF] bg-white p-4 shadow-none transition hover:border-[#FFD7BF] sm:p-5"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex min-w-0 items-start gap-3">
                             <input
                               type="checkbox"
                               aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini seç`}
-                              className="mt-2 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+                              className="mt-2 h-4 w-4 rounded border-[#CBD5E1] text-[#FF6A00] focus:ring-[#FF6A00]"
                               checked={selectedCustomers.includes(customer.id)}
                               onChange={(event) => {
                                 if (event.target.checked) {
@@ -860,7 +757,7 @@ export default function CustomersPage({
                                 setSelectedCustomers((current) => current.filter((id) => id !== customer.id));
                               }}
                             />
-                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent)] shadow-sm">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#FFD7BF] bg-[#FFF1E8] text-sm font-semibold text-[#E85D04]">
                               {initials}
                             </div>
                             <div className="min-w-0">
@@ -878,41 +775,42 @@ export default function CustomersPage({
                         </div>
 
                         <div className="mt-4 grid grid-cols-2 gap-3">
-                          <MobileInfoCard label="Toplam harcama" value={formatPrice(customer.totalSpent)} />
-                          <MobileInfoCard label="Sipariş" value={`${customer.totalOrders} sipariş`} />
+                          <MobileInfoCard label="İletişim izni" value={hasContactPermission ? "İzinli" : "İzni Yok"} />
+                          <MobileInfoCard label="Toplam sipariş" value={`${formatPrice(customer.totalSpent)} · ${customer.totalOrders} sipariş`} />
                           <MobileInfoCard
-                            label="Son sipariş"
+                            label="Oluşturulma"
                             value={
-                              customer.lastOrderDate
-                                ? format(new Date(customer.lastOrderDate), "d MMM yyyy", { locale: tr })
-                                : "Henüz yok"
+                              `${format(new Date(customer.registeredAt), "d MMM", { locale: tr })} ${format(
+                                new Date(customer.registeredAt),
+                                "HH:mm",
+                              )}`
                             }
                           />
-                          <MobileInfoCard label="Durum" value={statusText(customer.status)} />
+                          <MobileInfoCard label="Hesap durumu" value={statusText(customer.status)} />
                         </div>
 
                         <div className="mt-4 flex items-center justify-end gap-2">
                           <Link
                             href={`/admin/musteriler/${customer.id}`}
                             aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşteri detayını görüntüle`}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
                           >
-                            <Eye className="h-5 w-5" />
+                            <Eye className="h-4 w-4" />
                           </Link>
                           <Link
                             href={`/admin/musteriler/${customer.id}/duzenle`}
                             aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini düzenle`}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
                           >
-                            <Edit className="h-5 w-5" />
+                            <Edit className="h-4 w-4" />
                           </Link>
                           <button
                             type="button"
                             onClick={() => handleDelete(customer.id, `${customer.firstName} ${customer.lastName}`.trim())}
                             aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini sil`}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-100 bg-white text-gray-500 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-[7px] border border-rose-100 bg-white text-[#6B7280] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
                           >
-                            <Trash2 className="h-5 w-5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </article>
@@ -920,40 +818,43 @@ export default function CustomersPage({
                   })}
                 </div>
 
-                <div className="hidden overflow-x-auto min-[1025px]:block">
-                  <table className="min-w-[920px] text-left text-sm">
-                    <thead className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80">
+                <div className="hidden overflow-x-auto border-t border-[#E1E6EF] min-[1025px]:block">
+                  <table className="w-full min-w-[1120px] text-left text-sm">
+                    <thead className="bg-[#EEF2F6]">
                       <tr>
-                        <th className="w-14 px-6 py-4">
+                        <th className="w-14 px-5 py-4">
                           <input
                             type="checkbox"
                             aria-label="Tüm görünen müşterileri seç"
-                            className="h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+                            className="h-4 w-4 rounded border-[#CBD5E1] text-[#FF6A00] focus:ring-[#FF6A00]"
                             checked={allVisibleSelected}
                             onChange={(event) => handleSelectAll(event.target.checked)}
                           />
                         </th>
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Müşteri</th>
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Durum</th>
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Toplam harcama</th>
-                        <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Son sipariş</th>
-                        <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">İşlemler</th>
+                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Müşteri</th>
+                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">İletişim Bilgileri</th>
+                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Oluşturulma Tarihi</th>
+                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">İletişim İzni</th>
+                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Toplam Sipariş</th>
+                        <th className="px-5 py-4 text-[13px] font-semibold text-[#4B5563]">Hesap Durumu</th>
+                        <th className="px-5 py-4 text-right text-[13px] font-semibold text-[#4B5563]">İşlemler</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredCustomers.map((customer) => {
                         const initials = `${customer.firstName.charAt(0) || "?"}${customer.lastName.charAt(0) || ""}`;
+                        const hasContactPermission = customer.acceptsEmailMarketing || customer.acceptsSmsMarketing;
 
                         return (
                           <tr
                             key={customer.id}
-                            className="group border-b border-[var(--admin-border)] last:border-b-0 hover:bg-[#F9FAFB]"
+                            className="group border-b border-[#E1E6EF] last:border-b-0 hover:bg-white"
                           >
-                            <td className="px-6 py-5 align-top">
+                            <td className="px-5 py-5 align-top">
                               <input
                                 type="checkbox"
                                 aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini seç`}
-                                className="mt-1 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+                                className="mt-1 h-4 w-4 rounded border-[#CBD5E1] text-[#FF6A00] focus:ring-[#FF6A00]"
                                 checked={selectedCustomers.includes(customer.id)}
                                 onChange={(event) => {
                                   if (event.target.checked) {
@@ -965,63 +866,68 @@ export default function CustomersPage({
                                 }}
                               />
                             </td>
-                            <td className="px-6 py-5 align-top">
+                            <td className="px-5 py-5 align-top">
                               <div className="flex items-start gap-3">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent)] shadow-sm">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#FFD7BF] bg-[#FFF1E8] text-xs font-semibold text-[#E85D04]">
                                   {initials}
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                   <Link
                                     href={`/admin/musteriler/${customer.id}`}
-                                    className="font-semibold text-gray-950 transition-colors hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                                    className="font-semibold text-[#111827] transition-colors hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
                                   >
                                     {customer.firstName || "Adsız"} {customer.lastName}
                                   </Link>
-                                  <div className="mt-1 text-sm text-gray-500">{customer.email}</div>
-                                  <div className="mt-1 text-xs text-gray-400">{customer.phone || "Telefon bilgisi yok"}</div>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-5 align-top">
+                            <td className="px-5 py-5 align-top">
+                              <div className="text-[#111827]">{customer.email || "E-posta yok"}</div>
+                              <div className="mt-1 text-sm text-[#6B7280]">{customer.phone || "Telefon bilgisi yok"}</div>
+                            </td>
+                            <td className="px-5 py-5 align-top">
+                              <div className="font-medium text-[#111827]">
+                                {format(new Date(customer.registeredAt), "d MMM yyyy", { locale: tr })}
+                              </div>
+                              <div className="mt-1 text-sm text-[#6B7280]">
+                                {format(new Date(customer.registeredAt), "HH:mm")}
+                              </div>
+                            </td>
+                            <td className="px-5 py-5 align-top">
+                              <span className="inline-flex rounded-[5px] border border-[#E1E6EF] bg-white px-2.5 py-1 text-xs font-semibold text-[#6B7280]">
+                                {hasContactPermission ? "İzinli" : "İzni Yok"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-5 align-top">
+                              <div className="font-semibold text-[#111827]">{formatPrice(customer.totalSpent)}</div>
+                              <div className="mt-1 text-sm text-[#6B7280]">{customer.totalOrders} sipariş</div>
+                            </td>
+                            <td className="px-5 py-5 align-top">
                               <StatusBadge status={customer.status} />
                             </td>
-                            <td className="px-6 py-5 align-top">
-                              <div className="font-semibold text-gray-950">{formatPrice(customer.totalSpent)}</div>
-                              <div className="mt-1 text-xs text-gray-500">{customer.totalOrders} sipariş</div>
-                            </td>
-                            <td className="px-6 py-5 align-top text-gray-500">
-                              {customer.lastOrderDate ? (
-                                <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
-                                  <Calendar className="h-3.5 w-3.5 text-[var(--admin-accent)]" />
-                                  {format(new Date(customer.lastOrderDate), "d MMM yyyy", { locale: tr })}
-                                </div>
-                              ) : (
-                                <span className="text-sm text-gray-400">Henüz sipariş yok</span>
-                              )}
-                            </td>
-                            <td className="px-6 py-5 text-right align-top">
-                              <div className="flex items-center justify-end gap-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                            <td className="px-5 py-5 text-right align-top">
+                              <div className="flex items-center justify-end gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                                 <Link
                                   href={`/admin/musteriler/${customer.id}`}
                                   aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşteri detayını görüntüle`}
-                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
                                 >
-                                  <Eye className="h-5 w-5" />
+                                  <Eye className="h-4 w-4" />
                                 </Link>
                                 <Link
                                   href={`/admin/musteriler/${customer.id}/duzenle`}
                                   aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini düzenle`}
-                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-[#E1E6EF] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
                                 >
-                                  <Edit className="h-5 w-5" />
+                                  <Edit className="h-4 w-4" />
                                 </Link>
                                 <button
                                   type="button"
                                   onClick={() => handleDelete(customer.id, `${customer.firstName} ${customer.lastName}`.trim())}
                                   aria-label={`${customer.firstName || "Adsız"} ${customer.lastName} müşterisini sil`}
-                                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-100 bg-white text-gray-500 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-[7px] border border-rose-100 bg-white text-[#6B7280] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
                                 >
-                                  <Trash2 className="h-5 w-5" />
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
                             </td>
@@ -1033,14 +939,14 @@ export default function CustomersPage({
                 </div>
               </>
             ) : (
-              <div className="px-6 py-16 text-center">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
-                  <Search className="h-9 w-9" />
+              <div className="flex min-h-[460px] flex-col items-center justify-center border-t border-[#E1E6EF] px-6 py-16 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[12px] border border-[#FFD7BF] bg-[#FFF1E8] text-[#FF6A00]">
+                  <Search className="h-7 w-7" />
                 </div>
-                <p className="mt-5 text-lg font-semibold text-gray-950" aria-live="polite">
+                <p className="mt-5 text-lg font-semibold tracking-[-0.03em] text-[#111827]" aria-live="polite">
                   {loading ? "Müşteriler yükleniyor..." : hasActiveFilters ? "Sonuç bulunamadı" : "Henüz müşteri bulunmuyor"}
                 </p>
-                <p className="mt-2 text-sm text-gray-500">
+                <p className="mt-2 max-w-md text-sm leading-6 text-[#6B7280]">
                   {loading
                     ? "Liste hazırlanırken görünüm otomatik olarak güncellenecek."
                     : hasActiveFilters
@@ -1050,10 +956,10 @@ export default function CustomersPage({
               </div>
             )}
 
-            <div className="border-t border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/80 px-5 py-4 md:px-6">
+            <div className="border-t border-[#E1E6EF] bg-[#F9F9F9] px-4 py-4 md:px-6">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <p aria-live="polite" className="text-sm text-gray-500">
-                  <span className="font-semibold text-gray-900">{filteredCustomers.length.toLocaleString("tr-TR")}</span> kayıt gösteriliyor
+                <p aria-live="polite" className="text-sm font-medium text-[#6B7280]">
+                  <span className="font-semibold text-[#111827]">{filteredCustomers.length.toLocaleString("tr-TR")}</span> kayıt gösteriliyor
                   {selectedCustomers.length > 0 ? ` • ${selectedCustomers.length} kayıt seçili` : ""}
                 </p>
                 <div className="flex gap-2">
@@ -1061,7 +967,7 @@ export default function CustomersPage({
                     type="button"
                     disabled
                     aria-label="Önceki sayfa kullanılamıyor"
-                    className="cursor-not-allowed rounded-2xl border border-[#e7d9cc] bg-white px-4 py-2 text-sm font-medium text-gray-400"
+                    className="cursor-not-allowed rounded-[7px] border border-[#E1E6EF] bg-white px-4 py-2 text-sm font-semibold text-[#9CA3AF]"
                   >
                     Önceki
                   </button>
@@ -1069,14 +975,14 @@ export default function CustomersPage({
                     type="button"
                     disabled
                     aria-label="Sonraki sayfa kullanılamıyor"
-                    className="cursor-not-allowed rounded-2xl border border-[#e7d9cc] bg-white px-4 py-2 text-sm font-medium text-gray-400"
+                    className="cursor-not-allowed rounded-[7px] border border-[#E1E6EF] bg-white px-4 py-2 text-sm font-semibold text-[#9CA3AF]"
                   >
                     Sonraki
                   </button>
                 </div>
               </div>
             </div>
-          </AdminDataTable>
+          </section>
 
           <div className="sr-only" aria-live="polite" aria-atomic="true">
             {loading
@@ -1089,48 +995,11 @@ export default function CustomersPage({
   );
 }
 
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
-  tone: string;
-}
-
-function HeroMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-white px-5 py-5 md:px-6">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
-        <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ title, value, icon: Icon, tone }: StatCardProps) {
-  const resolvedTone = tone.includes("rose")
-    ? "danger"
-    : tone.includes("amber")
-      ? "warning"
-      : tone.includes("stone")
-        ? "neutral"
-        : "accent";
-
-  return (
-    <AdminMetricCard
-      label={title}
-      value={value}
-      icon={Icon}
-      tone={resolvedTone}
-    />
-  );
-}
-
 function MobileInfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3 text-left">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">{label}</p>
-      <p className="mt-1 text-sm font-medium text-gray-900">{value}</p>
+    <div className="rounded-[7px] border border-[#E1E6EF] bg-[#F9F9F9] px-3 py-3 text-left">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6B7280]">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-[#111827]">{value}</p>
     </div>
   );
 }
