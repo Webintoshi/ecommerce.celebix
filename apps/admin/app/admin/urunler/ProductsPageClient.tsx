@@ -1576,15 +1576,15 @@ export default function ProductsPageClient({
             <div className="hidden max-w-full overflow-x-hidden min-[1025px]:block">
               <table className="w-full table-fixed border-collapse">
                 <colgroup>
-                  {reorderMode ? <col style={{ width: 104 }} /> : null}
-                  <col style={{ width: 48 }} />
-                  <col style={{ width: reorderMode ? 280 : 380 }} />
-                  <col style={{ width: 132 }} />
-                  <col style={{ width: 96 }} />
-                  <col style={{ width: 98 }} />
-                  <col style={{ width: 118 }} />
-                  <col style={{ width: 74 }} />
-                  <col style={{ width: 168 }} />
+                  {reorderMode ? <col style={{ width: "7%" }} /> : null}
+                  <col style={{ width: "4%" }} />
+                  <col style={{ width: reorderMode ? "21%" : "26%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: reorderMode ? "18%" : "20%" }} />
                 </colgroup>
                 <thead>
                   <tr className="border-b border-[#E1E6EF] bg-[#EEF2F6] text-left text-[13px] font-semibold text-[#4B5563]">
