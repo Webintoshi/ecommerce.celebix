@@ -24,8 +24,6 @@ import {
   FolderTree,
   BadgeCheck,
   Star,
-  GitBranch,
-  Filter,
 } from "lucide-react";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import {
@@ -499,8 +497,6 @@ export default function CategoryManager() {
       .map((c) => ({ value: c.id, label: c.name })),
   ];
 
-  const activeCollections = categories.filter((category) => category.is_active !== false).length;
-  const childCollections = categories.filter((category) => category.parent_id).length;
   const rootCollections = tree.length;
   const filteredResults = flattenCategoryTree(filteredTree).length;
   const homepageFeaturedCount = featuredCategorySlugs.length;
@@ -815,33 +811,6 @@ export default function CategoryManager() {
               Yeni Koleksiyon
             </button>
           }
-          metrics={
-            <>
-              {[
-                { label: "Toplam", value: categories.length, detail: "koleksiyon", icon: FolderTree },
-                { label: "Aktif", value: activeCollections, detail: "yayında", icon: BadgeCheck },
-                { label: "Alt koleksiyon", value: childCollections, detail: "hiyerarşi", icon: GitBranch },
-                { label: "Gösterilen", value: filteredResults, detail: searchQuery ? "eşleşme" : "sonuç", icon: Filter },
-              ].map((metric) => {
-                const Icon = metric.icon;
-
-                return (
-                  <div key={metric.label} className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
-                        {metric.label}
-                      </p>
-                      <Icon className="h-4 w-4 text-[#9CA3AF]" />
-                    </div>
-                    <div className="mt-3 flex items-end gap-2">
-                      <p className="text-3xl font-semibold tracking-[-0.04em] text-[#111827]">{metric.value}</p>
-                      <span className="pb-1 text-sm font-medium text-[#6B7280]">{metric.detail}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          }
         />
 
         <section className="border-b border-[#E1E7EF] bg-[#F9F9F9] pb-4">
@@ -893,27 +862,6 @@ export default function CategoryManager() {
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF1E8] px-3 py-1.5 text-xs font-semibold text-[#E85D04]">
-              <Star className="h-3.5 w-3.5" />
-              Ana sayfa vitrini
-            </span>
-            {featuredCategories.length > 0 ? (
-              featuredCategories.map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => void handleHomepageFeatureToggle(category)}
-                  className={`inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#374151] ring-1 ring-[#DCE3EC] transition hover:text-[#E85D04] hover:ring-[#FFD7BF] ${SURFACE_FOCUS_RING}`}
-                >
-                  <span>{category.name}</span>
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              ))
-            ) : (
-              <span className="text-sm font-medium text-[#6B7280]">Seçili koleksiyon yok</span>
-            )}
-          </div>
         </section>
 
         {loading ? (
