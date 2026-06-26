@@ -1690,7 +1690,7 @@ export default function ProductsPageClient({
                         </td>
 
                         <td className="px-3 py-3">
-                          <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
                             {product.images.length > 0 ? (
                               <img
                                 src={product.images[0]}
@@ -1844,14 +1844,14 @@ export default function ProductsPageClient({
                     key={product.id}
                     className="rounded-[12px] border border-[#E1E6EF] bg-white p-3.5 shadow-[0_8px_18px_rgba(15,23,42,0.035)] sm:p-4"
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-3">
                       <input
                         type="checkbox"
                         checked={selectedProducts.includes(product.id)}
                         onChange={(event) => handleSelectProduct(product.id, event.target.checked)}
                         aria-label={`${product.name} ürününü seç`}
                         className={cn(
-                          "mt-1 h-4 w-4 rounded border-[#D1D5DB] text-[#FF6A00] accent-[#FF6A00]",
+                          "h-4 w-4 rounded border-[#D1D5DB] text-[#FF6A00] accent-[#FF6A00]",
                           SURFACE_FOCUS_RING,
                         )}
                       />
