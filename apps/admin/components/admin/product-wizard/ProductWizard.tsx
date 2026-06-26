@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Save, ChevronRight, ChevronLeft, MoreHorizontal, RefreshCw } from "lucide-react";
+import { Save, ChevronRight, ChevronLeft, RefreshCw } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 import {
   ADMIN_PRODUCT_WIZARD_STEPS,
   type AdminProductMode,
@@ -627,24 +628,16 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
 
     return (
       <div className="admin-page-root min-h-screen bg-[#F9F9F9] text-stone-900">
-        <div className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-white/95 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 md:px-6 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
-            <div className="flex items-center gap-4">
-              <div>
-                <div className="inline-flex w-fit rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">
-                  {modeLabel}
-                </div>
-                <h1 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-stone-950">
-                  Yeni ürün oluştur
-                </h1>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
+        <AdminPageHeader
+          sectionLabel={modeLabel}
+          title="Yeni ürün oluştur"
+          description={modeLabel}
+          actions={
+            <div className="flex w-full flex-col gap-2 min-[1025px]:w-auto min-[1025px]:flex-row min-[1025px]:items-center">
               <button
                 type="button"
                 onClick={handleProductModeReset}
-                className="inline-flex h-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white px-4 text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
+                className="inline-flex h-10 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white px-3 text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 min-[1280px]:px-4"
               >
                 Ürün tipini değiştir
               </button>
@@ -652,7 +645,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                 type="button"
                 onClick={() => handleSave("draft")}
                 disabled={saving}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 text-sm font-semibold text-[var(--admin-accent-hover)] transition-colors hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-3 text-sm font-semibold text-[var(--admin-accent-hover)] transition-colors hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50 min-[1280px]:px-4"
               >
                 {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Taslak Kaydet
@@ -661,7 +654,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                 type="button"
                 onClick={() => handleSave("offline")}
                 disabled={saving}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[#D7DCE3] bg-[#FCFDFE] px-4 text-sm font-semibold text-stone-700 transition-colors hover:border-[var(--admin-accent-border)] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#D7DCE3] bg-[#FCFDFE] px-3 text-sm font-semibold text-stone-700 transition-colors hover:border-[var(--admin-accent-border)] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50 min-[1280px]:px-4"
               >
                 {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Satışa Kapalı Kaydet
@@ -670,14 +663,14 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
                 type="button"
                 onClick={() => handleSave("publish")}
                 disabled={saving}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,106,0,0.16)] transition-colors hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,106,0,0.16)] transition-colors hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50 min-[1280px]:px-5"
               >
                 {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Yayınla
               </button>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8">
           <div className="mb-5 rounded-[8px] border border-[#E7EAF0] bg-white px-5 py-4 text-sm leading-6 text-stone-600 shadow-sm">
@@ -691,80 +684,6 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
           ) : (
             <SimpleProductQuickForm data={formData} errors={errors} onChange={updateFormData} />
           )}
-
-          <div className="sticky bottom-3 z-20 mt-6 rounded-[8px] border border-[var(--admin-border)] bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur min-[1025px]:bottom-4 min-[1025px]:p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="hidden min-w-0 text-sm text-stone-500 min-[1025px]:block">
-                Kaydetmeden önce mevcut API için ürün adı, kategori ve en az bir geçerli varyant gerekir.
-              </p>
-              <div className="hidden flex-col gap-2 min-[1025px]:flex min-[1025px]:flex-row">
-                <button
-                  type="button"
-                  onClick={() => handleSave("draft")}
-                  disabled={saving}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] disabled:opacity-50"
-                >
-                  {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Taslak Kaydet
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSave("offline")}
-                  disabled={saving}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-[#D7DCE3] bg-[#FCFDFE] px-4 text-sm font-semibold text-stone-700 transition-colors hover:bg-white disabled:opacity-50"
-                >
-                  {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Satışa Kapalı Kaydet
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSave("publish")}
-                  disabled={saving}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#E85D04] disabled:opacity-50"
-                >
-                  {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Yayınla
-                </button>
-              </div>
-              <div className="flex w-full items-center gap-2 min-[1025px]:hidden">
-                <button
-                  type="button"
-                  onClick={() => handleSave("publish")}
-                  disabled={saving}
-                  className="inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#E85D04] disabled:opacity-50"
-                >
-                  {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Yayınla
-                </button>
-                <details className="group relative">
-                  <summary className="inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-stone-700 transition-colors hover:bg-[#FCFDFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 [&::-webkit-details-marker]:hidden">
-                    <MoreHorizontal className="h-5 w-5" />
-                    <span className="sr-only">Diğer kayıt seçenekleri</span>
-                  </summary>
-                  <div className="absolute bottom-full right-0 mb-2 w-[min(82vw,20rem)] rounded-[8px] border border-[var(--admin-border)] bg-white p-2 shadow-[0_18px_50px_rgba(15,23,42,0.14)]">
-                    <button
-                      type="button"
-                      onClick={() => handleSave("draft")}
-                      disabled={saving}
-                      className="flex h-10 w-full items-center gap-2 rounded-[8px] px-3 text-left text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] disabled:opacity-50"
-                    >
-                      {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Taslak Kaydet
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSave("offline")}
-                      disabled={saving}
-                      className="mt-1 flex h-10 w-full items-center gap-2 rounded-[8px] px-3 text-left text-sm font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE] disabled:opacity-50"
-                    >
-                      {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Satışa Kapalı Kaydet
-                    </button>
-                  </div>
-                </details>
-              </div>
-            </div>
-          </div>
         </main>
       </div>
     );
