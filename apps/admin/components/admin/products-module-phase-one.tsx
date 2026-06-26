@@ -162,8 +162,8 @@ function DefinitionCard({ card }: { card: ProductDefinitionCard }) {
 export function ProductDefinitionsHubPage() {
   const activeDefinitions: ProductDefinitionCard[] = [
     {
-      title: "Kategoriler / Koleksiyonlar",
-      description: "Kategori ağacı, vitrin seçimi ve SEO alanları mevcut koleksiyon ekranından yönetilir.",
+      title: "Koleksiyonlar",
+      description: "Koleksiyon ağacı, vitrin seçimi ve SEO alanları mevcut koleksiyon ekranından yönetilir.",
       status: "Aktif",
       href: "/admin/urunler/koleksiyonlar",
       icon: Layers3,

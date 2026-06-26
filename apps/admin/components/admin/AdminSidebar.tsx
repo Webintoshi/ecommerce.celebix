@@ -100,7 +100,7 @@ const MENU_ITEMS: MenuItem[] = [
     submenu: [
       { title: "Ürünler", href: "/admin/urunler", group: "Katalog" },
       { title: "Yeni Ürün", href: "/admin/urunler/yeni", group: "Katalog" },
-      { title: "Kategoriler / Koleksiyonlar", href: "/admin/urunler/koleksiyonlar", group: "Katalog" },
+      { title: "Koleksiyonlar", href: "/admin/urunler/koleksiyonlar", group: "Katalog" },
       { title: "Markalar", href: "/admin/urunler/markalar", group: "Katalog" },
       { title: "Etiketler", href: "/admin/urunler/etiketler", group: "Katalog", badge: "Hazırlık" },
       { title: "Nitelikler / Varyant Türleri", href: "/admin/urunler/nitelikler", group: "Katalog" },

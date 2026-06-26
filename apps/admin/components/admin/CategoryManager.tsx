@@ -32,6 +32,7 @@ import {
   SUPPORTED_IMAGE_ACCEPT,
   SUPPORTED_IMAGE_FORMATS_WITH_GIF_LABEL,
 } from "@celebix/platform-config/src/image-formats";
+import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 
 interface CategoryFormData {
   id?: string;
@@ -639,17 +640,17 @@ export default function CategoryManager() {
     const hierarchyLabel = level === 0 ? "Ana koleksiyon" : "Alt koleksiyon";
 
     return (
-      <div key={category.id} className="space-y-2">
+      <div key={category.id} className="space-y-1">
         <div
-          className={`group relative rounded-[22px] border bg-white px-4 py-4 transition duration-200 hover:border-[#DDE2EA] hover:bg-[#FCFDFE] hover:shadow-[0_16px_34px_rgba(15,23,42,0.06)] sm:px-5 ${
+          className={`group relative border-b border-[#E7EAF0] bg-white px-4 py-3.5 transition duration-200 hover:bg-[#FFF8F3] sm:px-5 ${
             isActive
-              ? "border-[#E7EAF0]"
-              : "border-[#EEF1F4] opacity-75"
+              ? "text-[#1F2937]"
+              : "text-[#6B7280] opacity-75"
           }`}
-          style={{ marginLeft: `${level * 24}px` }}
+          style={{ paddingLeft: `${16 + level * 28}px` }}
         >
           {level > 0 ? (
-            <div className="pointer-events-none absolute inset-y-5 -left-3 w-px bg-[#DDE2EA]" aria-hidden="true" />
+            <div className="pointer-events-none absolute inset-y-4 left-3 w-px bg-[#DDE2EA]" aria-hidden="true" />
           ) : null}
 
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -664,20 +665,20 @@ export default function CategoryManager() {
                       ? `${category.name} alt koleksiyonlarını daralt`
                       : `${category.name} alt koleksiyonlarını genişlet`
                   }
-                  className={`mt-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:bg-[#FFF1E8] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
+                  className={`mt-1.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[#E7EAF0] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:bg-[#FFF1E8] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
                 >
                   {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </button>
               ) : (
                 <span
-                  className="mt-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-[#D1D5DB]"
+                  className="mt-1.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[#D1D5DB]"
                   aria-hidden="true"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </span>
               )}
 
-              <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl border border-[#E7EAF0] bg-[#F9FAFB]">
+              <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-[12px] border border-[#E7EAF0] bg-[#F9FAFB]">
                 {shouldRenderImage ? (
                   <img
                     src={category.image}
@@ -697,30 +698,30 @@ export default function CategoryManager() {
                 )}
               </div>
 
-              <div className="min-w-0 flex-1 space-y-2">
+              <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="truncate text-base font-semibold tracking-[-0.02em] text-[#1F2937]">
                     {category.name}
                   </h3>
                   <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                       isActive
-                        ? "border-[#BFE8CC] bg-[#EAF8EF] text-[#16A34A]"
-                        : "border-[#E7EAF0] bg-[#F9FAFB] text-[#6B7280]"
+                        ? "bg-[#EAF8EF] text-[#16A34A]"
+                        : "bg-[#F3F4F6] text-[#6B7280]"
                     }`}
                   >
                     {isActive ? "Aktif" : "Pasif"}
                   </span>
                   {hasChildren && (
-                    <span className="inline-flex items-center rounded-full border border-[#D7E5FF] bg-[#EAF2FF] px-2.5 py-1 text-[11px] font-medium text-[#3B82F6]">
+                    <span className="inline-flex items-center rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-medium text-[#2563EB]">
                       {childCount} alt koleksiyon
                     </span>
                   )}
-                  <span className="inline-flex items-center rounded-full border border-[#E7EAF0] bg-white px-2.5 py-1 text-[11px] font-medium text-[#6B7280]">
+                  <span className="inline-flex items-center rounded-full bg-[#F9FAFB] px-2.5 py-1 text-[11px] font-medium text-[#6B7280]">
                     Sıra {category.sort_order || 0}
                   </span>
                   {isHomepageFeatured && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-2.5 py-1 text-[11px] font-medium text-[#E85D04]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF1E8] px-2.5 py-1 text-[11px] font-medium text-[#E85D04]">
                       <Star className="h-3 w-3 fill-current" />
                       Vitrinde
                     </span>
@@ -751,7 +752,7 @@ export default function CategoryManager() {
                     ? `${category.name} koleksiyonunu ana sayfa vitrinden kaldir`
                     : `${category.name} koleksiyonunu ana sayfa vitrini icin yildizla`
                 }
-                className={`${ACTION_BUTTON_CLASSNAME} ${SURFACE_FOCUS_RING} ${
+                className={`${ACTION_BUTTON_CLASSNAME} h-9 rounded-[10px] ${SURFACE_FOCUS_RING} ${
                   isHomepageFeatured
                     ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04] hover:bg-[#FFE7D6]"
                     : "border-[#E7EAF0] text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]"
@@ -770,7 +771,7 @@ export default function CategoryManager() {
                 type="button"
                 onClick={() => handleEdit(category)}
                 aria-label={`${category.name} koleksiyonunu düzenle`}
-                className={`${ACTION_BUTTON_CLASSNAME} border-[#E7EAF0] text-[#1F2937] hover:border-[#DDE2EA] ${SURFACE_FOCUS_RING}`}
+                className={`${ACTION_BUTTON_CLASSNAME} h-9 rounded-[10px] border-[#E7EAF0] text-[#1F2937] hover:border-[#DDE2EA] ${SURFACE_FOCUS_RING}`}
               >
                 <Edit className="h-4 w-4" />
                 <span className="hidden sm:inline">Düzenle</span>
@@ -779,7 +780,7 @@ export default function CategoryManager() {
                 type="button"
                 onClick={() => setDeleteConfirm({ id: category.id, name: category.name })}
                 aria-label={`${category.name} koleksiyonunu sil`}
-                className={`${ACTION_BUTTON_CLASSNAME} border-[#F5D3D3] text-[#EF4444] hover:bg-[#FDECEC] ${SURFACE_FOCUS_RING}`}
+                className={`${ACTION_BUTTON_CLASSNAME} h-9 rounded-[10px] border-[#F5D3D3] text-[#EF4444] hover:bg-[#FDECEC] ${SURFACE_FOCUS_RING}`}
               >
                 <Trash2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Sil</span>
@@ -789,7 +790,7 @@ export default function CategoryManager() {
         </div>
 
         {hasChildren && isExpanded && (
-          <div className="space-y-2 border-l border-dashed border-[#DDE2EA] pl-3 sm:pl-4">
+          <div className="space-y-1">
             {category.children?.map((child) => renderCategoryRow(child, level + 1))}
           </div>
         )}
@@ -798,163 +799,54 @@ export default function CategoryManager() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] px-1 pb-8 text-[#1F2937]">
-      <div className="mx-auto max-w-[1480px] space-y-6">
-        <section className="rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="max-w-3xl space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#E85D04]">Celebix Admin</p>
-              <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#1F2937] md:text-4xl">
-                Koleksiyonlar
-              </h1>
-              <p className="text-sm leading-6 text-[#6B7280] md:text-base">
-                Koleksiyonları yönetin, vitrini düzenleyin ve hiyerarşiyi kolayca kontrol edin.
-              </p>
-            </div>
-
+    <div className="min-h-screen bg-[#F9F9F9] pb-8 text-[#1F2937]">
+      <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+        <AdminPageHeader
+          sectionLabel="Katalog"
+          title="Koleksiyonlar"
+          description="Koleksiyon ağacı, vitrin seçimi ve SEO düzeni."
+          actions={
             <button
               type="button"
               onClick={handleNew}
-              className={`inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#FF6A00] px-5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.22)] transition hover:bg-[#E85D04] ${SURFACE_FOCUS_RING}`}
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(255,106,0,0.18)] transition hover:bg-[#E85D04] ${SURFACE_FOCUS_RING}`}
             >
               <Plus className="h-4 w-4" />
               Yeni Koleksiyon
             </button>
-          </div>
-        </section>
+          }
+          metrics={
+            <>
+              {[
+                { label: "Toplam", value: categories.length, detail: "koleksiyon", icon: FolderTree },
+                { label: "Aktif", value: activeCollections, detail: "yayında", icon: BadgeCheck },
+                { label: "Alt koleksiyon", value: childCollections, detail: "hiyerarşi", icon: GitBranch },
+                { label: "Gösterilen", value: filteredResults, detail: searchQuery ? "eşleşme" : "sonuç", icon: Filter },
+              ].map((metric) => {
+                const Icon = metric.icon;
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            {
-              label: "Toplam Koleksiyon",
-              value: categories.length,
-              detail: "koleksiyon",
-              icon: FolderTree,
-              tone: "text-[#1F2937]",
-            },
-            {
-              label: "Aktif Koleksiyon",
-              value: activeCollections,
-              detail: "yayında",
-              icon: BadgeCheck,
-              tone: "text-[#16A34A]",
-            },
-            {
-              label: "Alt Koleksiyon",
-              value: childCollections,
-              detail: "hiyerarşik öğe",
-              icon: GitBranch,
-              tone: "text-[#3B82F6]",
-            },
-            {
-              label: "Filtrelenen Sonuç",
-              value: filteredResults,
-              detail: searchQuery ? "eşleşme" : "gösterilen",
-              icon: Filter,
-              tone: "text-[#E85D04]",
-            },
-          ].map((stat) => {
-            const Icon = stat.icon;
-
-            return (
-              <div
-                key={stat.label}
-                className="min-h-[132px] rounded-[24px] border border-[#E7EAF0] bg-white p-5 shadow-[0_14px_32px_rgba(15,23,42,0.04)]"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#EEF1F4] bg-[#F9FAFB] text-[#6B7280]">
-                    <Icon className="h-5 w-5" />
+                return (
+                  <div key={metric.label} className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
+                        {metric.label}
+                      </p>
+                      <Icon className="h-4 w-4 text-[#9CA3AF]" />
+                    </div>
+                    <div className="mt-3 flex items-end gap-2">
+                      <p className="text-3xl font-semibold tracking-[-0.04em] text-[#111827]">{metric.value}</p>
+                      <span className="pb-1 text-sm font-medium text-[#6B7280]">{metric.detail}</span>
+                    </div>
                   </div>
-                  <p className={`text-3xl font-semibold tracking-[-0.04em] ${stat.tone}`}>{stat.value}</p>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-[#374151]">{stat.label}</p>
-                  <p className="mt-1 text-sm text-[#9CA3AF]">{stat.detail}</p>
-                </div>
-              </div>
-            );
-          })}
-        </section>
+                );
+              })}
+            </>
+          }
+        />
 
-        <section className="rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#E85D04]">Tarama ve kontrol</p>
-              <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#1F2937]">Koleksiyon listesi</h2>
-              <p className="max-w-2xl text-sm leading-6 text-[#6B7280]">
-                Koleksiyonları ad veya açıklama ile filtreleyin, hiyerarşiyi koruyarak daha rahat inceleyin.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#6B7280]">
-              <span className="rounded-full border border-[#E7EAF0] bg-[#F9FAFB] px-3 py-1.5">
-                Ana koleksiyon: {rootCollections}
-              </span>
-              <span className="rounded-full border border-[#E7EAF0] bg-[#F9FAFB] px-3 py-1.5">
-                Gösterilen: {filteredResults}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-5 rounded-[24px] border border-[#EEF1F4] bg-[#FCFDFE] p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]">
-                  <Star className="h-4 w-4" />
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-sm font-semibold text-[#1F2937]">Ana Sayfa Vitrini</h3>
-                  <p className="max-w-2xl text-sm leading-6 text-[#6B7280]">
-                    Seçili koleksiyonlar burada her zaman görünür. Gizli kalmış eski seçimler varsa buradan kaldırabilirsiniz.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-1.5 text-xs font-medium text-[#E85D04]">
-                  {homepageFeaturedCount}/4 seçili
-                </span>
-                {hiddenFeaturedCount > 0 ? (
-                  <span className="rounded-full border border-[#E7EAF0] bg-white px-3 py-1.5 text-xs font-medium text-[#6B7280]">
-                    {hiddenFeaturedCount} eski seçim gizli
-                  </span>
-                ) : null}
-                {homepageFeaturedCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => void handleClearHomepageFeaturedCategories()}
-                    className={`inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7EAF0] bg-white px-4 py-2.5 text-sm font-medium text-[#374151] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
-                  >
-                    <X className="h-4 w-4" />
-                    Tümünü temizle
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {featuredCategories.length > 0 ? (
-                featuredCategories.map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => void handleHomepageFeatureToggle(category)}
-                    className={`inline-flex items-center gap-2 rounded-full border border-[#FFD7BF] bg-[#FFF1E8] px-3 py-2 text-sm font-medium text-[#E85D04] transition hover:bg-[#FFE7D6] ${SURFACE_FOCUS_RING}`}
-                  >
-                    <Star className="h-3.5 w-3.5 fill-current" />
-                    <span>{category.name}</span>
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ))
-              ) : (
-                <p className="text-sm text-[#6B7280]">
-                  Şu anda ana sayfa vitrini için seçili koleksiyon yok.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-col gap-3 rounded-[24px] border border-[#E7EAF0] bg-white p-3 sm:flex-row sm:items-center sm:p-4">
-            <label htmlFor="collection-search" className="relative flex-1">
+        <section className="border-b border-[#E1E7EF] bg-[#F9F9F9] pb-4">
+          <div className="flex flex-col gap-3 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
+            <label htmlFor="collection-search" className="relative w-full min-[1025px]:max-w-[520px]">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
               <input
                 id="collection-search"
@@ -962,88 +854,126 @@ export default function CategoryManager() {
                 placeholder="Koleksiyon ara..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-2xl border border-[#E7EAF0] bg-white py-3 pl-11 pr-4 text-sm text-[#1F2937] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#FF6A00]/50 focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                className="h-11 w-full rounded-[10px] border border-[#DCE3EC] bg-white py-2.5 pl-11 pr-4 text-sm font-medium text-[#1F2937] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#FF6A00]/45 focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
               />
             </label>
 
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className={`inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7EAF0] bg-white px-4 py-3 text-sm font-medium text-[#374151] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
-              >
-                <X className="h-4 w-4" />
-                Temizle
-              </button>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#6B7280]">
+              <span className="inline-flex h-10 items-center rounded-[10px] border border-[#DCE3EC] bg-white px-3">
+                Ana: {rootCollections}
+              </span>
+              <span className="inline-flex h-10 items-center rounded-[10px] border border-[#DCE3EC] bg-white px-3">
+                Vitrin: {homepageFeaturedCount}/4
+              </span>
+              {hiddenFeaturedCount > 0 ? (
+                <span className="inline-flex h-10 items-center rounded-[10px] border border-[#FFD7BF] bg-[#FFF1E8] px-3 text-[#E85D04]">
+                  {hiddenFeaturedCount} gizli seçim
+                </span>
+              ) : null}
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className={`inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#374151] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
+                >
+                  <X className="h-4 w-4" />
+                  Temizle
+                </button>
+              ) : null}
+              {homepageFeaturedCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => void handleClearHomepageFeaturedCategories()}
+                  className={`inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-[#FFD7BF] bg-[#FFF7F1] px-3 text-sm font-semibold text-[#E85D04] transition hover:bg-[#FFF1E8] ${SURFACE_FOCUS_RING}`}
+                >
+                  <X className="h-4 w-4" />
+                  Vitrini temizle
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF1E8] px-3 py-1.5 text-xs font-semibold text-[#E85D04]">
+              <Star className="h-3.5 w-3.5" />
+              Ana sayfa vitrini
+            </span>
+            {featuredCategories.length > 0 ? (
+              featuredCategories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => void handleHomepageFeatureToggle(category)}
+                  className={`inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#374151] ring-1 ring-[#DCE3EC] transition hover:text-[#E85D04] hover:ring-[#FFD7BF] ${SURFACE_FOCUS_RING}`}
+                >
+                  <span>{category.name}</span>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ))
+            ) : (
+              <span className="text-sm font-medium text-[#6B7280]">Seçili koleksiyon yok</span>
+            )}
           </div>
         </section>
 
         {loading ? (
-          <section className="rounded-[28px] border border-[#E7EAF0] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-6">
-            <div className="space-y-4">
-              {[0, 1, 2, 3].map((item) => (
-                <div
-                  key={item}
-                  className="animate-pulse rounded-[22px] border border-[#EEF1F4] bg-[#FCFDFE] p-5"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-2xl bg-[#EEF1F4]" />
-                    <div className="h-14 w-14 rounded-2xl bg-[#EEF1F4]" />
-                    <div className="flex-1 space-y-3">
-                      <div className="h-4 w-48 rounded-full bg-[#E7EAF0]" />
-                      <div className="h-3 w-32 rounded-full bg-[#EEF1F4]" />
-                      <div className="h-3 w-full max-w-xl rounded-full bg-[#EEF1F4]" />
-                    </div>
-                    <div className="hidden gap-3 sm:flex">
-                      <div className="h-10 w-24 rounded-2xl bg-[#EEF1F4]" />
-                      <div className="h-10 w-20 rounded-2xl bg-[#EEF1F4]" />
-                    </div>
+          <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="animate-pulse border-b border-[#E7EAF0] px-5 py-4 last:border-b-0">
+                <div className="flex items-center gap-4">
+                  <div className="h-9 w-9 rounded-[10px] bg-[#EEF1F4]" />
+                  <div className="h-12 w-12 rounded-[12px] bg-[#EEF1F4]" />
+                  <div className="flex-1 space-y-3">
+                    <div className="h-4 w-56 rounded-full bg-[#E7EAF0]" />
+                    <div className="h-3 w-36 rounded-full bg-[#EEF1F4]" />
                   </div>
+                  <div className="hidden h-9 w-36 rounded-[10px] bg-[#EEF1F4] sm:block" />
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </section>
         ) : categories.length === 0 ? (
-          <section className="rounded-[28px] border border-[#E7EAF0] bg-white p-10 text-center shadow-[0_18px_45px_rgba(15,23,42,0.05)]">
-            <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-[24px] border border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]">
+          <section className="rounded-[12px] border border-[#DCE3EC] bg-white px-6 py-16 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[16px] bg-[#FFF1E8] text-[#E85D04]">
               <FolderTree className="h-8 w-8" />
             </div>
-            <div className="mx-auto mt-6 max-w-xl space-y-3">
-              <h3 className="text-2xl font-semibold tracking-[-0.03em] text-[#1F2937]">Henüz koleksiyon yok</h3>
-              <p className="text-sm leading-7 text-[#6B7280]">
-                Vitrin yapısını oluşturmak için ilk koleksiyonunuzu ekleyin. Hazırlanan liste, alt
-                koleksiyonları da aynı ekranda net bir hiyerarşiyle gösterecek.
-              </p>
-            </div>
+            <h3 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-[#1F2937]">Henüz koleksiyon yok</h3>
+            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#6B7280]">
+              İlk koleksiyon eklendiğinde vitrin ve alt koleksiyon düzeni burada yönetilecek.
+            </p>
             <button
               type="button"
               onClick={handleNew}
-              className={`mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#FF6A00] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.22)] transition hover:bg-[#E85D04] ${SURFACE_FOCUS_RING}`}
+              className={`mt-6 inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white transition hover:bg-[#E85D04] ${SURFACE_FOCUS_RING}`}
             >
               <Plus className="h-4 w-4" />
               Yeni Koleksiyon
             </button>
           </section>
         ) : (
-          <section className="rounded-[28px] border border-[#E7EAF0] bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-5">
-            <div className="mb-4 flex flex-col gap-2 px-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
+          <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-5 py-3">
               <div>
-                <h2 className="text-lg font-semibold tracking-[-0.03em] text-[#1F2937]">Koleksiyon ağacı</h2>
-                <p className="text-sm text-[#6B7280]">Hiyerarşi, durum ve düzenleme aksiyonları tek listede.</p>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Koleksiyon ağacı</h2>
+                <p className="mt-1 text-xs font-medium text-[#6B7280]">
+                  Hiyerarşi, vitrin ve durum aynı satırda.
+                </p>
               </div>
+              <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280]">
+                {filteredResults} sonuç
+              </span>
             </div>
 
             {filteredTree.length > 0 ? (
-              <div className="space-y-2">{filteredTree.map((category) => renderCategoryRow(category))}</div>
+              <div>{filteredTree.map((category) => renderCategoryRow(category))}</div>
             ) : (
-              <div className="rounded-[24px] border border-dashed border-[#DDE2EA] bg-[#FCFDFE] p-10 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]">
+              <div className="px-6 py-16 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[14px] bg-[#FFF1E8] text-[#E85D04]">
                   <Search className="h-7 w-7" />
                 </div>
-                <h3 className="mt-5 text-lg font-semibold text-[#1F2937]">Aramanızla eşleşen koleksiyon bulunamadı</h3>
+                <h3 className="mt-5 text-lg font-semibold text-[#1F2937]">Eşleşen koleksiyon bulunamadı</h3>
                 <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#6B7280]">
-                  Farklı bir ad veya açıklama deneyin. Liste davranışı değişmeden yalnızca mevcut sonuçlar filtrelenir.
+                  Farklı bir ad veya açıklama ile yeniden arayın.
                 </p>
               </div>
             )}
