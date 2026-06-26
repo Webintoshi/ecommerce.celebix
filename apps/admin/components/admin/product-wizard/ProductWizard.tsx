@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Save, ChevronRight, ChevronLeft, RefreshCw } from "lucide-react";
+import { RefreshCw, Save } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 import {
   ADMIN_PRODUCT_WIZARD_STEPS,
@@ -251,24 +251,6 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
-      if (currentStep < totalSteps) {
-        setCurrentStep((prev) => prev + 1);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    } else {
-      toast.error("Lütfen zorunlu alanları doldurun");
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep((prev) => prev - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
   };
 
   const handleStepClick = (stepId: number) => {
@@ -612,6 +594,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
             onPublish={() => handleSave(true)}
             onSaveDraft={() => handleSave(false)}
             saving={saving}
+            showActions={false}
           />
         );
       default:
@@ -689,152 +672,112 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
     );
   }
 
+  const currentWizardStep = ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1] ?? ADMIN_PRODUCT_WIZARD_STEPS[0];
+  const progressPercent = Math.round((currentStep / totalSteps) * 100);
+  const editorTitle = formData.name.trim() || "Ürün düzenle";
+  const statusLabel =
+    formData.status === "published"
+      ? "Yayında"
+      : formData.status === "draft"
+        ? "Taslak"
+        : "Satışa kapalı";
+  const enabledVariantCount = getEnabledVariants().length;
+
   return (
-    <div className="admin-page-root text-stone-900">
-      {/* Header */}
-      <div className="sticky top-0 z-30 border-b border-[var(--admin-border)] bg-[#fcf6f0]/95 backdrop-blur-xl">
-        <div className="container mx-auto px-4 py-4 md:py-5">
-          <div className="flex flex-col gap-4 min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between">
-            <div className="flex items-center gap-4">
-              <div>
-                <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
-                  {productId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}
-                </div>
-                {lastSaved ? (
-                  <span className="sr-only" aria-live="polite">
-                    Son kayıt: {lastSaved.toLocaleTimeString("tr-TR")}
-                  </span>
-                ) : null}
-              </div>
+    <div className="admin-page-root min-h-screen bg-[#F9F9F9] text-stone-900">
+      <AdminPageHeader
+        sectionLabel="Ürün düzenleme"
+        title={editorTitle}
+        description={`${currentWizardStep.title} · %${progressPercent} tamamlandı`}
+        actions={
+          <div className="flex w-full flex-col gap-2 min-[1025px]:w-auto min-[1025px]:flex-row min-[1025px]:items-center">
+            <div className="hidden h-10 items-center border-r border-[var(--admin-border)] pr-3 text-xs font-semibold text-[var(--admin-text-secondary)] min-[1180px]:flex">
+              Adım {currentStep}/{totalSteps}
             </div>
-
-            <div className="flex items-center gap-3 self-start lg:self-auto">
-              {currentStep < totalSteps && (
-                <button
-                  onClick={() => handleSave(false)}
-                  disabled={saving}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#FCFDFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {saving ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Taslak Kaydet"
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stepper */}
-      <div className="border-b border-[var(--admin-border)] bg-gradient-to-b from-[#fcf6f0] to-[#f8f1ea]">
-        <div className="container mx-auto px-4 py-4">
-          <WizardStepper
-            steps={ADMIN_PRODUCT_WIZARD_STEPS}
-            currentStep={currentStep}
-            onStepClick={handleStepClick}
-            allowFutureSteps={Boolean(productId)}
-          />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 md:py-10">
-        <div className="max-w-5xl mx-auto">
-          {/* Step Title */}
-          <div className="mb-8 overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
-            <div className="relative px-6 py-6 md:px-8 md:py-7">
-              <div className="hidden" />
-              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-base font-bold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)]">
-                  {currentStep}
-                  </span>
-                  <div>
-                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[#fff6ef] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent-hover)]">
-                      Adım {currentStep}/{totalSteps}
-                    </div>
-                    <h2 className="text-2xl font-semibold tracking-[-0.03em] text-stone-900 md:text-[2rem]">
-                      {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].title}
-                    </h2>
-                    <p className="mt-1 max-w-2xl text-sm text-stone-500 md:text-base">
-                      {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].description}
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-[24px] border border-[var(--admin-border)] bg-white/80 px-4 py-3 text-sm text-stone-600 shadow-sm">
-                  <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">
-                    İlerleme
-                  </span>
-                  <span className="mt-1 block text-lg font-semibold text-stone-900">
-                    %{Math.round((currentStep / totalSteps) * 100)} tamamlandı
-                  </span>
-                </div>
-              </div>
-              {ADMIN_PRODUCT_WIZARD_STEPS[currentStep - 1].isRequired && (
-                <p className="relative mt-4 text-xs font-medium text-rose-600">
-                  * Bu adımdaki tüm alanlar zorunludur
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Step Content */}
-          <div className="overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white shadow-[0_18px_55px_rgba(72,36,8,0.08)]">
-            {renderStep()}
-          </div>
-
-          {/* Navigation Buttons */}
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
-              onClick={handleBack}
-              disabled={currentStep === 1}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:cursor-not-allowed disabled:opacity-50"
+              type="button"
+              onClick={() => handleSave(false)}
+              disabled={saving}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-3 text-sm font-semibold text-[var(--admin-accent-hover)] transition-colors hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50 min-[1280px]:px-4"
             >
-              <ChevronLeft className="w-4 h-4" />
-              Geri
+              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Kaydet
             </button>
-
-            {currentStep < totalSteps ? (
-              <button
-                onClick={handleNext}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-8 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8]"
-              >
-                İleri
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  onClick={() => handleSave(false)}
-                  disabled={saving}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:opacity-50"
-                >
-                  {saving ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  Taslak Kaydet
-                </button>
-                <button
-                  onClick={() => handleSave(true)}
-                  disabled={saving}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-8 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6efe8] disabled:opacity-50"
-                >
-                  {saving ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  Yayınla
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,106,0,0.16)] transition-colors hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:cursor-not-allowed disabled:opacity-50 min-[1280px]:px-5"
+            >
+              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Yayınla
+            </button>
           </div>
-        </div>
-      </div>
+        }
+      />
+
+      <main className="mx-auto w-full max-w-[1560px] px-4 py-4 2xl:px-5">
+        <section className="mb-4 grid overflow-hidden border-y border-[var(--admin-border)] bg-white sm:grid-cols-2 xl:grid-cols-4">
+          <div className="border-b border-r border-[var(--admin-border)] px-4 py-3 sm:border-b-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">Durum</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--admin-heading)]">{statusLabel}</p>
+          </div>
+          <div className="border-b border-[var(--admin-border)] px-4 py-3 sm:border-b-0 xl:border-r">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">Varyant</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--admin-heading)]">{enabledVariantCount} aktif varyant</p>
+          </div>
+          <div className="border-r border-[var(--admin-border)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">Medya</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--admin-heading)]">{formData.images.length} görsel</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">Kayıt</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--admin-heading)]">
+              {lastSaved ? lastSaved.toLocaleTimeString("tr-TR") : hasUnsavedChanges ? "Değişiklik var" : "Güncel"}
+            </p>
+          </div>
+        </section>
+
+        <WizardStepper
+          steps={ADMIN_PRODUCT_WIZARD_STEPS}
+          currentStep={currentStep}
+          onStepClick={handleStepClick}
+          allowFutureSteps={Boolean(productId)}
+        />
+
+        <section className="mt-4 border-b border-[var(--admin-border)] pb-4">
+          <div className="flex flex-col gap-3 min-[1025px]:flex-row min-[1025px]:items-end min-[1025px]:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)]">
+                Adım {currentStep}/{totalSteps}
+              </p>
+              <h2 className="mt-1 text-[1.35rem] font-semibold tracking-[-0.035em] text-[var(--admin-heading)] md:text-[1.65rem]">
+                {currentWizardStep.title}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--admin-text-secondary)]">
+                {currentWizardStep.description}
+                {currentWizardStep.isRequired ? " · Zorunlu alanlar var" : ""}
+              </p>
+            </div>
+            <div className="w-full max-w-xs">
+              <div className="flex items-center justify-between text-xs font-semibold text-[var(--admin-text-secondary)]">
+                <span>İlerleme</span>
+                <span>%{progressPercent}</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E8EBF0]">
+                <div
+                  className="h-full rounded-full bg-[var(--admin-accent)] transition-[width]"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-4 overflow-hidden rounded-[10px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
+          {renderStep()}
+        </section>
+      </main>
     </div>
   );
 }

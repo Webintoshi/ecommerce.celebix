@@ -13,77 +13,71 @@ interface WizardStepperProps {
 
 export function WizardStepper({ steps, currentStep, onStepClick, allowFutureSteps = false }: WizardStepperProps) {
   return (
-    <div className="w-full overflow-x-auto scrollbar-hide">
-      <div className="flex min-w-max items-center gap-3 rounded-[28px] border border-[var(--admin-border)] bg-white px-3 py-3 shadow-[0_18px_40px_rgba(72,36,8,0.06)] md:gap-4 md:px-4">
-        {steps.map((step, index) => {
+    <nav className="w-full overflow-x-auto scrollbar-hide" aria-label="Ürün düzenleme adımları">
+      <div className="flex min-w-max items-stretch border-y border-[var(--admin-border)] bg-[#F9F9F9]">
+        {steps.map((step) => {
           const isCompleted = currentStep > step.id;
           const isCurrent = currentStep === step.id;
           const isUpcoming = currentStep < step.id;
           const isLocked = isUpcoming && !allowFutureSteps;
 
             return (
-              <div key={step.id} className="flex items-center">
+              <div key={step.id} className="flex items-stretch">
                 <button
                   onClick={() => onStepClick(step.id)}
                   className={cn(
-                    "group flex items-center gap-3 rounded-[22px] border px-4 py-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f1ea]",
+                    "group relative flex min-h-[58px] items-center gap-3 border-r border-[var(--admin-border)] px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/30 focus-visible:ring-inset md:px-5",
                     isCurrent
-                      ? "border-[var(--admin-accent-border)] bg-gradient-to-r from-[#fff3e8] to-white shadow-[0_12px_28px_rgba(255,106,0,0.14)]"
+                      ? "bg-white text-[var(--admin-heading)]"
                     : isCompleted
-                      ? "border-[var(--admin-border)] bg-white hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
+                      ? "bg-white text-[var(--admin-heading)] hover:bg-[var(--admin-accent-soft)]"
                       : isLocked
-                        ? "cursor-not-allowed border-transparent bg-transparent opacity-60"
-                        : "border-transparent bg-white/70 text-stone-600 hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
+                        ? "cursor-not-allowed bg-[#F9F9F9] text-[var(--admin-text-muted)] opacity-70"
+                        : "bg-[#F9F9F9] text-[var(--admin-text-secondary)] hover:bg-white"
                   )}
                   disabled={isLocked}
                   aria-current={isCurrent ? "step" : undefined}
                   aria-disabled={isLocked ? true : undefined}
                   aria-label={`${step.id}. adım: ${step.title}`}
                 >
+                  {isCurrent ? (
+                    <span className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--admin-accent)]" aria-hidden="true" />
+                  ) : null}
                   <div
                     className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-bold transition-all",
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border text-xs font-bold transition-colors",
                       isCurrent
-                        ? "bg-[var(--admin-accent)] text-white shadow-[0_12px_24px_rgba(255,106,0,0.24)]"
+                        ? "border-[var(--admin-accent)] bg-[var(--admin-accent)] text-white"
                       : isCompleted
-                        ? "bg-emerald-500 text-white shadow-[0_10px_20px_rgba(16,185,129,0.2)]"
-                        : "bg-[#f2e9e0] text-stone-500"
+                        ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
+                        : "border-[var(--admin-border)] bg-white text-[var(--admin-text-muted)]"
                     )}
                   >
                     {isCompleted ? (
-                    <Check className="w-4 h-4" />
+                    <Check className="h-3.5 w-3.5" />
                   ) : (
                     step.id
                   )}
                 </div>
 
-                  <div className="hidden sm:block text-left">
+                  <div className="min-w-[9.5rem]">
                     <p
                       className={cn(
-                        "text-[11px] font-semibold uppercase tracking-[0.22em]",
-                        isCurrent ? "text-[var(--admin-accent)]" : isCompleted ? "text-stone-700" : "text-stone-500"
+                        "text-sm font-semibold leading-5",
+                        isCurrent ? "text-[var(--admin-heading)]" : isCompleted ? "text-[var(--admin-heading)]" : "text-[var(--admin-text-secondary)]"
                       )}
                     >
                       {step.title}
                     </p>
-                    <p className="max-w-[140px] truncate text-[11px] text-stone-400">
+                    <p className="max-w-[160px] truncate text-xs text-[var(--admin-text-muted)]">
                       {step.description}
                     </p>
                   </div>
                 </button>
-
-                {index < steps.length - 1 && (
-                  <div
-                    className={cn(
-                      "mx-1 h-px w-8 transition-colors sm:mx-2 sm:w-10",
-                      isCompleted ? "bg-[var(--admin-accent)]/35" : "bg-[#e7ddd3]"
-                    )}
-                  />
-                )}
             </div>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

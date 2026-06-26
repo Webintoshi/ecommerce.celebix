@@ -11,6 +11,7 @@ interface StepPreviewProps {
   onPublish: () => void;
   onSaveDraft: () => void;
   saving: boolean;
+  showActions?: boolean;
 }
 
 function formatLabel(value: string) {
@@ -26,6 +27,7 @@ export function StepPreview({
   onPublish,
   onSaveDraft,
   saving,
+  showActions = true,
 }: StepPreviewProps) {
   const checklistItems = [
     { id: "name", label: "Ürün adı girilmiş", check: () => data.name.length > 0 },
@@ -105,38 +107,40 @@ export function StepPreview({
             })}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={onSaveDraft}
-              disabled={saving}
-              className="flex items-center justify-center gap-2 rounded-[24px] border border-[var(--admin-border)] bg-white px-4 py-4 font-semibold text-stone-700 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:opacity-50"
-            >
-              <Save className="w-5 h-5" />
-              Taslak Kaydet
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (progress < 100) {
-                  toast.error("Lütfen önce tüm zorunlu alanları doldurun");
-                  return;
-                }
+          {showActions ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={onSaveDraft}
+                disabled={saving}
+                className="flex items-center justify-center gap-2 rounded-[24px] border border-[var(--admin-border)] bg-white px-4 py-4 font-semibold text-stone-700 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:opacity-50"
+              >
+                <Save className="w-5 h-5" />
+                Taslak Kaydet
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (progress < 100) {
+                    toast.error("Lütfen önce tüm zorunlu alanları doldurun");
+                    return;
+                  }
 
-                onPublish();
-              }}
-              disabled={saving}
-              className={cn(
-                "flex items-center justify-center gap-2 rounded-[24px] px-4 py-4 font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:opacity-50",
-                progress >= 100
-                  ? "bg-[var(--admin-accent)] text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] hover:from-[#E45700] hover:to-[#D34D00]"
-                  : "cursor-not-allowed bg-stone-300 text-stone-500"
-              )}
-            >
-              <Globe className="w-5 h-5" />
-              {saving ? "Yayınlanıyor..." : "Yayınla"}
-            </button>
-          </div>
+                  onPublish();
+                }}
+                disabled={saving}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-[24px] px-4 py-4 font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:opacity-50",
+                  progress >= 100
+                    ? "bg-[var(--admin-accent)] text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] hover:from-[#E45700] hover:to-[#D34D00]"
+                    : "cursor-not-allowed bg-stone-300 text-stone-500"
+                )}
+              >
+                <Globe className="w-5 h-5" />
+                {saving ? "Yayınlanıyor..." : "Yayınla"}
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-6">
