@@ -45,7 +45,7 @@ const CATEGORY_BADGE_STYLES = [
   "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
   "border-[#D8F0E0] bg-[#EAF8EF] text-[#16A34A]",
 ];
-const PRODUCT_TABLE_NAME_LIMIT = 44;
+const PRODUCT_TABLE_NAME_LIMIT = 20;
 
 type Notice = {
   tone: "success" | "error";
@@ -1871,7 +1871,9 @@ export default function ProductsPageClient({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <h3 className="break-words text-[15px] font-semibold text-[#1F2937]">{product.name}</h3>
+                            <h3 className="text-[15px] font-semibold text-[#1F2937]" title={product.name}>
+                              {truncateTableText(product.name)}
+                            </h3>
                             <span
                               className={cn(
                                 "mt-2 inline-flex max-w-full rounded-[7px] border px-2.5 py-1 text-[11px] font-semibold",
