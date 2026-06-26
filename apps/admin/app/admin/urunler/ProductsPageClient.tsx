@@ -1578,13 +1578,13 @@ export default function ProductsPageClient({
                 <colgroup>
                   {reorderMode ? <col style={{ width: "7%" }} /> : null}
                   <col style={{ width: "4%" }} />
-                  <col style={{ width: reorderMode ? "21%" : "26%" }} />
+                  <col style={{ width: reorderMode ? "19%" : "22%" }} />
                   <col style={{ width: "12%" }} />
                   <col style={{ width: "9%" }} />
                   <col style={{ width: "9%" }} />
                   <col style={{ width: "12%" }} />
                   <col style={{ width: "8%" }} />
-                  <col style={{ width: reorderMode ? "18%" : "20%" }} />
+                  <col style={{ width: reorderMode ? "20%" : "24%" }} />
                 </colgroup>
                 <thead>
                   <tr className="border-b border-[#E1E6EF] bg-[#EEF2F6] text-left text-[13px] font-semibold text-[#4B5563]">
