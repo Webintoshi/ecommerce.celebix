@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   CheckCircle2,
   Copy,
+  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -16,6 +17,7 @@ import {
   BarChart3,
   PencilLine,
 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 import { cn } from "@/lib/utils";
 import { AdminDiscount, DiscountStatus, DiscountType } from "@/types/discount";
 
@@ -41,20 +43,20 @@ function createDuplicateCode(code: string) {
 
 const STATUS_LABEL: Record<DiscountStatus, string> = {
   active: "Aktif",
-  scheduled: "Planlandi",
-  expired: "Suresi Doldu",
+  scheduled: "Planlandı",
+  expired: "Süresi doldu",
   draft: "Taslak",
 };
 
-const STATUS_CLASS: Record<DiscountStatus, string> = {
-  active: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  scheduled: "border-amber-200 bg-amber-50 text-amber-700",
-  expired: "border-rose-200 bg-rose-50 text-rose-700",
-  draft: "border-stone-200 bg-stone-100 text-stone-700",
+const STATUS_DOT_CLASS: Record<DiscountStatus, string> = {
+  active: "bg-emerald-500",
+  scheduled: "bg-amber-500",
+  expired: "bg-rose-500",
+  draft: "bg-[#9CA3AF]",
 };
 
 const INPUT_CLASS =
-  "w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
+  "h-10 w-full rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-medium text-[#111827] outline-none transition placeholder:text-[#7B8794] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[#FFF1E8]";
 
 export default function DiscountsPage() {
   const [discounts, setDiscounts] = useState<AdminDiscount[]>([]);
@@ -74,12 +76,12 @@ export default function DiscountsPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || "Indirimler alinamadi.");
+        throw new Error(result?.error || "İndirimler alınamadı.");
       }
 
       setDiscounts((result.discounts || []) as AdminDiscount[]);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Indirimler yuklenemedi.");
+      setError(loadError instanceof Error ? loadError.message : "İndirimler yüklenemedi.");
     } finally {
       setLoading(false);
     }
@@ -134,7 +136,7 @@ export default function DiscountsPage() {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      window.alert(result?.error || "Indirim silinemedi.");
+      window.alert(result?.error || "İndirim silinemedi.");
       return;
     }
 
@@ -154,7 +156,7 @@ export default function DiscountsPage() {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      window.alert(result?.error || "Toplu silme basarisiz.");
+      window.alert(result?.error || "Toplu silme başarısız.");
       return;
     }
 
@@ -192,7 +194,7 @@ export default function DiscountsPage() {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      window.alert(result?.error || "Durum guncellenemedi.");
+      window.alert(result?.error || "Durum güncellenemedi.");
       return;
     }
 
@@ -229,100 +231,123 @@ export default function DiscountsPage() {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      window.alert(result?.error || "Kopyalama basarisiz.");
+      window.alert(result?.error || "Kopyalama başarısız.");
       return;
     }
 
     await loadDiscounts();
   };
 
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((discount) => selectedIds.includes(discount.id));
+
   return (
-    <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
-              Indirimler
-            </div>
-            <div className="flex flex-wrap gap-3">
+    <main role="main" aria-busy={loading} className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+      <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+        <AdminPageHeader
+          sectionLabel="Pazarlama"
+          title="İndirimler"
+          description="Kupon ve kampanya akışını yönetin."
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
               <button
+                type="button"
                 onClick={loadDiscounts}
-                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
               >
                 <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                 Yenile
               </button>
               <Link
                 href="/admin/indirimler/sans-carki"
-                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
               >
                 <TicketPercent className="h-4 w-4" />
-                Sans Carki
+                Şans Çarkı
               </Link>
               <Link
                 href="/admin/indirimler/yeni"
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.18)] transition hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
               >
                 <Plus className="h-4 w-4" />
-                Yeni Indirim
+                Yeni İndirim
               </Link>
             </div>
+          }
+          metrics={
+            <>
+              <HeaderMetric label="Toplam" value={stats.total} detail="indirim" icon={Layers3} />
+              <HeaderMetric label="Aktif" value={stats.active} detail="yayında" icon={CheckCircle2} tone="text-emerald-600" />
+              <HeaderMetric label="Planlı" value={stats.scheduled} detail="bekliyor" icon={CalendarClock} tone="text-amber-600" />
+              <HeaderMetric label="Kullanım" value={stats.totalUsage} detail="kez" icon={BarChart3} tone="text-[#E85D04]" />
+            </>
+          }
+        />
+
+        {error ? (
+          <div aria-live="assertive" className="border-y border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {error}
           </div>
-          <div className="hidden" />
-        </section>
+        ) : null}
 
-        {error && <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+        <section className="border-y border-[#E1E6EF] bg-[#F9F9F9]">
+          <div className="flex flex-col gap-3 px-0 py-3 min-[1080px]:flex-row min-[1080px]:items-center min-[1080px]:justify-between">
+            <div className="grid flex-1 grid-cols-1 gap-2 min-[1080px]:max-w-[920px] min-[1080px]:grid-cols-[minmax(320px,1fr)_180px_160px]">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--admin-text-muted)]" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Tabloda arama yapın"
+                  aria-label="İndirim tablosunda ara"
+                  className={cn(INPUT_CLASS, "pl-11")}
+                />
+              </label>
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-          <StatCard title="Toplam" value={stats.total} icon={Layers3} tone="from-white to-white text-[var(--admin-accent)] border-[var(--admin-border)]" />
-          <StatCard title="Aktif" value={stats.active} icon={CheckCircle2} tone="from-[#ecfdf3] to-white text-emerald-600 border-emerald-200" />
-          <StatCard title="Planli" value={stats.scheduled} icon={CalendarClock} tone="from-white to-white text-amber-600 border-amber-200" />
-          <StatCard title="Suresi Dolan" value={stats.expired} icon={XCircle} tone="from-white to-white text-rose-600 border-rose-200" />
-          <StatCard title="Taslak" value={stats.draft} icon={PencilLine} tone="from-[#f7f1eb] to-white text-stone-600 border-stone-200" />
-          <StatCard title="Toplam Kullanim" value={stats.totalUsage} icon={BarChart3} tone="from-white to-white text-[var(--admin-accent-hover)] border-[var(--admin-border)]" />
-        </div>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as DiscountStatus | "all")}
+                aria-label="Duruma göre filtrele"
+                className={INPUT_CLASS}
+              >
+                <option value="all">Tüm durumlar</option>
+                <option value="active">Aktif</option>
+                <option value="scheduled">Planlandı</option>
+                <option value="expired">Süresi doldu</option>
+                <option value="draft">Taslak</option>
+              </select>
 
-        <section className="rounded-[30px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:p-5">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--admin-text-muted)]" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Isim, kod veya aciklama ara..."
-                className={cn(INPUT_CLASS, "pl-11")}
-              />
+              <select
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value as DiscountType | "all")}
+                aria-label="İndirim tipine göre filtrele"
+                className={INPUT_CLASS}
+              >
+                <option value="all">Tüm tipler</option>
+                <option value="percentage">Yüzde</option>
+                <option value="fixed">Sabit</option>
+              </select>
             </div>
 
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as DiscountStatus | "all")}
-              className={INPUT_CLASS}
-            >
-              <option value="all">Tum Durumlar</option>
-              <option value="active">Aktif</option>
-              <option value="scheduled">Planlandi</option>
-              <option value="expired">Suresi Doldu</option>
-              <option value="draft">Taslak</option>
-            </select>
-
-            <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value as DiscountType | "all")}
-              className={INPUT_CLASS}
-            >
-              <option value="all">Tum Tipler</option>
-              <option value="percentage">Yuzde</option>
-              <option value="fixed">Sabit</option>
-            </select>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold text-[#6B7280] min-[1080px]:justify-end">
+              <span>
+                <span className="text-[#111827]">{filtered.length.toLocaleString("tr-TR")}</span> sonuç
+              </span>
+              <span>
+                <span className="text-[#E85D04]">{stats.draft.toLocaleString("tr-TR")}</span> taslak
+              </span>
+              <span>
+                <span className="text-rose-600">{stats.expired.toLocaleString("tr-TR")}</span> süresi dolan
+              </span>
+            </div>
           </div>
 
           {selectedIds.length > 0 && (
-            <div className="mt-4 flex flex-col gap-3 rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
-              <span className="text-sm font-medium text-rose-700">{selectedIds.length} indirim secildi</span>
+            <div className="flex flex-col gap-3 border-t border-rose-200 bg-rose-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
+              <span className="text-sm font-semibold text-rose-700">{selectedIds.length} indirim seçildi</span>
               <button
                 onClick={removeBulk}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-rose-600 px-4 text-sm font-semibold text-white transition hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
               >
                 <Trash2 className="h-4 w-4" />
                 Toplu Sil
@@ -331,92 +356,114 @@ export default function DiscountsPage() {
           )}
         </section>
 
-        <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+        <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="border-b border-[var(--admin-border)] bg-[var(--admin-accent-soft)]/85 text-left">
+            <table className="min-w-[980px] w-full table-fixed text-left text-sm">
+              <thead className="bg-[#EEF3F7] text-[#4B5563]">
                 <tr>
-                  <th className="px-4 py-4 w-10">
+                  <th className="w-[56px] px-4 py-3">
                     <input
                       type="checkbox"
-                      checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                      checked={allFilteredSelected}
                       onChange={(event) => setSelectedIds(event.target.checked ? filtered.map((discount) => discount.id) : [])}
-                      className="h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+                      aria-label="Tüm indirimleri seç"
+                      className="h-4 w-4 rounded border-[#C9D3DF] text-[#FF6A00] focus:ring-[#FF6A00]"
                     />
                   </th>
-                  <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Indirim</th>
-                  <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Deger</th>
-                  <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Durum</th>
-                  <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Kullanim</th>
-                  <th className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Tarih</th>
-                  <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Islem</th>
+                  <th className="w-[29%] px-4 py-3 font-semibold">İndirim</th>
+                  <th className="w-[12%] px-4 py-3 font-semibold">Değer</th>
+                  <th className="w-[14%] px-4 py-3 font-semibold">Durum</th>
+                  <th className="w-[12%] px-4 py-3 font-semibold">Kullanım</th>
+                  <th className="w-[18%] px-4 py-3 font-semibold">Tarih</th>
+                  <th className="w-[15%] px-4 py-3 text-right font-semibold">İşlemler</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f2e7dc]">
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-16 text-center">
+                      <div className="inline-flex items-center gap-2 text-sm font-semibold text-[#6B7280]">
+                        <Loader2 className="h-4 w-4 animate-spin text-[#FF6A00]" />
+                        İndirimler yükleniyor
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+
                 {filtered.map((discount) => (
-                  <tr key={discount.id} className="bg-white/65 transition-colors hover:bg-[#FCFDFE]">
+                  <tr key={discount.id} className="border-t border-[#E7EAF0] align-top transition hover:bg-[#FFF8F3]">
                     <td className="px-4 py-4 align-top">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(discount.id)}
                         onChange={(event) => toggleSelected(discount.id, event.target.checked)}
-                        className="mt-1 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+                        aria-label={`${discount.name} indirimini seç`}
+                        className="mt-1 h-4 w-4 rounded border-[#C9D3DF] text-[#FF6A00] focus:ring-[#FF6A00]"
                       />
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <div className="font-semibold text-[var(--admin-heading)]">{discount.name}</div>
-                      <div className="mt-1 inline-flex rounded-full border border-[var(--admin-border)] bg-[#f9f2eb] px-3 py-1 text-[11px] font-medium tracking-[0.12em] text-[var(--admin-text-secondary)]">{discount.code}</div>
+                      <div className="truncate text-base font-semibold tracking-[-0.02em] text-[#111827]" title={discount.name}>
+                        {discount.name}
+                      </div>
+                      <div className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-[#E85D04]">
+                        {discount.code}
+                      </div>
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <div className="font-semibold text-[var(--admin-heading)]">
+                      <div className="text-base font-semibold tracking-[-0.02em] text-[#111827]">
                         {discount.type === "percentage" ? `%${discount.value}` : formatCurrency(discount.value)}
                       </div>
-                      <div className="mt-1 text-xs text-[#8c7564]">{discount.type === "percentage" ? "Yuzde" : "Sabit"}</div>
+                      <div className="mt-1 text-xs font-medium text-[#6B7280]">{discount.type === "percentage" ? "Yüzde" : "Sabit"}</div>
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <span className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold", STATUS_CLASS[discount.status])}>
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#374151]">
+                        <span className={cn("h-2 w-2 rounded-full", STATUS_DOT_CLASS[discount.status])} />
                         {STATUS_LABEL[discount.status]}
                       </span>
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <div className="font-semibold text-[var(--admin-heading)]">{discount.usedCount}</div>
-                      <div className="mt-1 text-xs text-[#8c7564]">Limit: {discount.maxUses ?? "∞"}</div>
+                      <div className="text-base font-semibold text-[#111827]">{discount.usedCount.toLocaleString("tr-TR")}</div>
+                      <div className="mt-1 text-xs font-medium text-[#6B7280]">Limit {discount.maxUses ?? "∞"}</div>
                     </td>
-                    <td className="px-4 py-4 align-top text-xs text-[var(--admin-text-secondary)]">
-                      <div>Baslangic: {toInputDate(discount.startsAt) || "-"}</div>
-                      <div className="mt-1">Bitis: {toInputDate(discount.expiresAt) || "-"}</div>
+                    <td className="px-4 py-4 align-top text-sm font-medium text-[#4B5563]">
+                      <div>Başlangıç: {toInputDate(discount.startsAt) || "-"}</div>
+                      <div className="mt-1 text-[#6B7280]">Bitiş: {toInputDate(discount.expiresAt) || "-"}</div>
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2">
                         <button
+                          type="button"
                           onClick={() => toggleActive(discount)}
                           className={cn(
-                            "inline-flex h-11 w-11 items-center justify-center rounded-2xl border shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4",
+                            "inline-flex h-10 w-10 items-center justify-center rounded-[8px] border transition focus-visible:outline-none focus-visible:ring-4",
                             discount.isActive
                               ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 focus-visible:ring-emerald-100"
-                              : "border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:ring-[rgba(255,106,0,0.16)]"
+                              : "border-[#DCE3EC] bg-white text-[#6B7280] hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:ring-[#FFF1E8]"
                           )}
-                          title={discount.isActive ? "Pasife al" : "Aktif et"}
+                          aria-label={discount.isActive ? "Pasife al" : "Aktif et"}
                         >
                           {discount.isActive ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                         </button>
                         <button
+                          type="button"
                           onClick={() => duplicateDiscount(discount)}
-                          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-                          title="Kopyala"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white text-[#6B7280] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
+                          aria-label="Kopyala"
                         >
                           <Copy className="h-4 w-4" />
                         </button>
                         <Link
                           href={`/admin/indirimler/${discount.id}/duzenle`}
-                          className="inline-flex items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-xs font-semibold text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white text-[#111827] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
+                          aria-label="Düzenle"
                         >
-                          Duzenle
+                          <PencilLine className="h-4 w-4" />
                         </Link>
                         <button
+                          type="button"
                           onClick={() => removeSingle(discount.id, discount.name)}
-                          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-700 shadow-sm transition-all hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
-                          title="Sil"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                          aria-label="Sil"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -430,39 +477,47 @@ export default function DiscountsPage() {
 
           {!loading && filtered.length === 0 && (
             <div className="px-6 py-14 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[12px] bg-[#FFF1E8] text-[#FF6A00]">
                 <Search className="h-6 w-6" />
               </div>
-              <p className="mt-4 text-sm font-medium text-[var(--admin-text-secondary)]">Filtreye uygun indirim bulunamadi.</p>
+              <p className="mt-4 text-lg font-semibold tracking-[-0.02em] text-[#111827]">İndirim bulunamadı</p>
+              <p className="mt-1 text-sm font-medium text-[#6B7280]">Arama veya filtreyi değiştirerek tekrar deneyin.</p>
             </div>
           )}
         </section>
       </div>
-    </div>
+    </main>
   );
 }
 
-function StatCard({
+function HeaderMetric({
   title,
+  label,
   value,
+  detail,
   icon: Icon,
-  tone,
+  tone = "text-[#9CA3AF]",
 }: {
-  title: string;
+  title?: string;
+  label: string;
   value: number;
+  detail: string;
   icon: typeof Layers3;
-  tone: string;
+  tone?: string;
 }) {
   return (
-    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</div>
-          <div className="mt-2 text-3xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">{value}</div>
-        </div>
-        <div className={cn("flex h-12 w-12 items-center justify-center rounded-[18px] border bg-gradient-to-br shadow-sm", tone)}>
-          <Icon className="h-5 w-5" />
-        </div>
+    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
+          {title ?? label}
+        </p>
+        <Icon className={cn("h-4 w-4", tone)} />
+      </div>
+      <div className="mt-3 flex items-end gap-2">
+        <p className="text-3xl font-semibold tracking-[-0.04em] text-[#111827]">
+          {value.toLocaleString("tr-TR")}
+        </p>
+        <span className="pb-1 text-sm font-medium text-[#6B7280]">{detail}</span>
       </div>
     </div>
   );
