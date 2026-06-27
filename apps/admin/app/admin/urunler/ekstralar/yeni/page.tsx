@@ -10,13 +10,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/AdminPageShell";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Save, Loader2 } from "lucide-react";
+import { Loader2, Save, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import {
   createSchemaRequestSchema,
@@ -24,17 +23,23 @@ import {
 } from "@/lib/validations/product-customization";
 import type { CreateSchemaRequest } from "@/types/product-customization";
 
+const FORM_ID = "new-extra-schema-form";
+
 export default function NewSchemaPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSlug, setAutoSlug] = useState(true);
-  const warmFieldClassName =
-    "border-[#e7d8ca] bg-white/90 shadow-[0_10px_25px_rgba(120,78,44,0.08)] transition focus-visible:border-[var(--admin-accent-border)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]";
+  const fieldClassName =
+    "h-11 rounded-[10px] border-[#DCE3EC] bg-white text-sm font-medium text-[#111827] shadow-none transition placeholder:text-[#8B95A5] focus-visible:border-[var(--admin-accent-border)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.14)]";
+  const labelClassName = "text-sm font-semibold text-[#374151]";
+  const helperClassName = "text-xs font-medium leading-5 text-[#6B7280]";
+  const errorClassName = "text-xs font-semibold text-[#EF4444]";
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<CreateSchemaRequest>({
     resolver: zodResolver(createSchemaRequestSchema),
@@ -48,6 +53,7 @@ export default function NewSchemaPage() {
       },
     },
   });
+  const currentName = watch("name");
 
   // Auto-generate slug from name
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,206 +103,185 @@ export default function NewSchemaPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="hidden" />
-        <div className="hidden" />
-        <div className="hidden" />
-      </div>
+    <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[var(--admin-heading)]">
+      <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+        <AdminPageHeader
+          sectionLabel="Katalog"
+          title="Yeni Ekstra"
+          description="Ürünlerde kullanılacak ekstra seçim akışını oluşturun."
+          actions={
+            <>
+              <Link
+                href="/admin/urunler/ekstralar"
+                className="inline-flex h-10 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white px-4 text-sm font-semibold text-[#374151] transition hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+              >
+                İptal
+              </Link>
+              <button
+                type="submit"
+                form={FORM_ID}
+                disabled={isSubmitting}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.20)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Kaydediliyor
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Devam Et
+                  </>
+                )}
+              </button>
+            </>
+          }
+        />
 
-      <div className="relative mx-auto max-w-4xl px-4 py-6 md:px-6 md:py-8 lg:px-8">
-        <div className="space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
-            <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-start gap-3 md:gap-4">
-                  <div className="space-y-3">
-                    <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
-                      Yeni ekstra semasi
-                    </div>
-                    <h1 className="sr-only">Yeni Kişiselleştirme Şeması</h1>
-                    <p className="max-w-2xl text-sm leading-6 text-[#786658]">
-                      Yeni sema icin temel alanlari, URL kimligini ve gorunum davranislarini sicak panel stiliyle hazirlayin.
-                    </p>
+        <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)} className="grid gap-4 min-[1180px]:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+            <div className="border-b border-[#DCE3EC] bg-[#EEF3F7] px-5 py-4">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Temel bilgiler</h2>
+            </div>
+
+            <div className="grid gap-5 p-5 xl:grid-cols-2 xl:p-6">
+              <div className="space-y-2 xl:col-span-2">
+                <Label htmlFor="name" className={labelClassName}>
+                  Ekstra adı <span className="text-[#EF4444]">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  placeholder="Örn: Telefon kılıfı kişiselleştirme"
+                  className={fieldClassName}
+                  {...register("name", { onChange: handleNameChange })}
+                />
+                {errors.name ? <p className={errorClassName}>{errors.name.message}</p> : null}
+              </div>
+
+              <div className="space-y-2 xl:col-span-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <Label htmlFor="slug" className={labelClassName}>
+                    Bağlantı adı <span className="text-[#EF4444]">*</span>
+                  </Label>
+                  <div
+                    className="inline-flex w-fit items-center gap-2 rounded-[10px] border border-[#DCE3EC] bg-white px-3 py-2 text-xs font-semibold text-[#6B7280]"
+                  >
+                    <Switch
+                      checked={autoSlug}
+                      onCheckedChange={(checked) => {
+                        setAutoSlug(checked);
+                        if (checked) {
+                          setValue("slug", generateSlug(currentName || ""));
+                        }
+                      }}
+                      id="auto-slug"
+                      className="data-[state=checked]:bg-[var(--admin-accent)]"
+                    />
+                    <Label htmlFor="auto-slug" className="cursor-pointer text-xs font-semibold text-[#6B7280]">
+                      Otomatik
+                    </Label>
                   </div>
                 </div>
+                <Input
+                  id="slug"
+                  placeholder="telefon-kilifi-kisisellestirme"
+                  className={fieldClassName}
+                  {...register("slug")}
+                  readOnly={autoSlug}
+                />
+                <p className={helperClassName}>Küçük harf, rakam ve tire kullanılır.</p>
+                {errors.slug ? <p className={errorClassName}>{errors.slug.message}</p> : null}
+              </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#7d6a5d]">
-                  <span className="rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 shadow-sm">
-                    Slug modu: {autoSlug ? "Otomatik" : "Manuel"}
-                  </span>
-                </div>
+              <div className="space-y-2 xl:col-span-2">
+                <Label htmlFor="description" className={labelClassName}>
+                  Açıklama
+                </Label>
+                <Textarea
+                  id="description"
+                  placeholder="Kısa kullanım notu"
+                  rows={3}
+                  className={`${fieldClassName} min-h-[96px] resize-none py-3`}
+                  {...register("description")}
+                />
+                {errors.description ? <p className={errorClassName}>{errors.description.message}</p> : null}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="submitText" className={labelClassName}>
+                  Buton metni
+                </Label>
+                <Input
+                  id="submitText"
+                  placeholder="Sepete Ekle"
+                  className={fieldClassName}
+                  {...register("settings.submit_button_text")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="successMessage" className={labelClassName}>
+                  Başarı mesajı
+                </Label>
+                <Input
+                  id="successMessage"
+                  placeholder="Ürün sepete eklendi"
+                  className={fieldClassName}
+                  {...register("settings.success_message")}
+                />
               </div>
             </div>
           </section>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <Card className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] shadow-[0_24px_55px_rgba(98,64,33,0.09)]">
-              <CardHeader className="border-b border-[#efdfd1] px-5 py-5 md:px-6">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Kurulum</p>
-                  <CardTitle className="text-xl text-[var(--admin-heading)]">Temel bilgiler</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6 px-5 py-5 md:px-6 md:py-6">
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-[#5f4636]">
-                Şema Adı <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                placeholder="Örn: Telefon Kılıfı Kişiselleştirme"
-                className={warmFieldClassName}
-                {...register("name", { onChange: handleNameChange })}
-              />
-              {errors.name && (
-                <p className="text-sm text-red-500">{errors.name.message}</p>
-              )}
-            </div>
-
-            {/* Slug */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="slug" className="text-[#5f4636]">
-                  URL Slug <span className="text-red-500">*</span>
-                </Label>
-                <div className="flex items-center gap-2 rounded-full border border-[#ebdccc] bg-white px-3 py-1.5 shadow-sm">
-                  <Switch
-                    checked={autoSlug}
-                    onCheckedChange={setAutoSlug}
-                    id="auto-slug"
-                    className="data-[state=checked]:bg-[var(--admin-accent)]"
-                  />
-                  <Label htmlFor="auto-slug" className="text-sm text-[#7d6a5d]">
-                    Otomatik oluştur
-                  </Label>
+          <aside className="space-y-4">
+            <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+              <div className="border-b border-[#DCE3EC] bg-[#EEF3F7] px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-[var(--admin-accent)]" />
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Görünüm</h2>
                 </div>
               </div>
-              <Input
-                id="slug"
-                placeholder="telefon-kilifi-kisisellestirme"
-                className={warmFieldClassName}
-                {...register("slug")}
-                disabled={autoSlug}
-              />
-              <p className="text-sm text-[#8b6d58]">
-                URL-friendly benzersiz tanımlayıcı. Sadece küçük harf, rakam ve tire.
-              </p>
-              {errors.slug && (
-                <p className="text-sm text-red-500">{errors.slug.message}</p>
-              )}
-            </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-[#5f4636]">Açıklama</Label>
-              <Textarea
-                id="description"
-                placeholder="Bu şemanın amacını ve kullanım alanını açıklayın..."
-                rows={3}
-                className={warmFieldClassName}
-                {...register("description")}
-              />
-              {errors.description && (
-                <p className="text-sm text-red-500">
-                  {errors.description.message}
-                </p>
-              )}
-            </div>
-
-            {/* Submit Button Text */}
-            <div className="space-y-2">
-              <Label htmlFor="submitText" className="text-[#5f4636]">Buton Metni</Label>
-              <Input
-                id="submitText"
-                placeholder="Sepete Ekle"
-                className={warmFieldClassName}
-                {...register("settings.submit_button_text")}
-              />
-              <p className="text-sm text-[#8b6d58]">
-                Formdaki gönder butonunda görünecek metin.
-              </p>
-            </div>
-
-            {/* Success Message */}
-            <div className="space-y-2">
-              <Label htmlFor="successMessage" className="text-[#5f4636]">Başarı Mesajı</Label>
-              <Input
-                id="successMessage"
-                placeholder="Ürün sepete eklendi"
-                className={warmFieldClassName}
-                {...register("settings.success_message")}
-              />
-              <p className="text-sm text-[#8b6d58]">
-                Ürün sepete eklendikten sonra gösterilecek mesaj.
-              </p>
-            </div>
-
-            {/* Settings */}
-            <div className="rounded-[26px] border border-[#efdfd1] bg-gradient-to-r from-[#fffaf6] to-white p-4 shadow-inner">
-              <div className="space-y-4">
-                <h3 className="font-medium text-[var(--admin-heading)]">Görünüm Ayarları</h3>
-              
-                <div className="flex items-start justify-between gap-4 rounded-2xl border border-[var(--admin-border)] bg-white/90 px-4 py-3 shadow-sm">
-                  <div>
-                    <Label className="text-base text-[var(--admin-heading)]">Özet Göster</Label>
-                    <p className="text-sm text-[#8b6d58]">
-                      Seçimlerin özetini formun altında göster
-                    </p>
-                  </div>
+              <div className="divide-y divide-[#E1E7EF]">
+                <div className="flex items-center justify-between gap-4 px-5 py-4">
+                  <span>
+                    <Label htmlFor="show-summary" className="block cursor-pointer text-sm font-semibold text-[#111827]">
+                      Özet
+                    </Label>
+                    <span className="mt-1 block text-xs font-medium text-[#6B7280]">Seçimleri form altında göster.</span>
+                  </span>
                   <Switch
-                    defaultChecked={true}
+                    id="show-summary"
+                    defaultChecked
                     onCheckedChange={(checked) => setValue("settings.show_summary", checked)}
                     className="data-[state=checked]:bg-[var(--admin-accent)]"
                   />
                 </div>
 
-                <div className="flex items-start justify-between gap-4 rounded-2xl border border-[var(--admin-border)] bg-white/90 px-4 py-3 shadow-sm">
-                  <div>
-                    <Label className="text-base text-[var(--admin-heading)]">Fiyat Detayını Göster</Label>
-                    <p className="text-sm text-[#8b6d58]">
-                      Fiyat hesaplama detayını göster
-                    </p>
-                  </div>
+                <div className="flex items-center justify-between gap-4 px-5 py-4">
+                  <span>
+                    <Label htmlFor="show-price-breakdown" className="block cursor-pointer text-sm font-semibold text-[#111827]">
+                      Fiyat detayı
+                    </Label>
+                    <span className="mt-1 block text-xs font-medium text-[#6B7280]">Hesaplama satırlarını göster.</span>
+                  </span>
                   <Switch
-                    defaultChecked={true}
+                    id="show-price-breakdown"
+                    defaultChecked
                     onCheckedChange={(checked) => setValue("settings.show_price_breakdown", checked)}
                     className="data-[state=checked]:bg-[var(--admin-accent)]"
                   />
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Submit */}
-            <div className="flex flex-col-reverse gap-3 border-t border-[#efdfd1] pt-5 sm:flex-row sm:items-center sm:justify-end">
-              <Link href="/admin/urunler/ekstralar">
-                <Button type="button" variant="outline" className="w-full rounded-2xl border-[var(--admin-accent-border)] bg-white px-5 py-3 text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] sm:w-auto">
-                  İptal
-                </Button>
-              </Link>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-white shadow-[var(--shadow-md)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] sm:w-auto"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Oluşturuluyor...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Devam Et
-                  </>
-                )}
-              </Button>
-            </div>
-              </CardContent>
-            </Card>
-          </form>
-        </div>
+            <section className="rounded-[12px] border border-[#DCE3EC] bg-white p-5 text-sm font-medium leading-6 text-[#6B7280] shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+              <p className="font-semibold text-[#111827]">Sonraki adım</p>
+              <p className="mt-1">Kaydettikten sonra ekstra alanlarını ve seçeneklerini düzenleme ekranında ekleyebilirsiniz.</p>
+            </section>
+          </aside>
+        </form>
       </div>
     </main>
   );
