@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -14,6 +14,7 @@ import {
   Users,
   Users2,
 } from "lucide-react";
+import { AdminEmptyState, AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import { cn } from "@/lib/utils";
 
 type Channel = {
@@ -52,22 +53,42 @@ type MarketingOverview = {
   insights: Insight[];
 };
 
+type MetricItem = {
+  label: string;
+  value: string;
+  detail: string;
+  icon: typeof Users;
+};
+
+const DEFAULT_STATS: MarketingOverview["stats"] = {
+  totalCustomers: 0,
+  emailReachable: 0,
+  phoneReachable: 0,
+  vipCustomers: 0,
+  newCustomers30d: 0,
+  totalRevenue: 0,
+  monthRevenue: 0,
+  revenueChange: 0,
+  customerChange: 0,
+  contactMissing: 0,
+};
+
 const CHANNEL_ICON: Record<Channel["id"], typeof Mail> = {
   email: Mail,
   whatsapp: MessageCircle,
   phone: Phone,
 };
 
-const CHANNEL_TONE: Record<Channel["id"], string> = {
-  email: "border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]",
-  whatsapp: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600",
-  phone: "border-[var(--admin-border)] bg-gradient-to-br from-[#f8f2ec] to-white text-[var(--admin-text-secondary)]",
+const CHANNEL_LABEL: Record<Channel["id"], string> = {
+  email: "E-posta",
+  whatsapp: "WhatsApp",
+  phone: "Telefon",
 };
 
-const INSIGHT_BADGE: Record<Insight["type"], string> = {
-  warning: "border-amber-200 bg-amber-50 text-amber-700",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  info: "border-[var(--admin-border)] bg-[#fff5ec] text-[var(--admin-accent-hover)]",
+const INSIGHT_TONE: Record<Insight["type"], string> = {
+  warning: "text-amber-700",
+  success: "text-emerald-700",
+  info: "text-[#E85D04]",
 };
 
 function formatCurrency(value: number): string {
@@ -76,6 +97,16 @@ function formatCurrency(value: number): string {
     currency: "TRY",
     maximumFractionDigits: 0,
   }).format(value || 0);
+}
+
+function formatSignedPercent(value: number): string {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}%${value}`;
+}
+
+function metricPercent(part: number, total: number): string {
+  if (total <= 0) return "%0";
+  return `%${Math.round((part / total) * 100)}`;
 }
 
 export default function MarketingPage() {
@@ -92,7 +123,7 @@ export default function MarketingPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || "Pazarlama verileri alinamadi.");
+        throw new Error(result?.error || "Pazarlama verileri alınamadı.");
       }
 
       setData({
@@ -101,7 +132,7 @@ export default function MarketingPage() {
         insights: result.insights,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Beklenmeyen bir hata olustu.");
+      setError(err instanceof Error ? err.message : "Beklenmeyen bir hata oluştu.");
       setData(null);
     } finally {
       setLoading(false);
@@ -112,185 +143,319 @@ export default function MarketingPage() {
     loadOverview();
   }, []);
 
-  const stats = data?.stats || {
-    totalCustomers: 0,
-    emailReachable: 0,
-    phoneReachable: 0,
-    vipCustomers: 0,
-    newCustomers30d: 0,
-    totalRevenue: 0,
-    monthRevenue: 0,
-    revenueChange: 0,
-    customerChange: 0,
-    contactMissing: 0,
-  };
+  const stats = data?.stats || DEFAULT_STATS;
+  const reachableTotal = stats.emailReachable + stats.phoneReachable;
+
+  const metrics = useMemo<MetricItem[]>(
+    () => [
+      {
+        label: "Toplam müşteri",
+        value: stats.totalCustomers.toLocaleString("tr-TR"),
+        detail: `Son 30 gün ${stats.newCustomers30d.toLocaleString("tr-TR")}`,
+        icon: Users,
+      },
+      {
+        label: "Erişim kapsamı",
+        value: reachableTotal.toLocaleString("tr-TR"),
+        detail: `${metricPercent(reachableTotal, stats.totalCustomers)} erişilebilir`,
+        icon: Mail,
+      },
+      {
+        label: "Aylık ciro",
+        value: formatCurrency(stats.monthRevenue),
+        detail: `${formatSignedPercent(stats.revenueChange)} önceki aya göre`,
+        icon: TrendingUp,
+      },
+      {
+        label: "Eksik iletişim",
+        value: stats.contactMissing.toLocaleString("tr-TR"),
+        detail: `VIP ${stats.vipCustomers.toLocaleString("tr-TR")}`,
+        icon: BarChart3,
+      },
+    ],
+    [reachableTotal, stats],
+  );
 
   return (
-    <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
-              Pazarlama Merkezi
-            </div>
+    <main aria-busy={loading} className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+      <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+        <AdminPageShell>
+          <AdminPageHeader
+            sectionLabel="Pazarlama"
+            title="Pazarlama"
+            description="Kanal, segment ve kampanya akışını yönetin."
+            actions={
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadOverview}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
+                >
+                  <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                  Yenile
+                </button>
+                <Link
+                  href="/admin/musteriler/segmentler"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
+                >
+                  <Users2 className="h-4 w-4" />
+                  Segmentler
+                </Link>
+                <Link
+                  href="/admin/pazarlama/email"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.18)] transition hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                >
+                  <Target className="h-4 w-4" />
+                  Kampanya Oluştur
+                </Link>
+              </div>
+            }
+          />
 
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/admin/musteriler/segmentler"
-                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-              >
-                <Users2 className="h-4 w-4" />
-                Segmentler
-              </Link>
-              <Link
-                href="/admin/pazarlama/email"
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
-              >
-                <Target className="h-4 w-4" />
-                Kampanya Olustur
-              </Link>
-              <button
-                onClick={loadOverview}
-                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-                aria-label="Pazarlama verilerini yenile"
-              >
-                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-                Yenile
-              </button>
+          {error ? (
+            <div aria-live="assertive" className="border-y border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+              {error}
             </div>
-          </div>
-          <div className="hidden" />
-        </section>
+          ) : null}
 
-        {error && <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Toplam Müşteri" value={`${stats.totalCustomers}`} note={`Son 30 gün: ${stats.newCustomers30d}`} icon={Users} tone="border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]" />
-          <StatCard title="Aylik Ciro" value={formatCurrency(stats.monthRevenue)} note={`${stats.revenueChange >= 0 ? "+" : ""}%${stats.revenueChange} gecen aya gore`} icon={TrendingUp} tone="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600" />
-          <StatCard title="Toplam Ciro" value={formatCurrency(stats.totalRevenue)} note={`VIP musteri: ${stats.vipCustomers}`} icon={BarChart3} tone="border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600" />
-          <StatCard title="Iletisim Kapsamasi" value={`${stats.emailReachable + stats.phoneReachable}`} note={`Eksik bilgi: ${stats.contactMissing}`} icon={Mail} tone="border-[var(--admin-border)] bg-gradient-to-br from-[#f8f2ec] to-white text-[var(--admin-text-secondary)]" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">Pazarlama Kanallari</h2>
-              <span className="rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
-                {data?.channels.length || 0} kanal
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {(data?.channels || []).map((channel) => {
-                const Icon = CHANNEL_ICON[channel.id];
-                return (
-                  <Link
-                    key={channel.id}
-                    href={channel.href}
-                    className="group flex flex-col justify-between rounded-[28px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:bg-white hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-                  >
-                    <div>
-                      <div className={cn("mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] border shadow-sm", CHANNEL_TONE[channel.id])}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <h3 className="text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{channel.title}</h3>
-                      <p className="mt-3 text-sm leading-6 text-[#7d6959]">{channel.description}</p>
-                    </div>
-                    <div className="mt-6 flex items-center justify-between rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
-                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">{channel.metric}</span>
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] transition-all group-hover:border-[var(--admin-accent-border)] group-hover:text-[var(--admin-accent-hover)]">
-                        <ArrowRight className="h-4 w-4" />
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+          <section className="grid grid-cols-2 overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white min-[1180px]:grid-cols-4">
+            {metrics.map((metric) => (
+              <MetricCell key={metric.label} {...metric} loading={loading} />
+            ))}
           </section>
 
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">Oneriler</h2>
-              <span className="rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
-                {data?.insights.length || 0} sinyal
-              </span>
+          <section className="grid gap-4 min-[1180px]:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.8fr)]">
+            <div className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white">
+              <SectionHeader
+                title="Kanallar"
+                summary={`${(data?.channels.length || 0).toLocaleString("tr-TR")} kanal`}
+              />
+
+              <div className="divide-y divide-[#E1E6EF]">
+                {loading && !data ? (
+                  <>
+                    <ChannelSkeleton />
+                    <ChannelSkeleton />
+                    <ChannelSkeleton />
+                  </>
+                ) : null}
+
+                {!loading && data?.channels.length === 0 ? (
+                  <AdminEmptyState
+                    title="Kanal bulunamadı"
+                    description="Pazarlama kanalı geldiğinde burada listelenecek."
+                    className="m-4 border-[#DCE3EC] bg-[#F9F9F9]"
+                  />
+                ) : null}
+
+                {(data?.channels || []).map((channel) => (
+                  <ChannelRow key={channel.id} channel={channel} />
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-4">
-              {(data?.insights || []).map((insight) => (
-                <div key={insight.id} className="rounded-[26px] border border-[var(--admin-border)] bg-white/95 p-5 shadow-[var(--shadow-md)]">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-sm font-semibold text-[var(--admin-heading)]">{insight.title}</span>
-                    <div className={cn("rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]", INSIGHT_BADGE[insight.type])}>
-                      {insight.change}
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="text-2xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">{insight.value}</div>
-                    <div className="mt-1 text-xs text-[#8c7564]">{insight.subValue}</div>
-                  </div>
-                  <Link
-                    href={insight.actionHref}
-                    className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-                  >
-                    {insight.actionLabel}
-                  </Link>
-                </div>
-              ))}
+            <div className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white">
+              <SectionHeader
+                title="Sinyaller"
+                summary={`${(data?.insights.length || 0).toLocaleString("tr-TR")} öneri`}
+              />
 
-              <div className="relative overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-r from-[#2f241d] via-[#4f3829] to-[#694833] p-6 text-white shadow-[var(--shadow-md)]">
-                <div className="relative z-10">
-                  <div className="mb-3 inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd2af]">
-                    Canli Segment Fikri
-                  </div>
-                  <h4 className="text-lg font-semibold tracking-[-0.02em]">Yeni musteri grubunu tekrar satin alma akisina alin</h4>
-                  <p className="mt-3 text-sm leading-6 text-[#f6ddcb]">
-                    Son 30 gunde gelen yeni musterileri ayri bir segmente alip WhatsApp ve e-posta kombinasyonu ile sicak bir geri donus akisi baslatin.
-                  </p>
-                  <Link
-                    href="/admin/musteriler/segmentler"
-                    className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-heading)] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25"
-                  >
-                    Segmentlere Git
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-                <div className="hidden" />
+              <div className="divide-y divide-[#E1E6EF]">
+                {loading && !data ? (
+                  <>
+                    <InsightSkeleton />
+                    <InsightSkeleton />
+                    <InsightSkeleton />
+                  </>
+                ) : null}
+
+                {!loading && data?.insights.length === 0 ? (
+                  <AdminEmptyState
+                    title="Sinyal yok"
+                    description="Pazarlama önerileri veri geldikçe listelenecek."
+                    className="m-4 border-[#DCE3EC] bg-[#F9F9F9]"
+                  />
+                ) : null}
+
+                {(data?.insights || []).map((insight) => (
+                  <InsightRow key={insight.id} insight={insight} />
+                ))}
               </div>
             </div>
           </section>
-        </div>
+
+          <section className="grid gap-3 border-y border-[#E1E6EF] bg-[#F9F9F9] py-3 min-[1180px]:grid-cols-3">
+            <QuickLink
+              title="Şans Çarkı"
+              detail="Etkileşim kampanyaları"
+              href="/admin/indirimler/sans-carki"
+            />
+            <QuickLink
+              title="E-posta Kampanyaları"
+              detail={`${stats.emailReachable.toLocaleString("tr-TR")} erişilebilir müşteri`}
+              href="/admin/pazarlama/email"
+            />
+            <QuickLink
+              title="Müşteri Segmentleri"
+              detail="Hedef kitleleri düzenleyin"
+              href="/admin/musteriler/segmentler"
+            />
+          </section>
+        </AdminPageShell>
       </div>
+    </main>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  loading,
+}: MetricItem & {
+  loading: boolean;
+}) {
+  return (
+    <div className="min-h-[116px] border-b border-r border-[#E1E6EF] bg-[#F9F9F9] px-4 py-4 last:border-r-0 min-[1180px]:border-b-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#6B7280]">{label}</p>
+          {loading ? (
+            <div className="mt-4 h-8 w-24 animate-pulse rounded-[8px] bg-[#E7EAF0]" />
+          ) : (
+            <p className="mt-4 truncate text-[2rem] font-semibold leading-none tracking-[-0.04em] text-[#111827]">{value}</p>
+          )}
+        </div>
+        <Icon className="h-5 w-5 shrink-0 text-[#FF6A00]" />
+      </div>
+      <p className="mt-4 truncate text-sm font-semibold text-[#6B7280]">{detail}</p>
     </div>
   );
 }
 
-function StatCard({
+function SectionHeader({
   title,
-  value,
-  note,
-  icon: Icon,
-  tone,
+  summary,
 }: {
   title: string;
-  value: string;
-  note: string;
-  icon: typeof Users;
-  tone: string;
+  summary: string;
 }) {
   return (
-    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[var(--shadow-md)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</p>
-          <p className="mt-2 text-3xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">{value}</p>
-        </div>
-        <div className={cn("flex h-12 w-12 items-center justify-center rounded-[18px] border shadow-sm", tone)}>
+    <div className="flex min-h-[58px] items-center justify-between gap-3 border-b border-[#E1E6EF] bg-[#F9F9F9] px-4">
+      <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#111827]">{title}</h2>
+      <span className="text-sm font-semibold text-[#6B7280]">{summary}</span>
+    </div>
+  );
+}
+
+function ChannelRow({ channel }: { channel: Channel }) {
+  const Icon = CHANNEL_ICON[channel.id];
+
+  return (
+    <Link
+      href={channel.href}
+      className="group grid gap-3 bg-white px-4 py-4 transition hover:bg-[#FFF8F3] min-[880px]:grid-cols-[minmax(0,1fr)_160px_42px] min-[880px]:items-center"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-[#F9F9F9] text-[#FF6A00]">
           <Icon className="h-5 w-5" />
         </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-base font-semibold text-[#111827]">{channel.title}</h3>
+            <span className="rounded-full bg-[#FFF1E8] px-2 py-0.5 text-xs font-semibold text-[#E85D04]">
+              {CHANNEL_LABEL[channel.id]}
+            </span>
+          </div>
+          <p className="mt-1 line-clamp-1 text-sm font-medium text-[#6B7280]">{channel.description}</p>
+        </div>
       </div>
-      <div className="mt-5 inline-flex rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-semibold text-[#7d6959]">
-        {note}
+
+      <div className="text-sm font-semibold text-[#374151] min-[880px]:text-right">{channel.metric}</div>
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white text-[#6B7280] transition group-hover:border-[#FFD1B5] group-hover:text-[#E85D04]">
+        <ArrowRight className="h-4 w-4" />
+      </span>
+    </Link>
+  );
+}
+
+function InsightRow({ insight }: { insight: Insight }) {
+  return (
+    <Link
+      href={insight.actionHref}
+      className="group block bg-white px-4 py-4 transition hover:bg-[#FFF8F3]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-semibold text-[#111827]">{insight.title}</h3>
+          <p className="mt-1 text-sm font-medium text-[#6B7280]">{insight.subValue}</p>
+        </div>
+        <span className={cn("shrink-0 text-sm font-semibold", INSIGHT_TONE[insight.type])}>{insight.change}</span>
       </div>
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <span className="text-[2rem] font-semibold leading-none tracking-[-0.04em] text-[#111827]">
+          {insight.value.toLocaleString("tr-TR")}
+        </span>
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#6B7280] transition group-hover:text-[#E85D04]">
+          {insight.actionLabel}
+          <ArrowRight className="h-4 w-4" />
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function QuickLink({
+  title,
+  detail,
+  href,
+}: {
+  title: string;
+  detail: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between gap-3 rounded-[8px] border border-[#DCE3EC] bg-white px-4 py-3 text-left transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
+    >
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-[#111827]">{title}</span>
+        <span className="mt-0.5 block truncate text-xs font-medium text-[#6B7280]">{detail}</span>
+      </span>
+      <ArrowRight className="h-4 w-4 shrink-0 text-[#FF6A00]" />
+    </Link>
+  );
+}
+
+function ChannelSkeleton() {
+  return (
+    <div className="grid gap-3 px-4 py-4 min-[880px]:grid-cols-[minmax(0,1fr)_160px_42px] min-[880px]:items-center">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 animate-pulse rounded-[8px] bg-[#E7EAF0]" />
+        <div className="min-w-0 flex-1">
+          <div className="h-4 w-40 animate-pulse rounded bg-[#E7EAF0]" />
+          <div className="mt-2 h-3 w-64 max-w-full animate-pulse rounded bg-[#EEF3F7]" />
+        </div>
+      </div>
+      <div className="h-4 w-24 animate-pulse rounded bg-[#E7EAF0] min-[880px]:ml-auto" />
+      <div className="h-10 w-10 animate-pulse rounded-[8px] bg-[#EEF3F7]" />
+    </div>
+  );
+}
+
+function InsightSkeleton() {
+  return (
+    <div className="px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="h-4 w-40 animate-pulse rounded bg-[#E7EAF0]" />
+          <div className="mt-2 h-3 w-56 max-w-full animate-pulse rounded bg-[#EEF3F7]" />
+        </div>
+        <div className="h-4 w-20 animate-pulse rounded bg-[#E7EAF0]" />
+      </div>
+      <div className="mt-4 h-8 w-16 animate-pulse rounded bg-[#E7EAF0]" />
     </div>
   );
 }
