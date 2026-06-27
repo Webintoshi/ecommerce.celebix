@@ -24,7 +24,7 @@ function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/urunler")) {
     return {
       title: "Ürünler",
-      subtitle: "Katalog, koleksiyon ve feed akışlarını yönetin.",
+      subtitle: "Katalog, koleksiyon ve yayın akışlarını yönetin.",
     };
   }
 

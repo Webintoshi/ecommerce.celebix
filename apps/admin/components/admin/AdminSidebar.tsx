@@ -106,7 +106,7 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Nitelikler / Varyant Türleri", href: "/admin/urunler/nitelikler", group: "Katalog" },
       { title: "Ürün Ekstraları", href: "/admin/urunler/ekstralar", group: "Katalog" },
       { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar", group: "Katalog" },
-      { title: "Tanımlamalar", href: "/admin/urunler/tanimlamalar", group: "Katalog", badge: "Hub" },
+      { title: "Tanımlamalar", href: "/admin/urunler/tanimlamalar", group: "Katalog", badge: "Merkez" },
       { title: "Satın Alma", href: "/admin/urunler/satin-alma", group: "Operasyon", badge: "Hazırlık" },
       { title: "Transferler", href: "/admin/urunler/transferler", group: "Operasyon", badge: "Hazırlık" },
       { title: "Stok Sayımı", href: "/admin/urunler/stok-sayimi", group: "Operasyon", badge: "Planlandı" },
