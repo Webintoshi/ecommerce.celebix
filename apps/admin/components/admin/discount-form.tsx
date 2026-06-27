@@ -1,22 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import {
-  Tag,
-  Settings2,
-  Shield,
-  StickyNote,
-  Percent,
-  TurkishLira,
-  Calendar,
-  ShoppingCart,
-  Eye,
-  Lock,
-  Users,
-  Check,
   AlertCircle,
+  Calendar,
+  ChevronDown,
+  Eye,
   Loader2,
+  Lock,
+  Percent,
+  Save,
+  ShoppingCart,
+  Tag,
+  TurkishLira,
+  Users,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   AdminDiscount,
   AdminDiscountPayload,
@@ -29,12 +29,15 @@ import {
   DiscountType,
   DiscountVisibility,
 } from "@/types/discount";
+import { cn } from "@/lib/utils";
 
 type Props = {
   initial?: AdminDiscount | null;
   submitting?: boolean;
   submitLabel: string;
   onSubmit: (payload: AdminDiscountPayload) => Promise<void>;
+  formId?: string;
+  hideFooterActions?: boolean;
 };
 
 type FormState = {
@@ -107,10 +110,16 @@ function buildInitialState(initial?: AdminDiscount | null): FormState {
   };
 }
 
-export function DiscountForm({ initial = null, submitting = false, submitLabel, onSubmit }: Props) {
+export function DiscountForm({
+  initial = null,
+  submitting = false,
+  submitLabel,
+  onSubmit,
+  formId,
+  hideFooterActions = false,
+}: Props) {
   const [form, setForm] = useState<FormState>(() => buildInitialState(initial));
   const [error, setError] = useState<string | null>(null);
-  const [activeStep, setActiveStep] = useState(1);
 
   const payload = useMemo<AdminDiscountPayload>(() => {
     const normalizedMaxUses = form.limitType === "unlimited" ? null : form.maxUses;
@@ -140,176 +149,102 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
     };
   }, [form]);
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
 
     if (!payload.metadata.name) {
       setError("İndirim adı zorunlu.");
-      setActiveStep(1);
       return;
     }
 
     if (!payload.code) {
       setError("İndirim kodu zorunlu.");
-      setActiveStep(1);
       return;
     }
 
     if (payload.value <= 0) {
       setError("İndirim değeri 0'dan büyük olmalı.");
-      setActiveStep(2);
       return;
     }
 
     if (payload.type === "percentage" && payload.value > 100) {
       setError("Yüzde indirimi 100'den büyük olamaz.");
-      setActiveStep(2);
       return;
     }
 
     if (payload.startsAt && payload.expiresAt && new Date(payload.startsAt) >= new Date(payload.expiresAt)) {
       setError("Bitiş tarihi başlangıç tarihinden sonra olmalı.");
-      setActiveStep(2);
       return;
     }
 
     if (payload.metadata.visibility === "password" && !payload.metadata.password) {
       setError("Parola korumalı indirim için parola girin.");
-      setActiveStep(3);
       return;
     }
 
     if (payload.metadata.limitType !== "unlimited" && (!payload.maxUses || payload.maxUses <= 0)) {
       setError("Kullanım limiti zorunlu.");
-      setActiveStep(3);
       return;
     }
 
     await onSubmit(payload);
   };
 
-  const inputClass = "w-full rounded-2xl border border-[var(--admin-border)] bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15";
-  const selectClass = "w-full appearance-none cursor-pointer rounded-2xl border border-[var(--admin-border)] bg-white/85 px-4 py-3 text-sm text-gray-700 shadow-sm transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15";
-  const textAreaClass = "w-full rounded-2xl border border-[var(--admin-border)] bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[var(--admin-accent)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15 resize-none";
+  const inputClass =
+    "h-11 w-full rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-medium text-[#111827] transition placeholder:text-[#9CA3AF] focus:border-[#FF6A00] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]";
+  const selectClass =
+    "h-11 w-full appearance-none rounded-[8px] border border-[#DCE3EC] bg-white px-3 pr-9 text-sm font-semibold text-[#374151] transition focus:border-[#FF6A00] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]";
+  const textAreaClass =
+    "w-full resize-none rounded-[8px] border border-[#DCE3EC] bg-white px-3 py-3 text-sm font-medium text-[#111827] transition placeholder:text-[#9CA3AF] focus:border-[#FF6A00] focus:outline-none focus:ring-4 focus:ring-[#FFF1E8]";
 
   return (
-    <form onSubmit={submit} className="space-y-6">
-      {/* Error Banner */}
-      {error && (
-        <div className="flex items-center gap-3 rounded-[24px] border border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 px-4 py-3 text-sm text-rose-700 shadow-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+    <form id={formId} onSubmit={submit} className="space-y-4">
+      {error ? (
+        <div className="flex items-center gap-2 border-y border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
-      )}
+      ) : null}
 
-      {/* Progress Steps */}
-      <div className="overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-md)] md:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Kurulum ilerlemesi</p>
-            <p className="mt-1 text-sm font-medium text-[var(--admin-heading)]">İndiriminizi dört adımda tamamlayın</p>
-          </div>
-          <div className="rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">
-            Adım {activeStep}/4
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[1, 2, 3, 4].map((step) => (
-          <button
-            key={step}
-            type="button"
-            onClick={() => setActiveStep(step)}
-            className={`rounded-[22px] border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] ${
-              activeStep === step
-                ? "border-[var(--admin-accent-border)] bg-gradient-to-r from-white to-white text-[var(--admin-accent-hover)] shadow-sm"
-                : activeStep > step
-                  ? "border-emerald-200 bg-emerald-50/80 text-emerald-700"
-                  : "border-[var(--admin-border)] bg-white/80 text-[#8b7768] hover:border-[var(--admin-accent-border)] hover:bg-[#fff8f2]"
-            }`}
-          >
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]">0{step}</div>
-            <div className="mt-1 text-sm font-semibold">
-              {step === 1 ? "Temel bilgiler" : step === 2 ? "İndirim ayarları" : step === 3 ? "Kampanya kuralları" : "Notlar"}
-            </div>
-          </button>
-        ))}
-        </div>
-      </div>
-
-      {/* Step 1: Basic Info */}
-      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 1 ? "border-[var(--admin-accent-border)] bg-white shadow-[var(--shadow-md)]" : "border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]"}`}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
-            <Tag className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">Temel Bilgiler</h2>
-            <p className="text-sm text-[#7d6959]">İndirim adı, kodu ve açıklaması</p>
-          </div>
-          {activeStep > 1 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Field label="İndirim Adı" required>
+      <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+        <SectionHeader icon={Tag} title="Temel bilgiler" />
+        <div className="grid gap-4 p-4 sm:p-5 xl:grid-cols-2 xl:p-6">
+          <Field label="İndirim adı" required>
             <input
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
-              placeholder="örn: Yılbaşı Kampanyası"
+              placeholder="Yılbaşı indirimi"
               className={inputClass}
             />
           </Field>
-          <Field label="Kupon Kodu" required>
-            <div className="relative">
-              <input
-                value={form.code}
-                onChange={(event) => setForm({ ...form, code: event.target.value.toUpperCase() })}
-                placeholder="örn: YENIYIL2024"
-                className={`${inputClass} font-mono uppercase`}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold uppercase tracking-[0.14em] text-[#9a7c67]">Büyük harf</span>
-            </div>
+
+          <Field label="Kupon kodu" required>
+            <input
+              value={form.code}
+              onChange={(event) => setForm({ ...form, code: event.target.value.toUpperCase() })}
+              placeholder="YENIYIL"
+              className={`${inputClass} uppercase`}
+            />
           </Field>
-        </div>
 
-        <Field label="Açıklama" className="mt-5">
-          <textarea
-            value={form.description}
-            onChange={(event) => setForm({ ...form, description: event.target.value })}
-            placeholder="Müşterilere gösterilecek açıklama..."
-            rows={3}
-            className={textAreaClass}
-          />
-        </Field>
-
-        <div className="flex justify-end mt-6">
-          <button
-            type="button"
-            onClick={() => setActiveStep(2)}
-            className="rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
-          >
-            Devam Et
-          </button>
+          <Field label="Açıklama" className="xl:col-span-2">
+            <textarea
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              placeholder="Kısa açıklama"
+              rows={3}
+              className={textAreaClass}
+            />
+          </Field>
         </div>
       </section>
 
-      {/* Step 2: Discount Settings */}
-      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 2 ? "border-[var(--admin-accent-border)] bg-white shadow-[var(--shadow-md)]" : "border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]"}`}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-gradient-to-br from-white to-white text-[var(--admin-accent-hover)] shadow-sm">
-            <Settings2 className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">İndirim Ayarları</h2>
-            <p className="text-sm text-[#7d6959]">Oran, tutar ve geçerlilik tarihleri</p>
-          </div>
-          {activeStep > 2 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <Field label="İndirim Tipi">
-            <div className="relative">
+      <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+        <SectionHeader icon={Percent} title="İndirim ayarı" />
+        <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-3 xl:p-6">
+          <Field label="Tip">
+            <SelectWrap>
               <select
                 value={form.type}
                 onChange={(event) => setForm({ ...form, type: event.target.value as DiscountType })}
@@ -321,127 +256,87 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
                   </option>
                 ))}
               </select>
-              <Percent className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+            </SelectWrap>
           </Field>
-          <Field label={form.type === "percentage" ? "İndirim Oranı (%)" : "İndirim Tutarı (₺)"}>
+
+          <Field label={form.type === "percentage" ? "Oran" : "Tutar"}>
             <div className="relative">
               <input
                 type="number"
                 value={form.value}
                 onChange={(event) => setForm({ ...form, value: Number(event.target.value) || 0 })}
-                placeholder={form.type === "percentage" ? "20" : "100"}
-                className={`${inputClass} ${form.type === "percentage" ? "pr-10" : "pl-10"}`}
+                placeholder={form.type === "percentage" ? "10" : "100"}
+                className={cn(inputClass, form.type === "fixed" && "pl-9")}
               />
               {form.type === "percentage" ? (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#6B7280]">%</span>
               ) : (
-                <TurkishLira className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <TurkishLira className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
               )}
             </div>
           </Field>
-          <Field label="Minimum Sipariş Tutarı">
+
+          <Field label="Minimum sipariş">
             <div className="relative">
-              <TurkishLira className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <TurkishLira className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
               <input
                 type="number"
                 value={form.minOrder}
                 onChange={(event) => setForm({ ...form, minOrder: Number(event.target.value) || 0 })}
-                placeholder="0"
-                className={`${inputClass} pl-10`}
+                className={`${inputClass} pl-9`}
               />
             </div>
           </Field>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-          <Field label="Başlangıç Tarihi">
+          <Field label="Başlangıç">
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
               <input
                 type="date"
                 value={form.startsAt}
                 onChange={(event) => setForm({ ...form, startsAt: event.target.value })}
-                className={`${inputClass} pl-10`}
+                className={`${inputClass} pl-9`}
               />
             </div>
           </Field>
-          <Field label="Bitiş Tarihi">
+
+          <Field label="Bitiş">
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
               <input
                 type="date"
                 value={form.expiresAt}
                 onChange={(event) => setForm({ ...form, expiresAt: event.target.value })}
-                className={`${inputClass} pl-10`}
+                className={`${inputClass} pl-9`}
               />
             </div>
           </Field>
-        </div>
 
-        {/* Toggle Switch */}
-        <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-[16px] ${form.isActive ? "bg-emerald-100" : "bg-stone-200"}`}>
-              <Check className={`w-5 h-5 ${form.isActive ? "text-green-600" : "text-gray-400"}`} />
-            </div>
-            <div>
-              <p className="font-medium text-[var(--admin-heading)]">İndirimi Aktif Başlat</p>
-              <p className="text-sm text-[#7d6959]">Oluşturulduğunda hemen yayına alınır</p>
-            </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, isActive: !form.isActive })}
+              className="flex h-11 w-full items-center justify-between rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-left text-sm font-semibold text-[#374151] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
+              aria-pressed={form.isActive}
+            >
+              <span>Durum</span>
+              <span className={cn("text-sm font-bold", form.isActive ? "text-[#16A34A]" : "text-[#9CA3AF]")}>
+                {form.isActive ? "Aktif" : "Pasif"}
+              </span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setForm({ ...form, isActive: !form.isActive })}
-            className={`relative h-8 w-14 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] ${form.isActive ? "bg-[var(--admin-accent)]" : "bg-stone-300"}`}
-          >
-            <span
-              className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
-                form.isActive ? "translate-x-6" : "translate-x-0"
-              }`}
-            />
-          </button>
-        </div>
-
-        <div className="flex justify-between mt-6">
-          <button
-            type="button"
-            onClick={() => setActiveStep(1)}
-            className="rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-          >
-            Geri
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveStep(3)}
-            className="rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
-          >
-            Devam Et
-          </button>
         </div>
       </section>
 
-      {/* Step 3: Campaign Rules */}
-      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 3 ? "border-[var(--admin-accent-border)] bg-white shadow-[var(--shadow-md)]" : "border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]"}`}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-700 shadow-sm">
-            <Shield className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">Kampanya Kuralları</h2>
-            <p className="text-sm text-[#7d6959]">Kapsam, görünürlük ve kullanım limitleri</p>
-          </div>
-          {activeStep > 3 && <Check className="w-5 h-5 text-green-500 ml-auto" />}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+        <SectionHeader icon={ShoppingCart} title="Kurallar" />
+        <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-3 xl:p-6">
           <Field label="Kapsam">
-            <div className="relative">
-              <ShoppingCart className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <SelectWrap>
               <select
                 value={form.scope}
                 onChange={(event) => setForm({ ...form, scope: event.target.value as DiscountScope })}
-                className={`${selectClass} pl-10`}
+                className={`${selectClass} pl-9`}
               >
                 {DISCOUNT_SCOPE_OPTIONS.map((item) => (
                   <option key={item.value} value={item.value}>
@@ -449,15 +344,16 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
                   </option>
                 ))}
               </select>
-            </div>
+              <ShoppingCart className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+            </SelectWrap>
           </Field>
+
           <Field label="Görünürlük">
-            <div className="relative">
-              <Eye className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <SelectWrap>
               <select
                 value={form.visibility}
                 onChange={(event) => setForm({ ...form, visibility: event.target.value as DiscountVisibility })}
-                className={`${selectClass} pl-10`}
+                className={`${selectClass} pl-9`}
               >
                 {DISCOUNT_VISIBILITY_OPTIONS.map((item) => (
                   <option key={item.value} value={item.value}>
@@ -465,15 +361,16 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
                   </option>
                 ))}
               </select>
-            </div>
+              <Eye className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+            </SelectWrap>
           </Field>
-          <Field label="Kullanım Tipi">
-            <div className="relative">
-              <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+
+          <Field label="Kullanım">
+            <SelectWrap>
               <select
                 value={form.limitType}
                 onChange={(event) => setForm({ ...form, limitType: event.target.value as DiscountLimitType })}
-                className={`${selectClass} pl-10`}
+                className={`${selectClass} pl-9`}
               >
                 {DISCOUNT_LIMIT_TYPE_OPTIONS.map((item) => (
                   <option key={item.value} value={item.value}>
@@ -481,128 +378,100 @@ export function DiscountForm({ initial = null, submitting = false, submitLabel, 
                   </option>
                 ))}
               </select>
-            </div>
+              <Users className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+            </SelectWrap>
           </Field>
-        </div>
 
-        {form.visibility === "password" && (
-          <Field label="Erişim Parolası" required className="mt-5">
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="password"
-                value={form.password}
-                onChange={(event) => setForm({ ...form, password: event.target.value })}
-                placeholder="Müşterinin girmesi gereken parola"
-                className={`${inputClass} pl-10`}
-              />
-            </div>
-          </Field>
-        )}
+          {form.visibility === "password" ? (
+            <Field label="Parola" required>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                  className={`${inputClass} pl-9`}
+                />
+              </div>
+            </Field>
+          ) : null}
 
-        {form.limitType !== "unlimited" && (
-          <Field label="Kullanım Limiti" required className="mt-5">
-            <div className="relative">
-              <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          {form.limitType !== "unlimited" ? (
+            <Field label="Limit" required>
               <input
                 type="number"
                 value={form.maxUses ?? ""}
                 onChange={(event) => setForm({ ...form, maxUses: Number(event.target.value) || null })}
-                placeholder="örn: 100"
-                className={`${inputClass} pl-10`}
+                className={inputClass}
               />
-            </div>
+            </Field>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+        <SectionHeader icon={Tag} title="Etiket ve not" />
+        <div className="grid gap-4 p-4 sm:p-5 xl:grid-cols-2 xl:p-6">
+          <Field label="Etiketler">
+            <input
+              value={form.tags}
+              onChange={(event) => setForm({ ...form, tags: event.target.value })}
+              placeholder="kampanya, yeni sezon"
+              className={inputClass}
+            />
           </Field>
-        )}
 
-        <div className="flex justify-between mt-6">
-          <button
-            type="button"
-            onClick={() => setActiveStep(2)}
-            className="rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-          >
-            Geri
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveStep(4)}
-            className="rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
-          >
-            Devam Et
-          </button>
+          <Field label="İç not">
+            <textarea
+              value={form.notes}
+              onChange={(event) => setForm({ ...form, notes: event.target.value })}
+              placeholder="Yönetici notu"
+              rows={3}
+              className={textAreaClass}
+            />
+          </Field>
         </div>
       </section>
 
-      {/* Step 4: Tags & Notes */}
-      <section className={`rounded-[30px] border p-6 transition-all md:p-7 ${activeStep === 4 ? "border-[var(--admin-accent-border)] bg-white shadow-[var(--shadow-md)]" : "border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]"}`}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-gradient-to-br from-white to-white text-[var(--admin-accent-hover)] shadow-sm">
-            <StickyNote className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">Etiketler ve Notlar</h2>
-            <p className="text-sm text-[#7d6959]">Organizasyon ve iç notlar</p>
-          </div>
-        </div>
-
-        <Field label="Etiketler">
-          <input
-            value={form.tags}
-            onChange={(event) => setForm({ ...form, tags: event.target.value })}
-            placeholder="kampanya, yılbaşı, özel (virgülle ayırın)"
-            className={inputClass}
-          />
-          <p className="mt-1.5 text-xs text-[#9a7c67]">Birden fazla etiket için virgül kullanın</p>
-        </Field>
-
-        <Field label="İç Notlar" className="mt-5">
-          <textarea
-            value={form.notes}
-            onChange={(event) => setForm({ ...form, notes: event.target.value })}
-            placeholder="Sadece yöneticilerin görebileceği notlar..."
-            rows={4}
-            className={textAreaClass}
-          />
-        </Field>
-
-        <div className="flex justify-between mt-6">
-          <button
-            type="button"
-            onClick={() => setActiveStep(3)}
-            className="rounded-2xl border border-[var(--admin-border)] bg-white px-6 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-          >
-            Geri
-          </button>
-        </div>
-      </section>
-
-      {/* Submit Button */}
-      <div className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-r from-white via-white to-[#fff6ee] p-6 shadow-[var(--shadow-md)]">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center">
-          <div className="flex-1">
-            <p className="font-semibold text-[var(--admin-heading)]">İndirimi Oluşturmaya Hazır</p>
-            <p className="text-sm text-[#7d6959]">Tüm bilgileri kontrol ettikten sonra kaydedin.</p>
-          </div>
+      {!hideFooterActions ? (
+        <div className="flex justify-end border-t border-[#E1E6EF] pt-4">
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-8 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.18)] transition hover:bg-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {submitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Kaydediliyor...
-              </>
-            ) : (
-              <>
-                <Tag className="w-4 h-4" />
-                {submitLabel}
-              </>
-            )}
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {submitting ? "Kaydediliyor" : submitLabel}
           </button>
         </div>
-      </div>
+      ) : null}
     </form>
+  );
+}
+
+function SectionHeader({
+  icon: Icon,
+  title,
+}: {
+  icon: LucideIcon;
+  title: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 sm:px-5 xl:px-6">
+      <span className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#FFF1E8] text-[#FF6A00]">
+        <Icon className="h-4 w-4" />
+      </span>
+      <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">{title}</h2>
+    </div>
+  );
+}
+
+function SelectWrap({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative">
+      {children}
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+    </div>
   );
 }
 
@@ -614,14 +483,14 @@ function Field({
 }: {
   label: string;
   required?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
     <div className={className}>
-      <label className="mb-2 block text-sm font-medium text-[var(--admin-text-secondary)]">
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-[#6B7280]">
         {label}
-        {required && <span className="ml-1 text-rose-500">*</span>}
+        {required ? <span className="ml-1 text-[#FF6A00]">*</span> : null}
       </label>
       {children}
     </div>
