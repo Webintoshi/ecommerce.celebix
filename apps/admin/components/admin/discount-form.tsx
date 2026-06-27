@@ -853,14 +853,15 @@ function ToggleRow({
           onClick={onToggle}
           aria-pressed={checked}
           className={cn(
-            "relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]",
+            "relative mt-0.5 h-[22px] w-10 shrink-0 rounded-full transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]",
             checked ? "bg-[#FF6A00]" : "bg-[#CBD5E1]",
           )}
+          style={{ minHeight: "22px" }}
         >
           <span
             className={cn(
-              "absolute top-1 h-4 w-4 rounded-full bg-white transition",
-              checked ? "left-6" : "left-1",
+              "absolute top-[3px] h-4 w-4 rounded-full bg-white transition",
+              checked ? "left-[21px]" : "left-[3px]",
             )}
           />
         </button>
