@@ -12,9 +12,6 @@ import {
   Trash2,
   XCircle,
   TicketPercent,
-  CalendarClock,
-  Layers3,
-  BarChart3,
   PencilLine,
 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminPageShell";
@@ -110,7 +107,6 @@ export default function DiscountsPage() {
     const scheduled = discounts.filter((discount) => discount.status === "scheduled").length;
     const expired = discounts.filter((discount) => discount.status === "expired").length;
     const draft = discounts.filter((discount) => discount.status === "draft").length;
-    const totalUsage = discounts.reduce((sum, discount) => sum + discount.usedCount, 0);
 
     return {
       total: discounts.length,
@@ -118,7 +114,6 @@ export default function DiscountsPage() {
       scheduled,
       expired,
       draft,
-      totalUsage,
     };
   }, [discounts]);
 
@@ -274,14 +269,6 @@ export default function DiscountsPage() {
               </Link>
             </div>
           }
-          metrics={
-            <>
-              <HeaderMetric label="Toplam" value={stats.total} detail="indirim" icon={Layers3} />
-              <HeaderMetric label="Aktif" value={stats.active} detail="yayında" icon={CheckCircle2} tone="text-emerald-600" />
-              <HeaderMetric label="Planlı" value={stats.scheduled} detail="bekliyor" icon={CalendarClock} tone="text-amber-600" />
-              <HeaderMetric label="Kullanım" value={stats.totalUsage} detail="kez" icon={BarChart3} tone="text-[#E85D04]" />
-            </>
-          }
         />
 
         {error ? (
@@ -332,6 +319,15 @@ export default function DiscountsPage() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold text-[#6B7280] min-[1080px]:justify-end">
               <span>
                 <span className="text-[#111827]">{filtered.length.toLocaleString("tr-TR")}</span> sonuç
+              </span>
+              <span>
+                <span className="text-[#111827]">{stats.total.toLocaleString("tr-TR")}</span> toplam
+              </span>
+              <span>
+                <span className="text-emerald-600">{stats.active.toLocaleString("tr-TR")}</span> aktif
+              </span>
+              <span>
+                <span className="text-amber-600">{stats.scheduled.toLocaleString("tr-TR")}</span> planlı
               </span>
               <span>
                 <span className="text-[#E85D04]">{stats.draft.toLocaleString("tr-TR")}</span> taslak
@@ -487,38 +483,5 @@ export default function DiscountsPage() {
         </section>
       </div>
     </main>
-  );
-}
-
-function HeaderMetric({
-  title,
-  label,
-  value,
-  detail,
-  icon: Icon,
-  tone = "text-[#9CA3AF]",
-}: {
-  title?: string;
-  label: string;
-  value: number;
-  detail: string;
-  icon: typeof Layers3;
-  tone?: string;
-}) {
-  return (
-    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
-          {title ?? label}
-        </p>
-        <Icon className={cn("h-4 w-4", tone)} />
-      </div>
-      <div className="mt-3 flex items-end gap-2">
-        <p className="text-3xl font-semibold tracking-[-0.04em] text-[#111827]">
-          {value.toLocaleString("tr-TR")}
-        </p>
-        <span className="pb-1 text-sm font-medium text-[#6B7280]">{detail}</span>
-      </div>
-    </div>
   );
 }
