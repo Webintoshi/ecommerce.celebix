@@ -11,10 +11,10 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { AdminPageHeader } from "@/components/admin/AdminPageShell";
+import { PublishStatusSwitch } from "@/components/admin/PublishStatusSwitch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Loader2, Save, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -54,6 +54,8 @@ export default function NewSchemaPage() {
     },
   });
   const currentName = watch("name");
+  const showSummary = watch("settings.show_summary");
+  const showPriceBreakdown = watch("settings.show_price_breakdown");
 
   // Auto-generate slug from name
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,16 +169,17 @@ export default function NewSchemaPage() {
                   <div
                     className="inline-flex w-fit items-center gap-2 rounded-[10px] border border-[#DCE3EC] bg-white px-3 py-2 text-xs font-semibold text-[#6B7280]"
                   >
-                    <Switch
+                    <PublishStatusSwitch
                       checked={autoSlug}
-                      onCheckedChange={(checked) => {
+                      onChange={(checked) => {
                         setAutoSlug(checked);
                         if (checked) {
                           setValue("slug", generateSlug(currentName || ""));
                         }
                       }}
                       id="auto-slug"
-                      className="data-[state=checked]:bg-[var(--admin-accent)]"
+                      aria-label="Bağlantı adını otomatik oluştur"
+                      labelVisible={false}
                     />
                     <Label htmlFor="auto-slug" className="cursor-pointer text-xs font-semibold text-[#6B7280]">
                       Otomatik
@@ -251,11 +254,12 @@ export default function NewSchemaPage() {
                     </Label>
                     <span className="mt-1 block text-xs font-medium text-[#6B7280]">Seçimleri form altında göster.</span>
                   </span>
-                  <Switch
+                  <PublishStatusSwitch
                     id="show-summary"
-                    defaultChecked
-                    onCheckedChange={(checked) => setValue("settings.show_summary", checked)}
-                    className="data-[state=checked]:bg-[var(--admin-accent)]"
+                    checked={showSummary ?? true}
+                    onChange={(checked) => setValue("settings.show_summary", checked, { shouldDirty: true })}
+                    aria-label="Özet göster"
+                    labelVisible={false}
                   />
                 </div>
 
@@ -266,11 +270,12 @@ export default function NewSchemaPage() {
                     </Label>
                     <span className="mt-1 block text-xs font-medium text-[#6B7280]">Hesaplama satırlarını göster.</span>
                   </span>
-                  <Switch
+                  <PublishStatusSwitch
                     id="show-price-breakdown"
-                    defaultChecked
-                    onCheckedChange={(checked) => setValue("settings.show_price_breakdown", checked)}
-                    className="data-[state=checked]:bg-[var(--admin-accent)]"
+                    checked={showPriceBreakdown ?? true}
+                    onChange={(checked) => setValue("settings.show_price_breakdown", checked, { shouldDirty: true })}
+                    aria-label="Fiyat detayını göster"
+                    labelVisible={false}
                   />
                 </div>
               </div>
