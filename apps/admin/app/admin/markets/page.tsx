@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ComponentType, ElementType } from "react";
+import type { ComponentType, ElementType, ReactNode } from "react";
 import {
   CheckCircle2,
   ExternalLink,
@@ -16,6 +16,7 @@ import {
   Unplug,
   AlertCircle,
 } from "lucide-react";
+import { AdminEmptyState, AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import {
   AmazonTrLogo,
   GoogleMerchantLogo,
@@ -79,21 +80,21 @@ const PROVIDER_LOGOS: Partial<Record<MarketplaceProvider, ComponentType<{ size?:
 };
 
 const WARM_INPUT =
-  "w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
+  "w-full rounded-[8px] border border-[#DCE3EC] bg-[#F9F9F9] px-3.5 py-3 text-sm font-medium text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#FFD1B5] focus:bg-white focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
 
 function ConnectionBadge({ isConnected, hasError }: { isConnected: boolean; hasError: boolean }) {
   if (isConnected) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
         <CheckCircle2 className="h-3 w-3" />
-        Bagli
+        Bağlı
       </span>
     );
   }
 
   if (hasError) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-700">
         <AlertCircle className="h-3 w-3" />
         Hata
       </span>
@@ -101,9 +102,9 @@ function ConnectionBadge({ isConnected, hasError }: { isConnected: boolean; hasE
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e6dbd1] bg-[#F9FAFB] px-3 py-1.5 text-xs font-semibold text-[var(--admin-text-secondary)]">
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6B7280]">
       <Unplug className="h-3 w-3" />
-      Bagli Degil
+      Bağlı değil
     </span>
   );
 }
@@ -315,117 +316,104 @@ export default function MarketsPage() {
     void Promise.all([loadListings(providerId), loadLogs(providerId)]);
   };
 
+  const headerActions = (
+    <button
+      type="button"
+      onClick={fetchIntegrations}
+      disabled={loading}
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] disabled:opacity-60"
+    >
+      <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+      Yenile
+    </button>
+  );
+
   if (loading) {
     return (
-      <div className="admin-page-root flex items-center justify-center p-6 md:p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--admin-accent)]" />
-      </div>
+      <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+        <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+          <AdminPageShell>
+            <AdminPageHeader
+              sectionLabel="Entegrasyonlar"
+              title="Entegrasyonlar"
+              description="Satış kanalı bağlantılarını yönetin."
+              actions={headerActions}
+            />
+            <div className="flex min-h-[320px] items-center justify-center border-y border-[#E1E7EF] bg-[#F9F9F9] text-sm font-semibold text-[#6B7280]">
+              <Loader2 className="mr-3 h-5 w-5 animate-spin text-[#FF6A00]" />
+              Kanallar hazırlanıyor
+            </div>
+          </AdminPageShell>
+        </div>
+      </main>
     );
   }
 
-  // LIST VIEW
   if (view === "list") {
     return (
-      <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-        <div className="mx-auto max-w-none space-y-6">
-        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)] md:p-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
-              Pazaryeri Entegrasyonlari
-            </div>
-          <button
-            onClick={fetchIntegrations}
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Yenile
-          </button>
-          </div>
-          <div className="hidden" />
-        </section>
+      <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+        <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+          <AdminPageShell>
+            <AdminPageHeader
+              sectionLabel="Entegrasyonlar"
+              title="Entegrasyonlar"
+              description="Pazaryeri bağlantıları ve senkron durumları."
+              actions={headerActions}
+              metrics={
+                <>
+                  <MetricCell label="Bağlantı" value={totals.totalConnections} detail="aktif kayıt" icon={Store} />
+                  <MetricCell label="Aktif" value={totals.activeConnections} detail="çalışan kanal" icon={CheckCircle2} />
+                  <MetricCell label="Bekleyen" value={totals.totalQueue} detail="kuyruk" icon={RefreshCw} />
+                  <MetricCell label="Listing" value={totals.totalListings} detail="eşleşme" icon={ShoppingBag} />
+                </>
+              }
+            />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Bağlantı" value={totals.totalConnections} icon={Store} color="blue" />
-          <StatCard title="Aktif" value={totals.activeConnections} icon={CheckCircle2} color="green" />
-          <StatCard title="Bekleyen" value={totals.totalQueue} icon={RefreshCw} color="amber" />
-          <StatCard title="Listing" value={totals.totalListings} icon={ShoppingBag} color="purple" />
-        </div>
+            {error ? (
+              <div className="flex items-center gap-2 border-y border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                <AlertCircle className="h-4 w-4" />
+                {error}
+              </div>
+            ) : null}
 
-        {error && (
-          <div className="flex items-center gap-2 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </div>
-        )}
+            <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5">
+                <div>
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Satış kanalları</h2>
+                  <p className="mt-1 text-xs font-medium text-[#6B7280]">Bağlantı, kuyruk ve listing durumu aynı satırda.</p>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280]">
+                  {sortedIntegrations.length} kanal
+                </span>
+              </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {sortedIntegrations.map((integration) => {
-            const providerId = integration.provider.id;
-            const isConnected = integration.connection?.status === "active";
-            const hasError = integration.connection?.status === "error";
-            const colorStyle = PROVIDER_COLORS[providerId] || { bg: "bg-gray-100", text: "text-gray-700" };
-
-            return (
-              <button
-                key={providerId}
-                onClick={() => openDetail(providerId)}
-                className={cn(
-                  "rounded-[12px] border bg-white p-5 text-left shadow-[var(--shadow-xs)] transition-all hover:-translate-y-1 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]",
-                  isConnected
-                    ? "border-emerald-200 hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]"
-                    : hasError
-                      ? "border-rose-200 hover:shadow-[0_24px_55px_rgba(244,63,94,0.12)]"
-                      : "border-[var(--admin-border)] hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-xs)]"
-                )}
-              >
-                <div className="flex items-start gap-4">
-                  <ProviderLogo
-                    provider={integration.provider}
-                    size={56}
-                    colorStyle={colorStyle}
-                    className="h-14 w-14"
+              {sortedIntegrations.length === 0 ? (
+                <div className="p-5">
+                  <AdminEmptyState
+                    icon={<Store className="h-7 w-7" />}
+                    title="Pazaryeri bulunmuyor"
+                    description="Entegrasyon sağlayıcıları eklendiğinde bu alanda görünecek."
+                    className="border-[#DCE3EC] bg-[#F9F9F9]"
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{integration.provider.name}</h3>
-                      {isConnected && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                    </div>
-                    <p className="line-clamp-2 text-sm leading-6 text-[#7d6959]">{integration.provider.description}</p>
-
-                    <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      <ConnectionBadge isConnected={isConnected} hasError={hasError} />
-                    </div>
-                  </div>
                 </div>
-
-                <div className="mt-4 border-t border-[var(--admin-border)] pt-4">
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Bekleyen</p>
-                      <p className="mt-1 font-semibold text-[var(--admin-heading)]">{integration.queueStats.queued}</p>
-                    </div>
-                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Listing</p>
-                      <p className="mt-1 font-semibold text-[var(--admin-heading)]">{integration.listingStats.total}</p>
-                    </div>
-                    <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">Hatali</p>
-                      <p className={cn("mt-1 font-semibold", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[var(--admin-heading)]")}>
-                        {integration.queueStats.failed}
-                      </p>
-                    </div>
-                  </div>
+              ) : (
+                <div className="divide-y divide-[#E1E7EF]">
+                  {sortedIntegrations.map((integration) => (
+                    <ProviderSummaryRow
+                      key={integration.provider.id}
+                      integration={integration}
+                      onOpen={() => openDetail(integration.provider.id)}
+                    />
+                  ))}
                 </div>
-              </button>
-            );
-          })}
+              )}
+            </section>
+          </AdminPageShell>
         </div>
-        </div>
-      </div>
+      </main>
     );
   }
 
-  // DETAIL VIEW
   if (view === "detail" && selectedProvider) {
     const integration = integrations.find((i) => i.provider.id === selectedProvider);
     if (!integration) return null;
@@ -451,357 +439,457 @@ export default function MarketsPage() {
         : null;
 
     return (
-      <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <div className={cn("overflow-hidden rounded-[12px] border bg-white p-6 shadow-[var(--shadow-xs)]", isConnected ? "border-emerald-200" : hasError ? "border-rose-200" : "border-[var(--admin-border)]")}>
-            <div className="flex items-center gap-4">
-              <ProviderLogo
-                provider={integration.provider}
-                size={64}
-                colorStyle={colorStyle}
-                className="h-16 w-16"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">{integration.provider.name}</h1>
-                  <ConnectionBadge isConnected={isConnected} hasError={hasError} />
-                </div>
-                <p className="mt-2 text-sm leading-6 text-[#7d6959]">{integration.provider.description}</p>
-                <div className="flex items-center gap-4 mt-2">
-                  <a href={integration.provider.websiteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[var(--admin-accent-hover)] hover:text-[#a94500]">
-                    Panel <ExternalLink className="w-3 h-3" />
+      <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+        <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+          <AdminPageShell>
+            <AdminPageHeader
+              sectionLabel="Entegrasyonlar"
+              title={integration.provider.name}
+              description="Kanal bağlantısı, alan eşleme ve senkron durumu."
+              actions={
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setView("list")}
+                    className="inline-flex h-10 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                  >
+                    Tüm kanallar
+                  </button>
+                  <a
+                    href={integration.provider.websiteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                  >
+                    Panel
+                    <ExternalLink className="h-4 w-4" />
                   </a>
-                  {integration.provider.docsUrl && (
-                    <a href={integration.provider.docsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-[var(--admin-accent-hover)] hover:text-[#a94500]">
-                      API Dokumani <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {providerId === "google_merchant" && (
-            <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
-              <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
-                <div className="space-y-2">
-                  <h2 className="font-semibold text-[var(--admin-heading)]">Merchant Feed URL</h2>
-                  <p className="text-sm leading-6 text-[#7d6959]">
-                    Google Merchant Center icinde Scheduled Fetch kaynagi olarak bu adresi kullan.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {googleFeedItemCount !== null && (
-                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
-                        {googleFeedItemCount} hazir urun
-                      </span>
-                    )}
-                  {googleFeedIssueCount !== null && (
-                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-medium text-amber-700">
-                      {googleFeedIssueCount} issue
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <input
-                    readOnly
-                    value={googleFeedUrl || "Baglanti kaydedildiginde feed URL burada gorunecek."}
-                    className="w-full bg-transparent text-sm text-[var(--admin-text-secondary)] outline-none"
-                  />
-                  {googleFeedUrl ? (
+                  {integration.provider.docsUrl ? (
                     <a
-                      href={googleFeedUrl}
+                      href={integration.provider.docsUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--admin-text-secondary)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                     >
-                      Ac
-                      <ExternalLink className="h-3 w-3" />
+                      API
+                      <ExternalLink className="h-4 w-4" />
                     </a>
                   ) : null}
                 </div>
-              </div>
+              }
+              metrics={
+                <>
+                  <MetricCell label="Durum" value={isConnected ? "Bağlı" : hasError ? "Hata" : "Kapalı"} detail="kanal" icon={Store} />
+                  <MetricCell label="Bekleyen" value={integration.queueStats.queued} detail="kuyruk" icon={RefreshCw} />
+                  <MetricCell label="Listing" value={integration.listingStats.total} detail="eşleşme" icon={ShoppingBag} />
+                  <MetricCell label="Son senkron" value={formatShortDate(integration.connection?.lastSyncAt)} detail="kontrol" icon={ShieldCheck} />
+                </>
+              }
+            />
 
-              <div className="mt-4 grid gap-3 text-sm text-[var(--admin-text-secondary)] md:grid-cols-3">
-                <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
-                  1. Merchant Center &gt; Products &gt; Data sources
-                </div>
-                <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
-                  2. Scheduled Fetch sec ve URL olarak bu feed adresini gir
-                </div>
-                <div className="rounded-[20px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
-                  3. Sonra bu ekrandan Senkronize Et ile issue durumlarini kontrol et
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Form */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]">
-                    <Settings className="w-5 h-5" />
+            <section className="grid gap-4 min-[1180px]:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="min-w-0 space-y-4">
+                <div className="grid gap-4 border-y border-[#E1E7EF] bg-[#F9F9F9] py-4 min-[860px]:grid-cols-[64px_minmax(0,1fr)_auto] min-[860px]:items-center">
+                  <ProviderLogo
+                    provider={integration.provider}
+                    size={48}
+                    colorStyle={colorStyle}
+                    className="h-14 w-14 border border-[#DCE3EC]"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h2 className="truncate text-xl font-semibold tracking-[-0.03em] text-[#111827]">{integration.provider.name}</h2>
+                      <ConnectionBadge isConnected={isConnected} hasError={hasError} />
+                    </div>
+                    <p className="mt-1 line-clamp-1 text-sm font-medium text-[#6B7280]">{integration.provider.description}</p>
                   </div>
-                  <div>
-                    <h2 className="font-semibold text-[var(--admin-heading)]">API Bilgileri</h2>
-                    <p className="text-sm text-[#7d6959]">Pazaryeri panelinden alinan kimlik bilgileri</p>
+                  <div className="grid grid-cols-3 gap-3 text-sm min-[860px]:w-[360px]">
+                    <FieldValue label="Webhook" value={integration.provider.supportsWebhook ? "Destekli" : "Polling"} />
+                    <FieldValue label="Hatalı" value={integration.queueStats.failed} danger={integration.queueStats.failed > 0} />
+                    <FieldValue label="Aktif" value={integration.listingStats.active} />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {integration.provider.credentialFields.map((field) => {
-                    const isTextarea = (field.type as string | undefined) === "textarea";
+                {providerId === "google_merchant" ? (
+                  <section className="rounded-[12px] border border-[#DCE3EC] bg-white">
+                    <div className="grid gap-3 border-b border-[#E1E7EF] bg-[#F9F9F9] px-4 py-3 min-[860px]:grid-cols-[minmax(0,1fr)_auto] min-[860px]:items-center">
+                      <h2 className="text-base font-semibold tracking-[-0.02em] text-[#111827]">Merchant Feed URL</h2>
+                      <div className="flex flex-wrap gap-2 text-xs font-semibold text-[#6B7280]">
+                        {googleFeedItemCount !== null ? <span>{googleFeedItemCount} hazır ürün</span> : null}
+                        {googleFeedIssueCount !== null ? <span className="text-[#E85D04]">{googleFeedIssueCount} issue</span> : null}
+                      </div>
+                    </div>
+                    <div className="grid gap-3 p-4 min-[860px]:grid-cols-[minmax(0,1fr)_auto] min-[860px]:items-center">
+                      <input
+                        readOnly
+                        value={googleFeedUrl || "Bağlantı kaydedildiğinde feed URL burada görünecek."}
+                        className="h-10 min-w-0 rounded-[8px] border border-[#DCE3EC] bg-[#F9F9F9] px-3 text-sm font-medium text-[#6B7280] outline-none"
+                      />
+                      {googleFeedUrl ? (
+                        <a
+                          href={googleFeedUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                        >
+                          Aç
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      ) : null}
+                    </div>
+                  </section>
+                ) : null}
 
-                    return (
-                      <div key={field.key} className={isTextarea ? "md:col-span-2" : ""}>
-                        <label className="mb-2 block text-sm font-medium text-[var(--admin-text-secondary)]">
-                          {field.label}
-                          {field.required && <span className="text-red-500 ml-1">*</span>}
-                        </label>
-                        {isTextarea ? (
-                          <textarea
-                            value={form.credentials[field.key] || ""}
-                            onChange={(e) => updateCredential(providerId, field.key, e.target.value)}
-                            placeholder={field.placeholder || field.label}
-                            rows={3}
-                            className={WARM_INPUT}
-                          />
-                        ) : (
+                <FormBlock icon={Settings} title="API Bilgileri">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {integration.provider.credentialFields.map((field) => {
+                      const isTextarea = (field.type as string | undefined) === "textarea";
+
+                      return (
+                        <div key={field.key} className={isTextarea ? "md:col-span-2" : ""}>
+                          <label className="mb-2 block text-sm font-semibold text-[#4B5563]">
+                            {field.label}
+                            {field.required ? <span className="ml-1 text-[#FF6A00]">*</span> : null}
+                          </label>
+                          {isTextarea ? (
+                            <textarea
+                              value={form.credentials[field.key] || ""}
+                              onChange={(event) => updateCredential(providerId, field.key, event.target.value)}
+                              placeholder={field.placeholder || field.label}
+                              rows={3}
+                              className={WARM_INPUT}
+                            />
+                          ) : (
+                            <input
+                              type={field.type === "password" ? "password" : field.type === "number" ? "number" : "text"}
+                              value={form.credentials[field.key] || ""}
+                              onChange={(event) => updateCredential(providerId, field.key, event.target.value)}
+                              placeholder={field.placeholder || field.label}
+                              className={WARM_INPUT}
+                            />
+                          )}
+                          {field.description ? <p className="mt-1 text-xs font-medium text-[#6B7280]">{field.description}</p> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </FormBlock>
+
+                {integration.provider.mappingFields.length > 0 ? (
+                  <FormBlock icon={Package} title="Alan eşleme">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {integration.provider.mappingFields.map((field) => (
+                        <div key={field.key}>
+                          <label className="mb-2 block text-sm font-semibold text-[#4B5563]">{field.label}</label>
                           <input
-                            type={field.type === "password" ? "password" : "text"}
-                            value={form.credentials[field.key] || ""}
-                            onChange={(e) => updateCredential(providerId, field.key, e.target.value)}
-                            placeholder={field.placeholder || field.label}
+                            value={form.fieldMappings[field.key] || ""}
+                            onChange={(event) => updateMapping(providerId, field.key, event.target.value)}
+                            placeholder={field.placeholder || "Opsiyonel"}
                             className={WARM_INPUT}
                           />
-                        )}
-                        <p className="mt-1 text-xs text-[#9a8474]">{field.description}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {integration.provider.mappingFields.length > 0 && (
-                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]">
-                      <Package className="w-5 h-5" />
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <h2 className="font-semibold text-[var(--admin-heading)]">Alan Esleme</h2>
-                      <p className="text-sm text-[#7d6959]">Ürün alanlarını pazaryeri alanlarıyla eşleştirin</p>
-                    </div>
-                  </div>
+                  </FormBlock>
+                ) : null}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {integration.provider.mappingFields.map((field) => (
-                      <div key={field.key}>
-                        <label className="mb-2 block text-sm font-medium text-[var(--admin-text-secondary)]">{field.label}</label>
-                        <input
-                          value={form.fieldMappings[field.key] || ""}
-                          onChange={(e) => updateMapping(providerId, field.key, e.target.value)}
-                          placeholder={field.placeholder || "Opsiyonel"}
-                          className={WARM_INPUT}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {listings.length > 0 && (
-                <div className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
-                  <div className="flex items-center justify-between border-b border-[var(--admin-border)] px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <ShoppingBag className="w-5 h-5 text-[var(--admin-accent-hover)]" />
-                      <h3 className="font-semibold text-[var(--admin-heading)]">Listing Eslesmeleri</h3>
+                <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                  <div className="grid gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 min-[760px]:grid-cols-[minmax(0,1fr)_auto] min-[760px]:items-center">
+                    <div className="flex items-center gap-2">
+                      <ShoppingBag className="h-4 w-4 text-[#FF6A00]" />
+                      <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Listing eşleşmeleri</h2>
                     </div>
                     <button
+                      type="button"
                       onClick={() => loadListings(selectedProvider)}
                       disabled={busyKey === `${selectedProvider}:listings`}
-                      className="text-sm font-medium text-[var(--admin-accent-hover)] transition hover:text-[#a94500] disabled:opacity-50"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-xs font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:opacity-60"
                     >
-                      {busyKey === `${selectedProvider}:listings` ? "Yükleniyor..." : "Yenile"}
+                      <RefreshCw className={cn("h-3.5 w-3.5", busyKey === `${selectedProvider}:listings` && "animate-spin")} />
+                      Yenile
                     </button>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-[var(--admin-accent-soft)]/85">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Ürün</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">SKU</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Fiyat / Stok</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-[#9a7c67]">Durum</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#f2e7dc]">
-                        {listings.slice(0, 10).map((listing) => (
-                          <tr key={listing.variantId} className="transition-colors hover:bg-[#FCFDFE]">
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-[var(--admin-heading)]">{listing.productName}</div>
-                              <div className="text-xs text-[#8c7564]">{listing.variantName}</div>
-                            </td>
-                            <td className="px-4 py-3 font-mono text-xs">{listing.sku || "-"}</td>
-                            <td className="px-4 py-3 text-[var(--admin-text-secondary)]">
-                              {listing.price.toLocaleString("tr-TR")} ₺ / {listing.stock}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={cn(
-                                  "inline-flex rounded-full px-3 py-1.5 text-xs font-semibold",
-                                  listing.status === "active" && "border border-emerald-200 bg-emerald-50 text-emerald-700",
-                                  listing.status === "error" && "border border-rose-200 bg-rose-50 text-rose-700",
-                                  listing.status === "pending" && "border border-amber-200 bg-amber-50 text-amber-700"
-                                )}
-                              >
-                                {listing.status}
-                              </span>
-                            </td>
+                  {listings.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[720px] text-left text-sm">
+                        <thead className="bg-[#F9F9F9] text-[#4B5563]">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold">Ürün</th>
+                            <th className="px-4 py-3 font-semibold">SKU</th>
+                            <th className="px-4 py-3 font-semibold">Fiyat / Stok</th>
+                            <th className="px-4 py-3 font-semibold">Durum</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Actions & Logs */}
-            <div className="space-y-6">
-              <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
-                <h3 className="mb-4 font-semibold text-[var(--admin-heading)]">Islemler</h3>
-                <div className="space-y-3">
-                  <ActionButton
-                    icon={Save}
-                    label="Bağlan / Kaydet"
-                    loading={busyKey === `${providerId}:connect`}
-                    onClick={() => connectProvider(providerId)}
-                    variant="primary"
-                  />
-                  <ActionButton
-                    icon={ShieldCheck}
-                    label="Bağlantıyı Test Et"
-                    loading={busyKey === `${providerId}:test`}
-                    onClick={() => testProvider(providerId)}
-                    variant="secondary"
-                  />
-                  <ActionButton
-                    icon={RefreshCw}
-                    label="Senkronize Et"
-                    loading={busyKey === `${providerId}:sync`}
-                    onClick={() => syncProvider(providerId)}
-                    variant="secondary"
-                  />
-                </div>
-
-                <div className="mt-6 space-y-3 border-t border-[var(--admin-border)] pt-6">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#8c7564]">Webhook</span>
-                    <span className="font-medium text-[var(--admin-heading)]">{integration.provider.supportsWebhook ? "Destekli" : "Polling"}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#8c7564]">Son Senkron</span>
-                    <span className="font-medium text-[var(--admin-heading)]">
-                      {integration.connection?.lastSyncAt
-                        ? new Date(integration.connection.lastSyncAt).toLocaleDateString("tr-TR")
-                        : "-"}
-                    </span>
-                  </div>
-                </div>
+                        </thead>
+                        <tbody className="divide-y divide-[#E1E7EF]">
+                          {listings.slice(0, 10).map((listing) => (
+                            <tr key={listing.variantId} className="transition hover:bg-[#FFF8F3]">
+                              <td className="px-4 py-3">
+                                <div className="max-w-[360px] truncate font-semibold text-[#111827]">{listing.productName}</div>
+                                <div className="mt-1 text-xs font-medium text-[#6B7280]">{listing.variantName}</div>
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs font-semibold text-[#4B5563]">{listing.sku || "-"}</td>
+                              <td className="px-4 py-3 font-semibold text-[#111827]">
+                                {listing.price.toLocaleString("tr-TR")} ₺ / {listing.stock}
+                              </td>
+                              <td className={cn("px-4 py-3 font-semibold", listingStatusClass(listing.status))}>
+                                {listingStatusLabel(listing.status)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-5">
+                      <AdminEmptyState
+                        icon={<ShoppingBag className="h-7 w-7" />}
+                        title="Listing eşleşmesi yok"
+                        description="Kanal senkronize edildiğinde ürün eşleşmeleri burada listelenir."
+                        className="border-[#DCE3EC] bg-[#F9F9F9]"
+                      />
+                    </div>
+                  )}
+                </section>
               </div>
 
-              <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
-                <h3 className="mb-4 font-semibold text-[var(--admin-heading)]">Kuyruk Durumu</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-[20px] bg-[#FCFDFE] p-3">
-                    <span className="text-sm text-[var(--admin-text-secondary)]">Bekleyen</span>
-                    <span className="font-semibold text-[var(--admin-heading)]">{integration.queueStats.queued}</span>
+              <aside className="space-y-4">
+                <section className="rounded-[12px] border border-[#DCE3EC] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">İşlemler</h2>
+                  <div className="mt-4 space-y-2">
+                    <ActionButton
+                      icon={Save}
+                      label="Bağlan / Kaydet"
+                      loading={busyKey === `${providerId}:connect`}
+                      onClick={() => connectProvider(providerId)}
+                      variant="primary"
+                    />
+                    <ActionButton
+                      icon={ShieldCheck}
+                      label="Bağlantıyı Test Et"
+                      loading={busyKey === `${providerId}:test`}
+                      onClick={() => testProvider(providerId)}
+                      variant="secondary"
+                    />
+                    <ActionButton
+                      icon={RefreshCw}
+                      label="Senkronize Et"
+                      loading={busyKey === `${providerId}:sync`}
+                      onClick={() => syncProvider(providerId)}
+                      variant="secondary"
+                    />
                   </div>
-                  <div className={cn("flex items-center justify-between rounded-[20px] p-3", integration.queueStats.failed > 0 ? "bg-rose-50" : "bg-[#FCFDFE]")}>
-                    <span className={cn("text-sm", integration.queueStats.failed > 0 ? "text-rose-600" : "text-[var(--admin-text-secondary)]")}>Hatali</span>
-                    <span className={cn("font-semibold", integration.queueStats.failed > 0 ? "text-rose-700" : "text-[var(--admin-heading)]")}>
-                      {integration.queueStats.failed}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-[20px] bg-[#FCFDFE] p-3">
-                    <span className="text-sm text-[var(--admin-text-secondary)]">Listing</span>
-                    <span className="font-semibold text-[var(--admin-heading)]">{integration.listingStats.total}</span>
-                  </div>
-                </div>
-              </div>
+                </section>
 
-              {logs.length > 0 && (
-                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-[var(--admin-heading)]">Son Loglar</h3>
+                <section className="rounded-[12px] border border-[#DCE3EC] bg-white">
+                  <div className="border-b border-[#E1E7EF] bg-[#F9F9F9] px-4 py-3">
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Kuyruk</h2>
+                  </div>
+                  <div className="divide-y divide-[#E1E7EF]">
+                    <QueueRow label="Bekleyen" value={integration.queueStats.queued} />
+                    <QueueRow label="Hatalı" value={integration.queueStats.failed} danger={integration.queueStats.failed > 0} />
+                    <QueueRow label="Listing" value={integration.listingStats.total} />
+                    <QueueRow label="Webhook" value={integration.provider.supportsWebhook ? "Destekli" : "Polling"} />
+                  </div>
+                </section>
+
+                <section className="rounded-[12px] border border-[#DCE3EC] bg-white">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#E1E7EF] bg-[#F9F9F9] px-4 py-3">
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Son loglar</h2>
                     <button
+                      type="button"
                       onClick={() => loadLogs(selectedProvider)}
                       disabled={busyKey === `${selectedProvider}:logs`}
-                      className="text-xs font-medium text-[var(--admin-accent-hover)] transition hover:text-[#a94500] disabled:opacity-50"
+                      className="text-xs font-semibold text-[#E85D04] disabled:opacity-60"
                     >
                       Yenile
                     </button>
                   </div>
-                  <div className="space-y-2 max-h-64 overflow-auto">
-                    {logs.slice(0, 5).map((log) => (
-                      <div key={log.id} className="rounded-[20px] bg-[#FCFDFE] p-3 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span
-                            className={cn(
-                              "font-medium",
-                              log.status === "success" ? "text-emerald-700" : log.status === "error" ? "text-rose-700" : "text-[var(--admin-text-secondary)]"
-                            )}
-                          >
-                            {log.status}
-                          </span>
-                          <span className="text-[var(--admin-text-muted)]">{new Date(log.createdAt).toLocaleDateString("tr-TR")}</span>
+                  {logs.length > 0 ? (
+                    <div className="max-h-72 divide-y divide-[#E1E7EF] overflow-auto">
+                      {logs.slice(0, 6).map((log) => (
+                        <div key={log.id} className="px-4 py-3 text-xs">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className={cn("font-semibold", log.status === "success" ? "text-emerald-700" : log.status === "error" ? "text-rose-700" : "text-[#4B5563]")}>
+                              {log.status}
+                            </span>
+                            <span className="font-medium text-[#9CA3AF]">{formatShortDate(log.createdAt)}</span>
+                          </div>
+                          <p className="mt-1 font-medium text-[#6B7280]">
+                            {log.direction} / {log.entityType}
+                          </p>
+                          {log.errorMessage ? <p className="mt-1 font-semibold text-rose-600">{log.errorMessage}</p> : null}
                         </div>
-                        <p className="mt-1 text-[#8c7564]">
-                          {log.direction} / {log.entityType}
-                        </p>
-                        {log.errorMessage && <p className="mt-1 text-rose-600">{log.errorMessage}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm font-medium text-[#6B7280]">Henüz log yok</div>
+                  )}
+                </section>
+              </aside>
+            </section>
+          </AdminPageShell>
         </div>
-      </div>
+      </main>
     );
   }
 
   return null;
 }
 
-function StatCard({ title, value, icon: Icon, color }: { title: string; value: number; icon: ElementType; color: "blue" | "green" | "amber" | "purple" }) {
-  const colors = {
-    blue: "border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]",
-    green: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-600",
-    amber: "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-600",
-    purple: "border-[#efcfb1] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]",
-  };
-
+function MetricCell({
+  label,
+  value,
+  detail,
+  icon: Icon,
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+  icon: ElementType;
+}) {
   return (
-    <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</p>
-          <p className="text-2xl font-bold tracking-[-0.03em] text-[var(--admin-heading)]">{value}</p>
-        </div>
-        <div className={`flex h-11 w-11 items-center justify-center rounded-[18px] border shadow-sm ${colors[color]}`}>
-          <Icon className="w-5 h-5" />
-        </div>
+    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">{label}</p>
+        <Icon className="h-4 w-4 text-[#9CA3AF]" />
+      </div>
+      <div className="mt-3 flex items-end gap-2">
+        <p className="truncate text-3xl font-semibold tracking-[-0.04em] text-[#111827]">{value}</p>
+        <span className="pb-1 text-sm font-medium text-[#6B7280]">{detail}</span>
       </div>
     </div>
   );
+}
+
+function ProviderSummaryRow({
+  integration,
+  onOpen,
+}: {
+  integration: MarketplaceIntegrationView;
+  onOpen: () => void;
+}) {
+  const providerId = integration.provider.id;
+  const isConnected = integration.connection?.status === "active";
+  const hasError = integration.connection?.status === "error";
+  const colorStyle = PROVIDER_COLORS[providerId] || { bg: "bg-gray-100", text: "text-gray-700" };
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[#FFF8F3] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] min-[920px]:grid-cols-[52px_minmax(220px,1.3fr)_110px_110px_110px_auto] min-[920px]:items-center xl:px-5"
+    >
+      <div className="grid grid-cols-[52px_minmax(0,1fr)] gap-3 min-[920px]:contents">
+        <ProviderLogo
+          provider={integration.provider}
+          size={42}
+          colorStyle={colorStyle}
+          className="h-12 w-12 border border-[#DCE3EC]"
+        />
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-base font-semibold tracking-[-0.02em] text-[#111827]">
+              {integration.provider.name}
+            </h3>
+            <ConnectionBadge isConnected={isConnected} hasError={hasError} />
+          </div>
+          <p className="mt-1 line-clamp-1 text-sm font-medium text-[#6B7280]">{integration.provider.description}</p>
+        </div>
+      </div>
+      <FieldValue label="Bekleyen" value={integration.queueStats.queued} />
+      <FieldValue label="Listing" value={integration.listingStats.total} />
+      <FieldValue label="Hatalı" value={integration.queueStats.failed} danger={integration.queueStats.failed > 0} />
+      <span className="inline-flex h-9 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563]">
+        Ayarlar
+      </span>
+    </button>
+  );
+}
+
+function FieldValue({
+  label,
+  value,
+  danger = false,
+}: {
+  label: string;
+  value: string | number;
+  danger?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF]">{label}</p>
+      <p className={cn("mt-1 truncate text-sm font-semibold text-[#111827]", danger && "text-rose-600")}>{value}</p>
+    </div>
+  );
+}
+
+function FormBlock({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: ElementType;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center gap-3 border-b border-[#E1E7EF] bg-[#F9F9F9] px-4 py-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#FFD1B5] bg-[#FFF1E8] text-[#FF6A00]">
+          <Icon className="h-4 w-4" />
+        </div>
+        <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">{title}</h2>
+      </div>
+      <div className="p-4 xl:p-5">{children}</div>
+    </section>
+  );
+}
+
+function QueueRow({
+  label,
+  value,
+  danger = false,
+}: {
+  label: string;
+  value: string | number;
+  danger?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+      <span className="font-medium text-[#6B7280]">{label}</span>
+      <span className={cn("font-semibold text-[#111827]", danger && "text-rose-600")}>{value}</span>
+    </div>
+  );
+}
+
+function formatShortDate(value: string | null | undefined) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("tr-TR", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function listingStatusLabel(status: MarketplaceListingView["status"]) {
+  const labels: Record<MarketplaceListingView["status"], string> = {
+    active: "Aktif",
+    error: "Hata",
+    inactive: "Kapalı",
+    pending: "Bekliyor",
+  };
+
+  return labels[status] || status;
+}
+
+function listingStatusClass(status: MarketplaceListingView["status"]) {
+  if (status === "active") return "text-emerald-700";
+  if (status === "error") return "text-rose-700";
+  if (status === "pending") return "text-[#E85D04]";
+  return "text-[#6B7280]";
 }
 
 function ActionButton({
