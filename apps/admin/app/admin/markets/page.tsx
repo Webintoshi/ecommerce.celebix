@@ -313,7 +313,11 @@ export default function MarketsPage() {
   const openDetail = (providerId: MarketplaceProvider) => {
     setSelectedProvider(providerId);
     setView("detail");
-    void Promise.all([loadListings(providerId), loadLogs(providerId)]);
+
+    const integration = integrations.find((item) => item.provider.id === providerId);
+    if (integration?.connection) {
+      void Promise.all([loadListings(providerId), loadLogs(providerId)]);
+    }
   };
 
   const headerActions = (
