@@ -105,9 +105,6 @@ export default function NewPaymentGatewayPage() {
                     />
                     <div className="min-w-0">
                       <h3 className="truncate text-sm font-semibold text-[#111827]">{provider.name}</h3>
-                      <p className="mt-1 text-xs font-semibold text-[#8B95A5]">
-                        {getProviderCategoryLabel(provider.category)}
-                      </p>
                     </div>
                     <span className="grid h-7 w-7 place-items-center rounded-full border border-[#FFD1B5] text-[#FF6A00] opacity-0 transition group-hover:opacity-100">
                       <CheckCircle2 className="h-4 w-4" />
@@ -160,19 +157,4 @@ export default function NewPaymentGatewayPage() {
       </div>
     </main>
   );
-}
-
-function getProviderCategoryLabel(category: string) {
-  switch (category) {
-    case "card":
-      return "Kartlı ödeme";
-    case "bank":
-      return "Banka";
-    case "wallet":
-      return "Cüzdan";
-    case "cash":
-      return "Kapıda ödeme";
-    default:
-      return "Ödeme";
-  }
 }
