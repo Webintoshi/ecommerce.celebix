@@ -1,11 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Copy, Eye, Filter, MessageCircle, RefreshCw, Send, Users } from "lucide-react";
-import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
+import { AdminEmptyState, AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import { getCustomers } from "@/lib/customers";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
-import { Customer } from "@/types/customer";
+import { cn } from "@/lib/utils";
+import type { Customer } from "@/types/customer";
+import {
+  CheckCircle2,
+  Copy,
+  Eye,
+  Filter,
+  MessageCircle,
+  RefreshCw,
+  Search,
+  Send,
+  UserCheck,
+  Users,
+} from "lucide-react";
+import { type ElementType, useEffect, useMemo, useState } from "react";
+
+type FilterKey = "all" | "phone" | "new" | "vip";
+
+const FILTER_OPTIONS: Array<{ value: FilterKey; label: string }> = [
+  { value: "all", label: "Tüm müşteriler" },
+  { value: "phone", label: "Telefonu olanlar" },
+  { value: "new", label: "Yeni müşteriler" },
+  { value: "vip", label: "VIP müşteriler" },
+];
 
 const WHATSAPP_TEMPLATES = [
   {
@@ -25,57 +46,61 @@ const WHATSAPP_TEMPLATES = [
   },
 ];
 
+function customerName(customer: Customer) {
+  return `${customer.firstName} ${customer.lastName}`.trim() || "İsimsiz müşteri";
+}
+
 export default function WhatsAppMarketingPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<FilterKey>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [messageTemplate, setMessageTemplate] = useState("");
-  const [previewMode, setPreviewMode] = useState(false);
+  const [previewMode, setPreviewMode] = useState(true);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
     setCustomers(getCustomers());
   }, []);
 
-  const filteredCustomers = customers.filter((customer) => {
-    const matchesSearch =
-      customer.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (customer.phone && customer.phone.includes(searchQuery));
+  const filteredCustomers = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase("tr");
 
-    const matchesFilter =
-      filter === "all" ||
-      (filter === "phone" && customer.phone) ||
-      (filter === "new" && customer.tags?.includes("Yeni")) ||
-      (filter === "vip" && customer.tags?.includes("VIP"));
+    return customers.filter((customer) => {
+      const matchesSearch =
+        !query ||
+        customer.firstName.toLocaleLowerCase("tr").includes(query) ||
+        customer.lastName.toLocaleLowerCase("tr").includes(query) ||
+        customer.phone?.includes(query);
 
-    return matchesSearch && matchesFilter;
-  });
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "phone" && Boolean(customer.phone)) ||
+        (filter === "new" && customer.tags?.includes("Yeni")) ||
+        (filter === "vip" && customer.tags?.includes("VIP"));
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [customers, filter, searchQuery]);
 
   const selectedRecipients = useMemo(
     () => customers.filter((customer) => customer.phone && selectedCustomers.includes(customer.id)),
     [customers, selectedCustomers],
   );
 
+  const phoneCount = useMemo(() => customers.filter((customer) => customer.phone).length, [customers]);
+  const templateCount = WHATSAPP_TEMPLATES.length;
+
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedCustomers(filteredCustomers.map((customer) => customer.id));
-    } else {
-      setSelectedCustomers([]);
-    }
+    setSelectedCustomers(checked ? filteredCustomers.map((customer) => customer.id) : []);
   };
 
   const handleSelectCustomer = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedCustomers((prev) => [...prev, id]);
-    } else {
-      setSelectedCustomers((prev) => prev.filter((customerId) => customerId !== id));
-    }
+    setSelectedCustomers((current) => (checked ? [...current, id] : current.filter((customerId) => customerId !== id)));
   };
 
   const handleSendWhatsApp = async () => {
-    if (selectedCustomers.length === 0 || !messageTemplate) return;
+    if (selectedRecipients.length === 0 || !messageTemplate.trim()) return;
 
     setSending(true);
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -101,386 +126,323 @@ export default function WhatsAppMarketingPage() {
     return content;
   };
 
+  const copyMessage = async () => {
+    const content = getPreviewContent();
+    if (!content.trim()) return;
+    await navigator.clipboard.writeText(content);
+  };
+
+  const allVisibleSelected = filteredCustomers.length > 0 && selectedCustomers.length === filteredCustomers.length;
+  const previewContent = getPreviewContent();
+
   return (
-    <main className="admin-page-root px-4 py-4 md:px-6 md:py-5 xl:px-6">
-      <div className="mx-auto max-w-none">
+    <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+      <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
         <AdminPageShell>
           <AdminPageHeader
             sectionLabel="Pazarlama"
-            title="WhatsApp Kampanyaları"
-            description="Alıcı, mesaj şablonu ve önizleme akışını yönetin."
+            title="WhatsApp"
+            description="Alıcı ve mesaj hazırlığını yönetin."
             actions={
               <button
                 type="button"
                 onClick={() => setCustomers(getCustomers())}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-3 text-sm font-semibold text-[var(--admin-text)] transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
               >
                 <RefreshCw className="h-4 w-4" />
                 Yenile
               </button>
             }
+            metrics={
+              <>
+                <MetricCell label="Toplam" value={customers.length} detail="müşteri" icon={Users} />
+                <MetricCell label="Telefon" value={phoneCount} detail="uygun" icon={MessageCircle} tone="accent" />
+                <MetricCell label="Seçili" value={selectedRecipients.length} detail="alıcı" icon={UserCheck} />
+                <MetricCell label="Şablon" value={templateCount} detail="hazır" icon={CheckCircle2} />
+              </>
+            }
           />
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.95fr)]">
-          <section className="rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)] backdrop-blur">
-            <div className="border-b border-[#f1e4d1] px-5 py-5 md:px-6">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-[#3f2a17]">Alıcı listesi</h2>
-                  <p className="mt-1 text-sm text-[#826c57]">
-                    {selectedCustomers.length} seçili müşteri, {filteredCustomers.length} görünür kayıt.
-                  </p>
-                </div>
+          <section className="grid gap-3 border-b border-[#E1E7EF] bg-[#F9F9F9] pb-4 min-[920px]:grid-cols-[minmax(0,1fr)_220px_auto] min-[920px]:items-center">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B95A5]" />
+              <input
+                type="text"
+                placeholder="Müşteri veya telefon ara"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="h-10 w-full rounded-[8px] border border-[#DCE3EC] bg-white py-2 pl-11 pr-3 text-sm font-medium text-[#111827] outline-none transition placeholder:text-[#8B95A5] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+              />
+            </label>
 
-                <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                  <div className="relative min-w-0 md:min-w-[280px]">
-                    <Filter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b2916f]" />
-                    <input
-                      type="text"
-                      placeholder="Müşteri veya telefon ara"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
-                    />
-                  </div>
+            <label className="flex h-10 items-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563]">
+              <Filter className="h-4 w-4 text-[#8B95A5]" />
+              <select
+                value={filter}
+                onChange={(event) => setFilter(event.target.value as FilterKey)}
+                className="w-full bg-transparent text-sm font-semibold text-[#4B5563] outline-none"
+              >
+                {FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-                  <div className="relative md:min-w-[220px]">
-                    <Filter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b2916f]" />
-                    <select
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      className="w-full appearance-none rounded-[8px] border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-10 text-sm text-[var(--admin-heading)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
-                    >
-                      <option value="all">Tüm müşteriler</option>
-                      <option value="phone">Telefon numarası olanlar</option>
-                      <option value="new">Yeni müşteriler</option>
-                      <option value="vip">VIP müşteriler</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-3 pb-3 pt-3 md:px-4 md:pb-4">
-              <div className="hidden overflow-hidden rounded-[12px] border border-[var(--admin-border)] md:block">
-                <div className="max-h-[620px] overflow-y-auto">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-[#FCFDFE] text-[var(--admin-text-secondary)]">
-                      <tr>
-                        <th className="px-5 py-4 text-left">
-                          <input
-                            type="checkbox"
-                            checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                            className="h-4 w-4 cursor-pointer rounded border-[#ceb292] text-[#a66a2d] focus:ring-[#c58a38]"
-                          />
-                        </th>
-                        <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em]">Müşteri</th>
-                        <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em]">Telefon</th>
-                        <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em]">Durum</th>
-                        <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.2em]">İşlem</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCustomers.map((customer) => {
-                        const isSelected = selectedCustomers.includes(customer.id);
-                        const previewContent = getPreviewContent();
-
-                        return (
-                          <tr
-                            key={customer.id}
-                            className={`border-t border-[#f4e8d7] transition ${
-                              isSelected ? "bg-[#fff4df]" : "bg-white hover:bg-[#FCFDFE]"
-                            }`}
-                          >
-                            <td className="px-5 py-4 align-top">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => handleSelectCustomer(customer.id, e.target.checked)}
-                                className="h-4 w-4 cursor-pointer rounded border-[#ceb292] text-[#a66a2d] focus:ring-[#c58a38]"
-                              />
-                            </td>
-                            <td className="px-5 py-4 align-top">
-                              <div className="space-y-1">
-                                <div className="font-semibold text-[#322113]">{customer.firstName} {customer.lastName}</div>
-                                <div className="flex flex-wrap gap-2">
-                                  {(customer.tags || []).map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="inline-flex rounded-full border border-[var(--admin-border)] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[var(--admin-text-secondary)]"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-5 py-4 align-top">
-                              <span className="inline-flex rounded-[8px] bg-[#f7efe5] px-3 py-2 font-mono text-[#73563a]">
-                                {customer.phone || "-"}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4 align-top">
-                              <span
-                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                  customer.phone
-                                    ? "bg-[#ecf8ef] text-[#2d7a49]"
-                                    : "bg-[#f7eee7] text-[#9d6e43]"
-                                }`}
-                              >
-                                {customer.phone ? "Mesaja uygun" : "Numara eksik"}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4 align-top">
-                              {customer.phone ? (
-                                <a
-                                  href={generateWhatsAppLink(customer.phone, previewContent)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 rounded-[8px] border border-[#b7d5b7] bg-[#eff9ef] px-4 py-2.5 font-semibold text-[#28693f] transition hover:border-[#78b27e] hover:bg-[#e5f5e7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5f9e67] focus-visible:ring-offset-2"
-                                >
-                                  <MessageCircle className="h-4 w-4" />
-                                  Aç
-                                </a>
-                              ) : (
-                                <span className="text-sm text-[#b79b7e]">Telefon yok</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="space-y-3 md:hidden">
-                {filteredCustomers.map((customer) => {
-                  const isSelected = selectedCustomers.includes(customer.id);
-
-                  return (
-                    <article
-                      key={customer.id}
-                      className={`rounded-[12px] border p-4 transition ${
-                        isSelected ? "border-[#dba85f] bg-[#fff4df]" : "border-[#eee2d1] bg-white"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => handleSelectCustomer(customer.id, e.target.checked)}
-                          className="mt-1 h-4 w-4 rounded border-[#ceb292] text-[#a66a2d] focus:ring-[#c58a38]"
-                        />
-                        <div className="min-w-0 flex-1 space-y-3">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <div className="font-semibold text-[#322113]">{customer.firstName} {customer.lastName}</div>
-                              <div className="mt-1 font-mono text-sm text-[#7a6654]">{customer.phone || "Telefon yok"}</div>
-                            </div>
-                            <span
-                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                customer.phone ? "bg-[#ecf8ef] text-[#2d7a49]" : "bg-[#f7eee7] text-[#9d6e43]"
-                              }`}
-                            >
-                              {customer.phone ? "Hazır" : "Eksik"}
-                            </span>
-                          </div>
-
-                          {(customer.tags || []).length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                              {(customer.tags || []).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex rounded-full border border-[var(--admin-border)] bg-[#fff8eb] px-2.5 py-1 text-[11px] font-medium text-[var(--admin-text-secondary)]"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          {customer.phone && (
-                            <a
-                              href={generateWhatsAppLink(customer.phone, getPreviewContent())}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 rounded-[8px] border border-[#b7d5b7] bg-[#eff9ef] px-4 py-2.5 text-sm font-semibold text-[#28693f] transition hover:border-[#78b27e] hover:bg-[#e5f5e7]"
-                            >
-                              <MessageCircle className="h-4 w-4" />
-                              WhatsApp aç
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-
-              {filteredCustomers.length === 0 && (
-                <div className="rounded-[12px] border border-dashed border-[#e6d4bd] bg-[#FCFDFE] px-6 py-14 text-center">
-                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#f4e3cc] text-[#a4743a]">
-                    <Users className="h-7 w-7" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-[#3f2a17]">Müşteri bulunamadı</h3>
-                  <p className="mt-2 text-sm text-[#8b7259]">Arama veya filtre kriterlerinize uygun kayıt bulunmuyor.</p>
-                </div>
-              )}
+            <div className="flex h-10 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#6B7280]">
+              {filteredCustomers.length} kayıt
             </div>
           </section>
 
-          <aside className="space-y-6">
-            <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)] backdrop-blur md:p-6">
-              <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
-                Mesaj kompozisyonu
-              </span>
-              <h3 className="mt-3 text-lg font-semibold text-[#3f2a17]">Şablon ve içerik düzenleme</h3>
-              <p className="mt-1 text-sm text-[#826c57]">Şablon seçin, metni düzenleyin ve kişiselleştirme alanlarını koruyun.</p>
-
-              <div className="mt-5 grid gap-3">
-                {WHATSAPP_TEMPLATES.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => setMessageTemplate(template.content)}
-                    className={`rounded-[12px] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 ${
-                      messageTemplate === template.content
-                        ? "border-[#d5ad74] bg-[var(--admin-accent-soft)] shadow-[0_18px_38px_-28px_rgba(166,106,45,0.65)]"
-                        : "border-[var(--admin-border)] bg-[#FCFDFE] hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
-                    }`}
-                  >
-                    <div className="font-semibold text-[#342313]">{template.name}</div>
-                    <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-[var(--admin-text-secondary)]">{template.content}</div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-5 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-sm font-semibold text-[#5c4330]">Mesaj metni</label>
-                  <span className="rounded-full bg-[#f7efe5] px-3 py-1 text-xs font-medium text-[#8b6a49]">{messageTemplate.length} karakter</span>
-                </div>
-                <textarea
-                  value={messageTemplate}
-                  onChange={(e) => setMessageTemplate(e.target.value)}
-                  placeholder="Mesajınızı buraya yazın. {firstName} ve {lastName} değişkenlerini kullanabilirsiniz."
-                  rows={9}
-                  className="w-full rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 text-sm leading-6 text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
-                />
-                <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[var(--admin-text-secondary)]">
-                  Kullanılabilir değişkenler: <span className="font-semibold text-[#5d4123]">{`{firstName}`}</span>, <span className="font-semibold text-[#5d4123]">{`{lastName}`}</span>, <span className="font-semibold text-[#5d4123]">{`{orderNumber}`}</span>
-                </div>
-              </div>
-
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={() => setPreviewMode(!previewMode)}
-                  className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[#faf4eb] px-4 py-3 font-semibold text-[var(--admin-text-secondary)] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
-                >
-                  <Eye className="h-4 w-4" />
-                  {previewMode ? "Önizlemeyi gizle" : "Önizleme aç"}
-                </button>
-                <button
-                  onClick={() => {
-                    const content = getPreviewContent();
-                    navigator.clipboard.writeText(content);
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-4 py-3 font-semibold text-[var(--admin-accent-hover)] transition hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
-                >
-                  <Copy className="h-4 w-4" />
-                  Metni kopyala
-                </button>
-              </div>
-
-              <button
-                onClick={handleSendWhatsApp}
-                disabled={selectedCustomers.length === 0 || sending}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3.5 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {sending ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Gönderiliyor...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    {selectedCustomers.length} müşteriye hazırla
-                  </>
-                )}
-              </button>
-            </section>
-
-            <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)] backdrop-blur md:p-6">
-              <div className="flex items-start justify-between gap-4">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+            <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5">
                 <div>
-                  <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
-                    Önizleme
-                  </span>
-                  <h3 className="mt-3 text-lg font-semibold text-[#3f2a17]">Mesaj yüzeyi</h3>
-                  <p className="mt-1 text-sm text-[#826c57]">
-                    {selectedCustomers.length === 1
-                      ? "Seçili müşteriye göre kişiselleştirilmiş metin gösterilir."
-                      : "Tek alıcı seçildiğinde kişiselleştirme uygulanır."}
-                  </p>
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Alıcı listesi</h2>
+                  <p className="mt-1 text-xs font-medium text-[#6B7280]">Telefonu olan müşteriler WhatsApp için uygundur.</p>
                 </div>
-                <div className="rounded-[8px] bg-[var(--admin-accent-soft)] px-3 py-2 text-right">
-                  <div className="text-xs uppercase tracking-[0.2em] text-[#a27b4d]">Seçili</div>
-                  <div className="text-lg font-semibold text-[#6b441d]">{selectedRecipients.length}</div>
-                </div>
+                <label className="flex items-center gap-2 rounded-[8px] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280]">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={(event) => handleSelectAll(event.target.checked)}
+                    className="h-4 w-4 rounded border-[#C8D1DC] accent-[#FF6A00]"
+                  />
+                  Tümünü seç
+                </label>
               </div>
 
-              {(previewMode || messageTemplate) && (
-                <div className="mt-5 rounded-[12px] border border-[#e2dccf] bg-[linear-gradient(180deg,_#efe6d9_0%,_#f8f4ec_28%,_#ffffff_28%,_#ffffff_100%)] p-4">
-                  <div className="rounded-[12px] bg-white p-4 shadow-[0_16px_32px_-28px_rgba(75,50,24,0.55)]">
-                    <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#8f7a63]">
-                      <div className="h-2 w-2 rounded-full bg-[#d0b291]" />
-                      WhatsApp önizleme
-                    </div>
-                    <div className="max-h-[360px] overflow-y-auto rounded-[20px] bg-[#efeae2] p-4">
-                      <div className="ml-auto max-w-[280px] rounded-[12px] rounded-tr-md bg-[#dcf7c8] px-4 py-3 text-sm leading-6 text-[#2e312b] shadow-sm">
-                        <pre className="whitespace-pre-wrap font-sans">{getPreviewContent() || "Mesaj metni burada görünecek."}</pre>
-                      </div>
-                    </div>
-                  </div>
+              {filteredCustomers.length === 0 ? (
+                <div className="p-5">
+                  <AdminEmptyState
+                    icon={<Users className="h-7 w-7" />}
+                    title="Müşteri bulunamadı"
+                    description="Arama veya filtre kriterlerine uygun kayıt yok."
+                    className="border-[#DCE3EC] bg-[#F9F9F9]"
+                  />
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E1E7EF]">
+                  {filteredCustomers.map((customer) => {
+                    const isSelected = selectedCustomers.includes(customer.id);
+                    const hasPhone = Boolean(customer.phone);
+
+                    return (
+                      <article
+                        key={customer.id}
+                        className={cn(
+                          "grid gap-3 px-4 py-3.5 transition hover:bg-[#FFF8F3] min-[960px]:grid-cols-[32px_minmax(210px,1fr)_170px_130px_92px] min-[960px]:items-center xl:px-5",
+                          isSelected && "bg-[#FFF8F3]",
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(event) => handleSelectCustomer(customer.id, event.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-[#C8D1DC] accent-[#FF6A00] min-[960px]:mt-0"
+                        />
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-semibold text-[#182232]">{customerName(customer)}</h3>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {(customer.tags || []).slice(0, 2).map((tag) => (
+                              <span key={tag} className="text-xs font-semibold text-[#E85D04]">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <FieldValue label="Telefon" value={customer.phone || "-"} mono />
+                        <FieldValue label="Durum" value={hasPhone ? "Mesaja uygun" : "Numara eksik"} tone={hasPhone ? "success" : "muted"} />
+                        {hasPhone ? (
+                          <a
+                            href={generateWhatsAppLink(customer.phone || "", previewContent)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            Aç
+                          </a>
+                        ) : (
+                          <span className="text-sm font-medium text-[#9CA3AF]">-</span>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
-
-              <div className="mt-5 space-y-3">
-                {selectedRecipients.length > 0 ? (
-                  selectedRecipients.map((customer) => (
-                    <div
-                      key={customer.id}
-                      className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-semibold text-[#322113]">{customer.firstName} {customer.lastName}</div>
-                        <div className="truncate font-mono text-sm text-[var(--admin-text-secondary)]">{customer.phone}</div>
-                      </div>
-                      <a
-                        href={generateWhatsAppLink(customer.phone || "", getPreviewContent())}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 rounded-[8px] bg-[#2f8f59] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#267549] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f8f59] focus-visible:ring-offset-2"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        Aç
-                      </a>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-[12px] border border-dashed border-[#e8d8c1] bg-[#fff9f1] px-4 py-8 text-center text-sm text-[#8a725a]">
-                    WhatsApp için alıcı seçildiğinde liste burada görünür.
-                  </div>
-                )}
-              </div>
             </section>
-          </aside>
-        </div>
+
+            <aside className="space-y-4">
+              <section className="rounded-[12px] border border-[#DCE3EC] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-[#182232]">Mesaj</h2>
+                    <p className="mt-1 text-xs font-medium text-[#6B7280]">Şablon seçin veya metin yazın.</p>
+                  </div>
+                  <span className="rounded-[8px] border border-[#DCE3EC] bg-[#F9F9F9] px-2.5 py-1 text-xs font-semibold text-[#667085]">
+                    {messageTemplate.length} karakter
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-2">
+                  {WHATSAPP_TEMPLATES.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => setMessageTemplate(template.content)}
+                      className={cn(
+                        "rounded-[8px] border px-3 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]",
+                        messageTemplate === template.content
+                          ? "border-[#FFD1B5] bg-[#FFF4EC] text-[#C24D00]"
+                          : "border-[#DCE3EC] bg-white text-[#4B5563] hover:border-[#FFD1B5] hover:bg-[#FFF8F3]",
+                      )}
+                    >
+                      <span className="block font-semibold">{template.name}</span>
+                      <span className="mt-1 block truncate text-xs text-[#667085]">{template.content}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  value={messageTemplate}
+                  onChange={(event) => setMessageTemplate(event.target.value)}
+                  placeholder="Mesajınızı yazın. {firstName} ve {lastName} kullanılabilir."
+                  rows={7}
+                  className="mt-4 w-full rounded-[8px] border border-[#DCE3EC] bg-[#F9F9F9] px-3 py-3 text-sm leading-6 text-[#182232] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#FFD1B5] focus:bg-white focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                />
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode((current) => !current)}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Önizleme
+                  </button>
+                  <button
+                    type="button"
+                    onClick={copyMessage}
+                    disabled={!previewContent.trim()}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Kopyala
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSendWhatsApp}
+                  disabled={selectedRecipients.length === 0 || sending || !messageTemplate.trim()}
+                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white transition hover:bg-[#E85D04] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {selectedRecipients.length} alıcıya hazırla
+                </button>
+              </section>
+
+              {previewMode ? (
+                <section className="rounded-[12px] border border-[#DCE3EC] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold text-[#182232]">Önizleme</h2>
+                    <span className="rounded-[8px] border border-[#FFD1B5] bg-[#FFF4EC] px-2.5 py-1 text-xs font-semibold text-[#C24D00]">
+                      {selectedRecipients.length} alıcı
+                    </span>
+                  </div>
+                  <div className="mt-3 rounded-[10px] border border-[#E1E7EF] bg-[#F9F9F9] p-3">
+                    <pre className="max-h-[220px] whitespace-pre-wrap font-sans text-sm leading-6 text-[#182232]">
+                      {previewContent || "Mesaj metni burada görünecek."}
+                    </pre>
+                  </div>
+
+                  <div className="mt-4 max-h-[220px] space-y-2 overflow-y-auto">
+                    {selectedRecipients.length > 0 ? (
+                      selectedRecipients.map((customer) => (
+                        <div key={customer.id} className="flex items-center justify-between gap-3 border-t border-[#EEF2F6] py-2 first:border-t-0">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[#182232]">{customerName(customer)}</p>
+                            <p className="truncate text-xs font-medium text-[#667085]">{customer.phone}</p>
+                          </div>
+                          <a
+                            href={generateWhatsAppLink(customer.phone || "", previewContent)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-semibold text-[#FF6A00]"
+                          >
+                            Aç
+                          </a>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-[8px] border border-dashed border-[#DCE3EC] bg-white px-3 py-5 text-center text-sm text-[#667085]">
+                        Alıcı seçildiğinde burada görünür.
+                      </p>
+                    )}
+                  </div>
+                </section>
+              ) : null}
+            </aside>
+          </div>
         </AdminPageShell>
       </div>
     </main>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+  icon: ElementType;
+  tone?: "neutral" | "accent";
+}) {
+  return (
+    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">{label}</p>
+        <Icon className={cn("h-4 w-4 text-[#9CA3AF]", tone === "accent" && "text-[#FF6A00]")} />
+      </div>
+      <div className="mt-3 flex items-end gap-2">
+        <p className="truncate text-3xl font-semibold tracking-[-0.04em] text-[#111827]">{value}</p>
+        <span className="pb-1 text-sm font-medium text-[#6B7280]">{detail}</span>
+      </div>
+    </div>
+  );
+}
+
+function FieldValue({
+  label,
+  value,
+  mono = false,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  tone?: "default" | "success" | "muted";
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF]">{label}</p>
+      <p
+        className={cn(
+          "mt-1 truncate text-sm font-semibold text-[#182232]",
+          mono && "font-mono",
+          tone === "success" && "text-[#159947]",
+          tone === "muted" && "text-[#9CA3AF]",
+        )}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
