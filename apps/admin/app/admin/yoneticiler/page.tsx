@@ -1,7 +1,7 @@
 "use client";
 
 import { type ElementType, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Info, Shield, UserCheck, Users } from "lucide-react";
+import { Info, Shield, UserCheck, Users } from "lucide-react";
 import {
   AdminEmptyState,
   AdminLoadingState,
@@ -74,13 +74,6 @@ export default function AdminsPage() {
               </>
             }
           />
-
-          <section className="border-y border-[#FFD1B5] bg-[#FFF8F3] px-4 py-3 text-sm font-medium text-[#9A4B00] xl:px-5">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#FF6A00]" />
-              <p>Yönetici hesapları owner panel üzerinden atanır ve güncellenir. Bu sayfa read-only çalışır.</p>
-            </div>
-          </section>
 
           <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5">
