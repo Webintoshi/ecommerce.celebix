@@ -10,9 +10,7 @@ import {
   FileText,
   Globe2,
   Home,
-  Image as ImageIcon,
   Languages,
-  Layers3,
   LogOut,
   Megaphone as MarketingIcon,
   Package,
@@ -21,8 +19,6 @@ import {
   Settings,
   ShoppingBag,
   Store,
-  Tag,
-  TicketPercent,
   Truck,
   Users,
   Users as AdminsIcon,
@@ -57,8 +53,6 @@ interface MenuItem {
   href?: string;
   externalHref?: string;
   badge?: number | string;
-  status?: "soon";
-  disabled?: boolean;
   permissionHref?: string;
   permission?: AdminPermission;
   submenu?: MenuSubItem[];
@@ -98,25 +92,17 @@ const MENU_ITEMS: MenuItem[] = [
     icon: Package,
     href: "/admin/urunler",
     submenu: [
-      { title: "Ürünler", href: "/admin/urunler", group: "Katalog" },
-      { title: "Yeni Ürün", href: "/admin/urunler/yeni", group: "Katalog" },
-      { title: "Koleksiyonlar", href: "/admin/urunler/koleksiyonlar", group: "Katalog" },
-      { title: "Markalar", href: "/admin/urunler/markalar", group: "Katalog" },
-      { title: "Etiketler", href: "/admin/urunler/etiketler", group: "Katalog", badge: "Hazırlık" },
-      { title: "Nitelikler / Varyant Türleri", href: "/admin/urunler/nitelikler", group: "Katalog" },
-      { title: "Ürün Ekstraları", href: "/admin/urunler/ekstralar", group: "Katalog" },
-      { title: "Ürün Yorumları", href: "/admin/urunler/yorumlar", group: "Katalog" },
-      { title: "Tanımlamalar", href: "/admin/urunler/tanimlamalar", group: "Katalog", badge: "Merkez" },
-      { title: "Satın Alma", href: "/admin/urunler/satin-alma", group: "Operasyon", badge: "Hazırlık" },
-      { title: "Transferler", href: "/admin/urunler/transferler", group: "Operasyon", badge: "Hazırlık" },
-      { title: "Stok Sayımı", href: "/admin/urunler/stok-sayimi", group: "Operasyon", badge: "Planlandı" },
-      { title: "Fiyat Listeleri", href: "/admin/urunler/fiyat-listeleri", group: "Fiyat & Etiket", badge: "Analiz" },
-      { title: "Barkod Etiketleri", href: "/admin/urunler/barkod-etiketleri", group: "Fiyat & Etiket", badge: "Aday" },
-      { title: "Toplu Yükle (CSV)", href: "/admin/urunler/toplu-yukle", group: "Araçlar" },
+      { title: "Tüm Ürünler", href: "/admin/urunler" },
+      { title: "Yeni Ürün", href: "/admin/urunler/yeni" },
+      { title: "Koleksiyonlar", href: "/admin/urunler/koleksiyonlar" },
+      { title: "Markalar", href: "/admin/urunler/markalar" },
+      { title: "Nitelikler", href: "/admin/urunler/nitelikler" },
+      { title: "Ekstralar", href: "/admin/urunler/ekstralar" },
+      { title: "Yorumlar", href: "/admin/urunler/yorumlar" },
+      { title: "Tanımlamalar", href: "/admin/urunler/tanimlamalar" },
+      { title: "Toplu Yükle", href: "/admin/urunler/toplu-yukle" },
     ],
   },
-  { title: "Kategoriler", icon: Layers3, permissionHref: "/admin/kategoriler", disabled: true, status: "soon" },
-  { title: "Medya", icon: ImageIcon, permissionHref: "/admin/medya", disabled: true, status: "soon" },
   {
     title: "İndirimler",
     icon: Percent,
@@ -127,21 +113,20 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Şans Çarkı", href: "/admin/indirimler/sans-carki" },
     ],
   },
-  { title: "Kuponlar", icon: TicketPercent, permissionHref: "/admin/kuponlar", disabled: true, status: "soon" },
   {
-    title: "Kampanyalar",
+    title: "Pazarlama",
     icon: MarketingIcon,
     href: "/admin/pazarlama",
     submenu: [
-      { title: "Kampanya Merkezi", href: "/admin/pazarlama" },
+      { title: "Genel Bakış", href: "/admin/pazarlama" },
       { title: "E-posta", href: "/admin/pazarlama/email" },
-      { title: "SMS", href: "/admin/pazarlama/phone" },
+      { title: "Telefon", href: "/admin/pazarlama/phone" },
       { title: "WhatsApp", href: "/admin/pazarlama/whatsapp" },
     ],
   },
   { title: "Mağaza Görünümü", icon: Globe2, externalHref: STORE_RUNTIME.storefrontUrl },
   {
-    title: "Sayfalar / Blog",
+    title: "İçerik",
     icon: FileText,
     href: "/admin/cms",
     submenu: [
@@ -150,12 +135,12 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Politikalar", href: "/admin/cms/politikalar" },
     ],
   },
-  { title: "Dil Ayarları", icon: Languages, href: "/admin/ayarlar/dil", permissionHref: "/admin/ayarlar" },
+  { title: "Dil", icon: Languages, href: "/admin/ayarlar/dil", permissionHref: "/admin/ayarlar" },
   { title: "Ödeme", icon: WalletCards, href: "/admin/ayarlar/odeme", permissionHref: "/admin/ayarlar" },
   { title: "Kargo", icon: Truck, href: "/admin/ayarlar/kargo", permissionHref: "/admin/ayarlar" },
   { title: "Entegrasyonlar", icon: Store, href: "/admin/markets" },
   { title: "Yöneticiler", icon: AdminsIcon, href: "/admin/yoneticiler" },
-  { title: "Genel Ayarlar", icon: Settings, href: "/admin/ayarlar" },
+  { title: "Ayarlar", icon: Settings, href: "/admin/ayarlar" },
   {
     title: "Muhasebe",
     icon: Calculator,
@@ -183,10 +168,10 @@ const MENU_ITEMS: MenuItem[] = [
 const MENU_GROUPS: MenuGroup[] = [
   { id: "home", label: "Ana", titles: ["Giriş"] },
   { id: "operations", label: "Operasyon", titles: ["Siparişler", "Müşteriler"] },
-  { id: "catalog", label: "Katalog", titles: ["Ürünler", "Kategoriler", "Medya"] },
-  { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Kuponlar", "Kampanyalar"] },
-  { id: "store", label: "Mağaza", titles: ["Mağaza Görünümü", "Sayfalar / Blog", "Dil Ayarları"] },
-  { id: "settings", label: "Ayarlar", titles: ["Ödeme", "Kargo", "Entegrasyonlar", "Yöneticiler", "Genel Ayarlar"] },
+  { id: "catalog", label: "Katalog", titles: ["Ürünler"] },
+  { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Pazarlama"] },
+  { id: "store", label: "Mağaza", titles: ["Mağaza Görünümü", "İçerik", "Dil"] },
+  { id: "settings", label: "Ayarlar", titles: ["Ödeme", "Kargo", "Entegrasyonlar", "Yöneticiler", "Ayarlar"] },
   { id: "advanced", label: "Gelişmiş", titles: ["Muhasebe", "SEO Araçları"] },
 ];
 
@@ -424,7 +409,7 @@ export function AdminSidebar({
 
   const getItemState = (item: MenuItem): MenuItemState => {
     const hasSubmenu = Boolean(item.submenu?.length);
-    const itemHref = item.disabled || item.externalHref ? "" : item.href ?? "";
+    const itemHref = item.externalHref ? "" : item.href ?? "";
     const isDirectActive = Boolean(itemHref) && pathMatches(pathname, itemHref) && !hasSubmenu;
     const isParentActive = Boolean(itemHref) && hasSubmenu && pathMatches(pathname, itemHref);
     const isSubmenuActive = item.submenu?.some((sub) => submenuPathMatches(pathname, sub.href, item.href)) ?? false;
@@ -642,12 +627,11 @@ export function AdminSidebar({
                   {filteredItems.map((item, index) => {
                     const { hasSubmenu, isExpanded, isActive } = getItemState(item);
                     const rowId = `admin-mobile-drawer-section-${index}`;
-                    const statusLabel = item.status === "soon" ? "Yakında" : item.badge;
+                    const statusLabel = item.badge;
 
                       const rowClasses = cn(
                         "group relative flex min-h-[46px] w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
                         isActive ? "bg-[#37373B] text-white" : "bg-transparent text-white/82 hover:bg-white/[0.06] hover:text-white",
-                        item.disabled ? "cursor-not-allowed text-white/34 active:scale-100 hover:bg-transparent hover:text-white/34" : "",
                       );
 
                     const content = (
@@ -686,16 +670,7 @@ export function AdminSidebar({
 
                     return (
                         <div key={item.title} className={cn(index > 0 ? "border-t border-white/[0.06]" : "")}>
-                        {item.disabled ? (
-                          <button
-                            type="button"
-                            disabled
-                            aria-disabled="true"
-                            className={rowClasses}
-                          >
-                            {content}
-                          </button>
-                        ) : hasSubmenu ? (
+                        {hasSubmenu ? (
                           <button
                             type="button"
                             onClick={() => toggleMenu(item.title)}
@@ -863,14 +838,13 @@ export function AdminSidebar({
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const { hasSubmenu, isExpanded, isActive } = getItemState(item);
-                const statusLabel = item.status === "soon" ? "Yakında" : item.badge;
+                const statusLabel = item.badge;
 
                 const rowClasses = cn(
                   "group relative flex min-h-[42px] w-full items-center gap-2.5 rounded-[0.75rem] border border-transparent px-2.5 py-2 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(254,97,0,0.32)]",
                   isActive
                     ? "bg-[#37373B] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
                     : "text-white/84 hover:bg-white/[0.06] hover:text-white",
-                  item.disabled ? "cursor-not-allowed text-white/34 hover:bg-transparent hover:text-white/34" : "",
                 );
 
                 const iconShellClasses = cn(
@@ -910,16 +884,7 @@ export function AdminSidebar({
 
                 return (
                   <div key={item.title} className="space-y-1">
-                    {item.disabled ? (
-                      <button
-                        type="button"
-                        disabled
-                        aria-disabled="true"
-                        className={rowClasses}
-                      >
-                        {content}
-                      </button>
-                    ) : hasSubmenu ? (
+                    {hasSubmenu ? (
                       <button
                         type="button"
                         onClick={() => toggleMenu(item.title)}
