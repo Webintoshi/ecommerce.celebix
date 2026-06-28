@@ -210,6 +210,13 @@ export default function MarketingPage() {
                 </Link>
               </div>
             }
+            metrics={
+              <>
+                {metrics.map((metric) => (
+                  <MetricCell key={metric.label} {...metric} loading={loading} />
+                ))}
+              </>
+            }
           />
 
           {error ? (
@@ -218,18 +225,18 @@ export default function MarketingPage() {
             </div>
           ) : null}
 
-          <section className="grid grid-cols-2 overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white min-[1180px]:grid-cols-4">
-            {metrics.map((metric) => (
-              <MetricCell key={metric.label} {...metric} loading={loading} />
-            ))}
-          </section>
-
           <section className="grid gap-4 min-[1180px]:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.8fr)]">
-            <div className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white">
+            <div className="overflow-hidden border-y border-[#DCE3EC] bg-white min-[760px]:rounded-[12px] min-[760px]:border">
               <SectionHeader
                 title="Kanallar"
                 summary={`${(data?.channels.length || 0).toLocaleString("tr-TR")} kanal`}
               />
+
+              <div className="hidden grid-cols-[minmax(0,1fr)_150px_40px] border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#4B5563] min-[880px]:grid">
+                <span>Kanal</span>
+                <span className="text-right">Erişim</span>
+                <span />
+              </div>
 
               <div className="divide-y divide-[#E1E6EF]">
                 {loading && !data ? (
@@ -243,7 +250,7 @@ export default function MarketingPage() {
                 {!loading && data?.channels.length === 0 ? (
                   <AdminEmptyState
                     title="Kanal bulunamadı"
-                    description="Pazarlama kanalı geldiğinde burada listelenecek."
+                    description="Kanal verisi geldiğinde burada listelenecek."
                     className="m-4 border-[#DCE3EC] bg-[#F9F9F9]"
                   />
                 ) : null}
@@ -254,7 +261,7 @@ export default function MarketingPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white">
+            <div className="overflow-hidden border-y border-[#DCE3EC] bg-white min-[760px]:rounded-[12px] min-[760px]:border">
               <SectionHeader
                 title="Sinyaller"
                 summary={`${(data?.insights.length || 0).toLocaleString("tr-TR")} öneri`}
@@ -272,7 +279,7 @@ export default function MarketingPage() {
                 {!loading && data?.insights.length === 0 ? (
                   <AdminEmptyState
                     title="Sinyal yok"
-                    description="Pazarlama önerileri veri geldikçe listelenecek."
+                    description="Öneriler veri geldikçe listelenecek."
                     className="m-4 border-[#DCE3EC] bg-[#F9F9F9]"
                   />
                 ) : null}
@@ -284,20 +291,20 @@ export default function MarketingPage() {
             </div>
           </section>
 
-          <section className="grid gap-3 border-y border-[#E1E6EF] bg-[#F9F9F9] py-3 min-[1180px]:grid-cols-3">
+          <section className="grid gap-px overflow-hidden border-y border-[#DCE3EC] bg-[#DCE3EC] min-[760px]:rounded-[12px] min-[760px]:border min-[1180px]:grid-cols-3">
             <QuickLink
               title="Şans Çarkı"
-              detail="Etkileşim kampanyaları"
+              detail="Etkileşim"
               href="/admin/indirimler/sans-carki"
             />
             <QuickLink
               title="E-posta Kampanyaları"
-              detail={`${stats.emailReachable.toLocaleString("tr-TR")} erişilebilir müşteri`}
+              detail={`${stats.emailReachable.toLocaleString("tr-TR")} müşteri`}
               href="/admin/pazarlama/email"
             />
             <QuickLink
               title="Müşteri Segmentleri"
-              detail="Hedef kitleleri düzenleyin"
+              detail="Hedef kitle"
               href="/admin/musteriler/segmentler"
             />
           </section>
@@ -317,19 +324,19 @@ function MetricCell({
   loading: boolean;
 }) {
   return (
-    <div className="min-h-[116px] border-b border-r border-[#E1E6EF] bg-[#F9F9F9] px-4 py-4 last:border-r-0 min-[1180px]:border-b-0">
-      <div className="flex items-start justify-between gap-3">
+    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#6B7280]">{label}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">{label}</p>
           {loading ? (
-            <div className="mt-4 h-8 w-24 animate-pulse rounded-[8px] bg-[#E7EAF0]" />
+            <div className="mt-3 h-7 w-24 animate-pulse rounded-[8px] bg-[#E7EAF0]" />
           ) : (
-            <p className="mt-4 truncate text-[2rem] font-semibold leading-none tracking-[-0.04em] text-[#111827]">{value}</p>
+            <p className="mt-3 truncate text-3xl font-semibold leading-none tracking-[-0.04em] text-[#111827]">{value}</p>
           )}
         </div>
-        <Icon className="h-5 w-5 shrink-0 text-[#FF6A00]" />
+        <Icon className="h-4 w-4 shrink-0 text-[#9CA3AF]" />
       </div>
-      <p className="mt-4 truncate text-sm font-semibold text-[#6B7280]">{detail}</p>
+      <p className="mt-2 truncate text-sm font-medium text-[#6B7280]">{detail}</p>
     </div>
   );
 }
@@ -342,8 +349,8 @@ function SectionHeader({
   summary: string;
 }) {
   return (
-    <div className="flex min-h-[58px] items-center justify-between gap-3 border-b border-[#E1E6EF] bg-[#F9F9F9] px-4">
-      <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#111827]">{title}</h2>
+    <div className="flex min-h-[52px] items-center justify-between gap-3 border-b border-[#E1E6EF] bg-white px-4">
+      <h2 className="text-base font-semibold tracking-[-0.02em] text-[#111827]">{title}</h2>
       <span className="text-sm font-semibold text-[#6B7280]">{summary}</span>
     </div>
   );
@@ -355,25 +362,25 @@ function ChannelRow({ channel }: { channel: Channel }) {
   return (
     <Link
       href={channel.href}
-      className="group grid gap-3 bg-white px-4 py-4 transition hover:bg-[#FFF8F3] min-[880px]:grid-cols-[minmax(0,1fr)_160px_42px] min-[880px]:items-center"
+      className="group grid gap-3 bg-white px-4 py-3.5 transition hover:bg-[#FFF8F3] min-[880px]:grid-cols-[minmax(0,1fr)_150px_40px] min-[880px]:items-center"
     >
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-[#F9F9F9] text-[#FF6A00]">
-          <Icon className="h-5 w-5" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-[#F9F9F9] text-[#FF6A00]">
+          <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-base font-semibold text-[#111827]">{channel.title}</h3>
-            <span className="rounded-full bg-[#FFF1E8] px-2 py-0.5 text-xs font-semibold text-[#E85D04]">
+            <h3 className="truncate text-sm font-semibold text-[#111827]">{channel.title}</h3>
+            <span className="text-xs font-semibold text-[#E85D04]">
               {CHANNEL_LABEL[channel.id]}
             </span>
           </div>
-          <p className="mt-1 line-clamp-1 text-sm font-medium text-[#6B7280]">{channel.description}</p>
+          <p className="mt-1 line-clamp-1 text-xs font-medium text-[#6B7280]">{channel.description}</p>
         </div>
       </div>
 
       <div className="text-sm font-semibold text-[#374151] min-[880px]:text-right">{channel.metric}</div>
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white text-[#6B7280] transition group-hover:border-[#FFD1B5] group-hover:text-[#E85D04]">
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white text-[#6B7280] transition group-hover:border-[#FFD1B5] group-hover:text-[#E85D04]">
         <ArrowRight className="h-4 w-4" />
       </span>
     </Link>
@@ -384,20 +391,20 @@ function InsightRow({ insight }: { insight: Insight }) {
   return (
     <Link
       href={insight.actionHref}
-      className="group block bg-white px-4 py-4 transition hover:bg-[#FFF8F3]"
+      className="group block bg-white px-4 py-3.5 transition hover:bg-[#FFF8F3]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-base font-semibold text-[#111827]">{insight.title}</h3>
-          <p className="mt-1 text-sm font-medium text-[#6B7280]">{insight.subValue}</p>
+          <h3 className="truncate text-sm font-semibold text-[#111827]">{insight.title}</h3>
+          <p className="mt-1 line-clamp-1 text-xs font-medium text-[#6B7280]">{insight.subValue}</p>
         </div>
         <span className={cn("shrink-0 text-sm font-semibold", INSIGHT_TONE[insight.type])}>{insight.change}</span>
       </div>
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <span className="text-[2rem] font-semibold leading-none tracking-[-0.04em] text-[#111827]">
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <span className="text-2xl font-semibold leading-none tracking-[-0.04em] text-[#111827]">
           {insight.value.toLocaleString("tr-TR")}
         </span>
-        <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#6B7280] transition group-hover:text-[#E85D04]">
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#6B7280] transition group-hover:text-[#E85D04]">
           {insight.actionLabel}
           <ArrowRight className="h-4 w-4" />
         </span>
@@ -418,7 +425,7 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between gap-3 rounded-[8px] border border-[#DCE3EC] bg-white px-4 py-3 text-left transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
+      className="flex items-center justify-between gap-3 bg-white px-4 py-3 text-left transition hover:bg-[#FFF8F3] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
     >
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold text-[#111827]">{title}</span>
@@ -431,23 +438,23 @@ function QuickLink({
 
 function ChannelSkeleton() {
   return (
-    <div className="grid gap-3 px-4 py-4 min-[880px]:grid-cols-[minmax(0,1fr)_160px_42px] min-[880px]:items-center">
+    <div className="grid gap-3 px-4 py-3.5 min-[880px]:grid-cols-[minmax(0,1fr)_150px_40px] min-[880px]:items-center">
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 animate-pulse rounded-[8px] bg-[#E7EAF0]" />
+        <div className="h-9 w-9 animate-pulse rounded-[8px] bg-[#E7EAF0]" />
         <div className="min-w-0 flex-1">
           <div className="h-4 w-40 animate-pulse rounded bg-[#E7EAF0]" />
           <div className="mt-2 h-3 w-64 max-w-full animate-pulse rounded bg-[#EEF3F7]" />
         </div>
       </div>
       <div className="h-4 w-24 animate-pulse rounded bg-[#E7EAF0] min-[880px]:ml-auto" />
-      <div className="h-10 w-10 animate-pulse rounded-[8px] bg-[#EEF3F7]" />
+      <div className="h-9 w-9 animate-pulse rounded-[8px] bg-[#EEF3F7]" />
     </div>
   );
 }
 
 function InsightSkeleton() {
   return (
-    <div className="px-4 py-4">
+    <div className="px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="h-4 w-40 animate-pulse rounded bg-[#E7EAF0]" />
