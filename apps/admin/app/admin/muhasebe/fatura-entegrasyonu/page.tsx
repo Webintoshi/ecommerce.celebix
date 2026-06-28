@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import type { ElementType } from "react";
+import type { ElementType, ReactNode } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -18,15 +18,18 @@ import {
   XCircle,
 } from "lucide-react";
 import type { AccountingIntegrationView, AccountingProvider } from "@/types/accounting";
+import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
+import { cn } from "@/lib/utils";
 
-type ProviderStyle = { bg: string; text: string; abbr: string; color: string };
+type ProviderStyle = { bg: string; text: string; abbr: string };
+
 const PROVIDER_STYLES: Record<string, ProviderStyle> = {
-  parasut: { bg: "bg-orange-100", text: "text-orange-700", abbr: "P", color: "purple" },
-  bizimhesap: { bg: "bg-blue-100", text: "text-blue-700", abbr: "BH", color: "blue" },
-  mikro: { bg: "bg-orange-100", text: "text-orange-700", abbr: "M", color: "orange" },
-  logo_isbasi: { bg: "bg-red-100", text: "text-red-700", abbr: "L", color: "red" },
-  kolaybi: { bg: "bg-green-100", text: "text-green-700", abbr: "KB", color: "green" },
-  mukellef: { bg: "bg-indigo-100", text: "text-indigo-700", abbr: "MK", color: "indigo" },
+  parasut: { bg: "bg-[#FFF3EA]", text: "text-[#E85D04]", abbr: "P" },
+  bizimhesap: { bg: "bg-[#FFF3EA]", text: "text-[#E85D04]", abbr: "BH" },
+  mikro: { bg: "bg-[#FFF3EA]", text: "text-[#E85D04]", abbr: "M" },
+  logo_isbasi: { bg: "bg-[#FFF3EA]", text: "text-[#E85D04]", abbr: "L" },
+  kolaybi: { bg: "bg-[#FFF3EA]", text: "text-[#E85D04]", abbr: "KB" },
+  mukellef: { bg: "bg-[#FFF3EA]", text: "text-[#E85D04]", abbr: "MK" },
 };
 
 const ACCOUNTING_LOGO_PATHS: Record<AccountingProvider, string> = {
@@ -37,6 +40,15 @@ const ACCOUNTING_LOGO_PATHS: Record<AccountingProvider, string> = {
   kolaybi: "/accounting-logos/kolaybi.png",
   mukellef: "/accounting-logos/mukellef.png",
 };
+
+const SECONDARY_BUTTON =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-4 text-sm font-semibold text-[#374151] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-55";
+
+const PRIMARY_BUTTON =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.16)] transition hover:bg-[#E85D04] disabled:cursor-not-allowed disabled:opacity-55";
+
+const FIELD_CLASS =
+  "h-11 w-full rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm text-[#111827] outline-none transition placeholder:text-[#8B95A5] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
 
 function AccountingProviderLogo({
   providerId,
@@ -76,14 +88,6 @@ function AccountingProviderLogo({
   );
 }
 
-function SectionPill({ children }: { children: string }) {
-  return (
-    <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
-      {children}
-    </div>
-  );
-}
-
 function StatusBadge({ connected, error }: { connected: boolean; error: boolean }) {
   if (connected) {
     return (
@@ -104,27 +108,10 @@ function StatusBadge({ connected, error }: { connected: boolean; error: boolean 
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1 text-xs font-semibold text-[var(--admin-text-secondary)]">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#DCE3EC] bg-[#F9F9F9] px-3 py-1 text-xs font-semibold text-[#6B7280]">
       <Unplug className="h-3 w-3" />
       Bağlı değil
     </span>
-  );
-}
-
-function SummaryCard({ icon: Icon, title, value, note, tone }: { icon: ElementType; title: string; value: string; note: string; tone: string }) {
-  return (
-    <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_16px_40px_rgba(105,78,54,0.08)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-[#8f7765]">{title}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--admin-heading)]">{value}</p>
-          <p className="mt-2 text-sm text-[#9b816d]">{note}</p>
-        </div>
-        <div className={`flex h-12 w-12 items-center justify-center rounded-[18px] border ${tone}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -299,452 +286,405 @@ export default function AccountingIntegrationsPage() {
         const bActive = b.connection?.status === "active" ? 0 : 1;
         return aActive - bActive;
       }),
-    [integrations]
+    [integrations],
   );
 
-  const connectedCount = integrations.filter((i) => i.connection?.status === "active").length;
-  const totalFailed = integrations.reduce((sum, i) => sum + i.queueStats.failed, 0);
+  const connectedCount = integrations.filter((integration) => integration.connection?.status === "active").length;
+  const totalFailed = integrations.reduce((sum, integration) => sum + integration.queueStats.failed, 0);
+  const totalQueued = integrations.reduce((sum, integration) => sum + integration.queueStats.queued, 0);
 
   if (view === "list") {
     return (
-      <div className="admin-page-root text-[var(--admin-heading)]">
-        <div className="mx-auto max-w-none space-y-8 px-6 py-8 md:px-8 md:py-10">
-          <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-xs)] md:p-10">
-            <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
-                <SectionPill>Fatura entegrasyonu</SectionPill>
-                <div className="mt-5 flex items-start gap-4">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]">
-                    <ShieldCheck className="h-8 w-8" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Muhasebe bağlantıları</h1>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={fetchIntegrations}
-                  className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-                >
-                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+      <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+        <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+          <AdminPageShell>
+            <AdminPageHeader
+              sectionLabel="Muhasebe"
+              title="Fatura entegrasyonu"
+              actions={
+                <button type="button" onClick={fetchIntegrations} disabled={loading} className={SECONDARY_BUTTON}>
+                  <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                   Yenile
                 </button>
+              }
+              metrics={
+                <>
+                  <MetricCell label="Aktif" value={connectedCount.toLocaleString("tr-TR")} detail="bağlantı" icon={Plug} />
+                  <MetricCell label="Sağlayıcı" value={integrations.length.toLocaleString("tr-TR")} detail="program" icon={ShieldCheck} />
+                  <MetricCell label="Bekleyen" value={totalQueued.toLocaleString("tr-TR")} detail="kuyruk" icon={RefreshCw} tone={totalQueued > 0 ? "warning" : "neutral"} />
+                  <MetricCell label="Hatalı" value={totalFailed.toLocaleString("tr-TR")} detail="işlem" icon={AlertTriangle} tone={totalFailed > 0 ? "danger" : "neutral"} />
+                </>
+              }
+            />
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                <XCircle className="h-4 w-4" />
+                {error}
               </div>
-            </div>
-            <div className="hidden" />
-          </section>
+            )}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <SummaryCard icon={Plug} title="Aktif bağlantı" value={`${connectedCount}`} note="Çalışan sağlayıcı adedi" tone="border-emerald-200 bg-emerald-50 text-emerald-600" />
-            <SummaryCard icon={ShieldCheck} title="Toplam sağlayıcı" value={`${integrations.length}`} note="Yönetilebilir muhasebe servisi" tone="border-[var(--admin-border)] bg-[#fff4ea] text-[var(--admin-accent-hover)]" />
-            <SummaryCard icon={AlertTriangle} title="Hatalı işlem" value={`${totalFailed}`} note={totalFailed > 0 ? "Müdahale bekleyen senkron kayıtları var" : "Kuyrukta kritik hata görünmüyor"} tone={totalFailed > 0 ? "border-red-200 bg-red-50 text-red-600" : "border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-text-secondary)]"} />
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <XCircle className="h-4 w-4" />
-              {error}
-            </div>
-          )}
-
-          <section className="space-y-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <SectionPill>Sağlayıcı listesi</SectionPill>
-                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">Muhasebe programları</h2>
+            <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+              <div className="grid gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 min-[820px]:grid-cols-[minmax(0,1fr)_auto] min-[820px]:items-center xl:px-5">
+                <h2 className="text-sm font-semibold text-[#111827]">Sağlayıcılar</h2>
+                <span className="w-fit rounded-[8px] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280]">
+                  {sortedIntegrations.length} kayıt
+                </span>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {sortedIntegrations.map((integration) => {
-                const isConnected = integration.connection?.status === "active";
-                const hasError = integration.connection?.status === "error";
-                const style = PROVIDER_STYLES[integration.provider.id] || { bg: "bg-gray-100", text: "text-gray-700", abbr: "?", color: "gray" };
+              <div className="divide-y divide-[#DCE3EC]">
+                {sortedIntegrations.map((integration) => {
+                  const isConnected = integration.connection?.status === "active";
+                  const hasError = integration.connection?.status === "error";
+                  const style = PROVIDER_STYLES[integration.provider.id] || { bg: "bg-[#F9F9F9]", text: "text-[#6B7280]", abbr: "?" };
 
-                return (
-                  <button
-                    key={integration.provider.id}
-                    onClick={() => handleSelectProvider(integration)}
-                    className="group text-left rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-                  >
-                    <div className="flex items-start gap-4">
-                      <AccountingProviderLogo
-                        providerId={integration.provider.id}
-                        providerName={integration.provider.name}
-                        providerStyle={style}
-                        size={56}
-                        className="h-14 w-14 shrink-0 border border-[#f0e3d7] shadow-sm"
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">{integration.provider.name}</h3>
-                            <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#8f7765]">{integration.provider.description}</p>
-                          </div>
-                          {isConnected && <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-500" />}
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          <StatusBadge connected={isConnected} error={!!hasError} />
-                          {isConnected && integration.queueStats.queued > 0 && (
-                            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                              {integration.queueStats.queued} bekliyor
-                            </span>
-                          )}
-                          {isConnected && integration.queueStats.failed > 0 && (
-                            <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-                              {integration.queueStats.failed} hata
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-5 rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[#7f6858]">
-                          {integration.connection?.lastSyncAt ? (
-                            <span>Son senkron: {new Date(integration.connection.lastSyncAt).toLocaleString("tr-TR")}</span>
-                          ) : (
-                            <span>Henüz senkron geçmişi oluşmadı.</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-blue-100 bg-blue-50 text-blue-600">
-                <ShieldCheck className="h-5 w-5" />
+                  return (
+                    <button
+                      key={integration.provider.id}
+                      type="button"
+                      onClick={() => handleSelectProvider(integration)}
+                      className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[#FFF8F3] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.14)] min-[820px]:grid-cols-[minmax(260px,1.2fr)_160px_160px_120px] min-[820px]:items-center xl:px-5"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <AccountingProviderLogo
+                          providerId={integration.provider.id}
+                          providerName={integration.provider.name}
+                          providerStyle={style}
+                          size={44}
+                          className="h-11 w-11 shrink-0 border border-[#DCE3EC]"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-[#111827]">{integration.provider.name}</span>
+                          <span className="mt-0.5 block truncate text-xs font-medium text-[#6B7280]">{integration.provider.description}</span>
+                        </span>
+                      </span>
+                      <StatusBadge connected={isConnected} error={!!hasError} />
+                      <span className="text-sm font-medium text-[#6B7280]">
+                        {integration.connection?.lastSyncAt
+                          ? new Date(integration.connection.lastSyncAt).toLocaleDateString("tr-TR")
+                          : "Senkron yok"}
+                      </span>
+                      <span className="flex items-center justify-between gap-2 min-[820px]:justify-end">
+                        <span className="text-xs font-semibold text-[#6B7280]">
+                          {integration.queueStats.queued} bekleyen
+                        </span>
+                        <ArrowDot />
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-              <div>
-                <SectionPill>Kurulum akışı</SectionPill>
-                <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Nasıl çalışır?</h3>
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                  {["Kullandığınız muhasebe programını seçin.", "API bilgilerini ve alan eşlemelerini tamamlayın.", "Bağlantıyı test edip senkronizasyonu başlatın."].map((item, index) => (
-                    <div key={item} className="rounded-[12px] border border-[#f0e3d7] bg-[#fcf8f3] p-4 text-sm leading-6 text-[#6f594c]">
-                      <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent-hover)]">
-                        {index + 1}
-                      </div>
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
+            </section>
+          </AdminPageShell>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (view === "detail" && selectedProvider) {
-    const style = PROVIDER_STYLES[selectedProvider.provider.id] || { bg: "bg-gray-100", text: "text-gray-700", abbr: "?", color: "gray" };
+    const style = PROVIDER_STYLES[selectedProvider.provider.id] || { bg: "bg-[#F9F9F9]", text: "text-[#6B7280]", abbr: "?" };
     const isConnected = selectedProvider.connection?.status === "active";
     const hasError = selectedProvider.connection?.status === "error";
     const logs = logsByProvider[selectedProvider.provider.id] || [];
 
     return (
-      <div className="admin-page-root text-[var(--admin-heading)]">
-        <div className="mx-auto max-w-none px-6 py-8 md:px-8 md:py-10">
-          <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-xs)] md:p-10">
-            <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-4">
-                <AccountingProviderLogo
-                  providerId={selectedProvider.provider.id}
-                  providerName={selectedProvider.provider.name}
-                  providerStyle={style}
-                  size={64}
-                  className="h-16 w-16 shrink-0 border border-[#f0e3d7] shadow-sm"
-                />
-                <div>
-                  <SectionPill>Sağlayıcı detayı</SectionPill>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <h1 className="text-3xl font-semibold tracking-[-0.04em]">{selectedProvider.provider.name}</h1>
-                    <StatusBadge connected={isConnected} error={!!hasError} />
-                  </div>
-                  <p className="mt-3 max-w-2xl text-sm leading-7 text-[#7f6858] md:text-base">{selectedProvider.provider.description}</p>
-                </div>
-              </div>
+      <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+        <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+          <AdminPageShell>
+            <AdminPageHeader
+              sectionLabel="Fatura entegrasyonu"
+              title={selectedProvider.provider.name}
+              statusSlot={<StatusBadge connected={isConnected} error={!!hasError} />}
+              actions={
+                <>
+                  <button type="button" onClick={() => setView("list")} className={SECONDARY_BUTTON}>
+                    Liste
+                  </button>
+                  <a
+                    href={selectedProvider.provider.websiteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={SECONDARY_BUTTON}
+                  >
+                    Resmi site
+                  </a>
+                  <button type="button" onClick={testProvider} disabled={busyKey === "test"} className={SECONDARY_BUTTON}>
+                    {busyKey === "test" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                    Test
+                  </button>
+                  <button type="button" onClick={syncProvider} disabled={busyKey === "sync"} className={SECONDARY_BUTTON}>
+                    {busyKey === "sync" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Senkron
+                  </button>
+                  <button type="button" onClick={connectProvider} disabled={busyKey === "connect"} className={PRIMARY_BUTTON}>
+                    {busyKey === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Kaydet
+                  </button>
+                </>
+              }
+              metrics={
+                <>
+                  <MetricCell label="Durum" value={isConnected ? "Aktif" : hasError ? "Hatalı" : "Bekliyor"} detail="bağlantı" icon={Plug} tone={hasError ? "danger" : "neutral"} />
+                  <MetricCell label="Bekleyen" value={selectedProvider.queueStats.queued.toLocaleString("tr-TR")} detail="kuyruk" icon={RefreshCw} tone={selectedProvider.queueStats.queued > 0 ? "warning" : "neutral"} />
+                  <MetricCell label="Hatalı" value={selectedProvider.queueStats.failed.toLocaleString("tr-TR")} detail="işlem" icon={AlertTriangle} tone={selectedProvider.queueStats.failed > 0 ? "danger" : "neutral"} />
+                  <MetricCell label="Manuel" value={selectedProvider.queueStats.manualActionRequired.toLocaleString("tr-TR")} detail="aksiyon" icon={Terminal} />
+                </>
+              }
+            />
 
-              <a
-                href={selectedProvider.provider.websiteUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-              >
-                Resmî site
-              </a>
-            </div>
-            <div className="hidden" />
-          </section>
-
-          <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-            <div className="space-y-6">
-              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-                <div className="mb-6 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#fff4ea] text-[var(--admin-accent-hover)]">
-                    <ShieldCheck className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <SectionPill>Bağlantı kimlik bilgileri</SectionPill>
-                    <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em]">API bağlantı bilgileri</h2>
-                    <p className="mt-1 text-sm text-[#8f7765]">{selectedProvider.provider.name} hesabınızın gerekli alanlarını güvenle tamamlayın.</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {selectedProvider.provider.credentialFields.map((field) => (
-                    <div key={field.key} className={String(field.type) === "textarea" ? "md:col-span-2" : ""}>
-                      <label className="mb-2 block text-sm font-medium text-[#5c4a3e]">
-                        {field.label}
-                        {field.required && <span className="ml-1 text-red-500">*</span>}
-                      </label>
-                      {String(field.type) === "textarea" ? (
-                        <textarea
-                          value={formState.credentials[field.key] || ""}
-                          onChange={(e) => updateCredential(field.key, e.target.value)}
-                          placeholder={field.placeholder || field.label}
-                          rows={4}
-                          className="w-full resize-none rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
-                        />
-                      ) : (
-                        <input
-                          type={field.type === "password" ? "password" : "text"}
-                          value={formState.credentials[field.key] || ""}
-                          onChange={(e) => updateCredential(field.key, e.target.value)}
-                          placeholder={field.placeholder || field.label}
-                          className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {selectedProvider.provider.mappingFields.length > 0 && (
-                <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-                  <div className="mb-6 flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-blue-100 bg-blue-50 text-blue-600">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <SectionPill>Alan eşleme</SectionPill>
-                      <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em]">Sistem alanlarını hizalayın</h2>
-                      <p className="mt-1 text-sm text-[#8f7765]">Veri akışında kullanılan alan isimlerini sağlayıcı alanlarıyla eşleyin.</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {selectedProvider.provider.mappingFields.map((field) => (
-                      <div key={field.key}>
-                        <label className="mb-2 block text-sm font-medium text-[#5c4a3e]">{field.label}</label>
-                        <input
-                          type="text"
-                          value={formState.fieldMappings[field.key] || ""}
-                          onChange={(e) => updateMapping(field.key, e.target.value)}
-                          placeholder={field.placeholder || "Opsiyonel"}
-                          className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
-                        />
-                      </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="space-y-4">
+                <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                  <PanelHeader title="API bilgileri" />
+                  <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:p-5">
+                    {selectedProvider.provider.credentialFields.map((field) => (
+                      <FieldBlock key={field.key} wide={String(field.type) === "textarea"}>
+                        <label className="mb-2 block text-sm font-semibold text-[#374151]">
+                          {field.label}
+                          {field.required && <span className="ml-1 text-[#FF6A00]">*</span>}
+                        </label>
+                        {String(field.type) === "textarea" ? (
+                          <textarea
+                            value={formState.credentials[field.key] || ""}
+                            onChange={(event) => updateCredential(field.key, event.target.value)}
+                            placeholder={field.placeholder || field.label}
+                            rows={4}
+                            className="w-full resize-none rounded-[8px] border border-[#DCE3EC] bg-white px-3 py-3 text-sm text-[#111827] outline-none transition placeholder:text-[#8B95A5] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                          />
+                        ) : (
+                          <input
+                            type={field.type === "password" ? "password" : "text"}
+                            value={formState.credentials[field.key] || ""}
+                            onChange={(event) => updateCredential(field.key, event.target.value)}
+                            placeholder={field.placeholder || field.label}
+                            className={FIELD_CLASS}
+                          />
+                        )}
+                      </FieldBlock>
                     ))}
                   </div>
                 </section>
-              )}
 
-              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-                <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-amber-200 bg-amber-50 text-amber-600">
-                    <RefreshCw className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <SectionPill>Senkron modu</SectionPill>
-                    <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em]">Güvenli hibrit akış</h2>
-                    <p className="mt-1 text-sm text-[#8f7765]">Veri eşitleme yapılandırması sabit tutulur, yalnızca görünüm güncellenmiştir.</p>
-                  </div>
-                </div>
-
-                <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-base font-semibold text-[var(--admin-heading)]">Güvenli Hibrit</span>
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Önerilen</span>
-                  </div>
-                  <p className="mt-3 text-sm leading-7 text-[#7f6858]">Outbound: anlık kuyruk + 5 dakika worker. Inbound: webhook varsa anlık, yoksa 15 dakika poll.</p>
-                </div>
-
-                {selectedProvider.connection?.lastSyncAt && (
-                  <p className="mt-4 text-sm text-[#7f6858]">
-                    Son senkron: <span className="font-semibold text-[var(--admin-heading)]">{new Date(selectedProvider.connection.lastSyncAt).toLocaleString("tr-TR")}</span>
-                  </p>
-                )}
-              </section>
-
-              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-                <div className="mb-5 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-text-secondary)]">
-                      <Terminal className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <SectionPill>İşlem günlüğü</SectionPill>
-                      <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em]">Hata ve durum logları</h2>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {logs.length > 0 && (
-                      <button
-                        onClick={clearLogs}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-[#8a6f5d] transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-500/12"
-                        title="Logları temizle"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={loadLogs}
-                      disabled={busyKey === "logs"}
-                      className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
-                    >
-                      {busyKey === "logs" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                      Logları yükle
-                    </button>
-                  </div>
-                </div>
-
-                {logs.length > 0 ? (
-                  <div className="overflow-hidden rounded-[12px] border border-[#f0e3d7]">
-                    <div className="grid grid-cols-[140px_170px_1fr] gap-4 border-b border-[var(--admin-border)] bg-[#fcf8f3] px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#9d836f]">
-                      <span>Durum</span>
-                      <span>Tarih</span>
-                      <span>Açıklama</span>
-                    </div>
-                    <div className="max-h-72 overflow-auto divide-y divide-[#f1e5d9] bg-white">
-                      {logs.map((log, index) => (
-                        <div key={`log-${index}`} className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[140px_170px_1fr] md:items-start">
-                          <span
-                            className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                              log.status === "success"
-                                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                                : log.status === "error"
-                                  ? "border border-red-200 bg-red-50 text-red-700"
-                                  : "border border-amber-200 bg-amber-50 text-amber-700"
-                            }`}
-                          >
-                            {String(log.status || "unknown")}
-                          </span>
-                          <span className="text-sm text-[#8f7765]">{String(log.created_at || "")}</span>
-                          <p className="text-sm leading-6 text-[#5f4d41]">{String(log.error_message || log.entity_type || "Detay yok")}</p>
-                        </div>
+                {selectedProvider.provider.mappingFields.length > 0 && (
+                  <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                    <PanelHeader title="Alan eşleme" />
+                    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:p-5">
+                      {selectedProvider.provider.mappingFields.map((field) => (
+                        <FieldBlock key={field.key}>
+                          <label className="mb-2 block text-sm font-semibold text-[#374151]">{field.label}</label>
+                          <input
+                            type="text"
+                            value={formState.fieldMappings[field.key] || ""}
+                            onChange={(event) => updateMapping(field.key, event.target.value)}
+                            placeholder={field.placeholder || "Opsiyonel"}
+                            className={FIELD_CLASS}
+                          />
+                        </FieldBlock>
                       ))}
                     </div>
-                  </div>
-                ) : (
-                  <div className="rounded-[12px] border border-dashed border-[#e7d9cc] bg-[#fcf8f3] px-6 py-10 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[var(--admin-border)] bg-white text-[var(--admin-accent-hover)]">
-                      <Terminal className="h-6 w-6" />
-                    </div>
-                    <p className="mt-4 text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)]">Henüz log yok</p>
-                    <p className="mt-2 text-sm text-[#8f7765]">Son işlemleri görmek için yukarıdaki butondan logları yükleyin.</p>
-                  </div>
+                  </section>
                 )}
-              </section>
-            </div>
 
-            <div className="space-y-6">
-              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
-                <SectionPill>Kuyruk durumu</SectionPill>
-                <div className="mt-5 space-y-3">
-                  {[
-                    { label: "Bekleyen", value: selectedProvider.queueStats.queued, tone: "border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-text-secondary)]" },
-                    { label: "Hatalı", value: selectedProvider.queueStats.failed, tone: selectedProvider.queueStats.failed > 0 ? "border-red-200 bg-red-50 text-red-700" : "border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-text-secondary)]" },
-                    { label: "Manuel işlem", value: selectedProvider.queueStats.manualActionRequired, tone: selectedProvider.queueStats.manualActionRequired > 0 ? "border-amber-200 bg-amber-50 text-amber-700" : "border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-text-secondary)]" },
-                  ].map((item) => (
-                    <div key={item.label} className={`flex items-center justify-between rounded-[12px] border px-4 py-3 ${item.tone}`}>
-                      <span className="text-sm font-medium">{item.label}</span>
-                      <span className="text-lg font-semibold">{item.value}</span>
+                <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                  <PanelHeader title="Senkron modu" />
+                  <div className="grid gap-3 p-4 min-[820px]:grid-cols-[minmax(0,1fr)_auto] min-[820px]:items-center xl:p-5">
+                    <div>
+                      <p className="text-sm font-semibold text-[#111827]">Güvenli hibrit</p>
+                      <p className="mt-1 text-xs font-medium text-[#6B7280]">Kuyruk + worker akışı korunur.</p>
                     </div>
-                  ))}
-                </div>
-              </section>
+                    <span className="w-fit rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                      Önerilen
+                    </span>
+                  </div>
+                </section>
 
-              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
-                <SectionPill>Hızlı işlemler</SectionPill>
-                <div className="mt-5 space-y-3">
-                  <ActionButton icon={Save} label="Bağlan / kaydet" loading={busyKey === "connect"} onClick={connectProvider} variant="primary" />
-                  <ActionButton icon={ShieldCheck} label="Bağlantıyı test et" loading={busyKey === "test"} onClick={testProvider} variant="secondary" />
-                  <ActionButton icon={RefreshCw} label="Senkronize et" loading={busyKey === "sync"} onClick={syncProvider} variant="secondary" />
-                  {hasError && <ActionButton icon={RefreshCw} label="Yeniden dene" loading={busyKey === "retry"} onClick={syncProvider} variant="warning" />}
-                </div>
-
-                {selectedProvider.provider.supportsWebhook && (
-                  <div className="mt-5 rounded-[12px] border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-                    <div className="flex items-center gap-2 font-semibold">
-                      <Plug className="h-4 w-4" />
-                      Webhook desteği aktif
+                <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                  <div className="grid gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 min-[820px]:grid-cols-[minmax(0,1fr)_auto] min-[820px]:items-center xl:px-5">
+                    <h2 className="text-sm font-semibold text-[#111827]">İşlem günlüğü</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {logs.length > 0 && (
+                        <button type="button" onClick={clearLogs} className={SECONDARY_BUTTON}>
+                          <X className="h-4 w-4" />
+                          Temizle
+                        </button>
+                      )}
+                      <button type="button" onClick={loadLogs} disabled={busyKey === "logs"} className={SECONDARY_BUTTON}>
+                        {busyKey === "logs" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        Logları yükle
+                      </button>
                     </div>
-                    <p className="mt-2 leading-6 text-blue-700">Anlık senkronizasyon için webhook tabanlı akış kullanılabilir.</p>
                   </div>
-                )}
-              </section>
 
-              <section className={`rounded-[12px] border p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] ${isConnected ? "border-emerald-200 bg-emerald-50" : hasError ? "border-red-200 bg-red-50" : "border-[var(--admin-border)] bg-white"}`}>
-                <div className="flex items-start gap-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] ${isConnected ? "bg-white text-emerald-600" : hasError ? "bg-white text-red-600" : "bg-[#fcf8f3] text-[var(--admin-text-secondary)]"}`}>
-                    {isConnected ? <CheckCircle2 className="h-6 w-6" /> : hasError ? <AlertTriangle className="h-6 w-6" /> : <Unplug className="h-6 w-6" />}
+                  {logs.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[720px] text-sm">
+                        <thead className="bg-[#EEF3F7]">
+                          <tr>
+                            <TableHead>Durum</TableHead>
+                            <TableHead>Tarih</TableHead>
+                            <TableHead>Açıklama</TableHead>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#DCE3EC]">
+                          {logs.map((log, index) => (
+                            <tr key={`log-${index}`} className="hover:bg-[#FFF8F3]">
+                              <td className="px-4 py-3 xl:px-5">
+                                <LogStatus value={String(log.status || "unknown")} />
+                              </td>
+                              <td className="px-4 py-3 text-[#6B7280] xl:px-5">{String(log.created_at || "")}</td>
+                              <td className="px-4 py-3 text-[#374151] xl:px-5">{String(log.error_message || log.entity_type || "Detay yok")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <EmptyBlock icon={Terminal} title="Log yok" description="Son işlemler yüklendiğinde burada görünür." />
+                  )}
+                </section>
+              </div>
+
+              <aside className="space-y-4">
+                <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                  <div className="flex items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5">
+                    <AccountingProviderLogo
+                      providerId={selectedProvider.provider.id}
+                      providerName={selectedProvider.provider.name}
+                      providerStyle={style}
+                      size={40}
+                      className="h-10 w-10 shrink-0 border border-[#DCE3EC]"
+                    />
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-semibold text-[#111827]">{selectedProvider.provider.name}</h2>
+                      <p className="mt-0.5 truncate text-xs font-medium text-[#6B7280]">
+                        {selectedProvider.connection?.lastSyncAt
+                          ? new Date(selectedProvider.connection.lastSyncAt).toLocaleString("tr-TR")
+                          : "Senkron yok"}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <SectionPill>Bağlantı durumu</SectionPill>
-                    <p className={`mt-3 text-lg font-semibold tracking-[-0.02em] ${isConnected ? "text-emerald-900" : hasError ? "text-red-900" : "text-[var(--admin-heading)]"}`}>
-                      {isConnected ? "Bağlantı aktif" : hasError ? "Bağlantı hatası" : "Bağlantı bekleniyor"}
-                    </p>
-                    <p className={`mt-2 text-sm leading-6 ${isConnected ? "text-emerald-800" : hasError ? "text-red-800" : "text-[#7f6858]"}`}>
-                      {isConnected ? "Fatura senkronizasyonu çalışıyor." : hasError ? "Lütfen kimlik bilgilerini ve alan eşlemelerini kontrol edin." : "Bağlantı kurmak için form alanlarını doldurun."}
-                    </p>
+                  <div className="divide-y divide-[#DCE3EC]">
+                    <StatusRow label="Bekleyen" value={selectedProvider.queueStats.queued} />
+                    <StatusRow label="Hatalı" value={selectedProvider.queueStats.failed} tone={selectedProvider.queueStats.failed > 0 ? "danger" : "neutral"} />
+                    <StatusRow label="Manuel işlem" value={selectedProvider.queueStats.manualActionRequired} />
                   </div>
-                </div>
-              </section>
+                </section>
+
+                <section
+                  className={cn(
+                    "rounded-[12px] border p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]",
+                    isConnected && "border-emerald-200 bg-emerald-50",
+                    hasError && "border-red-200 bg-red-50",
+                    !isConnected && !hasError && "border-[#DCE3EC] bg-white",
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-white text-[#FF6A00]">
+                      {isConnected ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : hasError ? <AlertTriangle className="h-5 w-5 text-red-600" /> : <Unplug className="h-5 w-5" />}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-[#111827]">
+                        {isConnected ? "Bağlantı aktif" : hasError ? "Bağlantı hatası" : "Bağlantı bekliyor"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#6B7280]">
+                        {isConnected ? "Fatura senkronizasyonu çalışıyor." : hasError ? "Bilgileri kontrol edin." : "Alanları doldurup kaydedin."}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              </aside>
             </div>
-          </div>
+          </AdminPageShell>
         </div>
-      </div>
+      </main>
     );
   }
 
   return null;
 }
 
-function ActionButton({
-  icon: Icon,
+function MetricCell({
   label,
-  onClick,
-  loading,
-  variant = "primary",
+  value,
+  detail,
+  icon: Icon,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: ElementType;
+  tone?: "neutral" | "warning" | "danger";
+}) {
+  return (
+    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">{label}</p>
+        <Icon className={cn("h-4 w-4", tone === "danger" ? "text-red-500" : tone === "warning" ? "text-amber-500" : "text-[#FF6A00]")} />
+      </div>
+      <p className="mt-3 truncate text-2xl font-semibold tracking-[-0.04em] text-[#111827]">{value}</p>
+      <p className="mt-1 truncate text-xs font-medium text-[#6B7280]">{detail}</p>
+    </div>
+  );
+}
+
+function PanelHeader({ title }: { title: string }) {
+  return (
+    <div className="border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5">
+      <h2 className="text-sm font-semibold text-[#111827]">{title}</h2>
+    </div>
+  );
+}
+
+function FieldBlock({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+  return <div className={wide ? "md:col-span-2" : undefined}>{children}</div>;
+}
+
+function TableHead({ children, className }: { children: ReactNode; className?: string }) {
+  return <th className={cn("px-4 py-3 text-left text-xs font-semibold text-[#4B5563] xl:px-5", className)}>{children}</th>;
+}
+
+function StatusRow({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "neutral" | "danger" }) {
+  return (
+    <div className={cn("flex items-center justify-between px-4 py-3 xl:px-5", tone === "danger" && "bg-red-50")}>
+      <span className={cn("text-sm font-medium", tone === "danger" ? "text-red-700" : "text-[#6B7280]")}>{label}</span>
+      <span className={cn("font-semibold", tone === "danger" ? "text-red-800" : "text-[#111827]")}>{value}</span>
+    </div>
+  );
+}
+
+function EmptyBlock({
+  icon: Icon,
+  title,
+  description,
 }: {
   icon: ElementType;
-  label: string;
-  onClick: () => void;
-  loading?: boolean;
-  variant?: "primary" | "secondary" | "warning";
+  title: string;
+  description: string;
 }) {
-  const className =
-    variant === "primary"
-      ? "border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)] hover:brightness-105"
-      : variant === "warning"
-        ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
-        : "border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]";
-
   return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className={`inline-flex w-full items-center justify-center gap-2 rounded-[8px] px-4 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] ${className}`}
-    >
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-      {label}
-    </button>
+    <div className="px-6 py-12 text-center">
+      <div className="mx-auto grid h-14 w-14 place-items-center rounded-[14px] border border-[#FFD1B5] bg-[#FFF3EA] text-[#FF6A00]">
+        <Icon className="h-6 w-6" />
+      </div>
+      <h3 className="mt-4 text-base font-semibold text-[#111827]">{title}</h3>
+      <p className="mt-1 text-sm text-[#6B7280]">{description}</p>
+    </div>
   );
+}
+
+function LogStatus({ value }: { value: string }) {
+  if (value === "success") {
+    return <span className="font-semibold text-emerald-700">Başarılı</span>;
+  }
+
+  if (value === "error") {
+    return <span className="font-semibold text-red-700">Hatalı</span>;
+  }
+
+  return <span className="font-semibold text-amber-700">{value}</span>;
+}
+
+function ArrowDot() {
+  return <span className="h-2 w-2 rounded-full bg-[#FF6A00]" />;
 }
