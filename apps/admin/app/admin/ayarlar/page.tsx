@@ -1,137 +1,232 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
+import { cn } from "@/lib/utils";
 import {
-  Store,
-  Truck,
-  CreditCard,
+  ArrowRight,
   Bell,
-  ChevronRight,
-  ShieldCheck,
+  Brain,
+  CreditCard,
   Globe2,
   ImageIcon,
-  Brain,
-  ArrowRight,
+  Settings,
+  ShieldCheck,
+  Store,
+  Truck,
 } from "lucide-react";
 import Link from "next/link";
+import type { ElementType } from "react";
 
-const SETTINGS_SECTIONS = [
+type SettingsItem = {
+  title: string;
+  detail: string;
+  href: string;
+  icon: ElementType;
+  status?: string;
+  accent?: boolean;
+};
+
+type SettingsGroup = {
+  title: string;
+  items: SettingsItem[];
+};
+
+const SETTINGS_GROUPS: SettingsGroup[] = [
   {
-    title: "Genel Ayarlar",
-    description: "Mağaza adı, iletişim bilgileri, para birimi ve zaman dilimi.",
-    icon: Store,
-    href: "/admin/ayarlar/genel",
-    tone: "from-white to-white text-[var(--admin-accent)] border-[var(--admin-border)]",
+    title: "Mağaza",
+    items: [
+      {
+        title: "Genel Ayarlar",
+        detail: "Kimlik, iletişim ve temel mağaza bilgileri.",
+        href: "/admin/ayarlar/genel",
+        icon: Store,
+        status: "Temel",
+      },
+      {
+        title: "Dil ve Bölge",
+        detail: "Dil, bölgesel ayarlar ve yerelleştirme.",
+        href: "/admin/ayarlar/dil",
+        icon: Globe2,
+        status: "Yerel",
+      },
+      {
+        title: "Tasarım Ayarları",
+        detail: "Hero, banner ve vitrin görünümü.",
+        href: "/admin/ayarlar/tasarim",
+        icon: ImageIcon,
+        status: "Vitrin",
+      },
+    ],
   },
   {
-    title: "Kargo ve Teslimat",
-    description: "Kargo bölgeleri, ücretler ve kargo firması entegrasyonları.",
-    icon: Truck,
-    href: "/admin/ayarlar/kargo",
-    tone: "from-[#fff6ed] to-white text-[#d66a1f] border-[#f2c79d]",
+    title: "Operasyon",
+    items: [
+      {
+        title: "Kargo",
+        detail: "Kargo firmaları ve teslimat bölgeleri.",
+        href: "/admin/ayarlar/kargo",
+        icon: Truck,
+        status: "Kritik",
+        accent: true,
+      },
+      {
+        title: "Ödeme",
+        detail: "Sağlayıcılar ve ödeme hazırlığı.",
+        href: "/admin/ayarlar/odeme",
+        icon: CreditCard,
+        status: "Kritik",
+        accent: true,
+      },
+      {
+        title: "Bildirimler",
+        detail: "Müşteri ve yönetici bildirimleri.",
+        href: "/admin/ayarlar/bildirimler",
+        icon: Bell,
+        status: "Açık",
+      },
+      {
+        title: "Yöneticiler",
+        detail: "Roller ve atanmış hesaplar.",
+        href: "/admin/yoneticiler",
+        icon: ShieldCheck,
+        status: "Güvenlik",
+      },
+    ],
   },
   {
-    title: "Ödeme Yöntemleri",
-    description: "Kredi kartı, havale/EFT ve kapıda ödeme ayarları.",
-    icon: CreditCard,
-    href: "/admin/ayarlar/odeme",
-    tone: "from-[#fff4ec] to-white text-[#c6541f] border-[#f0c4ac]",
-  },
-  {
-    title: "Bildirimler",
-    description: "Müşteri e-postaları, SMS şablonları ve yönetici bildirimleri.",
-    icon: Bell,
-    href: "/admin/ayarlar/bildirimler",
-    tone: "from-[#fdf1e7] to-white text-[#b86a32] border-[#edd2b7]",
-  },
-  {
-    title: "Yöneticiler ve İzinler",
-    description: "Yönetici hesapları, roller ve erişim yetkileri.",
-    icon: ShieldCheck,
-    href: "/admin/yoneticiler",
-    tone: "from-[#f7efe8] to-white text-[#7c5a47] border-[#e3d4c6]",
-  },
-  {
-    title: "Dil ve Bölge",
-    description: "Mağaza dili ve bölgesel ayarlar.",
-    icon: Globe2,
-    href: "/admin/ayarlar/dil",
-    tone: "from-white to-white text-[#c56a1f] border-[#efceae]",
-  },
-  {
-    title: "Tasarım Ayarları",
-    description: "Hero banner, promosyon banner ve kayan yazı alanlarını tek yerden yönetin.",
-    icon: ImageIcon,
-    href: "/admin/ayarlar/tasarim",
-    tone: "from-white to-white text-[#d55e2d] border-[#f1c5b2]",
-  },
-  {
-    title: "Yapay Zeka",
-    description: "Toshi AI asistanı ve SEO araçları için provider ve API key ayarları.",
-    icon: Brain,
-    href: "/admin/ayarlar/yapay-zeka",
-    tone: "from-white to-white text-[#b85c3a] border-[#ebc8b8]",
+    title: "Gelişmiş",
+    items: [
+      {
+        title: "Yapay Zeka",
+        detail: "Toshi ve SEO provider ayarları.",
+        href: "/admin/ayarlar/yapay-zeka",
+        icon: Brain,
+        status: "Modül",
+      },
+    ],
   },
 ];
 
-export default function SettingsPage() {
+function MetricCell({ label, value, context }: { label: string; value: string; context: string }) {
   return (
-    <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
+    <div className="bg-white px-4 py-4 sm:px-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7D8795]">{label}</p>
+      <div className="mt-3 flex items-end gap-2">
+        <span className="text-3xl font-semibold leading-none tracking-[-0.04em] text-[#111827]">{value}</span>
+        <span className="pb-1 text-sm font-medium text-[#667085]">{context}</span>
+      </div>
+    </div>
+  );
+}
+
+function SettingsRow({ item }: { item: SettingsItem }) {
+  const Icon = item.icon;
+
+  return (
+    <Link
+      href={item.href}
+      className="grid min-h-[76px] gap-3 px-4 py-3.5 transition hover:bg-[#FFF8F3] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] min-[860px]:grid-cols-[minmax(0,1fr)_130px_40px] min-[860px]:items-center"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border bg-white text-[#7D8795]",
+            item.accent ? "border-[#FFC7A8] text-[#FF6A00]" : "border-[#DCE3EC]",
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold text-[#182232]">{item.title}</span>
+          <span className="mt-1 block truncate text-xs text-[#667085]">{item.detail}</span>
+        </span>
+      </div>
+      <span
+        className={cn(
+          "w-fit rounded-[8px] border px-2.5 py-1 text-xs font-semibold min-[860px]:justify-self-start",
+          item.accent
+            ? "border-[#FFC7A8] bg-[#FFF4EC] text-[#C24D00]"
+            : "border-[#DCE3EC] bg-[#F9F9F9] text-[#667085]",
+        )}
+      >
+        {item.status ?? "Açık"}
+      </span>
+      <span className="hidden h-9 w-9 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white text-[#7D8795] min-[860px]:flex">
+        <ArrowRight className="h-4 w-4" />
+      </span>
+    </Link>
+  );
+}
+
+export default function AdminSettingsPage() {
+  const totalItems = SETTINGS_GROUPS.reduce((total, group) => total + group.items.length, 0);
+
+  return (
+    <main className="min-h-screen bg-[#F9F9F9] px-4 py-5 sm:px-6 lg:px-8">
       <AdminPageShell className="mx-auto max-w-none">
         <AdminPageHeader
           sectionLabel="Sistem"
           title="Ayarlar"
-          description="Mağaza, operasyon ve entegrasyon ayarlarını tek merkezden yönetin. Kritik checkout ayarlarında değişiklik yapmadan önce canlı etkiyi kontrol edin."
+          description="Mağaza, operasyon ve yetki ayarlarını yönetin."
+          metrics={
+            <>
+              <MetricCell label="Toplam" value={String(totalItems)} context="alan" />
+              <MetricCell label="Operasyon" value="4" context="kritik" />
+              <MetricCell label="Mağaza" value="3" context="ayar" />
+              <MetricCell label="Gelişmiş" value="1" context="modül" />
+            </>
+          }
         />
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {SETTINGS_SECTIONS.map((section) => (
-            <Link
-              key={section.href}
-              href={section.href}
-              className="group flex min-h-[220px] flex-col justify-between rounded-[20px] border border-[var(--admin-border)] bg-white p-5 text-left shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] md:rounded-[12px] md:p-6"
-            >
-              <div>
-                <div
-                  className={cn(
-                    "mb-5 flex h-12 w-12 items-center justify-center rounded-[16px] border bg-gradient-to-br shadow-sm transition-transform duration-200 group-hover:scale-105",
-                    section.tone
-                  )}
-                >
-                  <section.icon className="h-6 w-6" />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.42fr)]">
+          <div className="space-y-4">
+            {SETTINGS_GROUPS.map((group) => (
+              <section
+                key={group.title}
+                className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_10px_28px_rgba(16,24,40,0.04)]"
+              >
+                <div className="flex items-center justify-between border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3">
+                  <h2 className="text-sm font-semibold text-[#182232]">{group.title}</h2>
+                  <span className="text-xs font-medium text-[#667085]">{group.items.length} alan</span>
                 </div>
-                <h3 className="text-lg font-semibold tracking-[-0.02em] text-[var(--admin-heading)] transition-colors group-hover:text-[var(--admin-accent-hover)]">
-                  {section.title}
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-[#7d6959]">{section.description}</p>
-              </div>
-
-              <div className="mt-6 flex items-center justify-between rounded-[16px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition-all group-hover:border-[var(--admin-accent-border)] group-hover:bg-[var(--admin-accent-soft)] group-hover:text-[var(--admin-accent-hover)]">
-                <span>Ayarı aç</span>
-                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-r from-[#2f241d] via-[#50382a] to-[#6a4832] p-6 text-white shadow-[var(--shadow-xs)] md:p-8">
-          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#ffcfaa]">Ek Büyüme Alanı</p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Mobil uygulama hazırlık alanını buradan takip edin</h3>
-              <p className="mt-3 text-sm leading-6 text-[#f7ddcb]">
-                Mağazanızı mobil uygulamaya dönüştürmek için ihtiyaç duyulan tasarım ve teslim akışını tek alanda toplar.
-              </p>
-            </div>
-            <button className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-white px-5 py-3 text-sm font-semibold text-[var(--admin-heading)] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25">
-              İncelemeye Başla
-              <ArrowRight className="h-4 w-4" />
-            </button>
+                <div className="divide-y divide-[#E3E9F0]">
+                  {group.items.map((item) => (
+                    <SettingsRow key={item.href} item={item} />
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
-          <div className="hidden" />
-        </section>
+
+          <aside className="h-fit rounded-[12px] border border-[#DCE3EC] bg-white p-4 shadow-[0_10px_28px_rgba(16,24,40,0.04)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#FFC7A8] bg-[#FFF4EC] text-[#FF6A00]">
+                <Settings className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-[#182232]">Ayar merkezi</h2>
+                <p className="mt-1 text-sm leading-6 text-[#667085]">
+                  Kritik operasyon alanları kargo, ödeme ve yönetici yetkilerinde toplanır.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm">
+              <div className="flex items-center justify-between border-t border-[#E3E9F0] pt-3">
+                <span className="text-[#667085]">Renk standardı</span>
+                <span className="font-semibold text-[#FF6A00]">Celebix</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#667085]">Arkaplan</span>
+                <span className="font-semibold text-[#182232]">#F9F9F9</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#667085]">Kapsam</span>
+                <span className="font-semibold text-[#182232]">Ortak admin</span>
+              </div>
+            </div>
+          </aside>
+        </div>
       </AdminPageShell>
-    </div>
+    </main>
   );
 }
