@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ElementType, ReactNode } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
+  ArrowUpRight,
   CheckCircle2,
   Clock3,
   FileEdit,
-  FileText,
   Loader2,
   ShieldCheck,
   TriangleAlert,
@@ -16,12 +16,16 @@ import {
   POLICY_PAGE_DEFINITIONS,
   type PolicyPageDefinition,
 } from "@celebix/platform-config/src/policy-pages";
+import { AdminEmptyState, AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import { fetchCmsPages } from "@/lib/cms-pages";
+import { cn } from "@/lib/utils";
 import type { CmsPage } from "@/types/cms";
 
 type PolicyCardState = PolicyPageDefinition & {
   page: CmsPage | null;
 };
+
+type PolicyTone = "success" | "warning" | "neutral";
 
 function resolvePolicyState(page: CmsPage | null) {
   const hasContent = Boolean(page?.content?.trim());
@@ -29,25 +33,24 @@ function resolvePolicyState(page: CmsPage | null) {
 
   if (isPublished && hasContent) {
     return {
-      badgeLabel: "Yayında",
-      badgeClassName:
-        "border-emerald-200 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-      description: "Footer'da görünür ve storefront'ta yayınlanır.",
+      label: "Yayında",
+      tone: "success" as PolicyTone,
+      detail: "Footer ve storefront üzerinde görünür.",
     };
   }
 
   if (page) {
     return {
-      badgeLabel: "Taslak",
-      badgeClassName: "border-amber-200 bg-amber-50 text-amber-800 ring-1 ring-amber-100",
-      description: "İçerik yazılmadan footer'da görünmez.",
+      label: "Taslak",
+      tone: "warning" as PolicyTone,
+      detail: "İçerik tamamlanınca yayına alınabilir.",
     };
   }
 
   return {
-    badgeLabel: "Hazır değil",
-    badgeClassName: "border-stone-200 bg-stone-100 text-stone-700 ring-1 ring-stone-100",
-    description: "Henüz oluşturulmadı. İçerik girildiğinde aktif olur.",
+    label: "Hazır değil",
+    tone: "neutral" as PolicyTone,
+    detail: "Henüz oluşturulmadı.",
   };
 }
 
@@ -86,7 +89,7 @@ export default function PolicyPagesListingPage() {
     };
   }, []);
 
-  const policyCards = useMemo<PolicyCardState[]>(
+  const policyRows = useMemo<PolicyCardState[]>(
     () =>
       POLICY_PAGE_DEFINITIONS.map((definition) => ({
         ...definition,
@@ -95,173 +98,188 @@ export default function PolicyPagesListingPage() {
     [pages],
   );
 
-  const publishedCount = policyCards.filter(
+  const publishedCount = policyRows.filter(
     (policy) => policy.page?.status === "published" && policy.page.content.trim(),
   ).length;
-  const draftCount = policyCards.filter((policy) => policy.page && policy.page.status !== "published").length;
-  const pendingCount = policyCards.length - publishedCount - draftCount;
+  const draftCount = policyRows.filter((policy) => policy.page && policy.page.status !== "published").length;
+  const pendingCount = policyRows.length - publishedCount - draftCount;
 
   return (
-    <div className="admin-page-root p-6 md:p-8">
-      <div className="mx-auto max-w-none space-y-6">
-        <section className="overflow-hidden rounded-[12px] border border-stone-200/80 bg-white p-6 shadow-[0_20px_60px_-30px_rgba(120,78,33,0.45)] backdrop-blur md:p-8">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-            <div className="max-w-3xl space-y-4">
-              <span className="inline-flex w-fit items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-amber-800">
-                Politikalar
-              </span>
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
-                  Politika Sayfaları
-                </h1>
+    <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+      <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+        <AdminPageShell>
+          <AdminPageHeader
+            sectionLabel="CMS"
+            title="Politikalar"
+            description="Yasal ve operasyonel politika içeriklerini yönetin."
+            metrics={
+              <>
+                <MetricCell label="Yayında" value={publishedCount} detail="politika" icon={CheckCircle2} />
+                <MetricCell label="Taslak" value={draftCount} detail="çalışma" icon={FileEdit} />
+                <MetricCell label="Eksik" value={pendingCount} detail="içerik" icon={Clock3} />
+              </>
+            }
+          />
+
+          {loading ? <LoadingState /> : null}
+          {!loading && error ? <ErrorState message={error} /> : null}
+
+          {!loading && !error ? (
+            <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5">
+                <div>
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">
+                    Politika listesi
+                  </h2>
+                  <p className="mt-1 text-xs font-medium text-[#6B7280]">
+                    Yayın, içerik ve güncelleme durumu tek akışta.
+                  </p>
+                </div>
+                <span className="rounded-[8px] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280]">
+                  {policyRows.length} politika
+                </span>
               </div>
-            </div>
 
-            <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[420px]">
-              <MetricCard label="Yayında" value={publishedCount} tone="emerald" />
-              <MetricCard label="Taslak" value={draftCount} tone="amber" />
-              <MetricCard label="Eksik" value={pendingCount} tone="stone" />
-            </div>
-          </div>
-        </section>
+              {policyRows.length === 0 ? (
+                <div className="p-5">
+                  <AdminEmptyState
+                    icon={<ShieldCheck className="h-7 w-7" />}
+                    title="Politika kaydı bulunmuyor"
+                    description="Politika tanımları eklendiğinde burada görünür."
+                    className="border-[#DCE3EC] bg-[#F9F9F9]"
+                  />
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E1E7EF]">
+                  {policyRows.map((policy) => {
+                    const state = resolvePolicyState(policy.page);
+                    const isPreviewable = policy.page?.status === "published" && policy.page.content.trim();
 
-        {loading ? <LoadingState /> : null}
-
-        {!loading && error ? <ErrorState message={error} /> : null}
-
-        {!loading && !error ? (
-          <section className="grid gap-5 xl:grid-cols-2">
-            {policyCards.map((policy) => {
-              const state = resolvePolicyState(policy.page);
-
-              return (
-                <article
-                  key={policy.slug}
-                  className="group relative overflow-hidden rounded-[12px] border border-stone-200/80 bg-white p-6 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.55)] transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-[0_24px_50px_-30px_rgba(120,78,33,0.45)]"
-                >
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-300 via-orange-200 to-stone-200" />
-
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-[8px] border border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 text-amber-700 shadow-sm">
-                        <ShieldCheck className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <span className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                          /{policy.slug}
-                        </span>
-                        <h2 className="mt-3 text-xl font-semibold text-stone-900">{policy.name}</h2>
-                        <p className="mt-2 text-sm leading-6 text-stone-600">{policy.description}</p>
-                      </div>
-                    </div>
-
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${state.badgeClassName}`}>
-                      {state.badgeLabel}
-                    </span>
-                  </div>
-
-                  <div className="mt-6 rounded-[8px] border border-stone-200 bg-[#FCFDFE] p-4">
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Yayın durumu
-                    </div>
-                    <p className="text-sm leading-6 text-stone-700">{state.description}</p>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <InfoPill label="Yol" value={`/${policy.slug}`} />
-                    <InfoPill
-                      label="Son güncelleme"
-                      value={policy.page?.updatedAt ? policy.page.updatedAt.toLocaleDateString("tr-TR") : "Henüz içerik girilmedi"}
-                    />
-                  </div>
-
-                  <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-stone-100 pt-5">
-                    {policy.page?.status === "published" && policy.page.content.trim() ? (
-                      <Link
-                        href={`/${policy.slug}`}
-                        target="_blank"
-                        className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:border-amber-300 hover:text-stone-900"
+                    return (
+                      <article
+                        key={policy.slug}
+                        className="grid gap-4 px-4 py-4 transition hover:bg-[#FFF8F3] min-[940px]:grid-cols-[minmax(260px,1fr)_130px_190px_auto] min-[940px]:items-center xl:px-5"
                       >
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        Önizle
-                      </Link>
-                    ) : null}
-                    <Link
-                      href={`/admin/cms/politikalar/${policy.slug}`}
-                      className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-stone-800"
-                    >
-                      <FileEdit className="h-4 w-4" />
-                      {policy.page ? "Düzenle" : "İçerik gir"}
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-        ) : null}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-semibold text-[#FF6A00]">/{policy.slug}</span>
+                            <StatusText tone={state.tone}>{state.label}</StatusText>
+                          </div>
+                          <h3 className="mt-2 truncate text-base font-semibold tracking-[-0.02em] text-[#111827]">
+                            {policy.name}
+                          </h3>
+                          <p className="mt-1 line-clamp-1 text-sm font-medium text-[#6B7280]">{policy.description}</p>
+                        </div>
+
+                        <InfoCell label="Durum" value={state.label} danger={state.tone === "warning"} />
+                        <InfoCell
+                          label="Yayın notu"
+                          value={state.detail}
+                        />
+
+                        <div className="flex flex-wrap gap-2 min-[940px]:justify-end">
+                          {isPreviewable ? (
+                            <Link
+                              href={`/${policy.slug}`}
+                              target="_blank"
+                              className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                            >
+                              Önizle
+                              <ArrowUpRight className="h-4 w-4" />
+                            </Link>
+                          ) : null}
+                          <Link
+                            href={`/admin/cms/politikalar/${policy.slug}`}
+                            className={cn(
+                              "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]",
+                              policy.page
+                                ? "border border-[#DCE3EC] bg-white text-[#4B5563] hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                                : "bg-[#FF6A00] text-white shadow-[0_10px_24px_rgba(255,106,0,0.16)] hover:bg-[#E85D04]",
+                            )}
+                          >
+                            <FileEdit className="h-4 w-4" />
+                            {policy.page ? "Düzenle" : "İçerik gir"}
+                          </Link>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ) : null}
+        </AdminPageShell>
+      </div>
+    </main>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  detail,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  icon: ElementType;
+}) {
+  return (
+    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">{label}</p>
+        <Icon className="h-4 w-4 text-[#9CA3AF]" />
+      </div>
+      <div className="mt-3 flex items-end gap-2">
+        <p className="text-3xl font-semibold tracking-[-0.04em] text-[#111827]">{value}</p>
+        <span className="pb-1 text-sm font-medium text-[#6B7280]">{detail}</span>
       </div>
     </div>
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "emerald" | "amber" | "stone";
-}) {
-  const toneStyles = {
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    amber: "border-amber-200 bg-amber-50 text-amber-800",
-    stone: "border-stone-200 bg-stone-100 text-stone-700",
-  };
-
+function StatusText({ tone, children }: { tone: PolicyTone; children: ReactNode }) {
   return (
-    <div className={`rounded-[8px] border px-4 py-4 ${toneStyles[tone]}`}>
-      <div className="text-2xl font-semibold">{value}</div>
-      <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]">{label}</div>
-    </div>
+    <span
+      className={cn(
+        "text-xs font-semibold",
+        tone === "success" && "text-emerald-700",
+        tone === "warning" && "text-[#E85D04]",
+        tone === "neutral" && "text-[#6B7280]",
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
-function InfoPill({ label, value }: { label: string; value: string }) {
+function InfoCell({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
   return (
-    <div className="rounded-[8px] border border-stone-200 bg-stone-50/70 px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">{label}</div>
-      <div className="mt-1 text-sm text-stone-700">{value}</div>
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF]">{label}</p>
+      <p className={cn("mt-1 truncate text-sm font-semibold text-[#111827]", danger && "text-[#E85D04]")}>{value}</p>
     </div>
   );
 }
 
 function LoadingState() {
   return (
-    <section className="rounded-[12px] border border-stone-200/80 bg-white p-10 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
-      <div className="flex flex-col items-center justify-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700">
-          <Loader2 className="h-7 w-7 animate-spin" />
-        </div>
-        <h2 className="mt-5 text-xl font-semibold text-stone-900">Politikalar yükleniyor</h2>
-      </div>
+    <section className="flex min-h-[260px] items-center justify-center border-y border-[#E1E7EF] bg-[#F9F9F9] text-sm font-semibold text-[#6B7280]">
+      <Loader2 className="mr-3 h-5 w-5 animate-spin text-[#FF6A00]" />
+      Politikalar yükleniyor
     </section>
   );
 }
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <section className="rounded-[12px] border border-rose-200 bg-rose-50/90 p-10 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.35)]">
-      <div className="flex flex-col items-center justify-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600">
-          <TriangleAlert className="h-7 w-7" />
-        </div>
-        <h2 className="mt-5 text-xl font-semibold text-stone-900">Politikalar yüklenemedi</h2>
-        <p className="mt-2 max-w-lg text-sm leading-6 text-stone-600">{message}</p>
-        <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">
-          <Clock3 className="h-4 w-4" />
-          Veri akışı korunur; yalnızca yönetim arayüzü yenilendi.
+    <section className="border-y border-rose-200 bg-rose-50 px-5 py-6">
+      <div className="flex items-start gap-3 text-rose-700">
+        <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+        <div>
+          <h2 className="text-base font-semibold text-[#111827]">Politikalar yüklenemedi</h2>
+          <p className="mt-1 text-sm font-medium leading-6">{message}</p>
         </div>
       </div>
     </section>
