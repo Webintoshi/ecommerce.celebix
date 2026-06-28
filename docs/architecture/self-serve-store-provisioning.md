@@ -149,7 +149,7 @@ Existing stores should be imported into the platform registry before self-serve 
 
 1. Map current `owner_stores` and `stores/registry.json` into `stores`.
 2. Map current storefront and admin domains into `store_domains`.
-3. Map known owner contacts into `store_memberships`.
+3. Keep `store_memberships` blocked until an explicit store-local/admin auth source is inventoried; do not infer ownership from owner contacts.
 4. Preserve per-store admin URLs.
 5. Add central panel switcher at `panel.celebix.co/stores/{slug}`.
 6. Run read-only parity checks before moving write actions.

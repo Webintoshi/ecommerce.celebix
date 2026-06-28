@@ -66,6 +66,7 @@ describe("buildSelfServeRegistryMirror", () => {
       result.stores.map((store) => store.slug),
       ["deri-kordon", "derycraftcomtr", "dupe-domain-a", "dupe-domain-b"],
     );
+    assert.equal(result.stores.find((store) => store.slug === "deri-kordon")?.status, "active");
 
     assert.deepEqual(
       result.domains
@@ -73,7 +74,7 @@ describe("buildSelfServeRegistryMirror", () => {
         .map((domain) => [domain.hostname, domain.domainType]),
       [
         ["derycraft.com", "storefront"],
-        ["panel.celebix.co", "legacy_admin"],
+        ["panel.celebix.co", "admin"],
       ],
     );
 

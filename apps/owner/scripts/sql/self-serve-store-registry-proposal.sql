@@ -1,13 +1,12 @@
 -- PROPOSAL ONLY - DO NOT APPLY TO PRODUCTION YET
--- Celebix self-serve store registry model.
--- Phase 2A refines the target schema for read-only mirror and migration review only.
--- Existing owner_stores, stores/registry.json, and stores/*/store.config.json remain the runtime authority until a separately approved cutover.
+-- Celebix self-serve store registry target schema.
+-- Phase 2C aligns this proposal with the live owner DB inventory from ecommerce.celebix.co.
+-- Existing owner_* tables remain runtime authority until a separately approved cutover.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- stores: platform-wide store identity and lifecycle authority.
--- Existing source mapping: mirror owner_stores rows and local stores/*/store.config.json before moving writes.
--- Soft delete strategy: set deleted_at for historical removal; set disabled_at for operational suspension.
+-- stores: canonical SaaS store identity and lifecycle registry.
+-- Phase 2C backfill source is owner_stores only. Runtime reads stay on owner_stores.
 CREATE TABLE IF NOT EXISTS public.stores (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text NOT NULL,
@@ -20,7 +19,7 @@ CREATE TABLE IF NOT EXISTS public.stores (
   trial_ends_at timestamptz,
   primary_owner_principal_id uuid,
   legacy_owner_store_id uuid,
-  source_system text NOT NULL DEFAULT 'owner_mirror',
+  source text NOT NULL DEFAULT 'legacy_owner_stores',
   source_ref text,
   mirrored_at timestamptz,
   disabled_at timestamptz,
@@ -30,8 +29,9 @@ CREATE TABLE IF NOT EXISTS public.stores (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT stores_slug_unique UNIQUE (slug),
+  CONSTRAINT stores_legacy_owner_store_unique UNIQUE (legacy_owner_store_id),
   CONSTRAINT stores_status_check CHECK (
-    status IN ('draft', 'reserved', 'provisioning', 'ready', 'suspended', 'failed', 'cancelled')
+    status IN ('draft', 'active', 'suspended', 'failed', 'cancelled', 'archived')
   ),
   CONSTRAINT stores_provisioning_status_check CHECK (
     provisioning_status IN (
@@ -48,24 +48,24 @@ CREATE TABLE IF NOT EXISTS public.stores (
     )
   ),
   CONSTRAINT stores_database_mode_check CHECK (database_mode IN ('light_postgres', 'full_supabase')),
-  CONSTRAINT stores_source_system_check CHECK (
-    source_system IN ('owner_mirror', 'self_serve_onboarding', 'manual_import', 'support_import')
+  CONSTRAINT stores_source_check CHECK (
+    source IN ('legacy_owner_stores', 'self_serve_onboarding', 'manual_import', 'support_import')
   )
 );
 
 CREATE INDEX IF NOT EXISTS stores_status_idx ON public.stores (status, provisioning_status);
-CREATE INDEX IF NOT EXISTS stores_legacy_owner_store_idx ON public.stores (legacy_owner_store_id)
-  WHERE legacy_owner_store_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS stores_active_idx ON public.stores (slug)
   WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS stores_source_idx ON public.stores (source, source_ref);
 
--- store_domains: domain authority for platform subdomains, custom storefront domains, and legacy admin domains.
--- Existing source mapping: mirror store.config domains and owner_stores storefront/admin_domain.
--- Idempotency note: hostname is globally unique, so retries should upsert by hostname.
+-- store_domains: storefront, admin, platform subdomain, and custom domain authority.
+-- Admin domains such as admin.<store-domain> are expected legacy/control-plane domains and are exempt from
+-- storefront-reserved-domain warnings when domain_type = 'admin'.
 CREATE TABLE IF NOT EXISTS public.store_domains (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id uuid NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,
   hostname text NOT NULL,
+  hostname_normalized text NOT NULL,
   domain_type text NOT NULL DEFAULT 'platform_subdomain',
   status text NOT NULL DEFAULT 'pending',
   is_primary boolean NOT NULL DEFAULT false,
@@ -76,17 +76,21 @@ CREATE TABLE IF NOT EXISTS public.store_domains (
   disabled_at timestamptz,
   deleted_at timestamptz,
   last_error text,
-  source_system text NOT NULL DEFAULT 'owner_mirror',
+  source text NOT NULL DEFAULT 'legacy_owner_stores',
   source_ref text,
+  mirrored_at timestamptz,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT store_domains_hostname_unique UNIQUE (hostname),
+  CONSTRAINT store_domains_hostname_normalized_unique UNIQUE (hostname_normalized),
   CONSTRAINT store_domains_type_check CHECK (
-    domain_type IN ('platform_subdomain', 'custom_storefront', 'legacy_admin')
+    domain_type IN ('storefront', 'admin', 'platform_subdomain', 'custom')
   ),
   CONSTRAINT store_domains_status_check CHECK (
     status IN ('pending', 'verifying', 'verified', 'active', 'failed', 'disabled')
+  ),
+  CONSTRAINT store_domains_source_check CHECK (
+    source IN ('legacy_owner_stores', 'self_serve_onboarding', 'manual_import', 'support_import')
   )
 );
 
@@ -94,17 +98,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS store_domains_one_primary_per_type_idx
   ON public.store_domains (store_id, domain_type)
   WHERE is_primary = true AND deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS store_domains_store_idx ON public.store_domains (store_id, status);
-CREATE INDEX IF NOT EXISTS store_domains_active_hostname_idx ON public.store_domains (hostname)
+CREATE INDEX IF NOT EXISTS store_domains_active_hostname_idx ON public.store_domains (hostname_normalized)
   WHERE deleted_at IS NULL;
 
--- store_memberships: DB authority for store owners, admins, staff, support, and automation.
--- Logto provides identity only; this table grants store-level authorization.
--- Existing source mapping: owner_profiles/owner_store_access and store-local users/store_user_roles become mapping inputs only.
--- Customer auth_principals/auth_store_memberships must not grant admin access unless subject_type/role allow it.
+-- store_memberships: future store-level authorization authority.
+-- Phase 2C intentionally does not backfill memberships because owner_store_access has 0 rows and no owner DB
+-- auth_principals/auth_store_memberships/store_user_roles source exists. Store owner inference is forbidden.
 CREATE TABLE IF NOT EXISTS public.store_memberships (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id uuid NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,
   principal_id uuid NOT NULL,
+  principal_source text NOT NULL DEFAULT 'platform_account',
   subject_type text NOT NULL DEFAULT 'admin',
   role text NOT NULL,
   status text NOT NULL DEFAULT 'active',
@@ -113,19 +117,33 @@ CREATE TABLE IF NOT EXISTS public.store_memberships (
   joined_at timestamptz,
   disabled_at timestamptz,
   removed_at timestamptz,
-  source_system text NOT NULL DEFAULT 'migration_mirror',
+  source text NOT NULL DEFAULT 'migration_mirror',
   source_ref text,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT store_memberships_unique UNIQUE (store_id, principal_id, subject_type, role),
+  CONSTRAINT store_memberships_principal_source_check CHECK (
+    principal_source IN ('platform_account', 'logto', 'owner_supabase', 'store_local', 'automation')
+  ),
   CONSTRAINT store_memberships_subject_type_check CHECK (
     subject_type IN ('owner', 'admin', 'staff', 'support', 'customer', 'automation')
   ),
   CONSTRAINT store_memberships_role_check CHECK (
-    role IN ('store_owner', 'store_admin', 'store_staff', 'support_admin', 'super_admin', 'storefront_customer', 'automation')
+    role IN (
+      'store_owner',
+      'store_admin',
+      'store_staff',
+      'support_admin',
+      'super_admin',
+      'storefront_customer',
+      'automation'
+    )
   ),
-  CONSTRAINT store_memberships_status_check CHECK (status IN ('invited', 'active', 'disabled', 'removed'))
+  CONSTRAINT store_memberships_status_check CHECK (status IN ('invited', 'active', 'disabled', 'removed')),
+  CONSTRAINT store_memberships_source_check CHECK (
+    source IN ('migration_mirror', 'self_serve_onboarding', 'manual_invite', 'support_import')
+  )
 );
 
 CREATE INDEX IF NOT EXISTS store_memberships_principal_idx ON public.store_memberships (principal_id, status);
@@ -134,9 +152,8 @@ CREATE INDEX IF NOT EXISTS store_memberships_active_admin_idx
   ON public.store_memberships (store_id, principal_id)
   WHERE status = 'active' AND subject_type IN ('owner', 'admin', 'staff', 'support', 'automation');
 
--- store_invitations: invite workflow for store admins and staff.
--- Security note: store only token hashes, never raw invite tokens.
--- Existing source mapping: no current canonical source; Phase 2A does not create live invitations.
+-- store_invitations: future store admin/staff invitation lifecycle.
+-- Store only token hashes, never raw invite tokens.
 CREATE TABLE IF NOT EXISTS public.store_invitations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id uuid NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,
@@ -162,9 +179,7 @@ CREATE INDEX IF NOT EXISTS store_invitations_store_status_idx
 CREATE INDEX IF NOT EXISTS store_invitations_email_idx
   ON public.store_invitations (email_normalized, status);
 
--- store_onboarding_sessions: draft wizard state before live provisioning starts.
--- Existing source mapping: new self-serve onboarding drafts only; legacy stores should not be backfilled here.
--- Idempotency note: idempotency_key can protect repeated form submits before job creation.
+-- store_onboarding_sessions: draft self-serve wizard state before provisioning.
 CREATE TABLE IF NOT EXISTS public.store_onboarding_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   principal_id uuid NOT NULL,
@@ -191,9 +206,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS store_onboarding_sessions_one_active_idx
 CREATE INDEX IF NOT EXISTS store_onboarding_sessions_store_idx
   ON public.store_onboarding_sessions (store_id, status);
 
--- store_provisioning_jobs: durable queue replacing request-lifetime queueMicrotask.
--- Existing source mapping: no legacy runtime cutover in Phase 2A; jobs begin only after later explicit approval.
--- Idempotency note: retry workers must reuse idempotency_key per store/job_type.
+-- store_provisioning_jobs: durable provisioning queue replacing request-lifetime side effects.
 CREATE TABLE IF NOT EXISTS public.store_provisioning_jobs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id uuid NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,
@@ -224,8 +237,8 @@ CREATE INDEX IF NOT EXISTS store_provisioning_jobs_queue_idx
 CREATE INDEX IF NOT EXISTS store_provisioning_jobs_store_idx
   ON public.store_provisioning_jobs (store_id, job_type, status);
 
--- store_billing_accounts: plan/trial/subscription authority for SaaS entitlements.
--- Existing source mapping: current package fields are incomplete; Phase 2A mirrors only as metadata until billing cutover.
+-- store_billing_accounts: future SaaS plan/trial/subscription authority.
+-- Billing is red in Phase 2B readiness and must not be cut over by this proposal.
 CREATE TABLE IF NOT EXISTS public.store_billing_accounts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id uuid NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,

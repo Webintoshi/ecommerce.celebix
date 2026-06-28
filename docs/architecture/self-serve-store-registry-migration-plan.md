@@ -1,158 +1,168 @@
 # Self-Serve Store Registry Migration Plan
 
-Status: Phase 2A read-only mirror plan
+Status: Phase 2C migration review package, proposal only.
 
-This plan prepares the Celebix platform for a central self-serve store registry and membership authority. It is not a production migration and does not authorize DB apply, runtime authority cutover, Logto mutation, DNS/Coolify mutation, or deploy.
+This document finalizes the registry schema and owner backfill plan after the live owner DB read-only inventory for `ecommerce.celebix.co`. It does not authorize a production migration, DB DDL/DML, runtime authority cutover, Logto mutation, DNS/Coolify mutation, or deploy.
+
+## Live Owner Inventory Baseline
+
+| Area | Result | Migration meaning |
+| --- | --- | --- |
+| Owner resource | `owner`, UUID `oo08g4wso080w44oc0s04ws0`, domain `ecommerce.celebix.co`, branch `deploy/owner`, running commit `e9e701ee`. | Confirms the control-plane source, but no runtime change is part of Phase 2C. |
+| `owner_profiles` | Exists, 7 rows. `super_admin`: 4, `affiliate_admin`: 3, active: 7. | Platform admin identity exists, but it is not store membership authority. |
+| `owner_stores` | Exists, 10 rows. `active`: 3, `draft`: 7, `light_postgres`: 10. | Primary source for `stores` backfill. |
+| `owner_store_access` | Exists, 0 rows. | Store membership backfill is blocked. |
+| `owner_store_secrets` | Exists, 6 rows. Secret values were not read. | Backfill only secret-row presence metadata, never secret values. |
+| `owner_cleanup_runs` | Exists, 6 rows. `orphaned`: 4, `resolved`: 2. | Use as slug tombstone/review signal only. Do not create stores from cleanup rows. |
+| Target self-serve tables | `stores`, `store_domains`, `store_memberships`, `store_provisioning_jobs`, `store_onboarding_sessions`, `store_billing_accounts` absent. | Phase 2C prepares schema/backfill proposals for review only. |
+
+Store authority inventory:
+
+- Total owner stores: 10.
+- Storefront domains: 10.
+- Admin domains: 10.
+- Duplicate slug: none.
+- Duplicate storefront domain: none.
+- Duplicate admin domain: none.
+- Reserved slug: none.
+- Reserved domain heuristic: 8 hits, expected admin-domain exceptions.
+- Present slugs: `hemenaku`, `derycraftcomtr`, `deri-kordon`, `lilyum-flora-ordu`, `butik-waya`, `alpler-spor`, `ezmeo`.
+- Missing from owner DB inventory: `skoriq`, `celebix-cms`.
 
 ## Source Authority Map
 
-| Source | Current purpose | Authority level | Phase 2A migration note |
-| --- | --- | --- | --- |
-| `owner_stores` | Owner panel store list, lifecycle, domains, R2, deployment metadata. | Legacy operational authority. | Mirror into proposed `stores`, `store_domains`, and metadata only after read-only inventory. |
-| `owner_profiles` | Owner panel identity profile and `super_admin` / `affiliate_admin` role. | Owner auth authority. | Map to platform principals later; do not remove Supabase owner auth in Phase 2A. |
-| `owner_store_access` | Owner panel scoped store access and commission metadata. | Partial access authority. | Report as candidate `store_memberships` or affiliate model input; do not infer ownership automatically. |
-| `stores/registry.json` | Repo-tracked store slug/name/domain/theme/status list. | Repo registry authority. | Read locally for dry-run mapping; not enough for production migration alone. |
-| `stores/*/store.config.json` | Per-store declarative config for domains, R2, bootstrap, storefront deployment. | Repo config authority. | Primary local dry-run input for proposed store/domain/deployment refs. |
-| Store-local `users` + `store_user_roles` | Legacy admin identity and admin role bridge. | Store-local admin authority. | Inventory only; future mapping to `store_memberships` requires live schema parity. |
-| `auth_principals` / `auth_store_memberships` | Logto customer principal bridge in store runtime. | Store-local customer auth authority. | Customer memberships must remain separate from admin access. |
-| Coolify resources | App runtime/deployment resources. | External operational authority. | Mirror non-secret resource refs only; no Coolify mutation in Phase 2A. |
-| R2 resources | Media buckets/domains. | External storage authority. | Mirror bucket/public URL/managed domain as metadata; no bucket mutation. |
-| DNS/domain provider | Domain routing and verification. | External domain authority. | `store_domains` must include verification state before future activation. |
-
-## Target Registry Model
-
-| Table | Authority | Phase 2A strategy |
+| Source | Current purpose | Phase 2C handling |
 | --- | --- | --- |
-| `stores` | Canonical store identity, lifecycle, database mode, source mirror metadata. | Proposal only; mirror rows in dry-run output. |
-| `store_domains` | Storefront, custom, platform subdomain, and legacy admin domain authority. | Proposal only; check duplicate hostname and primary domain conflicts. |
-| `store_memberships` | Store owner/admin/staff/support/automation authorization. | Proposal only; produce missing mapping warnings until principal inventory is complete. |
-| `store_invitations` | Staff/admin invite lifecycle. | Proposal only; no live invites. |
-| `store_onboarding_sessions` | Draft self-serve onboarding state. | Proposal only; no production writes. |
-| `store_provisioning_jobs` | Durable provisioning queue. | Proposal only; no jobs created in Phase 2A. |
-| `store_billing_accounts` | Trial, plan, billing entitlement authority. | Proposal only; no billing cutover or charging. |
+| `owner_stores` | Owner panel store list, lifecycle, domain, R2, and deployment metadata. | Backfill proposal maps to `stores` and `store_domains`. Runtime authority remains unchanged. |
+| `owner_profiles` | Owner panel identity profile and platform roles. | Aggregate inventory only. Do not infer store ownership. |
+| `owner_store_access` | Intended scoped access table. | Empty in live inventory; membership migration is blocked. |
+| `owner_store_secrets` | Per-store secret authority. | Presence-only metadata. Secret columns must never be selected or migrated into registry metadata. |
+| `owner_cleanup_runs` | Cleanup/orphan tracking. | Slug tombstone review input. No store rows created from cleanup history. |
+| Store-local admin/user tables | Legacy admin membership authority. | Requires separate store-local DB inventory before `store_memberships` backfill. |
+| Logto/auth bridge tables | Identity/customer auth bridge. | Not present in owner DB; customer and admin membership must stay separate. |
 
-## Read-Only Mirror Approach
+## Schema Finalization
 
-1. Read local `stores/registry.json`.
-2. Read local `stores/*/store.config.json`.
-3. Generate deterministic proposed `stores` rows.
-4. Generate deterministic proposed `store_domains` rows from storefront/admin domains.
-5. Generate deployment refs metadata for Coolify and R2 without secrets.
-6. Emit warnings for duplicate slugs, duplicate domains, missing config, missing memberships, possible legacy split stores, and known external stores missing from local registry.
-7. Keep `owner_stores`, legacy admin URLs, store-local auth, and owner Supabase auth unchanged.
+| Table | Phase 2C decision | Live inventory alignment |
+| --- | --- | --- |
+| `stores` | Canonical store identity table with `legacy_owner_store_id`, `source`, `database_mode`, `status`, `provisioning_status`, and `metadata`. | Mirrors 10 `owner_stores` rows. `legacy_owner_store_id` preserves old IDs; `source = legacy_owner_stores`. |
+| `store_domains` | Domain registry with `domain_type IN ('storefront', 'admin', 'platform_subdomain', 'custom')`. | Mirrors 10 storefront + 10 admin domains if no null domains exist. Admin domains are reserved-policy exempt. |
+| `store_memberships` | Future store authorization authority. | Created by proposal, but production backfill remains empty/blocked until explicit principal source exists. |
+| `store_invitations` | Future admin/staff invite lifecycle. | No legacy backfill in Phase 2C. |
+| `store_onboarding_sessions` | Future self-serve wizard state. | No legacy backfill in Phase 2C. |
+| `store_provisioning_jobs` | Future durable provisioning queue. | No jobs created in Phase 2C. |
+| `store_billing_accounts` | Future SaaS billing/trial authority. | Billing readiness is red; no billing backfill or cutover. |
 
-The dry-run script must not read secrets, env values, production DB, network, Logto, DNS, Coolify, or R2 APIs.
+Key changes from Phase 2A:
 
-## No-Cutover Rule
+- `stores.source_system` is replaced with the clearer `stores.source`.
+- `stores.status` keeps `active` / `draft` parity instead of translating live `active` into `ready`.
+- `stores.provisioning_status` carries provisioning readiness separately.
+- `store_domains.domain_type` is finalized as `storefront`, `admin`, `platform_subdomain`, `custom`.
+- `legacy_admin` and `custom_storefront` terminology is removed from the registry contract.
+- `store_domains.hostname_normalized` is used for case-insensitive conflict handling.
+- Membership backfill is explicitly blocked rather than warning-only.
 
-Phase 2A is mirror-only. The following remain forbidden:
+## Backfill Proposal
 
-- No production DB migration apply.
-- No live table create/update/delete.
-- No runtime store authority change.
-- No `/api/stores` behavior change.
-- No `super_admin` guard removal.
-- No Logto/DNS/Coolify mutation.
-- No deploy.
-- No storefront/admin routing cutover.
+| Source | Target | Fields | Idempotency rule | Risk |
+| --- | --- | --- | --- | --- |
+| `owner_stores` | `stores` | `id -> legacy_owner_store_id`, `slug`, `name`, `status`, `database_mode`, lifecycle metadata. | Upsert by `slug`; update only rows sourced from `legacy_owner_stores` or matching the same legacy id. | A future manually-created `stores.slug` could conflict; SQL avoids overwriting non-legacy rows. |
+| `owner_stores.storefront_domain` | `store_domains` | `hostname`, `hostname_normalized`, `domain_type = storefront`, `status`, `is_primary`. | Upsert by normalized hostname; update only legacy-sourced domain rows. | Null or malformed domains reduce expected count below 20. |
+| `owner_stores.admin_domain` | `store_domains` | `hostname`, `hostname_normalized`, `domain_type = admin`, reserved-policy exempt metadata. | Upsert by normalized hostname; update only legacy-sourced domain rows. | Admin domains look reserved by heuristic; policy must exempt `domain_type = admin`. |
+| `owner_store_secrets` | `stores.metadata` | `ownerSecretRowPresent` boolean only. | Presence-only metadata can be recomputed. | Secret values must not be selected or copied. |
+| `owner_cleanup_runs` | Review metadata only | `cleanupRunCount` and tombstone policy note. | No store/domain rows are created from cleanup rows. | Orphaned slugs require human review before reuse. |
+
+Backfill SQL proposal: [self-serve-store-registry-backfill-proposal.sql](/Users/Celebix/Desktop/ecommerce-celebix/.codex-worktrees/self-serve-store-provisioning-phase-0-1/apps/owner/scripts/sql/self-serve-store-registry-backfill-proposal.sql)
+
+Schema SQL proposal: [self-serve-store-registry-proposal.sql](/Users/Celebix/Desktop/ecommerce-celebix/.codex-worktrees/self-serve-store-provisioning-phase-0-1/apps/owner/scripts/sql/self-serve-store-registry-proposal.sql)
+
+## Membership Plan
+
+Membership backfill is blocked in Phase 2C because:
+
+- `owner_store_access` has 0 rows.
+- `auth_principals` is absent from owner DB.
+- `auth_store_memberships` is absent from owner DB.
+- `store_user_roles` is absent from owner DB.
+- `owner_profiles` contains platform roles, not canonical per-store ownership.
+
+What can be mirrored now:
+
+- Store identities from `owner_stores`.
+- Storefront/admin domains from `owner_stores`.
+- Non-secret operational metadata and source refs.
+
+What requires separate inventory:
+
+- Store-local admin users and roles for each tenant DB.
+- Logto principal mapping and admin/customer separation.
+- Explicit store owner/admin assignment source.
+- Platform `super_admin` bypass/support policy separate from store ownership.
+
+No automatic owner inference is allowed from email, slug, store name, domain, historical support contact, or platform `super_admin` role. Storefront customer identities must never be promoted into admin membership.
 
 ## Parity Checks
 
-Before a future migration apply, the mirror must prove:
+These are read-only checks to run on a restored temporary database after applying the proposal there, and again after any future approved production apply before cutover.
 
-- Local repo store count matches expected production owner inventory.
-- Every `owner_stores.slug` maps to one proposed `stores.slug`.
-- Every storefront/admin domain maps to exactly one proposed `store_domains.hostname`.
-- No duplicate primary domain per store/domain type.
-- Store status and database mode mapping is documented.
-- R2 bucket/public URL/managed domain refs are mirrored without secrets.
-- Coolify deployment resource refs are mirrored without write access.
-- Membership mapping is explicit and never inferred from slug alone.
-- Store-local admin role mapping is compared against proposed `store_memberships`.
-- Customer memberships are not promoted into admin access.
+| Check | Query shape | Expected |
+| --- | --- | --- |
+| Owner store count | `SELECT count(*) FROM owner_stores` | 10 from Phase 2B baseline unless inventory changes. |
+| Proposed store count | `SELECT count(*) FROM stores WHERE source = 'legacy_owner_stores'` | Equal to owner store count. |
+| Status parity | Group `owner_stores.status` and `stores.status`. | `active: 3`, `draft: 7` baseline mapped to `active: 3`, `draft: 7`. |
+| Slug uniqueness | `GROUP BY slug HAVING count(*) > 1`. | 0 rows. |
+| Storefront domain uniqueness | `store_domains` filtered to `domain_type = 'storefront'`. | 0 duplicates. |
+| Admin domain uniqueness | `store_domains` filtered to `domain_type = 'admin'`. | 0 duplicates. |
+| Domain row count | `SELECT count(*) FROM store_domains WHERE source = 'legacy_owner_stores'`. | 20 unless null storefront/admin domains exist. |
+| Missing storefront/admin rows | Left join `stores` to `store_domains` by type. | 0 rows unless source domain is null. |
+| Reserved domain exceptions | Filter reserved-looking hostnames by domain type. | Admin domains allowed; storefront/custom require review. |
+| Duplicate primary domain by type | `GROUP BY store_id, domain_type HAVING count(*) > 1` where primary. | 0 rows. |
+| Orphan domains | Domain rows without store join. | 0 rows. |
+| Membership count | `store_memberships` sourced from migration mirror. | 0 or explicitly documented as blocked. |
 
-## Authz Policy Outline
+The backfill proposal includes the main parity query list at the bottom and rolls back by default.
 
-Logto identity is not authorization. Future admin APIs must:
+## Rollback Proposal
 
-1. Resolve a principal from trusted identity context.
-2. Resolve `store_id` from canonical DB store/domain mapping.
-3. Check `store_memberships` by `principal_id + store_id + active status`.
-4. Enforce role/capability boundaries server-side.
-5. Reject stale, disabled, removed, or customer-only memberships for admin APIs.
-6. Treat `storeSlug` as a target selector, not an authorization proof.
-7. Audit `super_admin`, support access, and impersonation.
+Rollback SQL proposal: [self-serve-store-registry-rollback-proposal.sql](/Users/Celebix/Desktop/ecommerce-celebix/.codex-worktrees/self-serve-store-provisioning-phase-0-1/apps/owner/scripts/sql/self-serve-store-registry-rollback-proposal.sql)
 
-Role boundaries:
+Rollback strategy:
 
-- `store_owner`: billing, domains, staff, store settings.
-- `store_admin`: catalog, orders, content, operations.
-- `store_staff`: scoped operational capabilities.
-- `support_admin`: audited support operations.
-- `super_admin`: audited platform bypass only.
-- `storefront_customer`: storefront/customer APIs only, never admin APIs.
-
-## Existing Stores Mapping Strategy
-
-Local repo evidence currently covers stores listed in `stores/registry.json` and `stores/*/store.config.json`. Known live stores that are not present locally require external inventory before production migration.
-
-Required mapping fields:
-
-- Stable store id.
-- Slug and display name.
-- Lifecycle status.
-- Database mode.
-- Storefront/admin/platform domains.
-- R2 bucket and public/managed domains.
-- Coolify admin/storefront resource refs.
-- Owner/admin principal mapping.
-- Legacy store-local users and roles.
-- Logto principal mapping.
-
-Potential legacy split examples must be resolved as canonical store identity decisions before migration. The dry-run warns on likely split identities, but a human review decides whether they are one store, two stores, or a legacy alias.
+- Safe only before runtime cutover.
+- Drop only new self-serve tables in dependency order.
+- Do not touch `owner_profiles`, `owner_stores`, `owner_store_access`, `owner_store_secrets`, `owner_cleanup_runs`, or store-local tenant DBs.
+- Runtime remains unaffected because no API reads are switched to new tables in Phase 2C.
 
 ## Production Migration Gates
 
-Production migration cannot proceed until all gates pass:
+Production apply remains blocked until all gates pass:
 
-1. SQL review.
-2. Fresh production backup.
-3. Temporary restore test.
-4. Row count parity.
-5. Slug uniqueness check.
-6. Domain uniqueness check.
-7. Membership parity check.
-8. No duplicate primary domains.
-9. Rollback SQL reviewed.
-10. No runtime cutover before mirror parity.
-11. Audit logging for `super_admin` and support access.
-12. Explicit Atlas approval for production apply.
+1. Fresh owner DB backup.
+2. Temporary restore test.
+3. Schema SQL review.
+4. Backfill SQL review.
+5. Rollback SQL review.
+6. Read-only parity dry-run.
+7. Apply to restored temporary DB first.
+8. Transactional apply plan where Postgres lock constraints allow it.
+9. No runtime authority cutover.
+10. No `/api/stores` read/write switch to new tables.
+11. Post-apply row parity.
+12. Monitoring and owner health checks.
+13. Explicit Atlas approval for production migration apply.
 
-## Backup And Restore Requirements
+## Remaining Blockers
 
-- Capture owner DB backup immediately before migration.
-- Restore backup into a temporary database and run the migration there first.
-- Compare row counts and checksums for owner stores, domains, access/membership inputs, and metadata refs.
-- Keep old owner runtime pointed at legacy `owner_stores` until post-restore validation is green.
+| Area | Status | Reason | Required action |
+| --- | --- | --- | --- |
+| Store registry mirror | Yellow | 10 owner stores map cleanly, but `skoriq` and `celebix-cms` are missing from owner DB inventory. | Decide whether missing stores are out of scope, archived, or require external inventory. |
+| Domain mirror | Yellow | Storefront/admin counts are clean, but reserved-domain heuristic flags admin-style domains. | Adopt `domain_type = admin` reserved-policy exception. |
+| Membership mirror | Red | No explicit owner DB membership source. | Run store-local/auth principal inventory and design explicit membership import. |
+| Authz cutover | Red | `store_memberships` cannot authorize real admins yet. | Keep legacy auth paths; no cutover until membership parity exists. |
+| Billing readiness | Red | No billing authority source. | Define billing model and migration source separately. |
+| Provisioning jobs | Red | Jobs table is proposal only. | Add worker/idempotency design in later phase. |
 
-## Rollback Outline
+## Safety Statement
 
-Phase 2A creates no production objects, so rollback is deleting the local branch changes.
-
-For a later production migration, rollback must include:
-
-- Drop or disable new registry tables only if no runtime cutover happened.
-- Preserve `owner_stores` and legacy store-local auth tables.
-- Revert feature flags to legacy read paths.
-- Keep old admin/storefront URLs unchanged.
-- Re-run owner runtime health checks.
-
-## Phase 2B Prerequisites
-
-Phase 2B should not start runtime cutover. The safest next step is inventory/live schema audit:
-
-- Confirm production `owner_stores` schema and row count.
-- Confirm live store-local auth bridge schemas.
-- Confirm `auth_principals` and `auth_store_memberships` schema sources.
-- Confirm Hemenaku, SkorIQ, Celebix CMS, and any other live stores missing from local registry.
-- Confirm backup/restore workflow.
+Phase 2C is proposal-only. It performs no production DB apply, no live DDL/DML, no deploy, no runtime cutover, no Logto/DNS/Coolify mutation, no secret reporting, and no PII reporting.

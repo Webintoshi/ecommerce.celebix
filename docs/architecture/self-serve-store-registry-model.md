@@ -1,6 +1,6 @@
 # Self-Serve Store Registry Model
 
-Status: proposal only
+Status: Phase 2C proposal only
 
 The self-serve registry is the future authority for store identity, domains, memberships, onboarding state, provisioning jobs, and billing entitlements. This proposal does not replace the current `owner_stores` table yet.
 
@@ -8,8 +8,8 @@ The self-serve registry is the future authority for store identity, domains, mem
 
 | Table | Purpose | Key constraints |
 | --- | --- | --- |
-| `stores` | Platform store authority and lifecycle state. | Unique `slug`; status check; provisioning status check. |
-| `store_domains` | Platform and custom domain registry. | Unique `hostname`; one primary domain per store/type. |
+| `stores` | Platform store authority and lifecycle state. | Unique `slug`; unique `legacy_owner_store_id`; status, provisioning status, database mode, and source checks. |
+| `store_domains` | Storefront, admin, platform subdomain, and custom domain registry. | Unique normalized hostname; one primary domain per store/type. |
 | `store_memberships` | Store owner/admin/staff/support authorization. | Unique `store_id`, `principal_id`, `subject_type`, `role`. |
 | `store_invitations` | Store staff/admin invitation flow. | Unique active token hash; email normalized. |
 | `store_onboarding_sessions` | Draft wizard payload and current step. | One active onboarding session per principal/store draft. |
@@ -18,7 +18,16 @@ The self-serve registry is the future authority for store identity, domains, mem
 
 ## Migration Relationship
 
-Current `owner_stores` should be treated as the legacy owner control-plane store authority during migration. The new `stores` table should first mirror existing rows in read-only mode.
+Current `owner_stores` should be treated as the legacy owner control-plane store authority during migration. The new `stores` table should first mirror existing rows in read-only mode with `source = legacy_owner_stores` and `legacy_owner_store_id` preserving the old row id.
+
+`store_domains.domain_type` is finalized as:
+
+- `storefront`: current customer-facing storefront domain from `owner_stores.storefront_domain`.
+- `admin`: current store admin domain from `owner_stores.admin_domain`; admin-style reserved domain warnings are policy-exempt for this type.
+- `platform_subdomain`: future `{slug}.celebix.shop` self-serve subdomain.
+- `custom`: future merchant-owned custom domain.
+
+Phase 2C does not backfill `store_memberships`. The live owner DB has `owner_store_access` with 0 rows and no owner DB `auth_principals`, `auth_store_memberships`, or `store_user_roles` source. Store owners/admins must not be inferred from slug, email, domain, store name, or `super_admin` role.
 
 The safe sequence:
 

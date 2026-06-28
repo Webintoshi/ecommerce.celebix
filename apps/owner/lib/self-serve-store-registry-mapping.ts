@@ -41,8 +41,8 @@ export interface SourceStoreConfig {
   } | null;
 }
 
-export type ProposedStoreStatus = "draft" | "ready" | "suspended" | "failed";
-export type ProposedDomainType = "storefront" | "legacy_admin" | "platform_subdomain";
+export type ProposedStoreStatus = "draft" | "active" | "suspended" | "failed";
+export type ProposedDomainType = "storefront" | "admin" | "platform_subdomain" | "custom";
 export type ProposedDomainStatus = "pending" | "active";
 
 export interface ProposedStoreRow {
@@ -135,7 +135,7 @@ function normalizeComparableName(value: string): string {
 
 function toProposedStatus(status: string | null | undefined): ProposedStoreStatus {
   if (status === "active") {
-    return "ready";
+    return "active";
   }
 
   if (status === "paused") {
@@ -288,15 +288,15 @@ export function buildSelfServeRegistryMirror(input: RegistryMirrorInput): Regist
       storeSlug: slug,
       hostname: storefrontDomain,
       domainType: "storefront",
-      status: proposedStatus === "ready" ? "active" : "pending",
+      status: proposedStatus === "active" ? "active" : "pending",
       isPrimary: true,
       source: "store_config",
     });
     pushDomain(domains, {
       storeSlug: slug,
       hostname: adminDomain,
-      domainType: "legacy_admin",
-      status: proposedStatus === "ready" ? "active" : "pending",
+      domainType: "admin",
+      status: proposedStatus === "active" ? "active" : "pending",
       isPrimary: false,
       source: "store_config",
     });
@@ -321,7 +321,7 @@ export function buildSelfServeRegistryMirror(input: RegistryMirrorInput): Regist
     warnings.push({
       code: "missing_membership_mapping",
       slug,
-      message: `No local owner/member source was provided for ${slug}; Phase 2A must not infer store_memberships.`,
+      message: `No local owner/member source was provided for ${slug}; Phase 2C must not infer store_memberships.`,
     });
   }
 

@@ -84,7 +84,7 @@ function readRegistry(repoRoot: string): SourceRegistryEntry[] {
   const registry = readJsonFile<unknown>(registryPath);
 
   if (!Array.isArray(registry)) {
-    throw new Error("stores/registry.json must be an array for the Phase 2A dry-run.");
+    throw new Error("stores/registry.json must be an array for the self-serve registry dry-run.");
   }
 
   return registry as SourceRegistryEntry[];
