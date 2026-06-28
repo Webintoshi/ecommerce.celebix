@@ -664,7 +664,7 @@ export default function ToshiAssistant({
     <>
       {!isMobile && panelIsOpen ? (
         <div
-          className="fixed bottom-6 right-6 z-[9999] flex flex-col overflow-hidden rounded-[26px] shadow-2xl"
+          className="fixed bottom-6 right-6 z-[9999] flex flex-col overflow-hidden rounded-[12px] shadow-2xl"
           style={{
             width: "408px",
             height: isMinimized ? "60px" : "620px",
@@ -690,14 +690,14 @@ export default function ToshiAssistant({
               <button
                 onClick={handleReset}
                 title="Konuşmayı sıfırla"
-                className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                className="rounded-[8px] p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
               >
                 <RotateCcw className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setIsMinimized((current) => !current)}
                 title="Küçült"
-                className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                className="rounded-[8px] p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
               >
                 <ChevronDown
                   className="h-4 w-4 transition-transform duration-200"
@@ -707,7 +707,7 @@ export default function ToshiAssistant({
               <button
                 onClick={() => setPanelOpen(false)}
                 title="Kapat (Esc)"
-                className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                className="rounded-[8px] p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -727,7 +727,7 @@ export default function ToshiAssistant({
             className="fixed inset-x-0 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[70] bg-[rgba(17,24,39,0.12)] backdrop-blur-[2px]"
           />
 
-          <div className="fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+          <div className="fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[78] flex flex-col overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
             <div
               className="relative flex flex-shrink-0 select-none items-center justify-between px-4 py-4"
               style={{ background: TOSHI_GRADIENT }}
@@ -746,14 +746,14 @@ export default function ToshiAssistant({
                 <button
                   onClick={handleReset}
                   title="Konuşmayı sıfırla"
-                  className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                  className="rounded-[8px] p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
                 >
                   <RotateCcw className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setPanelOpen(false)}
                   title="Kapat"
-                  className="rounded-xl p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+                  className="rounded-[8px] p-1.5 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>

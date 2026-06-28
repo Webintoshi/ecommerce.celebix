@@ -486,7 +486,7 @@ export default function CategorySEOPage() {
     );
 
     const renderEmptyState = () => (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
+        <div className="text-center py-16 bg-white rounded-[8px] border border-gray-100">
             <FolderOpen className="w-12 h-12 mx-auto text-gray-300 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Kategori Bulunamadı</h3>
             <p className="text-gray-500 mb-4">Veritabanında aktif kategori bulunmuyor.</p>
@@ -509,7 +509,7 @@ export default function CategorySEOPage() {
             <div className="flex items-start justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <FolderOpen className="w-7 h-7 text-purple-600" />
+                        <FolderOpen className="w-7 h-7 text-orange-600" />
                         Kategori SEO Yönetimi
                     </h1>
                     <p className="text-gray-500 mt-1">
@@ -528,7 +528,7 @@ export default function CategorySEOPage() {
 
             {/* Messages */}
             {message && (
-                <div className={`p-4 rounded-xl flex items-center gap-3 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                <div className={`p-4 rounded-[8px] flex items-center gap-3 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
                     {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <AlertTriangle className="w-5 h-5 flex-shrink-0" />}
                     <span>{message.text}</span>
                 </div>
@@ -633,7 +633,7 @@ function CategoryCard({
     onRemoveKeyTakeaway
 }: CategoryCardProps) {
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-[8px] shadow-sm border border-gray-100 overflow-hidden">
             {/* Card Header */}
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <div>
@@ -641,7 +641,7 @@ function CategoryCard({
                     <p className="text-sm text-gray-500">/{category.slug}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-50 text-purple-700">
+                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-50 text-orange-700">
                         CollectionPage
                     </span>
                     {!isEditing && (
@@ -1033,10 +1033,10 @@ function GEOSection({
 }) {
     return (
         <div className="space-y-4">
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-100">
+            <div className="bg-gradient-to-r from-orange-50 to-pink-50 p-4 rounded-lg border border-orange-100">
                 <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="w-5 h-5 text-purple-600" />
-                    <h4 className="font-medium text-purple-900">GEO / LLM Optimizasyonu</h4>
+                    <Lightbulb className="w-5 h-5 text-orange-600" />
+                    <h4 className="font-medium text-orange-900">GEO / LLM Optimizasyonu</h4>
                 </div>
             </div>
             

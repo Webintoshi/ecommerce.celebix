@@ -101,14 +101,14 @@ function ToggleCard({
     <button
       type="button"
       onClick={onToggle}
-      className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition ${
+      className={`flex w-full items-start gap-3 rounded-[8px] border p-4 text-left transition ${
         enabled
-          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]"
+          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]"
           : "border-[var(--admin-border)] bg-white text-[var(--admin-heading)] hover:border-[var(--admin-accent-border)]"
       }`}
     >
       <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] ${
           enabled ? "bg-white/15 text-white" : "bg-[var(--admin-bg)] text-[var(--admin-text-secondary)]"
         }`}
       >
@@ -298,9 +298,9 @@ export function TranslationSettingsPanel() {
   }
 
   return (
-    <section className="rounded-2xl border border-[var(--admin-border)] bg-white shadow-[0_12px_28px_rgba(17,24,39,0.05)]">
+    <section className="rounded-[8px] border border-[var(--admin-border)] bg-white shadow-[0_12px_28px_rgba(17,24,39,0.05)]">
       <div className="flex items-center gap-3 border-b border-[var(--admin-border)] px-5 py-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--admin-accent)] text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[var(--admin-accent)] text-white">
           <Languages className="h-5 w-5" />
         </div>
         <h2 className="text-base font-semibold text-[var(--admin-heading)]">Canli Ceviri</h2>
@@ -327,14 +327,14 @@ export function TranslationSettingsPanel() {
                     }))
                   }
                   placeholder="DeepL API anahtari"
-                  className="w-full rounded-xl border border-[var(--admin-border)] px-3 py-2.5 text-sm text-[var(--admin-text)] transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
+                  className="w-full rounded-[8px] border border-[var(--admin-border)] px-3 py-2.5 text-sm text-[var(--admin-text)] transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
                 />
                 {hasEnvKey ? (
                   <p className="text-xs text-[var(--admin-text-secondary)]">Sunucuda ayri bir `DEEPL_API_KEY` env anahtari da tanimli.</p>
                 ) : null}
               </div>
 
-              <div className="rounded-2xl border border-dashed border-[var(--admin-border)] bg-[var(--admin-bg)] p-4">
+              <div className="rounded-[8px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-bg)] p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-[var(--admin-heading)]">
                   <Globe2 className="h-4 w-4 text-[var(--admin-accent)]" />
                   Yayin Ozeti
@@ -385,9 +385,9 @@ export function TranslationSettingsPanel() {
                       key={option.locale}
                       type="button"
                       onClick={() => toggleLocale(option.locale)}
-                      className={`rounded-2xl border px-4 py-3 text-left transition ${
+                      className={`rounded-[8px] border px-4 py-3 text-left transition ${
                         enabled
-                          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]"
+                          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]"
                           : "border-[var(--admin-border)] bg-white text-[var(--admin-heading)] hover:border-[var(--admin-accent-border)]"
                       }`}
                     >
@@ -443,7 +443,7 @@ export function TranslationSettingsPanel() {
               />
             </div>
 
-            <div className="rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-bg)] p-4 md:p-5">
+            <div className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-bg)] p-4 md:p-5">
               <div>
                 <p className="text-sm font-semibold text-[var(--admin-heading)]">Katalog Cevirisini Hazirla</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--admin-text-secondary)]">
@@ -461,7 +461,7 @@ export function TranslationSettingsPanel() {
                     onChange={(event) =>
                       setWarmupLocale(event.target.value as Exclude<StoreTranslationLocale, "tr">)
                     }
-                    className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm text-[var(--admin-text)] outline-none transition focus:border-transparent focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
+                    className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm text-[var(--admin-text)] outline-none transition focus:border-transparent focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
                   >
                     {TARGET_LOCALE_OPTIONS.map((option) => (
                       <option key={option.locale} value={option.locale}>
@@ -478,7 +478,7 @@ export function TranslationSettingsPanel() {
                   <select
                     value={warmupScope}
                     onChange={(event) => setWarmupScope(event.target.value as TranslationWarmupScope)}
-                    className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm text-[var(--admin-text)] outline-none transition focus:border-transparent focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
+                    className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm text-[var(--admin-text)] outline-none transition focus:border-transparent focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
                   >
                     <option value="all">Ürün + kategori</option>
                     <option value="products">Sadece ürünler</option>
@@ -490,7 +490,7 @@ export function TranslationSettingsPanel() {
                   type="button"
                   onClick={() => void handleWarmup()}
                   disabled={warmingUp}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-heading)] shadow-sm ring-1 ring-[var(--admin-border)] transition hover:bg-[var(--admin-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-heading)] shadow-sm ring-1 ring-[var(--admin-border)] transition hover:bg-[var(--admin-bg)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {warmingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe2 className="h-4 w-4" />}
                   Katalog cevirisini hazirla
@@ -498,7 +498,7 @@ export function TranslationSettingsPanel() {
               </div>
 
               {warmupSummary ? (
-                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                <div className="mt-4 rounded-[8px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                   <p className="font-medium">
                     {warmupSummary.locale.toUpperCase()} dili icin warm-up tamamlandi.
                   </p>
@@ -509,7 +509,7 @@ export function TranslationSettingsPanel() {
               ) : null}
             </div>
 
-            <div className="rounded-2xl border border-[var(--admin-border)] bg-white p-4 md:p-5">
+            <div className="rounded-[8px] border border-[var(--admin-border)] bg-white p-4 md:p-5">
               <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-[var(--admin-heading)]">Ceviri Sagligini Kontrol Et</p>
@@ -521,7 +521,7 @@ export function TranslationSettingsPanel() {
                   type="button"
                   onClick={() => void handleHealthCheck()}
                   disabled={checkingHealth}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-bg)] px-4 py-2.5 text-sm font-medium text-[var(--admin-heading)] transition hover:bg-[#eef1f5] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-bg)] px-4 py-2.5 text-sm font-medium text-[var(--admin-heading)] transition hover:bg-[#eef1f5] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {checkingHealth ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   Sagligi kontrol et
@@ -530,7 +530,7 @@ export function TranslationSettingsPanel() {
 
               {healthSummary ? (
                 <div
-                  className={`mt-4 rounded-2xl border px-4 py-4 text-sm ${
+                  className={`mt-4 rounded-[8px] border px-4 py-4 text-sm ${
                     healthSummary.ready && healthSummary.probeSucceeded
                       ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                       : "border-amber-200 bg-amber-50 text-amber-950"
@@ -581,7 +581,7 @@ export function TranslationSettingsPanel() {
                       {healthSummary.sampleProduct || healthSummary.sampleCategory ? (
                         <div className="grid gap-3 md:grid-cols-2">
                           {healthSummary.sampleProduct ? (
-                            <div className="rounded-xl bg-white/70 p-3">
+                            <div className="rounded-[8px] bg-white/70 p-3">
                               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">Ornek urun</p>
                               <p className="mt-2 text-xs text-[var(--admin-text-secondary)]">Kaynak</p>
                               <p className="text-sm text-[var(--admin-heading)]">{healthSummary.sampleProduct.sourceText}</p>
@@ -590,7 +590,7 @@ export function TranslationSettingsPanel() {
                             </div>
                           ) : null}
                           {healthSummary.sampleCategory ? (
-                            <div className="rounded-xl bg-white/70 p-3">
+                            <div className="rounded-[8px] bg-white/70 p-3">
                               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">Ornek kategori</p>
                               <p className="mt-2 text-xs text-[var(--admin-text-secondary)]">Kaynak</p>
                               <p className="text-sm text-[var(--admin-heading)]">{healthSummary.sampleCategory.sourceText}</p>
@@ -611,7 +611,7 @@ export function TranslationSettingsPanel() {
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-md)] transition hover:bg-[var(--admin-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-xs)] transition hover:bg-[var(--admin-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Ceviri ayarlarini kaydet

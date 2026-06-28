@@ -99,7 +99,7 @@ export default function AutoImportPage() {
 
       <div className="relative mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-8 lg:px-8">
         <div className="space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+          <section className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
             <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-3">
@@ -116,9 +116,9 @@ export default function AutoImportPage() {
           </section>
 
         {!result && (
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
             <div className="text-center">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-md)]">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[12px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-xs)]">
                 <Upload className="h-10 w-10 text-[var(--admin-accent)]" />
               </div>
 
@@ -129,7 +129,7 @@ export default function AutoImportPage() {
               <button
                 onClick={handleAutoImport}
                 disabled={importing}
-                className="inline-flex items-center gap-3 rounded-2xl bg-[var(--admin-accent)] px-8 py-4 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:pointer-events-none disabled:opacity-60"
+                className="inline-flex items-center gap-3 rounded-[8px] bg-[var(--admin-accent)] px-8 py-4 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:pointer-events-none disabled:opacity-60"
               >
                 {importing ? (
                   <>
@@ -152,7 +152,7 @@ export default function AutoImportPage() {
         )}
 
         {result && (
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
             <h3 className="mb-4 text-lg font-semibold text-[var(--admin-heading)]">
               {result.success ? "İçe Aktarma Tamamlandı!" : "İçe Aktarma Başarısız"}
             </h3>
@@ -160,7 +160,7 @@ export default function AutoImportPage() {
             {result.success ? (
               <>
                 <div className="grid md:grid-cols-3 gap-4 mb-6">
-                  <div className="flex items-center gap-3 rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+                  <div className="flex items-center gap-3 rounded-[12px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
                     <CheckCircle className="w-8 h-8 text-green-600" />
                     <div>
                       <p className="text-2xl font-bold text-green-900">
@@ -170,7 +170,7 @@ export default function AutoImportPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 rounded-[24px] border border-sky-200/70 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm">
+                  <div className="flex items-center gap-3 rounded-[12px] border border-sky-200/70 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm">
                     <CheckCircle className="w-8 h-8 text-blue-600" />
                     <div>
                       <p className="text-2xl font-bold text-blue-900">
@@ -180,7 +180,7 @@ export default function AutoImportPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 rounded-[24px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+                  <div className="flex items-center gap-3 rounded-[12px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
                     <ImageIcon className="w-8 h-8 text-amber-600" />
                     <div>
                       <p className="text-2xl font-bold text-amber-900">
@@ -195,13 +195,13 @@ export default function AutoImportPage() {
                   <h4 className="mb-3 font-medium text-[var(--admin-heading)]">Yüklenen Ürünler:</h4>
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {result.products.map((product) => (
-                      <div key={product.id} className="flex flex-col gap-4 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                      <div key={product.id} className="flex flex-col gap-4 rounded-[12px] border border-[var(--admin-border)] bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
                           {product.images[0] && (
                             <img 
                               src={product.images[0]} 
                               alt={product.name}
-                              className="h-12 w-12 rounded-2xl object-cover"
+                              className="h-12 w-12 rounded-[8px] object-cover"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src = '/images/placeholder.jpg';
                               }}
@@ -235,7 +235,7 @@ export default function AutoImportPage() {
                 {result.errors.map((error, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3"
+                    className="flex items-start gap-2 rounded-[8px] border border-red-200 bg-red-50 p-3"
                   >
                     <XCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-red-800">{error}</p>
@@ -247,13 +247,13 @@ export default function AutoImportPage() {
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => setResult(null)}
-                className="flex-1 rounded-2xl bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                className="flex-1 rounded-[8px] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
               >
                 Tekrar Dene
               </button>
               <Link
                 href="/admin/urunler"
-                className="flex-1 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-center text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                className="flex-1 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-center text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
               >
                 Ürün Listesine Git
               </Link>

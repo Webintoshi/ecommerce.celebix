@@ -99,7 +99,7 @@ interface PreferredProduct {
 }
 
 const panelClass =
-  "overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]";
+  "overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]";
 
 export default function CustomerDetailPage({ params }: CustomerDetailPageProps) {
   const router = useRouter();
@@ -271,8 +271,8 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
   if (loading) {
     return (
       <main className="admin-page-root">
-        <div className="mx-auto flex min-h-[420px] max-w-[1600px] items-center justify-center px-4 py-10 md:px-6 lg:px-8">
-          <div className="inline-flex items-center gap-3 rounded-full border border-[var(--admin-accent-border)] bg-white/90 px-5 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm">
+        <div className="mx-auto flex min-h-[420px] max-w-none items-center justify-center px-4 py-10 md:px-6 lg:px-8">
+          <div className="inline-flex items-center gap-3 rounded-full border border-[var(--admin-accent-border)] bg-white px-5 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--admin-accent-border)] border-t-[var(--admin-accent)]" />
             Müşteri görünümü hazırlanıyor
           </div>
@@ -284,7 +284,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
   if (!customer) {
     return (
       <main className="admin-page-root">
-        <div className="mx-auto max-w-[1600px] px-4 py-10 md:px-6 lg:px-8">
+        <div className="mx-auto max-w-none px-4 py-10 md:px-6 lg:px-8">
           <div className={`${panelClass} px-6 py-14 text-center`}>
             <h1 className="text-xl font-semibold text-gray-950">Müşteri Bulunamadı</h1>
             <p className="mt-2 text-sm text-gray-500">Aradığınız müşteri mevcut değil.</p>
@@ -312,9 +312,9 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
         <div className="hidden" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="relative mx-auto max-w-none px-4 py-6 md:px-6 md:py-8 lg:px-8">
         <div className="space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+          <section className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
             <div className="flex flex-col gap-5 border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div className="flex flex-wrap items-center gap-3">
@@ -330,7 +330,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                   value={customer.status}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   aria-label="Müşteri durumunu değiştir"
-                  className="min-h-11 cursor-pointer rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all focus:border-[var(--admin-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
+                  className="min-h-11 cursor-pointer rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all focus:border-[var(--admin-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
                 >
                   <option value="active">Aktif</option>
                   <option value="inactive">Pasif</option>
@@ -338,14 +338,14 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 </select>
                 <Link
                   href={`/admin/musteriler/${customer.id}/duzenle`}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                 >
                   <Edit className="h-4 w-4" />
                   Düzenle
                 </Link>
                 <button
                   onClick={handleDelete}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 shadow-sm transition-all hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 shadow-sm transition-all hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200"
                 >
                   <Trash2 className="h-4 w-4" />
                   Sil
@@ -410,7 +410,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                         <article key={order.id} className="p-5 transition-colors hover:bg-[#F9FAFB] md:p-6">
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex items-start gap-3">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent)] shadow-sm">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent)] shadow-sm">
                                 #{order.order_number.split("-").pop()}
                               </div>
                               <div>
@@ -439,9 +439,9 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                 </section>
 
                 {customer.notes ? (
-                  <section className="rounded-[28px] border border-amber-200/80 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm md:p-6">
+                  <section className="rounded-[12px] border border-amber-200/80 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm md:p-6">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-white text-amber-700 shadow-sm">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-[8px] border border-amber-200 bg-white text-amber-700 shadow-sm">
                         <MessageSquare className="h-5 w-5" />
                       </div>
                       <h2 className="text-lg font-semibold tracking-[-0.02em] text-amber-950">Ic Notlar</h2>
@@ -536,7 +536,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                     <article key={order.id} className="p-5 transition-colors hover:bg-[#F9FAFB] md:p-6">
                       <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                         <div className="flex min-w-0 items-start gap-4">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] font-semibold text-[var(--admin-accent)] shadow-sm">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] font-semibold text-[var(--admin-accent)] shadow-sm">
                             #{order.order_number.split("-").pop()}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -560,7 +560,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
 
                         <Link
                           href={`/admin/siparisler/${order.id}`}
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
                         >
                           Siparişi Aç
                           <ArrowUpRight className="h-4 w-4" />
@@ -603,7 +603,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                   >
                     <div className="flex items-start justify-between gap-4 border-b border-[var(--admin-border)] px-5 py-5 md:px-6">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                           <MapPin className="h-5 w-5" />
                         </div>
                         <div>
@@ -665,7 +665,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                     <article key={pref.id} className="p-5 transition-colors hover:bg-[#F9FAFB] md:p-6">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex items-start gap-4">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-2xl shadow-sm">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-2xl shadow-sm">
                             {pref.category === "fistik-ezmesi"
                               ? "🥜"
                               : pref.category === "findik-ezmesi"
@@ -688,7 +688,7 @@ export default function CustomerDetailPage({ params }: CustomerDetailPageProps) 
                           </div>
                         </div>
 
-                        <div className="rounded-[22px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-gray-600">
+                        <div className="rounded-[12px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-gray-600">
                           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Son Sipariş</div>
                           <div className="mt-1 font-medium text-gray-900">{formatDate(pref.last_purchased_at)}</div>
                         </div>
@@ -721,7 +721,7 @@ function HeroMetric({
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{label}</p>
           <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-gray-950 md:text-[30px]">{value}</p>
         </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -762,9 +762,9 @@ function InfoRow({
   actionLabel?: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-[var(--admin-border)] bg-white/85 p-4 shadow-sm">
+    <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]">
+        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]">
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -777,7 +777,7 @@ function InfoRow({
               type="button"
               onClick={onCopy}
               aria-label={`${label} bilgisini kopyala`}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)]"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-gray-500 transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)]"
             >
               <Copy className="h-4 w-4" />
             </button>
@@ -786,7 +786,7 @@ function InfoRow({
             <a
               href={actionHref}
               aria-label={actionLabel}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-gray-500 transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)]"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-gray-500 transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent)]"
             >
               <ExternalLink className="h-4 w-4" />
             </a>
@@ -799,7 +799,7 @@ function InfoRow({
 
 function DetailMini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-[var(--admin-border)] bg-white/85 px-3 py-2.5">
+    <div className="rounded-[18px] border border-[var(--admin-border)] bg-white px-3 py-2.5">
       <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">{label}</div>
       <div className="mt-1 text-sm font-medium text-gray-900">{value}</div>
     </div>

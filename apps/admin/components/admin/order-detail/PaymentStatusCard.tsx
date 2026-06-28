@@ -86,7 +86,7 @@ export function PaymentStatusCard({
               onClick={() => setIsOpen(!isOpen)}
               disabled={isUpdating}
               className={`
-                w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl
+                w-full flex items-center justify-between gap-3 px-4 py-3 rounded-[8px]
                 font-bold text-sm transition-all
                 ${currentConfig.color}
                 ${isUpdating ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:opacity-80"}
@@ -110,7 +110,7 @@ export function PaymentStatusCard({
                 />
 
                 {/* Dropdown */}
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-[8px] shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   {STATUS_OPTIONS.map((status) => {
                     const config = STATUS_CONFIG[status];
                     const isSelected = status === currentStatus;

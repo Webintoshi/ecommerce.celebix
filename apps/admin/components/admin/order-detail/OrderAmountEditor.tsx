@@ -118,7 +118,7 @@ export function OrderAmountEditor({
 
         {/* Edit Section */}
         {isEditing ? (
-          <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="mt-4 p-4 bg-gray-50 rounded-[8px] border border-gray-200">
             <div className="space-y-3">
               {/* Discount Type Toggle */}
               <div className="flex gap-2">
@@ -216,7 +216,7 @@ export function OrderAmountEditor({
         ) : (
           <button
             onClick={() => setIsEditing(true)}
-            className="w-full mt-4 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+            className="w-full mt-4 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-[8px] font-bold text-sm hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Tutar Düzenle

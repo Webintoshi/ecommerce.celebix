@@ -53,16 +53,16 @@ interface Toast {
 }
 
 const INPUT_CLASSNAME =
-  "w-full rounded-2xl border border-[#E7EAF0] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none transition duration-200 placeholder:text-[#9CA3AF] focus:border-[#FF6A00]/50 focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
+  "w-full rounded-[8px] border border-[#E7EAF0] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none transition duration-200 placeholder:text-[#9CA3AF] focus:border-[#FF6A00]/50 focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
 
 const SECTION_CLASSNAME =
-  "rounded-[24px] border border-[#E7EAF0] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-6";
+  "rounded-[12px] border border-[#E7EAF0] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:p-6";
 
 const SURFACE_FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]";
 
 const ACTION_BUTTON_CLASSNAME =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-2xl border bg-white px-3.5 text-sm font-medium transition hover:bg-[#F9FAFB]";
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border bg-white px-3.5 text-sm font-medium transition hover:bg-[#F9FAFB]";
 
 const MAX_HOMEPAGE_FEATURED_CATEGORIES = 4;
 const MAX_HOMEPAGE_FEATURED_PRODUCTS_TOTAL = 16;
@@ -936,9 +936,9 @@ export default function CategoryManager() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="collection-form-title"
-            className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_34px_100px_rgba(15,23,42,0.22)]"
+            className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[12px] border border-[#E7EAF0] bg-white shadow-[0_34px_100px_rgba(15,23,42,0.22)]"
           >
-            <div className="sticky top-0 z-10 border-b border-[#EEF1F4] bg-white/95 px-6 py-5 backdrop-blur md:px-8">
+            <div className="sticky top-0 z-10 border-b border-[#EEF1F4] bg-white px-6 py-5 backdrop-blur md:px-8">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#E85D04]">Form sayfası</p>
@@ -953,7 +953,7 @@ export default function CategoryManager() {
                   type="button"
                   onClick={() => setIsFormOpen(false)}
                   aria-label="Koleksiyon formunu kapat"
-                  className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
+                  className={`inline-flex h-11 w-11 items-center justify-center rounded-[8px] border border-[#E7EAF0] bg-white text-[#6B7280] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -988,7 +988,7 @@ export default function CategoryManager() {
                       <label htmlFor="collection-slug" className="mb-2 block text-sm font-medium text-[#374151]">
                         URL Slug <span className="text-[#d04f45]">*</span>
                       </label>
-                      <div className="flex items-center gap-2 rounded-2xl border border-[#E7EAF0] bg-white px-4 focus-within:border-[#FF6A00]/50 focus-within:ring-4 focus-within:ring-[rgba(255,106,0,0.14)]">
+                      <div className="flex items-center gap-2 rounded-[8px] border border-[#E7EAF0] bg-white px-4 focus-within:border-[#FF6A00]/50 focus-within:ring-4 focus-within:ring-[rgba(255,106,0,0.14)]">
                         <span className="text-sm text-[#9CA3AF]">/</span>
                         <input
                           id="collection-slug"
@@ -1042,11 +1042,11 @@ export default function CategoryManager() {
                     <p className="text-sm text-[#6B7280]">Liste ve vitrin alanlarında kullanılacak görseli yükleyin veya yenileyin.</p>
                   </div>
 
-                  <div className="rounded-[24px] border border-dashed border-[#DDE2EA] bg-[#FCFDFE] p-5 text-center transition hover:border-[#FFD7BF] md:p-7">
+                  <div className="rounded-[12px] border border-dashed border-[#DDE2EA] bg-[#FCFDFE] p-5 text-center transition hover:border-[#FFD7BF] md:p-7">
                     {formData.image ? (
                       <div className="space-y-4">
                         <div className="relative mx-auto inline-flex">
-                          <img src={formData.image} alt="Preview" className="max-h-56 rounded-[22px] border border-[#E7EAF0] shadow-[0_16px_34px_rgba(15,23,42,0.08)]" />
+                          <img src={formData.image} alt="Preview" className="max-h-56 rounded-[12px] border border-[#E7EAF0] shadow-[0_16px_34px_rgba(15,23,42,0.08)]" />
                           <button
                             type="button"
                             onClick={() => setFormData((prev) => ({ ...prev, image: "" }))}
@@ -1067,7 +1067,7 @@ export default function CategoryManager() {
                           onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
                           disabled={uploading}
                         />
-                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]">
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[12px] border border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]">
                           {uploading ? <Loader2 className="h-7 w-7 animate-spin" /> : <ImageIcon className="h-7 w-7" />}
                         </div>
                         <p className="mt-4 text-sm font-medium text-[#374151]">
@@ -1141,7 +1141,7 @@ export default function CategoryManager() {
                       />
                     </div>
 
-                    <div className="rounded-[22px] border border-[#E7EAF0] bg-[#FCFDFE] p-4">
+                    <div className="rounded-[12px] border border-[#E7EAF0] bg-[#FCFDFE] p-4">
                       <label className="flex cursor-pointer items-center justify-between gap-4">
                         <div>
                           <p className="text-sm font-medium text-[#374151]">Aktif durumu</p>
@@ -1159,19 +1159,19 @@ export default function CategoryManager() {
                 </section>
               </div>
 
-              <div className="sticky bottom-0 border-t border-[#EEF1F4] bg-white/95 px-6 py-4 backdrop-blur md:px-8">
+              <div className="sticky bottom-0 border-t border-[#EEF1F4] bg-white px-6 py-4 backdrop-blur md:px-8">
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
                   <button
                     type="button"
                     onClick={() => setIsFormOpen(false)}
-                    className={`inline-flex items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white px-5 py-3 text-sm font-medium text-[#374151] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
+                    className={`inline-flex items-center justify-center rounded-[8px] border border-[#E7EAF0] bg-white px-5 py-3 text-sm font-medium text-[#374151] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
                   >
                     İptal
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF6A00] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.22)] transition hover:bg-[#E85D04] disabled:cursor-not-allowed disabled:opacity-50 ${SURFACE_FOCUS_RING}`}
+                    className={`inline-flex items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.22)] transition hover:bg-[#E85D04] disabled:cursor-not-allowed disabled:opacity-50 ${SURFACE_FOCUS_RING}`}
                   >
                     {saving ? (
                       <>
@@ -1199,11 +1199,11 @@ export default function CategoryManager() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-collection-title"
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_34px_90px_rgba(15,23,42,0.22)]"
+            className="relative w-full max-w-md overflow-hidden rounded-[12px] border border-[#E7EAF0] bg-white shadow-[0_34px_90px_rgba(15,23,42,0.22)]"
           >
             <div className="border-b border-[#EEF1F4] px-6 py-5">
               <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-[#F5D3D3] bg-[#FDECEC] text-[#EF4444]">
+                <div className="flex h-14 w-14 items-center justify-center rounded-[12px] border border-[#F5D3D3] bg-[#FDECEC] text-[#EF4444]">
                   <AlertCircle className="h-7 w-7" />
                 </div>
                 <div className="space-y-1.5">
@@ -1217,24 +1217,24 @@ export default function CategoryManager() {
             </div>
 
             <div className="px-6 py-5">
-              <div className="rounded-[22px] border border-[#EEF1F4] bg-[#FCFDFE] p-4 text-sm leading-6 text-[#6B7280]">
+              <div className="rounded-[12px] border border-[#EEF1F4] bg-[#FCFDFE] p-4 text-sm leading-6 text-[#6B7280]">
                 <strong className="font-semibold text-[#1F2937]">{deleteConfirm.name}</strong> koleksiyonu
                 sistemden kaldırılacak.
               </div>
             </div>
 
-            <div className="flex flex-col-reverse gap-3 border-t border-[#EEF1F4] bg-white/95 px-6 py-4 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-3 border-t border-[#EEF1F4] bg-white px-6 py-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setDeleteConfirm(null)}
-                className={`inline-flex items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white px-5 py-3 text-sm font-medium text-[#374151] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
+                className={`inline-flex items-center justify-center rounded-[8px] border border-[#E7EAF0] bg-white px-5 py-3 text-sm font-medium text-[#374151] transition hover:border-[#FFD7BF] hover:text-[#E85D04] ${SURFACE_FOCUS_RING}`}
               >
                 İptal
               </button>
               <button
                 type="button"
                 onClick={handleDelete}
-                className="inline-flex items-center justify-center rounded-2xl bg-[#EF4444] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(239,68,68,0.22)] transition hover:bg-[#DC2626] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-200"
+                className="inline-flex items-center justify-center rounded-[8px] bg-[#EF4444] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(239,68,68,0.22)] transition hover:bg-[#DC2626] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-200"
               >
                 Sil
               </button>
@@ -1250,7 +1250,7 @@ export default function CategoryManager() {
           className="fixed bottom-4 right-4 z-50 max-w-sm"
         >
           <div
-            className={`flex items-start gap-3 rounded-[22px] border px-4 py-3.5 shadow-[0_24px_50px_rgba(15,23,42,0.16)] backdrop-blur ${
+            className={`flex items-start gap-3 rounded-[12px] border px-4 py-3.5 shadow-[0_24px_50px_rgba(15,23,42,0.16)] backdrop-blur ${
               toast.type === "success"
                 ? "border-emerald-200 bg-white text-emerald-800"
                 : toast.type === "error"

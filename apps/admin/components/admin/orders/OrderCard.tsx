@@ -147,7 +147,7 @@ export function OrderCard({
 
   return (
     <div
-      className={`relative bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-all duration-200 ${
+      className={`relative bg-white rounded-[8px] shadow-sm border border-gray-100 p-4 hover:shadow-md transition-all duration-200 ${
         isSelected ? "ring-2 ring-primary ring-offset-2" : ""
       }`}
     >
@@ -218,7 +218,7 @@ export function OrderCard({
 
           {/* Notes if any */}
           {order.notes && (
-            <div className="mb-3 p-2.5 bg-amber-50 border border-amber-100 rounded-xl">
+            <div className="mb-3 p-2.5 bg-amber-50 border border-amber-100 rounded-[8px]">
               <p className="text-xs text-amber-800">
                 <span className="font-semibold">Not:</span> {order.notes}
               </p>
@@ -251,7 +251,7 @@ export function OrderCard({
               {/* Detail Link */}
               <Link
                 href={`/admin/siparisler/${order.id}`}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white rounded-[8px] font-bold text-sm hover:bg-primary/90 transition-colors shadow-sm"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Detay</span>
@@ -261,7 +261,7 @@ export function OrderCard({
               <div className="relative">
                 <button
                   onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
-                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
+                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-[8px] transition-colors"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
@@ -275,7 +275,7 @@ export function OrderCard({
                     />
 
                     {/* Dropdown */}
-                    <div className="absolute top-full right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="absolute top-full right-0 mt-1 w-44 bg-white rounded-[8px] shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                       {quickActions.map((action) => {
                         const Icon = action.icon;
                         return (
@@ -298,7 +298,7 @@ export function OrderCard({
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
+                className="p-2 text-red-500 hover:bg-red-50 rounded-[8px] transition-colors disabled:opacity-50"
                 title="Sil"
               >
                 {isDeleting ? (

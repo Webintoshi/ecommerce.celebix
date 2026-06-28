@@ -72,8 +72,8 @@ export default function CmsDashboard() {
 
   return (
     <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
+      <div className="mx-auto max-w-none space-y-6">
+        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)] md:p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
               İçerik Yönetimi
@@ -86,7 +86,7 @@ export default function CmsDashboard() {
           {stats.map((stat, index) => (
             <div
               key={stat.label}
-              className="rounded-[28px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-[var(--shadow-md)]"
+              className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -160,7 +160,7 @@ function DashboardCard({
   rows: Array<{ label: string; value: string; accent?: boolean }>;
 }) {
   return (
-    <div className="group overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)]">
+    <div className="group overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-xs)]">
       <div className="p-6 md:p-7">
         <div className="mb-6 flex items-center gap-4">
           <div

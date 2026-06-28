@@ -33,7 +33,7 @@ export function OrderTimeline({ currentStatus, className = "" }: OrderTimelinePr
     return (
       <div className={`bg-white rounded-3xl shadow-sm border border-gray-100 p-8 ${className}`}>
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+          <div className={`w-12 h-12 rounded-[8px] flex items-center justify-center ${
             currentStatus === "cancelled"
               ? "bg-red-50 text-red-600"
               : "bg-orange-50 text-orange-600"
@@ -119,7 +119,7 @@ export function OrderTimeline({ currentStatus, className = "" }: OrderTimelinePr
       {/* Current Status Description */}
       <div className="mt-6 pt-6 border-t border-gray-100">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+          <div className={`w-10 h-10 rounded-[8px] flex items-center justify-center ${
             currentIndex >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-gray-50 text-gray-400"
           }`}>
             <CheckCircle className="w-5 h-5" />

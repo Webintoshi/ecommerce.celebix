@@ -72,7 +72,7 @@ const EMPTY_OVERVIEW: AccountingOverviewData = {
 };
 
 const INPUT_CLASS =
-  "w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
+  "w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
 
 export default function MuhasebePage() {
   const [loading, setLoading] = useState(true);
@@ -178,8 +178,8 @@ export default function MuhasebePage() {
 
   return (
     <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
+      <div className="mx-auto max-w-none space-y-6">
+        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)] md:p-8">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
               Muhasebe
@@ -188,14 +188,14 @@ export default function MuhasebePage() {
               <button
                 onClick={fetchOverview}
                 disabled={loading}
-                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] disabled:opacity-60"
               >
                 <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                 Yenile
               </button>
               <Link
                 href="/admin/muhasebe/fatura-entegrasyonu"
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+                className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
               >
                 <ReceiptText className="h-4 w-4" />
                 Entegrasyonlar
@@ -206,7 +206,7 @@ export default function MuhasebePage() {
         </section>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="flex items-center gap-2 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <AlertCircle className="h-4 w-4" />
             {error}
           </div>
@@ -221,7 +221,7 @@ export default function MuhasebePage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <section className="xl:col-span-2 rounded-[30px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)]">
+          <section className="xl:col-span-2 rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
             <div className="mb-6 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
                 <FilePlus2 className="h-5 w-5" />
@@ -240,7 +240,7 @@ export default function MuhasebePage() {
             </div>
           </section>
 
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
             <div className="mb-6 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] shadow-sm">
                 <RefreshCw className="h-5 w-5" />
@@ -260,7 +260,7 @@ export default function MuhasebePage() {
             <button
               onClick={runSync}
               disabled={busyAction === "sync"}
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:opacity-60"
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:opacity-60"
             >
               {busyAction === "sync" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Senkronu Calistir
@@ -269,7 +269,7 @@ export default function MuhasebePage() {
         </div>
 
         <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
-          <DialogContent className="sm:max-w-md rounded-[28px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+          <DialogContent className="sm:max-w-md rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
             <DialogHeader>
               <div className="mb-2 flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)] shadow-sm">
@@ -299,14 +299,14 @@ export default function MuhasebePage() {
             <DialogFooter className="gap-2">
               <button
                 onClick={closeInvoiceDialog}
-                className="rounded-2xl border border-[var(--admin-border)] bg-white px-5 py-2.5 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                className="rounded-[8px] border border-[var(--admin-border)] bg-white px-5 py-2.5 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
               >
                 Iptal
               </button>
               <button
                 onClick={createInvoiceQuickly}
                 disabled={busyAction === "create_invoice" || !invoiceOrderId.trim()}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busyAction === "create_invoice" ? (
                   <>
@@ -324,7 +324,7 @@ export default function MuhasebePage() {
           </DialogContent>
         </Dialog>
 
-        <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+        <section className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
           <div className="flex items-center justify-between gap-4 border-b border-[var(--admin-border)] px-6 py-5">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] shadow-sm">
@@ -421,12 +421,12 @@ function StatCard({
   };
 
   return (
-    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]">
+    <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-xs)]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</p>
           {loading ? (
-            <div className="h-7 w-28 animate-pulse rounded-xl bg-[#f2e7dc]" />
+            <div className="h-7 w-28 animate-pulse rounded-[8px] bg-[#f2e7dc]" />
           ) : (
             <p className={cn("font-bold tracking-[-0.03em] text-[var(--admin-heading)]", isDate ? "text-sm leading-6" : "text-2xl")}>
               {value}
@@ -467,7 +467,7 @@ function QuickActionButton({
   };
 
   const className =
-    "group block rounded-[24px] border border-[var(--admin-border)] bg-white/95 p-5 text-left shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:bg-white hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]";
+    "group block rounded-[12px] border border-[var(--admin-border)] bg-white p-5 text-left shadow-[var(--shadow-xs)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:bg-white hover:shadow-[var(--shadow-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]";
 
   const content = (
     <div className="flex items-start gap-4">

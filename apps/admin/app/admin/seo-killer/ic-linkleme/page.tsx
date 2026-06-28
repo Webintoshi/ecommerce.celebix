@@ -127,7 +127,7 @@ export default function InternalLinkingPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                        <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+                        <div className="w-12 h-12 bg-blue-100 rounded-[8px] flex items-center justify-center text-blue-600">
                             <Zap className="w-7 h-7" />
                         </div>
                         Linkleme Robotu
@@ -137,7 +137,7 @@ export default function InternalLinkingPage() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-3 bg-white p-2 rounded-[8px] border border-gray-100 shadow-sm">
                     <div className="px-4 py-2 bg-blue-50 rounded-lg text-blue-700 font-bold">
                         {rules.length} Kelime Biliyor
                     </div>
@@ -151,7 +151,7 @@ export default function InternalLinkingPage() {
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
-                        className={`p-4 rounded-xl flex items-center gap-3 shadow-sm border-l-4 ${message.type === 'success'
+                        className={`p-4 rounded-[8px] flex items-center gap-3 shadow-sm border-l-4 ${message.type === 'success'
                                 ? 'bg-green-50 text-green-700 border-green-500'
                                 : 'bg-red-50 text-red-700 border-red-500'
                             }`}
@@ -165,11 +165,11 @@ export default function InternalLinkingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Sol Taraf: Robotu Eğit (Yeni Kural Ekle) */}
                 <div className="space-y-6">
-                    <div className="bg-white rounded-2xl shadow-lg shadow-blue-500/5 border border-blue-100 overflow-hidden relative">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-purple-400"></div>
+                    <div className="bg-white rounded-[8px] shadow-lg shadow-blue-500/5 border border-blue-100 overflow-hidden relative">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-300 to-orange-500"></div>
                         <div className="p-6">
                             <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                <BookOpen className="w-5 h-5 text-purple-500" />
+                                <BookOpen className="w-5 h-5 text-orange-500" />
                                 Robotu Eğit
                             </h2>
                             <p className="text-gray-500 text-sm mb-6">
@@ -186,7 +186,7 @@ export default function InternalLinkingPage() {
                                         value={newKeyword}
                                         onChange={(e) => setNewKeyword(e.target.value)}
                                         placeholder="Örn: Fıstık Ezmesi"
-                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-lg placeholder:text-gray-400"
+                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-[8px] focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-lg placeholder:text-gray-400"
                                     />
                                 </div>
                                 <div className="flex justify-center">
@@ -201,13 +201,13 @@ export default function InternalLinkingPage() {
                                         value={newUrl}
                                         onChange={(e) => setNewUrl(e.target.value)}
                                         placeholder="Örn: /urunler/fistik-ezmesi"
-                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-lg placeholder:text-gray-400 text-blue-600 font-medium"
+                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-[8px] focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-lg placeholder:text-gray-400 text-blue-600 font-medium"
                                     />
                                 </div>
                                 <button
                                     type="submit"
                                     disabled={!newKeyword || !newUrl}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-200 transform active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
+                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-[8px] font-bold text-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-200 transform active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
                                 >
                                     <Plus className="w-6 h-6" />
                                     Öğret ve Kaydet
@@ -226,24 +226,24 @@ export default function InternalLinkingPage() {
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
+                    <div className="bg-gradient-to-br from-orange-600 to-orange-800 rounded-[8px] shadow-lg p-6 text-white relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16"></div>
                         <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
                             <Wand2 className="w-6 h-6" />
                             Sıra Robotun!
                         </h2>
-                        <p className="text-purple-100 mb-6 text-sm">
+                        <p className="text-orange-100 mb-6 text-sm">
                             Tüm kuralları kullanarak siteyi tarayalım mı?
                         </p>
 
                         <button
                             onClick={handleRunAutoLinker}
                             disabled={processing || rules.length === 0}
-                            className="w-full bg-white text-purple-700 py-4 rounded-xl font-bold text-lg hover:bg-purple-50 transition-all shadow-lg transform active:scale-95 disabled:opacity-75 disabled:scale-100 flex items-center justify-center gap-3"
+                            className="w-full bg-white text-orange-700 py-4 rounded-[8px] font-bold text-lg hover:bg-orange-50 transition-all shadow-lg transform active:scale-95 disabled:opacity-75 disabled:scale-100 flex items-center justify-center gap-3"
                         >
                             {processing ? (
                                 <>
-                                    <div className="w-5 h-5 border-2 border-purple-700 border-t-transparent rounded-full animate-spin" />
+                                    <div className="w-5 h-5 border-2 border-orange-700 border-t-transparent rounded-full animate-spin" />
                                     Taranıyor...
                                 </>
                             ) : (
@@ -267,7 +267,7 @@ export default function InternalLinkingPage() {
                         </span>
                     </div>
 
-                    <div className="bg-gray-50 rounded-2xl p-4 min-h-[500px]">
+                    <div className="bg-gray-50 rounded-[8px] p-4 min-h-[500px]">
                         {rules.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-64 text-center">
                                 <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400">
@@ -290,7 +290,7 @@ export default function InternalLinkingPage() {
                                             animate={{ opacity: 1, scale: 1 }}
                                             exit={{ opacity: 0, scale: 0.9 }}
                                             layout
-                                            className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
+                                            className="bg-white p-4 rounded-[8px] border border-gray-200 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
                                         >
                                             <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l-xl"></div>
 

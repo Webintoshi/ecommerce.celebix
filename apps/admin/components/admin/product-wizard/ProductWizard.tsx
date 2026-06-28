@@ -716,7 +716,7 @@ export default function ProductWizard({ productId }: ProductWizardProps) {
         }
       />
 
-      <main className="mx-auto w-full max-w-[1560px] px-4 py-4 2xl:px-5">
+      <main className="mx-auto w-full max-w-none px-4 py-4 2xl:px-5">
         <section className="mb-4 grid overflow-hidden border-y border-[var(--admin-border)] bg-white sm:grid-cols-2 xl:grid-cols-4">
           <div className="border-b border-r border-[var(--admin-border)] px-4 py-3 sm:border-b-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">Durum</p>

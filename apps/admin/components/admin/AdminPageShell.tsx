@@ -172,7 +172,7 @@ export function AdminBadge({
         tone === "warning" && "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
         tone === "danger" && "border-[color-mix(in_srgb,var(--admin-danger)_18%,white)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
         tone === "info" && "border-[color-mix(in_srgb,var(--admin-info)_18%,white)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
-        tone === "purple" && "border-[color-mix(in_srgb,var(--admin-purple)_18%,white)] bg-[var(--admin-purple-soft)] text-[var(--admin-purple)]",
+        tone === "purple" && "border-[color-mix(in_srgb,var(--admin-purple)_18%,white)] bg-[var(--admin-orange-soft)] text-[var(--admin-purple)]",
         tone === "neutral" && "border-[var(--admin-border)] bg-[#F9FAFB] text-[var(--admin-text-secondary)]",
         className,
       )}
@@ -242,7 +242,7 @@ export function AdminMetricCard({
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-[var(--admin-text-secondary)]">{label}</p>
           {loading ? (
-            <div className="mt-3 h-8 w-24 animate-pulse rounded-xl bg-[var(--admin-muted-surface)]" />
+            <div className="mt-3 h-8 w-24 animate-pulse rounded-[8px] bg-[var(--admin-muted-surface)]" />
           ) : (
             <div className={cn("mt-2 truncate font-semibold tracking-[-0.035em] text-[var(--admin-heading)]", compact ? "text-[1.3rem]" : "text-[1.55rem] xl:text-[1.8rem]")}>
               {value}
@@ -258,7 +258,7 @@ export function AdminMetricCard({
               tone === "warning" && "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
               tone === "danger" && "border-[color-mix(in_srgb,var(--admin-danger)_18%,white)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
               tone === "info" && "border-[color-mix(in_srgb,var(--admin-info)_18%,white)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
-              tone === "purple" && "border-[color-mix(in_srgb,var(--admin-purple)_18%,white)] bg-[var(--admin-purple-soft)] text-[var(--admin-purple)]",
+              tone === "purple" && "border-[color-mix(in_srgb,var(--admin-purple)_18%,white)] bg-[var(--admin-orange-soft)] text-[var(--admin-purple)]",
               tone === "neutral" && "border-[var(--admin-border)] bg-[var(--admin-muted-surface)] text-[var(--admin-text-secondary)]",
             )}
           >

@@ -159,13 +159,13 @@ export default function ShippingSettingsPage() {
   if (loading || !settings) return <div className="flex min-h-screen items-center justify-center bg-gray-50/60"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
+    <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Kargo Entegrasyonu</h1>
           </div>
-          <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 disabled:opacity-50">
+          <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-[8px] bg-primary px-5 py-2.5 font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 disabled:opacity-50">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saving ? "Kaydediliyor..." : "Kaydet"}
           </button>
@@ -177,13 +177,13 @@ export default function ShippingSettingsPage() {
           <StatCard title="Hazır" value={stats.ready} icon={ShieldCheck} color="blue" />
         </div>
 
-        <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-1">
+        <div className="flex gap-1 rounded-[8px] border border-gray-200 bg-white p-1">
           {[
             { id: "integrations", label: "Entegrasyonlar", icon: Truck },
             { id: "zones", label: "Teslimat Bölgeleri", icon: MapPin },
             { id: "settings", label: "Varsayılan Ayarlar", icon: Settings },
           ].map((item) => (
-            <button key={item.id} onClick={() => setTab(item.id as typeof tab)} className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all", tab === item.id ? "bg-primary text-white shadow-md" : "text-gray-600 hover:bg-gray-50")}>
+            <button key={item.id} onClick={() => setTab(item.id as typeof tab)} className={cn("flex flex-1 items-center justify-center gap-2 rounded-[8px] px-4 py-3 text-sm font-medium transition-all", tab === item.id ? "bg-primary text-white shadow-md" : "text-gray-600 hover:bg-gray-50")}>
               <item.icon className="h-4 w-4" />
               {item.label}
             </button>
@@ -197,10 +197,10 @@ export default function ShippingSettingsPage() {
               const status = getIntegrationStatus(integration);
               const isExpanded = expandedProvider === integration.provider;
               return (
-                <div key={integration.provider} className={cn("overflow-hidden rounded-2xl border transition-all", isExpanded ? "border-primary shadow-lg ring-2 ring-primary/20" : "border-gray-200 hover:border-gray-300")}>
+                <div key={integration.provider} className={cn("overflow-hidden rounded-[8px] border transition-all", isExpanded ? "border-primary shadow-lg ring-2 ring-primary/20" : "border-gray-200 hover:border-gray-300")}>
                   <div className="p-5">
                     <div className="flex items-start gap-4">
-                      <div className={cn("flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white", definition.accentClassName)}>{definition.shortName}</div>
+                      <div className={cn("flex h-14 w-14 items-center justify-center rounded-[8px] text-lg font-bold text-white", definition.accentClassName)}>{definition.shortName}</div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold text-gray-900">{integration.displayName}</h3>
@@ -210,8 +210,8 @@ export default function ShippingSettingsPage() {
                         <p className="mt-1 text-sm text-gray-500">{definition.description}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleToggleProvider(integration.provider)} className={cn("rounded-xl px-4 py-2 text-sm font-medium transition-colors", integration.enabled ? "bg-gray-900 text-white" : "bg-green-50 text-green-700 hover:bg-green-100")}>{integration.enabled ? "Kapat" : "Aktif Et"}</button>
-                        <button onClick={() => setExpandedProvider(isExpanded ? null : integration.provider)} className="rounded-xl p-2 transition-colors hover:bg-gray-100"><ChevronDown className={cn("h-5 w-5 text-gray-400 transition-transform", isExpanded && "rotate-180")} /></button>
+                        <button onClick={() => handleToggleProvider(integration.provider)} className={cn("rounded-[8px] px-4 py-2 text-sm font-medium transition-colors", integration.enabled ? "bg-gray-900 text-white" : "bg-green-50 text-green-700 hover:bg-green-100")}>{integration.enabled ? "Kapat" : "Aktif Et"}</button>
+                        <button onClick={() => setExpandedProvider(isExpanded ? null : integration.provider)} className="rounded-[8px] p-2 transition-colors hover:bg-gray-100"><ChevronDown className={cn("h-5 w-5 text-gray-400 transition-transform", isExpanded && "rotate-180")} /></button>
                       </div>
                     </div>
                   </div>
@@ -222,7 +222,7 @@ export default function ShippingSettingsPage() {
                         {definition.credentialFields.map((field) => (
                           <div key={field.key}>
                             <label className="mb-1.5 block text-sm font-medium text-gray-700">{field.label} {field.required && <span className="text-red-500">*</span>}</label>
-                            <input type={field.secret ? "password" : "text"} value={integration.credentials[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "credentials", field.key, event.target.value)} placeholder={field.placeholder} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            <input type={field.secret ? "password" : "text"} value={integration.credentials[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "credentials", field.key, event.target.value)} placeholder={field.placeholder} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                             <p className="mt-1 text-xs text-gray-400">{field.description}</p>
                           </div>
                         ))}
@@ -231,27 +231,27 @@ export default function ShippingSettingsPage() {
                       <Section title="Yapılandırma" description="Görünen ad, ortam ve sağlayıcı ayarları.">
                         <div>
                           <label className="mb-1.5 block text-sm font-medium text-gray-700">Görünen Ad</label>
-                          <input type="text" value={integration.displayName} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, displayName: event.target.value }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                          <input type="text" value={integration.displayName} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, displayName: event.target.value }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
                           <div>
                             <label className="mb-1.5 block text-sm font-medium text-gray-700">Ortam</label>
-                            <select value={integration.environment} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, environment: event.target.value as "production" | "sandbox" }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="production">Canlı</option><option value="sandbox">Test</option></select>
+                            <select value={integration.environment} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, environment: event.target.value as "production" | "sandbox" }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="production">Canlı</option><option value="sandbox">Test</option></select>
                           </div>
                           <div>
                             <label className="mb-1.5 block text-sm font-medium text-gray-700">Tetikleyici</label>
-                            <select value={integration.automation.orderTrigger} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, automation: { ...record.automation, orderTrigger: event.target.value as "manual" | "confirmed" | "preparing" } }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="manual">Manuel</option><option value="confirmed">Onaylandı</option><option value="preparing">Hazırlanıyor</option></select>
+                            <select value={integration.automation.orderTrigger} onChange={(event) => updateIntegration(integration.provider, (record) => ({ ...record, automation: { ...record.automation, orderTrigger: event.target.value as "manual" | "confirmed" | "preparing" } }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"><option value="manual">Manuel</option><option value="confirmed">Onaylandı</option><option value="preparing">Hazırlanıyor</option></select>
                           </div>
                         </div>
                         {definition.configurationFields.map((field) => (
                           <div key={field.key}>
                             <label className="mb-1.5 block text-sm font-medium text-gray-700">{field.label}</label>
                             {field.type === "select" ? (
-                              <select value={integration.configuration[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "configuration", field.key, event.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20">
+                              <select value={integration.configuration[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "configuration", field.key, event.target.value)} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20">
                                 {field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                               </select>
                             ) : (
-                              <input type="text" value={integration.configuration[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "configuration", field.key, event.target.value)} placeholder={field.placeholder} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                              <input type="text" value={integration.configuration[field.key] ?? ""} onChange={(event) => handleFieldChange(integration.provider, "configuration", field.key, event.target.value)} placeholder={field.placeholder} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                             )}
                           </div>
                         ))}
@@ -269,7 +269,7 @@ export default function ShippingSettingsPage() {
         )}
 
         {tab === "zones" && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="rounded-[8px] border border-gray-200 bg-white p-6">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Teslimat Bölgeleri</h2>
@@ -277,62 +277,62 @@ export default function ShippingSettingsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700">{zones.length} bölge</span>
-                <button onClick={() => setZones((current) => [...current, createEmptyShippingZone()])} className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"><Plus className="h-4 w-4" />Yeni Bölge</button>
+                <button onClick={() => setZones((current) => [...current, createEmptyShippingZone()])} className="inline-flex items-center gap-2 rounded-[8px] bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"><Plus className="h-4 w-4" />Yeni Bölge</button>
               </div>
             </div>
 
             <div className="space-y-4">
               {zones.map((zone) => (
-                <div key={zone.id} className="overflow-hidden rounded-2xl border border-gray-200">
+                <div key={zone.id} className="overflow-hidden rounded-[8px] border border-gray-200">
                   <div className="grid gap-3 border-b border-gray-100 bg-gray-50 p-4 md:grid-cols-[1fr_1fr_auto] md:items-start">
                     <div>
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Bölge Adı</label>
-                      <input type="text" value={zone.name} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, name: event.target.value }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="Örn: Türkiye / İstanbul" />
+                      <input type="text" value={zone.name} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, name: event.target.value }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="Örn: Türkiye / İstanbul" />
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Ülke / Şehir Eşleşmeleri</label>
-                      <input type="text" value={zone.countries.join(", ")} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, countries: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="Virgülle ayırın. Örn: Türkiye, İstanbul" />
+                      <input type="text" value={zone.countries.join(", ")} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, countries: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="Virgülle ayırın. Örn: Türkiye, İstanbul" />
                       <p className="mt-2 text-xs text-gray-400">Checkout önce şehir, sonra ülke ile eşleştirir.</p>
                     </div>
-                    <button onClick={() => setZones((current) => current.filter((item) => item.id !== zone.id))} className="inline-flex h-11 items-center justify-center rounded-xl border border-red-200 px-3 text-red-600 transition-colors hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={() => setZones((current) => current.filter((item) => item.id !== zone.id))} className="inline-flex h-11 items-center justify-center rounded-[8px] border border-red-200 px-3 text-red-600 transition-colors hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                   </div>
                   <div className="space-y-3 p-4">
                     {zone.rates.map((rate) => (
-                      <div key={rate.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                      <div key={rate.id} className="rounded-[8px] border border-gray-100 bg-gray-50 p-4">
                         <div className="grid items-end gap-3 md:grid-cols-[1.1fr_120px_180px_140px_auto]">
                           <div>
                             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tarife Adı</label>
-                            <input type="text" value={rate.name} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, name: event.target.value } : item) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" />
+                            <input type="text" value={rate.name} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, name: event.target.value } : item) }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm" />
                           </div>
                           <div>
                             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tutar</label>
-                            <input type="number" min="0" step="0.01" value={rate.price} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, price: Number(event.target.value || 0) } : item) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" />
+                            <input type="number" min="0" step="0.01" value={rate.price} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, price: Number(event.target.value || 0) } : item) }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm" />
                           </div>
                           <div>
                             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Teslimat Süresi</label>
-                            <input type="text" value={rate.estimatedDays || ""} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, estimatedDays: event.target.value, condition: event.target.value } : item) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="1-3 iş günü" />
+                            <input type="text" value={rate.estimatedDays || ""} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, estimatedDays: event.target.value, condition: event.target.value } : item) }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="1-3 iş günü" />
                           </div>
                           <div>
                             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Ücretsiz Eşik</label>
-                            <input type="number" min="0" step="1" value={rate.minOrder ?? ""} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, minOrder: event.target.value ? Number(event.target.value) : undefined } : item) }))} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="500" />
+                            <input type="number" min="0" step="1" value={rate.minOrder ?? ""} onChange={(event) => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.map((item) => item.id === rate.id ? { ...item, minOrder: event.target.value ? Number(event.target.value) : undefined } : item) }))} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-2.5 text-sm" placeholder="500" />
                           </div>
-                          <button onClick={() => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.filter((item) => item.id !== rate.id) }))} className="inline-flex h-11 items-center justify-center rounded-xl border border-red-200 px-3 text-red-600 transition-colors hover:bg-red-50"><X className="h-4 w-4" /></button>
+                          <button onClick={() => updateZone(zone.id, (current) => ({ ...current, rates: current.rates.filter((item) => item.id !== rate.id) }))} className="inline-flex h-11 items-center justify-center rounded-[8px] border border-red-200 px-3 text-red-600 transition-colors hover:bg-red-50"><X className="h-4 w-4" /></button>
                         </div>
                       </div>
                     ))}
-                    <button onClick={() => updateZone(zone.id, (current) => ({ ...current, rates: [...current.rates, createEmptyShippingRate()] }))} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"><Plus className="h-4 w-4" />Tarife Ekle</button>
+                    <button onClick={() => updateZone(zone.id, (current) => ({ ...current, rates: [...current.rates, createEmptyShippingRate()] }))} className="inline-flex items-center gap-2 rounded-[8px] border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"><Plus className="h-4 w-4" />Tarife Ekle</button>
                   </div>
                 </div>
               ))}
-              {zones.length === 0 && <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 py-12 text-center text-gray-500">Henüz teslimat bölgesi tanımlanmadı.</div>}
+              {zones.length === 0 && <div className="rounded-[8px] border-2 border-dashed border-gray-200 bg-gray-50 py-12 text-center text-gray-500">Henüz teslimat bölgesi tanımlanmadı.</div>}
             </div>
           </div>
         )}
 
         {tab === "settings" && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="rounded-[8px] border border-gray-200 bg-white p-6">
             <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"><Settings className="h-6 w-6 text-primary" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-primary/10"><Settings className="h-6 w-6 text-primary" /></div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Varsayılan Ayarlar</h2>
                 <p className="text-sm text-gray-500">Otomatik gönderi oluşturma için varsayılan sağlayıcı.</p>
@@ -340,12 +340,12 @@ export default function ShippingSettingsPage() {
             </div>
             <div className="max-w-md">
               <label className="mb-2 block text-sm font-medium text-gray-700">Varsayılan Kargo Firması</label>
-              <select value={settings.defaultProvider ?? ""} onChange={(event) => setSettings({ ...settings, defaultProvider: (event.target.value || null) as ShippingIntegrationProvider | null })} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 transition-all focus:border-primary focus:ring-2 focus:ring-primary/20">
+              <select value={settings.defaultProvider ?? ""} onChange={(event) => setSettings({ ...settings, defaultProvider: (event.target.value || null) as ShippingIntegrationProvider | null })} className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-3 transition-all focus:border-primary focus:ring-2 focus:ring-primary/20">
                 <option value="">Seçiniz...</option>
                 {settings.integrations.filter((item) => item.enabled).map((item) => <option key={item.provider} value={item.provider}>{item.displayName}</option>)}
               </select>
             </div>
-            <div className="mt-8 rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <div className="mt-8 rounded-[8px] border border-blue-200 bg-blue-50 p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="mt-0.5 h-5 w-5 text-blue-600" />
                 <div>
@@ -363,7 +363,7 @@ export default function ShippingSettingsPage() {
 
 function StatCard({ title, value, icon: Icon, color }: { title: string; value: number; icon: typeof Truck; color: "gray" | "green" | "blue" }) {
   const colors = { gray: "bg-gray-100 text-gray-600", green: "bg-green-100 text-green-600", blue: "bg-blue-100 text-blue-600" };
-  return <div className="rounded-2xl border border-gray-200 bg-white p-5"><div className="flex items-center gap-3"><div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", colors[color])}><Icon className="h-5 w-5" /></div><div><p className="text-xs font-medium uppercase text-gray-500">{title}</p><p className="text-xl font-bold text-gray-900">{value}</p></div></div></div>;
+  return <div className="rounded-[8px] border border-gray-200 bg-white p-5"><div className="flex items-center gap-3"><div className={cn("flex h-10 w-10 items-center justify-center rounded-[8px]", colors[color])}><Icon className="h-5 w-5" /></div><div><p className="text-xs font-medium uppercase text-gray-500">{title}</p><p className="text-xl font-bold text-gray-900">{value}</p></div></div></div>;
 }
 
 function StatusBadge({ status }: { status: { label: string; variant: "success" | "error" | "warning" | "inactive" } }) {
@@ -372,5 +372,5 @@ function StatusBadge({ status }: { status: { label: string; variant: "success" |
 }
 
 function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
-  return <div className="rounded-2xl bg-gray-50 p-5"><h4 className="font-semibold text-gray-900">{title}</h4><p className="mb-4 text-xs text-gray-500">{description}</p><div className="space-y-4">{children}</div></div>;
+  return <div className="rounded-[8px] bg-gray-50 p-5"><h4 className="font-semibold text-gray-900">{title}</h4><p className="mb-4 text-xs text-gray-500">{description}</p><div className="space-y-4">{children}</div></div>;
 }

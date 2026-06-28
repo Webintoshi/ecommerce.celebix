@@ -49,7 +49,7 @@ export function StepPreview({
   return (
     <div className="space-y-8 p-4 md:p-6 lg:p-8">
       <div className="flex items-center gap-4 border-b border-[var(--admin-border)] pb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
           <CheckCircle className="w-6 h-6" />
         </div>
         <div>
@@ -60,7 +60,7 @@ export function StepPreview({
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
         <div className="space-y-6">
-          <div className="rounded-[28px] border border-[var(--admin-border)] bg-white p-6 shadow-sm">
+          <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <span className="text-sm font-semibold text-stone-700">Yayınlanma Durumu</span>
               <span className="text-lg font-black text-emerald-600" aria-live="polite">%{Math.round(progress)}</span>
@@ -87,7 +87,7 @@ export function StepPreview({
                 <div
                   key={item.id}
                   className={cn(
-                    "flex items-center gap-3 rounded-[22px] border p-4 transition-all",
+                    "flex items-center gap-3 rounded-[12px] border p-4 transition-all",
                     isChecked ? "border-emerald-200 bg-emerald-50/80" : "border-[#eadfd4] bg-white"
                   )}
                 >
@@ -113,7 +113,7 @@ export function StepPreview({
                 type="button"
                 onClick={onSaveDraft}
                 disabled={saving}
-                className="flex items-center justify-center gap-2 rounded-[24px] border border-[var(--admin-border)] bg-white px-4 py-4 font-semibold text-stone-700 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-[12px] border border-[var(--admin-border)] bg-white px-4 py-4 font-semibold text-stone-700 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:opacity-50"
               >
                 <Save className="w-5 h-5" />
                 Taslak Kaydet
@@ -130,7 +130,7 @@ export function StepPreview({
                 }}
                 disabled={saving}
                 className={cn(
-                  "flex items-center justify-center gap-2 rounded-[24px] px-4 py-4 font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:opacity-50",
+                  "flex items-center justify-center gap-2 rounded-[12px] px-4 py-4 font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25 disabled:opacity-50",
                   progress >= 100
                     ? "bg-[var(--admin-accent)] text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] hover:from-[#E45700] hover:to-[#D34D00]"
                     : "cursor-not-allowed bg-stone-300 text-stone-500"
@@ -146,7 +146,7 @@ export function StepPreview({
         <div className="space-y-6">
           <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">Ürün Önizlemesi</h4>
 
-          <div className="overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white shadow-[0_18px_55px_rgba(72,36,8,0.08)]">
+          <div className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_18px_55px_rgba(72,36,8,0.08)]">
             <div className="relative aspect-[4/3] bg-[#f3e8dd]">
               {data.images[0] ? (
                 <img
@@ -196,23 +196,23 @@ export function StepPreview({
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-[22px] border border-[var(--admin-border)] bg-white/85 p-4">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4">
                   <p className="text-xs uppercase tracking-wide text-stone-400">Kategori</p>
                   <p className="mt-1 font-semibold text-stone-900">
                     {data.category ? formatLabel(data.category) : "Belirtilmedi"}
                   </p>
                 </div>
-                <div className="rounded-[22px] border border-[var(--admin-border)] bg-white/85 p-4">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4">
                   <p className="text-xs uppercase tracking-wide text-stone-400">Alt Kategori</p>
                   <p className="mt-1 font-semibold text-stone-900">
                     {data.subcategory ? formatLabel(data.subcategory) : "Yok"}
                   </p>
                 </div>
-                <div className="rounded-[22px] border border-[var(--admin-border)] bg-white/85 p-4">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4">
                   <p className="text-xs uppercase tracking-wide text-stone-400">Varyant Sayısı</p>
                   <p className="mt-1 font-semibold text-stone-900">{data.variants.length}</p>
                 </div>
-                <div className="rounded-[22px] border border-[var(--admin-border)] bg-white/85 p-4">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4">
                   <p className="text-xs uppercase tracking-wide text-stone-400">Stok Takibi</p>
                   <p className="mt-1 font-semibold text-stone-900">
                     {data.trackStock ? "Aktif" : "Pasif"}
@@ -227,7 +227,7 @@ export function StepPreview({
                     {data.variants.slice(0, 3).map((variant) => (
                       <div
                         key={variant.id}
-                        className="flex items-center justify-between rounded-[22px] border border-[var(--admin-border)] bg-white/85 px-4 py-3"
+                        className="flex items-center justify-between rounded-[12px] border border-[var(--admin-border)] bg-white px-4 py-3"
                       >
                         <div>
                           <p className="font-medium text-stone-900">{variant.name}</p>

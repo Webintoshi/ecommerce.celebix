@@ -111,7 +111,7 @@ export function InternalNotes({
   };
 
   return (
-    <div className={`flex flex-col overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+    <div className={`flex flex-col overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Header */}
       <div className="flex items-center justify-between border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-4">
         <div className="flex items-center gap-2">
@@ -125,7 +125,7 @@ export function InternalNotes({
         {!isAdding && (
           <button
             onClick={() => setIsAdding(true)}
-            className="rounded-xl bg-gradient-to-r from-[#FF6A00] to-[#d95a00] p-2 text-white shadow-sm transition-all hover:from-[#f56a12] hover:to-[#c94d00]"
+            className="rounded-[8px] bg-gradient-to-r from-[#FF6A00] to-[#d95a00] p-2 text-white shadow-sm transition-all hover:from-[#f56a12] hover:to-[#c94d00]"
             title="Yeni Not"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -136,7 +136,7 @@ export function InternalNotes({
       <div className="flex flex-1 flex-col p-5">
         {/* Customer Note (if exists) */}
         {customerNote && (
-          <div className="mb-4 rounded-[22px] border border-amber-200 bg-amber-50 p-3">
+          <div className="mb-4 rounded-[12px] border border-amber-200 bg-amber-50 p-3">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700">Müşteri Notu</p>
             <p className="text-amber-900 text-sm">{customerNote}</p>
           </div>
@@ -144,13 +144,13 @@ export function InternalNotes({
 
         {/* Add Note Form */}
         {isAdding && (
-          <div className="mb-4 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
+          <div className="mb-4 rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
             <textarea
               value={newNoteText}
               onChange={(e) => setNewNoteText(e.target.value)}
               placeholder="Yeni not yazın..."
               rows={2}
-              className="w-full resize-none rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2.5 text-sm text-stone-700 focus:border-[var(--admin-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
+              className="w-full resize-none rounded-[8px] border border-[#e1d2c3] bg-white px-3 py-2.5 text-sm text-stone-700 focus:border-[var(--admin-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
               autoFocus
             />
             <div className="flex items-center justify-end gap-2 mt-2">
@@ -159,14 +159,14 @@ export function InternalNotes({
                   setIsAdding(false);
                   setNewNoteText("");
                 }}
-                className="rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE]"
+                className="rounded-[8px] border border-[#e1d2c3] bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE]"
               >
                 İptal
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={!newNoteText.trim() || isSubmitting}
-                className="rounded-2xl bg-gradient-to-r from-[#FF6A00] to-[#d95a00] px-3 py-2 text-xs font-semibold text-white transition-all hover:from-[#f56a12] hover:to-[#c94d00] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[8px] bg-gradient-to-r from-[#FF6A00] to-[#d95a00] px-3 py-2 text-xs font-semibold text-white transition-all hover:from-[#f56a12] hover:to-[#c94d00] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? "..." : "Ekle"}
               </button>
@@ -177,7 +177,7 @@ export function InternalNotes({
         {/* Notes List - Compact */}
         <div className="custom-scrollbar flex-1 space-y-2 overflow-y-auto pr-1">
           {notes.length === 0 ? (
-            <div className="rounded-[22px] border-2 border-dashed border-[var(--admin-border)] py-8 text-center">
+            <div className="rounded-[12px] border-2 border-dashed border-[var(--admin-border)] py-8 text-center">
               <FileText className="mx-auto mb-1.5 h-6 w-6 text-stone-300" />
               <p className="text-xs text-stone-400">Henüz not eklenmemiş</p>
             </div>
@@ -188,7 +188,7 @@ export function InternalNotes({
               return (
                 <div
                   key={note.id}
-                  className={`p-2.5 rounded-xl border transition-all ${
+                  className={`p-2.5 rounded-[8px] border transition-all ${
                     isEditing
                       ? "border-[#f0caa8] bg-[#fff4ea]"
                       : "border-[#f0e3d6] bg-[#fcf8f4] hover:border-[#e4cfbd]"
@@ -201,19 +201,19 @@ export function InternalNotes({
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
                         rows={2}
-                          className="w-full resize-none rounded-2xl border border-[#e1d2c3] bg-white px-3 py-2 text-sm focus:border-[var(--admin-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
+                          className="w-full resize-none rounded-[8px] border border-[#e1d2c3] bg-white px-3 py-2 text-sm focus:border-[var(--admin-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--admin-accent)]/15"
                         />
                         <div className="flex items-center justify-end gap-2 mt-2">
                           <button
                             onClick={cancelEdit}
-                            className="rounded-xl border border-[#e1d2c3] bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE]"
+                            className="rounded-[8px] border border-[#e1d2c3] bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 transition-colors hover:bg-[#FCFDFE]"
                           >
                             <X className="w-3 h-3" />
                           </button>
                         <button
                           onClick={handleUpdate}
                           disabled={!editText.trim() || isSubmitting}
-                            className="rounded-xl bg-gradient-to-r from-[#FF6A00] to-[#d95a00] px-2.5 py-1.5 text-xs font-semibold text-white transition-all hover:from-[#f56a12] hover:to-[#c94d00] disabled:opacity-50"
+                            className="rounded-[8px] bg-gradient-to-r from-[#FF6A00] to-[#d95a00] px-2.5 py-1.5 text-xs font-semibold text-white transition-all hover:from-[#f56a12] hover:to-[#c94d00] disabled:opacity-50"
                           >
                             <Pencil className="w-3 h-3" />
                           </button>

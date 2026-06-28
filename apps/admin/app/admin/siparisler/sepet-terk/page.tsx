@@ -390,7 +390,7 @@ function InfoTile({
 function PageSkeleton() {
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="rounded-[26px] border border-[#E7EAF0] bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:rounded-[28px] md:p-6">
+      <div className="rounded-[12px] border border-[#E7EAF0] bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:rounded-[12px] md:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-3">
             <Skeleton className="h-7 w-28 rounded-full bg-[#EEF1F4]" />
@@ -398,8 +398,8 @@ function PageSkeleton() {
             <Skeleton className="h-4 w-64 bg-[#EEF1F4]" />
           </div>
           <div className="flex gap-2">
-            <Skeleton className="h-11 w-11 rounded-2xl bg-[#EEF1F4]" />
-            <Skeleton className="h-11 w-11 rounded-2xl bg-[#EEF1F4]" />
+            <Skeleton className="h-11 w-11 rounded-[8px] bg-[#EEF1F4]" />
+            <Skeleton className="h-11 w-11 rounded-[8px] bg-[#EEF1F4]" />
           </div>
         </div>
       </div>
@@ -408,7 +408,7 @@ function PageSkeleton() {
         {Array.from({ length: 4 }).map((_, index) => (
           <div
             key={index}
-            className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] md:rounded-[26px] md:p-5"
+            className="rounded-[12px] border border-[#E7EAF0] bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] md:rounded-[12px] md:p-5"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="w-full space-y-3">
@@ -422,7 +422,7 @@ function PageSkeleton() {
         ))}
       </div>
 
-      <div className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:rounded-[28px] md:p-5">
+      <div className="rounded-[12px] border border-[#E7EAF0] bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] md:rounded-[12px] md:p-5">
         <div className="space-y-3">
           <Skeleton className="h-12 rounded-[18px] bg-[#EEF1F4]" />
           <div className="grid grid-cols-2 gap-3">
@@ -438,7 +438,7 @@ function PageSkeleton() {
         {Array.from({ length: 4 }).map((_, index) => (
           <div
             key={index}
-            className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)] md:rounded-[28px] md:p-0"
+            className="rounded-[12px] border border-[#E7EAF0] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)] md:rounded-[12px] md:p-0"
           >
             <div className="flex gap-2">
               <Skeleton className="h-7 w-24 rounded-full bg-[#EEF1F4]" />
@@ -523,9 +523,9 @@ function CartDetailModal({
         aria-modal="true"
         aria-labelledby="abandoned-cart-modal-title"
         onClick={(event) => event.stopPropagation()}
-        className="max-h-[94dvh] w-full overflow-y-auto rounded-t-[30px] border border-[#E7EAF0] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.22)] sm:max-h-[90vh] sm:max-w-5xl sm:rounded-[32px]"
+        className="max-h-[94dvh] w-full overflow-y-auto rounded-t-[30px] border border-[#E7EAF0] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.22)] sm:max-h-[90vh] sm:max-w-5xl sm:rounded-[12px]"
       >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#EEF1F4] bg-white/96 px-5 py-4 backdrop-blur sm:px-6 sm:py-5">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#EEF1F4] bg-white px-5 py-4 backdrop-blur sm:px-6 sm:py-5">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FF6A00]">
               Sepet Detayı
@@ -544,7 +544,7 @@ function CartDetailModal({
             type="button"
             aria-label="Detay penceresini kapat"
             onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04]"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-[8px] border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -589,7 +589,7 @@ function CartDetailModal({
               {cart.items.map((item: AbandonedCartItem) => (
                 <div
                   key={item.id}
-                  className="flex flex-col gap-3 rounded-[22px] border border-[#E7EAF0] bg-white p-4 sm:flex-row sm:items-center"
+                  className="flex flex-col gap-3 rounded-[12px] border border-[#E7EAF0] bg-white p-4 sm:flex-row sm:items-center"
                 >
                   <div className="h-[4.5rem] w-[4.5rem] overflow-hidden rounded-[18px] border border-[#E7EAF0] bg-[#F9F9F9] sm:h-20 sm:w-20">
                     <AbandonedCartItemImage src={item.productImage} alt={item.productName} />
@@ -637,7 +637,7 @@ function MobileCartCard({
   const checkoutStartedAt = getCartCheckoutStartedAt(cart);
 
   return (
-    <article className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <article className="rounded-[12px] border border-[#E7EAF0] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <div className="flex flex-wrap gap-2">
         <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusMeta.className)}>
           <StatusIcon className="h-3.5 w-3.5" />
@@ -793,7 +793,7 @@ function DesktopCartCard({
   const checkoutStartedAt = getCartCheckoutStartedAt(cart);
 
   return (
-    <article className="overflow-hidden rounded-[28px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
+    <article className="overflow-hidden rounded-[12px] border border-[#E7EAF0] bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
       <div className="flex flex-col gap-4 border-b border-[#EEF1F4] px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold", statusMeta.className)}>
@@ -821,7 +821,7 @@ function DesktopCartCard({
               type="button"
               variant="secondary"
               size="sm"
-              className="rounded-xl border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A] shadow-none hover:border-[#86EFAC] hover:bg-[#DCFCE7]"
+              className="rounded-[8px] border-[#BBF7D0] bg-[#EAF8EF] text-[#16A34A] shadow-none hover:border-[#86EFAC] hover:bg-[#DCFCE7]"
               onClick={onMarkRecovered}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -832,7 +832,7 @@ function DesktopCartCard({
             type="button"
             variant="outline"
             size="sm"
-            className="rounded-xl"
+            className="rounded-[8px]"
             onClick={onOpenDetails}
           >
             <Eye className="mr-2 h-4 w-4" />
@@ -842,7 +842,7 @@ function DesktopCartCard({
             type="button"
             onClick={onDelete}
             aria-label="Sepeti sil"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#FECACA] bg-white text-[#EF4444] transition-colors hover:bg-[#FDECEC]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[#FECACA] bg-white text-[#EF4444] transition-colors hover:bg-[#FDECEC]"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -850,7 +850,7 @@ function DesktopCartCard({
       </div>
 
       <div className="grid gap-5 px-5 py-5 xl:grid-cols-[1.05fr_0.95fr_1.15fr]">
-        <section className="rounded-[24px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
+        <section className="rounded-[12px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
             Müşteri Bilgileri
           </p>
@@ -881,7 +881,7 @@ function DesktopCartCard({
           </div>
         </section>
 
-        <section className="rounded-[24px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
+        <section className="rounded-[12px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
             Sepet Özeti
           </p>
@@ -940,7 +940,7 @@ function DesktopCartCard({
           </div>
         </section>
 
-        <section className="rounded-[24px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
+        <section className="rounded-[12px] border border-[#EEF1F4] bg-[#FBFCFD] p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
               Sepet İçeriği
@@ -955,7 +955,7 @@ function DesktopCartCard({
                 key={item.id}
                 className="flex items-center gap-3 rounded-[20px] border border-[#E7EAF0] bg-white p-3"
               >
-                <div className="h-16 w-16 overflow-hidden rounded-2xl border border-[#E7EAF0] bg-[#F9F9F9]">
+                <div className="h-16 w-16 overflow-hidden rounded-[8px] border border-[#E7EAF0] bg-[#F9F9F9]">
                   <AbandonedCartItemImage src={item.productImage} alt={item.productName} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -1000,7 +1000,7 @@ function MobilePagination({
   onNext: () => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-[#E7EAF0] bg-white px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)] min-[1025px]:hidden">
+    <div className="rounded-[12px] border border-[#E7EAF0] bg-white px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)] min-[1025px]:hidden">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
@@ -1314,7 +1314,7 @@ export default function AbandonedCartsPage() {
                 />
               </section>
 
-              <section className="rounded-[24px] border border-[#E7EAF0] bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] min-[1025px]:hidden">
+              <section className="rounded-[12px] border border-[#E7EAF0] bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,0.05)] min-[1025px]:hidden">
                 <div className="space-y-3">
                   <label className="block">
                     <span className="sr-only">Sepetlerde ara</span>
@@ -1466,7 +1466,7 @@ export default function AbandonedCartsPage() {
                 {errorMessage ? (
                   <div
                     role="alert"
-                    className="rounded-[22px] border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-medium text-[#B91C1C]"
+                    className="rounded-[12px] border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-medium text-[#B91C1C]"
                   >
                     {errorMessage}
                   </div>
@@ -1475,7 +1475,7 @@ export default function AbandonedCartsPage() {
                 {!errorMessage && readinessMessage ? (
                   <div
                     role="status"
-                    className="rounded-[22px] border border-[#FED7AA] bg-[#FFF7ED] px-4 py-3 text-sm font-medium text-[#9A3412]"
+                    className="rounded-[12px] border border-[#FED7AA] bg-[#FFF7ED] px-4 py-3 text-sm font-medium text-[#9A3412]"
                   >
                     {readinessMessage}
                   </div>
@@ -1531,7 +1531,7 @@ export default function AbandonedCartsPage() {
                           type="button"
                           onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                           disabled={currentPage === 1}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </button>
@@ -1543,7 +1543,7 @@ export default function AbandonedCartsPage() {
                               type="button"
                               onClick={() => setCurrentPage(pageNumber)}
                               className={cn(
-                                "inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition-colors",
+                                "inline-flex h-10 min-w-10 items-center justify-center rounded-[8px] px-3 text-sm font-semibold transition-colors",
                                 pageNumber === currentPage
                                   ? "bg-[#FF6A00] text-white shadow-[0_12px_24px_rgba(255,106,0,0.18)]"
                                   : "border border-[#E7EAF0] bg-white text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]",
@@ -1558,7 +1558,7 @@ export default function AbandonedCartsPage() {
                           type="button"
                           onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                           disabled={currentPage === totalPages}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <ChevronRight className="h-4 w-4" />
                         </button>

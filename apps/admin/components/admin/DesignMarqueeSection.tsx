@@ -165,19 +165,19 @@ export function DesignMarqueeSection() {
         <button
           onClick={() => void handleSave()}
           disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f241d] to-[#4a3629] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#241a15] disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-[#2f241d] to-[#4a3629] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#241a15] disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Kayan Yaziyi Kaydet
         </button>
       </div>
 
-      <div className="rounded-[24px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
+      <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
         Bu alan magazanin en hizli duyuru serididir. Kisa, net ve tekrar kullanilabilir mesajlar yazin.
       </div>
 
       <div className="space-y-6">
-        <div className="overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-sm">
+        <div className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-sm">
           <div className="border-b border-[#f0e4d8] bg-[#F9FAFB] p-6">
             <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--admin-heading)]">
               <Settings2 className="h-4 w-4 text-[#9d816d]" />
@@ -204,7 +204,7 @@ export function DesignMarqueeSection() {
                 <select
                   value={settings.speed}
                   onChange={(e) => setSettings((prev) => ({ ...prev, speed: e.target.value as MarqueeSpeed }))}
-                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                  className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 >
                   {SPEED_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -219,7 +219,7 @@ export function DesignMarqueeSection() {
                 <select
                   value={settings.direction}
                   onChange={(e) => setSettings((prev) => ({ ...prev, direction: e.target.value as MarqueeDirection }))}
-                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                  className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 >
                   {DIRECTION_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -234,7 +234,7 @@ export function DesignMarqueeSection() {
                 <select
                   value={settings.animation}
                   onChange={(e) => setSettings((prev) => ({ ...prev, animation: e.target.value as MarqueeAnimation }))}
-                  className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                  className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 >
                   {ANIMATION_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -275,7 +275,7 @@ export function DesignMarqueeSection() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-sm">
+        <div className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-[#f0e4d8] bg-[#F9FAFB] p-6">
             <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--admin-heading)]">
               <Sparkles className="h-4 w-4 text-[#9d816d]" />
@@ -283,7 +283,7 @@ export function DesignMarqueeSection() {
             </h3>
             <button
               onClick={addItem}
-              className="inline-flex items-center gap-1 rounded-xl bg-[var(--admin-accent)] px-3 py-2 text-xs font-medium text-white hover:bg-[#e45700]"
+              className="inline-flex items-center gap-1 rounded-[8px] bg-[var(--admin-accent)] px-3 py-2 text-xs font-medium text-white hover:bg-[#e45700]"
             >
               <Plus className="h-3.5 w-3.5" />
               Oge Ekle
@@ -294,7 +294,7 @@ export function DesignMarqueeSection() {
             {settings.items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start gap-3 rounded-2xl border border-[#efe3d7] bg-[#faf5ef] p-4"
+                className="flex items-start gap-3 rounded-[8px] border border-[#efe3d7] bg-[#faf5ef] p-4"
               >
                 <div className="mt-2 cursor-grab text-[#b8977f] hover:text-[var(--admin-text-secondary)]">
                   <GripVertical className="h-4 w-4" />
@@ -307,7 +307,7 @@ export function DesignMarqueeSection() {
                       type="text"
                       value={item.text}
                       onChange={(e) => updateItem(item.id, { text: e.target.value })}
-                      className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                     />
                   </div>
 
@@ -316,7 +316,7 @@ export function DesignMarqueeSection() {
                     <select
                       value={item.icon}
                       onChange={(e) => updateItem(item.id, { icon: e.target.value as MarqueeIcon })}
-                      className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                     >
                       {ICON_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -333,7 +333,7 @@ export function DesignMarqueeSection() {
                       value={item.badge || ""}
                       onChange={(e) => updateItem(item.id, { badge: e.target.value })}
                       placeholder="Ozel"
-                      className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                     />
                   </div>
 
@@ -344,14 +344,14 @@ export function DesignMarqueeSection() {
                       value={item.link || ""}
                       onChange={(e) => updateItem(item.id, { link: e.target.value })}
                       placeholder="/sayfa"
-                      className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                     />
                   </div>
                 </div>
 
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="mt-6 rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-red-50 hover:text-red-600"
+                  className="mt-6 rounded-[8px] p-2 text-[#b8977f] transition-colors hover:bg-red-50 hover:text-red-600"
                   disabled={settings.items.length <= 1}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -361,7 +361,7 @@ export function DesignMarqueeSection() {
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-blue-100 bg-blue-50 p-5">
+        <div className="rounded-[12px] border border-blue-100 bg-blue-50 p-5">
           <h4 className="inline-flex items-center gap-2 text-sm font-semibold text-blue-900">
             <Sparkles className="h-4 w-4" />
             Hizli ipucu

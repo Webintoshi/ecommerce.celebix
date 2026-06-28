@@ -202,26 +202,26 @@ export default function ContentManagementPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-5 rounded-[8px] shadow-sm border border-gray-100">
                     <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
                     <div className="text-sm text-gray-500">Toplam İçerik</div>
                 </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-5 rounded-[8px] shadow-sm border border-gray-100">
                     <div className="text-2xl font-bold text-green-600">{stats.published}</div>
                     <div className="text-sm text-gray-500">Yayında</div>
                 </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-5 rounded-[8px] shadow-sm border border-gray-100">
                     <div className="text-2xl font-bold text-yellow-600">{stats.draft}</div>
                     <div className="text-sm text-gray-500">Taslak</div>
                 </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <div className="text-2xl font-bold text-purple-600">{stats.avgWordCount}</div>
+                <div className="bg-white p-5 rounded-[8px] shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-orange-600">{stats.avgWordCount}</div>
                     <div className="text-sm text-gray-500">Ort. Kelime</div>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-4 rounded-[8px] shadow-sm border border-gray-100">
                 <div className="flex flex-wrap gap-4">
                     <div className="flex-1 min-w-[250px]">
                         <div className="relative">
@@ -264,13 +264,13 @@ export default function ContentManagementPage() {
             {loading ? (
                 <div className="space-y-4">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="animate-pulse bg-gray-200 rounded-xl h-32" />
+                        <div key={i} className="animate-pulse bg-gray-200 rounded-[8px] h-32" />
                     ))}
                 </div>
             ) : (
                 <div className="space-y-4">
                     {filteredContents.map(content => (
-                        <div key={content.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                        <div key={content.id} className="bg-white rounded-[8px] shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
                             <div className="p-5">
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex-1">

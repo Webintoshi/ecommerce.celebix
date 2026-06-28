@@ -201,7 +201,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
     <div className="space-y-8 p-4 md:p-6 lg:p-8">
       {/* Section Header */}
       <div className="flex items-center gap-4 border-b border-[var(--admin-border)] pb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
           <ImageIcon className="w-6 h-6" />
         </div>
         <div>
@@ -220,9 +220,9 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         className={cn(
-          "relative cursor-pointer overflow-hidden rounded-[28px] border-2 border-dashed p-8 transition-all md:p-12 focus-within:ring-2 focus-within:ring-[#FF6A00]/25",
+          "relative cursor-pointer overflow-hidden rounded-[12px] border-2 border-dashed p-8 transition-all md:p-12 focus-within:ring-2 focus-within:ring-[#FF6A00]/25",
           dragActive
-            ? "border-[var(--admin-accent)] bg-[var(--admin-accent-soft)] shadow-[var(--shadow-md)]"
+            ? "border-[var(--admin-accent)] bg-[var(--admin-accent-soft)] shadow-[var(--shadow-xs)]"
             : "border-[var(--admin-accent-border)] bg-white hover:border-[var(--admin-accent)]/35 hover:bg-[#FCFDFE]"
         )}
         role="button"
@@ -240,7 +240,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
         />
 
         <div className="relative flex flex-col items-center gap-4 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-[var(--admin-border)] bg-white shadow-sm">
+          <div className="flex h-16 w-16 items-center justify-center rounded-[12px] border border-[var(--admin-border)] bg-white shadow-sm">
             <Upload className="w-8 h-8 text-[var(--admin-accent)]" />
           </div>
           <div>
@@ -256,7 +256,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
 
       {/* Error Message */}
       {errors.images && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4" aria-live="polite">
+        <div className="rounded-[8px] border border-rose-200 bg-rose-50 p-4" aria-live="polite">
           <p className="text-sm text-rose-600 font-medium">{errors.images}</p>
         </div>
       )}
@@ -272,7 +272,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
             {images.map((img, index) => (
               <div
                 key={img.url}
-                className="group relative overflow-hidden rounded-[26px] border border-[var(--admin-border)] bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_35px_rgba(72,36,8,0.08)]"
+                className="group relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_35px_rgba(72,36,8,0.08)]"
               >
                 {/* Image */}
                 <div className="aspect-square relative">
@@ -295,7 +295,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setPreviewImage(img.url); }}
-                      className="rounded-xl bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                      className="rounded-[8px] bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                       aria-label={`${index + 1}. görseli büyüt`}
                     >
                       <ZoomIn className="w-5 h-5" />
@@ -304,7 +304,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); makePrimary(index); }}
-                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                        className="rounded-[8px] bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-[var(--admin-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                         aria-label={`${index + 1}. görseli ana görsel yap`}
                       >
                         <Star className="w-5 h-5" />
@@ -313,7 +313,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                      className="rounded-xl bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                      className="rounded-[8px] bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                       aria-label={`${index + 1}. görseli sil`}
                     >
                       <X className="w-5 h-5" />
@@ -326,7 +326,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                       type="button"
                       onClick={(e) => { e.stopPropagation(); moveImage(index, index - 1); }}
                       disabled={index === 0}
-                      className="rounded-lg bg-white/85 p-1.5 text-stone-600 backdrop-blur transition-colors hover:bg-white disabled:opacity-30"
+                      className="rounded-lg bg-white p-1.5 text-stone-600 backdrop-blur transition-colors hover:bg-white disabled:opacity-30"
                       aria-label={`${index + 1}. görseli sola taşı`}
                     >
                       <GripVertical className="w-4 h-4 -rotate-90" />
@@ -335,7 +335,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                       type="button"
                       onClick={(e) => { e.stopPropagation(); moveImage(index, index + 1); }}
                       disabled={index === images.length - 1}
-                      className="rounded-lg bg-white/85 p-1.5 text-stone-600 backdrop-blur transition-colors hover:bg-white disabled:opacity-30"
+                      className="rounded-lg bg-white p-1.5 text-stone-600 backdrop-blur transition-colors hover:bg-white disabled:opacity-30"
                       aria-label={`${index + 1}. görseli sağa taşı`}
                     >
                       <GripVertical className="w-4 h-4 rotate-90" />
@@ -351,7 +351,7 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
                     onChange={(e) => updateAltText(index, e.target.value)}
                     placeholder="Alt metin (SEO için)"
                     maxLength={125}
-                    className="w-full rounded-xl border border-[#e8dbcf] bg-[#FCFDFE] px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                    className="w-full rounded-[8px] border border-[#e8dbcf] bg-[#FCFDFE] px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                   <p className="mt-1 text-right text-[10px] text-stone-400" aria-live="polite">
                     {img.alt.length}/125
@@ -368,12 +368,12 @@ export function StepImages({ images = [], onChange, errors }: StepImagesProps) {
         <Dialog open={!!previewImage} onClose={() => setPreviewImage(null)} className="relative z-50">
           <div className="fixed inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setPreviewImage(null)} />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <DialogPanel className="w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/10 shadow-2xl">
+            <DialogPanel className="w-full max-w-5xl overflow-hidden rounded-[12px] border border-white/10 shadow-2xl">
               {previewImage && (
                 <img
                   src={previewImage}
                   alt="Görsel önizleme"
-                  className="w-full h-auto rounded-2xl shadow-2xl"
+                  className="w-full h-auto rounded-[8px] shadow-2xl"
                 />
               )}
             </DialogPanel>

@@ -238,7 +238,7 @@ export function StepPricing({
     <div className="space-y-8 p-4 md:p-6 lg:p-8">
       {/* Section Header */}
       <div className="flex items-center gap-4 border-b border-[var(--admin-border)] pb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
           <Tag className="w-6 h-6" />
         </div>
         <div>
@@ -248,7 +248,7 @@ export function StepPricing({
       </div>
 
       {/* KDV Oranı */}
-      <div className="rounded-[26px] border border-[var(--admin-border)] bg-white p-6 shadow-sm">
+      <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-sm">
         <label className="mb-3 block text-sm font-semibold text-stone-700">KDV Oranı</label>
         <div className="flex items-center gap-2 flex-wrap">
           {[0, 1, 8, 10, 20].map((rate) => (
@@ -257,7 +257,7 @@ export function StepPricing({
               type="button"
               onClick={() => onTaxRateChange(rate as TaxRate)}
               className={cn(
-                "rounded-2xl px-5 py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25",
+                "rounded-[8px] px-5 py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25",
                 taxRate === rate
                   ? "bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.2)]"
                   : "border border-[var(--admin-border)] bg-white text-stone-600 hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
@@ -281,7 +281,7 @@ export function StepPricing({
           <button
             type="button"
             onClick={addVariant}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(255,106,0,0.2)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
+            className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(255,106,0,0.2)] transition-all hover:from-[#E45700] hover:to-[#D34D00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
           >
             <Plus className="w-4 h-4" />
             Varyant Ekle
@@ -290,7 +290,7 @@ export function StepPricing({
 
         {/* Variant Tabs */}
         {variants.length > 1 && (
-          <div className="flex items-center gap-2 overflow-x-auto rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] p-2 pb-2">
+          <div className="flex items-center gap-2 overflow-x-auto rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] p-2 pb-2">
             {variants.map((variant, index) => {
               const attrs = (variant as any).attributes || [];
               const displayName = attrs.length > 0 
@@ -303,7 +303,7 @@ export function StepPricing({
                   type="button"
                   onClick={() => setActiveVariant(index)}
                   className={cn(
-                    "whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25",
+                    "whitespace-nowrap rounded-[8px] px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25",
                     activeVariant === index
                       ? "bg-[var(--admin-accent)] text-white shadow-[0_12px_24px_rgba(255,106,0,0.18)]"
                       : "bg-white text-stone-600 hover:bg-[var(--admin-accent-soft)]"
@@ -318,7 +318,7 @@ export function StepPricing({
 
         {/* Active Variant Form */}
         {activeVariant !== null && variants[activeVariant] && (
-          <div className="space-y-6 rounded-[28px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_16px_40px_rgba(72,36,8,0.06)] md:p-6">
+          <div className="space-y-6 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_16px_40px_rgba(72,36,8,0.06)] md:p-6">
             <div className="flex items-center justify-between">
               <h5 className="font-semibold text-stone-900">
                 Varyant Detayları
@@ -327,7 +327,7 @@ export function StepPricing({
                 <button
                   type="button"
                   onClick={() => removeVariant(activeVariant)}
-                  className="rounded-xl p-2 text-rose-500 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                  className="rounded-[8px] p-2 text-rose-500 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
                   aria-label="Aktif varyantı kaldır"
                 >
                   <X className="w-5 h-5" />
@@ -336,7 +336,7 @@ export function StepPricing({
             </div>
 
             {/* Variant Attributes Section */}
-            <div className="space-y-4 rounded-[24px] border border-[var(--admin-border)] bg-[#fff9f4] p-4">
+            <div className="space-y-4 rounded-[12px] border border-[var(--admin-border)] bg-[#fff9f4] p-4">
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4 text-[var(--admin-accent)]" />
                 <span className="text-sm font-medium text-stone-700">Nitelikler</span>
@@ -428,7 +428,7 @@ export function StepPricing({
                                   );
                                 }
                               }}
-                              className="w-full appearance-none rounded-2xl border border-[#e8dbcf] bg-white px-4 py-3 pr-10 outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                              className="w-full appearance-none rounded-[8px] border border-[#e8dbcf] bg-white px-4 py-3 pr-10 outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                             >
                               <option value="">Seçin...</option>
                               {attribute.values?.map((value) => (
@@ -451,13 +451,13 @@ export function StepPricing({
                                 value={newAttributeValue}
                                 onChange={(e) => setNewAttributeValue(e.target.value)}
                                 placeholder={`Yeni ${attribute.name}`}
-                                className="flex-1 rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                                className="flex-1 rounded-[8px] border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                                 autoFocus
                               />
                               <button
                                 type="button"
                                 onClick={() => addNewAttributeValue(attribute.id)}
-                                className="rounded-xl bg-[var(--admin-accent)] px-3 py-2 text-sm font-medium text-white transition-all hover:from-[#E45700] hover:to-[#D34D00]"
+                                className="rounded-[8px] bg-[var(--admin-accent)] px-3 py-2 text-sm font-medium text-white transition-all hover:from-[#E45700] hover:to-[#D34D00]"
                               >
                                 Ekle
                               </button>
@@ -467,7 +467,7 @@ export function StepPricing({
                                   setShowNewAttributeForm(null);
                                   setNewAttributeValue("");
                                 }}
-                                className="rounded-xl bg-stone-200 px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-300"
+                                className="rounded-[8px] bg-stone-200 px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-300"
                               >
                                 İptal
                               </button>
@@ -493,7 +493,7 @@ export function StepPricing({
                   onChange={(e) => updateVariant(activeVariant, "name", e.target.value)}
                   placeholder="Örn: 2'li Avantaj Paketi"
                   className={cn(
-                    "w-full rounded-2xl border bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
+                    "w-full rounded-[8px] border bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                     errors[`variant_${activeVariant}_name`] ? "border-rose-300" : "border-[#e8dbcf]"
                   )}
                 />
@@ -521,7 +521,7 @@ export function StepPricing({
                             updateVariant(activeVariant, "images", newImages);
                           }}
                           className={cn(
-                            "relative h-20 w-20 overflow-hidden rounded-2xl border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25",
+                            "relative h-20 w-20 overflow-hidden rounded-[8px] border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25",
                             isSelected
                               ? "border-[var(--admin-accent)] ring-2 ring-[#FF6A00]/20"
                               : "border-[#eadfd4] hover:border-[var(--admin-accent-border)]"
@@ -550,7 +550,7 @@ export function StepPricing({
                       <button
                         type="button"
                         onClick={() => updateVariant(activeVariant, "images", [])}
-                        className="flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-dashed border-[#eadfd4] text-stone-400 transition-colors hover:border-rose-300 hover:text-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                        className="flex h-20 w-20 items-center justify-center rounded-[8px] border-2 border-dashed border-[#eadfd4] text-stone-400 transition-colors hover:border-rose-300 hover:text-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
                         aria-label="Varyant görselini kaldır"
                       >
                         <X className="w-6 h-6" />
@@ -576,7 +576,7 @@ export function StepPricing({
                     value={variants[activeVariant].price}
                     onChange={(e) => updateVariant(activeVariant, "price", parseFloat(e.target.value) || 0)}
                     className={cn(
-                      "w-full rounded-2xl border bg-[#FCFDFE] py-3 pl-10 pr-4 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
+                      "w-full rounded-[8px] border bg-[#FCFDFE] py-3 pl-10 pr-4 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                       errors[`variant_${activeVariant}_price`] ? "border-rose-300" : "border-[#e8dbcf]"
                     )}
                   />
@@ -602,7 +602,7 @@ export function StepPricing({
                     value={variants[activeVariant].originalPrice || ""}
                     onChange={(e) => updateVariant(activeVariant, "originalPrice", parseFloat(e.target.value) || undefined)}
                     placeholder="Normal fiyat"
-                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] py-3 pl-10 pr-4 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                    className="w-full rounded-[8px] border border-[#e8dbcf] bg-[#FCFDFE] py-3 pl-10 pr-4 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                 </div>
                 {variants[activeVariant].originalPrice && variants[activeVariant].originalPrice > variants[activeVariant].price && (
@@ -623,7 +623,7 @@ export function StepPricing({
                     value={variants[activeVariant].cost || ""}
                     onChange={(e) => updateVariant(activeVariant, "cost", parseFloat(e.target.value) || undefined)}
                     placeholder="Alış fiyatı"
-                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] py-3 pl-10 pr-4 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                    className="w-full rounded-[8px] border border-[#e8dbcf] bg-[#FCFDFE] py-3 pl-10 pr-4 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                 </div>
                 {variants[activeVariant].cost && variants[activeVariant].cost > 0 && (
@@ -643,12 +643,12 @@ export function StepPricing({
                     type="text"
                     value={variants[activeVariant].sku}
                     onChange={(e) => updateVariant(activeVariant, "sku", e.target.value)}
-                    className="flex-1 rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 font-mono text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                    className="flex-1 rounded-[8px] border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 font-mono text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                   <button
                     type="button"
                     onClick={() => updateVariant(activeVariant, "sku", buildGeneratedSku())}
-                    className="rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--admin-accent-hover)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
+                    className="rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--admin-accent-hover)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
                   >
                     Oluştur
                   </button>
@@ -669,7 +669,7 @@ export function StepPricing({
           <button
             type="button"
             onClick={addDiscountRule}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
+            className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]/25"
           >
             <Plus className="w-4 h-4" />
             Kural Ekle
@@ -682,7 +682,7 @@ export function StepPricing({
 
         <div className="space-y-3">
           {discountRules.map((rule, index) => (
-            <div key={rule.id} className="rounded-[24px] border border-[var(--admin-border)] bg-gradient-to-br from-white to-[#fff7f1] p-4 shadow-sm">
+            <div key={rule.id} className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white to-[#fff7f1] p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <input
                   type="text"
@@ -692,7 +692,7 @@ export function StepPricing({
                     newRules[index].name = e.target.value;
                     onDiscountRulesChange(newRules);
                   }}
-                  className="flex-1 rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm font-semibold outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                  className="flex-1 rounded-[8px] border border-[#e8dbcf] bg-white px-3 py-2 text-sm font-semibold outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                 />
                 <div className="flex items-center gap-2 ml-2">
                   <button
@@ -738,7 +738,7 @@ export function StepPricing({
                     }
                     onDiscountRulesChange(newRules);
                   }}
-                  className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                  className="rounded-[8px] border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                 >
                   <option value="buy_x_get_y">2+1 Kampanya</option>
                   <option value="bulk">Toplu Alım</option>
@@ -757,7 +757,7 @@ export function StepPricing({
                         onDiscountRulesChange(newRules);
                       }}
                       placeholder="Al"
-                       className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                       className="rounded-[8px] border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                      />
                      <input
                       type="number"
@@ -768,7 +768,7 @@ export function StepPricing({
                         onDiscountRulesChange(newRules);
                       }}
                       placeholder="Öde"
-                       className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                       className="rounded-[8px] border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                      />
                    </>
                  )}
@@ -784,7 +784,7 @@ export function StepPricing({
                         onDiscountRulesChange(newRules);
                       }}
                       placeholder="Min. adet"
-                       className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                       className="rounded-[8px] border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                      />
                      <input
                       type="number"
@@ -795,7 +795,7 @@ export function StepPricing({
                         onDiscountRulesChange(newRules);
                       }}
                       placeholder="İndirim %"
-                       className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                       className="rounded-[8px] border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                      />
                    </>
                  )}
@@ -814,7 +814,7 @@ export function StepPricing({
                       onDiscountRulesChange(newRules);
                     }}
                     placeholder={rule.type === "percentage" ? "İndirim %" : "İndirim ₺"}
-                    className="rounded-xl border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                    className="rounded-[8px] border border-[#e8dbcf] bg-white px-3 py-2 text-sm outline-none transition-all focus:border-[var(--admin-accent)] focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                 )}
               </div>

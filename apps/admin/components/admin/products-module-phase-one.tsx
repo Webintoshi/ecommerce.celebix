@@ -82,7 +82,7 @@ export function ProductModuleReadinessPage({
 }: ProductModuleReadinessPageProps) {
   return (
     <main role="main" className="min-h-screen bg-[#F9F9F9]">
-      <div className="mx-auto max-w-[1680px] px-3 pb-5 pt-1 sm:px-4 min-[1025px]:px-5 xl:px-6">
+      <div className="mx-auto max-w-none px-3 pb-5 pt-1 sm:px-4 min-[1025px]:px-5 xl:px-6">
         <AdminPageShell>
           <AdminPageHeader
             sectionLabel="Ürünler"

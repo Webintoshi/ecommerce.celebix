@@ -79,7 +79,7 @@ const PROVIDER_LOGOS: Partial<Record<MarketplaceProvider, ComponentType<{ size?:
 };
 
 const WARM_INPUT =
-  "w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
+  "w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
 
 function ConnectionBadge({ isConnected, hasError }: { isConnected: boolean; hasError: boolean }) {
   if (isConnected) {
@@ -124,7 +124,7 @@ function ProviderLogo({
   return (
     <div
       className={cn(
-        "flex items-center justify-center shrink-0 overflow-hidden rounded-2xl",
+        "flex items-center justify-center shrink-0 overflow-hidden rounded-[8px]",
         LogoComponent ? "bg-white" : `${colorStyle.bg} ${colorStyle.text}`,
         className
       )}
@@ -327,15 +327,15 @@ export default function MarketsPage() {
   if (view === "list") {
     return (
       <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-        <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
+        <div className="mx-auto max-w-none space-y-6">
+        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)] md:p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
               Pazaryeri Entegrasyonlari
             </div>
           <button
             onClick={fetchIntegrations}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+            className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
           >
             <RefreshCw className="w-4 h-4" />
             Yenile
@@ -352,7 +352,7 @@ export default function MarketsPage() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="flex items-center gap-2 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <AlertCircle className="w-4 h-4" />
             {error}
           </div>
@@ -370,12 +370,12 @@ export default function MarketsPage() {
                 key={providerId}
                 onClick={() => openDetail(providerId)}
                 className={cn(
-                  "rounded-[28px] border bg-white/92 p-5 text-left shadow-[var(--shadow-md)] transition-all hover:-translate-y-1 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]",
+                  "rounded-[12px] border bg-white p-5 text-left shadow-[var(--shadow-xs)] transition-all hover:-translate-y-1 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]",
                   isConnected
                     ? "border-emerald-200 hover:shadow-[0_24px_55px_rgba(16,185,129,0.14)]"
                     : hasError
                       ? "border-rose-200 hover:shadow-[0_24px_55px_rgba(244,63,94,0.12)]"
-                      : "border-[var(--admin-border)] hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)]"
+                      : "border-[var(--admin-border)] hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-xs)]"
                 )}
               >
                 <div className="flex items-start gap-4">
@@ -453,7 +453,7 @@ export default function MarketsPage() {
     return (
       <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
         <div className="max-w-6xl mx-auto space-y-6">
-          <div className={cn("overflow-hidden rounded-[30px] border bg-white p-6 shadow-[var(--shadow-md)]", isConnected ? "border-emerald-200" : hasError ? "border-rose-200" : "border-[var(--admin-border)]")}>
+          <div className={cn("overflow-hidden rounded-[12px] border bg-white p-6 shadow-[var(--shadow-xs)]", isConnected ? "border-emerald-200" : hasError ? "border-rose-200" : "border-[var(--admin-border)]")}>
             <div className="flex items-center gap-4">
               <ProviderLogo
                 provider={integration.provider}
@@ -482,7 +482,7 @@ export default function MarketsPage() {
           </div>
 
           {providerId === "google_merchant" && (
-            <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+            <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
               <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
                 <div className="space-y-2">
                   <h2 className="font-semibold text-[var(--admin-heading)]">Merchant Feed URL</h2>
@@ -504,7 +504,7 @@ export default function MarketsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 rounded-[22px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
+              <div className="mt-4 rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3">
                 <div className="flex items-center gap-3">
                   <input
                     readOnly
@@ -516,7 +516,7 @@ export default function MarketsPage() {
                       href={googleFeedUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 rounded-2xl border border-[var(--admin-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--admin-text-secondary)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--admin-text-secondary)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                     >
                       Ac
                       <ExternalLink className="h-3 w-3" />
@@ -542,7 +542,7 @@ export default function MarketsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left: Form */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+              <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]">
                     <Settings className="w-5 h-5" />
@@ -588,7 +588,7 @@ export default function MarketsPage() {
               </div>
 
               {integration.provider.mappingFields.length > 0 && (
-                <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]">
                       <Package className="w-5 h-5" />
@@ -616,7 +616,7 @@ export default function MarketsPage() {
               )}
 
               {listings.length > 0 && (
-                <div className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)]">
+                <div className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
                   <div className="flex items-center justify-between border-b border-[var(--admin-border)] px-6 py-4">
                     <div className="flex items-center gap-3">
                       <ShoppingBag className="w-5 h-5 text-[var(--admin-accent-hover)]" />
@@ -674,7 +674,7 @@ export default function MarketsPage() {
 
             {/* Right: Actions & Logs */}
             <div className="space-y-6">
-              <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+              <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
                 <h3 className="mb-4 font-semibold text-[var(--admin-heading)]">Islemler</h3>
                 <div className="space-y-3">
                   <ActionButton
@@ -716,7 +716,7 @@ export default function MarketsPage() {
                 </div>
               </div>
 
-              <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+              <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
                 <h3 className="mb-4 font-semibold text-[var(--admin-heading)]">Kuyruk Durumu</h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between rounded-[20px] bg-[#FCFDFE] p-3">
@@ -737,7 +737,7 @@ export default function MarketsPage() {
               </div>
 
               {logs.length > 0 && (
-                <div className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-6 shadow-[var(--shadow-md)]">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)]">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-[var(--admin-heading)]">Son Loglar</h3>
                     <button
@@ -790,7 +790,7 @@ function StatCard({ title, value, icon: Icon, color }: { title: string; value: n
   };
 
   return (
-    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)]">
+    <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
       <div className="flex items-start justify-between">
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7c67]">{title}</p>
@@ -822,7 +822,7 @@ function ActionButton({
       onClick={onClick}
       disabled={loading}
       className={cn(
-        "inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-4",
+        "inline-flex w-full items-center justify-center gap-2 rounded-[8px] px-4 py-3 text-sm font-semibold transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-4",
         variant === "primary"
           ? "bg-[var(--admin-accent)] text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:ring-[rgba(255,106,0,0.18)]"
           : "border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:ring-[rgba(255,106,0,0.16)]"

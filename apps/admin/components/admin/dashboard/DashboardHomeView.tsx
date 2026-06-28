@@ -265,7 +265,7 @@ function getActivityBadge(type: DashboardCustomerActivity["type"]) {
     case "order":
       return "bg-[rgba(255,241,232,0.92)] text-[var(--admin-accent-hover)]";
     case "review":
-      return "bg-[var(--admin-purple-soft)] text-[var(--admin-purple)]";
+      return "bg-[var(--admin-orange-soft)] text-[var(--admin-purple)]";
     case "customer":
       return "bg-[var(--admin-success-soft)] text-[var(--admin-success)]";
     default:
@@ -278,7 +278,7 @@ function getAnalysisMeta(key: DashboardAnalysisSummaryItem["key"]) {
     case "visitors":
       return {
         icon: Activity,
-        shell: "bg-[var(--admin-purple-soft)] text-[var(--admin-purple)]",
+        shell: "bg-[var(--admin-orange-soft)] text-[var(--admin-purple)]",
       };
     case "pageViews":
       return {
@@ -407,7 +407,7 @@ function DashboardActionRail({
       <div
         className={cn(
           "mx-auto flex min-w-0 items-center gap-2",
-          compact ? "flex-wrap" : "max-w-[1560px] justify-between",
+          compact ? "flex-wrap" : "max-w-none justify-between",
         )}
       >
         <div
@@ -985,7 +985,7 @@ function SalesChartCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
                     const previousValue = getSalesChartPointValue(point, activeMetric.previousDataKey);
 
                     return (
-                      <div className="rounded-[10px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-md)]">
+                      <div className="rounded-[10px] border border-[var(--admin-border)] bg-white px-3.5 py-3 shadow-[var(--shadow-xs)]">
                         <p className="text-sm font-semibold text-[var(--admin-heading)]">
                           {label} · {activeMetric.label}
                         </p>
@@ -1775,7 +1775,7 @@ export function DashboardHomeView({
     <main
       role="main"
       aria-busy={isRefreshing}
-      className="mx-auto max-w-[1560px] px-0 pb-4 md:pb-6"
+      className="mx-auto max-w-none px-0 pb-4 md:pb-6"
     >
       <motion.div
         initial={{ opacity: 0, y: 10 }}

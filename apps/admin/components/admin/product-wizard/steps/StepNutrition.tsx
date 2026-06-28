@@ -63,7 +63,7 @@ export function StepNutrition({
   return (
     <div className="p-8 space-y-8">
       <div className="flex items-center gap-4 pb-6 border-b border-gray-100">
-        <div className="w-12 h-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/20">
+        <div className="w-12 h-12 bg-rose-500 text-white rounded-[8px] flex items-center justify-center shadow-lg shadow-rose-500/20">
           <Apple className="w-6 h-6" />
         </div>
         <div>
@@ -83,7 +83,7 @@ export function StepNutrition({
                 type="button"
                 onClick={() => onNutritionSettingsChange({ ...nutritionSettings, basis: "per_100g" })}
                 className={cn(
-                  "px-6 py-3 rounded-xl text-sm font-bold transition-all",
+                  "px-6 py-3 rounded-[8px] text-sm font-bold transition-all",
                   nutritionSettings.basis === "per_100g"
                     ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -95,7 +95,7 @@ export function StepNutrition({
                 type="button"
                 onClick={() => onNutritionSettingsChange({ ...nutritionSettings, basis: "per_serving" })}
                 className={cn(
-                  "px-6 py-3 rounded-xl text-sm font-bold transition-all",
+                  "px-6 py-3 rounded-[8px] text-sm font-bold transition-all",
                   nutritionSettings.basis === "per_serving"
                     ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -121,7 +121,7 @@ export function StepNutrition({
                         servingSize: parseInt(e.target.value) || 30,
                       })
                     }
-                    className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
+                    className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
                   />
                   <span className="text-gray-500 text-sm">g</span>
                 </div>
@@ -137,7 +137,7 @@ export function StepNutrition({
                       servingPerContainer: parseInt(e.target.value) || 1,
                     })
                   }
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
                 />
               </div>
             </div>
@@ -167,7 +167,7 @@ export function StepNutrition({
                           [item.key]: parseFloat(e.target.value) || 0,
                         })
                       }
-                      className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
+                      className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
                     />
                     <span className="text-gray-400 text-sm w-12">{item.unit}</span>
                   </div>
@@ -189,7 +189,7 @@ export function StepNutrition({
               }
               placeholder="Fıstık (%98), Tuz, ..."
               rows={3}
-              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none resize-none"
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none resize-none"
             />
           </div>
         </div>
@@ -206,7 +206,7 @@ export function StepNutrition({
                   type="button"
                   onClick={() => toggleFeature(feature.id)}
                   className={cn(
-                    "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
+                    "flex flex-col items-center justify-center p-4 rounded-[8px] border-2 transition-all gap-2",
                     {
                       vegan,
                       glutenFree,
@@ -242,7 +242,7 @@ export function StepNutrition({
                   type="button"
                   onClick={() => toggleAllergen(allergen.id)}
                   className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                    "px-4 py-2 rounded-[8px] text-sm font-bold transition-all",
                     nutritionSettings.allergens.includes(allergen.id as Allergen)
                       ? "bg-rose-100 border border-rose-300 text-rose-700"
                       : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300"
@@ -256,7 +256,7 @@ export function StepNutrition({
               ))}
             </div>
             {nutritionSettings.allergens.length > 0 && (
-              <p className="text-sm text-rose-600 bg-rose-50 p-3 rounded-xl">
+              <p className="text-sm text-rose-600 bg-rose-50 p-3 rounded-[8px]">
                 <AlertTriangle className="w-4 h-4 inline mr-1" />
                 Bu ürün {nutritionSettings.allergens.join(", ")} içerir.
               </p>
@@ -277,7 +277,7 @@ export function StepNutrition({
                 }
                 placeholder="Serin ve kuru yerde saklayın..."
                 rows={2}
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none resize-none"
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none resize-none"
               />
             </div>
 
@@ -293,7 +293,7 @@ export function StepNutrition({
                   })
                 }
                 placeholder="365"
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
               />
             </div>
           </div>

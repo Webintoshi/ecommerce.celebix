@@ -301,7 +301,7 @@ export default async function BrandsManagementPage() {
     console.error("Admin brands page bootstrap error:", error);
 
     return (
-      <div className="rounded-[28px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-6 shadow-sm">
+      <div className="rounded-[12px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-6 shadow-sm">
         <h1 className="text-xl font-semibold text-red-900">Marka verileri alınamadı</h1>
         <p className="mt-2 text-sm leading-6 text-red-800">
           Marka Yönetimi sayfası ilk açılışta ürün verilerini çekemedi. Sayfayı yenileyip tekrar deneyin.

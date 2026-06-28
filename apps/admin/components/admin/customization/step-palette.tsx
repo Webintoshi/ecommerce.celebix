@@ -51,7 +51,7 @@ const stepTypes: {
     label: "Görsel Seçimi",
     description: "Paket görselleri gibi",
     icon: ImageIcon,
-    color: "bg-purple-500",
+    color: "bg-orange-500",
   },
   {
     type: "text",

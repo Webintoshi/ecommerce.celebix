@@ -78,7 +78,7 @@ const SETTINGS_SECTIONS = [
 export default function SettingsPage() {
   return (
     <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-      <AdminPageShell className="mx-auto max-w-7xl">
+      <AdminPageShell className="mx-auto max-w-none">
         <AdminPageHeader
           sectionLabel="Sistem"
           title="Ayarlar"
@@ -90,7 +90,7 @@ export default function SettingsPage() {
             <Link
               key={section.href}
               href={section.href}
-              className="group flex min-h-[220px] flex-col justify-between rounded-[20px] border border-[var(--admin-border)] bg-white p-5 text-left shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] md:rounded-[24px] md:p-6"
+              className="group flex min-h-[220px] flex-col justify-between rounded-[20px] border border-[var(--admin-border)] bg-white p-5 text-left shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] md:rounded-[12px] md:p-6"
             >
               <div>
                 <div
@@ -115,7 +115,7 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-gradient-to-r from-[#2f241d] via-[#50382a] to-[#6a4832] p-6 text-white shadow-[var(--shadow-md)] md:p-8">
+        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-r from-[#2f241d] via-[#50382a] to-[#6a4832] p-6 text-white shadow-[var(--shadow-xs)] md:p-8">
           <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#ffcfaa]">Ek Büyüme Alanı</p>
@@ -124,7 +124,7 @@ export default function SettingsPage() {
                 Mağazanızı mobil uygulamaya dönüştürmek için ihtiyaç duyulan tasarım ve teslim akışını tek alanda toplar.
               </p>
             </div>
-            <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[var(--admin-heading)] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25">
+            <button className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-white px-5 py-3 text-sm font-semibold text-[var(--admin-heading)] shadow-[0_16px_35px_rgba(255,255,255,0.16)] transition hover:bg-[#fff5ec] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/25">
               İncelemeye Başla
               <ArrowRight className="h-4 w-4" />
             </button>

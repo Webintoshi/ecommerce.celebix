@@ -243,13 +243,13 @@ export default function BulkUploadPage() {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#fff8f3] via-[#fffdf9] to-[#f7efe8] p-4 text-[var(--admin-heading)] sm:p-6 lg:p-8">
+    <div className="relative overflow-hidden rounded-[12px] bg-gradient-to-br from-[#fff8f3] via-[#fffdf9] to-[#f7efe8] p-4 text-[var(--admin-heading)] sm:p-6 lg:p-8">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[var(--admin-bg)]" />
       <div className="hidden" />
       <div className="hidden" />
 
       <div className="relative space-y-6">
-        <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+        <section className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
           <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-7">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-4">
@@ -257,10 +257,10 @@ export default function BulkUploadPage() {
                   Toplu Ürün Yükleme
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--admin-text-secondary)]">
-                  <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white/85 px-3 py-1.5 shadow-sm">
+                  <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white px-3 py-1.5 shadow-sm">
                     Aktif kaynak: {selectedSourceLabel}
                   </span>
-                  <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white/85 px-3 py-1.5 shadow-sm">
+                  <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white px-3 py-1.5 shadow-sm">
                     Adım: {currentStep}. {currentStepLabel}
                   </span>
                 </div>
@@ -271,7 +271,7 @@ export default function BulkUploadPage() {
                   <button
                     type="button"
                     onClick={handleDownloadTemplate}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                    className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     <Download className="h-4 w-4" />
                     Şablonu İndir
@@ -304,13 +304,13 @@ export default function BulkUploadPage() {
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+        <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">Adım akışı</p>
               <h2 className="mt-2 text-xl font-semibold text-[var(--admin-heading)]">4 aşamalı aktarım planı</h2>
             </div>
-            <div className="rounded-full border border-[#ead9cb] bg-white/85 px-3 py-1.5 text-xs font-medium text-[var(--admin-text-secondary)] shadow-sm">
+            <div className="rounded-full border border-[#ead9cb] bg-white px-3 py-1.5 text-xs font-medium text-[var(--admin-text-secondary)] shadow-sm">
               Mevcut adım: {currentStep}/4
             </div>
           </div>
@@ -322,17 +322,17 @@ export default function BulkUploadPage() {
             return (
               <div
                 key={step.id}
-                className={`rounded-[24px] border px-4 py-4 text-sm shadow-sm transition ${
+                className={`rounded-[12px] border px-4 py-4 text-sm shadow-sm transition ${
                   completed
                     ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-900"
                     : active
-                      ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[var(--shadow-md)]"
-                      : "border-[var(--admin-border)] bg-white/85 text-[#8d796a]"
+                      ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[var(--shadow-xs)]"
+                      : "border-[var(--admin-border)] bg-white text-[#8d796a]"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold ${
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] text-sm font-semibold ${
                       completed
                         ? "bg-emerald-100 text-emerald-700"
                         : active
@@ -353,9 +353,9 @@ export default function BulkUploadPage() {
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+        <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
           <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-md)]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-xs)]">
               <CheckCircle2 className="h-5 w-5 text-[var(--admin-accent)]" />
             </div>
             <div>
@@ -391,10 +391,10 @@ export default function BulkUploadPage() {
                     resetImportState();
                     setCurrentStep(2);
                   }}
-                  className={`rounded-[24px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] ${
+                  className={`rounded-[12px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] ${
                     selected
-                      ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff1e6] to-white shadow-[var(--shadow-md)]"
-                      : "border-[var(--admin-border)] bg-white/85 hover:border-[var(--admin-accent-border)] hover:bg-white"
+                      ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff1e6] to-white shadow-[var(--shadow-xs)]"
+                      : "border-[var(--admin-border)] bg-white hover:border-[var(--admin-accent-border)] hover:bg-white"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -430,10 +430,10 @@ export default function BulkUploadPage() {
                       setSelectedProvider(provider.id);
                       setCurrentStep(2);
                     }}
-                    className={`rounded-[24px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] ${
+                    className={`rounded-[12px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] ${
                       selected
-                        ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff1e6] to-white shadow-[var(--shadow-md)]"
-                        : "border-[var(--admin-border)] bg-white/85 hover:border-[var(--admin-accent-border)] hover:bg-white"
+                        ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff1e6] to-white shadow-[var(--shadow-xs)]"
+                        : "border-[var(--admin-border)] bg-white hover:border-[var(--admin-accent-border)] hover:bg-white"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -454,7 +454,7 @@ export default function BulkUploadPage() {
               })}
             </div>
           ) : (
-            <div className="rounded-[24px] border border-[var(--admin-border)] bg-white/85 p-5 shadow-sm">
+            <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--admin-heading)]">Feed modu aktif</p>
               <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
                 Google Merchant / Atom feed içindeki satırlar{" "}
@@ -466,10 +466,10 @@ export default function BulkUploadPage() {
           )}
         </section>
 
-        <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+        <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-md)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-xs)]">
                 <Upload className="h-5 w-5 text-[var(--admin-accent)]" />
               </div>
               <div>
@@ -482,7 +482,7 @@ export default function BulkUploadPage() {
               <button
                 type="button"
                 onClick={handleDownloadTemplate}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
               >
                 <Download className="h-4 w-4" />
                 {selectedProviderMeta?.label} şablonunu indir
@@ -492,9 +492,9 @@ export default function BulkUploadPage() {
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
             {!isFeedMode ? (
-              <div className="rounded-[28px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
+              <div className="rounded-[12px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
                 <div className="flex flex-col items-center justify-center text-center">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-md)]">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-[12px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-xs)]">
                     <FileSpreadsheet className="h-10 w-10 text-[var(--admin-accent)]" />
                   </div>
                   <p className="mt-5 text-lg font-semibold text-[var(--admin-heading)]">
@@ -519,13 +519,13 @@ export default function BulkUploadPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="mt-5 inline-flex items-center rounded-2xl bg-[#2f241d] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:bg-[#241b16] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                    className="mt-5 inline-flex items-center rounded-[8px] bg-[#2f241d] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:bg-[#241b16] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     Dosya Seç
                   </button>
 
                   {file ? (
-                    <div className="mt-4 w-full max-w-md rounded-[22px] border border-[#ead9cb] bg-white px-4 py-4 text-sm text-[#5e4b3e] shadow-sm">
+                    <div className="mt-4 w-full max-w-md rounded-[12px] border border-[#ead9cb] bg-white px-4 py-4 text-sm text-[#5e4b3e] shadow-sm">
                       <div className="font-semibold text-[var(--admin-heading)]">{file.name}</div>
                       <div className="mt-1 text-xs text-[#8d796a]">{(file.size / 1024).toFixed(2)} KB</div>
                     </div>
@@ -535,7 +535,7 @@ export default function BulkUploadPage() {
                     type="button"
                     onClick={handleAnalyzeFile}
                     disabled={!file || analyzing}
-                    className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-5 inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {analyzing ? "Analiz ediliyor..." : "Dosyayı Analiz Et"}
@@ -543,10 +543,10 @@ export default function BulkUploadPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-[28px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
+              <div className="rounded-[12px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
                 <div className="flex flex-col gap-5">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-md)]">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-xs)]">
                       <Globe2 className="h-7 w-7 text-[var(--admin-accent)]" />
                     </div>
                     <div>
@@ -572,7 +572,7 @@ export default function BulkUploadPage() {
                         setCurrentStep(2);
                       }}
                       placeholder="https://www.example.com/XMLExport/feed.xml"
-                      className="w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                     />
                   </div>
 
@@ -580,7 +580,7 @@ export default function BulkUploadPage() {
                     type="button"
                     onClick={handleAnalyzeFeed}
                     disabled={!feedUrl.trim() || feedAnalyzing}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {feedAnalyzing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -599,7 +599,7 @@ export default function BulkUploadPage() {
                 { title: "Beklenen format", value: isFeedMode ? "XML / Atom / Google Merchant" : "CSV / UTF-8" },
                 { title: "Seçilen varlık", value: selectedAssetLabel },
               ].map((item) => (
-                <div key={item.title} className="rounded-[24px] border border-[var(--admin-border)] bg-white/85 p-4 shadow-sm">
+                <div key={item.title} className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-sm">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">{item.title}</p>
                   <p className="mt-2 break-words text-sm font-semibold text-[var(--admin-heading)]">{item.value}</p>
                 </div>
@@ -610,9 +610,9 @@ export default function BulkUploadPage() {
         </section>
 
         {parseResult ? (
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
             <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-md)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-xs)]">
                 <AlertCircle className="h-5 w-5 text-[var(--admin-accent)]" />
               </div>
               <div>
@@ -630,7 +630,7 @@ export default function BulkUploadPage() {
 
             <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               {parseResult.warnings.length > 0 ? (
-                <div className="rounded-[24px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+                <div className="rounded-[12px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
                   <p className="mb-2 text-sm font-semibold text-amber-900">Uyarılar</p>
                   <ul className="max-h-48 space-y-1 overflow-auto text-sm text-amber-900">
                     {parseResult.warnings.slice(0, 30).map((warning, index) => (
@@ -639,14 +639,14 @@ export default function BulkUploadPage() {
                   </ul>
                 </div>
               ) : (
-                <div className="rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+                <div className="rounded-[12px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
                   <p className="text-sm font-semibold text-emerald-900">Uyarı bulunmuyor</p>
                   <p className="mt-2 text-sm leading-6 text-emerald-800">Dosya yapısı kontrol edildi; önizleme aşaması devam etmeye hazır.</p>
                 </div>
               )}
 
               {parseResult.errors.length > 0 ? (
-                <div className="rounded-[24px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
+                <div className="rounded-[12px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
                   <p className="mb-2 text-sm font-semibold text-red-900">Hatalar</p>
                   <ul className="max-h-48 space-y-1 overflow-auto text-sm text-red-900">
                     {parseResult.errors.slice(0, 30).map((error, index) => (
@@ -655,20 +655,20 @@ export default function BulkUploadPage() {
                   </ul>
                 </div>
               ) : (
-                <div className="rounded-[24px] border border-[var(--admin-border)] bg-white/85 p-4 shadow-sm">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-sm">
                   <p className="text-sm font-semibold text-[var(--admin-heading)]">Kritik hata bulunmuyor</p>
                   <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">İçe aktarıma geçmeden önce tabloyu kontrol edip ürün sayısını doğrulayabilirsiniz.</p>
                 </div>
               )}
             </div>
 
-            <div className="mt-4 rounded-[24px] border border-[var(--admin-border)] bg-gradient-to-r from-[#fff3e9] to-white p-4 text-sm leading-6 text-[var(--admin-text-secondary)] shadow-sm">
+            <div className="mt-4 rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-r from-[#fff3e9] to-white p-4 text-sm leading-6 text-[var(--admin-text-secondary)] shadow-sm">
               Import sırasında ürün ve varyant görselleri uzak URL'den alınır, bu mağazanın R2 bucket'ına yüklenir ve kayıtlar bizim storage URL'lerimizle oluşturulur.
             </div>
 
             {parseResult.products.length > 0 ? (
               <>
-                <div className="mt-5 rounded-[28px] border border-[var(--admin-border)] bg-white/90 shadow-sm">
+                <div className="mt-5 rounded-[12px] border border-[var(--admin-border)] bg-white shadow-sm">
                   <div className="flex items-center justify-between gap-3 border-b border-[#f0e4d8] px-5 py-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">Önizleme tablosu</p>
@@ -713,7 +713,7 @@ export default function BulkUploadPage() {
                     type="button"
                     onClick={handleImport}
                     disabled={importing || repairing}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f9e5f] to-[#21824b] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(33,130,75,0.22)] transition hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-[8px] bg-gradient-to-r from-[#2f9e5f] to-[#21824b] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(33,130,75,0.22)] transition hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 disabled:opacity-50"
                   >
                     {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                     {importing ? "İçe aktarım sürüyor..." : `${parseResult.products.length} ürünü içe aktar`}
@@ -723,7 +723,7 @@ export default function BulkUploadPage() {
                       type="button"
                       onClick={handleRepairCategoriesFromFeed}
                       disabled={importing || repairing}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-[#7b61ff]/18 bg-white px-5 py-3 text-sm font-semibold text-[#5b3fd1] shadow-sm transition hover:border-[#7b61ff]/35 hover:bg-[#f7f3ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7b61ff]/15 disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-[8px] border border-[#7b61ff]/18 bg-white px-5 py-3 text-sm font-semibold text-[#5b3fd1] shadow-sm transition hover:border-[#7b61ff]/35 hover:bg-[#f7f3ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7b61ff]/15 disabled:opacity-50"
                     >
                       {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe2 className="h-4 w-4" />}
                       {repairing
@@ -738,7 +738,7 @@ export default function BulkUploadPage() {
                       setImportResult(null);
                       setRepairResult(null);
                     }}
-                    className="rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                    className="rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                   >
                     {isFeedMode ? "Feed'i Güncelle" : "Dosyayı Güncelle"}
                   </button>
@@ -749,9 +749,9 @@ export default function BulkUploadPage() {
         ) : null}
 
         {importing || repairing || importResult || repairResult ? (
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
             <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-md)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-xs)]">
                 {importResult && importResult.failed === 0 && !repairResult ? (
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 ) : importResult && importResult.failed > 0 && !repairResult ? (
@@ -772,7 +772,7 @@ export default function BulkUploadPage() {
 
             <div aria-live="polite" aria-atomic="true" role="status" className="min-h-0">
               {progressText ? (
-                <div className="mb-4 rounded-[24px] border border-[var(--admin-accent-border)] bg-gradient-to-r from-[#fff3e9] to-white px-4 py-4 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm">
+                <div className="mb-4 rounded-[12px] border border-[var(--admin-accent-border)] bg-gradient-to-r from-[#fff3e9] to-white px-4 py-4 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm">
                   {progressText}
                 </div>
               ) : null}
@@ -787,7 +787,7 @@ export default function BulkUploadPage() {
                 </div>
 
                 {importResult.errors.length > 0 ? (
-                  <div className="mt-4 rounded-[24px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
+                  <div className="mt-4 rounded-[12px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
                     <p className="mb-2 text-sm font-semibold text-red-900">Aktarım hataları</p>
                     <ul className="max-h-48 space-y-1 overflow-auto text-sm text-red-900">
                       {importResult.errors.slice(0, 50).map((error, index) => (
@@ -796,14 +796,14 @@ export default function BulkUploadPage() {
                     </ul>
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+                  <div className="mt-4 rounded-[12px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
                     <p className="text-sm font-semibold text-emerald-900">Aktarım başarıyla tamamlandı</p>
                     <p className="mt-2 text-sm leading-6 text-emerald-800">Tüm ürünler hatasız işlendi ve sonuç kartları güncellendi.</p>
                   </div>
                 )}
 
                 {importResult.halted ? (
-                  <div className="mt-4 rounded-[24px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+                  <div className="mt-4 rounded-[12px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
                     <p className="text-sm font-semibold text-amber-900">Aktarım durduruldu</p>
                     <p className="mt-2 text-sm leading-6 text-amber-800">
                       Uzun süren aktarımlarda admin oturumu sona erebilir. Tekrar giriş yapıp aynı feed ile kaldığın yerden devam et.
@@ -828,7 +828,7 @@ export default function BulkUploadPage() {
                 </div>
 
                 {repairResult.errors.length > 0 ? (
-                  <div className="mt-4 rounded-[24px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
+                  <div className="mt-4 rounded-[12px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
                     <p className="mb-2 text-sm font-semibold text-red-900">Kategori onarım hataları</p>
                     <ul className="max-h-48 space-y-1 overflow-auto text-sm text-red-900">
                       {repairResult.errors.slice(0, 50).map((error, index) => (
@@ -837,7 +837,7 @@ export default function BulkUploadPage() {
                     </ul>
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+                  <div className="mt-4 rounded-[12px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
                     <p className="text-sm font-semibold text-emerald-900">Kategori hiyerarşisi onarımı tamamlandı</p>
                     <p className="mt-2 text-sm leading-6 text-emerald-800">
                       Eşleşen ürünlerin kategori zinciri feed içindeki tam yol bilgisine göre güncellendi.
@@ -872,7 +872,7 @@ function InfoCard({
           : "border-[var(--admin-border)] bg-gradient-to-br from-white to-[#fbf6f0] text-[var(--admin-heading)]";
 
   return (
-    <div className={`rounded-[24px] border p-4 shadow-sm ${className}`}>
+    <div className={`rounded-[12px] border p-4 shadow-sm ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">{title}</p>
       <p className="mt-2 text-3xl font-bold tracking-tight">{value}</p>
     </div>

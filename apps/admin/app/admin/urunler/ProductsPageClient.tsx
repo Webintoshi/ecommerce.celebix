@@ -1604,7 +1604,7 @@ export default function ProductsPageClient({
                     ? Array.from({ length: 8 }).map((_, index) => (
                         <tr key={`skeleton-${index}`} className="border-b border-[#E1E6EF] bg-white">
                           <td className="px-5 py-5" colSpan={desktopProductTableColumnCount}>
-                            <div className="h-12 animate-pulse rounded-2xl bg-[#F3F4F6]" />
+                            <div className="h-12 animate-pulse rounded-[8px] bg-[#F3F4F6]" />
                           </td>
                         </tr>
                       ))
@@ -1818,7 +1818,7 @@ export default function ProductsPageClient({
             <div className="space-y-4 p-3 sm:p-4 min-[1025px]:hidden">
               {loading && sortedProducts.length === 0
                 ? Array.from({ length: 4 }).map((_, index) => (
-                    <div key={`mobile-skeleton-${index}`} className="h-40 animate-pulse rounded-[24px] bg-[#F3F4F6]" />
+                    <div key={`mobile-skeleton-${index}`} className="h-40 animate-pulse rounded-[12px] bg-[#F3F4F6]" />
                   ))
                 : null}
 
@@ -2005,7 +2005,7 @@ export default function ProductsPageClient({
             aria-modal="true"
             aria-labelledby="bulk-stock-modal-title"
             aria-describedby="bulk-stock-modal-description"
-            className="w-full max-w-md rounded-[28px] border border-[#E7EAF0] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.18)]"
+            className="w-full max-w-md rounded-[12px] border border-[#E7EAF0] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.18)]"
           >
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E85D04]">Toplu stok güncelle</p>
@@ -2031,7 +2031,7 @@ export default function ProductsPageClient({
                 onChange={(event) => setBulkStockValue(event.target.value)}
                 placeholder="Örnek: 25"
                 className={cn(
-                  "h-12 w-full rounded-2xl border border-[#E7EAF0] bg-white px-4 text-sm text-[#1F2937] placeholder:text-[#9CA3AF]",
+                  "h-12 w-full rounded-[8px] border border-[#E7EAF0] bg-white px-4 text-sm text-[#1F2937] placeholder:text-[#9CA3AF]",
                   SURFACE_FOCUS_RING,
                 )}
               />
@@ -2043,7 +2043,7 @@ export default function ProductsPageClient({
                 onClick={closeBulkStockModal}
                 disabled={bulkStockSubmitting}
                 className={cn(
-                  "inline-flex h-11 items-center rounded-2xl border border-[#E7EAF0] bg-white px-4 text-sm font-medium text-[#374151] transition-colors hover:bg-[#F9FAFB] disabled:opacity-50",
+                  "inline-flex h-11 items-center rounded-[8px] border border-[#E7EAF0] bg-white px-4 text-sm font-medium text-[#374151] transition-colors hover:bg-[#F9FAFB] disabled:opacity-50",
                   SURFACE_FOCUS_RING,
                 )}
               >
@@ -2054,7 +2054,7 @@ export default function ProductsPageClient({
                 onClick={() => void handleBulkStockUpdate()}
                 disabled={bulkStockSubmitting}
                 className={cn(
-                  "inline-flex h-11 items-center gap-2 rounded-2xl bg-[#FF6A00] px-4 text-sm font-medium text-white transition-colors hover:bg-[#E85D04] disabled:opacity-50",
+                  "inline-flex h-11 items-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-medium text-white transition-colors hover:bg-[#E85D04] disabled:opacity-50",
                   SURFACE_FOCUS_RING,
                 )}
               >

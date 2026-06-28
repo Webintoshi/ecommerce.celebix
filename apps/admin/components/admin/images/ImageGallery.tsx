@@ -85,7 +85,7 @@ export function ImageGallery({
 
         {/* Image Grid */}
         {images.length === 0 ? (
-          <div className="p-8 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-center">
+          <div className="p-8 border-2 border-dashed border-gray-200 rounded-[8px] flex flex-col items-center justify-center text-center">
             <AlertCircle className="w-12 h-12 text-gray-300 mb-3" />
             <p className="text-sm font-medium text-gray-500">
               Henüz görsel eklenmedi
@@ -111,7 +111,7 @@ export function ImageGallery({
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
                           className={cn(
-                            "relative group/img aspect-square rounded-2xl overflow-hidden bg-gray-50 border transition-all",
+                            "relative group/img aspect-square rounded-[8px] overflow-hidden bg-gray-50 border transition-all",
                             snapshot.isDragging
                               ? "shadow-2xl scale-105 border-blue-500 z-50"
                               : "border-gray-100 hover:shadow-xl hover:border-gray-300"
@@ -149,7 +149,7 @@ export function ImageGallery({
                               type="button"
                               onClick={() => makePrimary(idx)}
                               className={cn(
-                                "p-3 bg-white/20 backdrop-blur-md rounded-xl text-white transition-all",
+                                "p-3 bg-white/20 backdrop-blur-md rounded-[8px] text-white transition-all",
                                 idx !== 0 && "hover:bg-blue-600 hover:scale-110"
                               )}
                               disabled={idx === 0}
@@ -161,7 +161,7 @@ export function ImageGallery({
                             <button
                               type="button"
                               onClick={() => setPreviewImage(img)}
-                              className="p-3 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-gray-700 hover:scale-110 transition-all"
+                              className="p-3 bg-white/20 backdrop-blur-md rounded-[8px] text-white hover:bg-gray-700 hover:scale-110 transition-all"
                               title="Yakınlaştır"
                             >
                               <Zoom className="w-5 h-5" />
@@ -170,7 +170,7 @@ export function ImageGallery({
                             <button
                               type="button"
                               onClick={() => removeImage(idx)}
-                              className="p-3 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-rose-600 hover:scale-110 transition-all"
+                              className="p-3 bg-white/20 backdrop-blur-md rounded-[8px] text-white hover:bg-rose-600 hover:scale-110 transition-all"
                               title="Sil"
                             >
                               <X className="w-5 h-5" />
@@ -184,7 +184,7 @@ export function ImageGallery({
                               value={imageAlts[img] || ''}
                               onChange={(e) => onAltChange(img, e.target.value)}
                               placeholder="Alt metin girin..."
-                              className="w-full px-3 py-2 bg-white/95 rounded-lg text-sm font-medium placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 bg-white rounded-lg text-sm font-medium placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               maxLength={125}
                               onClick={(e) => e.stopPropagation()}
                             />
@@ -221,7 +221,7 @@ export function ImageGallery({
           onClick={() => setPreviewImage(null)}
         >
           <div className="relative max-w-5xl w-full">
-            <div className="relative aspect-video rounded-2xl overflow-hidden shadow-2xl">
+            <div className="relative aspect-video rounded-[8px] overflow-hidden shadow-2xl">
               <Image
                 src={previewImage}
                 alt="Görsel önizleme"
@@ -234,7 +234,7 @@ export function ImageGallery({
             {/* Close Button */}
             <button
               onClick={() => setPreviewImage(null)}
-              className="absolute -top-12 right-0 p-3 bg-white/10 backdrop-blur-md rounded-xl text-white hover:bg-white/20 transition-all"
+              className="absolute -top-12 right-0 p-3 bg-white/10 backdrop-blur-md rounded-[8px] text-white hover:bg-white/20 transition-all"
             >
               <X className="w-6 h-6" />
             </button>

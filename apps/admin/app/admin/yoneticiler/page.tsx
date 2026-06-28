@@ -70,7 +70,7 @@ export default function AdminsPage() {
         </div>
       </AdminCallout>
 
-      <div className="overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-sm)] md:rounded-[24px]">
+      <div className="overflow-hidden rounded-[20px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-sm)] md:rounded-[12px]">
         <div className="border-b border-[var(--admin-border)] bg-[var(--admin-muted-surface)] px-5 py-4">
           <h2 className="flex items-center gap-2 font-semibold text-gray-900">
             <Shield className="h-5 w-5 text-primary" />

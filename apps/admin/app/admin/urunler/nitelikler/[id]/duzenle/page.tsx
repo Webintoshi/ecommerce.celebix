@@ -290,7 +290,7 @@ export default function EditVariantAttributePage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
-        <div className="flex items-center gap-3 rounded-full border border-[var(--admin-border)] bg-white/90 px-5 py-3 text-sm font-medium text-[#8b6d58] shadow-sm">
+        <div className="flex items-center gap-3 rounded-full border border-[var(--admin-border)] bg-white px-5 py-3 text-sm font-medium text-[#8b6d58] shadow-sm">
           <Loader2 className="h-5 w-5 animate-spin text-[var(--admin-accent)]" />
           Nitelik yukleniyor
         </div>
@@ -300,11 +300,11 @@ export default function EditVariantAttributePage() {
 
   const activeValues = values.filter((v) => !v.isDeleted);
   const inputBaseClassName =
-    "w-full rounded-2xl border bg-white/90 px-4 py-3 text-sm text-stone-900 shadow-[0_10px_25px_rgba(120,78,44,0.08)] outline-none transition-all placeholder:text-stone-400 focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
+    "w-full rounded-[8px] border bg-white px-4 py-3 text-sm text-stone-900 shadow-[0_10px_25px_rgba(120,78,44,0.08)] outline-none transition-all placeholder:text-stone-400 focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[var(--admin-accent)]/15";
   const selectedCardClassName =
-    "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[var(--shadow-md)]";
+    "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[var(--shadow-xs)]";
   const idleCardClassName =
-    "border-[var(--admin-border)] bg-white/85 text-stone-700 hover:border-[var(--admin-accent-border)] hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]";
+    "border-[var(--admin-border)] bg-white text-stone-700 hover:border-[var(--admin-accent-border)] hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]";
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#faf8f5] via-[#f5efe8] to-[#efe5dc]">
@@ -314,9 +314,9 @@ export default function EditVariantAttributePage() {
         <div className="hidden" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="relative mx-auto max-w-none px-4 py-6 md:px-6 md:py-8 lg:px-8">
         <form onSubmit={handleSubmit} className="mx-auto max-w-5xl space-y-6">
-          <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+          <section className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
             <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3 md:gap-4">
@@ -338,7 +338,7 @@ export default function EditVariantAttributePage() {
                   <button
                     type="button"
                     onClick={handleDeleteAttribute}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100"
+                    className="inline-flex items-center gap-2 rounded-[8px] border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100"
                   >
                     <Trash2 className="h-4 w-4" />
                     <span>Sil</span>
@@ -350,7 +350,7 @@ export default function EditVariantAttributePage() {
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
             <div className="space-y-6">
-              <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+              <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
                 <div className="mb-5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Temel ayarlar</p>
                   <h2 className="mt-1 text-xl font-semibold text-[var(--admin-heading)]">Nitelik bilgileri</h2>
@@ -387,11 +387,11 @@ export default function EditVariantAttributePage() {
                     type="button"
                     onClick={() => handleDisplayTypeChange("text")}
                     className={cn(
-                      "flex items-center gap-3 rounded-[24px] border p-4 text-left transition-all",
+                      "flex items-center gap-3 rounded-[12px] border p-4 text-left transition-all",
                       displayType === "text" ? selectedCardClassName : idleCardClassName
                     )}
                   >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f7ede4] text-lg font-bold text-[#8b5e3c]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[8px] bg-[#f7ede4] text-lg font-bold text-[#8b5e3c]">
                       Aa
                     </div>
                     <div>
@@ -404,11 +404,11 @@ export default function EditVariantAttributePage() {
                     type="button"
                     onClick={() => handleDisplayTypeChange("color")}
                     className={cn(
-                      "flex items-center gap-3 rounded-[24px] border p-4 text-left transition-all",
+                      "flex items-center gap-3 rounded-[12px] border p-4 text-left transition-all",
                       displayType === "color" ? selectedCardClassName : idleCardClassName
                     )}
                   >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-amber-500 shadow-sm">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[8px] bg-gradient-to-br from-rose-400 to-amber-500 shadow-sm">
                       <Palette className="w-5 h-5 text-white" />
                     </div>
                     <div>
@@ -421,11 +421,11 @@ export default function EditVariantAttributePage() {
                     type="button"
                     onClick={() => handleDisplayTypeChange("image")}
                     className={cn(
-                      "flex items-center gap-3 rounded-[24px] border p-4 text-left transition-all",
+                      "flex items-center gap-3 rounded-[12px] border p-4 text-left transition-all",
                       displayType === "image" ? selectedCardClassName : idleCardClassName
                     )}
                   >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f7ede4]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[8px] bg-[#f7ede4]">
                       <ImageIcon className="w-5 h-5 text-[#8b5e3c]" />
                     </div>
                     <div>
@@ -439,7 +439,7 @@ export default function EditVariantAttributePage() {
               </section>
             </div>
 
-            <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Liste</p>
@@ -450,9 +450,9 @@ export default function EditVariantAttributePage() {
                 </span>
               </div>
 
-              <div className="rounded-[26px] border border-[#efdfd1] bg-gradient-to-r from-[#fffaf6] to-white p-3 shadow-inner sm:p-4">
+              <div className="rounded-[12px] border border-[#efdfd1] bg-gradient-to-r from-[#fffaf6] to-white p-3 shadow-inner sm:p-4">
               {errors.values && (
-                <div className="mb-4 flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                <div className="mb-4 flex items-center gap-2 rounded-[8px] border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   {errors.values}
                 </div>
@@ -465,9 +465,9 @@ export default function EditVariantAttributePage() {
                   return (
                     <div 
                       key={value.id} 
-                      className="group flex flex-col gap-3 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-3 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-white sm:flex-row sm:items-center"
+                      className="group flex flex-col gap-3 rounded-[12px] border border-[var(--admin-border)] bg-white p-3 shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-white sm:flex-row sm:items-center"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#f8eee5] text-sm font-semibold text-[#8d796a]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-[#f8eee5] text-sm font-semibold text-[#8d796a]">
                         {index + 1}
                       </span>
 
@@ -479,7 +479,7 @@ export default function EditVariantAttributePage() {
                               <img
                                 src={value.image_url}
                                 alt={value.value}
-                                className="h-14 w-14 rounded-2xl border border-[var(--admin-border)] object-cover"
+                                className="h-14 w-14 rounded-[8px] border border-[var(--admin-border)] object-cover"
                               />
                               <button
                                 type="button"
@@ -490,7 +490,7 @@ export default function EditVariantAttributePage() {
                               </button>
                             </div>
                           ) : (
-                            <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-[#d9b99f] bg-[#FCFDFE] transition-colors hover:border-[var(--admin-accent-border)] hover:bg-[#fff3ea] focus-within:ring-4 focus-within:ring-[rgba(255,106,0,0.15)]">
+                            <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-[8px] border-2 border-dashed border-[#d9b99f] bg-[#FCFDFE] transition-colors hover:border-[var(--admin-accent-border)] hover:bg-[#fff3ea] focus-within:ring-4 focus-within:ring-[rgba(255,106,0,0.15)]">
                               {uploadingValueId === value.id ? (
                                 <Loader2 className="h-5 w-5 animate-spin text-stone-400" />
                               ) : (
@@ -518,7 +518,7 @@ export default function EditVariantAttributePage() {
                             type="color"
                             value={value.color_code || "#000000"}
                             onChange={(e) => updateValue(value.id, "color_code", e.target.value)}
-                            className="h-11 w-11 cursor-pointer rounded-2xl border border-[#e7d8ca] bg-white p-1 shadow-sm outline-none transition focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]"
+                            className="h-11 w-11 cursor-pointer rounded-[8px] border border-[#e7d8ca] bg-white p-1 shadow-sm outline-none transition focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]"
                           />
                         </div>
                       )}
@@ -536,7 +536,7 @@ export default function EditVariantAttributePage() {
                       <button
                         type="button"
                         onClick={() => removeValue(value.id)}
-                        className="inline-flex h-11 w-11 items-center justify-center self-end rounded-2xl text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100 sm:self-auto sm:opacity-0 sm:group-hover:opacity-100"
+                        className="inline-flex h-11 w-11 items-center justify-center self-end rounded-[8px] text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100 sm:self-auto sm:opacity-0 sm:group-hover:opacity-100"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -548,7 +548,7 @@ export default function EditVariantAttributePage() {
               <button
                 type="button"
                 onClick={addValue}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[#d9b99f] bg-white/70 px-4 py-3 text-sm font-semibold text-[#8b6d58] transition hover:border-[var(--admin-accent)]/35 hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-dashed border-[#d9b99f] bg-white/70 px-4 py-3 text-sm font-semibold text-[#8b6d58] transition hover:border-[var(--admin-accent)]/35 hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.15)]"
               >
                 <Plus className="w-4 h-4" />
                 Değer Ekle
@@ -560,14 +560,14 @@ export default function EditVariantAttributePage() {
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
             <Link
               href="/admin/urunler/nitelikler"
-              className="inline-flex items-center justify-center rounded-2xl border border-[var(--admin-accent-border)] bg-white px-6 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+              className="inline-flex items-center justify-center rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-6 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
             >
               İptal
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:pointer-events-none disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:pointer-events-none disabled:opacity-60"
             >
               {saving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

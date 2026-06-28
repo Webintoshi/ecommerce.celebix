@@ -290,7 +290,7 @@ export function RichTextEditor({
                 runToolbarAction(action.id);
               }}
               className={cn(
-                "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                "inline-flex items-center gap-2 rounded-[8px] border px-3 py-2 text-xs font-semibold transition",
                 isActive
                   ? "border-gray-900 bg-gray-900 text-white"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-900 hover:text-gray-900",
@@ -307,7 +307,7 @@ export function RichTextEditor({
 
       <div
         className={cn(
-          "relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-all",
+          "relative overflow-hidden rounded-[8px] border bg-white shadow-sm transition-all",
           error ? "border-rose-300 bg-rose-50/20" : "border-gray-200",
           editor?.isFocused && !error ? "border-blue-500 ring-4 ring-blue-50" : "",
         )}

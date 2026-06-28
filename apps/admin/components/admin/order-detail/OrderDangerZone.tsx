@@ -76,7 +76,7 @@ export function OrderDangerZone({
             onClick={handleDelete}
             disabled={isDeleting}
             className={`
-              px-4 py-2 rounded-xl font-bold text-sm transition-all
+              px-4 py-2 rounded-[8px] font-bold text-sm transition-all
               flex items-center gap-2 shrink-0
               ${showConfirm
                 ? "bg-red-600 text-white hover:bg-red-700"

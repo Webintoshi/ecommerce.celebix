@@ -75,7 +75,7 @@ const COLOR_OPTIONS = [
   { value: "from-emerald-500 to-teal-600", label: "Yesil / Teal" },
   { value: "from-rose-500 to-pink-600", label: "Pembe / Rose" },
   { value: "from-blue-500 to-indigo-600", label: "Mavi / Indigo" },
-  { value: "from-violet-500 to-purple-600", label: "Mor / Violet" },
+  { value: "from-orange-500 to-orange-600", label: "Mor / Violet" },
   { value: "from-primary to-primary/80", label: "Celebix Kirmizi" },
   { value: "from-cyan-500 to-blue-600", label: "Turkuaz / Mavi" },
   { value: "from-lime-500 to-green-600", label: "Limon Yesili" },
@@ -174,7 +174,7 @@ function SortablePromoBannerCard({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white shadow-sm ${
+      className={`overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-sm ${
         isDragging ? "shadow-[0_24px_48px_rgba(73,44,23,0.18)]" : ""
       }`}
     >
@@ -184,7 +184,7 @@ function SortablePromoBannerCard({
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
           onClick={onToggle}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff3e8] text-sm font-semibold text-[var(--admin-accent-hover)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-[#fff3e8] text-sm font-semibold text-[var(--admin-accent-hover)]">
             {index + 1}
           </div>
           <div className="min-w-0 flex-1">
@@ -216,14 +216,14 @@ function SortablePromoBannerCard({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-red-50 hover:text-red-600"
+            className="rounded-[8px] p-2 text-[#b8977f] transition-colors hover:bg-red-50 hover:text-red-600"
             aria-label={`Banner ${index + 1} sil`}
           >
             <Trash2 className="h-4 w-4" />
           </button>
           <button
             type="button"
-            className="cursor-grab rounded-xl p-2 text-[#b8977f] transition-colors hover:bg-[#f7efe8] hover:text-[var(--admin-text-secondary)] active:cursor-grabbing"
+            className="cursor-grab rounded-[8px] p-2 text-[#b8977f] transition-colors hover:bg-[#f7efe8] hover:text-[var(--admin-text-secondary)] active:cursor-grabbing"
             aria-label={`Banner ${index + 1} sirala`}
             {...attributes}
             {...listeners}
@@ -236,7 +236,7 @@ function SortablePromoBannerCard({
       {isExpanded ? (
         <div className="space-y-5 p-5">
           <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-xl bg-[#f5eee7] p-1">
+            <div className="flex items-center gap-2 rounded-[8px] bg-[#f5eee7] p-1">
               <button
                 type="button"
                 onClick={() => onTabChange("desktop")}
@@ -267,7 +267,7 @@ function SortablePromoBannerCard({
               </button>
             </div>
 
-            <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-2xl border-2 border-dashed border-[var(--admin-border)] bg-[#faf5ef] transition-colors hover:border-[var(--admin-accent-border)]">
+            <div className="group/upload relative aspect-[16/9] overflow-hidden rounded-[8px] border-2 border-dashed border-[var(--admin-border)] bg-[#faf5ef] transition-colors hover:border-[var(--admin-accent-border)]">
               {currentImage ? (
                 <>
                   <Image
@@ -279,7 +279,7 @@ function SortablePromoBannerCard({
                     unoptimized
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover/upload:opacity-100">
-                    <label className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-medium text-[var(--admin-heading)] shadow-lg hover:bg-[#f8f3ed]">
+                    <label className="cursor-pointer rounded-[8px] bg-white px-4 py-2 text-sm font-medium text-[var(--admin-heading)] shadow-lg hover:bg-[#f8f3ed]">
                       Degistir
                       <input
                         type="file"
@@ -296,7 +296,7 @@ function SortablePromoBannerCard({
                     <Loader2 className="h-8 w-8 animate-spin text-[#b8977f]" />
                   ) : (
                     <>
-                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white">
+                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-[8px] bg-white">
                         {activeImageTab === "mobile" ? (
                           <Smartphone className="h-6 w-6 text-[#c8b5a7]" />
                         ) : (
@@ -326,14 +326,14 @@ function SortablePromoBannerCard({
                 onChange={(event) =>
                   onUpdateBanner(activeImageTab === "mobile" ? "mobileImage" : "image", event.target.value)
                 }
-                className="flex-1 rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-xs focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                className="flex-1 rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-xs focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               />
               {currentImage && !currentStats ? (
                 <button
                   type="button"
                   onClick={() => onOptimize(activeImageTab)}
                   disabled={isOptimizing}
-                  className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-2 text-xs font-medium text-white transition-all hover:from-violet-600 hover:to-purple-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-[8px] bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2 text-xs font-medium text-white transition-all hover:from-orange-600 hover:to-orange-700 disabled:opacity-50"
                   title="Gorseli optimize et"
                 >
                   {isOptimizing ? (
@@ -347,7 +347,7 @@ function SortablePromoBannerCard({
             </div>
 
             {currentStats ? (
-              <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-3">
+              <div className="flex items-center justify-between rounded-[8px] border border-green-200 bg-green-50 p-3">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
                     <Sparkles className="h-4 w-4 text-green-600" />
@@ -377,7 +377,7 @@ function SortablePromoBannerCard({
               <select
                 value={banner.badge || ""}
                 onChange={(event) => onUpdateBanner("badge", event.target.value)}
-                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               >
                 {BADGE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -394,7 +394,7 @@ function SortablePromoBannerCard({
               <select
                 value={banner.color || "from-primary to-primary/80"}
                 onChange={(event) => onUpdateBanner("color", event.target.value)}
-                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
               >
                 {COLOR_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -412,7 +412,7 @@ function SortablePromoBannerCard({
                 type="text"
                 value={banner.title}
                 onChange={(event) => onUpdateBanner("title", event.target.value)}
-                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 placeholder="Orn: Dogal fistik ezmesi"
               />
             </div>
@@ -422,7 +422,7 @@ function SortablePromoBannerCard({
                 type="text"
                 value={banner.subtitle}
                 onChange={(event) => onUpdateBanner("subtitle", event.target.value)}
-                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 placeholder="Orn: Her gun taze"
               />
             </div>
@@ -432,7 +432,7 @@ function SortablePromoBannerCard({
                 type="text"
                 value={banner.buttonText}
                 onChange={(event) => onUpdateBanner("buttonText", event.target.value)}
-                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 placeholder="Incele"
               />
             </div>
@@ -442,7 +442,7 @@ function SortablePromoBannerCard({
                 type="text"
                 value={banner.buttonLink}
                 onChange={(event) => onUpdateBanner("buttonLink", event.target.value)}
-                className="w-full rounded-xl border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
+                className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm focus:border-[var(--admin-accent-border)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]/10"
                 placeholder="/kategori-slug"
               />
             </div>
@@ -701,14 +701,14 @@ export function DesignPromoBannerSection() {
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f241d] to-[#4a3629] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#241a15] disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-[#2f241d] to-[#4a3629] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#241a15] disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Promosyon Banner Kaydet
         </button>
       </div>
 
-      <div className="rounded-[24px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
+      <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
         Bannerlari acmadan bile durumunu gorun. Siralamayi surukleyerek degistirdiginizde kaydettikten sonra storefront ayni sira ile akar.
       </div>
 
@@ -749,7 +749,7 @@ export function DesignPromoBannerSection() {
         <button
           type="button"
           onClick={handleAddBanner}
-          className="flex w-full items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-[var(--admin-border)] py-4 font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]"
+          className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-dashed border-[var(--admin-border)] py-4 font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]"
         >
           <Plus className="h-5 w-5" />
           Yeni Banner Ekle
@@ -757,7 +757,7 @@ export function DesignPromoBannerSection() {
       ) : null}
 
       {banners.length > 0 ? (
-        <div className="flex items-start gap-3 rounded-[24px] border border-blue-100 bg-blue-50 p-4">
+        <div className="flex items-start gap-3 rounded-[12px] border border-blue-100 bg-blue-50 p-4">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">
             <Smartphone className="h-4 w-4 text-blue-600" />
           </div>

@@ -56,7 +56,7 @@ export default function NewPaymentGatewayPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8 space-y-8 max-w-none mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div>
@@ -75,7 +75,7 @@ export default function NewPaymentGatewayPage() {
       </div>
 
       {!selectedGateway || !formData ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 p-8">
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-1">{"\u00d6deme Sa\u011flay\u0131c\u0131s\u0131 Se\u00e7in"}</h2>
           </div>
@@ -85,7 +85,7 @@ export default function NewPaymentGatewayPage() {
               <button
                 key={provider.id}
                 onClick={() => handleGatewaySelect(provider.id)}
-                className="p-6 border border-gray-200 rounded-xl text-left hover:border-gray-900 hover:shadow-md transition-all group bg-gray-50/30"
+                className="p-6 border border-gray-200 rounded-[8px] text-left hover:border-gray-900 hover:shadow-md transition-all group bg-gray-50/30"
               >
                 <div className="w-12 h-12 mb-4">
                   <PaymentProviderLogo
@@ -107,7 +107,7 @@ export default function NewPaymentGatewayPage() {
       ) : (
         <div className="space-y-6">
           {selectedDefinition && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="bg-white rounded-[8px] border border-gray-200 p-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 shrink-0">
                   <PaymentProviderLogo

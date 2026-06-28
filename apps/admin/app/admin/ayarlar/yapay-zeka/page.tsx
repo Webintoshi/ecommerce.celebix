@@ -49,9 +49,9 @@ const PROVIDERS = [
         name: "DeepSeek",
         description: "Hızlı ve uygun fiyatlı yapay zeka. OpenAI uyumlu API.",
         models: ["deepseek-chat", "deepseek-reasoner"],
-        color: "from-violet-500 to-purple-500",
-        bgColor: "bg-violet-50 border-violet-200",
-        activeColor: "bg-violet-600",
+        color: "from-orange-500 to-orange-500",
+        bgColor: "bg-orange-50 border-orange-200",
+        activeColor: "bg-orange-600",
         badge: "Ekonomik",
         features: ["Uygun Fiyat ✅", "Türkçe ✅", "Hızlı ✅"],
     },
@@ -165,19 +165,19 @@ export default function AISettingsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--admin-bg)] flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-8">
+        <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8 space-y-8">
             {/* Header */}
             <div className="flex items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                        <Brain className="w-6 h-6 text-purple-600" />
+                        <Brain className="w-6 h-6 text-orange-600" />
                         Yapay Zeka Ayarları
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">
@@ -188,7 +188,7 @@ export default function AISettingsPage() {
 
             {/* Env key info */}
             {hasEnvKey && !config.apiKey && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-[8px] p-4 flex items-start gap-3">
                     <Sparkles className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                     <div>
                         <p className="text-sm font-medium text-blue-900">
@@ -211,7 +211,7 @@ export default function AISettingsPage() {
                         <button
                             key={p.id}
                             onClick={() => selectProvider(p.id)}
-                            className={`relative text-left p-5 rounded-xl border-2 transition-all duration-200 ${config.provider === p.id
+                            className={`relative text-left p-5 rounded-[8px] border-2 transition-all duration-200 ${config.provider === p.id
                                 ? `${p.bgColor} border-current shadow-md scale-[1.02]`
                                 : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
                                 }`}
@@ -251,7 +251,7 @@ export default function AISettingsPage() {
             </div>
 
             {/* API Key Input */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+            <div className="bg-white rounded-[8px] border border-gray-200 p-6 space-y-5">
                 <h2 className="text-lg font-semibold text-gray-900">
                     {selectedProvider.name} Yapılandırması
                 </h2>
@@ -269,7 +269,7 @@ export default function AISettingsPage() {
                                 setConfig({ ...config, apiKey: e.target.value })
                             }
                             placeholder={`${selectedProvider.name} API key'inizi girin...`}
-                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all font-mono text-sm pr-12"
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-mono text-sm pr-12"
                         />
                         <button
                             type="button"
@@ -299,7 +299,7 @@ export default function AISettingsPage() {
                         onChange={(e) =>
                             setConfig({ ...config, model: e.target.value })
                         }
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-sm bg-white"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all text-sm bg-white"
                     >
                         {selectedProvider.models.map((m) => (
                             <option key={m} value={m}>
@@ -379,9 +379,9 @@ export default function AISettingsPage() {
             </div>
 
             {/* Info Box */}
-            <div className="bg-gray-900 rounded-2xl p-6 text-white">
+            <div className="bg-gray-900 rounded-[8px] p-6 text-white">
                 <h3 className="font-semibold flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-purple-400" />
+                    <Brain className="w-5 h-5 text-orange-400" />
                     Nasıl Çalışır?
                 </h3>
                 <ul className="mt-3 space-y-2 text-sm text-gray-300">

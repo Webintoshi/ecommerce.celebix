@@ -106,7 +106,7 @@ export default function EditPaymentGatewayPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+        <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8 space-y-8 max-w-none mx-auto">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <div>
@@ -136,7 +136,7 @@ export default function EditPaymentGatewayPage() {
             </div>
 
             {testResult !== null && (
-                <div className={`rounded-xl p-4 flex items-center gap-2 text-sm font-medium ${testResult
+                <div className={`rounded-[8px] p-4 flex items-center gap-2 text-sm font-medium ${testResult
                     ? "bg-green-50 border border-green-200 text-green-700"
                     : "bg-red-50 border border-red-200 text-red-700"
                     }`}>
@@ -149,7 +149,7 @@ export default function EditPaymentGatewayPage() {
                 <PaymentGatewayForm gateway={gateway} onChange={setGateway} errors={errors} />
 
                 <aside className="space-y-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 p-6">
                         <h3 className="font-semibold text-gray-900 mb-4">Sağlayıcı Özet</h3>
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between gap-4">
@@ -180,12 +180,12 @@ export default function EditPaymentGatewayPage() {
                     </div>
 
                     {runtimeStatus && (
-                        <div className={`rounded-xl border p-4 text-sm ${runtimeStatus.isReady ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                        <div className={`rounded-[8px] border p-4 text-sm ${runtimeStatus.isReady ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
                             {runtimeStatus.message}
                         </div>
                     )}
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 p-6">
                         <h3 className="font-semibold text-gray-900 mb-4">Kayit Bilgisi</h3>
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between gap-4">
@@ -199,7 +199,7 @@ export default function EditPaymentGatewayPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 p-6">
                         <h3 className="font-semibold text-gray-900 mb-4">Dış Bağlantılar</h3>
                         <div className="flex flex-col gap-3">
                             <a href={provider.homepageUrl} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">

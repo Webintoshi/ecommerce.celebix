@@ -61,14 +61,14 @@ export function PaymentProviderLogo({
 
   if (!src || hasError) {
     return (
-      <div className={`${containerClassName} rounded-xl bg-gradient-to-r ${accentClassName} flex items-center justify-center shadow-sm text-white`}>
+      <div className={`${containerClassName} rounded-[8px] bg-gradient-to-r ${accentClassName} flex items-center justify-center shadow-sm text-white`}>
         <Icon className={iconClassName} />
       </div>
     );
   }
 
   return (
-    <div className={`${containerClassName} rounded-xl flex items-center justify-center bg-white shadow-sm overflow-hidden`}>
+    <div className={`${containerClassName} rounded-[8px] flex items-center justify-center bg-white shadow-sm overflow-hidden`}>
       <Image
         src={src}
         alt={name}

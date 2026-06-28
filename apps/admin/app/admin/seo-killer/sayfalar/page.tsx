@@ -454,7 +454,7 @@ export default function PageSEOPage() {
             <div className="flex items-start justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <FileText className="w-7 h-7 text-purple-600" />
+                        <FileText className="w-7 h-7 text-orange-600" />
                         Sayfa SEO Yönetimi
                     </h1>
                     <p className="text-gray-500 mt-1">
@@ -473,7 +473,7 @@ export default function PageSEOPage() {
 
             {/* Messages */}
             {message && (
-                <div className={`p-4 rounded-xl flex items-center gap-3 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                <div className={`p-4 rounded-[8px] flex items-center gap-3 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
                     {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
                     <span>{message.text}</span>
                 </div>
@@ -489,11 +489,11 @@ export default function PageSEOPage() {
 
             {/* Pages List */}
             {!loading && pages.map((page) => (
-                <div key={page.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div key={page.id} className="bg-white rounded-[8px] shadow-sm border border-gray-100 overflow-hidden">
                     {/* Card Header */}
                     <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                            <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
                                 {getIcon(page.icon || 'FileText')}
                             </div>
                             <div>
@@ -736,8 +736,8 @@ function FAQSection({ faq, onAdd, onUpdate, onRemove, onGenerateAI, isGenerating
 function GEOSection({ keyTakeaways, onAdd, onUpdate, onRemove, onGenerateAI, isGenerating, onSave, onCancel, isSaving }: any) {
     return (
         <div className="space-y-4">
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                <h4 className="font-medium text-purple-900">GEO / LLM Optimizasyonu</h4>
+            <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                <h4 className="font-medium text-orange-900">GEO / LLM Optimizasyonu</h4>
             </div>
             <div>
                 <div className="flex items-center justify-between mb-3">

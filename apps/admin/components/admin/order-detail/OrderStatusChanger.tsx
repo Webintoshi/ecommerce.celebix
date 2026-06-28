@@ -132,7 +132,7 @@ export function OrderStatusChanger({
         onClick={() => !disabled && !isUpdating && setIsOpen(!isOpen)}
         disabled={disabled || isUpdating}
         className={`
-          inline-flex min-h-11 items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold
+          inline-flex min-h-11 items-center gap-2 rounded-[8px] border px-4 py-2.5 text-sm font-semibold
           transition-all duration-200
           ${disabled || isUpdating
             ? "cursor-not-allowed border-[#e7ddd4] bg-[#f4ede6] text-stone-400"
@@ -158,7 +158,7 @@ export function OrderStatusChanger({
         createPortal(
           <div 
             ref={menuRef}
-            className="fixed z-[9999] w-72 overflow-hidden rounded-[24px] border border-[var(--admin-border)] bg-white/95 shadow-2xl backdrop-blur"
+            className="fixed z-[9999] w-72 overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-2xl backdrop-blur"
             style={{ 
               top: `${menuPosition.top}px`,
               right: `${menuPosition.right}px`,

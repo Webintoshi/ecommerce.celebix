@@ -14,7 +14,7 @@ export function AdminSectionCard({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-md)] md:rounded-[28px]",
+        "overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--shadow-xs)] md:rounded-[12px]",
         className,
       )}
     >

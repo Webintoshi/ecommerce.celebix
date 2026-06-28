@@ -90,7 +90,7 @@ function DesktopTopbar({
 
   return (
     <header className="sticky top-0 z-30 mb-2 hidden w-full border-b border-[rgba(224,228,235,0.86)] bg-[rgba(249,249,249,0.96)] backdrop-blur-xl min-[1025px]:block">
-      <div className="mx-auto max-w-[1560px] px-4 py-1.5 2xl:px-5">
+      <div className="mx-auto max-w-none px-4 py-1.5 2xl:px-5">
         <div className="flex min-h-11 items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase leading-3 tracking-[0.16em] text-[var(--admin-text-muted)]">

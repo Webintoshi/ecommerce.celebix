@@ -142,7 +142,7 @@ export function QuickActions({
               onClick={() => handleAction(action.id, action.onClick)}
               disabled={action.disabled || isLoading}
               className={`
-                flex flex-col items-center gap-2 p-4 rounded-2xl
+                flex flex-col items-center gap-2 p-4 rounded-[8px]
                 transition-all duration-200
                 ${action.color}
                 ${action.disabled || isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
@@ -172,7 +172,7 @@ export function QuickActions({
               disabled={isLoading}
               className={`
                 flex-1 flex items-center justify-center gap-2 px-4 py-2.5
-                rounded-xl font-bold text-sm transition-all duration-200
+                rounded-[8px] font-bold text-sm transition-all duration-200
                 ${action.color}
                 ${isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
               `}

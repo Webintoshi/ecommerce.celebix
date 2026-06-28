@@ -65,7 +65,7 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
     return (
         <div className="space-y-6">
             {errors.length > 0 && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                <div className="rounded-[8px] border border-red-200 bg-red-50 p-4">
                     <h3 className="text-sm font-semibold text-red-800">Form hataları</h3>
                     <ul className="mt-2 list-disc pl-5 text-sm text-red-700">
                         {errors.map((error) => (
@@ -75,8 +75,8 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
                 </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+            <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-[var(--admin-bg)] flex items-center gap-3">
                     <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
                         <Settings className="w-4 h-4 text-gray-600" />
                     </div>
@@ -140,8 +140,8 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
             </div>
 
             {(definition.credentialFields.length > 0 || definition.configurationFields.length > 0) && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+                <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 bg-[var(--admin-bg)] flex items-center gap-3">
                         <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
                             <Lock className="w-4 h-4 text-gray-600" />
                         </div>
@@ -225,8 +225,8 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
             )}
 
             {gateway.gateway === "bank_transfer" && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+                <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 bg-[var(--admin-bg)] flex items-center gap-3">
                         <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
                             <Wallet className="w-4 h-4 text-gray-600" />
                         </div>
@@ -288,8 +288,8 @@ export function PaymentGatewayForm({ gateway, errors = [], onChange }: PaymentGa
             )}
 
             {gateway.gateway === "cod" && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 bg-[var(--admin-bg)]">
                         <h2 className="font-semibold text-gray-900">Kapıda Ödeme Kuralları</h2>
                     </div>
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">

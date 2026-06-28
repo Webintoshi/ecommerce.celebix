@@ -163,7 +163,7 @@ Preferred Citation Format: "${STORE_RUNTIME.name} - [Ürün/Kategori Adı] - ${S
             </div>
 
             {/* LLM Bot Status */}
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-5 rounded-[8px] shadow-sm border border-gray-100">
                 <h3 className="font-semibold text-gray-900 mb-4">Desteklenen LLM Botları</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {LLM_BOTS.map(bot => (
@@ -180,7 +180,7 @@ Preferred Citation Format: "${STORE_RUNTIME.name} - [Ürün/Kategori Adı] - ${S
             </div>
 
             {/* llms.txt Preview */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-[8px] shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <FileText className="w-5 h-5 text-gray-600" />
@@ -211,19 +211,19 @@ Preferred Citation Format: "${STORE_RUNTIME.name} - [Ürün/Kategori Adı] - ${S
                     {loading ? (
                         <div className="space-y-4">
                             {[1, 2, 3].map(i => (
-                                <div key={i} className="animate-pulse bg-gray-200 rounded-xl h-32" />
+                                <div key={i} className="animate-pulse bg-gray-200 rounded-[8px] h-32" />
                             ))}
                         </div>
                     ) : (
                         optimizations.map((opt, index) => (
-                            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div key={index} className="bg-white rounded-[8px] shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="p-5">
                                     <div className="flex items-start justify-between mb-4">
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                                                     opt.pageType === "product" ? "bg-blue-100 text-blue-700" :
-                                                    opt.pageType === "category" ? "bg-purple-100 text-purple-700" :
+                                                    opt.pageType === "category" ? "bg-orange-100 text-orange-700" :
                                                     "bg-orange-100 text-orange-700"
                                                 }`}>
                                                     {opt.pageType === "product" ? "Ürün" :

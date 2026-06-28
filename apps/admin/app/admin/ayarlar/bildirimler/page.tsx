@@ -284,7 +284,7 @@ export default function NotificationSettingsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="flex items-center gap-3 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
+        <div className="flex items-center gap-3 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
           <Loader2 className="h-4 w-4 animate-spin text-[var(--admin-accent)]" />
           Bildirim ayarları yükleniyor...
         </div>
@@ -295,7 +295,7 @@ export default function NotificationSettingsPage() {
   if (!settings) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-[28px] border border-rose-200 bg-white p-6 text-center shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+        <div className="w-full max-w-md rounded-[12px] border border-rose-200 bg-white p-6 text-center shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
             <ShieldAlert className="h-5 w-5" />
           </div>
@@ -381,14 +381,14 @@ export default function NotificationSettingsPage() {
         </div>
 
         {permission === "denied" ? (
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="mt-4 flex items-start gap-3 rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
             Tarayıcı bildirim izni kapalı. Push almak için izin ayarını yeniden açmanız gerekir.
           </div>
         ) : null}
 
         {backgroundSyncError ? (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <div className="flex items-start gap-3">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
               <span>Yorum bildirim senkronu tamamlanamadı: {backgroundSyncError}</span>
@@ -500,7 +500,7 @@ export default function NotificationSettingsPage() {
         }
       >
         <div className="grid gap-4 xl:grid-cols-2">
-          <div className="space-y-4 rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] p-4">
+          <div className="space-y-4 rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] p-4">
             <div className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-[var(--admin-accent)]" />
               <h3 className="text-base font-semibold text-gray-950">E-posta</h3>
@@ -545,7 +545,7 @@ export default function NotificationSettingsPage() {
             </Button>
           </div>
 
-          <div className="space-y-4 rounded-[22px] border border-[var(--admin-border)] bg-white p-4">
+          <div className="space-y-4 rounded-[12px] border border-[var(--admin-border)] bg-white p-4">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-[var(--admin-accent)]" />
               <h3 className="text-base font-semibold text-gray-950">SMS</h3>
@@ -606,7 +606,7 @@ function ToggleCard({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-[22px] border border-[var(--admin-border)] bg-white p-4 shadow-sm transition-all hover:border-[var(--admin-accent-border)]">
+    <label className="flex cursor-pointer items-start gap-3 rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-sm transition-all hover:border-[var(--admin-accent-border)]">
       <input
         type="checkbox"
         className="mt-1 h-4 w-4 rounded border-[var(--admin-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"

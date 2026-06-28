@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Copy, Eye, Filter, MessageCircle, RefreshCw, Send, Users, X } from "lucide-react";
+import { Copy, Eye, Filter, MessageCircle, RefreshCw, Send, Users } from "lucide-react";
+import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import { getCustomers } from "@/lib/customers";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { Customer } from "@/types/customer";
@@ -102,42 +102,27 @@ export default function WhatsAppMarketingPage() {
   };
 
   return (
-    <div className="admin-page-root px-4 py-4 md:px-6 md:py-6 xl:px-8">
-      <div className="mx-auto max-w-[1600px] space-y-6">
-        <header className="rounded-[32px] border border-[var(--admin-border)] bg-white/88 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
-              <span className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent-hover)]">
-                WhatsApp Pazarlama
-              </span>
-              <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#352312] md:text-[2.5rem]">
-                  WhatsApp Kampanyaları
-                </h1>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/admin/pazarlama"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition hover:border-[#d7c0a4] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-              >
-                <X className="h-4 w-4" />
-                Geri
-              </Link>
+    <main className="admin-page-root px-4 py-4 md:px-6 md:py-5 xl:px-6">
+      <div className="mx-auto max-w-none">
+        <AdminPageShell>
+          <AdminPageHeader
+            sectionLabel="Pazarlama"
+            title="WhatsApp Kampanyaları"
+            description="Alıcı, mesaj şablonu ve önizleme akışını yönetin."
+            actions={
               <button
+                type="button"
                 onClick={() => setCustomers(getCustomers())}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_-22px_rgba(166,106,45,0.8)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-3 text-sm font-semibold text-[var(--admin-text)] transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
               >
                 <RefreshCw className="h-4 w-4" />
                 Yenile
               </button>
-            </div>
-          </div>
-        </header>
+            }
+          />
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.95fr)]">
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)] backdrop-blur">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)] backdrop-blur">
             <div className="border-b border-[#f1e4d1] px-5 py-5 md:px-6">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -155,7 +140,7 @@ export default function WhatsAppMarketingPage() {
                       placeholder="Müşteri veya telefon ara"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                     />
                   </div>
 
@@ -164,7 +149,7 @@ export default function WhatsAppMarketingPage() {
                     <select
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
-                      className="w-full appearance-none rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-10 text-sm text-[var(--admin-heading)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                      className="w-full appearance-none rounded-[8px] border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-10 text-sm text-[var(--admin-heading)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                     >
                       <option value="all">Tüm müşteriler</option>
                       <option value="phone">Telefon numarası olanlar</option>
@@ -177,7 +162,7 @@ export default function WhatsAppMarketingPage() {
             </div>
 
             <div className="px-3 pb-3 pt-3 md:px-4 md:pb-4">
-              <div className="hidden overflow-hidden rounded-[28px] border border-[var(--admin-border)] md:block">
+              <div className="hidden overflow-hidden rounded-[12px] border border-[var(--admin-border)] md:block">
                 <div className="max-h-[620px] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-[#FCFDFE] text-[var(--admin-text-secondary)]">
@@ -232,7 +217,7 @@ export default function WhatsAppMarketingPage() {
                               </div>
                             </td>
                             <td className="px-5 py-4 align-top">
-                              <span className="inline-flex rounded-xl bg-[#f7efe5] px-3 py-2 font-mono text-[#73563a]">
+                              <span className="inline-flex rounded-[8px] bg-[#f7efe5] px-3 py-2 font-mono text-[#73563a]">
                                 {customer.phone || "-"}
                               </span>
                             </td>
@@ -253,7 +238,7 @@ export default function WhatsAppMarketingPage() {
                                   href={generateWhatsAppLink(customer.phone, previewContent)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 rounded-2xl border border-[#b7d5b7] bg-[#eff9ef] px-4 py-2.5 font-semibold text-[#28693f] transition hover:border-[#78b27e] hover:bg-[#e5f5e7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5f9e67] focus-visible:ring-offset-2"
+                                  className="inline-flex items-center gap-2 rounded-[8px] border border-[#b7d5b7] bg-[#eff9ef] px-4 py-2.5 font-semibold text-[#28693f] transition hover:border-[#78b27e] hover:bg-[#e5f5e7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5f9e67] focus-visible:ring-offset-2"
                                 >
                                   <MessageCircle className="h-4 w-4" />
                                   Aç
@@ -277,7 +262,7 @@ export default function WhatsAppMarketingPage() {
                   return (
                     <article
                       key={customer.id}
-                      className={`rounded-[26px] border p-4 transition ${
+                      className={`rounded-[12px] border p-4 transition ${
                         isSelected ? "border-[#dba85f] bg-[#fff4df]" : "border-[#eee2d1] bg-white"
                       }`}
                     >
@@ -321,7 +306,7 @@ export default function WhatsAppMarketingPage() {
                               href={generateWhatsAppLink(customer.phone, getPreviewContent())}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 rounded-2xl border border-[#b7d5b7] bg-[#eff9ef] px-4 py-2.5 text-sm font-semibold text-[#28693f] transition hover:border-[#78b27e] hover:bg-[#e5f5e7]"
+                              className="inline-flex items-center gap-2 rounded-[8px] border border-[#b7d5b7] bg-[#eff9ef] px-4 py-2.5 text-sm font-semibold text-[#28693f] transition hover:border-[#78b27e] hover:bg-[#e5f5e7]"
                             >
                               <MessageCircle className="h-4 w-4" />
                               WhatsApp aç
@@ -335,7 +320,7 @@ export default function WhatsAppMarketingPage() {
               </div>
 
               {filteredCustomers.length === 0 && (
-                <div className="rounded-[28px] border border-dashed border-[#e6d4bd] bg-[#FCFDFE] px-6 py-14 text-center">
+                <div className="rounded-[12px] border border-dashed border-[#e6d4bd] bg-[#FCFDFE] px-6 py-14 text-center">
                   <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#f4e3cc] text-[#a4743a]">
                     <Users className="h-7 w-7" />
                   </div>
@@ -347,7 +332,7 @@ export default function WhatsAppMarketingPage() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
+            <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)] backdrop-blur md:p-6">
               <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                 Mesaj kompozisyonu
               </span>
@@ -360,7 +345,7 @@ export default function WhatsAppMarketingPage() {
                     key={template.id}
                     type="button"
                     onClick={() => setMessageTemplate(template.content)}
-                    className={`rounded-[24px] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 ${
+                    className={`rounded-[12px] border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 ${
                       messageTemplate === template.content
                         ? "border-[#d5ad74] bg-[var(--admin-accent-soft)] shadow-[0_18px_38px_-28px_rgba(166,106,45,0.65)]"
                         : "border-[var(--admin-border)] bg-[#FCFDFE] hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)]"
@@ -382,9 +367,9 @@ export default function WhatsAppMarketingPage() {
                   onChange={(e) => setMessageTemplate(e.target.value)}
                   placeholder="Mesajınızı buraya yazın. {firstName} ve {lastName} değişkenlerini kullanabilirsiniz."
                   rows={9}
-                  className="w-full rounded-[26px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 text-sm leading-6 text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                  className="w-full rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 text-sm leading-6 text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                 />
-                <div className="rounded-[22px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[var(--admin-text-secondary)]">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[var(--admin-text-secondary)]">
                   Kullanılabilir değişkenler: <span className="font-semibold text-[#5d4123]">{`{firstName}`}</span>, <span className="font-semibold text-[#5d4123]">{`{lastName}`}</span>, <span className="font-semibold text-[#5d4123]">{`{orderNumber}`}</span>
                 </div>
               </div>
@@ -392,7 +377,7 @@ export default function WhatsAppMarketingPage() {
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => setPreviewMode(!previewMode)}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-[#faf4eb] px-4 py-3 font-semibold text-[var(--admin-text-secondary)] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
+                  className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[#faf4eb] px-4 py-3 font-semibold text-[var(--admin-text-secondary)] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
                 >
                   <Eye className="h-4 w-4" />
                   {previewMode ? "Önizlemeyi gizle" : "Önizleme aç"}
@@ -402,7 +387,7 @@ export default function WhatsAppMarketingPage() {
                     const content = getPreviewContent();
                     navigator.clipboard.writeText(content);
                   }}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-4 py-3 font-semibold text-[var(--admin-accent-hover)] transition hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
+                  className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-4 py-3 font-semibold text-[var(--admin-accent-hover)] transition hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
                 >
                   <Copy className="h-4 w-4" />
                   Metni kopyala
@@ -412,7 +397,7 @@ export default function WhatsAppMarketingPage() {
               <button
                 onClick={handleSendWhatsApp}
                 disabled={selectedCustomers.length === 0 || sending}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3.5 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3.5 font-semibold text-white shadow-[0_18px_36px_-24px_rgba(166,106,45,0.75)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {sending ? (
                   <>
@@ -428,7 +413,7 @@ export default function WhatsAppMarketingPage() {
               </button>
             </section>
 
-            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
+            <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)] backdrop-blur md:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
@@ -441,21 +426,21 @@ export default function WhatsAppMarketingPage() {
                       : "Tek alıcı seçildiğinde kişiselleştirme uygulanır."}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-[var(--admin-accent-soft)] px-3 py-2 text-right">
+                <div className="rounded-[8px] bg-[var(--admin-accent-soft)] px-3 py-2 text-right">
                   <div className="text-xs uppercase tracking-[0.2em] text-[#a27b4d]">Seçili</div>
                   <div className="text-lg font-semibold text-[#6b441d]">{selectedRecipients.length}</div>
                 </div>
               </div>
 
               {(previewMode || messageTemplate) && (
-                <div className="mt-5 rounded-[28px] border border-[#e2dccf] bg-[linear-gradient(180deg,_#efe6d9_0%,_#f8f4ec_28%,_#ffffff_28%,_#ffffff_100%)] p-4">
-                  <div className="rounded-[22px] bg-white p-4 shadow-[0_16px_32px_-28px_rgba(75,50,24,0.55)]">
+                <div className="mt-5 rounded-[12px] border border-[#e2dccf] bg-[linear-gradient(180deg,_#efe6d9_0%,_#f8f4ec_28%,_#ffffff_28%,_#ffffff_100%)] p-4">
+                  <div className="rounded-[12px] bg-white p-4 shadow-[0_16px_32px_-28px_rgba(75,50,24,0.55)]">
                     <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#8f7a63]">
                       <div className="h-2 w-2 rounded-full bg-[#d0b291]" />
                       WhatsApp önizleme
                     </div>
                     <div className="max-h-[360px] overflow-y-auto rounded-[20px] bg-[#efeae2] p-4">
-                      <div className="ml-auto max-w-[280px] rounded-[22px] rounded-tr-md bg-[#dcf7c8] px-4 py-3 text-sm leading-6 text-[#2e312b] shadow-sm">
+                      <div className="ml-auto max-w-[280px] rounded-[12px] rounded-tr-md bg-[#dcf7c8] px-4 py-3 text-sm leading-6 text-[#2e312b] shadow-sm">
                         <pre className="whitespace-pre-wrap font-sans">{getPreviewContent() || "Mesaj metni burada görünecek."}</pre>
                       </div>
                     </div>
@@ -468,7 +453,7 @@ export default function WhatsAppMarketingPage() {
                   selectedRecipients.map((customer) => (
                     <div
                       key={customer.id}
-                      className="flex items-center justify-between gap-3 rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3"
+                      className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-[#322113]">{customer.firstName} {customer.lastName}</div>
@@ -478,7 +463,7 @@ export default function WhatsAppMarketingPage() {
                         href={generateWhatsAppLink(customer.phone || "", getPreviewContent())}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 rounded-2xl bg-[#2f8f59] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#267549] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f8f59] focus-visible:ring-offset-2"
+                        className="inline-flex items-center gap-2 rounded-[8px] bg-[#2f8f59] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#267549] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f8f59] focus-visible:ring-offset-2"
                       >
                         <MessageCircle className="h-4 w-4" />
                         Aç
@@ -486,7 +471,7 @@ export default function WhatsAppMarketingPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-[24px] border border-dashed border-[#e8d8c1] bg-[#fff9f1] px-4 py-8 text-center text-sm text-[#8a725a]">
+                  <div className="rounded-[12px] border border-dashed border-[#e8d8c1] bg-[#fff9f1] px-4 py-8 text-center text-sm text-[#8a725a]">
                     WhatsApp için alıcı seçildiğinde liste burada görünür.
                   </div>
                 )}
@@ -494,7 +479,8 @@ export default function WhatsAppMarketingPage() {
             </section>
           </aside>
         </div>
+        </AdminPageShell>
       </div>
-    </div>
+    </main>
   );
 }

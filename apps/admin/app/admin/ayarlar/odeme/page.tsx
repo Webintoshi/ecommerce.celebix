@@ -125,7 +125,7 @@ export default function PaymentSettingsPage() {
     };
 
     return (
-        <div className="min-h-screen max-w-7xl mx-auto space-y-8 bg-gray-50/50 p-6 md:p-8">
+        <div className="min-h-screen max-w-none mx-auto space-y-8 bg-[var(--admin-bg)] p-6 md:p-8">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-gray-900">Ödeme Yöntemleri</h1>
@@ -150,7 +150,7 @@ export default function PaymentSettingsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="rounded-[8px] border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                             <CreditCard className="h-4 w-4" />
@@ -159,7 +159,7 @@ export default function PaymentSettingsPage() {
                     </div>
                     <div className="text-xs font-medium text-gray-500">Toplam Yöntem</div>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="rounded-[8px] border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-50 text-green-600">
                             <CheckCircle className="h-4 w-4" />
@@ -168,7 +168,7 @@ export default function PaymentSettingsPage() {
                     </div>
                     <div className="text-xs font-medium text-gray-500">Aktif</div>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="rounded-[8px] border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600">
                             <TestTube className="h-4 w-4" />
@@ -177,7 +177,7 @@ export default function PaymentSettingsPage() {
                     </div>
                     <div className="text-xs font-medium text-gray-500">Test Modu</div>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="rounded-[8px] border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600">
                             <Shield className="h-4 w-4" />
@@ -186,7 +186,7 @@ export default function PaymentSettingsPage() {
                     </div>
                     <div className="text-xs font-medium text-gray-500">Canlı Ortam</div>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="rounded-[8px] border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                             <TrendingUp className="h-4 w-4" />
@@ -195,7 +195,7 @@ export default function PaymentSettingsPage() {
                     </div>
                     <div className="text-xs font-medium text-gray-500">Test Ortamı</div>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="rounded-[8px] border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                             <Shield className="h-4 w-4" />
@@ -206,7 +206,7 @@ export default function PaymentSettingsPage() {
                 </div>
             </div>
 
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-4">
                 <div className="flex items-start gap-3">
                     <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
                     <div className="text-sm text-amber-800">
@@ -215,7 +215,7 @@ export default function PaymentSettingsPage() {
                 </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="rounded-[8px] border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col items-center gap-4 md:flex-row">
                     <div className="relative w-full flex-1">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -252,7 +252,7 @@ export default function PaymentSettingsPage() {
                     return (
                         <div
                             key={gateway.id}
-                            className="flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md"
+                            className="flex flex-col rounded-[8px] border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md"
                         >
                             <div className="flex-1 p-6">
                                 <div className="mb-4 flex items-start justify-between">
@@ -376,7 +376,7 @@ export default function PaymentSettingsPage() {
             </div>
 
             {filteredGateways.length === 0 && (
-                <div className="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-sm">
+                <div className="rounded-[8px] border border-gray-200 bg-white p-12 text-center shadow-sm">
                     <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
                         <CreditCard className="h-8 w-8 text-gray-400" />
                     </div>

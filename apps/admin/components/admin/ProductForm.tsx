@@ -519,7 +519,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
-      <form onSubmit={handleSubmit} className="container mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10 2xl:px-8 2xl:py-12">
+      <form onSubmit={handleSubmit} className="container mx-auto max-w-none px-4 py-8 md:px-6 md:py-10 2xl:px-8 2xl:py-12">
         {/* Header Section */}
         <div className="mb-10 flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
           <div className="space-y-2">
@@ -534,14 +534,14 @@ export default function ProductForm({ productId }: ProductFormProps) {
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/admin/urunler"
-              className="px-6 py-3 bg-white border border-gray-100 text-gray-600 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm"
+              className="px-6 py-3 bg-white border border-gray-100 text-gray-600 rounded-[8px] font-bold hover:bg-gray-50 transition-all shadow-sm"
             >
               Vazgeç
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-8 py-3 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-8 py-3 bg-gray-900 text-white rounded-[8px] font-bold hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (
                 <>
@@ -562,9 +562,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
           <div className="space-y-8 2xl:col-span-8 2xl:space-y-10">
 
             {/* Basic Information Section */}
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-gray-50/50">
-                <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
+            <div className="bg-white rounded-[12px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-[var(--admin-bg)]">
+                <div className="w-10 h-10 bg-blue-600 text-white rounded-[8px] flex items-center justify-center shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
                   <Package className="w-5 h-5" />
                 </div>
                 <div>
@@ -585,7 +585,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                       onChange={handleNameChange}
                       placeholder="Örn: Şekersiz Fıstık Ezmesi"
                       className={cn(
-                        "w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-medium shadow-sm",
+                        "w-full px-5 py-4 bg-white border border-gray-200 rounded-[8px] focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-medium shadow-sm",
                         errors.name && "border-rose-200 bg-rose-50/30"
                       )}
                       required
@@ -605,7 +605,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                       onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
                       placeholder="sekersiz-fistik-ezmesi"
                       className={cn(
-                        "w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-mono shadow-sm",
+                        "w-full px-5 py-4 bg-white border border-gray-200 rounded-[8px] focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-mono shadow-sm",
                         errors.slug && "border-rose-200 bg-rose-50/30"
                       )}
                       required
@@ -625,7 +625,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                     onChange={(e) => setFormData(prev => ({ ...prev, shortDescription: e.target.value }))}
                     placeholder="Ürünün arama sonuçlarında görünecek kısa özeti..."
                     rows={2}
-                    className="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-medium resize-none shadow-sm"
+                    className="w-full px-5 py-4 bg-white border border-gray-200 rounded-[8px] focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-medium resize-none shadow-sm"
                     required
                   />
                 </div>
@@ -658,7 +658,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                         value={formData.category}
                         onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as ProductCategory | "", subcategory: "" }))}
                         className={cn(
-                          "w-full appearance-none px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-bold cursor-pointer shadow-sm",
+                          "w-full appearance-none px-5 py-4 bg-white border border-gray-200 rounded-[8px] focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-bold cursor-pointer shadow-sm",
                           errors.category && "border-rose-200 bg-rose-50/30"
                         )}
                         required
@@ -687,7 +687,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                         onChange={(e) => setFormData(prev => ({ ...prev, subcategory: e.target.value as ProductSubcategory | "" }))}
                         disabled={!formData.category}
                         className={cn(
-                          "w-full appearance-none px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-bold cursor-pointer shadow-sm",
+                          "w-full appearance-none px-5 py-4 bg-white border border-gray-200 rounded-[8px] focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-bold cursor-pointer shadow-sm",
                           !formData.category && "opacity-50 cursor-not-allowed",
                           errors.subcategory && "border-rose-200 bg-rose-50/30"
                         )}
@@ -718,7 +718,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                       type="text"
                       placeholder="Yeni etiket ekle ve Enter'a bas..."
                       onKeyPress={addCustomTag}
-                      className="w-full pl-11 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-medium shadow-sm"
+                      className="w-full pl-11 pr-4 py-4 bg-white border border-gray-200 rounded-[8px] focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm font-medium shadow-sm"
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -728,7 +728,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                         type="button"
                         onClick={() => toggleTag(tag)}
                         className={cn(
-                          "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                          "px-4 py-2 rounded-[8px] text-xs font-bold transition-all flex items-center gap-2",
                           formData.tags.includes(tag)
                             ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
                             : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
@@ -741,9 +741,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
                   </div>
                 </div>
                 {/* Image Upload Section */}
-                <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-                  <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-gray-50/50">
-                    <div className="w-10 h-10 bg-amber-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-110 transition-transform">
+                <div className="bg-white rounded-[12px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+                  <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-[var(--admin-bg)]">
+                    <div className="w-10 h-10 bg-amber-500 text-white rounded-[8px] flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-110 transition-transform">
                       <ImageIcon className="w-5 h-5" />
                     </div>
                     <div>
@@ -760,8 +760,8 @@ export default function ProductForm({ productId }: ProductFormProps) {
                       onDrop={handleDrop}
                       onClick={() => fileInputRef.current?.click()}
                       className={cn(
-                        "relative border-2 border-dashed rounded-[24px] p-12 transition-all cursor-pointer group/upload overflow-hidden",
-                        dragActive ? "border-amber-500 bg-amber-50/50" : "border-gray-100 hover:border-amber-200 hover:bg-gray-50/50"
+                        "relative border-2 border-dashed rounded-[12px] p-12 transition-all cursor-pointer group/upload overflow-hidden",
+                        dragActive ? "border-amber-500 bg-amber-50/50" : "border-gray-100 hover:border-amber-200 hover:bg-[var(--admin-bg)]"
                       )}
                     >
                       <input
@@ -774,7 +774,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                       />
 
                       <div className="flex flex-col items-center gap-4 text-center">
-                        <div className="w-16 h-16 bg-white rounded-2xl shadow-xl flex items-center justify-center group-hover/upload:scale-110 group-hover/upload:rotate-3 transition-all duration-500">
+                        <div className="w-16 h-16 bg-white rounded-[8px] shadow-xl flex items-center justify-center group-hover/upload:scale-110 group-hover/upload:rotate-3 transition-all duration-500">
                           <Upload className="w-8 h-8 text-amber-500" />
                         </div>
                         <div className="space-y-1">
@@ -796,13 +796,13 @@ export default function ProductForm({ productId }: ProductFormProps) {
                     {images.length > 0 && (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
                         {images.map((img, idx) => (
-                          <div key={idx} className="group/img relative aspect-square rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 hover:shadow-xl transition-all">
+                          <div key={idx} className="group/img relative aspect-square rounded-[8px] overflow-hidden bg-gray-50 border border-gray-100 hover:shadow-xl transition-all">
                             <img src={img} alt="" className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2">
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
-                                className="p-2 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-rose-500 transition-colors"
+                                className="p-2 bg-white/20 backdrop-blur-md rounded-[8px] text-white hover:bg-rose-500 transition-colors"
                               >
                                 <X className="w-4 h-4" />
                               </button>
@@ -815,10 +815,10 @@ export default function ProductForm({ productId }: ProductFormProps) {
                 </div>
 
                 {/* Variants Section */}
-                <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-                  <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
+                <div className="bg-white rounded-[12px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+                  <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between bg-[var(--admin-bg)]">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
+                      <div className="w-10 h-10 bg-indigo-600 text-white rounded-[8px] flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
                         <Zap className="w-5 h-5" />
                       </div>
                       <div>
@@ -829,7 +829,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                     <button
                       type="button"
                       onClick={addVariant}
-                      className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                      className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-[8px] text-xs font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                     >
                       <Plus className="w-3.5 h-3.5 inline-block mr-1" />
                       YENİ EKLE
@@ -841,12 +841,12 @@ export default function ProductForm({ productId }: ProductFormProps) {
                       Gramaj ve birim alanlari bu formdan kaldirildi. Gerekiyorsa varyant nitelikleri uzerinden tanimlayin.
                     </p>
                     {variants.map((variant, index) => (
-                      <div key={variant.id} className="group/variant relative p-6 bg-gray-50/50 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white hover:shadow-xl transition-all">
+                      <div key={variant.id} className="group/variant relative p-6 bg-[var(--admin-bg)] rounded-[8px] border border-transparent hover:border-indigo-100 hover:bg-white hover:shadow-xl transition-all">
                         {variants.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeVariant(index)}
-                            className="absolute -top-3 -right-3 w-8 h-8 bg-white text-rose-500 rounded-xl shadow-lg border border-gray-100 flex items-center justify-center opacity-0 group-hover/variant:opacity-100 transition-all hover:bg-rose-500 hover:text-white"
+                            className="absolute -top-3 -right-3 w-8 h-8 bg-white text-rose-500 rounded-[8px] shadow-lg border border-gray-100 flex items-center justify-center opacity-0 group-hover/variant:opacity-100 transition-all hover:bg-rose-500 hover:text-white"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -861,7 +861,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                               onChange={(e) => updateVariant(index, 'name', e.target.value)}
                               placeholder="Örn: 2'li Avantaj Paketi"
                               className={cn(
-                                "w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-sm font-bold shadow-sm",
+                                "w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-sm font-bold shadow-sm",
                                 errors[`variant_${index}_name`] && "border-rose-500 bg-rose-50/30"
                               )}
                               required
@@ -878,7 +878,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                               value={variant.price}
                               onChange={(e) => updateVariant(index, 'price', parseFloat(e.target.value) || 0)}
                               className={cn(
-                                "w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-sm font-bold text-indigo-600 shadow-sm",
+                                "w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-sm font-bold text-indigo-600 shadow-sm",
                                 errors[`variant_${index}_price`] && "border-rose-500 bg-rose-50/30"
                               )}
                               required
@@ -893,7 +893,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                               type="number"
                               value={variant.stock}
                               onChange={(e) => updateVariant(index, 'stock', parseInt(e.target.value) || 0)}
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-sm font-mono shadow-sm"
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-sm font-mono shadow-sm"
                               required
                             />
                           </div>
@@ -903,7 +903,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                               type="text"
                               value={variant.sku}
                               onChange={(e) => updateVariant(index, 'sku', e.target.value)}
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-[10px] font-mono shadow-sm"
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-[10px] font-mono shadow-sm"
                             />
                           </div>
                         </div>
@@ -918,9 +918,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
           {/* Sidebar Section */}
           <div className="space-y-8 2xl:col-span-4 2xl:space-y-10">
             {/* Status & Properties */}
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-gray-50/50">
-                <div className="w-10 h-10 bg-purple-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-purple-600/20 group-hover:scale-110 transition-transform">
+            <div className="bg-white rounded-[12px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-[var(--admin-bg)]">
+                <div className="w-10 h-10 bg-orange-600 text-white rounded-[8px] flex items-center justify-center shadow-lg shadow-orange-600/20 group-hover:scale-110 transition-transform">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
@@ -929,7 +929,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                 </div>
               </div>
               <div className="p-8 space-y-4">
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-2xl hover:bg-green-100 transition-colors cursor-pointer group/toggle"
+                <div className="flex items-center justify-between p-4 bg-green-50 rounded-[8px] hover:bg-green-100 transition-colors cursor-pointer group/toggle"
                   onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}>
                   <div className="flex items-center gap-3">
                     <div className={cn("w-2 h-2 rounded-full", formData.isActive ? "bg-green-600 animate-pulse" : "bg-gray-300")} />
@@ -946,15 +946,15 @@ export default function ProductForm({ productId }: ProductFormProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors cursor-pointer group/toggle"
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-[8px] hover:bg-gray-100 transition-colors cursor-pointer group/toggle"
                   onClick={() => setFormData(prev => ({ ...prev, featured: !prev.featured }))}>
                   <div className="flex items-center gap-3">
-                    <div className={cn("w-2 h-2 rounded-full", formData.featured ? "bg-purple-600 animate-pulse" : "bg-gray-300")} />
+                    <div className={cn("w-2 h-2 rounded-full", formData.featured ? "bg-orange-600 animate-pulse" : "bg-gray-300")} />
                     <span className="text-sm font-bold text-gray-700">Öne Çıkar</span>
                   </div>
                   <div className={cn(
                     "w-12 h-6 rounded-full transition-all relative",
-                    formData.featured ? "bg-purple-600 shadow-inner" : "bg-gray-200"
+                    formData.featured ? "bg-orange-600 shadow-inner" : "bg-gray-200"
                   )}>
                     <div className={cn(
                       "absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all",
@@ -963,7 +963,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors cursor-pointer group/toggle"
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-[8px] hover:bg-gray-100 transition-colors cursor-pointer group/toggle"
                   onClick={() => setFormData(prev => ({ ...prev, new: !prev.new }))}>
                   <div className="flex items-center gap-3">
                     <div className={cn("w-2 h-2 rounded-full", formData.new ? "bg-blue-600 animate-pulse" : "bg-gray-300")} />
@@ -983,9 +983,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
             </div>
 
             {/* Product Features */}
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-gray-50/50">
-                <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
+            <div className="bg-white rounded-[12px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-[var(--admin-bg)]">
+                <div className="w-10 h-10 bg-emerald-500 text-white rounded-[8px] flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
                   <Leaf className="w-5 h-5" />
                 </div>
                 <div>
@@ -1005,7 +1005,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, [feat.id]: !prev[feat.id as keyof typeof prev] }))}
                     className={cn(
-                      "flex flex-col items-center justify-center p-4 rounded-2xl border transition-all gap-2",
+                      "flex flex-col items-center justify-center p-4 rounded-[8px] border transition-all gap-2",
                       formData[feat.id as keyof typeof formData]
                         ? "bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm"
                         : "bg-white border-gray-100 text-gray-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100"
@@ -1019,9 +1019,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
             </div>
 
             {/* Nutritional Info */}
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-gray-50/50">
-                <div className="w-10 h-10 bg-rose-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-rose-500/20 group-hover:scale-110 transition-transform">
+            <div className="bg-white rounded-[12px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-[var(--admin-bg)]">
+                <div className="w-10 h-10 bg-rose-500 text-white rounded-[8px] flex items-center justify-center shadow-lg shadow-rose-500/20 group-hover:scale-110 transition-transform">
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
@@ -1048,7 +1048,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                           ...prev,
                           nutritionalInfo: { ...prev.nutritionalInfo, [item.id]: parseInt(e.target.value) || 0 }
                         }))}
-                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-50 outline-none transition-all text-sm font-bold shadow-sm"
+                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:border-rose-500 focus:ring-4 focus:ring-rose-50 outline-none transition-all text-sm font-bold shadow-sm"
                       />
                     </div>
                   ))}
@@ -1057,9 +1057,9 @@ export default function ProductForm({ productId }: ProductFormProps) {
             </div>
 
             {/* Ratings Summary */}
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-gray-50/50">
-                <div className="w-10 h-10 bg-amber-400 text-white rounded-xl flex items-center justify-center shadow-lg shadow-amber-400/20 group-hover:scale-110 transition-transform">
+            <div className="bg-white rounded-[12px] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+              <div className="px-8 py-6 border-b border-gray-50 flex items-center gap-4 bg-[var(--admin-bg)]">
+                <div className="w-10 h-10 bg-amber-400 text-white rounded-[8px] flex items-center justify-center shadow-lg shadow-amber-400/20 group-hover:scale-110 transition-transform">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
@@ -1077,7 +1077,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                     step="0.1"
                     value={formData.rating}
                     onChange={(e) => setFormData(prev => ({ ...prev, rating: parseFloat(e.target.value) || 5 }))}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-amber-500 focus:ring-4 focus:ring-amber-50 outline-none transition-all text-lg font-black text-amber-500 shadow-sm"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:border-amber-500 focus:ring-4 focus:ring-amber-50 outline-none transition-all text-lg font-black text-amber-500 shadow-sm"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1087,7 +1087,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
                     min="0"
                     value={formData.reviewCount}
                     onChange={(e) => setFormData(prev => ({ ...prev, reviewCount: parseInt(e.target.value) || 0 }))}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-amber-500 focus:ring-4 focus:ring-amber-50 outline-none transition-all text-sm font-bold shadow-sm"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-[8px] focus:border-amber-500 focus:ring-4 focus:ring-amber-50 outline-none transition-all text-sm font-bold shadow-sm"
                   />
                 </div>
               </div>

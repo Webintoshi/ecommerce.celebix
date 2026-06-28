@@ -396,8 +396,8 @@ export function AdminNotificationCenter({
   }, [loadStatus]);
 
   const shellClassName = isMobile
-    ? "fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[72] overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(249,249,249,0.98)_100%)] shadow-[var(--shadow-md)] backdrop-blur-2xl"
-    : "absolute right-0 top-[calc(100%+0.75rem)] z-[72] w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/96 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+    ? "fixed inset-x-2 top-[var(--admin-mobile-panel-top)] bottom-[var(--admin-mobile-panel-bottom)] z-[72] overflow-hidden rounded-[2rem] border border-[var(--admin-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(249,249,249,0.98)_100%)] shadow-[var(--shadow-xs)] backdrop-blur-2xl"
+    : "absolute right-0 top-[calc(100%+0.75rem)] z-[72] w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl";
 
   return (
     <div className="relative">
@@ -451,7 +451,7 @@ export function AdminNotificationCenter({
                 <button
                   type="button"
                   onClick={() => setOpenState(false)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] transition-all hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:rgba(255,106,0,0.12)]"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] transition-all hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:rgba(255,106,0,0.12)]"
                   aria-label="Kapat"
                 >
                   <X className="h-4 w-4" />
@@ -460,7 +460,7 @@ export function AdminNotificationCenter({
 
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 md:px-5">
                 {statusError && !status ? (
-                  <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-5 text-sm text-rose-800">
+                  <div className="rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-5 text-sm text-rose-800">
                     <div className="flex items-start gap-3">
                       <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -472,7 +472,7 @@ export function AdminNotificationCenter({
                       <button
                         type="button"
                         onClick={() => void loadStatus()}
-                        className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100"
+                        className="inline-flex items-center gap-2 rounded-[8px] border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100"
                       >
                         <RefreshCw className="h-4 w-4" />
                         Yeniden dene
@@ -516,7 +516,7 @@ export function AdminNotificationCenter({
                             type="button"
                             onClick={() => void handleEnablePush()}
                             disabled={syncingPush}
-                            className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[1.15rem] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:bg-[var(--admin-accent-hover)] disabled:opacity-60"
+                            className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[1.15rem] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all hover:bg-[var(--admin-accent-hover)] disabled:opacity-60"
                           >
                             {syncingPush ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
                             Cihazı bağla
@@ -551,7 +551,7 @@ export function AdminNotificationCenter({
                     </div>
 
                     {statusError ? (
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
                         <div className="flex items-start gap-3">
                           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                           <span>{statusError}</span>
@@ -559,7 +559,7 @@ export function AdminNotificationCenter({
                         <button
                           type="button"
                           onClick={() => void loadStatus()}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100"
+                          className="inline-flex items-center gap-2 rounded-[8px] border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-all hover:bg-rose-100"
                         >
                           <RefreshCw className="h-4 w-4" />
                           Yeniden dene
@@ -568,7 +568,7 @@ export function AdminNotificationCenter({
                     ) : null}
 
                     {backgroundSyncError ? (
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                         <div className="flex items-start gap-3">
                           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                           <span>Arka plan senkronu tamamlanamadı.</span>
@@ -576,7 +576,7 @@ export function AdminNotificationCenter({
                         <button
                           type="button"
                           onClick={() => void runBackgroundSync(true)}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 transition-all hover:bg-amber-100"
+                          className="inline-flex items-center gap-2 rounded-[8px] border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 transition-all hover:bg-amber-100"
                         >
                           <RefreshCw className="h-4 w-4" />
                           Tekrar dene
@@ -601,7 +601,7 @@ export function AdminNotificationCenter({
                       </div>
 
                       {loading && !status ? (
-                        <div className="flex items-center gap-2 rounded-[22px] border border-[var(--admin-border)] bg-white px-4 py-6 text-sm text-[var(--admin-text-secondary)]">
+                        <div className="flex items-center gap-2 rounded-[12px] border border-[var(--admin-border)] bg-white px-4 py-6 text-sm text-[var(--admin-text-secondary)]">
                           <Loader2 className="h-4 w-4 animate-spin text-[var(--admin-accent)]" />
                           Bildirimler yükleniyor...
                         </div>
@@ -618,7 +618,7 @@ export function AdminNotificationCenter({
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)]">
+                                    <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)]">
                                       {getNotificationTypeLabel(item.type)}
                                     </span>
                                     <span className="text-xs text-gray-500">{relativeTime(item.createdAt)}</span>
@@ -661,7 +661,7 @@ export function AdminNotificationCenter({
                           ))}
                         </div>
                       ) : (
-                        <div className="rounded-[22px] border border-dashed border-[var(--admin-border)] bg-white px-4 py-8 text-center text-sm text-[var(--admin-text-secondary)]">
+                        <div className="rounded-[12px] border border-dashed border-[var(--admin-border)] bg-white px-4 py-8 text-center text-sm text-[var(--admin-text-secondary)]">
                           Henüz bildirim yok.
                         </div>
                       )}

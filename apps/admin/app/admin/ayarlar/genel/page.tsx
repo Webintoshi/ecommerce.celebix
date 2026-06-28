@@ -170,7 +170,7 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      className={`group relative w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-left transition-all duration-300 ease-out overflow-hidden ${
+      className={`group relative w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-[8px] text-left transition-all duration-300 ease-out overflow-hidden ${
         active
           ? "bg-zinc-100/80 text-zinc-950 font-semibold shadow-sm"
           : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
@@ -198,9 +198,9 @@ function Card({
   id: string;
 }) {
   return (
-    <div id={id} className="scroll-mt-28 bg-white rounded-[24px] shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] border border-zinc-200/60 transition-all duration-500 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.04)]">
+    <div id={id} className="scroll-mt-28 bg-white rounded-[12px] shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] border border-zinc-200/60 transition-all duration-500 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.04)]">
       <div className="flex items-center gap-3.5 px-6 py-5 border-b border-zinc-100/80">
-        <div className="w-9 h-9 rounded-2xl bg-zinc-50/80 flex items-center justify-center border border-zinc-100/50 shadow-sm">
+        <div className="w-9 h-9 rounded-[8px] bg-zinc-50/80 flex items-center justify-center border border-zinc-100/50 shadow-sm">
           <Icon className="w-4 h-4 text-zinc-700" />
         </div>
         <h2 className="text-base font-semibold tracking-tight text-zinc-900">{title}</h2>
@@ -241,7 +241,7 @@ function Input({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className={`w-full rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-4 py-2.5 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out placeholder:text-zinc-400 hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900 ${
+          className={`w-full rounded-[8px] border border-zinc-200/80 bg-zinc-50/50 px-4 py-2.5 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out placeholder:text-zinc-400 hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900 ${
             Icon ? "pl-10" : ""
           }`}
         />
@@ -274,7 +274,7 @@ function TextArea({
         onChange={onChange}
         placeholder={placeholder}
         rows={rows}
-        className="w-full rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-4 py-3 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out placeholder:text-zinc-400 hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900 resize-none leading-relaxed"
+        className="w-full rounded-[8px] border border-zinc-200/80 bg-zinc-50/50 px-4 py-3 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out placeholder:text-zinc-400 hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900 resize-none leading-relaxed"
       />
     </div>
   );
@@ -301,7 +301,7 @@ function Select({
           name={name}
           value={value}
           onChange={onChange}
-          className="w-full appearance-none rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-4 py-2.5 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900"
+          className="w-full appearance-none rounded-[8px] border border-zinc-200/80 bg-zinc-50/50 px-4 py-2.5 text-[13.5px] text-zinc-900 transition-all duration-300 ease-out hover:bg-zinc-50 hover:border-zinc-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900"
         >
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -623,7 +623,7 @@ export default function GeneralSettingsPage() {
           <button
             onClick={() => void handleSubmit()}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-6 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition-all duration-300 ease-out hover:bg-[var(--admin-accent-hover)] hover:translate-y-[-1px] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+            className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-6 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition-all duration-300 ease-out hover:bg-[var(--admin-accent-hover)] hover:translate-y-[-1px] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
           >
             {saving ? (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -662,7 +662,7 @@ export default function GeneralSettingsPage() {
       </div>
 
       {/* Two Column Layout */}
-      <div className="flex xl:px-4 2xl:px-8 max-w-[1600px] mx-auto">
+      <div className="flex xl:px-4 2xl:px-8 max-w-none mx-auto">
         {/* Left Sidebar Navigation */}
         <aside className="sticky top-[73px] hidden h-[calc(100vh-73px)] w-[260px] overflow-y-auto border-r border-[var(--admin-border)] bg-transparent py-8 pr-6 2xl:block">
           <nav className="space-y-1">
@@ -715,7 +715,7 @@ export default function GeneralSettingsPage() {
                   <div className="flex flex-col gap-6 md:col-span-2 lg:flex-row">
                     {/* Logo Upload */}
                     <div className="flex-shrink-0">
-                      <div className="w-28 h-28 rounded-[24px] bg-[#FCFDFE] flex items-center justify-center overflow-hidden border border-dashed border-[var(--admin-border)] transition-colors hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)]">
+                      <div className="w-28 h-28 rounded-[12px] bg-[#FCFDFE] flex items-center justify-center overflow-hidden border border-dashed border-[var(--admin-border)] transition-colors hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)]">
                         {formData.logoUrl ? (
                           <Image
                             src={formData.logoUrl}
@@ -730,7 +730,7 @@ export default function GeneralSettingsPage() {
                         )}
                       </div>
                       <div className="flex gap-2 mt-3">
-                        <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-[var(--admin-border)] text-[var(--admin-text-secondary)] rounded-2xl text-[13px] font-semibold cursor-pointer transition-all hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] shadow-sm">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-[var(--admin-border)] text-[var(--admin-text-secondary)] rounded-[8px] text-[13px] font-semibold cursor-pointer transition-all hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] shadow-sm">
                           {logoUploading ? (
                             <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#d4c3b3] border-t-[#C54E00]" />
                           ) : (
@@ -748,7 +748,7 @@ export default function GeneralSettingsPage() {
                         {formData.logoUrl && (
                           <button
                             onClick={() => setFormData((prev) => ({ ...prev, logoUrl: "" }))}
-                            className="p-2.5 text-[var(--admin-text-muted)] hover:text-rose-600 rounded-2xl hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
+                            className="p-2.5 text-[var(--admin-text-muted)] hover:text-rose-600 rounded-[8px] hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -758,7 +758,7 @@ export default function GeneralSettingsPage() {
 
                     {/* Favicon Upload */}
                     <div className="flex-shrink-0">
-                      <div className="w-28 h-28 rounded-[24px] bg-[#FCFDFE] flex items-center justify-center overflow-hidden border border-dashed border-[var(--admin-border)] transition-colors hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)]">
+                      <div className="w-28 h-28 rounded-[12px] bg-[#FCFDFE] flex items-center justify-center overflow-hidden border border-dashed border-[var(--admin-border)] transition-colors hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)]">
                         {formData.faviconUrl ? (
                           <img
                             src={formData.faviconUrl}
@@ -770,7 +770,7 @@ export default function GeneralSettingsPage() {
                         )}
                       </div>
                       <div className="flex gap-2 mt-3">
-                        <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-[var(--admin-border)] text-[var(--admin-text-secondary)] rounded-2xl text-[13px] font-semibold cursor-pointer transition-all hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] shadow-sm">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-[var(--admin-border)] text-[var(--admin-text-secondary)] rounded-[8px] text-[13px] font-semibold cursor-pointer transition-all hover:bg-[var(--admin-accent-soft)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)] shadow-sm">
                           {faviconUploading ? (
                             <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#d4c3b3] border-t-[#C54E00]" />
                           ) : (
@@ -788,7 +788,7 @@ export default function GeneralSettingsPage() {
                         {formData.faviconUrl && (
                           <button
                             onClick={() => setFormData((prev) => ({ ...prev, faviconUrl: "" }))}
-                            className="p-2.5 text-[var(--admin-text-muted)] hover:text-rose-600 rounded-2xl hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
+                            className="p-2.5 text-[var(--admin-text-muted)] hover:text-rose-600 rounded-[8px] hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -844,7 +844,7 @@ export default function GeneralSettingsPage() {
 
             <Card title="Floating Iletisim" icon={MessageCircle} id="floating-contact">
               <div className="space-y-4">
-                <div className="flex flex-col gap-4 rounded-[24px] border border-[var(--admin-border)] bg-white p-5 md:flex-row md:items-center md:justify-between shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)]">
+                <div className="flex flex-col gap-4 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 md:flex-row md:items-center md:justify-between shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)]">
                   <div>
                     <h3 className="text-[14px] font-semibold tracking-tight text-[var(--admin-heading)]">
                       Yüzen İletişim Butonu
@@ -883,7 +883,7 @@ export default function GeneralSettingsPage() {
                     options={FLOATING_CONTACT_POSITION_OPTIONS}
                   />
 
-                  <div className="rounded-[24px] border border-dashed border-[var(--admin-border)] bg-[#FCFDFE] p-5">
+                  <div className="rounded-[12px] border border-dashed border-[var(--admin-border)] bg-[#FCFDFE] p-5">
                     <span className="text-[13px] font-semibold text-[var(--admin-text-secondary)] tracking-tight">Not</span>
                     <p className="mt-2 text-[13.5px] leading-relaxed text-[#8c7564]">
                       WhatsApp ve Instagram alanları kullanıcı adı veya tam link kabul eder.
@@ -902,7 +902,7 @@ export default function GeneralSettingsPage() {
                     return (
                       <div
                         key={channelConfig.type}
-                        className="rounded-[24px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)] transition-all duration-300 hover:shadow-[var(--shadow-md)] hover:border-[var(--admin-accent-border)]"
+                        className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)] transition-all duration-300 hover:shadow-[var(--shadow-xs)] hover:border-[var(--admin-accent-border)]"
                       >
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div>
@@ -1019,7 +1019,7 @@ export default function GeneralSettingsPage() {
             {/* Announcement Card - Full Width */}
             <div className="2xl:col-span-2">
               <Card title="Üst Bar Duyurusu" icon={Bell} id="announcement">
-                <div className="flex items-center gap-3 mb-6 bg-[#FCFDFE] p-5 rounded-[24px] border border-[var(--admin-border)] shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)]">
+                <div className="flex items-center gap-3 mb-6 bg-[#FCFDFE] p-5 rounded-[12px] border border-[var(--admin-border)] shadow-[0_4px_12px_-4px_rgba(17,24,39,0.04)]">
                   <label className="relative inline-flex items-center cursor-pointer w-full">
                     <div className="flex-1">
                       <h3 className="text-[14px] font-semibold tracking-tight text-[var(--admin-heading)]">
@@ -1106,7 +1106,7 @@ export default function GeneralSettingsPage() {
                     <div className="space-y-3">
                       <span className="text-[13px] font-medium text-[var(--admin-text-secondary)] tracking-tight">Canlı Önizleme</span>
                       <div
-                        className="rounded-[24px] border border-[var(--admin-border)]/50 px-5 py-3 shadow-[0_8px_20px_-4px_rgba(17,24,39,0.06)] transition-colors duration-300"
+                        className="rounded-[12px] border border-[var(--admin-border)]/50 px-5 py-3 shadow-[0_8px_20px_-4px_rgba(17,24,39,0.06)] transition-colors duration-300"
                         style={{ backgroundColor: announcementColor }}
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
@@ -1206,7 +1206,7 @@ export default function GeneralSettingsPage() {
             <button
               onClick={() => void handleSubmit()}
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-8 py-3.5 text-[14px] font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition-all duration-300 ease-out hover:bg-[var(--admin-accent-hover)] hover:translate-y-[-1px] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+              className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-8 py-3.5 text-[14px] font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition-all duration-300 ease-out hover:bg-[var(--admin-accent-hover)] hover:translate-y-[-1px] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
             >
               {saving ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

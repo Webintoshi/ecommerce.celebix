@@ -28,8 +28,8 @@ const DESIGN_SECTIONS = [
 export default function DesignSettingsPage() {
   return (
     <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-md)] md:p-8">
+      <div className="mx-auto max-w-none space-y-6">
+        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)] md:p-8">
           <div className="inline-flex items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
             Tasarım Ayarları
           </div>
@@ -44,7 +44,7 @@ export default function DesignSettingsPage() {
           <div className="hidden" />
         </section>
 
-        <section className="sticky top-4 z-20 rounded-[28px] border border-[var(--admin-border)] bg-white/90 p-4 shadow-[var(--shadow-md)] backdrop-blur-sm">
+        <section className="sticky top-4 z-20 rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-xs)] backdrop-blur-sm">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">Hizli Gecis</p>
@@ -67,7 +67,7 @@ export default function DesignSettingsPage() {
 
         <section
           id="hero-banner"
-          className="scroll-mt-32 rounded-[32px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
+          className="scroll-mt-32 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
         >
           <SectionIntro
             eyebrow="1. bölüm"
@@ -79,7 +79,7 @@ export default function DesignSettingsPage() {
 
         <section
           id="promosyon-banner"
-          className="scroll-mt-32 rounded-[32px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
+          className="scroll-mt-32 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
         >
           <SectionIntro
             eyebrow="2. bölüm"
@@ -91,7 +91,7 @@ export default function DesignSettingsPage() {
 
         <section
           id="marquee"
-          className="scroll-mt-32 rounded-[32px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
+          className="scroll-mt-32 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
         >
           <SectionIntro
             eyebrow="3. bölüm"

@@ -73,15 +73,15 @@ export default function SocialPreviewPage() {
 
   return (
     <div className="admin-page-root text-[var(--admin-heading)]">
-      <div className="mx-auto max-w-7xl space-y-8 px-6 py-8 md:px-8 md:py-10">
-        <section className="relative overflow-hidden rounded-[34px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
+      <div className="mx-auto max-w-none space-y-8 px-6 py-8 md:px-8 md:py-10">
+        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-xs)] md:p-10">
           <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 Sosyal önizleme
               </div>
               <div className="mt-5 flex items-start gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]">
                   <Share2 className="h-8 w-8" />
                 </div>
                 <div>
@@ -90,7 +90,7 @@ export default function SocialPreviewPage() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-[var(--admin-border)] bg-[#2f241d] p-5 text-white shadow-[var(--shadow-md)]">
+            <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#2f241d] p-5 text-white shadow-[var(--shadow-xs)]">
               <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd2af]">
                 Editör modu
               </div>
@@ -102,14 +102,14 @@ export default function SocialPreviewPage() {
           <div className="hidden" />
         </section>
 
-        <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+        <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-5">
               <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 URL ve meta alanları
               </div>
 
-              <div className="mt-5 rounded-[26px] border border-[#f0e3d7] bg-[#fcf8f3] p-5">
+              <div className="mt-5 rounded-[12px] border border-[#f0e3d7] bg-[#fcf8f3] p-5">
                 <FieldLabel title="Önizlenecek URL" count={url.length} limit={120} />
                 <div className="flex flex-col gap-3 md:flex-row">
                   <input
@@ -117,12 +117,12 @@ export default function SocialPreviewPage() {
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder={`Örn: ${STORE_RUNTIME.storefrontUrl}/urunler/ornek-urun`}
-                    className="min-w-0 flex-1 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                    className="min-w-0 flex-1 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                   />
                   <button
                     onClick={fetchMetadata}
                     disabled={loading}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+                    className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
                   >
                     {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <RefreshCw className="h-4 w-4" />}
                     Önizlemeyi getir
@@ -137,7 +137,7 @@ export default function SocialPreviewPage() {
                     type="text"
                     value={ogTitle}
                     onChange={(e) => setOgTitle(e.target.value)}
-                    className="w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                    className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                   />
                 </div>
 
@@ -147,7 +147,7 @@ export default function SocialPreviewPage() {
                     value={ogDesc}
                     onChange={(e) => setOgDesc(e.target.value)}
                     rows={4}
-                    className="w-full resize-none rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                    className="w-full resize-none rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                   />
                 </div>
 
@@ -158,9 +158,9 @@ export default function SocialPreviewPage() {
                       type="text"
                       value={ogImage}
                       onChange={(e) => setOgImage(e.target.value)}
-                      className="min-w-0 flex-1 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                      className="min-w-0 flex-1 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                     />
-                    <button className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[#8a6f5d] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff9f4] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]">
+                    <button className="inline-flex h-12 w-12 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-[#8a6f5d] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff9f4] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]">
                       <ImageIcon className="h-5 w-5" />
                     </button>
                   </div>
@@ -181,9 +181,9 @@ export default function SocialPreviewPage() {
                 <TabButton active={activeTab === "whatsapp"} onClick={() => setActiveTab("whatsapp")} icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" />
               </div>
 
-              <div className="mt-5 flex min-h-[460px] items-center justify-center rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-[#fbf5ef] to-[#f4ebe2] p-6 md:p-10">
+              <div className="mt-5 flex min-h-[460px] items-center justify-center rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-[#fbf5ef] to-[#f4ebe2] p-6 md:p-10">
                 {activeTab === "facebook" && (
-                  <div className="w-full max-w-[520px] overflow-hidden rounded-[24px] border border-[#d6dbe1] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.16)]">
+                  <div className="w-full max-w-[520px] overflow-hidden rounded-[12px] border border-[#d6dbe1] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.16)]">
                     <div className="h-[260px] bg-[#d9dee4]">
                       {ogImage && <img src={ogImage} alt="Facebook önizleme" className="h-full w-full object-cover" />}
                     </div>
@@ -196,7 +196,7 @@ export default function SocialPreviewPage() {
                 )}
 
                 {activeTab === "twitter" && (
-                  <div className="w-full max-w-[460px] overflow-hidden rounded-[28px] border border-[#dce1e7] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.12)]">
+                  <div className="w-full max-w-[460px] overflow-hidden rounded-[12px] border border-[#dce1e7] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.12)]">
                     <div className="h-[240px] bg-[#d9dee4]">
                       {ogImage && <img src={ogImage} alt="X önizleme" className="h-full w-full object-cover" />}
                     </div>
@@ -209,7 +209,7 @@ export default function SocialPreviewPage() {
                 )}
 
                 {activeTab === "linkedin" && (
-                  <div className="w-full max-w-[520px] overflow-hidden rounded-[22px] border border-[#d7dbe1] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.12)]">
+                  <div className="w-full max-w-[520px] overflow-hidden rounded-[12px] border border-[#d7dbe1] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.12)]">
                     <div className="h-[260px] bg-[#d9dee4]">
                       {ogImage && <img src={ogImage} alt="LinkedIn önizleme" className="h-full w-full object-cover" />}
                     </div>
@@ -221,7 +221,7 @@ export default function SocialPreviewPage() {
                 )}
 
                 {activeTab === "whatsapp" && (
-                  <div className="w-full max-w-sm rounded-[28px] bg-[#e7ddd2] p-5 shadow-inner">
+                  <div className="w-full max-w-sm rounded-[12px] bg-[#e7ddd2] p-5 shadow-inner">
                     <div className="relative flex items-start gap-3 rounded-[20px] bg-white p-3 shadow-[0_12px_30px_rgba(67,44,28,0.12)]">
                       <div className="absolute inset-y-0 left-0 w-1 rounded-l-[20px] bg-[#d0d5db]" />
                       <div className="min-w-0 flex-1 pl-2">
@@ -230,7 +230,7 @@ export default function SocialPreviewPage() {
                         <p className="mt-2 text-xs text-[#9ca3af]">{storeHost}</p>
                       </div>
                       {ogImage && (
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#d9dee4]">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[8px] bg-[#d9dee4]">
                           <img src={ogImage} alt="WhatsApp önizleme" className="h-full w-full object-cover" />
                         </div>
                       )}

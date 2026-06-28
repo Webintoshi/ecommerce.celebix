@@ -254,9 +254,9 @@ export default function ShopifyConverterPage() {
         <div className="hidden" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8 lg:px-8">
+      <div className="relative mx-auto max-w-none px-4 py-6 md:px-6 md:py-8 lg:px-8">
       <div className="space-y-6">
-        <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]">
+        <section className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
           <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-3">
@@ -276,10 +276,10 @@ export default function ShopifyConverterPage() {
         {/* Main Section */}
         <div className="lg:col-span-2 space-y-6">
           {/* Instructions */}
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
-            <div className="rounded-[26px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <div className="rounded-[12px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
             <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF6A00] to-[#E45700] shadow-[var(--shadow-md)]">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] bg-gradient-to-br from-[#FF6A00] to-[#E45700] shadow-[var(--shadow-xs)]">
                 <Info className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -301,14 +301,14 @@ export default function ShopifyConverterPage() {
           </section>
 
           {/* Upload Area */}
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-8">
             <div className="text-center">
               <div className="flex items-center justify-center gap-4 mb-6">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-sky-100">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[12px] bg-sky-100">
                   <FileSpreadsheet className="w-8 h-8 text-blue-600" />
                 </div>
                 <ArrowRight className="w-8 h-8 text-gray-400" />
-                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-md)]">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[12px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-xs)]">
                   <FileSpreadsheet className="w-8 h-8 text-[var(--admin-accent)]" />
                 </div>
               </div>
@@ -329,7 +329,7 @@ export default function ShopifyConverterPage() {
                       onChange={handleFileChange}
                       className="hidden"
                     />
-                    <span className="inline-block cursor-pointer rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]">
+                    <span className="inline-block cursor-pointer rounded-[8px] bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]">
                       Shopify CSV Seç
                     </span>
                   </label>
@@ -340,7 +340,7 @@ export default function ShopifyConverterPage() {
                 </>
               ) : (
                 <>
-                  <div className="mb-6 inline-flex items-center gap-3 rounded-[24px] border border-[var(--admin-border)] bg-white/90 px-6 py-4 shadow-sm">
+                  <div className="mb-6 inline-flex items-center gap-3 rounded-[12px] border border-[var(--admin-border)] bg-white px-6 py-4 shadow-sm">
                     <FileSpreadsheet className="w-6 h-6 text-blue-600" />
                     <div className="text-left">
                       <p className="font-medium text-[var(--admin-heading)]">{file.name}</p>
@@ -354,7 +354,7 @@ export default function ShopifyConverterPage() {
                     <button
                       onClick={handleConvert}
                       disabled={converting}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:pointer-events-none disabled:opacity-60"
+                      className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:pointer-events-none disabled:opacity-60"
                     >
                       {converting ? (
                         "Dönüştürülüyor..."
@@ -370,7 +370,7 @@ export default function ShopifyConverterPage() {
                         setFile(null);
                         setResult(null);
                       }}
-                      className="rounded-2xl border border-[var(--admin-accent-border)] bg-white px-6 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                      className="rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-6 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                     >
                       İptal
                     </button>
@@ -382,7 +382,7 @@ export default function ShopifyConverterPage() {
 
           {/* Results */}
           {result && (
-            <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
+            <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
               <div className="flex items-center gap-3 mb-4">
                 <CheckCircle className="w-6 h-6 text-green-600" />
                 <h3 className="text-lg font-semibold text-[var(--admin-heading)]">
@@ -390,7 +390,7 @@ export default function ShopifyConverterPage() {
                 </h3>
               </div>
 
-              <div className="mb-4 rounded-[24px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+              <div className="mb-4 rounded-[12px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
                 <p className="text-green-900 font-medium">
                   {result.converted} varyant başarıyla dönüştürüldü
                 </p>
@@ -406,7 +406,7 @@ export default function ShopifyConverterPage() {
                     {result.warnings.map((warning, index) => (
                       <div
                         key={index}
-                        className={`flex items-start gap-2 rounded-2xl border p-3 ${
+                        className={`flex items-start gap-2 rounded-[8px] border p-3 ${
                           warning.startsWith("✅") ? "border-emerald-200/70 bg-emerald-50" : "border-amber-200/70 bg-amber-50"
                         }`}
                       >
@@ -444,7 +444,7 @@ export default function ShopifyConverterPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Mapping Info */}
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)]">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-6 shadow-[0_24px_55px_rgba(98,64,33,0.09)]">
             <h3 className="mb-4 font-semibold text-[var(--admin-heading)]">
               Otomatik Eşleştirmeler
             </h3>
@@ -495,7 +495,7 @@ export default function ShopifyConverterPage() {
           </section>
 
           {/* Manual Fields */}
-          <section className="rounded-[30px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
+          <section className="rounded-[12px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
             <h3 className="mb-3 font-semibold text-amber-900">
               ⚠️ Manuel Doldurulacaklar
             </h3>
@@ -514,7 +514,7 @@ export default function ShopifyConverterPage() {
           {/* Quick Link */}
           <Link
             href="/admin/urunler/toplu-yukle"
-            className="block rounded-[30px] bg-[var(--admin-accent)] p-6 text-white shadow-[var(--shadow-md)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+            className="block rounded-[12px] bg-[var(--admin-accent)] p-6 text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
           >
             <div className="flex items-center gap-3 mb-2">
               <Upload className="w-6 h-6" />

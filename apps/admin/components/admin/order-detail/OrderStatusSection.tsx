@@ -122,10 +122,10 @@ export function OrderStatusSection({
   // Eğer iptal veya iade durumundaysa, özel mesaj göster
   if (currentStatus === "cancelled" || currentStatus === "refunded") {
     return (
-      <div className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+      <div className={`overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
         <div className="border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fffaf5] to-white p-5 md:p-6">
           <div className="flex items-center gap-3">
-            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${
+            <div className={`flex h-12 w-12 items-center justify-center rounded-[8px] border ${
               currentStatus === "cancelled"
                 ? "border-rose-100 bg-rose-50 text-rose-600"
                 : "border-orange-100 bg-orange-50 text-orange-600"
@@ -171,7 +171,7 @@ export function OrderStatusSection({
                   onClick={() => handleAction(action.id, action.onClick)}
                   disabled={action.disabled || isLoading}
                   className={`
-                    inline-flex min-h-11 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium
+                    inline-flex min-h-11 items-center gap-2 rounded-[8px] px-4 py-2.5 text-sm font-medium
                     shadow-sm transition-all duration-200
                     ${action.color}
                     ${action.disabled || isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
@@ -194,7 +194,7 @@ export function OrderStatusSection({
   }
 
   return (
-    <div className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+    <div className={`overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Timeline Row */}
       <div className="border-b border-[var(--admin-border)] bg-gradient-to-br from-[#fffaf5] via-white to-[#fdf6ef] p-5 pb-4 md:p-6">
         <div className="mb-5 flex items-center justify-between gap-3">
@@ -272,11 +272,11 @@ export function OrderStatusSection({
 
       {/* Status & Actions Row */}
       <div className="px-5 pb-5 pt-4 md:px-6 md:pb-6">
-        <div className="rounded-[24px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
+        <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           {/* Current Status */}
           <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+            <div className={`flex h-10 w-10 items-center justify-center rounded-[8px] border ${
               currentIndex >= 0 ? "border-[#ffd8b4] bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]" : "border-[#e6d9cd] bg-white text-stone-400"
             }`}>
               <CheckCircle className="w-5 h-5" />
@@ -310,7 +310,7 @@ export function OrderStatusSection({
                 onClick={() => handleAction(action.id, action.onClick)}
                 disabled={action.disabled || isLoading}
                 className={`
-                  inline-flex min-h-11 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium
+                  inline-flex min-h-11 items-center gap-2 rounded-[8px] px-4 py-2.5 text-sm font-medium
                   shadow-sm transition-all duration-200
                   ${action.color}
                   ${action.disabled || isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}

@@ -257,7 +257,7 @@ export function OrderDetailClient({
     };
 
     const headerStatClass =
-        "rounded-[22px] border border-[var(--admin-border)] bg-white/80 px-4 py-3 shadow-sm backdrop-blur";
+        "rounded-[12px] border border-[var(--admin-border)] bg-white px-4 py-3 shadow-sm backdrop-blur";
 
     const triggerInvoiceCreation = async () => {
         setIsAccountingActionLoading(true);
@@ -290,7 +290,7 @@ export function OrderDetailClient({
                 <div className="hidden" />
             </div>
 
-            <div className="relative mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8 lg:px-8">
+            <div className="relative mx-auto max-w-none px-4 py-6 md:px-6 md:py-8 lg:px-8">
                 <div className="space-y-6 animate-in fade-in duration-500">
             {/* Print Header - Only visible when printing */}
             <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-black">
@@ -300,7 +300,7 @@ export function OrderDetailClient({
             </div>
 
                     {/* Top Navigation & Status */}
-                    <section className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-gradient-to-br from-white via-[#fffdfb] to-[#faf4ee] shadow-[var(--shadow-md)] no-print">
+                    <section className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white via-[#fffdfb] to-[#faf4ee] shadow-[var(--shadow-xs)] no-print">
                         <div className="flex flex-col gap-5 border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-6 xl:flex-row xl:items-center xl:justify-between">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                                 <div className="space-y-3">
@@ -325,7 +325,7 @@ export function OrderDetailClient({
                                 <Link
                                     href={`/admin/siparisler/${order.id}/yazdir`}
                                     target="_blank"
-                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                                 >
                                     <Printer className="h-4 w-4" />
                                     Yazdır
@@ -334,7 +334,7 @@ export function OrderDetailClient({
                                     onClick={() => {
                                         alert("Fatura indiriliyor...");
                                     }}
-                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FF6A00] to-[#d95a00] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-md)] transition-all hover:from-[#f56a12] hover:to-[#c94d00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-[#FF6A00] to-[#d95a00] px-4 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all hover:from-[#f56a12] hover:to-[#c94d00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
                                 >
                                     <Download className="h-4 w-4" />
                                     Fatura
@@ -377,7 +377,7 @@ export function OrderDetailClient({
             />
 
             {/* Accounting Snapshot */}
-                    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/85 p-4 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur md:p-5">
+                    <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur md:p-5">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
                                 <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#f9f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">
@@ -389,7 +389,7 @@ export function OrderDetailClient({
                     <button
                         onClick={triggerInvoiceCreation}
                         disabled={isAccountingActionLoading}
-                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#4b3529] to-[#2f241d] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(75,53,41,0.2)] transition-all hover:from-[#5b4032] hover:to-[#3b2a21] disabled:opacity-60"
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-[#4b3529] to-[#2f241d] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(75,53,41,0.2)] transition-all hover:from-[#5b4032] hover:to-[#3b2a21] disabled:opacity-60"
                     >
                         {isAccountingActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         Fatura Kes
@@ -397,11 +397,11 @@ export function OrderDetailClient({
                 </div>
 
                         <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-5">
-                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
+                            <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Ödeme Yöntemi</p>
                         <p className="mt-2 font-semibold text-stone-900">{paymentMethodName}</p>
                     </div>
-                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
+                            <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Senkron Durumu</p>
                         <p className="mt-2 flex items-center gap-2 font-semibold text-stone-900">
                             {accountingSnapshot?.syncStatus === "synced" ? (
@@ -412,15 +412,15 @@ export function OrderDetailClient({
                             {accountingStatusLabel[accountingSnapshot?.syncStatus || "idle"]}
                         </p>
                     </div>
-                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
+                            <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Sağlayıcı</p>
                         <p className="mt-2 font-semibold text-stone-900">{accountingSnapshot?.provider || "-"}</p>
                     </div>
-                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
+                            <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Fatura Numarası</p>
                         <p className="mt-2 font-semibold text-stone-900">{accountingSnapshot?.invoiceNo || "-"}</p>
                     </div>
-                            <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3 md:col-span-2 xl:col-span-1">
+                            <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] px-4 py-3 md:col-span-2 xl:col-span-1">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Fatura Linki</p>
                         {accountingSnapshot?.invoiceUrl ? (
                             <a
@@ -438,7 +438,7 @@ export function OrderDetailClient({
                 </div>
 
                 {accountingSnapshot?.lastError && (
-                            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+                            <div className="mt-4 rounded-[8px] border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
                         {accountingSnapshot.lastError}
                     </div>
                 )}

@@ -740,24 +740,24 @@ function RowActionMenu({
         <button
           type="button"
           aria-label={`#${order.orderNumber} için daha fazla işlem`}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04]"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-[#E7EAF0] bg-white text-[#6B7280] transition-colors hover:border-[#FFD7BF] hover:text-[#E85D04]"
         >
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-56 rounded-2xl border-[#E7EAF0] bg-white p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+        className="w-56 rounded-[8px] border-[#E7EAF0] bg-white p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
       >
         <DropdownMenuItem
-          className="rounded-xl px-3 py-2.5 text-[#374151]"
+          className="rounded-[8px] px-3 py-2.5 text-[#374151]"
           onClick={() => navigator.clipboard.writeText(order.orderNumber)}
         >
           <Copy className="mr-2 h-4 w-4" />
           Sipariş numarasını kopyala
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="rounded-xl px-3 py-2.5 text-[#374151]"
+          className="rounded-[8px] px-3 py-2.5 text-[#374151]"
           onClick={() => window.open(`/admin/siparisler/${order.id}/yazdir`, "_blank")}
         >
           <Printer className="mr-2 h-4 w-4" />
@@ -765,7 +765,7 @@ function RowActionMenu({
         </DropdownMenuItem>
         {customerEmail !== "E-posta bilgisi yok" ? (
           <DropdownMenuItem
-            className="rounded-xl px-3 py-2.5 text-[#374151]"
+            className="rounded-[8px] px-3 py-2.5 text-[#374151]"
             onClick={() => navigator.clipboard.writeText(customerEmail)}
           >
             <Copy className="mr-2 h-4 w-4" />
@@ -775,7 +775,7 @@ function RowActionMenu({
         <DropdownMenuSeparator className="bg-[#EEF1F4]" />
         {order.status !== "confirmed" ? (
           <DropdownMenuItem
-            className="rounded-xl px-3 py-2.5 text-[#374151]"
+            className="rounded-[8px] px-3 py-2.5 text-[#374151]"
             onClick={() => onQuickStatusChange(order.id, "confirmed")}
           >
             <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -784,7 +784,7 @@ function RowActionMenu({
         ) : null}
         {order.status !== "preparing" ? (
           <DropdownMenuItem
-            className="rounded-xl px-3 py-2.5 text-[#374151]"
+            className="rounded-[8px] px-3 py-2.5 text-[#374151]"
             onClick={() => onQuickStatusChange(order.id, "preparing")}
           >
             <Package2 className="mr-2 h-4 w-4" />
@@ -793,7 +793,7 @@ function RowActionMenu({
         ) : null}
         {order.status !== "shipped" ? (
           <DropdownMenuItem
-            className="rounded-xl px-3 py-2.5 text-[#374151]"
+            className="rounded-[8px] px-3 py-2.5 text-[#374151]"
             onClick={() => onQuickStatusChange(order.id, "shipped")}
           >
             <Truck className="mr-2 h-4 w-4" />
@@ -802,7 +802,7 @@ function RowActionMenu({
         ) : null}
         {order.status !== "cancelled" ? (
           <DropdownMenuItem
-            className="rounded-xl px-3 py-2.5 text-[#EF4444]"
+            className="rounded-[8px] px-3 py-2.5 text-[#EF4444]"
             onClick={() => onQuickStatusChange(order.id, "cancelled")}
           >
             <Ban className="mr-2 h-4 w-4" />

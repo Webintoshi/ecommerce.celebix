@@ -38,7 +38,7 @@ export function CustomerInfoCard({
   const customerName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || "Bilinmiyor";
 
   return (
-    <div className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+    <div className={`overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Header */}
       <div className="border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fffaf5] to-white px-6 py-5">
         <h3 className="flex items-center gap-2 text-base font-semibold tracking-[-0.02em] text-stone-950">
@@ -66,20 +66,20 @@ export function CustomerInfoCard({
 
         {/* Email */}
         {customer.email && (
-          <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
+          <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
             <div className="flex items-center gap-2">
             <Mail className="w-4 h-4 text-[#b18563]" />
             <p className="flex-1 truncate text-sm text-stone-700">{customer.email}</p>
             <button
               onClick={() => copyToClipboard(customer.email!, "E-posta")}
-              className="rounded-xl p-1.5 transition-colors hover:bg-white"
+              className="rounded-[8px] p-1.5 transition-colors hover:bg-white"
               title="Kopyala"
             >
               <Copy className="w-3.5 h-3.5 text-stone-400" />
             </button>
             <a
               href={`mailto:${customer.email}`}
-              className="rounded-xl p-1.5 transition-colors hover:bg-white"
+              className="rounded-[8px] p-1.5 transition-colors hover:bg-white"
               title="E-posta Gönder"
             >
               <Mail className="w-3.5 h-3.5 text-stone-400" />
@@ -90,20 +90,20 @@ export function CustomerInfoCard({
 
         {/* Phone */}
         {customer.phone && (
-          <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
+          <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-3">
             <div className="flex items-center gap-2">
             <Phone className="w-4 h-4 text-[#b18563]" />
             <p className="text-sm text-stone-700">{customer.phone}</p>
             <button
               onClick={() => copyToClipboard(customer.phone!, "Telefon")}
-              className="rounded-xl p-1.5 transition-colors hover:bg-white"
+              className="rounded-[8px] p-1.5 transition-colors hover:bg-white"
               title="Kopyala"
             >
               <Copy className="w-3.5 h-3.5 text-stone-400" />
             </button>
             <a
               href={`tel:${customer.phone}`}
-              className="rounded-xl p-1.5 transition-colors hover:bg-white"
+              className="rounded-[8px] p-1.5 transition-colors hover:bg-white"
               title="Ara"
             >
               <Phone className="w-3.5 h-3.5 text-stone-400" />
@@ -117,7 +117,7 @@ export function CustomerInfoCard({
           <div className="border-t border-[var(--admin-border)] pt-4">
             <div className="grid grid-cols-2 gap-3">
               {customer.totalOrders !== undefined && (
-                <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
+                <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <ShoppingCart className="w-3.5 h-3.5 text-[#b18563]" />
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Sipariş</p>
@@ -126,7 +126,7 @@ export function CustomerInfoCard({
                 </div>
               )}
               {customer.totalSpent !== undefined && (
-                <div className="rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
+                <div className="rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-4">
                   <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a7c67]">Harcama</p>
                   <p className="text-lg font-semibold text-[var(--admin-accent-hover)]">
                     {new Intl.NumberFormat("tr-TR", {
@@ -164,7 +164,7 @@ export function CustomerInfoCard({
                 <Link
                   key={order.id}
                   href={`/admin/siparisler/${order.id}`}
-                  className="group flex items-center justify-between rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#FCFDFE]"
+                  className="group flex items-center justify-between rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#FCFDFE]"
                 >
                   <div>
                     <p className="text-sm font-semibold text-stone-900 transition-colors group-hover:text-[var(--admin-accent-hover)]">

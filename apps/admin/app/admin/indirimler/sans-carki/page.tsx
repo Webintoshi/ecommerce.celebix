@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Check,
-  ChevronLeft,
   ChevronRight,
   Eye,
   Gift,
@@ -274,8 +273,8 @@ export default function LuckyWheelAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8">
+      <div className="max-w-none mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -286,7 +285,7 @@ export default function LuckyWheelAdminPage() {
             <button
               onClick={handleSimulate}
               disabled={simulating}
-              className="inline-flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 rounded-[8px] border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50 transition-colors"
             >
               <Play className="h-4 w-4" />
               {simulating ? "Simüle ediliyor..." : "Simülasyon"}
@@ -294,7 +293,7 @@ export default function LuckyWheelAdminPage() {
             <button
               onClick={handleSaveAll}
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-lg shadow-primary/20"
+              className="inline-flex items-center gap-2 rounded-[8px] bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-lg shadow-primary/20"
             >
               <Save className="h-4 w-4" />
               {saving ? "Kaydediliyor..." : "Kaydet"}
@@ -304,13 +303,13 @@ export default function LuckyWheelAdminPage() {
 
         {/* Simülasyon Sonucu */}
         {simulationSummary && (
-          <div className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-700">
+          <div className="rounded-[8px] border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
             {simulationSummary}
           </div>
         )}
 
         {/* Progress Steps */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-4">
+        <div className="bg-white rounded-[8px] border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const isActive = currentStep === step.id;
@@ -327,7 +326,7 @@ export default function LuckyWheelAdminPage() {
                 >
                   <div
                     className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                      "w-10 h-10 rounded-[8px] flex items-center justify-center transition-all",
                       isActive && "bg-primary text-white shadow-lg shadow-primary/30",
                       isCompleted && "bg-green-100 text-green-600",
                       !isActive && !isCompleted && "bg-gray-100 text-gray-500 group-hover:bg-gray-200"
@@ -359,9 +358,9 @@ export default function LuckyWheelAdminPage() {
         {currentStep === "config" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* General Settings */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="bg-white rounded-[8px] border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-[8px] bg-primary/10 flex items-center justify-center">
                   <Settings className="w-6 h-6 text-primary" />
                 </div>
                 <div>
@@ -372,7 +371,7 @@ export default function LuckyWheelAdminPage() {
 
               <div className="space-y-5">
                 {/* Aktif Toggle */}
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-[8px]">
                   <div className="flex items-center gap-3">
                     <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", config.is_active ? "bg-green-100" : "bg-gray-200")}>
                       <Check className={cn("w-5 h-5", config.is_active ? "text-green-600" : "text-gray-400")} />
@@ -405,7 +404,7 @@ export default function LuckyWheelAdminPage() {
                   <input
                     value={config.name}
                     onChange={(e) => setConfig((prev) => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="w-full px-4 py-3 rounded-[8px] border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                     placeholder="örn: Yılbaşı Şans Çarkı"
                   />
                 </div>
@@ -418,7 +417,7 @@ export default function LuckyWheelAdminPage() {
                       type="date"
                       value={toDateInput(config.start_date)}
                       onChange={(e) => setConfig((prev) => ({ ...prev, start_date: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      className="w-full px-4 py-3 rounded-[8px] border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                     />
                   </div>
                   <div>
@@ -427,7 +426,7 @@ export default function LuckyWheelAdminPage() {
                       type="date"
                       value={toDateInput(config.end_date)}
                       onChange={(e) => setConfig((prev) => ({ ...prev, end_date: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      className="w-full px-4 py-3 rounded-[8px] border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                     />
                   </div>
                 </div>
@@ -435,9 +434,9 @@ export default function LuckyWheelAdminPage() {
             </div>
 
             {/* Rules & Appearance */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="bg-white rounded-[8px] border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-[8px] bg-blue-100 flex items-center justify-center">
                   <Palette className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
@@ -455,7 +454,7 @@ export default function LuckyWheelAdminPage() {
                       type="number"
                       value={config.max_total_spins}
                       onChange={(e) => setConfig((prev) => ({ ...prev, max_total_spins: Number(e.target.value) }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      className="w-full px-4 py-3 rounded-[8px] border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                     />
                   </div>
                   <div>
@@ -464,7 +463,7 @@ export default function LuckyWheelAdminPage() {
                       type="number"
                       value={config.max_spins_per_user}
                       onChange={(e) => setConfig((prev) => ({ ...prev, max_spins_per_user: Number(e.target.value) }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      className="w-full px-4 py-3 rounded-[8px] border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                     />
                   </div>
                   <div>
@@ -473,7 +472,7 @@ export default function LuckyWheelAdminPage() {
                       type="number"
                       value={config.cooldown_hours}
                       onChange={(e) => setConfig((prev) => ({ ...prev, cooldown_hours: Number(e.target.value) }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      className="w-full px-4 py-3 rounded-[8px] border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                     />
                   </div>
                 </div>
@@ -510,7 +509,7 @@ export default function LuckyWheelAdminPage() {
                           }))
                         }
                         className={cn(
-                          "flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all",
+                          "flex items-center gap-2 px-3 py-2 rounded-[8px] border-2 transition-all",
                           config.primary_color === color.primary
                             ? "border-primary bg-primary/5"
                             : "border-gray-200 hover:border-gray-300"
@@ -532,7 +531,7 @@ export default function LuckyWheelAdminPage() {
             <div className="lg:col-span-2 flex justify-end">
               <button
                 onClick={() => setCurrentStep("prizes")}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-[8px] font-semibold hover:bg-primary/90 transition-colors"
               >
                 Ödülleri Ayarla
                 <ChevronRight className="w-5 h-5" />
@@ -548,7 +547,7 @@ export default function LuckyWheelAdminPage() {
             {config.probability_mode === "percentage" && Math.abs(probabilityTotal - 100) > 0.1 && (
               <div
                 className={cn(
-                  "rounded-xl px-4 py-3 text-sm flex items-center gap-2",
+                  "rounded-[8px] px-4 py-3 text-sm flex items-center gap-2",
                   Math.abs(probabilityTotal - 100) < 1
                     ? "bg-amber-50 border border-amber-200 text-amber-700"
                     : "bg-red-50 border border-red-200 text-red-700"
@@ -565,7 +564,7 @@ export default function LuckyWheelAdminPage() {
                 <div
                   key={prize.id || `prize-${index}`}
                   className={cn(
-                    "bg-white rounded-2xl border p-5 transition-all",
+                    "bg-white rounded-[8px] border p-5 transition-all",
                     editingPrizeIndex === index
                       ? "border-primary ring-2 ring-primary/20 shadow-lg"
                       : "border-gray-200 hover:border-gray-300"
@@ -575,7 +574,7 @@ export default function LuckyWheelAdminPage() {
                     // Compact View
                     <div className="flex items-center gap-4">
                       <div
-                        className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm"
+                        className="w-14 h-14 rounded-[8px] flex items-center justify-center text-2xl shadow-sm"
                         style={{ backgroundColor: prize.color_hex }}
                       >
                         {prize.icon_emoji}
@@ -602,13 +601,13 @@ export default function LuckyWheelAdminPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setEditingPrizeIndex(index)}
-                          className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-colors"
+                          className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-[8px] transition-colors"
                         >
                           Düzenle
                         </button>
                         <button
                           onClick={() => removePrize(index)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-[8px] transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -683,7 +682,7 @@ export default function LuckyWheelAdminPage() {
                       </div>
 
                       {prize.prize_type === "coupon" && (
-                        <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-xl">
+                        <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-[8px]">
                           <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">Prefix</label>
                             <input
@@ -775,9 +774,9 @@ export default function LuckyWheelAdminPage() {
               {/* Add Prize Button */}
               <button
                 onClick={addPrize}
-                className="border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 text-gray-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+                className="border-2 border-dashed border-gray-300 rounded-[8px] p-6 flex flex-col items-center justify-center gap-2 text-gray-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
               >
-                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-[8px] bg-gray-100 flex items-center justify-center">
                   <Plus className="w-6 h-6" />
                 </div>
                 <span className="font-medium">Yeni Ödül Ekle</span>
@@ -785,17 +784,10 @@ export default function LuckyWheelAdminPage() {
             </div>
 
             {/* Navigation */}
-            <div className="flex justify-between">
-              <button
-                onClick={() => setCurrentStep("config")}
-                className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                Geri
-              </button>
+            <div className="flex justify-end">
               <button
                 onClick={() => setCurrentStep("preview")}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-[8px] font-semibold hover:bg-primary/90 transition-colors"
               >
                 Ön İzleme
                 <ChevronRight className="w-5 h-5" />
@@ -807,10 +799,10 @@ export default function LuckyWheelAdminPage() {
         {/* Step 3: Preview */}
         {currentStep === "preview" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="bg-white rounded-[8px] border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                  <Eye className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 rounded-[8px] bg-orange-100 flex items-center justify-center">
+                  <Eye className="w-6 h-6 text-orange-600" />
                 </div>
                 <div>
                   <h2 className="font-semibold text-gray-900 text-lg">Canlı Ön İzleme</h2>
@@ -881,7 +873,7 @@ export default function LuckyWheelAdminPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
+              <div className="bg-white rounded-[8px] border border-gray-200 p-6">
                 <h3 className="font-semibold text-gray-900 mb-4">Ödül Dağılımı</h3>
                 <div className="space-y-3">
                   {activePrizes.map((prize, index) => (
@@ -907,7 +899,7 @@ export default function LuckyWheelAdminPage() {
                 </div>
               </div>
 
-              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6">
+              <div className="bg-primary/5 border border-primary/20 rounded-[8px] p-6">
                 <h3 className="font-semibold text-gray-900 mb-2">Hazır mısınız?</h3>
                 <p className="text-sm text-gray-600 mb-4">
                   Tüm ayarları kontrol ettikten sonra kaydedin ve çarkı yayına alın.
@@ -915,7 +907,7 @@ export default function LuckyWheelAdminPage() {
                 <button
                   onClick={handleSaveAll}
                   disabled={saving}
-                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-[8px] font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   <Save className="w-4 h-4" />
                   {saving ? "Kaydediliyor..." : "Tüm Ayarları Kaydet"}
@@ -924,17 +916,10 @@ export default function LuckyWheelAdminPage() {
             </div>
 
             {/* Navigation */}
-            <div className="lg:col-span-2 flex justify-between">
-              <button
-                onClick={() => setCurrentStep("prizes")}
-                className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                Ödüllere Dön
-              </button>
+            <div className="lg:col-span-2 flex justify-end">
               <button
                 onClick={() => setCurrentStep("spins")}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-[8px] font-semibold hover:bg-gray-800 transition-colors"
               >
                 İstatistikleri Gör
                 <ChevronRight className="w-5 h-5" />
@@ -960,7 +945,7 @@ export default function LuckyWheelAdminPage() {
             </div>
 
             {/* Spins Table */}
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-[8px] border border-gray-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-100">
                 <h3 className="font-semibold text-gray-900">Son Spinler</h3>
               </div>
@@ -995,7 +980,7 @@ export default function LuckyWheelAdminPage() {
                     {spins.length === 0 && (
                       <tr>
                         <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                          <div className="w-16 h-16 rounded-[8px] bg-gray-100 flex items-center justify-center mx-auto mb-3">
                             <Activity className="w-8 h-8 text-gray-400" />
                           </div>
                           <p>Henüz spin kaydı bulunmuyor.</p>
@@ -1005,17 +990,6 @@ export default function LuckyWheelAdminPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-
-            {/* Navigation */}
-            <div className="flex justify-start">
-              <button
-                onClick={() => setCurrentStep("preview")}
-                className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                Ön İzlemeye Dön
-              </button>
             </div>
           </div>
         )}
@@ -1040,13 +1014,13 @@ function StatCard({
     blue: "bg-blue-100 text-blue-600",
     green: "bg-green-100 text-green-600",
     amber: "bg-amber-100 text-amber-600",
-    purple: "bg-purple-100 text-purple-600",
+    purple: "bg-orange-100 text-orange-600",
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+    <div className="bg-white rounded-[8px] border border-gray-200 p-5">
       <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colors[color]}`}>
+        <div className={`w-10 h-10 rounded-[8px] flex items-center justify-center ${colors[color]}`}>
           <Icon className="w-5 h-5" />
         </div>
         <div>

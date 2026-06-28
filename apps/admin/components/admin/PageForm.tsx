@@ -172,7 +172,7 @@ export function PageForm({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {showPreview ? (
-            <div className="min-h-[600px] rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+            <div className="min-h-[600px] rounded-[8px] border border-gray-200 bg-white p-8 shadow-sm">
               <h1 className="mb-4 text-3xl font-bold text-gray-900">
                 {formData.title || "Basliksiz Sayfa"}
               </h1>
@@ -186,8 +186,8 @@ export function PageForm({
             </div>
           ) : (
             <>
-              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="border-b border-gray-100 bg-gray-50/50 p-6">
+              <div className="overflow-hidden rounded-[8px] border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-100 bg-[var(--admin-bg)] p-6">
                   <h3 className="flex items-center gap-2 font-semibold text-gray-900">
                     <FileText className="h-4 w-4 text-gray-500" />
                     Sayfa Tanimi
@@ -250,8 +250,8 @@ export function PageForm({
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="border-b border-gray-100 bg-gray-50/50 p-6">
+              <div className="overflow-hidden rounded-[8px] border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-100 bg-[var(--admin-bg)] p-6">
                   <h3 className="flex items-center gap-2 font-semibold text-gray-900">
                     <Globe className="h-4 w-4 text-gray-500" />
                     SEO Ayarları
@@ -286,8 +286,8 @@ export function PageForm({
         </div>
 
         <div className="space-y-6">
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 bg-gray-50/50 p-4">
+          <div className="overflow-hidden rounded-[8px] border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-100 bg-[var(--admin-bg)] p-4">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
                 <Settings className="h-4 w-4 text-gray-500" />
                 Durum ve Yayin
@@ -316,7 +316,7 @@ export function PageForm({
             </div>
           </div>
 
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          <div className="rounded-[8px] border border-blue-100 bg-blue-50 p-4">
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-blue-900">
               <Clock className="h-4 w-4" />
               Son Guncelleme

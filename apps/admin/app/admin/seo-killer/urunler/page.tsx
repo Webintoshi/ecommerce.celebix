@@ -516,7 +516,7 @@ export default function ProductSEOPage() {
 
       {message && (
         <div
-          className={`flex items-start gap-3 rounded-2xl border p-4 ${
+          className={`flex items-start gap-3 rounded-[8px] border p-4 ${
             message.type === "success"
               ? "border-emerald-100 bg-emerald-50 text-emerald-700"
               : "border-rose-100 bg-rose-50 text-rose-700"
@@ -548,7 +548,7 @@ export default function ProductSEOPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Ürün adi, slug, focus keyword veya meta alani ara"
-              className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+              className="w-full rounded-[8px] border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
             />
           </div>
 
@@ -557,7 +557,7 @@ export default function ProductSEOPage() {
             <select
               value={filter}
               onChange={(event) => setFilter(event.target.value as ProductFilter)}
-              className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+              className="w-full appearance-none rounded-[8px] border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
             >
               <option value="all">Tum urunler</option>
               <option value="active">Sadece aktif</option>
@@ -569,7 +569,7 @@ export default function ProductSEOPage() {
           <button
             type="button"
             onClick={() => void loadProducts(false)}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
             <RefreshCw
               className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
@@ -577,7 +577,7 @@ export default function ProductSEOPage() {
             Yenile
           </button>
 
-          <div className="flex items-center justify-end rounded-2xl border border-gray-100 bg-gray-50 px-4 text-sm text-gray-500">
+          <div className="flex items-center justify-end rounded-[8px] border border-gray-100 bg-gray-50 px-4 text-sm text-gray-500">
             Gorunen: {filteredProducts.length}
           </div>
         </div>
@@ -587,7 +587,7 @@ export default function ProductSEOPage() {
             type="button"
             onClick={applyBulkSuggestions}
             disabled={activeVisibleProducts.length === 0}
-            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-[8px] bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-4 w-4" />
             Aktif gorunen urunlere onerileri uygula
@@ -597,7 +597,7 @@ export default function ProductSEOPage() {
             type="button"
             onClick={() => void saveBulkProducts()}
             disabled={bulkSaving || pendingVisibleActiveProducts.length === 0}
-            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-[8px] bg-primary px-4 py-3 text-sm font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {bulkSaving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -646,10 +646,10 @@ export default function ProductSEOPage() {
                         <img
                           src={current.images[0]}
                           alt={current.name}
-                          className="h-20 w-20 rounded-2xl object-cover"
+                          className="h-20 w-20 rounded-[8px] object-cover"
                         />
                       ) : (
-                        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-[8px] bg-gray-100">
                           <Package className="h-7 w-7 text-gray-400" />
                         </div>
                       )}
@@ -714,7 +714,7 @@ export default function ProductSEOPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                    <div className="rounded-[8px] border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
                       <div className="font-medium text-gray-900">
                         Keyword coverage
                       </div>
@@ -734,7 +734,7 @@ export default function ProductSEOPage() {
                       {current.issues.map((issue) => (
                         <div
                           key={issue.code}
-                          className={`rounded-2xl border px-3 py-2 text-sm ${
+                          className={`rounded-[8px] border px-3 py-2 text-sm ${
                             issue.severity === "error"
                               ? "border-rose-100 bg-rose-50 text-rose-700"
                               : "border-amber-100 bg-amber-50 text-amber-700"
@@ -766,7 +766,7 @@ export default function ProductSEOPage() {
                             metaTitle: event.target.value,
                           }))
                         }
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+                        className="w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
                         placeholder={current.seoSuggestion.metaTitle}
                       />
                     </FieldBlock>
@@ -788,7 +788,7 @@ export default function ProductSEOPage() {
                             seoFocusKeyword: event.target.value,
                           }))
                         }
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+                        className="w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
                         placeholder={current.seoSuggestion.focusKeyword}
                       />
                     </FieldBlock>
@@ -811,7 +811,7 @@ export default function ProductSEOPage() {
                             metaDescription: event.target.value,
                           }))
                         }
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+                        className="w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
                         placeholder={current.seoSuggestion.metaDescription}
                       />
                     </FieldBlock>
@@ -831,7 +831,7 @@ export default function ProductSEOPage() {
                             ),
                           }))
                         }
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+                        className="w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
                         placeholder={current.seoSuggestion.keywords.join(", ")}
                       />
                     </FieldBlock>
@@ -853,7 +853,7 @@ export default function ProductSEOPage() {
                             canonicalUrl: event.target.value,
                           }))
                         }
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+                        className="w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
                         placeholder={current.seoAudit.defaultCanonicalUrl}
                       />
                     </FieldBlock>
@@ -871,7 +871,7 @@ export default function ProductSEOPage() {
                             seoRobots: event.target.value as ProductSEORobots,
                           }))
                         }
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+                        className="w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
                       >
                         {PRODUCT_SEO_ROBOT_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -899,7 +899,7 @@ export default function ProductSEOPage() {
                             ogImage: event.target.value,
                           }))
                         }
-                        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+                        className="w-full rounded-[8px] border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
                         placeholder={current.seoSuggestion.ogImage || current.images[0] || ""}
                       />
                     </FieldBlock>
@@ -974,7 +974,7 @@ export default function ProductSEOPage() {
                     <button
                       type="button"
                       onClick={() => applySuggestion(base, current)}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      className="inline-flex items-center gap-2 rounded-[8px] border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
                       <Sparkles className="h-4 w-4" />
                       Oneriyi uygula
@@ -984,7 +984,7 @@ export default function ProductSEOPage() {
                       type="button"
                       onClick={() => resetDraft(base.id)}
                       disabled={!pending}
-                      className="rounded-2xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-[8px] border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Taslagi sifirla
                     </button>
@@ -993,7 +993,7 @@ export default function ProductSEOPage() {
                       type="button"
                       onClick={() => void saveSingleProduct(base)}
                       disabled={!pending || saving}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-[8px] bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {saving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1030,7 +1030,7 @@ function SummaryCard({
         : "border-gray-100 bg-gray-50 text-gray-700";
 
   return (
-    <div className={`rounded-2xl border px-4 py-4 ${className}`}>
+    <div className={`rounded-[8px] border px-4 py-4 ${className}`}>
       <div className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
         {label}
       </div>

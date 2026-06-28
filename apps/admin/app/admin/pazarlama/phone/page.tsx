@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Copy, Download, Filter, Phone, RefreshCw, Users, X } from "lucide-react";
+import { Copy, Download, Filter, Phone, RefreshCw, Users } from "lucide-react";
+import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import { getCustomers } from "@/lib/customers";
 import { Customer } from "@/types/customer";
 
@@ -54,42 +54,27 @@ export default function PhoneMarketingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--admin-bg)] px-4 py-4 md:px-6 md:py-6 xl:px-8">
-      <div className="mx-auto max-w-[1600px] space-y-6">
-        <header className="rounded-[32px] border border-[var(--admin-border)] bg-white/88 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
-              <span className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent-hover)]">
-                Telefon Pazarlama
-              </span>
-              <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#352312] md:text-[2.5rem]">
-                  Telefon Kampanyaları
-                </h1>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/admin/pazarlama"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-text-secondary)] transition hover:border-[#d7c0a4] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-              >
-                <X className="h-4 w-4" />
-                Geri
-              </Link>
+    <main className="min-h-screen bg-[var(--admin-bg)] px-4 py-4 md:px-6 md:py-5 xl:px-6">
+      <div className="mx-auto max-w-none">
+        <AdminPageShell>
+          <AdminPageHeader
+            sectionLabel="Pazarlama"
+            title="Telefon Kampanyaları"
+            description="Arama listesi, not ve dışa aktarım akışını yönetin."
+            actions={
               <button
+                type="button"
                 onClick={() => setCustomers(getCustomers())}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_-22px_rgba(166,106,45,0.8)] transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-3 text-sm font-semibold text-[var(--admin-text)] transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
               >
                 <RefreshCw className="h-4 w-4" />
                 Yenile
               </button>
-            </div>
-          </div>
-        </header>
+            }
+          />
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 shadow-[var(--shadow-md)] backdrop-blur">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)] backdrop-blur">
             <div className="border-b border-[#f1e4d1] px-5 py-5 md:px-6">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -107,7 +92,7 @@ export default function PhoneMarketingPage() {
                       placeholder="Müşteri veya telefon ara"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-4 text-sm text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                     />
                   </div>
 
@@ -116,7 +101,7 @@ export default function PhoneMarketingPage() {
                     <select
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
-                      className="w-full appearance-none rounded-2xl border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-10 text-sm text-[var(--admin-heading)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                      className="w-full appearance-none rounded-[8px] border border-[var(--admin-border)] bg-[#FCFDFE] py-3 pl-11 pr-10 text-sm text-[var(--admin-heading)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                     >
                       <option value="all">Tüm müşteriler</option>
                       <option value="phone">Telefon numarası olanlar</option>
@@ -129,7 +114,7 @@ export default function PhoneMarketingPage() {
             </div>
 
             <div className="px-3 pb-3 pt-3 md:px-4 md:pb-4">
-              <div className="hidden overflow-hidden rounded-[28px] border border-[var(--admin-border)] md:block">
+              <div className="hidden overflow-hidden rounded-[12px] border border-[var(--admin-border)] md:block">
                 <div className="max-h-[620px] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-[#FCFDFE] text-[var(--admin-text-secondary)]">
@@ -183,7 +168,7 @@ export default function PhoneMarketingPage() {
                               </div>
                             </td>
                             <td className="px-5 py-4 align-top">
-                              <span className="inline-flex rounded-xl bg-[#f7efe5] px-3 py-2 font-mono text-[#73563a]">
+                              <span className="inline-flex rounded-[8px] bg-[#f7efe5] px-3 py-2 font-mono text-[#73563a]">
                                 {customer.phone || "-"}
                               </span>
                             </td>
@@ -202,7 +187,7 @@ export default function PhoneMarketingPage() {
                               {customer.phone ? (
                                 <a
                                   href={`tel:${customer.phone}`}
-                                  className="inline-flex items-center gap-2 rounded-2xl border border-[#dcb78f] bg-[var(--admin-accent-soft)] px-4 py-2.5 font-semibold text-[var(--admin-accent-hover)] transition hover:border-[#c58a38] hover:bg-[#fef1db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
+                                  className="inline-flex items-center gap-2 rounded-[8px] border border-[#dcb78f] bg-[var(--admin-accent-soft)] px-4 py-2.5 font-semibold text-[var(--admin-accent-hover)] transition hover:border-[#c58a38] hover:bg-[#fef1db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
                                 >
                                   <Phone className="h-4 w-4" />
                                   Ara
@@ -226,7 +211,7 @@ export default function PhoneMarketingPage() {
                   return (
                     <article
                       key={customer.id}
-                      className={`rounded-[26px] border p-4 transition ${
+                      className={`rounded-[12px] border p-4 transition ${
                         isSelected ? "border-[#dba85f] bg-[#fff4df]" : "border-[#eee2d1] bg-white"
                       }`}
                     >
@@ -268,7 +253,7 @@ export default function PhoneMarketingPage() {
                           {customer.phone && (
                             <a
                               href={`tel:${customer.phone}`}
-                              className="inline-flex items-center gap-2 rounded-2xl border border-[#dcb78f] bg-[var(--admin-accent-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--admin-accent-hover)] transition hover:border-[#c58a38] hover:bg-[#fef1db]"
+                              className="inline-flex items-center gap-2 rounded-[8px] border border-[#dcb78f] bg-[var(--admin-accent-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--admin-accent-hover)] transition hover:border-[#c58a38] hover:bg-[#fef1db]"
                             >
                               <Phone className="h-4 w-4" />
                               Ara
@@ -282,7 +267,7 @@ export default function PhoneMarketingPage() {
               </div>
 
               {filteredCustomers.length === 0 && (
-                <div className="rounded-[28px] border border-dashed border-[#e6d4bd] bg-[#FCFDFE] px-6 py-14 text-center">
+                <div className="rounded-[12px] border border-dashed border-[#e6d4bd] bg-[#FCFDFE] px-6 py-14 text-center">
                   <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#f4e3cc] text-[#a4743a]">
                     <Users className="h-7 w-7" />
                   </div>
@@ -294,7 +279,7 @@ export default function PhoneMarketingPage() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
+            <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)] backdrop-blur md:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
@@ -303,7 +288,7 @@ export default function PhoneMarketingPage() {
                   <h3 className="mt-3 text-lg font-semibold text-[#3f2a17]">Arama listesi</h3>
                   <p className="mt-1 text-sm text-[#826c57]">Telefonu olan seçili müşteriler bu alanda toplanır.</p>
                 </div>
-                <div className="rounded-2xl bg-[var(--admin-accent-soft)] px-3 py-2 text-right">
+                <div className="rounded-[8px] bg-[var(--admin-accent-soft)] px-3 py-2 text-right">
                   <div className="text-xs uppercase tracking-[0.2em] text-[#a27b4d]">Toplam</div>
                   <div className="text-lg font-semibold text-[#6b441d]">{selectedPhoneCustomers.length}</div>
                 </div>
@@ -314,7 +299,7 @@ export default function PhoneMarketingPage() {
                   selectedPhoneCustomers.map((customer) => (
                     <div
                       key={customer.id}
-                      className="flex items-center justify-between gap-3 rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3"
+                      className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-[#322113]">{customer.firstName} {customer.lastName}</div>
@@ -322,7 +307,7 @@ export default function PhoneMarketingPage() {
                       </div>
                       <a
                         href={`tel:${customer.phone}`}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-[#2f8f59] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#267549] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f8f59] focus-visible:ring-offset-2"
+                        className="inline-flex items-center gap-2 rounded-[8px] bg-[#2f8f59] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#267549] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f8f59] focus-visible:ring-offset-2"
                       >
                         <Phone className="h-4 w-4" />
                         Ara
@@ -330,14 +315,14 @@ export default function PhoneMarketingPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-[24px] border border-dashed border-[#e8d8c1] bg-[#fff9f1] px-4 py-8 text-center text-sm text-[#8a725a]">
+                  <div className="rounded-[12px] border border-dashed border-[#e8d8c1] bg-[#fff9f1] px-4 py-8 text-center text-sm text-[#8a725a]">
                     Henüz seçili müşteri yok.
                   </div>
                 )}
               </div>
             </section>
 
-            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
+            <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)] backdrop-blur md:p-6">
               <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                 Arama notu
               </span>
@@ -349,7 +334,7 @@ export default function PhoneMarketingPage() {
                 onChange={(e) => setCallNote(e.target.value)}
                 placeholder="Merhaba, kampanyamızla ilgili kısa bir bilgilendirme yapmak istiyorum..."
                 rows={7}
-                className="mt-5 w-full rounded-[26px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 text-sm leading-6 text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
+                className="mt-5 w-full rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-4 text-sm leading-6 text-[var(--admin-heading)] placeholder:text-[var(--admin-text-muted)] transition focus:border-[var(--admin-accent-border)] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
               />
 
               <button
@@ -359,14 +344,14 @@ export default function PhoneMarketingPage() {
                     alert("Not kopyalandı.");
                   }
                 }}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d6b28a] bg-[var(--admin-accent-soft)] px-4 py-3 font-semibold text-[var(--admin-accent-hover)] transition hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[8px] border border-[#d6b28a] bg-[var(--admin-accent-soft)] px-4 py-3 font-semibold text-[var(--admin-accent-hover)] transition hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2"
               >
                 <Copy className="h-4 w-4" />
                 Notu kopyala
               </button>
             </section>
 
-            <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/92 p-5 shadow-[var(--shadow-md)] backdrop-blur md:p-6">
+            <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)] backdrop-blur md:p-6">
               <span className="inline-flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--admin-accent-hover)]">
                 Dışa aktar
               </span>
@@ -383,7 +368,7 @@ export default function PhoneMarketingPage() {
                     }
                   }}
                   disabled={selectedCustomers.length === 0}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-[#faf4eb] px-4 py-3 font-semibold text-[var(--admin-text-secondary)] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[#faf4eb] px-4 py-3 font-semibold text-[var(--admin-text-secondary)] transition hover:bg-[#f3ebdf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Copy className="h-4 w-4" />
                   Kopyala
@@ -401,7 +386,7 @@ export default function PhoneMarketingPage() {
                     }
                   }}
                   disabled={selectedCustomers.length === 0}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 font-semibold text-white transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] px-4 py-3 font-semibold text-white transition hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.18)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className="h-4 w-4" />
                   TXT indir
@@ -410,7 +395,8 @@ export default function PhoneMarketingPage() {
             </section>
           </aside>
         </div>
+        </AdminPageShell>
       </div>
-    </div>
+    </main>
   );
 }

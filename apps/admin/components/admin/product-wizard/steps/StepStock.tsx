@@ -42,7 +42,7 @@ export function StepStock({
   return (
     <div className="space-y-8 p-4 md:p-6 lg:p-8">
       <div className="flex items-center gap-4 border-b border-[var(--admin-border)] pb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-[var(--admin-accent)] text-white shadow-[0_14px_28px_rgba(255,106,0,0.22)]">
           <Package className="w-6 h-6" />
         </div>
         <div>
@@ -52,10 +52,10 @@ export function StepStock({
       </div>
 
       {/* Stock Tracking Toggle */}
-      <div className="rounded-[26px] border border-[var(--admin-border)] bg-gradient-to-br from-white via-[#fffaf6] to-[#faf4ed] p-6 shadow-sm">
+      <div className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white via-[#fffaf6] to-[#faf4ed] p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-white shadow-sm">
               <Package className="w-5 h-5 text-[var(--admin-accent)]" />
             </div>
             <div>
@@ -85,7 +85,7 @@ export function StepStock({
 
       {/* Low Stock Alert */}
       {trackStock && (
-        <div className="space-y-2 rounded-[24px] border border-[var(--admin-border)] bg-white/90 p-5 shadow-sm">
+        <div className="space-y-2 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
           <label className="flex items-center gap-2 text-sm font-semibold text-stone-700">
             <BarChartIcon className="w-4 h-4 text-[var(--admin-accent)]" />
             Düşük Stok Uyarı Eşiği
@@ -94,7 +94,7 @@ export function StepStock({
             type="number"
             value={lowStockThreshold}
             onChange={(e) => onLowStockThresholdChange(parseInt(e.target.value) || 10)}
-            className="w-32 rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+            className="w-32 rounded-[8px] border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
           />
           <p className="text-xs text-stone-500" aria-live="polite">
             Stok bu seviyenin altına düştüğünde uyarı alacaksınız.
@@ -108,7 +108,7 @@ export function StepStock({
         
         <div className="grid gap-4">
           {variants.map((variant, index) => (
-            <div key={variant.id} className="space-y-4 rounded-[26px] border border-[var(--admin-border)] bg-white p-4 shadow-sm md:p-5">
+            <div key={variant.id} className="space-y-4 rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-sm md:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h5 className="font-semibold text-stone-900">{variant.name}</h5>
                 <span className="inline-flex w-fit items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-medium text-[var(--admin-accent-hover)]">SKU: {variant.sku}</span>
@@ -124,7 +124,7 @@ export function StepStock({
                     onChange={(e) => updateVariantStock(index, parseInt(e.target.value) || 0)}
                     disabled={!trackStock}
                     className={cn(
-                      "w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
+                      "w-full rounded-[8px] border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20",
                       !trackStock && "opacity-50 cursor-not-allowed"
                     )}
                   />
@@ -141,7 +141,7 @@ export function StepStock({
                     value={variant.warehouseLocation || ""}
                     onChange={(e) => updateVariantWarehouse(index, e.target.value)}
                     placeholder="A-12-3"
-                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                    className="w-full rounded-[8px] border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                 </div>
 
@@ -156,7 +156,7 @@ export function StepStock({
                     value={variant.maxPurchaseQuantity || ""}
                     onChange={(e) => updateVariantMaxPurchase(index, parseInt(e.target.value) || undefined)}
                     placeholder="Sınırsız"
-                    className="w-full rounded-2xl border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
+                    className="w-full rounded-[8px] border border-[#e8dbcf] bg-[#FCFDFE] px-4 py-3 outline-none transition-all focus:border-[var(--admin-accent)] focus:bg-white focus:ring-2 focus:ring-[var(--admin-accent)]/20"
                   />
                 </div>
               </div>

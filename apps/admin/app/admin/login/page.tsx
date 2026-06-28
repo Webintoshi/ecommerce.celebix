@@ -140,10 +140,10 @@ export default function AdminLoginPage() {
       />
 
       <div className="w-full max-w-md relative">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        <div className="bg-white rounded-[8px] shadow-sm border border-gray-100 p-8">
           <div className="text-center mb-8">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              className="w-16 h-16 rounded-[8px] flex items-center justify-center mx-auto mb-4"
               style={{ backgroundColor: "#D4A574" }}
             >
               <ShieldCheck className="w-8 h-8 text-white" strokeWidth={2} />
@@ -158,7 +158,7 @@ export default function AdminLoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-5">
             {authUnavailable ? (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+              <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
                 {authBlocked
                   ? "Admin uygulamasi olustu ancak bu yeni light_postgres store icin giris kimligi henuz tamamlanmadi."
                   : "Bu ortamda admin auth degiskenleri henuz tanimli olmadigi icin giris gecici olarak pasif."}{" "}
@@ -169,7 +169,7 @@ export default function AdminLoginPage() {
             ) : null}
 
             {isLogtoProvider ? (
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-700">
+              <div className="rounded-[8px] border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-700">
                 Bu panel Celebix merkezi kimlik altyapısı ile giriş yapıyor. Devam ettiğinizde güvenli Logto oturumu başlatılacak.
               </div>
             ) : (
@@ -185,7 +185,7 @@ export default function AdminLoginPage() {
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="yonetici@magaza.com"
-                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
+                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-[8px] text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
                       required
                     />
                   </div>
@@ -202,7 +202,7 @@ export default function AdminLoginPage() {
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
+                      className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-[8px] text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
                       required
                       minLength={8}
                     />
@@ -214,7 +214,7 @@ export default function AdminLoginPage() {
             {isLogtoProvider ? (
               <a
                 href={logtoSignInHref}
-                className="w-full py-3.5 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
+                className="w-full py-3.5 rounded-[8px] font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
               >
                 Celebix Auth ile Devam Et
               </a>
@@ -222,7 +222,7 @@ export default function AdminLoginPage() {
               <button
                 type="submit"
                 disabled={loading || authUnavailable}
-                className="w-full py-3.5 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
+                className="w-full py-3.5 rounded-[8px] font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] shadow-lg shadow-neutral-900/10"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />

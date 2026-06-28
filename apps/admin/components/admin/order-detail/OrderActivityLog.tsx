@@ -23,7 +23,7 @@ const ACTION_LABELS: Record<OrderActivityAction, string> = {
 const ACTION_ICONS: Record<OrderActivityAction, { icon: string; color: string; bg: string }> = {
   order_created: { icon: "🟢", color: "text-emerald-600", bg: "bg-emerald-50" },
   status_changed: { icon: "🔄", color: "text-blue-600", bg: "bg-blue-50" },
-  payment_status_changed: { icon: "💳", color: "text-purple-600", bg: "bg-purple-50" },
+  payment_status_changed: { icon: "💳", color: "text-orange-600", bg: "bg-orange-50" },
   shipping_updated: { icon: "📦", color: "text-indigo-600", bg: "bg-indigo-50" },
   note_added: { icon: "📝", color: "text-amber-600", bg: "bg-amber-50" },
   note_updated: { icon: "✏️", color: "text-amber-600", bg: "bg-amber-50" },
@@ -114,7 +114,7 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
   };
 
   return (
-    <div className={`overflow-hidden rounded-[28px] border border-[var(--admin-border)] bg-white/85 shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
+    <div className={`overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_18px_50px_rgba(148,101,63,0.08)] backdrop-blur ${className}`}>
       {/* Compact Header */}
       <div className="flex items-center justify-between border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-4">
         <div className="flex items-center gap-2">
@@ -153,7 +153,7 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
           
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="rounded-xl p-1.5 transition-colors hover:bg-white"
+            className="rounded-[8px] p-1.5 transition-colors hover:bg-white"
           >
             <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
           </button>
@@ -174,9 +174,9 @@ export function OrderActivityLogComponent({ activities, className = "" }: OrderA
                 const description = formatActivityDescription(activity);
 
                 return (
-                  <div key={activity.id} className="flex items-start gap-3 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#FCFDFE]">
+                  <div key={activity.id} className="flex items-start gap-3 rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 transition-colors hover:bg-[#FCFDFE]">
                     {/* Icon */}
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white text-xs shadow-sm ${actionConfig.bg} ${actionConfig.color}`}>
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-white text-xs shadow-sm ${actionConfig.bg} ${actionConfig.color}`}>
                       {actionConfig.icon}
                     </div>
 

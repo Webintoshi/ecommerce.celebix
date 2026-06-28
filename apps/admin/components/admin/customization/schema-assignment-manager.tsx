@@ -100,7 +100,7 @@ export function SchemaAssignmentManager({
       const row = (
         <label
           key={category.id}
-          className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-amber-300"
+          className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-amber-300"
           style={{ marginLeft: depth * 18 }}
         >
           <Checkbox
@@ -129,7 +129,7 @@ export function SchemaAssignmentManager({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-none flex-col gap-6 p-6">
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -161,7 +161,7 @@ export function SchemaAssignmentManager({
             {filteredProducts.map((product) => (
               <label
                 key={product.id}
-                className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-amber-300"
+                className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-amber-300"
               >
                 <Checkbox
                   checked={selectedProductIds.includes(product.id)}
@@ -183,7 +183,7 @@ export function SchemaAssignmentManager({
             ))}
 
             {filteredProducts.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
+              <div className="rounded-[8px] border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
                 Aramaya uyan ürün bulunamadı.
               </div>
             ) : null}
@@ -219,7 +219,7 @@ export function SchemaAssignmentManager({
           <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
             {renderCategoryRows()}
             {categories.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
+              <div className="rounded-[8px] border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
                 Henüz kategori bulunmuyor.
               </div>
             ) : null}

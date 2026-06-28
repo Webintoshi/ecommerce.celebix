@@ -69,11 +69,11 @@ export function OrderItemsList({
   const hasFreeShipping = shippingCost === 0;
 
   return (
-    <div className={`overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white/90 shadow-[0_20px_55px_rgba(148,101,63,0.1)] backdrop-blur ${className}`}>
+    <div className={`overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_20px_55px_rgba(148,101,63,0.1)] backdrop-blur ${className}`}>
       {/* Header */}
       <div className="flex flex-col gap-4 border-b border-[var(--admin-border)] bg-gradient-to-r from-[#fffaf5] to-white px-5 py-5 md:flex-row md:items-center md:justify-between md:px-8 md:py-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#f3dfc9] bg-[var(--admin-accent-soft)]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-[8px] border border-[#f3dfc9] bg-[var(--admin-accent-soft)]">
             <ShoppingBag className="h-5 w-5 text-[var(--admin-accent-hover)]" />
           </div>
           <div>
@@ -101,7 +101,7 @@ export function OrderItemsList({
               className="flex flex-col gap-4 p-4 transition-colors hover:bg-[#FCFDFE] sm:flex-row sm:items-center sm:gap-5 md:p-6"
             >
               {/* Product Image */}
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4]">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4]">
                 {productImage ? (
                   <Image
                     src={productImage}
@@ -155,14 +155,14 @@ export function OrderItemsList({
 
               {/* Quantity */}
               <div className="shrink-0 text-center sm:self-start">
-                <div className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-3 py-2 shadow-sm">
+                <div className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2 shadow-sm">
                   <Package className="w-4 h-4 text-[#b18563]" />
                   <span className="text-sm font-semibold text-stone-700">x{item.quantity}</span>
                 </div>
               </div>
 
               {/* Price */}
-              <div className="w-full shrink-0 rounded-[22px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 text-left sm:w-28 sm:self-start sm:text-right">
+              <div className="w-full shrink-0 rounded-[12px] border border-[#f0e3d6] bg-[#fcf8f4] p-3 text-left sm:w-28 sm:self-start sm:text-right">
                 <p className="text-sm text-stone-500">{formatPrice(item.price)}</p>
                 <p className="text-lg font-semibold text-stone-950">{formatPrice(item.total)}</p>
               </div>
@@ -200,7 +200,7 @@ export function OrderItemsList({
         </div>
 
         {hasFreeShipping && (
-          <div className="mt-4 flex items-center gap-2 rounded-[22px] border border-emerald-100 bg-emerald-50 p-3">
+          <div className="mt-4 flex items-center gap-2 rounded-[12px] border border-emerald-100 bg-emerald-50 p-3">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100">
               <Package className="w-3 h-3 text-emerald-600" />
             </div>

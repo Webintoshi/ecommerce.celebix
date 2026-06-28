@@ -21,7 +21,7 @@ import type { AccountingIntegrationView, AccountingProvider } from "@/types/acco
 
 type ProviderStyle = { bg: string; text: string; abbr: string; color: string };
 const PROVIDER_STYLES: Record<string, ProviderStyle> = {
-  parasut: { bg: "bg-purple-100", text: "text-purple-700", abbr: "P", color: "purple" },
+  parasut: { bg: "bg-orange-100", text: "text-orange-700", abbr: "P", color: "purple" },
   bizimhesap: { bg: "bg-blue-100", text: "text-blue-700", abbr: "BH", color: "blue" },
   mikro: { bg: "bg-orange-100", text: "text-orange-700", abbr: "M", color: "orange" },
   logo_isbasi: { bg: "bg-red-100", text: "text-red-700", abbr: "L", color: "red" },
@@ -56,14 +56,14 @@ function AccountingProviderLogo({
 
   if (!src || hasError) {
     return (
-      <div className={`${className} ${providerStyle.bg} ${providerStyle.text} flex items-center justify-center rounded-2xl`}>
+      <div className={`${className} ${providerStyle.bg} ${providerStyle.text} flex items-center justify-center rounded-[8px]`}>
         <span className={`font-bold leading-none ${size >= 64 ? "text-2xl" : "text-xl"}`}>{providerStyle.abbr}</span>
       </div>
     );
   }
 
   return (
-    <div className={`${className} flex items-center justify-center overflow-hidden rounded-2xl bg-white`}>
+    <div className={`${className} flex items-center justify-center overflow-hidden rounded-[8px] bg-white`}>
       <Image
         src={src}
         alt={providerName}
@@ -113,7 +113,7 @@ function StatusBadge({ connected, error }: { connected: boolean; error: boolean 
 
 function SummaryCard({ icon: Icon, title, value, note, tone }: { icon: ElementType; title: string; value: string; note: string; tone: string }) {
   return (
-    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/95 p-5 shadow-[0_16px_40px_rgba(105,78,54,0.08)]">
+    <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_16px_40px_rgba(105,78,54,0.08)]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-[#8f7765]">{title}</p>
@@ -308,13 +308,13 @@ export default function AccountingIntegrationsPage() {
   if (view === "list") {
     return (
       <div className="admin-page-root text-[var(--admin-heading)]">
-        <div className="mx-auto max-w-7xl space-y-8 px-6 py-8 md:px-8 md:py-10">
-          <section className="relative overflow-hidden rounded-[36px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
+        <div className="mx-auto max-w-none space-y-8 px-6 py-8 md:px-8 md:py-10">
+          <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-xs)] md:p-10">
             <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-3xl">
                 <SectionPill>Fatura entegrasyonu</SectionPill>
                 <div className="mt-5 flex items-start gap-4">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]">
                     <ShieldCheck className="h-8 w-8" />
                   </div>
                   <div>
@@ -326,7 +326,7 @@ export default function AccountingIntegrationsPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={fetchIntegrations}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                  className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                 >
                   <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                   Yenile
@@ -343,7 +343,7 @@ export default function AccountingIntegrationsPage() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="flex items-center gap-2 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               <XCircle className="h-4 w-4" />
               {error}
             </div>
@@ -367,7 +367,7 @@ export default function AccountingIntegrationsPage() {
                   <button
                     key={integration.provider.id}
                     onClick={() => handleSelectProvider(integration)}
-                    className="group text-left rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                    className="group text-left rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all hover:-translate-y-1 hover:border-[var(--admin-accent-border)] hover:shadow-[var(--shadow-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                   >
                     <div className="flex items-start gap-4">
                       <AccountingProviderLogo
@@ -401,7 +401,7 @@ export default function AccountingIntegrationsPage() {
                           )}
                         </div>
 
-                        <div className="mt-5 rounded-[22px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[#7f6858]">
+                        <div className="mt-5 rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-4 py-3 text-sm text-[#7f6858]">
                           {integration.connection?.lastSyncAt ? (
                             <span>Son senkron: {new Date(integration.connection.lastSyncAt).toLocaleString("tr-TR")}</span>
                           ) : (
@@ -416,7 +416,7 @@ export default function AccountingIntegrationsPage() {
             </div>
           </section>
 
-          <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+          <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-blue-100 bg-blue-50 text-blue-600">
                 <ShieldCheck className="h-5 w-5" />
@@ -426,7 +426,7 @@ export default function AccountingIntegrationsPage() {
                 <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Nasıl çalışır?</h3>
                 <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
                   {["Kullandığınız muhasebe programını seçin.", "API bilgilerini ve alan eşlemelerini tamamlayın.", "Bağlantıyı test edip senkronizasyonu başlatın."].map((item, index) => (
-                    <div key={item} className="rounded-[22px] border border-[#f0e3d7] bg-[#fcf8f3] p-4 text-sm leading-6 text-[#6f594c]">
+                    <div key={item} className="rounded-[12px] border border-[#f0e3d7] bg-[#fcf8f3] p-4 text-sm leading-6 text-[#6f594c]">
                       <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-sm font-semibold text-[var(--admin-accent-hover)]">
                         {index + 1}
                       </div>
@@ -450,8 +450,8 @@ export default function AccountingIntegrationsPage() {
 
     return (
       <div className="admin-page-root text-[var(--admin-heading)]">
-        <div className="mx-auto max-w-7xl px-6 py-8 md:px-8 md:py-10">
-          <section className="relative overflow-hidden rounded-[34px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
+        <div className="mx-auto max-w-none px-6 py-8 md:px-8 md:py-10">
+          <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-xs)] md:p-10">
             <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-4">
                 <AccountingProviderLogo
@@ -475,7 +475,7 @@ export default function AccountingIntegrationsPage() {
                 href={selectedProvider.provider.websiteUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
               >
                 Resmî site
               </a>
@@ -485,7 +485,7 @@ export default function AccountingIntegrationsPage() {
 
           <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.8fr]">
             <div className="space-y-6">
-              <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
                 <div className="mb-6 flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#fff4ea] text-[var(--admin-accent-hover)]">
                     <ShieldCheck className="h-5 w-5" />
@@ -510,7 +510,7 @@ export default function AccountingIntegrationsPage() {
                           onChange={(e) => updateCredential(field.key, e.target.value)}
                           placeholder={field.placeholder || field.label}
                           rows={4}
-                          className="w-full resize-none rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                          className="w-full resize-none rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                         />
                       ) : (
                         <input
@@ -518,7 +518,7 @@ export default function AccountingIntegrationsPage() {
                           value={formState.credentials[field.key] || ""}
                           onChange={(e) => updateCredential(field.key, e.target.value)}
                           placeholder={field.placeholder || field.label}
-                          className="w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                          className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                         />
                       )}
                     </div>
@@ -527,7 +527,7 @@ export default function AccountingIntegrationsPage() {
               </section>
 
               {selectedProvider.provider.mappingFields.length > 0 && (
-                <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+                <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
                   <div className="mb-6 flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-blue-100 bg-blue-50 text-blue-600">
                       <MoreHorizontal className="h-5 w-5" />
@@ -548,7 +548,7 @@ export default function AccountingIntegrationsPage() {
                           value={formState.fieldMappings[field.key] || ""}
                           onChange={(e) => updateMapping(field.key, e.target.value)}
                           placeholder={field.placeholder || "Opsiyonel"}
-                          className="w-full rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                          className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
                         />
                       </div>
                     ))}
@@ -556,7 +556,7 @@ export default function AccountingIntegrationsPage() {
                 </section>
               )}
 
-              <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
                 <div className="mb-5 flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-amber-200 bg-amber-50 text-amber-600">
                     <RefreshCw className="h-5 w-5" />
@@ -568,7 +568,7 @@ export default function AccountingIntegrationsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] p-5">
+                <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="text-base font-semibold text-[var(--admin-heading)]">Güvenli Hibrit</span>
                     <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Önerilen</span>
@@ -583,7 +583,7 @@ export default function AccountingIntegrationsPage() {
                 )}
               </section>
 
-              <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
                 <div className="mb-5 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-text-secondary)]">
@@ -598,7 +598,7 @@ export default function AccountingIntegrationsPage() {
                     {logs.length > 0 && (
                       <button
                         onClick={clearLogs}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-white text-[#8a6f5d] transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-500/12"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-[#8a6f5d] transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-500/12"
                         title="Logları temizle"
                       >
                         <X className="h-4 w-4" />
@@ -607,7 +607,7 @@ export default function AccountingIntegrationsPage() {
                     <button
                       onClick={loadLogs}
                       disabled={busyKey === "logs"}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                      className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                     >
                       {busyKey === "logs" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                       Logları yükle
@@ -616,7 +616,7 @@ export default function AccountingIntegrationsPage() {
                 </div>
 
                 {logs.length > 0 ? (
-                  <div className="overflow-hidden rounded-[24px] border border-[#f0e3d7]">
+                  <div className="overflow-hidden rounded-[12px] border border-[#f0e3d7]">
                     <div className="grid grid-cols-[140px_170px_1fr] gap-4 border-b border-[var(--admin-border)] bg-[#fcf8f3] px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#9d836f]">
                       <span>Durum</span>
                       <span>Tarih</span>
@@ -643,7 +643,7 @@ export default function AccountingIntegrationsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-[24px] border border-dashed border-[#e7d9cc] bg-[#fcf8f3] px-6 py-10 text-center">
+                  <div className="rounded-[12px] border border-dashed border-[#e7d9cc] bg-[#fcf8f3] px-6 py-10 text-center">
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[var(--admin-border)] bg-white text-[var(--admin-accent-hover)]">
                       <Terminal className="h-6 w-6" />
                     </div>
@@ -655,7 +655,7 @@ export default function AccountingIntegrationsPage() {
             </div>
 
             <div className="space-y-6">
-              <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
+              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
                 <SectionPill>Kuyruk durumu</SectionPill>
                 <div className="mt-5 space-y-3">
                   {[
@@ -663,7 +663,7 @@ export default function AccountingIntegrationsPage() {
                     { label: "Hatalı", value: selectedProvider.queueStats.failed, tone: selectedProvider.queueStats.failed > 0 ? "border-red-200 bg-red-50 text-red-700" : "border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-text-secondary)]" },
                     { label: "Manuel işlem", value: selectedProvider.queueStats.manualActionRequired, tone: selectedProvider.queueStats.manualActionRequired > 0 ? "border-amber-200 bg-amber-50 text-amber-700" : "border-[var(--admin-border)] bg-[#FCFDFE] text-[var(--admin-text-secondary)]" },
                   ].map((item) => (
-                    <div key={item.label} className={`flex items-center justify-between rounded-[22px] border px-4 py-3 ${item.tone}`}>
+                    <div key={item.label} className={`flex items-center justify-between rounded-[12px] border px-4 py-3 ${item.tone}`}>
                       <span className="text-sm font-medium">{item.label}</span>
                       <span className="text-lg font-semibold">{item.value}</span>
                     </div>
@@ -671,7 +671,7 @@ export default function AccountingIntegrationsPage() {
                 </div>
               </section>
 
-              <section className="rounded-[30px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
+              <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
                 <SectionPill>Hızlı işlemler</SectionPill>
                 <div className="mt-5 space-y-3">
                   <ActionButton icon={Save} label="Bağlan / kaydet" loading={busyKey === "connect"} onClick={connectProvider} variant="primary" />
@@ -681,7 +681,7 @@ export default function AccountingIntegrationsPage() {
                 </div>
 
                 {selectedProvider.provider.supportsWebhook && (
-                  <div className="mt-5 rounded-[22px] border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+                  <div className="mt-5 rounded-[12px] border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
                     <div className="flex items-center gap-2 font-semibold">
                       <Plug className="h-4 w-4" />
                       Webhook desteği aktif
@@ -691,7 +691,7 @@ export default function AccountingIntegrationsPage() {
                 )}
               </section>
 
-              <section className={`rounded-[30px] border p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] ${isConnected ? "border-emerald-200 bg-emerald-50" : hasError ? "border-red-200 bg-red-50" : "border-[var(--admin-border)] bg-white/95"}`}>
+              <section className={`rounded-[12px] border p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] ${isConnected ? "border-emerald-200 bg-emerald-50" : hasError ? "border-red-200 bg-red-50" : "border-[var(--admin-border)] bg-white"}`}>
                 <div className="flex items-start gap-4">
                   <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] ${isConnected ? "bg-white text-emerald-600" : hasError ? "bg-white text-red-600" : "bg-[#fcf8f3] text-[var(--admin-text-secondary)]"}`}>
                     {isConnected ? <CheckCircle2 className="h-6 w-6" /> : hasError ? <AlertTriangle className="h-6 w-6" /> : <Unplug className="h-6 w-6" />}
@@ -732,7 +732,7 @@ function ActionButton({
 }) {
   const className =
     variant === "primary"
-      ? "border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)] hover:brightness-105"
+      ? "border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)] hover:brightness-105"
       : variant === "warning"
         ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
         : "border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]";
@@ -741,7 +741,7 @@ function ActionButton({
     <button
       onClick={onClick}
       disabled={loading}
-      className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] ${className}`}
+      className={`inline-flex w-full items-center justify-center gap-2 rounded-[8px] px-4 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] ${className}`}
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
       {label}

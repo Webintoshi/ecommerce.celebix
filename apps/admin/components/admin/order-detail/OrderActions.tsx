@@ -124,7 +124,7 @@ export function OrderActions({
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center gap-2"
+        className="px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-[8px] font-bold text-sm hover:bg-gray-50 transition-all flex items-center gap-2"
       >
         Hızlı Aksiyonlar
         <MoreVertical className="w-4 h-4" />
@@ -139,7 +139,7 @@ export function OrderActions({
           />
 
           {/* Dropdown */}
-          <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-[8px] shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="px-3 py-2 border-b border-gray-100">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                 Hızlı Aksiyonlar

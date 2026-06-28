@@ -129,8 +129,8 @@ export default function BlogListingPage() {
 
   return (
     <div className="admin-page-root p-6 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[30px] border border-stone-200/80 bg-white/85 p-6 shadow-[0_24px_70px_-34px_rgba(120,78,33,0.45)] backdrop-blur md:p-8">
+      <div className="mx-auto max-w-none space-y-6">
+        <section className="overflow-hidden rounded-[12px] border border-stone-200/80 bg-white p-6 shadow-[0_24px_70px_-34px_rgba(120,78,33,0.45)] backdrop-blur md:p-8">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-3xl space-y-4">
               <div className="flex items-center gap-3">
@@ -162,7 +162,7 @@ export default function BlogListingPage() {
 
         {notice ? (
           <section
-            className={`rounded-[22px] border px-5 py-4 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.35)] ${
+            className={`rounded-[12px] border px-5 py-4 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.35)] ${
               notice.tone === "success"
                 ? "border-emerald-200 bg-emerald-50/90 text-emerald-800"
                 : "border-rose-200 bg-rose-50/90 text-rose-700"
@@ -192,7 +192,7 @@ export default function BlogListingPage() {
           </section>
         ) : null}
 
-        <section className="rounded-[26px] border border-stone-200/80 bg-white/90 p-3 shadow-[0_20px_50px_-34px_rgba(120,78,33,0.45)]">
+        <section className="rounded-[12px] border border-stone-200/80 bg-white p-3 shadow-[0_20px_50px_-34px_rgba(120,78,33,0.45)]">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             <div className="flex flex-wrap items-center gap-2 rounded-full bg-stone-100 p-1.5">
               <ViewModeButton
@@ -277,7 +277,7 @@ export default function BlogListingPage() {
 
 function LoadingState() {
   return (
-    <section className="rounded-[26px] border border-stone-200/80 bg-white/90 p-12 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
+    <section className="rounded-[12px] border border-stone-200/80 bg-white p-12 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
       <div className="flex flex-col items-center justify-center text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700">
           <Loader2 className="h-7 w-7 animate-spin" />
@@ -290,7 +290,7 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <section className="rounded-[26px] border border-rose-200 bg-rose-50/90 p-12 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.35)]">
+    <section className="rounded-[12px] border border-rose-200 bg-rose-50/90 p-12 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.35)]">
       <div className="flex flex-col items-center justify-center text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600">
           <TriangleAlert className="h-7 w-7" />
@@ -316,7 +316,7 @@ function ListView({
   onDelete: (post: BlogPost) => Promise<void>;
 }) {
   return (
-    <section className="overflow-hidden rounded-[26px] border border-stone-200/80 bg-white/92 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
+    <section className="overflow-hidden rounded-[12px] border border-stone-200/80 bg-white shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
       <div className="flex flex-col gap-3 border-b border-stone-100 bg-[#FCFDFE] px-6 py-5 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
@@ -358,7 +358,7 @@ function ListView({
               <tr key={post.id} className="transition-colors hover:bg-amber-50/30">
                 <td className="px-6 py-5">
                   <div className="flex items-center gap-4">
-                    <div className="hidden h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 sm:block">
+                    <div className="hidden h-14 w-14 flex-shrink-0 overflow-hidden rounded-[8px] border border-stone-200 bg-stone-100 sm:block">
                       {post.coverImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={post.coverImage} alt={post.title} className="h-full w-full object-cover" />
@@ -506,7 +506,7 @@ function StrategyView({
         />
       </div>
 
-      <section className="rounded-[26px] border border-stone-200/80 bg-white/92 p-6 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)] md:p-7">
+      <section className="rounded-[12px] border border-stone-200/80 bg-white p-6 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)] md:p-7">
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <div className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-800">
@@ -536,7 +536,7 @@ function StrategyView({
           {suggestedPillars.map((pillar) => (
             <article
               key={pillar.id}
-              className={`rounded-[24px] border p-5 transition-all ${
+              className={`rounded-[12px] border p-5 transition-all ${
                 pillar.existingPillarPostId
                   ? "border-emerald-200 bg-emerald-50/40"
                   : "border-stone-200 bg-[#FCFDFE] hover:border-amber-300"
@@ -544,7 +544,7 @@ function StrategyView({
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <span className="inline-flex rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                  <span className="inline-flex rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
                     {pillar.productCount} ürün
                   </span>
                   <h3 className="mt-3 text-lg font-semibold text-stone-900">{pillar.title}</h3>
@@ -573,7 +573,7 @@ function StrategyView({
                 ))}
               </div>
 
-              <div className="mt-5 rounded-2xl border border-stone-200 bg-white/70 p-4">
+              <div className="mt-5 rounded-[8px] border border-stone-200 bg-white/70 p-4">
                 <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
                   Önerilen cluster yazıları
                 </div>
@@ -586,7 +586,7 @@ function StrategyView({
                     return (
                       <div
                         key={clusterTitle}
-                        className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm ${
+                        className={`flex items-center gap-2.5 rounded-[8px] px-3 py-2 text-sm ${
                           reached
                             ? "bg-emerald-50 text-emerald-700"
                             : "bg-stone-50 text-stone-600"
@@ -634,14 +634,14 @@ function StrategyView({
           ))}
 
           {suggestedPillars.length === 0 && (
-            <div className="rounded-[24px] border border-dashed border-stone-300 bg-white/70 p-12 text-center text-sm leading-6 text-stone-600 xl:col-span-2">
+            <div className="rounded-[12px] border border-dashed border-stone-300 bg-white/70 p-12 text-center text-sm leading-6 text-stone-600 xl:col-span-2">
               Strateji üretmek için önce kategori veya ürün verisi bulunmalı.
             </div>
           )}
         </div>
       </section>
 
-      <section className="relative overflow-hidden rounded-[26px] border border-stone-200/50 bg-[linear-gradient(135deg,#2f261f_0%,#4a382b_55%,#6b4a31_100%)] p-6 text-white shadow-[0_20px_50px_-30px_rgba(60,33,14,0.6)] md:p-7">
+      <section className="relative overflow-hidden rounded-[12px] border border-stone-200/50 bg-[linear-gradient(135deg,#2f261f_0%,#4a382b_55%,#6b4a31_100%)] p-6 text-white shadow-[0_20px_50px_-30px_rgba(60,33,14,0.6)] md:p-7">
         <div className="relative z-10">
           <div className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100">
             İçerik kalitesi rehberi
@@ -678,7 +678,7 @@ function StrategyView({
 
 function HeaderMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+    <div className="rounded-[8px] border border-stone-200 bg-stone-50/80 px-4 py-3">
       <div className="text-2xl font-semibold text-stone-900">{value}</div>
       <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">{label}</div>
     </div>
@@ -729,9 +729,9 @@ function StrategyMetricCard({
   const ratio = target ? Math.min((total / Math.max(target, 1)) * 100, 100) : 100;
 
   return (
-    <div className="rounded-[24px] border border-stone-200/80 bg-white/92 p-5 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
+    <div className="rounded-[12px] border border-stone-200/80 bg-white p-5 shadow-[0_18px_40px_-32px_rgba(120,78,33,0.45)]">
       <div className="mb-4 flex items-start justify-between gap-4">
-        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${accentClass}`}>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-[8px] border ${accentClass}`}>
           {icon}
         </div>
         <div className="text-right">
@@ -767,7 +767,7 @@ function GuideCard({
   description: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+    <div className="rounded-[12px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
       <div className="text-3xl font-semibold text-amber-200">{value}</div>
       <div className="mt-2 text-sm font-medium text-white">{label}</div>
       <div className="mt-1 text-xs leading-5 text-stone-300">{description}</div>

@@ -190,7 +190,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
         {/* Main Content */}
         <div className="xl:col-span-2 space-y-6">
           {/* Basic Info */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 space-y-4">
+          <div className="bg-white rounded-[8px] border border-gray-200 p-4 md:p-6 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Temel Bilgiler</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -262,7 +262,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
           </div>
 
           {/* Image Upload */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 space-y-4">
+          <div className="bg-white rounded-[8px] border border-gray-200 p-4 md:p-6 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Görsel</h2>
             
             {formData.image ? (
@@ -282,7 +282,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
                 <button
                   type="button"
                   onClick={handleRemoveImage}
-                  className="absolute top-2 right-2 p-2 bg-white/90 rounded-full shadow hover:bg-red-50 hover:text-red-600 transition-colors"
+                  className="absolute top-2 right-2 p-2 bg-white rounded-full shadow hover:bg-red-50 hover:text-red-600 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -349,7 +349,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Icon */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 space-y-4">
+          <div className="bg-white rounded-[8px] border border-gray-200 p-4 md:p-6 space-y-4">
             <h3 className="text-base font-semibold text-gray-900">İkon</h3>
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -384,7 +384,7 @@ export default function CategoryForm({ categoryId }: CategoryFormProps) {
           </div>
 
           {/* Tips */}
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 md:p-6">
+          <div className="bg-blue-50 border border-blue-100 rounded-[8px] p-4 md:p-6">
             <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
               <FolderOpen className="w-4 h-4" />
               İpuçları

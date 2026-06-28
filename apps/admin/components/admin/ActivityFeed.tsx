@@ -78,8 +78,8 @@ const EVENT_CONFIGS: Record<string, EventConfig> = {
   share: {
     icon: Share2,
     label: "Paylaşıldı",
-    color: "text-violet-600",
-    bgColor: "bg-violet-100",
+    color: "text-orange-600",
+    bgColor: "bg-orange-100",
   },
 };
 
@@ -133,7 +133,7 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]"
+      className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]"
     >
       <div className="border-b border-[var(--admin-border)] px-6 py-5">
         <div className="flex items-center justify-between gap-3">
@@ -226,9 +226,9 @@ export default function ActivityFeed({ data }: { data: LiveAnalyticsSnapshot }) 
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2, delay: index * 0.02 }}
-                    className="flex items-start gap-3 rounded-[22px] border border-white/70 bg-white/75 px-4 py-4 shadow-sm transition-all duration-200 hover:border-[var(--admin-border)] hover:bg-white"
+                    className="flex items-start gap-3 rounded-[12px] border border-white/70 bg-white/75 px-4 py-4 shadow-sm transition-all duration-200 hover:border-[var(--admin-border)] hover:bg-white"
                   >
-                    <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl", config.bgColor)}>
+                    <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[8px]", config.bgColor)}>
                       <Icon className={cn("h-[18px] w-[18px]", config.color)} />
                     </div>
 

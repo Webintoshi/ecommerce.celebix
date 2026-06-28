@@ -26,7 +26,7 @@ export function AdminStatCard({
   return (
     <div
       className={cn(
-        "min-h-[132px] rounded-[22px] border bg-white px-4 py-4 shadow-[0_10px_24px_rgba(17,24,39,0.04)] md:rounded-[24px] md:px-5 md:py-5",
+        "min-h-[132px] rounded-[12px] border bg-white px-4 py-4 shadow-[0_10px_24px_rgba(17,24,39,0.04)] md:rounded-[12px] md:px-5 md:py-5",
         tone === "accent" && "border-[var(--admin-accent-border)]",
         tone === "success" && "border-[color-mix(in_srgb,var(--admin-success)_20%,white)]",
         tone === "info" && "border-[color-mix(in_srgb,var(--admin-info)_18%,white)]",
@@ -35,7 +35,7 @@ export function AdminStatCard({
     >
       <div className="flex items-start justify-between gap-4">
         {icon ? (
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--admin-border)] bg-[#F9FAFB] text-[var(--admin-text-secondary)]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-[#F9FAFB] text-[var(--admin-text-secondary)]">
             {icon}
           </div>
         ) : null}

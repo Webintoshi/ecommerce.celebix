@@ -65,7 +65,7 @@ export default function EditDiscountPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--admin-bg)] flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
       </div>
     );
@@ -73,7 +73,7 @@ export default function EditDiscountPage() {
 
   if (error || !discount) {
     return (
-      <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
+      <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8">
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error || "İndirim bulunamadı."}
@@ -84,7 +84,7 @@ export default function EditDiscountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
+    <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
           <div>

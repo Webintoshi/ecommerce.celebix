@@ -85,7 +85,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-[30px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-md)]"
+      className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]"
     >
       <div className="border-b border-[var(--admin-border)] px-6 py-5">
         <div className="flex items-center justify-between gap-3">
@@ -111,7 +111,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
       </div>
 
       <div className="space-y-6 p-6">
-        <div className="rounded-[28px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] p-5">
+        <div className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] p-5">
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--admin-accent)]/70">Çevrim içi kullanıcı</p>
@@ -122,7 +122,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
                 <span className="pb-1 text-sm text-[var(--admin-accent)]/60">aktif</span>
               </div>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-white/85 px-3 py-1.5 text-xs font-medium text-[var(--admin-accent)] shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--admin-accent)] shadow-sm">
               <Wifi className="h-3.5 w-3.5" />
               Canlı veri açık
             </div>
@@ -137,9 +137,9 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
             return (
               <div
                 key={device.label}
-                className={cn("rounded-[22px] border bg-gradient-to-br p-4", device.tone)}
+                className={cn("rounded-[12px] border bg-gradient-to-br p-4", device.tone)}
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-white shadow-sm">
                   <Icon className="h-5 w-5" />
                 </div>
                 <p className="mt-4 text-lg font-semibold tracking-[-0.03em] text-gray-950">
@@ -155,8 +155,8 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-[22px] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-white p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
+          <div className="rounded-[12px] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-white p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-white text-amber-600 shadow-sm">
               <Activity className="h-5 w-5" />
             </div>
             <p className="mt-4 text-sm font-medium text-gray-600">Toplam görüntüleme</p>
@@ -165,8 +165,8 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
             </p>
           </div>
 
-          <div className="rounded-[22px] border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
+          <div className="rounded-[12px] border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-white text-slate-600 shadow-sm">
               <Globe className="h-5 w-5" />
             </div>
             <p className="mt-4 text-sm font-medium text-gray-600">Aktif sayfa</p>
@@ -176,7 +176,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-[var(--admin-border)] bg-gradient-to-b from-[#fff8f3] to-white p-4">
+        <div className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-b from-[#fff8f3] to-white p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold text-[var(--admin-accent)]">Öne Çıkan Sayfalar</p>
             <p className="text-xs font-medium text-[var(--admin-accent)]/50">Top 3</p>
@@ -191,7 +191,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: index * 0.04 }}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--admin-border)] bg-white px-3 py-3 shadow-sm"
+                    className="flex items-center justify-between gap-3 rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-3 shadow-sm"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--admin-accent-soft)] text-xs font-semibold text-[var(--admin-accent)]">
@@ -207,7 +207,7 @@ export default function LiveVisitors({ data }: { data: LiveAnalyticsSnapshot }) 
               </AnimatePresence>
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[var(--admin-accent-border)] bg-white/70 px-4 py-5 text-center text-sm text-gray-500">
+            <div className="rounded-[8px] border border-dashed border-[var(--admin-accent-border)] bg-white/70 px-4 py-5 text-center text-sm text-gray-500">
               Canlı sayfa verisi şu anda görüntülenemiyor.
             </div>
           )}

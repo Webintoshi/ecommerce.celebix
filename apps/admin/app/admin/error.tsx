@@ -30,13 +30,13 @@ export default function AdminError({
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <button
             onClick={() => reset()}
-            className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+            className="rounded-[8px] bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
           >
             Tekrar Dene
           </button>
           <Link
             href="/admin"
-            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-[8px] border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             Admin Ana Sayfa
           </Link>

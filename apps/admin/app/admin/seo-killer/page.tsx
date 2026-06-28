@@ -40,7 +40,7 @@ function ScoreBadge({ score }: { score: number }) {
 
   return (
     <div className="flex items-center gap-4">
-      <div className={`flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br ${tone} text-2xl font-bold text-white shadow-[0_22px_50px_rgba(120,74,36,0.22)] ring-8 ${ring}`}>
+      <div className={`flex h-20 w-20 items-center justify-center rounded-[12px] bg-gradient-to-br ${tone} text-2xl font-bold text-white shadow-[0_22px_50px_rgba(120,74,36,0.22)] ring-8 ${ring}`}>
         {score}
       </div>
       <div>
@@ -80,7 +80,7 @@ function MetricCard({
   tone: string;
 }) {
   return (
-    <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_16px_40px_rgba(105,78,54,0.08)]">
+    <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_16px_40px_rgba(105,78,54,0.08)]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-[#8f7765]">{title}</p>
@@ -117,11 +117,11 @@ function BigCard({
   return (
     <Link
       href={href}
-      className="group block rounded-[32px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+      className="group block rounded-[12px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
     >
-      <div className="h-full rounded-[32px] border border-[var(--admin-border)] bg-white/95 p-7 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all duration-300 group-hover:-translate-y-1.5 group-hover:border-[var(--admin-accent-border)] group-hover:shadow-[var(--shadow-md)]">
+      <div className="h-full rounded-[12px] border border-[var(--admin-border)] bg-white p-7 shadow-[0_18px_45px_rgba(105,78,54,0.08)] transition-all duration-300 group-hover:-translate-y-1.5 group-hover:border-[var(--admin-accent-border)] group-hover:shadow-[var(--shadow-xs)]">
         <div className="flex items-start justify-between gap-4">
-          <div className={`flex h-16 w-16 items-center justify-center rounded-[22px] border shadow-sm ${tone}`}>
+          <div className={`flex h-16 w-16 items-center justify-center rounded-[12px] border shadow-sm ${tone}`}>
             <Icon className="h-7 w-7" />
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] text-[#8a6f5d] transition-all duration-300 group-hover:border-[var(--admin-accent-border)] group-hover:text-[var(--admin-accent-hover)]">
@@ -133,7 +133,7 @@ function BigCard({
           <h3 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">{title}</h3>
         </div>
 
-        <div className="mt-6 rounded-[24px] border border-[#f0e3d7] bg-[#fcf8f3] p-4">
+        <div className="mt-6 rounded-[12px] border border-[#f0e3d7] bg-[#fcf8f3] p-4">
           <div className="flex items-center justify-between text-sm text-[#826a5b]">
             <span>Tamamlanan</span>
             <span className="font-semibold text-[var(--admin-heading)]">{completed} / {count}</span>
@@ -246,9 +246,9 @@ export default function SEODashboard() {
   if (loading) {
     return (
       <div className="admin-page-root px-6 py-16">
-        <div className="mx-auto flex max-w-7xl items-center justify-center rounded-[36px] border border-[var(--admin-border)] bg-white/90 px-8 py-20 shadow-[var(--shadow-md)]">
+        <div className="mx-auto flex max-w-none items-center justify-center rounded-[12px] border border-[var(--admin-border)] bg-white px-8 py-20 shadow-[var(--shadow-xs)]">
           <div className="text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[12px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]">
               <Rocket className="h-7 w-7 animate-pulse" />
             </div>
             <p className="mt-5 text-sm font-medium text-[#7f6858]">SEO merkezi hazırlanıyor...</p>
@@ -260,15 +260,15 @@ export default function SEODashboard() {
 
   return (
     <div className="admin-page-root text-[var(--admin-heading)]">
-      <div className="mx-auto max-w-7xl px-6 py-8 md:px-8 md:py-10">
-        <section className="relative overflow-hidden rounded-[36px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-md)] md:p-10">
+      <div className="mx-auto max-w-none px-6 py-8 md:px-8 md:py-10">
+        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-xs)] md:p-10">
           <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
                 SEO operasyon merkezi
               </div>
               <div className="mt-5 flex items-start gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-md)]">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]">
                   <Rocket className="h-8 w-8" />
                 </div>
                 <div>
@@ -278,7 +278,7 @@ export default function SEODashboard() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[28px] border border-[var(--admin-border)] bg-white/85 p-5 shadow-[var(--shadow-md)]">
+              <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
                 <div className="mb-4 flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9d836f]">Genel sağlık</span>
                   <Target className="h-4 w-4 text-[var(--admin-accent-hover)]" />
@@ -286,7 +286,7 @@ export default function SEODashboard() {
                 <ScoreBadge score={stats.overallScore} />
               </div>
 
-              <div className="rounded-[28px] border border-[var(--admin-border)] bg-[#2f241d] p-5 text-white shadow-[var(--shadow-md)]">
+              <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#2f241d] p-5 text-white shadow-[var(--shadow-xs)]">
                 <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd8b6]">
                   Bugünün önceliği
                 </div>
@@ -375,7 +375,7 @@ export default function SEODashboard() {
         {(stats.products.total - stats.products.completed > 0 ||
           stats.categories.total - stats.categories.completed > 0 ||
           stats.pages.total - stats.pages.completed > 0) && (
-          <section className="mt-10 rounded-[32px] border border-[var(--admin-border)] bg-white/95 p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
+          <section className="mt-10 rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="inline-flex items-center rounded-full border border-[#f7cfb1] bg-[#fff4ea] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
@@ -390,7 +390,7 @@ export default function SEODashboard() {
               {stats.products.total - stats.products.completed > 0 && (
                 <Link
                   href="/admin/seo-killer/urunler"
-                  className="flex items-center justify-between gap-4 rounded-[24px] border border-[#f4d3c0] bg-[var(--admin-accent-soft)] px-5 py-4 transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff2e9] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                  className="flex items-center justify-between gap-4 rounded-[12px] border border-[#f4d3c0] bg-[var(--admin-accent-soft)] px-5 py-4 transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff2e9] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#ffd8b8] bg-white text-[var(--admin-accent-hover)]">
@@ -408,7 +408,7 @@ export default function SEODashboard() {
               {stats.categories.total - stats.categories.completed > 0 && (
                 <Link
                   href="/admin/seo-killer/kategoriler"
-                  className="flex items-center justify-between gap-4 rounded-[24px] border border-[var(--admin-border)] bg-[#FCFDFE] px-5 py-4 transition-all hover:border-amber-400/40 hover:bg-[#fff7e8] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/16"
+                  className="flex items-center justify-between gap-4 rounded-[12px] border border-[var(--admin-border)] bg-[#FCFDFE] px-5 py-4 transition-all hover:border-amber-400/40 hover:bg-[#fff7e8] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/16"
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-amber-200 bg-white text-amber-600">
@@ -426,7 +426,7 @@ export default function SEODashboard() {
               {stats.pages.total - stats.pages.completed > 0 && (
                 <Link
                   href="/admin/seo-killer/sayfalar"
-                  className="flex items-center justify-between gap-4 rounded-[24px] border border-emerald-200 bg-[#f5fbf8] px-5 py-4 transition-all hover:border-emerald-400/40 hover:bg-[#eef8f2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/16"
+                  className="flex items-center justify-between gap-4 rounded-[12px] border border-emerald-200 bg-[#f5fbf8] px-5 py-4 transition-all hover:border-emerald-400/40 hover:bg-[#eef8f2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/16"
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-emerald-200 bg-white text-emerald-600">
@@ -445,7 +445,7 @@ export default function SEODashboard() {
         )}
 
         {stats.overallScore >= 80 && (
-          <section className="mt-10 overflow-hidden rounded-[32px] border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-[#f4fbf6] p-8 shadow-[0_18px_45px_rgba(20,95,72,0.10)]">
+          <section className="mt-10 overflow-hidden rounded-[12px] border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-[#f4fbf6] p-8 shadow-[0_18px_45px_rgba(20,95,72,0.10)]">
             <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-600 shadow-sm">

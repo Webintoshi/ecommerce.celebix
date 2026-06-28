@@ -60,8 +60,8 @@ export default function EditPolicyPage({
 
   if (!policy) {
     return (
-      <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
-        <div className="mx-auto max-w-5xl rounded-xl border border-red-200 bg-red-50 p-10 text-center text-sm text-red-700 shadow-sm">
+      <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8">
+        <div className="mx-auto max-w-5xl rounded-[8px] border border-red-200 bg-red-50 p-10 text-center text-sm text-red-700 shadow-sm">
           Geçersiz politika tanımı.
         </div>
       </div>
@@ -69,16 +69,16 @@ export default function EditPolicyPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8">
+    <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8">
       <div className="mx-auto max-w-5xl">
         {loading ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
+          <div className="rounded-[8px] border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
             Politika yükleniyor...
           </div>
         ) : null}
 
         {!loading && error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center shadow-sm">
+          <div className="rounded-[8px] border border-red-200 bg-red-50 p-10 text-center shadow-sm">
             <p className="text-sm font-medium text-red-700">{error}</p>
           </div>
         ) : null}
