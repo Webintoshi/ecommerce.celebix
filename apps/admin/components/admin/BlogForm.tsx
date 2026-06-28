@@ -29,6 +29,7 @@ import {
 import { fetchBlogStrategySnapshot } from "@/lib/blog-strategy-client";
 import { slugify } from "@/lib/utils";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import type { BlogPost, BlogCategory } from "@/types/blog";
 import type { BlogStrategyCategory, BlogStrategyPillar } from "@/types/blog-strategy";
 
@@ -37,6 +38,29 @@ interface BlogFormProps {
 }
 
 type EditorMode = "write" | "split" | "preview";
+
+const PANEL_CLASS =
+  "overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]";
+
+const PANEL_HEADER_CLASS =
+  "border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5";
+
+const FIELD_CLASS =
+  "h-11 w-full rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm text-[#111827] outline-none transition placeholder:text-[#8B95A5] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
+
+const TEXTAREA_CLASS =
+  "w-full rounded-[8px] border border-[#DCE3EC] bg-white px-3 py-3 text-sm text-[#111827] outline-none transition placeholder:text-[#8B95A5] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
+
+const LABEL_CLASS = "block text-sm font-semibold text-[#374151]";
+
+const SECONDARY_BUTTON =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-4 text-sm font-semibold text-[#374151] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-55";
+
+const PRIMARY_BUTTON =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.16)] transition hover:bg-[#E85D04] disabled:cursor-not-allowed disabled:opacity-55";
+
+const CHIP_BUTTON =
+  "inline-flex h-8 items-center justify-center rounded-full border border-[#DCE3EC] bg-white px-3 text-xs font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04]";
 
 const DEFAULT_FORM_DATA: BlogPost = {
   id: "",
@@ -73,22 +97,22 @@ const QUICK_SNIPPETS = [
   {
     label: "Madde listesi",
     value:
-      "<h2>One cikan maddeler</h2><ul><li>Madde 1</li><li>Madde 2</li><li>Madde 3</li></ul>",
+      "<h2>Öne çıkan maddeler</h2><ul><li>Madde 1</li><li>Madde 2</li><li>Madde 3</li></ul>",
   },
   {
     label: "SSS blogu",
     value:
-      "<h2>Sik sorulan sorular</h2><h3>Soru 1</h3><p>Cevap...</p><h3>Soru 2</h3><p>Cevap...</p>",
+      "<h2>Sık sorulan sorular</h2><h3>Soru 1</h3><p>Cevap...</p><h3>Soru 2</h3><p>Cevap...</p>",
   },
   {
-    label: "Karsilastirma",
+    label: "Karşılaştırma",
     value:
-      "<h2>Karsilastirma</h2><h3>Avantajlar</h3><ul><li>Avantaj 1</li><li>Avantaj 2</li></ul><h3>Dikkat edilmesi gerekenler</h3><ul><li>Not 1</li><li>Not 2</li></ul>",
+      "<h2>Karşılaştırma</h2><h3>Avantajlar</h3><ul><li>Avantaj 1</li><li>Avantaj 2</li></ul><h3>Dikkat edilmesi gerekenler</h3><ul><li>Not 1</li><li>Not 2</li></ul>",
   },
   {
-    label: "CTA bolumu",
+    label: "Sonuç",
     value:
-      "<hr /><h2>Sonuc</h2><p>Yaziyi kisa bir sonuc ile kapatin ve gerekiyorsa okuyucuyu ilgili kategoriye ya da urune yonlendirin.</p>",
+      "<hr /><h2>Sonuç</h2><p>Yazıyı kısa bir sonuç ile kapatın ve gerekiyorsa okuyucuyu ilgili kategoriye ya da ürüne yönlendirin.</p>",
   },
 ];
 
@@ -99,7 +123,7 @@ function createAltFromFileName(fileName: string) {
     .replace(/\s+/g, " ")
     .trim();
 
-  return cleaned || "blog gorseli";
+  return cleaned || "blog görseli";
 }
 
 function normalizeInitialData(initialData?: BlogPost): BlogPost {
@@ -120,7 +144,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
   const [loading, setLoading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [inlineUploading, setInlineUploading] = useState(false);
-  const [editorMode, setEditorMode] = useState<EditorMode>("split");
+  const [editorMode, setEditorMode] = useState<EditorMode>("write");
   const [categories, setCategories] = useState<BlogStrategyCategory[]>(
     BLOG_CATEGORIES.map((item) => ({
       id: item.id,
@@ -254,10 +278,10 @@ export function BlogForm({ initialData }: BlogFormProps) {
     try {
       const url = await uploadAsset(file, "blog");
       patch({ coverImage: url });
-      toast.success("Kapak gorseli yuklendi.");
+      toast.success("Kapak görseli yüklendi.");
     } catch (error) {
       console.error("Blog cover upload error:", error);
-      toast.error(error instanceof Error ? error.message : "Kapak gorseli yuklenemedi.");
+      toast.error(error instanceof Error ? error.message : "Kapak görseli yüklenemedi.");
     } finally {
       setCoverUploading(false);
       event.target.value = "";
@@ -314,22 +338,28 @@ export function BlogForm({ initialData }: BlogFormProps) {
       );
       const result = await response.json();
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Blog yazisi kaydedilemedi.");
+        throw new Error(result.error || "Blog yazısı kaydedilemedi.");
       }
 
-      toast.success(initialData ? "Yazi guncellendi." : "Yazi olusturuldu.");
+      toast.success(initialData ? "Yazı güncellendi." : "Yazı oluşturuldu.");
       router.push("/admin/cms/blog");
       router.refresh();
     } catch (error) {
       console.error("Blog save error:", error);
-      toast.error(error instanceof Error ? error.message : "Blog yazisi kaydedilemedi.");
+      toast.error(error instanceof Error ? error.message : "Blog yazısı kaydedilemedi.");
     } finally {
       setLoading(false);
     }
   }
 
+  const editorModeOptions: Array<{ id: EditorMode; label: string }> = [
+    { id: "write", label: "Yaz" },
+    { id: "split", label: "Böl" },
+    { id: "preview", label: "Önizle" },
+  ];
+
   return (
-    <form className="space-y-6" onSubmit={submit}>
+    <form className="space-y-4" onSubmit={submit}>
       <input
         ref={coverInputRef}
         type="file"
@@ -346,176 +376,185 @@ export function BlogForm({ initialData }: BlogFormProps) {
         onChange={handleInlineImageUpload}
       />
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              {initialData ? "Yaziyi Duzenle" : "Yeni Yazi Ekle"}
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Kapak gorseli, rich text icerik ve canli onizleme ile blog yazilarini yonetin.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
-            {[
-              { id: "write", label: "Yaz" },
-              { id: "split", label: "Bolunmus" },
-              { id: "preview", label: "Onizleme" },
-            ].map((mode) => (
-              <button
-                key={mode.id}
-                type="button"
-                onClick={() => setEditorMode(mode.id as EditorMode)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  editorMode === mode.id
-                    ? "bg-gray-900 text-white"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {formData.status === "published" ? "Kaydet ve Yayinla" : "Kaydet"}
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_340px]">
-        <div className="space-y-6">
-          <div className="rounded-[8px] border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="text-sm font-medium text-gray-700">
-                Baslik
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(event) =>
-                    patch({
-                      title: event.target.value,
-                      slug: initialData ? formData.slug : slugify(event.target.value),
-                    })
-                  }
-                  className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-                />
-              </label>
-              <label className="text-sm font-medium text-gray-700">
-                Slug
-                <input
-                  type="text"
-                  value={formData.slug}
-                  onChange={(event) => patch({ slug: slugify(event.target.value) })}
-                  className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-                />
-              </label>
-              <label className="text-sm font-medium text-gray-700">
-                Kategori
-                <select
-                  value={formData.category}
-                  onChange={(event) => patch({ category: event.target.value as BlogCategory })}
-                  className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-                >
-                  {categories.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm font-medium text-gray-700">
-                Durum
-                <select
-                  value={formData.status}
-                  onChange={(event) => patch({ status: event.target.value as BlogPost["status"] })}
-                  className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-                >
-                  <option value="draft">Taslak</option>
-                  <option value="published">Yayinda</option>
-                  <option value="archived">Arsiv</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="mt-4 block text-sm font-medium text-gray-700">
-              Kisa Ozet
-              <textarea
-                rows={3}
-                value={formData.excerpt}
-                onChange={(event) => patch({ excerpt: event.target.value })}
-                className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-              />
-            </label>
-          </div>
-
-          {!initialData && (
-            <div className="rounded-[8px] border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="mb-3 text-sm font-semibold text-gray-900">İçerik tipi</div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {(["pillar", "cluster", "standalone"] as const).map((type) => (
+      <AdminPageShell>
+        <AdminPageHeader
+          sectionLabel="CMS"
+          title={initialData ? "Yazıyı düzenle" : "Yeni yazı"}
+          actions={
+            <>
+              <div className="inline-flex h-10 items-center rounded-[8px] border border-[#DCE3EC] bg-white p-1">
+                {editorModeOptions.map((mode) => (
                   <button
-                    key={type}
+                    key={mode.id}
                     type="button"
-                    onClick={() =>
-                      patch({
-                        topicType: type,
-                        pillarId: type === "cluster" ? formData.pillarId : null,
-                      })
-                    }
-                    className={`rounded-[8px] border px-4 py-3 text-left text-sm ${
-                      formData.topicType === type
-                        ? "border-gray-900 bg-gray-50 text-gray-900"
-                        : "border-gray-200 text-gray-600"
+                    onClick={() => setEditorMode(mode.id)}
+                    className={`h-8 rounded-[7px] px-3 text-xs font-semibold transition ${
+                      editorMode === mode.id
+                        ? "bg-[#FF6A00] text-white shadow-[0_8px_18px_rgba(255,106,0,0.18)]"
+                        : "text-[#4B5563] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
                     }`}
                   >
-                    <div className="font-medium capitalize">{type}</div>
-                    <div className="mt-1 text-xs text-gray-400">
-                      {CONTENT_GUIDELINES[type].minWords}+ kelime
-                    </div>
+                    {mode.label}
                   </button>
                 ))}
               </div>
-              {formData.topicType === "cluster" && (
-                <label className="mt-4 block text-sm font-medium text-gray-700">
-                  Bagli oldugu pillar
+              <button
+                type="submit"
+                disabled={loading}
+                className={PRIMARY_BUTTON}
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {formData.status === "published" ? "Yayınla" : "Kaydet"}
+              </button>
+            </>
+          }
+          metrics={
+            <>
+              <MetricCell label="Kelime" value={formData.wordCount.toLocaleString("tr-TR")} detail={`${guide.minWords}+ hedef`} />
+              <MetricCell label="SEO" value={formData.seoScore.toLocaleString("tr-TR")} detail="puan" tone={formData.seoScore >= 80 ? "success" : formData.seoScore >= 60 ? "warning" : "neutral"} />
+              <MetricCell label="Başlık" value={editorMetrics.headingCount.toLocaleString("tr-TR")} detail="bölüm" />
+              <MetricCell label="Görsel" value={editorMetrics.imageCount.toLocaleString("tr-TR")} detail="medya" />
+            </>
+          }
+        />
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-4">
+            <section className={PANEL_CLASS}>
+              <div className={PANEL_HEADER_CLASS}>
+                <h2 className="text-sm font-semibold text-[#111827]">Yazı bilgileri</h2>
+              </div>
+              <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:p-5">
+                <label className={LABEL_CLASS}>
+                  Başlık
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(event) =>
+                      patch({
+                        title: event.target.value,
+                        slug: initialData ? formData.slug : slugify(event.target.value),
+                      })
+                    }
+                    className={`mt-2 ${FIELD_CLASS}`}
+                  />
+                </label>
+                <label className={LABEL_CLASS}>
+                  Slug
+                  <input
+                    type="text"
+                    value={formData.slug}
+                    onChange={(event) => patch({ slug: slugify(event.target.value) })}
+                    className={`mt-2 font-mono ${FIELD_CLASS}`}
+                  />
+                </label>
+                <label className={LABEL_CLASS}>
+                  Kategori
                   <select
-                    value={formData.pillarId || ""}
-                    onChange={(event) => patch({ pillarId: event.target.value || null })}
-                    className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    value={formData.category}
+                    onChange={(event) => patch({ category: event.target.value as BlogCategory })}
+                    className={`mt-2 ${FIELD_CLASS}`}
                   >
-                    <option value="">Pillar secin...</option>
-                    {pillars.map((item) => (
+                    {categories.map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.title}
+                        {item.name}
                       </option>
                     ))}
                   </select>
                 </label>
-              )}
-            </div>
-          )}
+                <label className={LABEL_CLASS}>
+                  Durum
+                  <select
+                    value={formData.status}
+                    onChange={(event) => patch({ status: event.target.value as BlogPost["status"] })}
+                    className={`mt-2 ${FIELD_CLASS}`}
+                  >
+                    <option value="draft">Taslak</option>
+                    <option value="published">Yayında</option>
+                    <option value="archived">Arşiv</option>
+                  </select>
+                </label>
 
-          <div className="rounded-[8px] border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-6 py-4">
+                <label className={`${LABEL_CLASS} md:col-span-2`}>
+                  Kısa özet
+                  <textarea
+                    rows={3}
+                    value={formData.excerpt}
+                    onChange={(event) => patch({ excerpt: event.target.value })}
+                    className={`mt-2 ${TEXTAREA_CLASS}`}
+                  />
+                </label>
+              </div>
+            </section>
+
+            {!initialData && (
+              <section className={PANEL_CLASS}>
+                <div className={PANEL_HEADER_CLASS}>
+                  <h2 className="text-sm font-semibold text-[#111827]">İçerik tipi</h2>
+                </div>
+                <div className="space-y-4 p-4 xl:p-5">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    {([
+                      { id: "pillar", label: "Ana konu" },
+                      { id: "cluster", label: "Destek yazı" },
+                      { id: "standalone", label: "Bağımsız" },
+                    ] as const).map((type) => (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() =>
+                          patch({
+                            topicType: type.id,
+                            pillarId: type.id === "cluster" ? formData.pillarId : null,
+                          })
+                        }
+                        className={`rounded-[10px] border px-4 py-3 text-left text-sm transition ${
+                          formData.topicType === type.id
+                            ? "border-[#FFD1B5] bg-[#FFF8F3] text-[#E85D04]"
+                            : "border-[#DCE3EC] bg-white text-[#4B5563] hover:border-[#FFD1B5] hover:bg-[#FFF8F3]"
+                        }`}
+                      >
+                        <div className="font-semibold">{type.label}</div>
+                        <div className="mt-1 text-xs text-[#6B7280]">
+                          {CONTENT_GUIDELINES[type.id].minWords}+ kelime
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  {formData.topicType === "cluster" && (
+                    <label className={LABEL_CLASS}>
+                      Bağlı ana konu
+                      <select
+                        value={formData.pillarId || ""}
+                        onChange={(event) => patch({ pillarId: event.target.value || null })}
+                        className={`mt-2 ${FIELD_CLASS}`}
+                      >
+                        <option value="">Ana konu seçin...</option>
+                        {pillars.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+              </section>
+            )}
+
+            <section className={PANEL_CLASS}>
+            <div className={PANEL_HEADER_CLASS}>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-semibold text-gray-900">İçerik</div>
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="text-sm font-semibold text-[#111827]">İçerik</div>
+                  <div className="mt-1 text-xs font-medium text-[#6B7280]">
                     {formData.wordCount} kelime, hedef {guide.minWords}+
                   </div>
                 </div>
-                <div className="w-28 rounded-full bg-gray-100 p-1">
+                <div className="w-28 rounded-full bg-white p-1">
                   <div
                     className={`h-2 rounded-full ${
-                      formData.wordCount >= guide.minWords ? "bg-emerald-500" : "bg-amber-500"
+                      formData.wordCount >= guide.minWords ? "bg-emerald-500" : "bg-[#FF6A00]"
                     }`}
                     style={{
                       width: `${Math.max(
@@ -528,7 +567,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <MetricPill label="Karakter" value={String(editorMetrics.charCount)} />
-                <MetricPill label="Baslik" value={String(editorMetrics.headingCount)} />
+                <MetricPill label="Başlık" value={String(editorMetrics.headingCount)} />
                 <MetricPill label="Link" value={String(editorMetrics.linkCount)} />
                 <MetricPill label="Görsel" value={String(editorMetrics.imageCount)} />
               </div>
@@ -536,18 +575,18 @@ export function BlogForm({ initialData }: BlogFormProps) {
 
             {editorMode === "preview" ? (
               <div
-                className="prose prose-gray max-w-none p-6"
-                dangerouslySetInnerHTML={{ __html: previewHtml || "<p>Henuz icerik yok.</p>" }}
+                className="prose prose-gray max-w-none p-4 xl:p-5"
+                dangerouslySetInnerHTML={{ __html: previewHtml || "<p>Henüz içerik yok.</p>" }}
               />
             ) : (
-              <div className="space-y-4 p-6">
+              <div className="space-y-4 p-4 xl:p-5">
                 <div className="flex flex-wrap gap-2">
                   {QUICK_SNIPPETS.map((snippet) => (
                     <button
                       key={snippet.label}
                       type="button"
                       onClick={() => appendEditorHtml(snippet.value)}
-                      className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-900 hover:text-gray-900"
+                      className={CHIP_BUTTON}
                     >
                       {snippet.label}
                     </button>
@@ -556,7 +595,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
                     type="button"
                     onClick={() => inlineImageInputRef.current?.click()}
                     disabled={inlineUploading}
-                    className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-900 hover:text-gray-900 disabled:opacity-60"
+                    className={CHIP_BUTTON}
                   >
                     {inlineUploading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -576,55 +615,55 @@ export function BlogForm({ initialData }: BlogFormProps) {
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold text-gray-900">Metin editoru</div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-sm font-semibold text-[#111827]">Metin editörü</div>
+                      <div className="text-xs font-medium text-[#6B7280]">
                         {formData.wordCount} kelime / {editorMetrics.charCount} karakter
                       </div>
                     </div>
                     <RichTextEditor
                       value={formData.content}
                       onChange={(value) => patch({ content: value })}
-                      placeholder="Blog yazinizi baslik, paragraf, liste, alinti ve baglanti yapisiyla buraya girin..."
-                      minHeightClassName="min-h-[620px]"
+                      placeholder="Blog yazınızı buraya girin..."
+                      minHeightClassName="min-h-[520px]"
                     />
                   </div>
 
                   {editorMode === "split" && (
                     <div className="space-y-4">
-                      <div className="rounded-[8px] border border-gray-200 bg-white">
-                        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                          <div className="text-sm font-semibold text-gray-900">Canli onizleme</div>
-                          <div className="inline-flex items-center gap-1 text-xs text-gray-500">
+                      <div className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white">
+                        <div className="flex items-center justify-between border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3">
+                          <div className="text-sm font-semibold text-[#111827]">Önizleme</div>
+                          <div className="inline-flex items-center gap-1 text-xs font-medium text-[#6B7280]">
                             <Eye className="h-3.5 w-3.5" />
-                            rich text render
+                            canlı
                           </div>
                         </div>
                         <div className="prose prose-gray max-w-none p-5">
                           {previewHtml ? (
                             <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
                           ) : (
-                            <p className="text-sm text-gray-500">Henuz icerik yok.</p>
+                            <p className="text-sm text-[#6B7280]">Henüz içerik yok.</p>
                           )}
                         </div>
                       </div>
-                      <div className="rounded-[8px] border border-gray-200 bg-white p-4">
-                        <div className="mb-3 text-sm font-semibold text-gray-900">İçerik yapısı</div>
+                      <div className="rounded-[12px] border border-[#DCE3EC] bg-white p-4">
+                        <div className="mb-3 text-sm font-semibold text-[#111827]">İçerik yapısı</div>
                         {outline.length > 0 ? (
                           <div className="space-y-2">
                             {outline.map((item, index) => (
                               <div
                                 key={`${item.text}-${index}`}
-                                className="text-sm text-gray-600"
+                                className="text-sm text-[#4B5563]"
                                 style={{ paddingLeft: `${Math.max(item.level - 2, 0) * 12}px` }}
                               >
-                                <span className="font-medium text-gray-900">H{item.level}</span>{" "}
+                                <span className="font-semibold text-[#111827]">H{item.level}</span>{" "}
                                 {item.text}
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-gray-500">
-                            H2 ve H3 ekledikce burada bolum yapisi gorunur.
+                          <p className="text-sm text-[#6B7280]">
+                            H2 ve H3 ekledikçe yapı burada görünür.
                           </p>
                         )}
                       </div>
@@ -633,18 +672,20 @@ export function BlogForm({ initialData }: BlogFormProps) {
                 </div>
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="rounded-[8px] border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 text-sm font-semibold text-gray-900">Anahtar kelimeler</div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="text-sm font-medium text-gray-700">
+          <section className={PANEL_CLASS}>
+            <div className={PANEL_HEADER_CLASS}>
+              <h2 className="text-sm font-semibold text-[#111827]">Anahtar kelimeler</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:p-5">
+              <label className={LABEL_CLASS}>
                 Birincil kelime
                 <input
                   type="text"
                   value={formData.primaryKeyword}
                   onChange={(event) => patch({ primaryKeyword: event.target.value })}
-                  className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  className={`mt-2 ${FIELD_CLASS}`}
                 />
               </label>
               <TokenInput
@@ -654,7 +695,7 @@ export function BlogForm({ initialData }: BlogFormProps) {
                 onRemove={(value) => patch({ tags: formData.tags.filter((item) => item !== value) })}
               />
               <TokenInput
-                label="Ikincil kelimeler"
+                label="İkincil kelimeler"
                 values={formData.targetKeywords}
                 onAdd={(value) => patch({ targetKeywords: [...formData.targetKeywords, value] })}
                 onRemove={(value) =>
@@ -662,120 +703,153 @@ export function BlogForm({ initialData }: BlogFormProps) {
                 }
               />
             </div>
-          </div>
+          </section>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-[8px] border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
-              <BarChart3 className="h-4 w-4 text-gray-500" />
-              SEO puani
+        <div className="space-y-4">
+          <section className={PANEL_CLASS}>
+            <div className={PANEL_HEADER_CLASS}>
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#111827]">
+                <BarChart3 className="h-4 w-4 text-[#FF6A00]" />
+                SEO puanı
+              </div>
             </div>
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center p-5">
               <div
                 className={`flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold ${
                   formData.seoScore >= 80
                     ? "bg-emerald-100 text-emerald-700"
                     : formData.seoScore >= 60
                       ? "bg-amber-100 text-amber-700"
-                      : "bg-gray-100 text-gray-600"
+                      : "bg-[#FFF3EA] text-[#E85D04]"
                 }`}
               >
                 {formData.seoScore}
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-[8px] border border-gray-200 bg-white p-6 shadow-sm">
-            <label className="text-sm font-medium text-gray-700">
+          <section className={PANEL_CLASS}>
+            <div className={PANEL_HEADER_CLASS}>
+              <h2 className="text-sm font-semibold text-[#111827]">Yazar ve kapak</h2>
+            </div>
+            <div className="space-y-5 p-4 xl:p-5">
+            <label className={LABEL_CLASS}>
               Yazar
               <input
                 type="text"
                 value={formData.author.name}
                 onChange={(event) => patch({ author: { ...formData.author, name: event.target.value } })}
-                className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                className={`mt-2 ${FIELD_CLASS}`}
               />
             </label>
-            <div className="mt-5">
+            <div>
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-gray-700">Kapak gorseli</div>
+                <div className="text-sm font-semibold text-[#374151]">Kapak görseli</div>
                 {formData.coverImage ? (
                   <button
                     type="button"
                     onClick={() => patch({ coverImage: "" })}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-red-600"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 transition hover:text-red-700"
                   >
                     <X className="h-3.5 w-3.5" />
-                    Kaldir
+                    Kaldır
                   </button>
                 ) : null}
               </div>
 
-              <div className="mt-2 rounded-[8px] border border-dashed border-gray-300 bg-gray-50 p-4">
+              <div className="mt-2 rounded-[12px] border border-dashed border-[#DCE3EC] bg-[#F9F9F9] p-3">
                 {formData.coverImage ? (
                   <div className="space-y-4">
-                    <div className="overflow-hidden rounded-[8px] border border-gray-200 bg-white">
+                    <div className="overflow-hidden rounded-[10px] border border-[#DCE3EC] bg-white">
                       <img
                         src={formData.coverImage}
-                        alt="Blog kapak gorseli"
-                        className="h-48 w-full object-cover"
+                        alt="Blog kapak görseli"
+                        className="h-40 w-full object-cover"
                       />
                     </div>
-                    <div className="rounded-lg bg-white px-3 py-2 text-xs text-gray-500">
+                    <div className="truncate rounded-[8px] bg-white px-3 py-2 text-xs font-medium text-[#6B7280]">
                       {formData.coverImage}
                     </div>
                     <button
                       type="button"
                       onClick={() => coverInputRef.current?.click()}
                       disabled={coverUploading}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-900 hover:text-gray-900 disabled:opacity-60"
+                      className={SECONDARY_BUTTON}
                     >
                       {coverUploading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Upload className="h-4 w-4" />
                       )}
-                      Görseli değiştir
+                      Değiştir
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex h-40 items-center justify-center rounded-[8px] border border-gray-200 bg-white">
-                      <div className="text-center text-sm text-gray-500">
-                        <ImageIcon className="mx-auto mb-2 h-6 w-6 text-gray-400" />
+                    <div className="flex h-32 items-center justify-center rounded-[10px] border border-[#DCE3EC] bg-white">
+                      <div className="text-center text-sm text-[#6B7280]">
+                        <ImageIcon className="mx-auto h-6 w-6 text-[#FF6A00]" />
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => coverInputRef.current?.click()}
                       disabled={coverUploading}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-60"
+                      className={PRIMARY_BUTTON}
                     >
                       {coverUploading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Upload className="h-4 w-4" />
                       )}
-                      Kapak gorseli yukle
+                      Kapak yükle
                     </button>
                   </div>
                 )}
               </div>
             </div>
-          </div>
+            </div>
+          </section>
         </div>
       </div>
+      </AdminPageShell>
     </form>
   );
 }
 
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[8px] border border-gray-200 bg-white px-3 py-2 text-center shadow-sm">
-      <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-400">
-        {label}
+    <div className="rounded-[8px] border border-[#DCE3EC] bg-white px-3 py-2 text-center">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8B95A5]">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-[#111827]">{value}</div>
+    </div>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone?: "neutral" | "success" | "warning";
+}) {
+  return (
+    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">{label}</p>
+        <span
+          className={`h-2 w-2 rounded-full ${
+            tone === "success" ? "bg-emerald-500" : tone === "warning" ? "bg-amber-500" : "bg-[#FF6A00]"
+          }`}
+        />
       </div>
-      <div className="mt-1 text-sm font-semibold text-gray-900">{value}</div>
+      <p className="mt-3 truncate text-2xl font-semibold tracking-[-0.04em] text-[#111827]">{value}</p>
+      <p className="mt-1 truncate text-xs font-medium text-[#6B7280]">{detail}</p>
     </div>
   );
 }
@@ -792,12 +866,12 @@ function TokenInput({
   onRemove: (value: string) => void;
 }) {
   return (
-    <div className="text-sm font-medium text-gray-700">
+    <div className={LABEL_CLASS}>
       {label}
       <input
         type="text"
         placeholder="Enter ile ekleyin"
-        className="mt-2 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+        className={`mt-2 ${FIELD_CLASS}`}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;
           event.preventDefault();
@@ -813,9 +887,9 @@ function TokenInput({
             key={value}
             type="button"
             onClick={() => onRemove(value)}
-            className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-200"
+            className="rounded-full border border-[#FFD1B5] bg-[#FFF3EA] px-3 py-1 text-xs font-semibold text-[#E85D04] transition hover:bg-[#FFE7D4]"
           >
-            {value} x
+            {value} ×
           </button>
         ))}
       </div>

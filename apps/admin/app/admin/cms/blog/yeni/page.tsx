@@ -4,8 +4,10 @@ import { BlogForm } from "@/components/admin/BlogForm";
 
 export default function NewBlogPostPage() {
   return (
-    <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8">
-      <BlogForm />
-    </div>
+    <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+      <div className="mx-auto w-full max-w-none px-4 sm:px-5 xl:px-6">
+        <BlogForm />
+      </div>
+    </main>
   );
 }
