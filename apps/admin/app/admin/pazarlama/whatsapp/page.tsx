@@ -136,8 +136,8 @@ export default function WhatsAppMarketingPage() {
   const previewContent = getPreviewContent();
 
   return (
-    <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
-      <div className="mx-auto w-full max-w-none space-y-4 px-4 sm:px-5 xl:px-6">
+    <main className="min-h-screen overflow-x-hidden bg-[#F9F9F9] pb-8 text-[#111827]">
+      <div className="mx-auto w-full max-w-none min-w-0 space-y-4 px-4 sm:px-5 xl:px-6">
         <AdminPageShell>
           <AdminPageHeader
             sectionLabel="Pazarlama"
@@ -195,8 +195,8 @@ export default function WhatsAppMarketingPage() {
             </div>
           </section>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
-            <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="min-w-0 overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5">
                 <div>
                   <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Alıcı listesi</h2>
@@ -232,7 +232,7 @@ export default function WhatsAppMarketingPage() {
                       <article
                         key={customer.id}
                         className={cn(
-                          "grid gap-3 px-4 py-3.5 transition hover:bg-[#FFF8F3] min-[960px]:grid-cols-[32px_minmax(210px,1fr)_170px_130px_92px] min-[960px]:items-center xl:px-5",
+                          "grid min-w-0 gap-3 px-4 py-3.5 transition hover:bg-[#FFF8F3] min-[960px]:grid-cols-[28px_minmax(190px,1fr)_150px_116px_74px] min-[960px]:items-center xl:px-5",
                           isSelected && "bg-[#FFF8F3]",
                         )}
                       >
@@ -274,8 +274,8 @@ export default function WhatsAppMarketingPage() {
               )}
             </section>
 
-            <aside className="space-y-4">
-              <section className="rounded-[12px] border border-[#DCE3EC] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+            <aside className="min-w-0 space-y-4">
+              <section className="min-w-0 rounded-[12px] border border-[#DCE3EC] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-sm font-semibold text-[#182232]">Mesaj</h2>
@@ -313,7 +313,7 @@ export default function WhatsAppMarketingPage() {
                   className="mt-4 w-full rounded-[8px] border border-[#DCE3EC] bg-[#F9F9F9] px-3 py-3 text-sm leading-6 text-[#182232] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#FFD1B5] focus:bg-white focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]"
                 />
 
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setPreviewMode((current) => !current)}
@@ -345,7 +345,7 @@ export default function WhatsAppMarketingPage() {
               </section>
 
               {previewMode ? (
-                <section className="rounded-[12px] border border-[#DCE3EC] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                <section className="min-w-0 rounded-[12px] border border-[#DCE3EC] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-sm font-semibold text-[#182232]">Önizleme</h2>
                     <span className="rounded-[8px] border border-[#FFD1B5] bg-[#FFF4EC] px-2.5 py-1 text-xs font-semibold text-[#C24D00]">
