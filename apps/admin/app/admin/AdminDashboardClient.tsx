@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardHomeView } from "@/components/admin/dashboard/DashboardHomeView";
 import type { DashboardBootstrapData } from "@/lib/admin-data-types";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
@@ -19,6 +19,7 @@ export default function AdminDashboardClient({
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState(initialError);
+  const didRequestLiveBootstrap = useRef(false);
 
   const refreshDashboard = useCallback(async (timeRange: TimeRange) => {
     try {
@@ -52,6 +53,15 @@ export default function AdminDashboardClient({
 
     void refreshDashboard(selectedPeriod);
   }, [dashboard.overview.timeRange, refreshDashboard, selectedPeriod]);
+
+  useEffect(() => {
+    if (didRequestLiveBootstrap.current) {
+      return;
+    }
+
+    didRequestLiveBootstrap.current = true;
+    void refreshDashboard(selectedPeriod);
+  }, [refreshDashboard, selectedPeriod]);
 
   return (
     <DashboardHomeView
