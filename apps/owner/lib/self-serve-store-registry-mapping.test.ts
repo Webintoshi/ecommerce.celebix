@@ -71,10 +71,10 @@ describe("buildSelfServeRegistryMirror", () => {
     assert.deepEqual(
       result.domains
         .filter((domain) => domain.storeSlug === "deri-kordon")
-        .map((domain) => [domain.hostname, domain.domainType]),
+        .map((domain) => [domain.hostname, domain.domainType, domain.isPrimary]),
       [
-        ["derycraft.com", "storefront"],
-        ["panel.celebix.co", "admin"],
+        ["derycraft.com", "storefront", true],
+        ["panel.celebix.co", "admin", true],
       ],
     );
 

@@ -46,7 +46,7 @@ Store authority inventory:
 | Table | Phase 2C decision | Live inventory alignment |
 | --- | --- | --- |
 | `stores` | Canonical store identity table with `legacy_owner_store_id`, `source`, `database_mode`, `status`, `provisioning_status`, and `metadata`. | Mirrors 10 `owner_stores` rows. `legacy_owner_store_id` preserves old IDs; `source = legacy_owner_stores`. |
-| `store_domains` | Domain registry with `domain_type IN ('storefront', 'admin', 'platform_subdomain', 'custom')`. | Mirrors 10 storefront + 10 admin domains if no null domains exist. Admin domains are reserved-policy exempt. |
+| `store_domains` | Domain registry with `domain_type IN ('storefront', 'admin', 'platform_subdomain', 'custom')`. | Mirrors 10 storefront + 10 admin domains if no null domains exist. Admin domains are reserved-policy exempt. Primary flag is scoped by `domain_type`. |
 | `store_memberships` | Future store authorization authority. | Created by proposal, but production backfill remains empty/blocked until explicit principal source exists. |
 | `store_invitations` | Future admin/staff invite lifecycle. | No legacy backfill in Phase 2C. |
 | `store_onboarding_sessions` | Future self-serve wizard state. | No legacy backfill in Phase 2C. |
@@ -59,6 +59,7 @@ Key changes from Phase 2A:
 - `stores.status` keeps `active` / `draft` parity instead of translating live `active` into `ready`.
 - `stores.provisioning_status` carries provisioning readiness separately.
 - `store_domains.domain_type` is finalized as `storefront`, `admin`, `platform_subdomain`, `custom`.
+- `store_domains.is_primary` is interpreted within each `domain_type`; an admin primary does not conflict with a storefront primary for the same store.
 - `legacy_admin` and `custom_storefront` terminology is removed from the registry contract.
 - `store_domains.hostname_normalized` is used for case-insensitive conflict handling.
 - Membership backfill is explicitly blocked rather than warning-only.
@@ -73,9 +74,9 @@ Key changes from Phase 2A:
 | `owner_store_secrets` | `stores.metadata` | `ownerSecretRowPresent` boolean only. | Presence-only metadata can be recomputed. | Secret values must not be selected or copied. |
 | `owner_cleanup_runs` | Review metadata only | `cleanupRunCount` and tombstone policy note. | No store/domain rows are created from cleanup rows. | Orphaned slugs require human review before reuse. |
 
-Backfill SQL proposal: [self-serve-store-registry-backfill-proposal.sql](/Users/Celebix/Desktop/ecommerce-celebix/.codex-worktrees/self-serve-store-provisioning-phase-0-1/apps/owner/scripts/sql/self-serve-store-registry-backfill-proposal.sql)
+Backfill SQL proposal: [self-serve-store-registry-backfill-proposal.sql](../../apps/owner/scripts/sql/self-serve-store-registry-backfill-proposal.sql)
 
-Schema SQL proposal: [self-serve-store-registry-proposal.sql](/Users/Celebix/Desktop/ecommerce-celebix/.codex-worktrees/self-serve-store-provisioning-phase-0-1/apps/owner/scripts/sql/self-serve-store-registry-proposal.sql)
+Schema SQL proposal: [self-serve-store-registry-proposal.sql](../../apps/owner/scripts/sql/self-serve-store-registry-proposal.sql)
 
 ## Membership Plan
 
@@ -117,7 +118,7 @@ These are read-only checks to run on a restored temporary database after applyin
 | Domain row count | `SELECT count(*) FROM store_domains WHERE source = 'legacy_owner_stores'`. | 20 unless null storefront/admin domains exist. |
 | Missing storefront/admin rows | Left join `stores` to `store_domains` by type. | 0 rows unless source domain is null. |
 | Reserved domain exceptions | Filter reserved-looking hostnames by domain type. | Admin domains allowed; storefront/custom require review. |
-| Duplicate primary domain by type | `GROUP BY store_id, domain_type HAVING count(*) > 1` where primary. | 0 rows. |
+| Duplicate primary domain by type | `GROUP BY store_id, domain_type HAVING count(*) > 1` where primary. | 0 rows; primary is scoped per domain type, not globally per store. |
 | Orphan domains | Domain rows without store join. | 0 rows. |
 | Membership count | `store_memberships` sourced from migration mirror. | 0 or explicitly documented as blocked. |
 
@@ -125,7 +126,7 @@ The backfill proposal includes the main parity query list at the bottom and roll
 
 ## Rollback Proposal
 
-Rollback SQL proposal: [self-serve-store-registry-rollback-proposal.sql](/Users/Celebix/Desktop/ecommerce-celebix/.codex-worktrees/self-serve-store-provisioning-phase-0-1/apps/owner/scripts/sql/self-serve-store-registry-rollback-proposal.sql)
+Rollback SQL proposal: [self-serve-store-registry-rollback-proposal.sql](../../apps/owner/scripts/sql/self-serve-store-registry-rollback-proposal.sql)
 
 Rollback strategy:
 
@@ -136,7 +137,7 @@ Rollback strategy:
 
 ## Production Migration Gates
 
-Production apply remains blocked until all gates pass:
+Production apply remains blocked until all gates pass. This is the final apply readiness checklist:
 
 1. Fresh owner DB backup.
 2. Temporary restore test.
@@ -151,6 +152,20 @@ Production apply remains blocked until all gates pass:
 11. Post-apply row parity.
 12. Monitoring and owner health checks.
 13. Explicit Atlas approval for production migration apply.
+
+## Apply Readiness Checklist
+
+- Fresh owner DB backup.
+- Temp restore test.
+- SQL review.
+- Rollback SQL review.
+- Read-only parity dry-run.
+- Transactional apply, where Postgres lock constraints allow it.
+- No runtime cutover.
+- Post-apply row parity.
+- No API reads switched to new tables.
+- Monitoring.
+- Explicit production approval.
 
 ## Remaining Blockers
 

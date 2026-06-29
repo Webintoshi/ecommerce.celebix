@@ -297,7 +297,7 @@ export function buildSelfServeRegistryMirror(input: RegistryMirrorInput): Regist
       hostname: adminDomain,
       domainType: "admin",
       status: proposedStatus === "active" ? "active" : "pending",
-      isPrimary: false,
+      isPrimary: true,
       source: "store_config",
     });
 

@@ -61,6 +61,7 @@ CREATE INDEX IF NOT EXISTS stores_source_idx ON public.stores (source, source_re
 -- store_domains: storefront, admin, platform subdomain, and custom domain authority.
 -- Admin domains such as admin.<store-domain> are expected legacy/control-plane domains and are exempt from
 -- storefront-reserved-domain warnings when domain_type = 'admin'.
+-- Primary is scoped by domain_type: one primary storefront and one primary admin can coexist per store.
 CREATE TABLE IF NOT EXISTS public.store_domains (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id uuid NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,

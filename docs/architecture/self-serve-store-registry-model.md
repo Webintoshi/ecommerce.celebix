@@ -27,6 +27,8 @@ Current `owner_stores` should be treated as the legacy owner control-plane store
 - `platform_subdomain`: future `{slug}.celebix.shop` self-serve subdomain.
 - `custom`: future merchant-owned custom domain.
 
+Primary flag is scoped by `domain_type`: a store may have one primary storefront domain and one primary admin domain at the same time. Admin primary does not conflict with storefront primary because the unique proposal index is `(store_id, domain_type)` for active primary rows.
+
 Phase 2C does not backfill `store_memberships`. The live owner DB has `owner_store_access` with 0 rows and no owner DB `auth_principals`, `auth_store_memberships`, or `store_user_roles` source. Store owners/admins must not be inferred from slug, email, domain, store name, or `super_admin` role.
 
 The safe sequence:
