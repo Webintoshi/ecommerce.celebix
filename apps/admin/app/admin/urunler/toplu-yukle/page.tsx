@@ -1,7 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,7 +10,18 @@ import {
   Loader2,
   Upload,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
+import {
+  AdminActionButton,
+  AdminCallout,
+  AdminDataTable,
+  AdminEmptyState,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminStatusBadge,
+} from "@/components/admin/AdminPageShell";
+import { cn } from "@/lib/utils";
 import {
   buildTemplateCsv,
   getBulkImportProviders,
@@ -40,12 +50,12 @@ interface RepairRunResult {
 
 type ImportSourceMode = "csv" | "feed";
 
-const STEPS = [
-  { id: 1, label: "Platform Seçimi" },
-  { id: 2, label: "Dosya Yükleme" },
-  { id: 3, label: "Önizleme" },
-  { id: 4, label: "İçe Aktarım" },
-] as const;
+const STEP_LABELS = {
+  1: "Kaynak",
+  2: "Analiz",
+  3: "Önizleme",
+  4: "Sonuç",
+} as const;
 
 export default function BulkUploadPage() {
   const providers = useMemo(() => getBulkImportProviders(), []);
@@ -67,11 +77,12 @@ export default function BulkUploadPage() {
   const selectedProviderMeta = providers.find((provider) => provider.id === selectedProvider);
   const isFeedMode = sourceMode === "feed";
   const readyProductCount = parseResult?.products.length ?? 0;
-  const selectedFeedLabel = feedUrl.trim() || "Henüz feed URL girilmedi";
-  const selectedSourceLabel = isFeedMode ? "Feed URL (XML)" : `CSV / ${selectedProviderMeta?.label ?? "-"}`;
-  const selectedFileLabel = file ? file.name : "Henüz dosya seçilmedi";
+  const selectedFeedLabel = feedUrl.trim() || "Feed URL bekleniyor";
+  const selectedSourceLabel = isFeedMode ? "Feed URL" : `CSV / ${selectedProviderMeta?.label ?? "-"}`;
+  const selectedFileLabel = file ? file.name : "Dosya seçilmedi";
   const selectedAssetLabel = isFeedMode ? selectedFeedLabel : selectedFileLabel;
-  const currentStepLabel = STEPS.find((step) => step.id === currentStep)?.label ?? "Hazırlık";
+  const currentStepLabel = STEP_LABELS[currentStep];
+  const isBusy = analyzing || feedAnalyzing || importing || repairing;
 
   const resetImportState = () => {
     setParseResult(null);
@@ -167,7 +178,7 @@ export default function BulkUploadPage() {
 
     for (let index = 0; index < parseResult.products.length; index += 1) {
       const product = parseResult.products[index];
-      setProgressText(`${index + 1}/${parseResult.products.length} ürün aktarılıyor ve görseller R2 storage'a kopyalanıyor: ${product.name}`);
+      setProgressText(`${index + 1}/${parseResult.products.length} ürün aktarılıyor: ${product.name}`);
       try {
         const response = await fetch("/api/products", {
           method: "POST",
@@ -181,7 +192,7 @@ export default function BulkUploadPage() {
           runResult.failed += parseResult.products.length - index;
           runResult.halted = true;
           runResult.errors.push(
-            "Admin oturumu import sirasinda kesildi. Tekrar giris yapip ayni feed ile devam edin.",
+            "Admin oturumu import sırasında kesildi. Tekrar giriş yapıp aynı feed ile devam edin.",
           );
           break;
         }
@@ -208,7 +219,7 @@ export default function BulkUploadPage() {
     if (!isFeedMode || !feedUrl.trim()) return;
     setRepairing(true);
     setRepairResult(null);
-    setProgressText("Mevcut ürünlerde kategori hiyerarşisi aynı feed üzerinden onarılıyor...");
+    setProgressText("Kategori hiyerarşisi feed üzerinden onarılıyor...");
 
     try {
       const response = await fetch("/api/admin/products/feed-category-repair", {
@@ -243,267 +254,147 @@ export default function BulkUploadPage() {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[12px] bg-gradient-to-br from-[#fff8f3] via-[#fffdf9] to-[#f7efe8] p-4 text-[var(--admin-heading)] sm:p-6 lg:p-8">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[var(--admin-bg)]" />
-      <div className="hidden" />
-      <div className="hidden" />
-
-      <div className="relative space-y-6">
-        <section className="overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[var(--shadow-xs)]">
-          <div className="border-b border-[var(--admin-border)] px-5 py-5 md:px-8 md:py-7">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-4">
-                <div className="inline-flex w-fit items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">
-                  Toplu Ürün Yükleme
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--admin-text-secondary)]">
-                  <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white px-3 py-1.5 shadow-sm">
-                    Aktif kaynak: {selectedSourceLabel}
-                  </span>
-                  <span className="inline-flex items-center rounded-full border border-[#ead9cb] bg-white px-3 py-1.5 shadow-sm">
-                    Adım: {currentStep}. {currentStepLabel}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
+    <main role="main" aria-busy={isBusy} className="min-h-screen bg-[#F9F9F9] text-[#111827]">
+      <div className="w-full px-0 py-3 md:py-5">
+        <AdminPageShell className="mx-auto max-w-none">
+          <AdminPageHeader
+            sectionLabel="Katalog"
+            title="Toplu yükle"
+            description="CSV veya XML feed ile ürünleri içe aktarın."
+            actions={
+              <>
                 {!isFeedMode ? (
-                  <button
-                    type="button"
-                    onClick={handleDownloadTemplate}
-                    className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                  >
+                  <AdminActionButton type="button" tone="secondary" onClick={handleDownloadTemplate}>
                     <Download className="h-4 w-4" />
-                    Şablonu İndir
-                  </button>
+                    Şablon indir
+                  </AdminActionButton>
                 ) : null}
-              </div>
-            </div>
-          </div>
 
-          <div className="grid gap-px bg-[#EEF1F4] md:grid-cols-4">
-            {[
-              { label: "Seçili kaynak", value: selectedSourceLabel },
-              { label: "Seçilen varlık", value: selectedAssetLabel },
-              { label: "Hazır ürün", value: String(readyProductCount) },
-              {
-                label: "Aktarım durumu",
-                value:
-                  importResult || repairResult
-                    ? "Tamamlandı"
-                    : importing || repairing
-                      ? "Sürüyor"
-                      : "Hazır",
-              },
-            ].map((metric) => (
-              <div key={metric.label} className="border border-white/70 bg-white/70 px-5 py-5 backdrop-blur-sm md:px-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">{metric.label}</p>
-                <p className="mt-2 line-clamp-2 text-base font-semibold text-[var(--admin-heading)] md:text-lg">{metric.value}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--admin-accent)]">Adım akışı</p>
-              <h2 className="mt-2 text-xl font-semibold text-[var(--admin-heading)]">4 aşamalı aktarım planı</h2>
-            </div>
-            <div className="rounded-full border border-[#ead9cb] bg-white px-3 py-1.5 text-xs font-medium text-[var(--admin-text-secondary)] shadow-sm">
-              Mevcut adım: {currentStep}/4
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-4">
-          {STEPS.map((step) => {
-            const active = currentStep === step.id;
-            const completed = currentStep > step.id;
-            return (
-              <div
-                key={step.id}
-                className={`rounded-[12px] border px-4 py-4 text-sm shadow-sm transition ${
-                  completed
-                    ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-900"
-                    : active
-                      ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff3e8] to-white text-[#8b4b20] shadow-[var(--shadow-xs)]"
-                      : "border-[var(--admin-border)] bg-white text-[#8d796a]"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] text-sm font-semibold ${
-                      completed
-                        ? "bg-emerald-100 text-emerald-700"
-                        : active
-                          ? "bg-[var(--admin-accent)] text-white"
-                          : "bg-[#f5ede6] text-[#8d796a]"
-                    }`}
+                {parseResult?.products.length ? (
+                  <AdminActionButton
+                    type="button"
+                    tone="secondary"
+                    onClick={() => {
+                      setCurrentStep(2);
+                      setImportResult(null);
+                      setRepairResult(null);
+                    }}
+                    disabled={isBusy}
                   >
-                    {step.id}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-current/70">Aşama</p>
-                    <div className="mt-1 font-semibold">{step.label}</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          </div>
-        </section>
+                    <Upload className="h-4 w-4" />
+                    {isFeedMode ? "Feed'i güncelle" : "Dosyayı güncelle"}
+                  </AdminActionButton>
+                ) : null}
 
-        <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-xs)]">
-              <CheckCircle2 className="h-5 w-5 text-[var(--admin-accent)]" />
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">1. aşama</p>
-              <h2 className="mt-1 text-xl font-semibold text-[var(--admin-heading)]">Kaynak ve platform seçimi</h2>
-            </div>
-          </div>
+                {isFeedMode && parseResult?.products.length ? (
+                  <AdminActionButton
+                    type="button"
+                    tone="secondary"
+                    onClick={handleRepairCategoriesFromFeed}
+                    disabled={importing || repairing}
+                  >
+                    {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe2 className="h-4 w-4" />}
+                    Kategorileri onar
+                  </AdminActionButton>
+                ) : null}
 
-          <div className="mb-5 grid gap-3 md:grid-cols-2">
-            {[
-              {
-                id: "csv" as const,
-                title: "CSV Dosyası",
-                description:
-                  "WooCommerce, Shopify ve benzeri CSV export dosyalarını mevcut parser ile içe aktar.",
-                icon: FileSpreadsheet,
-              },
-              {
-                id: "feed" as const,
-                title: "Feed URL (XML)",
-                description:
-                  "Google Merchant / Atom benzeri XML feed URL'sini analiz et, varyantlara ayır ve içe aktar.",
-                icon: Globe2,
-              },
-            ].map((source) => {
-              const selected = sourceMode === source.id;
-              return (
-                <button
-                  key={source.id}
-                  type="button"
+                {parseResult?.products.length ? (
+                  <AdminActionButton type="button" tone="primary" onClick={handleImport} disabled={importing || repairing}>
+                    {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    İçe aktar
+                  </AdminActionButton>
+                ) : null}
+              </>
+            }
+            metrics={
+              <>
+                <HeaderMetric label="Kaynak" value={selectedSourceLabel} />
+                <HeaderMetric label="Varlık" value={selectedAssetLabel} />
+                <HeaderMetric label="Hazır ürün" value={String(readyProductCount)} />
+                <HeaderMetric label="Durum" value={currentStepLabel} />
+              </>
+            }
+          />
+
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <Panel
+              title="Kaynak"
+              description="Aktarım tipini seçin, ardından dosya veya feed bilgisini analiz edin."
+            >
+              <div className="grid gap-2 md:grid-cols-2">
+                <SourceButton
+                  selected={!isFeedMode}
+                  icon={FileSpreadsheet}
+                  title="CSV dosyası"
+                  description="Platform export dosyası"
                   onClick={() => {
-                    setSourceMode(source.id);
+                    setSourceMode("csv");
                     resetImportState();
                     setCurrentStep(2);
                   }}
-                  className={`rounded-[12px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] ${
-                    selected
-                      ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff1e6] to-white shadow-[var(--shadow-xs)]"
-                      : "border-[var(--admin-border)] bg-white hover:border-[var(--admin-accent-border)] hover:bg-white"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 font-semibold text-[var(--admin-heading)]">
-                        <source.icon className="h-4 w-4 text-[var(--admin-accent)]" />
-                        <span>{source.title}</span>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{source.description}</p>
-                    </div>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
-                        selected ? "bg-[var(--admin-accent)] text-white" : "bg-[#f5ede6] text-[#8d796a]"
-                      }`}
-                    >
-                      {selected ? "Seçili" : "Hazır"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                />
+                <SourceButton
+                  selected={isFeedMode}
+                  icon={Globe2}
+                  title="Feed URL"
+                  description="XML ürün feed'i"
+                  onClick={() => {
+                    setSourceMode("feed");
+                    resetImportState();
+                    setCurrentStep(2);
+                  }}
+                />
+              </div>
 
-          {!isFeedMode ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {providers.map((provider) => {
-                const selected = provider.id === selectedProvider;
-                return (
-                  <button
-                    key={provider.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedProvider(provider.id);
+              {!isFeedMode ? (
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {providers.map((provider) => (
+                    <button
+                      key={provider.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedProvider(provider.id);
+                        setCurrentStep(2);
+                        resetImportState();
+                      }}
+                      className={cn(
+                        "min-h-20 rounded-[8px] border px-4 py-3 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]",
+                        provider.id === selectedProvider
+                          ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
+                          : "border-[#E1E6EF] bg-white text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]",
+                      )}
+                    >
+                      <span>{provider.label}</span>
+                      <span className="mt-1 block text-xs font-medium text-[#6B7280]">
+                        {provider.description}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 space-y-2">
+                  <label htmlFor="feed-url" className="text-sm font-semibold text-[#1F2937]">
+                    Feed URL
+                  </label>
+                  <input
+                    id="feed-url"
+                    type="url"
+                    value={feedUrl}
+                    onChange={(event) => {
+                      setFeedUrl(event.target.value);
+                      resetImportState();
                       setCurrentStep(2);
                     }}
-                    className={`rounded-[12px] border p-5 text-left shadow-sm transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] ${
-                      selected
-                        ? "border-[var(--admin-accent-border)] bg-gradient-to-br from-[#fff1e6] to-white shadow-[var(--shadow-xs)]"
-                        : "border-[var(--admin-border)] bg-white hover:border-[var(--admin-accent-border)] hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-semibold text-[var(--admin-heading)]">{provider.label}</div>
-                        <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{provider.description}</p>
-                      </div>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
-                          selected ? "bg-[var(--admin-accent)] text-white" : "bg-[#f5ede6] text-[#8d796a]"
-                        }`}
-                      >
-                        {selected ? "Seçili" : "Hazır"}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-[var(--admin-heading)]">Feed modu aktif</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
-                Google Merchant / Atom feed içindeki satırlar{" "}
-                <code className="rounded bg-[#f8efe6] px-1 py-0.5 text-[var(--admin-accent-hover)]">item_group_id</code>{" "}
-                bazlı gruplanır, çoklu görseller tek üründe birleşir ve varyant özellikleri
-                otomatik çıkarılır.
-              </p>
-            </div>
-          )}
-        </section>
+                    placeholder="https://www.example.com/XMLExport/feed.xml"
+                    className="h-11 w-full rounded-[7px] border border-[#E1E6EF] bg-white px-3 text-[14px] font-medium text-[#111827] outline-none transition placeholder:text-[#7B8797] focus:border-[#FFD7BF] focus:ring-4 focus:ring-[#FFF1E8]"
+                  />
+                </div>
+              )}
+            </Panel>
 
-        <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
-          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-xs)]">
-                <Upload className="h-5 w-5 text-[var(--admin-accent)]" />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">2. aşama</p>
-                <h2 className="mt-1 text-xl font-semibold text-[var(--admin-heading)]">Dosya yükleme ve analiz</h2>
-              </div>
-            </div>
-
-            {!isFeedMode ? (
-              <button
-                type="button"
-                onClick={handleDownloadTemplate}
-                className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-              >
-                <Download className="h-4 w-4" />
-                {selectedProviderMeta?.label} şablonunu indir
-              </button>
-            ) : null}
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
-            {!isFeedMode ? (
-              <div className="rounded-[12px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-[12px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-xs)]">
-                    <FileSpreadsheet className="h-10 w-10 text-[var(--admin-accent)]" />
-                  </div>
-                  <p className="mt-5 text-lg font-semibold text-[var(--admin-heading)]">
-                    {selectedProviderMeta?.label} için CSV dosyasını seçin
-                  </p>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--admin-text-secondary)]">
-                    UTF-8 CSV önerilir. Ayraç olarak virgül, noktalı virgül veya tab desteklenir.
-                  </p>
-
+            <Panel title="Analiz" description="Önizleme için kaynağı çalıştırın.">
+              {!isFeedMode ? (
+                <div className="space-y-3">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -519,362 +410,323 @@ export default function BulkUploadPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="mt-5 inline-flex items-center rounded-[8px] bg-[#2f241d] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:bg-[#241b16] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
+                    className="flex min-h-24 w-full items-center gap-3 rounded-[8px] border border-dashed border-[#DCE3EC] bg-[#F9F9F9] px-4 text-left transition-colors hover:border-[#FFD7BF] hover:bg-[#FFF8F3] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]"
                   >
-                    Dosya Seç
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]">
+                      <Upload className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-[#111827]">
+                        {file?.name ?? "CSV dosyası seç"}
+                      </span>
+                      <span className="mt-1 block text-xs font-medium text-[#6B7280]">
+                        {file ? `${(file.size / 1024).toFixed(1)} KB` : "Dosya seçildiğinde analiz başlayabilir."}
+                      </span>
+                    </span>
                   </button>
-
-                  {file ? (
-                    <div className="mt-4 w-full max-w-md rounded-[12px] border border-[#ead9cb] bg-white px-4 py-4 text-sm text-[#5e4b3e] shadow-sm">
-                      <div className="font-semibold text-[var(--admin-heading)]">{file.name}</div>
-                      <div className="mt-1 text-xs text-[#8d796a]">{(file.size / 1024).toFixed(2)} KB</div>
-                    </div>
-                  ) : null}
-
-                  <button
+                  <AdminActionButton
                     type="button"
+                    tone="primary"
+                    className="w-full rounded-[7px]"
                     onClick={handleAnalyzeFile}
                     disabled={!file || analyzing}
-                    className="mt-5 inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    {analyzing ? "Analiz ediliyor..." : "Dosyayı Analiz Et"}
-                  </button>
+                    {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                    Analiz et
+                  </AdminActionButton>
                 </div>
-              </div>
-            ) : (
-              <div className="rounded-[12px] border border-dashed border-[#d9b99f] bg-gradient-to-br from-[#fffaf6] to-white p-6 shadow-inner">
-                <div className="flex flex-col gap-5">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#fff0e3] to-[#f6deca] shadow-[var(--shadow-xs)]">
-                      <Globe2 className="h-7 w-7 text-[var(--admin-accent)]" />
-                    </div>
-                    <div>
-                      <p className="text-lg font-semibold text-[var(--admin-heading)]">Feed URL ile ürünleri analiz et</p>
-                      <p className="mt-1 text-sm leading-6 text-[var(--admin-text-secondary)]">
-                        XML feed sunucu tarafında çekilir, önizleme hazırlanır ve mevcut toplu
-                        aktarım akışıyla ürüne dönüşür.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label htmlFor="feed-url" className="text-sm font-semibold text-[var(--admin-heading)]">
-                      Feed URL
-                    </label>
-                    <input
-                      id="feed-url"
-                      type="url"
-                      value={feedUrl}
-                      onChange={(event) => {
-                        setFeedUrl(event.target.value);
-                        resetImportState();
-                        setCurrentStep(2);
-                      }}
-                      placeholder="https://www.example.com/XMLExport/feed.xml"
-                      className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] shadow-sm outline-none transition placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
-                    />
-                  </div>
-
-                  <button
+              ) : (
+                <div className="space-y-3">
+                  <AdminCallout tone="neutral" className="rounded-[8px]">
+                    Feed okunur, ürünler önizlemeye alınır.
+                  </AdminCallout>
+                  <AdminActionButton
                     type="button"
+                    tone="primary"
+                    className="w-full rounded-[7px]"
                     onClick={handleAnalyzeFeed}
                     disabled={!feedUrl.trim() || feedAnalyzing}
-                    className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition hover:translate-y-[-1px] hover:bg-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {feedAnalyzing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Globe2 className="h-4 w-4" />
-                    )}
-                    {feedAnalyzing ? "Feed analiz ediliyor..." : "Feed'i Analiz Et"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {[
-                { title: "Seçili kaynak", value: selectedSourceLabel },
-                { title: "Beklenen format", value: isFeedMode ? "XML / Atom / Google Merchant" : "CSV / UTF-8" },
-                { title: "Seçilen varlık", value: selectedAssetLabel },
-              ].map((item) => (
-                <div key={item.title} className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">{item.title}</p>
-                  <p className="mt-2 break-words text-sm font-semibold text-[var(--admin-heading)]">{item.value}</p>
-                </div>
-              ))}
-
-            </div>
-          </div>
-        </section>
-
-        {parseResult ? (
-          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-xs)]">
-                <AlertCircle className="h-5 w-5 text-[var(--admin-accent)]" />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">3. aşama</p>
-                <h2 className="mt-1 text-xl font-semibold text-[var(--admin-heading)]">Önizleme ve doğrulama</h2>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-4">
-              <InfoCard title="Toplam Satır" value={String(parseResult.totalRows)} tone="default" />
-              <InfoCard title="Ürün Sayısı" value={String(parseResult.products.length)} tone="success" />
-              <InfoCard title="Atlanan Satır" value={String(parseResult.skippedRows)} tone="warning" />
-              <InfoCard title="Hata Sayısı" value={String(parseResult.errors.length)} tone={parseResult.errors.length ? "danger" : "success"} />
-            </div>
-
-            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              {parseResult.warnings.length > 0 ? (
-                <div className="rounded-[12px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
-                  <p className="mb-2 text-sm font-semibold text-amber-900">Uyarılar</p>
-                  <ul className="max-h-48 space-y-1 overflow-auto text-sm text-amber-900">
-                    {parseResult.warnings.slice(0, 30).map((warning, index) => (
-                      <li key={`${warning}-${index}`}>• {warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="rounded-[12px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
-                  <p className="text-sm font-semibold text-emerald-900">Uyarı bulunmuyor</p>
-                  <p className="mt-2 text-sm leading-6 text-emerald-800">Dosya yapısı kontrol edildi; önizleme aşaması devam etmeye hazır.</p>
+                    {feedAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe2 className="h-4 w-4" />}
+                    Feed'i analiz et
+                  </AdminActionButton>
                 </div>
               )}
+            </Panel>
+          </section>
 
-              {parseResult.errors.length > 0 ? (
-                <div className="rounded-[12px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
-                  <p className="mb-2 text-sm font-semibold text-red-900">Hatalar</p>
-                  <ul className="max-h-48 space-y-1 overflow-auto text-sm text-red-900">
-                    {parseResult.errors.slice(0, 30).map((error, index) => (
-                      <li key={`${error}-${index}`}>• {error}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-sm">
-                  <p className="text-sm font-semibold text-[var(--admin-heading)]">Kritik hata bulunmuyor</p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">İçe aktarıma geçmeden önce tabloyu kontrol edip ürün sayısını doğrulayabilirsiniz.</p>
-                </div>
-              )}
-            </div>
+          {parseResult ? (
+            <section className="space-y-4">
+              <div className="grid gap-px overflow-hidden rounded-[8px] border border-[#DCE3EC] bg-[#DCE3EC] md:grid-cols-4">
+                <InfoCard title="Toplam satır" value={String(parseResult.totalRows)} />
+                <InfoCard title="Ürün" value={String(parseResult.products.length)} tone="success" />
+                <InfoCard title="Atlanan" value={String(parseResult.skippedRows)} tone="warning" />
+                <InfoCard title="Hata" value={String(parseResult.errors.length)} tone={parseResult.errors.length ? "danger" : "success"} />
+              </div>
 
-            <div className="mt-4 rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-r from-[#fff3e9] to-white p-4 text-sm leading-6 text-[var(--admin-text-secondary)] shadow-sm">
-              Import sırasında ürün ve varyant görselleri uzak URL'den alınır, bu mağazanın R2 bucket'ına yüklenir ve kayıtlar bizim storage URL'lerimizle oluşturulur.
-            </div>
+              <div className="grid gap-3 xl:grid-cols-2">
+                {parseResult.warnings.length > 0 ? (
+                  <ResultPanel title="Uyarılar" tone="warning" items={parseResult.warnings} />
+                ) : (
+                  <AdminCallout tone="success" icon={<CheckCircle2 className="h-4 w-4" />}>
+                    Uyarı bulunmuyor.
+                  </AdminCallout>
+                )}
 
-            {parseResult.products.length > 0 ? (
-              <>
-                <div className="mt-5 rounded-[12px] border border-[var(--admin-border)] bg-white shadow-sm">
-                  <div className="flex items-center justify-between gap-3 border-b border-[#f0e4d8] px-5 py-4">
+                {parseResult.errors.length > 0 ? (
+                  <ResultPanel title="Hatalar" tone="danger" items={parseResult.errors} />
+                ) : (
+                  <AdminCallout tone="success" icon={<CheckCircle2 className="h-4 w-4" />}>
+                    Kritik hata bulunmuyor.
+                  </AdminCallout>
+                )}
+              </div>
+
+              {parseResult.products.length > 0 ? (
+                <AdminDataTable className="rounded-[8px] shadow-none">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E1E6EF] bg-[#F9F9F9] px-4 py-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9d816d]">Önizleme tablosu</p>
+                      <h2 className="text-lg font-semibold tracking-[-0.03em] text-[#111827]">Önizleme</h2>
+                      <p className="mt-1 text-sm text-[#6B7280]">İlk 20 kayıt gösteriliyor.</p>
                     </div>
-                    <span className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-accent-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--admin-accent)]">
-                      {parseResult.products.length} ürün hazır
-                    </span>
+                    <AdminStatusBadge tone="accent">{parseResult.products.length} ürün hazır</AdminStatusBadge>
                   </div>
-
                   <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-[#f9f3ed] text-[#6c584b]">
+                    <table className="min-w-[840px] w-full text-left text-sm">
+                      <thead className="bg-[#EEF3F7] text-[#4B5563]">
                         <tr>
-                          <th className="px-4 py-3 text-left font-semibold">Ürün</th>
-                          <th className="px-4 py-3 text-left font-semibold">Slug</th>
-                          <th className="px-4 py-3 text-left font-semibold">Kategori</th>
-                          <th className="px-4 py-3 text-left font-semibold">Varyant</th>
-                          <th className="px-4 py-3 text-left font-semibold">Kaynak Satır</th>
+                          <th className="px-4 py-3 font-semibold">Ürün</th>
+                          <th className="px-4 py-3 font-semibold">Slug</th>
+                          <th className="px-4 py-3 font-semibold">Kategori</th>
+                          <th className="px-4 py-3 font-semibold">Varyant</th>
+                          <th className="px-4 py-3 font-semibold">Satır</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-[#E1E6EF] bg-white">
                         {parseResult.products.slice(0, 20).map((product) => (
-                          <tr key={product.slug} className="border-t border-[#f2e7dc] align-top">
-                            <td className="px-4 py-3 font-semibold text-[var(--admin-heading)]">{product.name}</td>
-                            <td className="px-4 py-3 text-[#6c584b]">{product.slug}</td>
-                            <td className="px-4 py-3 text-[#6c584b]">
-                              {product.categoryPath?.length
-                                ? product.categoryPath.map((segment) => segment.name).join(" > ")
-                                : product.category}
+                          <tr key={`${product.slug}-${product.sourceRows.join("-")}`}>
+                            <td className="max-w-[300px] px-4 py-3 font-semibold text-[#111827]">
+                              <span className="block truncate">{product.name}</span>
                             </td>
-                            <td className="px-4 py-3 text-[#6c584b]">{product.variants.length}</td>
-                            <td className="px-4 py-3 text-[#6c584b]">{product.sourceRows.join(", ")}</td>
+                            <td className="max-w-[220px] px-4 py-3 text-[#4B5563]">
+                              <span className="block truncate">{product.slug}</span>
+                            </td>
+                            <td className="max-w-[260px] px-4 py-3 text-[#4B5563]">
+                              <span className="block truncate">
+                                {product.categoryPath?.length
+                                  ? product.categoryPath.map((segment) => segment.name).join(" > ")
+                                  : product.category}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-[#4B5563]">{product.variants.length}</td>
+                            <td className="px-4 py-3 text-[#4B5563]">{product.sourceRows.join(", ")}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                </div>
+                </AdminDataTable>
+              ) : (
+                <AdminEmptyState
+                  icon={<FileSpreadsheet className="h-5 w-5" />}
+                  title="Aktarılacak ürün bulunamadı"
+                  description="Kaynak dosyayı veya feed adresini kontrol edin."
+                  className="rounded-[8px] bg-white"
+                />
+              )}
+            </section>
+          ) : null}
 
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={handleImport}
-                    disabled={importing || repairing}
-                    className="inline-flex items-center gap-2 rounded-[8px] bg-gradient-to-r from-[#2f9e5f] to-[#21824b] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(33,130,75,0.22)] transition hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 disabled:opacity-50"
-                  >
-                    {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    {importing ? "İçe aktarım sürüyor..." : `${parseResult.products.length} ürünü içe aktar`}
-                  </button>
-                  {isFeedMode ? (
-                    <button
-                      type="button"
-                      onClick={handleRepairCategoriesFromFeed}
-                      disabled={importing || repairing}
-                      className="inline-flex items-center gap-2 rounded-[8px] border border-[#7b61ff]/18 bg-white px-5 py-3 text-sm font-semibold text-[#5b3fd1] shadow-sm transition hover:border-[#7b61ff]/35 hover:bg-[#f7f3ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#7b61ff]/15 disabled:opacity-50"
-                    >
-                      {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe2 className="h-4 w-4" />}
-                      {repairing
-                        ? "Kategori zinciri onarılıyor..."
-                        : "Mevcut feed ürünlerinde kategori hiyerarşisini onar"}
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentStep(2);
-                      setImportResult(null);
-                      setRepairResult(null);
-                    }}
-                    className="rounded-[8px] border border-[var(--admin-accent-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--admin-accent-hover)] shadow-sm transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.20)]"
-                  >
-                    {isFeedMode ? "Feed'i Güncelle" : "Dosyayı Güncelle"}
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </section>
-        ) : null}
-
-        {importing || repairing || importResult || repairResult ? (
-          <section className="rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-white/95 via-[#fffdfa] to-[#f6eee6] p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#fff0e3] to-[#f8ddc7] shadow-[var(--shadow-xs)]">
-                {importResult && importResult.failed === 0 && !repairResult ? (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                ) : importResult && importResult.failed > 0 && !repairResult ? (
-                  <XCircle className="h-5 w-5 text-red-600" />
-                ) : repairResult && repairResult.failedProducts === 0 ? (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                ) : repairResult && repairResult.failedProducts > 0 ? (
-                  <XCircle className="h-5 w-5 text-red-600" />
-                ) : (
-                  <Loader2 className="h-5 w-5 animate-spin text-[var(--admin-accent)]" />
-                )}
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">4. aşama</p>
-                <h2 className="mt-1 text-xl font-semibold text-[var(--admin-heading)]">İçe aktarım sonucu</h2>
-              </div>
-            </div>
-
-            <div aria-live="polite" aria-atomic="true" role="status" className="min-h-0">
+          {importing || repairing || importResult || repairResult ? (
+            <section className="space-y-4">
               {progressText ? (
-                <div className="mb-4 rounded-[12px] border border-[var(--admin-accent-border)] bg-gradient-to-r from-[#fff3e9] to-white px-4 py-4 text-sm font-medium text-[var(--admin-accent-hover)] shadow-sm">
+                <AdminCallout tone="info" icon={<Loader2 className="h-4 w-4 animate-spin" />}>
                   {progressText}
-                </div>
+                </AdminCallout>
               ) : null}
-            </div>
 
-            {importResult ? (
-              <>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <InfoCard title="Toplam Ürün" value={String(importResult.total)} tone="default" />
-                  <InfoCard title="Başarılı" value={String(importResult.success)} tone="success" />
-                  <InfoCard title="Başarısız" value={String(importResult.failed)} tone={importResult.failed > 0 ? "danger" : "success"} />
-                </div>
+              {importResult ? (
+                <Panel title="İçe aktarım sonucu">
+                  <div className="grid gap-px overflow-hidden rounded-[8px] border border-[#DCE3EC] bg-[#DCE3EC] md:grid-cols-3">
+                    <InfoCard title="Toplam" value={String(importResult.total)} />
+                    <InfoCard title="Başarılı" value={String(importResult.success)} tone="success" />
+                    <InfoCard title="Başarısız" value={String(importResult.failed)} tone={importResult.failed ? "danger" : "success"} />
+                  </div>
 
-                {importResult.errors.length > 0 ? (
-                  <div className="mt-4 rounded-[12px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
-                    <p className="mb-2 text-sm font-semibold text-red-900">Aktarım hataları</p>
-                    <ul className="max-h-48 space-y-1 overflow-auto text-sm text-red-900">
-                      {importResult.errors.slice(0, 50).map((error, index) => (
-                        <li key={`${error}-${index}`}>• {error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-[12px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
-                    <p className="text-sm font-semibold text-emerald-900">Aktarım başarıyla tamamlandı</p>
-                    <p className="mt-2 text-sm leading-6 text-emerald-800">Tüm ürünler hatasız işlendi ve sonuç kartları güncellendi.</p>
-                  </div>
-                )}
+                  {importResult.errors.length > 0 ? (
+                    <div className="mt-3">
+                      <ResultPanel title="Aktarım hataları" tone="danger" items={importResult.errors} />
+                    </div>
+                  ) : (
+                    <div className="mt-3">
+                      <AdminCallout tone="success" icon={<CheckCircle2 className="h-4 w-4" />}>
+                        Aktarım tamamlandı.
+                      </AdminCallout>
+                    </div>
+                  )}
 
-                {importResult.halted ? (
-                  <div className="mt-4 rounded-[12px] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
-                    <p className="text-sm font-semibold text-amber-900">Aktarım durduruldu</p>
-                    <p className="mt-2 text-sm leading-6 text-amber-800">
-                      Uzun süren aktarımlarda admin oturumu sona erebilir. Tekrar giriş yapıp aynı feed ile kaldığın yerden devam et.
-                    </p>
-                  </div>
-                ) : null}
-              </>
-            ) : null}
+                  {importResult.halted ? (
+                    <div className="mt-3">
+                      <AdminCallout tone="warning" icon={<AlertCircle className="h-4 w-4" />}>
+                        Oturum kesildiği için aktarım durdu.
+                      </AdminCallout>
+                    </div>
+                  ) : null}
+                </Panel>
+              ) : null}
 
-            {repairResult ? (
-              <>
-                <div className="mt-6 grid gap-3 md:grid-cols-5">
-                  <InfoCard title="Feed Ürünü" value={String(repairResult.totalFeedProducts)} tone="default" />
-                  <InfoCard title="Eşleşen" value={String(repairResult.matchedProducts)} tone="success" />
-                  <InfoCard title="Güncellenen" value={String(repairResult.updatedProducts)} tone="success" />
-                  <InfoCard title="Atlanan" value={String(repairResult.skippedProducts)} tone="warning" />
-                  <InfoCard
-                    title="Başarısız"
-                    value={String(repairResult.failedProducts)}
-                    tone={repairResult.failedProducts > 0 ? "danger" : "success"}
-                  />
-                </div>
+              {repairResult ? (
+                <Panel title="Kategori onarım sonucu">
+                  <div className="grid gap-px overflow-hidden rounded-[8px] border border-[#DCE3EC] bg-[#DCE3EC] md:grid-cols-5">
+                    <InfoCard title="Feed" value={String(repairResult.totalFeedProducts)} />
+                    <InfoCard title="Eşleşen" value={String(repairResult.matchedProducts)} tone="success" />
+                    <InfoCard title="Güncellenen" value={String(repairResult.updatedProducts)} tone="success" />
+                    <InfoCard title="Atlanan" value={String(repairResult.skippedProducts)} tone="warning" />
+                    <InfoCard title="Başarısız" value={String(repairResult.failedProducts)} tone={repairResult.failedProducts ? "danger" : "success"} />
+                  </div>
 
-                {repairResult.errors.length > 0 ? (
-                  <div className="mt-4 rounded-[12px] border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
-                    <p className="mb-2 text-sm font-semibold text-red-900">Kategori onarım hataları</p>
-                    <ul className="max-h-48 space-y-1 overflow-auto text-sm text-red-900">
-                      {repairResult.errors.slice(0, 50).map((error, index) => (
-                        <li key={`${error}-${index}`}>• {error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-[12px] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
-                    <p className="text-sm font-semibold text-emerald-900">Kategori hiyerarşisi onarımı tamamlandı</p>
-                    <p className="mt-2 text-sm leading-6 text-emerald-800">
-                      Eşleşen ürünlerin kategori zinciri feed içindeki tam yol bilgisine göre güncellendi.
-                    </p>
-                  </div>
-                )}
-              </>
-            ) : null}
-          </section>
-        ) : null}
+                  {repairResult.errors.length > 0 ? (
+                    <div className="mt-3">
+                      <ResultPanel title="Kategori hataları" tone="danger" items={repairResult.errors} />
+                    </div>
+                  ) : (
+                    <div className="mt-3">
+                      <AdminCallout tone="success" icon={<CheckCircle2 className="h-4 w-4" />}>
+                        Kategori onarımı tamamlandı.
+                      </AdminCallout>
+                    </div>
+                  )}
+                </Panel>
+              ) : null}
+            </section>
+          ) : null}
+        </AdminPageShell>
       </div>
+    </main>
+  );
+}
+
+function HeaderMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0 bg-white px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7B8797]">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-[#111827]">{value}</p>
     </div>
+  );
+}
+
+function Panel({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-[8px] border border-[#DCE3EC] bg-white shadow-none">
+      <div className="border-b border-[#E1E6EF] px-4 py-3">
+        <h2 className="text-base font-semibold tracking-[-0.03em] text-[#111827]">{title}</h2>
+        {description ? <p className="mt-1 text-sm text-[#6B7280]">{description}</p> : null}
+      </div>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
+function SourceButton({
+  selected,
+  icon: Icon,
+  title,
+  description,
+  onClick,
+}: {
+  selected: boolean;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        "flex min-h-20 items-center gap-3 rounded-[8px] border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF1E8]",
+        selected
+          ? "border-[#FFD7BF] bg-[#FFF1E8] text-[#E85D04]"
+          : "border-[#E1E6EF] bg-white text-[#374151] hover:border-[#FFD7BF] hover:text-[#E85D04]",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border",
+          selected ? "border-[#FFD7BF] bg-white text-[#E85D04]" : "border-[#E1E6EF] bg-[#F9F9F9] text-[#6B7280]",
+        )}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="mt-1 block text-xs font-medium text-[#6B7280]">{description}</span>
+      </span>
+    </button>
   );
 }
 
 function InfoCard({
   title,
   value,
-  tone,
+  tone = "neutral",
 }: {
   title: string;
   value: string;
-  tone: "default" | "success" | "warning" | "danger";
+  tone?: "neutral" | "success" | "warning" | "danger";
 }) {
-  const className =
-    tone === "success"
-      ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white text-emerald-950"
-      : tone === "warning"
-        ? "border-amber-200/70 bg-gradient-to-br from-amber-50 to-white text-amber-950"
-        : tone === "danger"
-          ? "border-red-200/70 bg-gradient-to-br from-red-50 to-white text-red-950"
-          : "border-[var(--admin-border)] bg-gradient-to-br from-white to-[#fbf6f0] text-[var(--admin-heading)]";
-
   return (
-    <div className={`rounded-[12px] border p-4 shadow-sm ${className}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">{title}</p>
-      <p className="mt-2 text-3xl font-bold tracking-tight">{value}</p>
+    <div
+      className={cn(
+        "min-w-0 bg-white px-4 py-4",
+        tone === "success" && "text-[#15803D]",
+        tone === "warning" && "text-[#B45309]",
+        tone === "danger" && "text-[#B91C1C]",
+        tone === "neutral" && "text-[#111827]",
+      )}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7B8797]">{title}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{value}</p>
+    </div>
+  );
+}
+
+function ResultPanel({
+  title,
+  tone,
+  items,
+}: {
+  title: string;
+  tone: "warning" | "danger";
+  items: string[];
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-[8px] border px-4 py-3 text-sm",
+        tone === "warning" && "border-[#F8D9A8] bg-[#FFF8E8] text-[#92400E]",
+        tone === "danger" && "border-[#F5D3D3] bg-[#FDECEC] text-[#B91C1C]",
+      )}
+    >
+      <div className="mb-2 flex items-center gap-2 font-semibold">
+        {tone === "danger" ? <XCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+        {title}
+      </div>
+      <ul className="max-h-44 space-y-1 overflow-auto">
+        {items.slice(0, 30).map((item, index) => (
+          <li key={`${item}-${index}`}>{item}</li>
+        ))}
+      </ul>
     </div>
   );
 }
