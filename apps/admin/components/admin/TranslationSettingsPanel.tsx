@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ElementType } from "react";
 import {
   AlertTriangle,
   Check,
@@ -14,6 +14,7 @@ import {
   Type,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
 import {
   DEFAULT_STORE_TRANSLATION_SETTINGS,
   normalizeStoreTranslationSettings,
@@ -75,41 +76,72 @@ type TranslationHealthResponse = {
 const TARGET_LOCALE_OPTIONS: Array<{
   locale: Exclude<StoreTranslationLocale, "tr">;
   label: string;
-  description: string;
+  path: string;
 }> = [
-  { locale: "en", label: "English", description: "/en" },
-  { locale: "de", label: "Deutsch", description: "/de" },
-  { locale: "ru", label: "Russkiy", description: "/ru" },
-  { locale: "ar", label: "Arabic", description: "/ar" },
-  { locale: "ka", label: "Kartuli", description: "/ka" },
+  { locale: "en", label: "İngilizce", path: "/en" },
+  { locale: "de", label: "Almanca", path: "/de" },
+  { locale: "ru", label: "Rusça", path: "/ru" },
+  { locale: "ar", label: "Arapça", path: "/ar" },
+  { locale: "ka", label: "Gürcüce", path: "/ka" },
 ];
+
+const PANEL_CLASS =
+  "overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]";
+
+const PANEL_HEADER_CLASS =
+  "border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 xl:px-5";
+
+const FIELD_CLASS =
+  "h-11 w-full rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm text-[#111827] outline-none transition placeholder:text-[#8B95A5] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
+
+const PRIMARY_BUTTON =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.16)] transition hover:bg-[#E85D04] disabled:cursor-not-allowed disabled:opacity-55";
+
+const SECONDARY_BUTTON =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-4 text-sm font-semibold text-[#374151] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-55";
+
+const LABEL_CLASS = "block text-sm font-semibold text-[#374151]";
+
+function SwitchControl({ enabled }: { enabled: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-6 w-11 items-center rounded-full p-1 transition ${
+        enabled ? "bg-[#FF6A00]" : "bg-[#CBD5E1]"
+      }`}
+    >
+      <span
+        className={`h-4 w-4 rounded-full bg-white shadow transition ${
+          enabled ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </span>
+  );
+}
 
 function ToggleCard({
   title,
-  description: _description,
   enabled,
   onToggle,
   icon: Icon,
 }: {
   title: string;
-  description: string;
   enabled: boolean;
   onToggle: () => void;
-  icon: React.ElementType;
+  icon: ElementType;
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
-      className={`flex w-full items-start gap-3 rounded-[8px] border p-4 text-left transition ${
+      className={`flex w-full items-center gap-3 rounded-[10px] border px-4 py-3 text-left transition ${
         enabled
-          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]"
-          : "border-[var(--admin-border)] bg-white text-[var(--admin-heading)] hover:border-[var(--admin-accent-border)]"
+          ? "border-[#FFD1B5] bg-[#FFF8F3] text-[#E85D04]"
+          : "border-[#DCE3EC] bg-white text-[#374151] hover:border-[#FFD1B5] hover:bg-[#FFF8F3]"
       }`}
     >
       <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] ${
-          enabled ? "bg-white/15 text-white" : "bg-[var(--admin-bg)] text-[var(--admin-text-secondary)]"
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] border ${
+          enabled ? "border-[#FFD1B5] bg-white text-[#FF6A00]" : "border-[#DCE3EC] bg-[#F9F9F9] text-[#6B7280]"
         }`}
       >
         <Icon className="h-5 w-5" />
@@ -117,20 +149,43 @@ function ToggleCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-semibold">{title}</p>
-          <span
-            className={`inline-flex h-6 w-11 items-center rounded-full px-1 transition ${
-              enabled ? "bg-white/20" : "bg-[var(--admin-border)]"
-            }`}
-          >
-            <span
-              className={`h-4 w-4 rounded-full bg-white shadow transition ${
-                enabled ? "translate-x-5" : "translate-x-0"
-              }`}
-            />
-          </span>
+          <SwitchControl enabled={enabled} />
         </div>
       </div>
     </button>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  context,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  context: string;
+  tone?: "neutral" | "accent" | "success" | "warning";
+}) {
+  return (
+    <div className="min-h-[92px] bg-white px-4 py-3.5 xl:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6B7280]">{label}</p>
+        <span
+          className={`h-2 w-2 rounded-full ${
+            tone === "success"
+              ? "bg-emerald-500"
+              : tone === "warning"
+                ? "bg-amber-500"
+                : tone === "accent"
+                  ? "bg-[#FF6A00]"
+                  : "bg-[#94A3B8]"
+          }`}
+        />
+      </div>
+      <p className="mt-3 truncate text-2xl font-semibold tracking-[-0.04em] text-[#111827]">{value}</p>
+      <p className="mt-1 truncate text-xs font-medium text-[#6B7280]">{context}</p>
+    </div>
   );
 }
 
@@ -163,24 +218,26 @@ export function TranslationSettingsPanel() {
       const payload = (await response.json()) as TranslationSettingsResponse;
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Ceviri ayarlari alinamadi");
+        throw new Error(payload.error || "Çeviri ayarları alınamadı");
       }
 
       const normalizedSettings = normalizeStoreTranslationSettings(
         payload.translationSettings,
         DEFAULT_STORE_TRANSLATION_SETTINGS,
       );
+      const nextWarmupLocale =
+        normalizedSettings.enabledLocales.find(
+          (locale): locale is Exclude<StoreTranslationLocale, "tr"> => locale !== "tr",
+        ) || "en";
 
       setSettings(normalizedSettings);
       setWarmupLocale((current) =>
-        normalizedSettings.enabledLocales.includes(current)
-          ? current
-          : (normalizedSettings.enabledLocales[0] || "en"),
+        normalizedSettings.enabledLocales.includes(current) ? current : nextWarmupLocale,
       );
       setHasEnvKey(Boolean(payload.hasEnvKey));
     } catch (error) {
       console.error("Failed to fetch translation settings:", error);
-      toast.error("Ceviri ayarlari yuklenemedi");
+      toast.error("Çeviri ayarları yüklenemedi");
     } finally {
       setLoading(false);
     }
@@ -222,13 +279,13 @@ export function TranslationSettingsPanel() {
       const payload = (await response.json()) as { success?: boolean; error?: string };
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Ceviri ayarlari kaydedilemedi");
+        throw new Error(payload.error || "Çeviri ayarları kaydedilemedi");
       }
 
-      toast.success("Ceviri ayarlari guncellendi");
+      toast.success("Çeviri ayarları güncellendi");
     } catch (error) {
       console.error("Failed to save translation settings:", error);
-      toast.error(error instanceof Error ? error.message : "Ceviri ayarlari kaydedilemedi");
+      toast.error(error instanceof Error ? error.message : "Çeviri ayarları kaydedilemedi");
     } finally {
       setSaving(false);
     }
@@ -253,14 +310,14 @@ export function TranslationSettingsPanel() {
       const payload = (await response.json()) as TranslationWarmupResponse;
 
       if (!response.ok || !payload.success || !payload.summary) {
-        throw new Error(payload.error || "Katalog warm-up basarisiz.");
+        throw new Error(payload.error || "Katalog hazırlığı başarısız.");
       }
 
       setWarmupSummary(payload.summary);
-      toast.success("Katalog cevirisi hazirlandi");
+      toast.success("Katalog çevirisi hazırlandı");
     } catch (error) {
       console.error("Catalog translation warm-up failed:", error);
-      toast.error(error instanceof Error ? error.message : "Katalog warm-up basarisiz.");
+      toast.error(error instanceof Error ? error.message : "Katalog hazırlığı başarısız.");
     } finally {
       setWarmingUp(false);
     }
@@ -284,100 +341,133 @@ export function TranslationSettingsPanel() {
       const payload = (await response.json()) as TranslationHealthResponse;
 
       if (!response.ok || !payload.success || !payload.summary) {
-        throw new Error(payload.error || "Katalog saglik kontrolu basarisiz.");
+        throw new Error(payload.error || "Katalog sağlık kontrolü başarısız.");
       }
 
       setHealthSummary(payload.summary);
-      toast.success("Katalog ceviri sagligi kontrol edildi");
+      toast.success("Katalog çeviri sağlığı kontrol edildi");
     } catch (error) {
       console.error("Catalog translation health check failed:", error);
-      toast.error(error instanceof Error ? error.message : "Katalog saglik kontrolu basarisiz.");
+      toast.error(error instanceof Error ? error.message : "Katalog sağlık kontrolü başarısız.");
     } finally {
       setCheckingHealth(false);
     }
   }
 
   return (
-    <section className="rounded-[8px] border border-[var(--admin-border)] bg-white shadow-[0_12px_28px_rgba(17,24,39,0.05)]">
-      <div className="flex items-center gap-3 border-b border-[var(--admin-border)] px-5 py-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[var(--admin-accent)] text-white">
-          <Languages className="h-5 w-5" />
-        </div>
-        <h2 className="text-base font-semibold text-[var(--admin-heading)]">Canli Ceviri</h2>
-      </div>
-
-      <div className="space-y-6 p-5">
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-[var(--admin-text-secondary)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[var(--admin-accent)]" />
-            Ceviri ayarlari yukleniyor...
-          </div>
-        ) : (
+    <AdminPageShell>
+      <AdminPageHeader
+        sectionLabel="Ayarlar"
+        title="Dil ayarları"
+        description="Çeviri dillerini ve katalog hazırlığını yönetin."
+        actions={
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving || loading}
+            className={PRIMARY_BUTTON}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Kaydet
+          </button>
+        }
+        metrics={
           <>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[var(--admin-text)]">DeepL API Anahtari</label>
-                <input
-                  type="password"
-                  value={settings.apiKey || ""}
-                  onChange={(event) =>
-                    updateSettings((current) => ({
-                      ...current,
-                      apiKey: event.target.value,
-                    }))
-                  }
-                  placeholder="DeepL API anahtari"
-                  className="w-full rounded-[8px] border border-[var(--admin-border)] px-3 py-2.5 text-sm text-[var(--admin-text)] transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
-                />
-                {hasEnvKey ? (
-                  <p className="text-xs text-[var(--admin-text-secondary)]">Sunucuda ayri bir `DEEPL_API_KEY` env anahtari da tanimli.</p>
-                ) : null}
-              </div>
+            <MetricCell
+              label="Durum"
+              value={settings.enabled ? "Açık" : "Kapalı"}
+              context="canlı çeviri"
+              tone={settings.enabled ? "accent" : "neutral"}
+            />
+            <MetricCell
+              label="Dil"
+              value={String(settings.enabledLocales.length)}
+              context="hedef"
+              tone={settings.enabledLocales.length > 0 ? "success" : "warning"}
+            />
+            <MetricCell
+              label="DeepL"
+              value={hasEnvKey || settings.apiKey ? "Hazır" : "Eksik"}
+              context="anahtar"
+              tone={hasEnvKey || settings.apiKey ? "success" : "warning"}
+            />
+            <MetricCell
+              label="Katalog"
+              value={settings.translateCatalog ? "Açık" : "Kapalı"}
+              context="çeviri"
+              tone={settings.translateCatalog ? "accent" : "neutral"}
+            />
+          </>
+        }
+      />
 
-              <div className="rounded-[8px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-bg)] p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-[var(--admin-heading)]">
-                  <Globe2 className="h-4 w-4 text-[var(--admin-accent)]" />
-                  Yayin Ozeti
+      {loading ? (
+        <section className={PANEL_CLASS}>
+          <div className="flex min-h-[220px] items-center justify-center gap-3 text-sm font-medium text-[#6B7280]">
+            <Loader2 className="h-4 w-4 animate-spin text-[#FF6A00]" />
+            Dil ayarları yükleniyor...
+          </div>
+        </section>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-4">
+            <section className={PANEL_CLASS}>
+              <div className={PANEL_HEADER_CLASS}>
+                <div className="flex items-center gap-2">
+                  <Languages className="h-4 w-4 text-[#FF6A00]" />
+                  <h2 className="text-sm font-semibold text-[#111827]">Canlı çeviri</h2>
                 </div>
-                <div className="mt-3 space-y-2 text-sm text-[var(--admin-text-secondary)]">
-                  <p>
-                    Kaynak dil: <span className="font-medium text-[var(--admin-heading)]">Turkce</span>
-                  </p>
-                  <p>
-                    Hedef diller:{" "}
-                    <span className="font-medium text-[var(--admin-heading)]">
-                      {activeLocaleSummary || "Henuz secilmedi"}
+              </div>
+              <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_260px] xl:p-5">
+                <label className={LABEL_CLASS}>
+                  DeepL API anahtarı
+                  <input
+                    type="password"
+                    value={settings.apiKey || ""}
+                    onChange={(event) =>
+                      updateSettings((current) => ({
+                        ...current,
+                        apiKey: event.target.value,
+                      }))
+                    }
+                    placeholder="API anahtarı"
+                    className={`mt-2 ${FIELD_CLASS}`}
+                  />
+                  {hasEnvKey ? (
+                    <span className="mt-2 block text-xs font-medium text-[#6B7280]">
+                      Sunucu anahtarı tanımlı.
                     </span>
-                  </p>
-                </div>
-              </div>
-            </div>
+                  ) : null}
+                </label>
 
-            <div className="flex items-center gap-3">
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={settings.enabled}
-                  onChange={(event) =>
-                    updateSettings((current) => ({
-                      ...current,
-                      enabled: event.target.checked,
-                    }))
-                  }
-                  className="peer sr-only"
-                />
-                <div className="h-6 w-11 rounded-full bg-[var(--admin-border)] transition peer-checked:bg-[var(--admin-accent)] peer-checked:after:translate-x-full after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-white after:bg-white after:transition after:content-['']" />
-              </label>
-              <div>
-                <p className="text-sm font-medium text-[var(--admin-heading)]">Canli ceviriyi etkinlestir</p>
+                <label className="flex cursor-pointer items-center justify-between gap-4 rounded-[10px] border border-[#DCE3EC] bg-[#F9F9F9] px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={settings.enabled}
+                    onChange={(event) =>
+                      updateSettings((current) => ({
+                        ...current,
+                        enabled: event.target.checked,
+                      }))
+                    }
+                    className="sr-only"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-[#111827]">Canlı çeviri</span>
+                    <span className="mt-1 block text-xs font-medium text-[#6B7280]">
+                      {settings.enabled ? "Aktif" : "Kapalı"}
+                    </span>
+                  </span>
+                  <SwitchControl enabled={settings.enabled} />
+                </label>
               </div>
-            </div>
+            </section>
 
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-[var(--admin-heading)]">Hedef Diller</p>
+            <section className={PANEL_CLASS}>
+              <div className={PANEL_HEADER_CLASS}>
+                <h2 className="text-sm font-semibold text-[#111827]">Hedef diller</h2>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5 xl:p-5">
                 {TARGET_LOCALE_OPTIONS.map((option) => {
                   const enabled = settings.enabledLocales.includes(option.locale);
                   return (
@@ -385,83 +475,77 @@ export function TranslationSettingsPanel() {
                       key={option.locale}
                       type="button"
                       onClick={() => toggleLocale(option.locale)}
-                      className={`rounded-[8px] border px-4 py-3 text-left transition ${
+                      className={`rounded-[10px] border px-4 py-3 text-left transition ${
                         enabled
-                          ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]"
-                          : "border-[var(--admin-border)] bg-white text-[var(--admin-heading)] hover:border-[var(--admin-accent-border)]"
+                          ? "border-[#FFD1B5] bg-[#FFF8F3] text-[#E85D04]"
+                          : "border-[#DCE3EC] bg-white text-[#374151] hover:border-[#FFD1B5] hover:bg-[#FFF8F3]"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold">{option.label}</span>
                         {enabled ? <Check className="h-4 w-4" /> : null}
-                      </div>
-                      <p className={`mt-1 text-xs ${enabled ? "text-white/70" : "text-[var(--admin-text-secondary)]"}`}>
-                        {option.description}
-                      </p>
+                      </span>
+                      <span className="mt-1 block text-xs font-medium text-[#6B7280]">{option.path}</span>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </section>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <ToggleCard
-                title="Katalog Cevirisi"
-                description="Ürünler, kategoriler, kategori sayfalari, PDP ve listing katalog alanlarini cevirir."
-                enabled={settings.translateCatalog}
-                onToggle={() =>
-                  updateSettings((current) => ({
-                    ...current,
-                    translateCatalog: !current.translateCatalog,
-                  }))
-                }
-                icon={ShoppingBag}
-              />
-              <ToggleCard
-                title="SEO Cevirisi"
-                description="Meta title, description ve benzeri SEO metinlerini locale bazli uretir."
-                enabled={settings.translateSeo}
-                onToggle={() =>
-                  updateSettings((current) => ({
-                    ...current,
-                    translateSeo: !current.translateSeo,
-                  }))
-                }
-                icon={Search}
-              />
-              <ToggleCard
-                title="Arayuz Cevirisi"
-                description="Homepage shell, ortak section basliklari ve genel UI metinlerini cevirir."
-                enabled={settings.translateUi}
-                onToggle={() =>
-                  updateSettings((current) => ({
-                    ...current,
-                    translateUi: !current.translateUi,
-                  }))
-                }
-                icon={Type}
-              />
-            </div>
-
-            <div className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-bg)] p-4 md:p-5">
-              <div>
-                <p className="text-sm font-semibold text-[var(--admin-heading)]">Katalog Cevirisini Hazirla</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--admin-text-secondary)]">
-                  Müşteriye gostermeden once secili dil icin ürün ve kategori ceviri cache'ini topluca doldurur.
-                </p>
+            <section className={PANEL_CLASS}>
+              <div className={PANEL_HEADER_CLASS}>
+                <h2 className="text-sm font-semibold text-[#111827]">Çeviri alanları</h2>
               </div>
+              <div className="grid gap-3 p-4 md:grid-cols-3 xl:p-5">
+                <ToggleCard
+                  title="Katalog"
+                  enabled={settings.translateCatalog}
+                  onToggle={() =>
+                    updateSettings((current) => ({
+                      ...current,
+                      translateCatalog: !current.translateCatalog,
+                    }))
+                  }
+                  icon={ShoppingBag}
+                />
+                <ToggleCard
+                  title="SEO"
+                  enabled={settings.translateSeo}
+                  onToggle={() =>
+                    updateSettings((current) => ({
+                      ...current,
+                      translateSeo: !current.translateSeo,
+                    }))
+                  }
+                  icon={Search}
+                />
+                <ToggleCard
+                  title="Arayüz"
+                  enabled={settings.translateUi}
+                  onToggle={() =>
+                    updateSettings((current) => ({
+                      ...current,
+                      translateUi: !current.translateUi,
+                    }))
+                  }
+                  icon={Type}
+                />
+              </div>
+            </section>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500">
-                    Hedef Dil
-                  </label>
+            <section className={PANEL_CLASS}>
+              <div className={PANEL_HEADER_CLASS}>
+                <h2 className="text-sm font-semibold text-[#111827]">Katalog hazırlığı</h2>
+              </div>
+              <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] md:items-end xl:p-5">
+                <label className={LABEL_CLASS}>
+                  Hedef dil
                   <select
                     value={warmupLocale}
                     onChange={(event) =>
                       setWarmupLocale(event.target.value as Exclude<StoreTranslationLocale, "tr">)
                     }
-                    className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm text-[var(--admin-text)] outline-none transition focus:border-transparent focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
+                    className={`mt-2 ${FIELD_CLASS}`}
                   >
                     {TARGET_LOCALE_OPTIONS.map((option) => (
                       <option key={option.locale} value={option.locale}>
@@ -469,157 +553,116 @@ export function TranslationSettingsPanel() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </label>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500">
-                    Kapsam
-                  </label>
+                <label className={LABEL_CLASS}>
+                  Kapsam
                   <select
                     value={warmupScope}
                     onChange={(event) => setWarmupScope(event.target.value as TranslationWarmupScope)}
-                    className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-3 py-2.5 text-sm text-[var(--admin-text)] outline-none transition focus:border-transparent focus:ring-2 focus:ring-[color:rgba(255,106,0,0.16)]"
+                    className={`mt-2 ${FIELD_CLASS}`}
                   >
                     <option value="all">Ürün + kategori</option>
                     <option value="products">Sadece ürünler</option>
                     <option value="categories">Sadece kategoriler</option>
                   </select>
-                </div>
+                </label>
 
                 <button
                   type="button"
                   onClick={() => void handleWarmup()}
                   disabled={warmingUp}
-                  className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-white px-4 py-2.5 text-sm font-medium text-[var(--admin-heading)] shadow-sm ring-1 ring-[var(--admin-border)] transition hover:bg-[var(--admin-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={SECONDARY_BUTTON}
                 >
                   {warmingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe2 className="h-4 w-4" />}
-                  Katalog cevirisini hazirla
+                  Hazırla
                 </button>
-              </div>
 
-              {warmupSummary ? (
-                <div className="mt-4 rounded-[8px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                  <p className="font-medium">
-                    {warmupSummary.locale.toUpperCase()} dili icin warm-up tamamlandi.
-                  </p>
-                  <p className="mt-1 text-emerald-800">
-                    {warmupSummary.productsProcessed} urun, {warmupSummary.categoriesProcessed} kategori tarandi; {warmupSummary.newCacheEntries} yeni cache kaydi olusturuldu.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-[8px] border border-[var(--admin-border)] bg-white p-4 md:p-5">
-              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-[var(--admin-heading)]">Ceviri Sagligini Kontrol Et</p>
-                  <p className="mt-1 text-xs leading-5 text-[var(--admin-text-secondary)]">
-                    Secili dil icin ayarlarin dogru olup olmadigini ve ornek urun ile kategori uzerinde gercek DeepL cevabinin donup donmedigini kontrol eder.
-                  </p>
-                </div>
                 <button
                   type="button"
                   onClick={() => void handleHealthCheck()}
                   disabled={checkingHealth}
-                  className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-bg)] px-4 py-2.5 text-sm font-medium text-[var(--admin-heading)] transition hover:bg-[#eef1f5] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={SECONDARY_BUTTON}
                 >
                   {checkingHealth ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  Sagligi kontrol et
+                  Kontrol et
                 </button>
               </div>
+            </section>
+          </div>
 
-              {healthSummary ? (
-                <div
-                  className={`mt-4 rounded-[8px] border px-4 py-4 text-sm ${
-                    healthSummary.ready && healthSummary.probeSucceeded
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                      : "border-amber-200 bg-amber-50 text-amber-950"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      {healthSummary.ready && healthSummary.probeSucceeded ? (
-                        <CheckCircle2 className="h-5 w-5" />
-                      ) : (
-                        <AlertTriangle className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-3">
-                      <div>
-                        <p className="font-semibold">
-                          {healthSummary.ready && healthSummary.probeSucceeded
-                            ? "Canli katalog cevirisi bu dil icin hazir gorunuyor."
-                            : "Canli katalog cevirisi bu dil icin eksik veya riskli gorunuyor."}
-                        </p>
-                        <p className="mt-1 text-xs opacity-80">
-                          Kaynak dil {healthSummary.sourceLocale.toUpperCase()}, hedef dil {healthSummary.locale.toUpperCase()}.
-                        </p>
-                      </div>
+          <aside className="space-y-4">
+            <section className={PANEL_CLASS}>
+              <div className={PANEL_HEADER_CLASS}>
+                <h2 className="text-sm font-semibold text-[#111827]">Yayın özeti</h2>
+              </div>
+              <div className="space-y-3 p-4 xl:p-5">
+                <div className="flex items-center justify-between border-b border-[#E3E9F0] pb-3 text-sm">
+                  <span className="text-[#6B7280]">Kaynak dil</span>
+                  <span className="font-semibold text-[#111827]">Türkçe</span>
+                </div>
+                <div className="text-sm">
+                  <span className="text-[#6B7280]">Hedef diller</span>
+                  <p className="mt-1 font-semibold text-[#111827]">
+                    {activeLocaleSummary || "Henüz seçilmedi"}
+                  </p>
+                </div>
+              </div>
+            </section>
 
-                      <div className="grid gap-2 text-xs md:grid-cols-2">
-                        <p>Canli ceviri: <span className="font-medium">{healthSummary.enabled ? "acik" : "kapali"}</span></p>
-                        <p>Katalog cevirisi: <span className="font-medium">{healthSummary.translateCatalog ? "acik" : "kapali"}</span></p>
-                        <p>SEO cevirisi: <span className="font-medium">{healthSummary.translateSeo ? "acik" : "kapali"}</span></p>
-                        <p>DeepL anahtari: <span className="font-medium">{healthSummary.hasApiKey ? "var" : "yok"}</span></p>
-                        <p>Hedef dil aktif: <span className="font-medium">{healthSummary.localeEnabled ? "evet" : "hayir"}</span></p>
-                        <p>Desteklenen dil: <span className="font-medium">{healthSummary.supportedLocale ? "evet" : "hayir"}</span></p>
-                        <p>Aktif urun: <span className="font-medium">{healthSummary.productsAvailable}</span></p>
-                        <p>Aktif kategori: <span className="font-medium">{healthSummary.categoriesAvailable}</span></p>
-                      </div>
-
-                      {healthSummary.reasons.length > 0 ? (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">Eksikler</p>
-                          <ul className="mt-2 space-y-1 text-sm">
-                            {healthSummary.reasons.map((reason) => (
-                              <li key={reason}>- {reason}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-
-                      {healthSummary.sampleProduct || healthSummary.sampleCategory ? (
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {healthSummary.sampleProduct ? (
-                            <div className="rounded-[8px] bg-white/70 p-3">
-                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">Ornek urun</p>
-                              <p className="mt-2 text-xs text-[var(--admin-text-secondary)]">Kaynak</p>
-                              <p className="text-sm text-[var(--admin-heading)]">{healthSummary.sampleProduct.sourceText}</p>
-                              <p className="mt-2 text-xs text-[var(--admin-text-secondary)]">Cevrilen</p>
-                              <p className="text-sm text-[var(--admin-heading)]">{healthSummary.sampleProduct.translatedText}</p>
-                            </div>
-                          ) : null}
-                          {healthSummary.sampleCategory ? (
-                            <div className="rounded-[8px] bg-white/70 p-3">
-                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-secondary)]">Ornek kategori</p>
-                              <p className="mt-2 text-xs text-[var(--admin-text-secondary)]">Kaynak</p>
-                              <p className="text-sm text-[var(--admin-heading)]">{healthSummary.sampleCategory.sourceText}</p>
-                              <p className="mt-2 text-xs text-[var(--admin-text-secondary)]">Cevrilen</p>
-                              <p className="text-sm text-[var(--admin-heading)]">{healthSummary.sampleCategory.translatedText}</p>
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
+            {warmupSummary ? (
+              <section className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5" />
+                  <div>
+                    <p className="font-semibold">{warmupSummary.locale.toUpperCase()} hazırlandı</p>
+                    <p className="mt-1 text-emerald-800">
+                      {warmupSummary.productsProcessed} ürün, {warmupSummary.categoriesProcessed} kategori,
+                      {` ${warmupSummary.newCacheEntries}`} yeni kayıt.
+                    </p>
                   </div>
                 </div>
-              ) : null}
-            </div>
+              </section>
+            ) : null}
 
-            <div className="flex justify-end border-t border-[var(--admin-border)] pt-4">
-              <button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={saving}
-                className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-xs)] transition hover:bg-[var(--admin-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+            {healthSummary ? (
+              <section
+                className={`rounded-[12px] border p-4 text-sm ${
+                  healthSummary.ready && healthSummary.probeSucceeded
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : "border-amber-200 bg-amber-50 text-amber-950"
+                }`}
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Ceviri ayarlarini kaydet
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </section>
+                <div className="flex items-start gap-3">
+                  {healthSummary.ready && healthSummary.probeSucceeded ? (
+                    <CheckCircle2 className="mt-0.5 h-5 w-5" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 h-5 w-5" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">
+                      {healthSummary.ready && healthSummary.probeSucceeded ? "Sağlıklı" : "Kontrol gerekli"}
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <span>Dil: {healthSummary.locale.toUpperCase()}</span>
+                      <span>API: {healthSummary.hasApiKey ? "var" : "yok"}</span>
+                      <span>Ürün: {healthSummary.productsAvailable}</span>
+                      <span>Kategori: {healthSummary.categoriesAvailable}</span>
+                    </div>
+                    {healthSummary.reasons.length > 0 ? (
+                      <ul className="mt-3 space-y-1 text-xs">
+                        {healthSummary.reasons.map((reason) => (
+                          <li key={reason}>- {reason}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+            ) : null}
+          </aside>
+        </div>
+      )}
+    </AdminPageShell>
   );
 }
