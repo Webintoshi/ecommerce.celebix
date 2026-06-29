@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, Menu, Package, RefreshCw, Sparkles, Tag } from "lucide-react";
 import { AdminClientBoundary } from "@/components/admin/AdminClientBoundary";
@@ -12,6 +13,8 @@ import { cn } from "@/lib/utils";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 type MobileSurface = "sidebar" | "notifications" | "toshi" | null;
+
+const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
 
 function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/siparisler")) {
@@ -116,18 +119,49 @@ function DesktopTopbar({
               type="button"
               onClick={onToggleToshi}
               aria-pressed={isToshiOpen}
-              aria-label="Toshi asistanını aç"
+              aria-controls="toshi-assistant-panel"
+              aria-expanded={isToshiOpen}
+              aria-label={
+                toshiAlertCount && toshiAlertCount > 0
+                  ? `Toshi asistanını aç, ${toshiAlertCount} bildirim`
+                  : "Toshi asistanını aç"
+              }
               className={cn(
-                "inline-flex min-h-9 items-center gap-2 rounded-[12px] border px-2.5 text-[13px] font-semibold shadow-[var(--shadow-xs)] transition-colors",
+                "group relative inline-flex h-12 w-[5.65rem] items-end justify-center rounded-[14px] px-1 pb-0.5 pt-4 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.32)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--admin-bg)]",
                 isToshiOpen
-                  ? "border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)]"
-                  : "border-[var(--admin-border)] bg-white text-[var(--admin-text)] hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]",
+                  ? "text-[var(--admin-accent-hover)]"
+                  : "text-[var(--admin-text)] hover:text-[var(--admin-accent-hover)]",
               )}
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="hidden xl:inline">Toshi</span>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-[9px] border px-2 py-0.5 text-[10px] font-bold leading-4 shadow-[0_8px_18px_rgba(255,106,0,0.13)] transition-colors before:absolute before:left-1/2 before:top-full before:h-2 before:w-2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:border-b before:border-r",
+                  isToshiOpen
+                    ? "border-[rgba(255,106,0,0.34)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] before:border-[rgba(255,106,0,0.34)] before:bg-[var(--admin-accent-soft)]"
+                    : "border-[rgba(255,106,0,0.24)] bg-white text-[var(--admin-accent)] group-hover:border-[rgba(255,106,0,0.36)] group-hover:bg-[var(--admin-accent-soft)] before:border-[rgba(255,106,0,0.24)] before:bg-white group-hover:before:border-[rgba(255,106,0,0.36)] group-hover:before:bg-[var(--admin-accent-soft)]",
+                )}
+              >
+                Bana Sorun
+              </span>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border bg-white shadow-[0_10px_22px_rgba(17,24,39,0.12)] transition-all duration-200 group-hover:-translate-y-0.5",
+                  isToshiOpen ? "border-[rgba(255,106,0,0.48)]" : "border-[rgba(255,106,0,0.24)]",
+                )}
+              >
+                <Image
+                  src={TOSHI_MASCOT_SRC}
+                  alt=""
+                  width={48}
+                  height={48}
+                  className="h-10 w-10 object-cover object-center"
+                  priority
+                />
+              </span>
               {toshiAlertCount && toshiAlertCount > 0 ? (
-                <span className="rounded-full bg-[var(--admin-heading)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="absolute right-1.5 top-5 z-20 min-w-4 rounded-full bg-[var(--admin-heading)] px-1 py-0.5 text-center text-[9px] font-bold leading-3 text-white shadow-[0_4px_10px_rgba(17,24,39,0.18)]">
                   {toshiAlertCount > 9 ? "9+" : toshiAlertCount}
                 </span>
               ) : null}
