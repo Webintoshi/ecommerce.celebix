@@ -14,7 +14,7 @@ import type { InitialAdminProfile } from "@/lib/admin-data-types";
 
 type MobileSurface = "sidebar" | "notifications" | "toshi" | null;
 
-const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
+const TOSHI_PROFILE_SRC = "/branding/toshi-profile.png";
 
 function getShellMeta(pathname: string) {
   if (pathname.startsWith("/admin/siparisler")) {
@@ -127,7 +127,7 @@ function DesktopTopbar({
                   : "Toshi asistanını aç"
               }
               className={cn(
-                "group relative inline-flex h-12 w-[5.65rem] items-end justify-center rounded-[14px] px-1 pb-0.5 pt-4 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.32)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--admin-bg)]",
+                "group relative inline-flex h-[4.35rem] w-[6.9rem] items-end justify-center rounded-[16px] px-1 pb-0.5 pt-6 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,106,0,0.32)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--admin-bg)]",
                 isToshiOpen
                   ? "text-[var(--admin-accent-hover)]"
                   : "text-[var(--admin-text)] hover:text-[var(--admin-accent-hover)]",
@@ -136,7 +136,7 @@ function DesktopTopbar({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-[9px] border px-2 py-0.5 text-[10px] font-bold leading-4 shadow-[0_8px_18px_rgba(255,106,0,0.13)] transition-colors before:absolute before:left-1/2 before:top-full before:h-2 before:w-2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:border-b before:border-r",
+                  "pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-[11px] border px-3 py-1 text-[12px] font-bold leading-4 shadow-[0_10px_22px_rgba(255,106,0,0.14)] transition-colors before:absolute before:left-1/2 before:top-full before:h-2.5 before:w-2.5 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:border-b before:border-r",
                   isToshiOpen
                     ? "border-[rgba(255,106,0,0.34)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-hover)] before:border-[rgba(255,106,0,0.34)] before:bg-[var(--admin-accent-soft)]"
                     : "border-[rgba(255,106,0,0.24)] bg-white text-[var(--admin-accent)] group-hover:border-[rgba(255,106,0,0.36)] group-hover:bg-[var(--admin-accent-soft)] before:border-[rgba(255,106,0,0.24)] before:bg-white group-hover:before:border-[rgba(255,106,0,0.36)] group-hover:before:bg-[var(--admin-accent-soft)]",
@@ -147,21 +147,21 @@ function DesktopTopbar({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border bg-white shadow-[0_10px_22px_rgba(17,24,39,0.12)] transition-all duration-200 group-hover:-translate-y-0.5",
+                  "relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border bg-white shadow-[0_12px_26px_rgba(17,24,39,0.14)] transition-all duration-200 group-hover:-translate-y-0.5",
                   isToshiOpen ? "border-[rgba(255,106,0,0.48)]" : "border-[rgba(255,106,0,0.24)]",
                 )}
               >
                 <Image
-                  src={TOSHI_MASCOT_SRC}
+                  src={TOSHI_PROFILE_SRC}
                   alt=""
-                  width={48}
-                  height={48}
-                  className="h-10 w-10 object-cover object-center"
+                  width={72}
+                  height={72}
+                  className="h-16 w-16 object-cover object-center"
                   priority
                 />
               </span>
               {toshiAlertCount && toshiAlertCount > 0 ? (
-                <span className="absolute right-1.5 top-5 z-20 min-w-4 rounded-full bg-[var(--admin-heading)] px-1 py-0.5 text-center text-[9px] font-bold leading-3 text-white shadow-[0_4px_10px_rgba(17,24,39,0.18)]">
+                <span className="absolute bottom-1 right-4 z-20 min-w-5 rounded-full bg-[var(--admin-heading)] px-1.5 py-1 text-center text-[10px] font-bold leading-3 text-white shadow-[0_5px_12px_rgba(17,24,39,0.2)]">
                   {toshiAlertCount > 9 ? "9+" : toshiAlertCount}
                 </span>
               ) : null}
