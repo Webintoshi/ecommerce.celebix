@@ -33,12 +33,12 @@ const ALERT_CACHE_KEY = `toshi_alerts:${STORE_RUNTIME.slug}`;
 const MAX_STORED_MESSAGES = 50;
 const MAX_GEMINI_MESSAGES = 10;
 const ALERT_CHECK_INTERVAL = 5 * 60 * 1000;
-const TOSHI_MASCOT_SRC = "/branding/toshi-mascot.png";
+const TOSHI_PROFILE_SRC = "/branding/toshi-profile.png";
 const TOSHI_GRADIENT = "linear-gradient(135deg, #FF6A00 0%, #E85D04 100%)";
 
 function ToshiMark({
-  sizeClassName = "h-8 w-8",
-  imageClassName = "h-5 w-5",
+  sizeClassName = "h-10 w-10",
+  imageClassName = "scale-[1.08]",
   shellClassName = "",
 }: {
   sizeClassName?: string;
@@ -47,9 +47,16 @@ function ToshiMark({
 }) {
   return (
     <span
-      className={`flex items-center justify-center rounded-full border border-white/18 bg-[rgba(255,255,255,0.16)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] ${sizeClassName} ${shellClassName}`.trim()}
+      className={`flex items-center justify-center overflow-hidden rounded-full border border-white/18 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] ${sizeClassName} ${shellClassName}`.trim()}
     >
-      <Image src={TOSHI_MASCOT_SRC} alt="Toshi mascot" width={28} height={28} className={imageClassName} priority />
+      <Image
+        src={TOSHI_PROFILE_SRC}
+        alt=""
+        width={80}
+        height={80}
+        className={`h-full w-full object-cover object-center ${imageClassName}`.trim()}
+        priority
+      />
     </span>
   );
 }
@@ -563,9 +570,8 @@ export default function ToshiAssistant({
             {message.role === "model" ? (
               <div className="mr-2 mt-0.5 flex-shrink-0">
                 <ToshiMark
-                  sizeClassName="h-7 w-7"
-                  imageClassName="h-4.5 w-4.5"
-                  shellClassName="border-[var(--admin-accent-border)] bg-[linear-gradient(135deg,#FF6A00_0%,#E85D04_100%)]"
+                  sizeClassName="h-9 w-9"
+                  shellClassName="border-[rgba(255,106,0,0.34)] ring-2 ring-[rgba(255,106,0,0.14)]"
                 />
               </div>
             ) : null}
@@ -588,9 +594,8 @@ export default function ToshiAssistant({
           <div className="flex justify-start">
             <div className="mr-2 mt-0.5 flex-shrink-0">
               <ToshiMark
-                sizeClassName="h-7 w-7"
-                imageClassName="h-4.5 w-4.5"
-                shellClassName="border-[var(--admin-accent-border)] bg-[linear-gradient(135deg,#FF6A00_0%,#E85D04_100%)]"
+                sizeClassName="h-9 w-9"
+                shellClassName="border-[rgba(255,106,0,0.34)] ring-2 ring-[rgba(255,106,0,0.14)]"
               />
             </div>
             <div className="flex items-center gap-2 rounded-[1.35rem] rounded-tl-md border border-[#f1dfd0] bg-white px-3.5 py-2.5 shadow-[0_10px_22px_rgba(106,67,37,0.08)]">
@@ -679,7 +684,7 @@ export default function ToshiAssistant({
             style={{ background: TOSHI_GRADIENT }}
           >
             <div className="flex items-center gap-2.5">
-              <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
+              <ToshiMark sizeClassName="h-12 w-12" shellClassName="border-white/35 shadow-[0_10px_24px_rgba(106,67,37,0.2)]" />
               <div>
                 <p className="text-sm font-semibold leading-tight text-white">Toshi</p>
                 <p className="text-xs leading-tight text-[#ffe2ce]">Operasyon asistanı</p>
@@ -735,7 +740,7 @@ export default function ToshiAssistant({
               <div className="absolute left-1/2 top-2 h-1.5 w-14 -translate-x-1/2 rounded-full bg-white/45" />
 
               <div className="flex items-center gap-2.5">
-                <ToshiMark sizeClassName="h-9 w-9" imageClassName="h-5.5 w-5.5" shellClassName="border-white/20 bg-white/18" />
+                <ToshiMark sizeClassName="h-12 w-12" shellClassName="border-white/35 shadow-[0_10px_24px_rgba(106,67,37,0.2)]" />
                 <div>
                   <p className="text-sm font-semibold leading-tight text-white">Toshi</p>
                   <p className="text-xs leading-tight text-[#ffe2ce]">Mobil operasyon asistanı</p>
