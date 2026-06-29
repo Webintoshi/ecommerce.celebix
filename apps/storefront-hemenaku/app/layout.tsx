@@ -28,6 +28,11 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function readOptionalEnv(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : null;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const pathname = await getRequestPathname();
@@ -48,6 +53,8 @@ export default async function RootLayout({
   ]);
   const gtmId = codeIntegrations.googleTagManagerId || STOREFRONT_RUNTIME.gtmId;
   const metaPixelId = codeIntegrations.metaPixelId;
+  const umamiScriptUrl = readOptionalEnv("NEXT_PUBLIC_UMAMI_SCRIPT_URL") ?? readOptionalEnv("UMAMI_SCRIPT_URL");
+  const umamiWebsiteId = readOptionalEnv("NEXT_PUBLIC_UMAMI_WEBSITE_ID") ?? readOptionalEnv("UMAMI_WEBSITE_ID");
   const typographyStyle = buildStoreTypographyCssVariables(initialStoreInfo?.typography) as CSSProperties;
   const typographyStylesheetUrl = buildStoreTypographyStylesheetUrl(initialStoreInfo?.typography);
   const dir = RTL_LOCALES.has(locale) ? "rtl" : "ltr";
@@ -81,6 +88,14 @@ export default async function RootLayout({
                 `(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');` +
                 `fbq('init', '${metaPixelId}');fbq('track', 'PageView');`,
             }}
+          />
+        ) : null}
+        {umamiScriptUrl && umamiWebsiteId ? (
+          <Script
+            id="celebix-umami"
+            src={umamiScriptUrl}
+            data-website-id={umamiWebsiteId}
+            strategy="afterInteractive"
           />
         ) : null}
         <CodeIntegrationMarkup html={codeIntegrations.customHeadHtml} />
