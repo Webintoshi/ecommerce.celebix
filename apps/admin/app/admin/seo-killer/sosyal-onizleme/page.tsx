@@ -11,18 +11,38 @@ import {
   Share2,
   Twitter,
 } from "lucide-react";
+import {
+  AdminActionButton,
+  AdminPageHeader,
+  AdminPageShell,
+} from "@/components/admin/AdminPageShell";
 import { getAllProducts } from "@/lib/products";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { cn } from "@/lib/utils";
 
-function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: ReactNode; label: string }) {
+type PreviewTab = "facebook" | "twitter" | "whatsapp" | "linkedin";
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  label: string;
+}) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)] ${
+      className={cn(
+        "inline-flex h-10 items-center gap-2 rounded-[8px] border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]",
         active
-          ? "border-[#f6c9aa] bg-[#fff4ea] text-[var(--admin-accent-hover)] shadow-sm"
-          : "border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] hover:border-[var(--admin-accent-border)] hover:bg-[#fff9f4] hover:text-[var(--admin-accent-hover)]"
-      }`}
+          ? "border-[#FFC7A8] bg-[#FFF4EC] text-[#E85D04]"
+          : "border-[#DCE3EC] bg-white text-[#4B5563] hover:border-[#FFC7A8] hover:text-[#E85D04]",
+      )}
     >
       {icon}
       {label}
@@ -33,11 +53,26 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
 function FieldLabel({ title, count, limit }: { title: string; count: number; limit: number }) {
   return (
     <div className="mb-2 flex items-center justify-between gap-3">
-      <label className="block text-sm font-medium text-[#5c4a3e]">{title}</label>
-      <span className="text-xs font-medium text-[#a08673]">{count} / {limit}</span>
+      <label className="block text-sm font-semibold text-[#374151]">{title}</label>
+      <span className="text-xs font-medium text-[#7D8795]">{count} / {limit}</span>
     </div>
   );
 }
+
+function MetricCell({ label, value, context }: { label: string; value: string; context: string }) {
+  return (
+    <div className="bg-white px-4 py-4 sm:px-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7D8795]">{label}</p>
+      <div className="mt-3 flex items-end gap-2">
+        <span className="text-3xl font-semibold leading-none tracking-[-0.04em] text-[#111827]">{value}</span>
+        <span className="pb-1 text-sm font-medium text-[#667085]">{context}</span>
+      </div>
+    </div>
+  );
+}
+
+const FIELD_CLASS =
+  "w-full rounded-[8px] border border-[#DCE3EC] bg-white px-3 py-3 text-sm text-[#111827] outline-none transition placeholder:text-[#8B95A5] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
 
 export default function SocialPreviewPage() {
   const [url, setUrl] = useState("");
@@ -47,7 +82,7 @@ export default function SocialPreviewPage() {
   const [ogTitle, setOgTitle] = useState("");
   const [ogDesc, setOgDesc] = useState("");
   const [ogImage, setOgImage] = useState("");
-  const [activeTab, setActiveTab] = useState<"facebook" | "twitter" | "whatsapp" | "linkedin">("facebook");
+  const [activeTab, setActiveTab] = useState<PreviewTab>("facebook");
 
   const fetchMetadata = async () => {
     if (!url) return;
@@ -56,7 +91,7 @@ export default function SocialPreviewPage() {
     setTimeout(async () => {
       const products = await getAllProducts();
       const slug = url.split("/").pop();
-      const found = products.find((p) => p.slug === slug || url.includes(p.slug));
+      const found = products.find((product) => product.slug === slug || url.includes(product.slug));
 
       if (found) {
         setOgTitle(found.seoTitle || found.name);
@@ -72,176 +107,162 @@ export default function SocialPreviewPage() {
   };
 
   return (
-    <div className="admin-page-root text-[var(--admin-heading)]">
-      <div className="mx-auto max-w-none space-y-8 px-6 py-8 md:px-8 md:py-10">
-        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-xs)] md:p-10">
-          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
-                Sosyal önizleme
-              </div>
-              <div className="mt-5 flex items-start gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]">
-                  <Share2 className="h-8 w-8" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Sosyal Medya Önizleme</h1>
-                </div>
-              </div>
+    <main className="min-h-screen bg-[#F9F9F9] px-4 py-5 text-[#111827] sm:px-6 lg:px-8">
+      <AdminPageShell className="mx-auto max-w-none">
+        <AdminPageHeader
+          sectionLabel="SEO"
+          title="Sosyal önizleme"
+          description="Paylaşım kartlarını yayın öncesi kontrol edin."
+          actions={
+            <AdminActionButton type="button" tone="primary" disabled={!url || loading} onClick={() => void fetchMetadata()}>
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              Önizlemeyi Getir
+            </AdminActionButton>
+          }
+          metrics={
+            <>
+              <MetricCell label="Platform" value="4" context="önizleme" />
+              <MetricCell label="Başlık" value={String(ogTitle.length)} context="karakter" />
+              <MetricCell label="Açıklama" value={String(ogDesc.length)} context="karakter" />
+              <MetricCell label="Görsel" value={ogImage ? "Var" : "Yok"} context="OG" />
+            </>
+          }
+        />
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.86fr)_minmax(420px,1fr)]">
+          <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_10px_28px_rgba(16,24,40,0.04)]">
+            <div className="border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3">
+              <h2 className="text-sm font-semibold text-[#182232]">Meta alanları</h2>
             </div>
-
-            <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#2f241d] p-5 text-white shadow-[var(--shadow-xs)]">
-              <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#ffd2af]">
-                Editör modu
-              </div>
-              <p className="mt-4 text-sm font-medium leading-6 text-[#ead9c9]">
-                Bu ekran yalnızca önizleme amaçlıdır; buradaki alanlar veritabanına yazılmaz.
-              </p>
-            </div>
-          </div>
-          <div className="hidden" />
-        </section>
-
-        <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-            <div className="lg:col-span-5">
-              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
-                URL ve meta alanları
-              </div>
-
-              <div className="mt-5 rounded-[12px] border border-[#f0e3d7] bg-[#fcf8f3] p-5">
+            <div className="space-y-4 p-4">
+              <div>
                 <FieldLabel title="Önizlenecek URL" count={url.length} limit={120} />
-                <div className="flex flex-col gap-3 md:flex-row">
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                  placeholder={`${STORE_RUNTIME.storefrontUrl}/urunler/ornek-urun`}
+                  className={FIELD_CLASS}
+                />
+              </div>
+
+              <div>
+                <FieldLabel title="OG başlık" count={ogTitle.length} limit={60} />
+                <input
+                  type="text"
+                  value={ogTitle}
+                  onChange={(event) => setOgTitle(event.target.value)}
+                  className={FIELD_CLASS}
+                />
+              </div>
+
+              <div>
+                <FieldLabel title="OG açıklama" count={ogDesc.length} limit={160} />
+                <textarea
+                  value={ogDesc}
+                  onChange={(event) => setOgDesc(event.target.value)}
+                  rows={4}
+                  className={cn(FIELD_CLASS, "resize-none leading-6")}
+                />
+              </div>
+
+              <div>
+                <FieldLabel title="OG görsel URL" count={ogImage.length} limit={160} />
+                <div className="flex gap-2">
                   <input
                     type="text"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder={`Örn: ${STORE_RUNTIME.storefrontUrl}/urunler/ornek-urun`}
-                    className="min-w-0 flex-1 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
+                    value={ogImage}
+                    onChange={(event) => setOgImage(event.target.value)}
+                    className={FIELD_CLASS}
                   />
                   <button
-                    onClick={fetchMetadata}
-                    disabled={loading}
-                    className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-xs)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
+                    type="button"
+                    className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white text-[#7D8795] transition hover:border-[#FFC7A8] hover:bg-[#FFF8F3] hover:text-[#E85D04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]"
+                    aria-label="Görsel seç"
                   >
-                    {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <RefreshCw className="h-4 w-4" />}
-                    Önizlemeyi getir
+                    <ImageIcon className="h-5 w-5" />
                   </button>
                 </div>
               </div>
-
-              <div className="mt-5 space-y-4">
-                <div>
-                  <FieldLabel title="OG başlık" count={ogTitle.length} limit={60} />
-                  <input
-                    type="text"
-                    value={ogTitle}
-                    onChange={(e) => setOgTitle(e.target.value)}
-                    className="w-full rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel title="OG açıklama" count={ogDesc.length} limit={160} />
-                  <textarea
-                    value={ogDesc}
-                    onChange={(e) => setOgDesc(e.target.value)}
-                    rows={4}
-                    className="w-full resize-none rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel title="OG görsel URL" count={ogImage.length} limit={160} />
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      value={ogImage}
-                      onChange={(e) => setOgImage(e.target.value)}
-                      className="min-w-0 flex-1 rounded-[8px] border border-[var(--admin-border)] bg-white px-4 py-3 text-sm text-[var(--admin-heading)] outline-none transition-all placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-accent-border)] focus:ring-4 focus:ring-[rgba(255,106,0,0.12)]"
-                    />
-                    <button className="inline-flex h-12 w-12 items-center justify-center rounded-[8px] border border-[var(--admin-border)] bg-white text-[#8a6f5d] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[#fff9f4] hover:text-[var(--admin-accent-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.16)]">
-                      <ImageIcon className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
             </div>
+          </section>
 
-            <div className="lg:col-span-7">
-              <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-[#FCFDFE] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
-                Canlı platform görünümü
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
+          <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_10px_28px_rgba(16,24,40,0.04)]">
+            <div className="flex flex-col gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3 min-[860px]:flex-row min-[860px]:items-center min-[860px]:justify-between">
+              <h2 className="text-sm font-semibold text-[#182232]">Canlı görünüm</h2>
+              <div className="flex flex-wrap gap-2">
                 <TabButton active={activeTab === "facebook"} onClick={() => setActiveTab("facebook")} icon={<Facebook className="h-4 w-4" />} label="Facebook" />
-                <TabButton active={activeTab === "twitter"} onClick={() => setActiveTab("twitter")} icon={<Twitter className="h-4 w-4" />} label="X / Twitter" />
+                <TabButton active={activeTab === "twitter"} onClick={() => setActiveTab("twitter")} icon={<Twitter className="h-4 w-4" />} label="X" />
                 <TabButton active={activeTab === "linkedin"} onClick={() => setActiveTab("linkedin")} icon={<Linkedin className="h-4 w-4" />} label="LinkedIn" />
                 <TabButton active={activeTab === "whatsapp"} onClick={() => setActiveTab("whatsapp")} icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" />
               </div>
-
-              <div className="mt-5 flex min-h-[460px] items-center justify-center rounded-[12px] border border-[var(--admin-border)] bg-gradient-to-br from-[#fbf5ef] to-[#f4ebe2] p-6 md:p-10">
-                {activeTab === "facebook" && (
-                  <div className="w-full max-w-[520px] overflow-hidden rounded-[12px] border border-[#d6dbe1] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.16)]">
-                    <div className="h-[260px] bg-[#d9dee4]">
-                      {ogImage && <img src={ogImage} alt="Facebook önizleme" className="h-full w-full object-cover" />}
-                    </div>
-                    <div className="border-t border-[#d6dbe1] bg-[#f2f3f5] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#6b7280]">{storeHost.toUpperCase()}</p>
-                      <h4 className="mt-2 truncate text-lg font-semibold text-[#111827]">{ogTitle || "Başlık"}</h4>
-                      <p className="mt-1 line-clamp-2 text-sm text-[#4b5563]">{ogDesc || "Açıklama metni burada görünür."}</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "twitter" && (
-                  <div className="w-full max-w-[460px] overflow-hidden rounded-[12px] border border-[#dce1e7] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.12)]">
-                    <div className="h-[240px] bg-[#d9dee4]">
-                      {ogImage && <img src={ogImage} alt="X önizleme" className="h-full w-full object-cover" />}
-                    </div>
-                    <div className="p-4">
-                      <h4 className="truncate text-lg font-semibold text-[#111827]">{ogTitle || "Başlık"}</h4>
-                      <p className="mt-2 line-clamp-2 text-sm text-[#4b5563]">{ogDesc || "Açıklama metni burada görünür."}</p>
-                      <p className="mt-2 text-sm text-[#9ca3af]">{storeHost}</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "linkedin" && (
-                  <div className="w-full max-w-[520px] overflow-hidden rounded-[12px] border border-[#d7dbe1] bg-white shadow-[0_18px_50px_rgba(64,78,98,0.12)]">
-                    <div className="h-[260px] bg-[#d9dee4]">
-                      {ogImage && <img src={ogImage} alt="LinkedIn önizleme" className="h-full w-full object-cover" />}
-                    </div>
-                    <div className="bg-[#eef3f8] p-4">
-                      <h4 className="truncate text-lg font-semibold text-[#111827]">{ogTitle || "Başlık"}</h4>
-                      <p className="mt-1 text-sm text-[#6b7280]">{storeHost}</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "whatsapp" && (
-                  <div className="w-full max-w-sm rounded-[12px] bg-[#e7ddd2] p-5 shadow-inner">
-                    <div className="relative flex items-start gap-3 rounded-[20px] bg-white p-3 shadow-[0_12px_30px_rgba(67,44,28,0.12)]">
-                      <div className="absolute inset-y-0 left-0 w-1 rounded-l-[20px] bg-[#d0d5db]" />
-                      <div className="min-w-0 flex-1 pl-2">
-                        <h4 className="truncate text-sm font-semibold text-[#111827]">{ogTitle || "Başlık"}</h4>
-                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#6b7280]">{ogDesc || "Açıklama metni burada görünür."}</p>
-                        <p className="mt-2 text-xs text-[#9ca3af]">{storeHost}</p>
-                      </div>
-                      {ogImage && (
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[8px] bg-[#d9dee4]">
-                          <img src={ogImage} alt="WhatsApp önizleme" className="h-full w-full object-cover" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
-        </section>
-      </div>
-    </div>
+
+            <div className="flex min-h-[480px] items-center justify-center bg-[#F9F9F9] p-4 sm:p-6">
+              {activeTab === "facebook" && (
+                <div className="w-full max-w-[540px] overflow-hidden rounded-[12px] border border-[#D6DCE5] bg-white shadow-[0_14px_30px_rgba(16,24,40,0.08)]">
+                  <div className="h-[260px] bg-[#EEF3F7]">
+                    {ogImage ? <img src={ogImage} alt="Facebook önizleme" className="h-full w-full object-cover" /> : null}
+                  </div>
+                  <div className="border-t border-[#D6DCE5] bg-[#F3F5F7] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085]">{storeHost}</p>
+                    <h3 className="mt-2 truncate text-lg font-semibold text-[#111827]">{ogTitle || "Başlık"}</h3>
+                    <p className="mt-1 line-clamp-2 text-sm text-[#4B5563]">{ogDesc || "Açıklama burada görünür."}</p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "twitter" && (
+                <div className="w-full max-w-[480px] overflow-hidden rounded-[12px] border border-[#D6DCE5] bg-white shadow-[0_14px_30px_rgba(16,24,40,0.08)]">
+                  <div className="h-[240px] bg-[#EEF3F7]">
+                    {ogImage ? <img src={ogImage} alt="X önizleme" className="h-full w-full object-cover" /> : null}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="truncate text-lg font-semibold text-[#111827]">{ogTitle || "Başlık"}</h3>
+                    <p className="mt-2 line-clamp-2 text-sm text-[#4B5563]">{ogDesc || "Açıklama burada görünür."}</p>
+                    <p className="mt-2 text-sm text-[#7D8795]">{storeHost}</p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "linkedin" && (
+                <div className="w-full max-w-[540px] overflow-hidden rounded-[12px] border border-[#D6DCE5] bg-white shadow-[0_14px_30px_rgba(16,24,40,0.08)]">
+                  <div className="h-[260px] bg-[#EEF3F7]">
+                    {ogImage ? <img src={ogImage} alt="LinkedIn önizleme" className="h-full w-full object-cover" /> : null}
+                  </div>
+                  <div className="bg-[#EEF3F7] p-4">
+                    <h3 className="truncate text-lg font-semibold text-[#111827]">{ogTitle || "Başlık"}</h3>
+                    <p className="mt-1 text-sm text-[#667085]">{storeHost}</p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "whatsapp" && (
+                <div className="w-full max-w-sm rounded-[12px] bg-[#E8E1D8] p-4">
+                  <div className="relative flex items-start gap-3 rounded-[12px] bg-white p-3 shadow-[0_10px_24px_rgba(16,24,40,0.10)]">
+                    <div className="absolute inset-y-0 left-0 w-1 rounded-l-[12px] bg-[#DCE3EC]" />
+                    <div className="min-w-0 flex-1 pl-2">
+                      <h3 className="truncate text-sm font-semibold text-[#111827]">{ogTitle || "Başlık"}</h3>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#667085]">{ogDesc || "Açıklama burada görünür."}</p>
+                      <p className="mt-2 text-xs text-[#7D8795]">{storeHost}</p>
+                    </div>
+                    {ogImage ? (
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[8px] bg-[#EEF3F7]">
+                        <img src={ogImage} alt="WhatsApp önizleme" className="h-full w-full object-cover" />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="rounded-[12px] border border-[#FFC7A8] bg-[#FFF4EC] px-4 py-3 text-sm font-medium text-[#C24D00]">
+          <Share2 className="mr-2 inline h-4 w-4 align-[-2px]" />
+          Bu ekran yalnızca önizleme içindir; Kaydetme işlemi yapmaz.
+        </div>
+      </AdminPageShell>
+    </main>
   );
 }

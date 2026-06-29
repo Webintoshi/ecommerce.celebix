@@ -4,14 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  Code2,
   Globe,
   Save,
-  Search,
   Share2,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AdminActionButton,
+  AdminLoadingState,
+  AdminPageHeader,
+  AdminPageShell,
+} from "@/components/admin/AdminPageShell";
 import {
   DEFAULT_STORE_CODE_INTEGRATIONS_SETTINGS,
   extractGoogleSearchConsoleVerification,
@@ -39,18 +42,30 @@ function IntegrationStatusChip({
 }) {
   return (
     <div
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] ${
+      className={`inline-flex items-center gap-2 rounded-[8px] border px-3 py-1.5 text-xs font-semibold ${
         active
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-[var(--admin-border)] bg-white text-[#9a7c67]"
+          ? "border-[#BFE8CE] bg-[#EAF8EF] text-[#16A34A]"
+          : "border-[#DCE3EC] bg-[#F9F9F9] text-[#667085]"
       }`}
     >
       <span
         className={`h-2 w-2 rounded-full ${
-          active ? "bg-emerald-500" : "bg-[#d8c2b0]"
+          active ? "bg-[#16A34A]" : "bg-[#C9D2DD]"
         }`}
       />
       {label}
+    </div>
+  );
+}
+
+function MetricCell({ label, value, context }: { label: string; value: string; context: string }) {
+  return (
+    <div className="bg-white px-4 py-4 sm:px-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7D8795]">{label}</p>
+      <div className="mt-3 flex items-end gap-2">
+        <span className="text-3xl font-semibold leading-none tracking-[-0.04em] text-[#111827]">{value}</span>
+        <span className="pb-1 text-sm font-medium text-[#667085]">{context}</span>
+      </div>
     </div>
   );
 }
@@ -64,11 +79,11 @@ function validateSettings(
     settings.googleTagManagerId &&
     !/^GTM-[A-Z0-9]+$/.test(settings.googleTagManagerId)
   ) {
-    errors.googleTagManagerId = "Gecerli bir GTM ID girin. Ornek: GTM-XXXXXXX";
+    errors.googleTagManagerId = "Geçerli bir GTM ID girin. Örnek: GTM-XXXXXXX";
   }
 
   if (settings.metaPixelId && !/^\d{5,}$/.test(settings.metaPixelId)) {
-    errors.metaPixelId = "Meta Pixel ID yalnizca rakamlardan olusmalidir.";
+    errors.metaPixelId = "Meta Pixel ID yalnızca rakamlardan oluşmalıdır.";
   }
 
   return errors;
@@ -108,7 +123,7 @@ function TextField({
     <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_8px_24px_rgba(17,24,39,0.05)]">
       <div className="space-y-1">
         <label className="text-sm font-semibold text-[var(--admin-heading)]">{label}</label>
-        <p className="text-sm leading-6 text-[#8c7564]">{description}</p>
+        <p className="text-sm leading-6 text-[#667085]">{description}</p>
       </div>
       <input
         value={value}
@@ -147,7 +162,7 @@ function TextareaField({
     <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_8px_24px_rgba(17,24,39,0.05)]">
       <div className="space-y-1">
         <label className="text-sm font-semibold text-[var(--admin-heading)]">{label}</label>
-        <p className="text-sm leading-6 text-[#8c7564]">{description}</p>
+        <p className="text-sm leading-6 text-[#667085]">{description}</p>
       </div>
       <textarea
         value={value}
@@ -199,7 +214,7 @@ export function CodeIntegrationsSettingsPanel() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Kod entegrasyonlari yuklenemedi");
+        throw new Error(payload.error || "Kod entegrasyonları yüklenemedi");
       }
 
       setFormData(
@@ -210,7 +225,7 @@ export function CodeIntegrationsSettingsPanel() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Kod entegrasyonlari yuklenemedi",
+          : "Kod entegrasyonları yüklenemedi",
       );
     } finally {
       setLoading(false);
@@ -249,7 +264,7 @@ export function CodeIntegrationsSettingsPanel() {
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
-      toast.error("Lutfen hatali alanlari duzeltin.");
+      toast.error("Lütfen hatalı alanları düzeltin.");
       return;
     }
 
@@ -267,17 +282,17 @@ export function CodeIntegrationsSettingsPanel() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "Kod entegrasyonlari kaydedilemedi");
+        throw new Error(payload.error || "Kod entegrasyonları kaydedilemedi");
       }
 
       setFormData(normalizedSettings);
-      toast.success("Kod entegrasyonlari kaydedildi");
+      toast.success("Kod entegrasyonları kaydedildi");
     } catch (error) {
       console.error("Failed to save code integrations:", error);
       toast.error(
         error instanceof Error
           ? error.message
-          : "Kod entegrasyonlari kaydedilemedi",
+          : "Kod entegrasyonları kaydedilemedi",
       );
     } finally {
       setSaving(false);
@@ -285,93 +300,68 @@ export function CodeIntegrationsSettingsPanel() {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-[420px] items-center justify-center rounded-[12px] border border-[var(--admin-border)] bg-white shadow-[0_18px_45px_rgba(105,78,54,0.08)]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--admin-border)] border-t-[var(--admin-accent)]" />
-      </div>
-    );
+    return <AdminLoadingState label="Kod entegrasyonları yükleniyor" />;
   }
 
   return (
-    <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-8 shadow-[var(--shadow-xs)] md:p-10">
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center rounded-full border border-[var(--admin-border)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#9a7c67]">
-              SEO kod entegrasyonlari
-            </div>
-            <div className="mt-5 flex items-start gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-[var(--admin-accent-border)] bg-[var(--admin-accent)] text-white shadow-[var(--shadow-xs)]">
-                <Code2 className="h-8 w-8" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--admin-heading)] md:text-4xl">
-                  Kod Entegrasyonlari
-                </h1>
-                <p className="mt-3 text-sm leading-7 text-[#7f6858] md:text-base">
-                  Google Tag Manager, Search Console ve Meta Pixel gibi kodlari
-                  tek yerden yonetin. Dilerseniz tum sayfalar icin head veya body
-                  sonuna ek kod da girebilirsiniz.
-                </p>
-              </div>
-            </div>
-          </div>
+    <AdminPageShell>
+      <AdminPageHeader
+        sectionLabel="SEO"
+        title="Kod entegrasyonları"
+        description="GTM, Search Console ve Pixel kodlarını yönetin."
+        actions={
+          <AdminActionButton type="button" tone="primary" onClick={() => void handleSave()} disabled={saving}>
+            {saving ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Kaydet
+          </AdminActionButton>
+        }
+        metrics={
+          <>
+            <MetricCell label="Aktif" value={String(activeCount)} context="entegrasyon" />
+            <MetricCell label="GTM" value={formData.googleTagManagerId ? "Var" : "Yok"} context="etiket" />
+            <MetricCell label="Search" value={formData.googleSearchConsoleVerification ? "Var" : "Yok"} context="console" />
+            <MetricCell label="Pixel" value={formData.metaPixelId ? "Var" : "Yok"} context="meta" />
+          </>
+        }
+      />
 
-          <div className="rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#fff4ea] text-[var(--admin-accent-hover)]">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--admin-heading)]">
-                  {activeCount} aktif entegrasyon
-                </p>
-                <p className="text-sm text-[#8c7564]">
-                  Bos alanlar pasif kalir, env fallback korunur.
-                </p>
-              </div>
-            </div>
-          </div>
+      <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_10px_28px_rgba(16,24,40,0.04)]">
+        <div className="border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3">
+          <h2 className="text-sm font-semibold text-[#182232]">Durum</h2>
         </div>
-        <div className="hidden" />
-      </section>
-
-      <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
         <div className="flex flex-wrap gap-3">
-          <IntegrationStatusChip label="GTM" active={Boolean(formData.googleTagManagerId)} />
-          <IntegrationStatusChip
-            label="Search Console"
-            active={Boolean(formData.googleSearchConsoleVerification)}
-          />
-          <IntegrationStatusChip label="Meta Pixel" active={Boolean(formData.metaPixelId)} />
-          <IntegrationStatusChip label="Head Kodu" active={Boolean(formData.customHeadHtml)} />
-          <IntegrationStatusChip
-            label="Body Sonu Kodu"
-            active={Boolean(formData.customBodyEndHtml)}
-          />
+          <div className="flex flex-wrap gap-2 p-4">
+            <IntegrationStatusChip label="GTM" active={Boolean(formData.googleTagManagerId)} />
+            <IntegrationStatusChip
+              label="Search Console"
+              active={Boolean(formData.googleSearchConsoleVerification)}
+            />
+            <IntegrationStatusChip label="Meta Pixel" active={Boolean(formData.metaPixelId)} />
+            <IntegrationStatusChip label="Head kodu" active={Boolean(formData.customHeadHtml)} />
+            <IntegrationStatusChip
+              label="Body sonu"
+              active={Boolean(formData.customBodyEndHtml)}
+            />
+          </div>
         </div>
       </section>
 
-      <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#fff4ea] text-[var(--admin-accent-hover)]">
+      <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_10px_28px_rgba(16,24,40,0.04)]">
+        <div className="flex items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#FFC7A8] bg-[#FFF4EC] text-[#FF6A00]">
             <Globe className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
-              Hazir Entegrasyonlar
-            </h2>
-            <p className="text-sm leading-6 text-[#8c7564]">
-              Tam snippet yapistirabilirsiniz; sistem gerekli ID veya dogrulama
-              kodunu ayiklar.
-            </p>
-          </div>
+          </span>
+          <h2 className="text-sm font-semibold text-[#182232]">Hazır entegrasyonlar</h2>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-3">
           <TextField
             label="Google Tag Manager"
-            description="GTM ID veya tam Tag Manager snippet yapistirabilirsiniz."
+            description="GTM ID veya Tag Manager snippet girin."
             value={formData.googleTagManagerId}
             placeholder="GTM-XXXXXXX"
             error={errors.googleTagManagerId}
@@ -381,9 +371,9 @@ export function CodeIntegrationsSettingsPanel() {
 
           <TextField
             label="Google Search Console"
-            description="Meta etiketi veya sadece verification content degerini yapistirin."
+            description="Meta etiketi veya doğrulama kodu girin."
             value={formData.googleSearchConsoleVerification}
-            placeholder="google-site-verification content degeri"
+            placeholder="google-site-verification content değeri"
             onChange={(value) =>
               handleFieldChange("googleSearchConsoleVerification", value)
             }
@@ -392,7 +382,7 @@ export function CodeIntegrationsSettingsPanel() {
 
           <TextField
             label="Meta Pixel"
-            description="Meta Pixel ID veya yaygin pixel snippet yapistirabilirsiniz."
+            description="Meta Pixel ID veya pixel snippet girin."
             value={formData.metaPixelId}
             placeholder="123456789012345"
             error={errors.metaPixelId}
@@ -402,26 +392,18 @@ export function CodeIntegrationsSettingsPanel() {
         </div>
       </section>
 
-      <section className="rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[0_18px_45px_rgba(105,78,54,0.08)] md:p-8">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--admin-border)] bg-[#FCFDFE] text-[#7d6959]">
+      <section className="overflow-hidden rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_10px_28px_rgba(16,24,40,0.04)]">
+        <div className="flex items-center gap-3 border-b border-[#DCE3EC] bg-[#EEF3F7] px-4 py-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#DCE3EC] bg-white text-[#7D8795]">
             <Share2 className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
-              Gelismis Kod Alanlari
-            </h2>
-            <p className="text-sm leading-6 text-[#8c7564]">
-              Bu alanlara yapistirdiginiz kodlar storefront genelinde calisir.
-              Ne yaptigindan emin olmadiginiz kodlari eklemeyin.
-            </p>
-          </div>
+          </span>
+          <h2 className="text-sm font-semibold text-[#182232]">Gelişmiş kod alanları</h2>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
           <TextareaField
-            label="Head Kodu (Tum Sayfalar)"
-            description="Meta, script, link veya benzeri kodlar icin genel head alani."
+            label="Head kodu"
+            description="Tüm sayfalar için head alanı."
             value={formData.customHeadHtml}
             placeholder="<script>/* head kodunuz */</script>"
             rows={9}
@@ -429,8 +411,8 @@ export function CodeIntegrationsSettingsPanel() {
             onBlur={() => handleFieldBlur("customHeadHtml")}
           />
           <TextareaField
-            label="Body Sonu Kodu (Tum Sayfalar)"
-            description="Body kapanisina yakin calismasi gereken script veya noscript alanlari."
+            label="Body sonu kodu"
+            description="Body kapanışına yakın çalışan kodlar."
             value={formData.customBodyEndHtml}
             placeholder="<noscript>...</noscript>"
             rows={9}
@@ -439,52 +421,32 @@ export function CodeIntegrationsSettingsPanel() {
           />
         </div>
 
-        <div className="mt-5 rounded-[12px] border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+        <div className="mx-4 mb-4 rounded-[10px] border border-[#FFC7A8] bg-[#FFF4EC] p-4 text-sm leading-6 text-[#C24D00]">
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
               <p className="font-semibold">Dikkat</p>
               <p className="mt-1">
-                Bu kodlar admin alanina degil, sadece vitrine eklenir. Kaydedilen
-                head ve body kodlari tum storefront sayfalarinda calisir.
+                Bu kodlar admin alanına değil, sadece vitrine eklenir.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <button
-          onClick={() => void handleSave()}
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--admin-accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,106,0,0.18)] transition-all duration-300 ease-out hover:bg-[var(--admin-accent-hover)] hover:translate-y-[-1px] disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,106,0,0.18)]"
-        >
-          {saving ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          Kod Entegrasyonlarini Kaydet
-        </button>
-      </div>
-
-      <section className="rounded-[12px] border border-[var(--admin-border)] bg-[#2f241d] p-6 text-white shadow-[var(--shadow-xs)]">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-white/10 bg-white/10 text-[#ffd2af]">
-            <CheckCircle2 className="h-5 w-5" />
-          </div>
+      <section className="rounded-[12px] border border-[#DCE3EC] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(16,24,40,0.04)]">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[#BFE8CE] bg-[#EAF8EF] text-[#16A34A]">
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
           <div>
-            <p className="text-lg font-semibold tracking-[-0.02em]">
-              Kullanim mantigi
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[#ead9c9]">
-              Hazir alanlari doldurursan sistem gerekli GTM, Search Console ve
-              Meta Pixel etiketlerini kendisi basar. Gelismis alanlar ise ek
-              ozellestirme gereken durumlar icindir.
+            <p className="text-sm font-semibold text-[#182232]">Kullanım mantığı</p>
+            <p className="mt-1 text-sm leading-6 text-[#667085]">
+              Hazır alanlar otomatik etiket üretir; gelişmiş alanlar ek kod ihtiyacı içindir.
             </p>
           </div>
         </div>
       </section>
-    </div>
+    </AdminPageShell>
   );
 }
