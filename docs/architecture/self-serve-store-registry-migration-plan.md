@@ -153,6 +153,8 @@ Production apply remains blocked until all gates pass. This is the final apply r
 12. Monitoring and owner health checks.
 13. Explicit Atlas approval for production migration apply.
 
+Operational preflight runbook: [self-serve-store-registry-production-preflight.md](self-serve-store-registry-production-preflight.md)
+
 ## Apply Readiness Checklist
 
 - Fresh owner DB backup.
