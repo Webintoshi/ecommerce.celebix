@@ -10,7 +10,6 @@ import {
   FileText,
   Globe2,
   Home,
-  Languages,
   LogOut,
   Megaphone as MarketingIcon,
   Package,
@@ -18,11 +17,7 @@ import {
   Search,
   Settings,
   ShoppingBag,
-  Store,
-  Truck,
   Users,
-  Users as AdminsIcon,
-  WalletCards,
   X,
 } from "lucide-react";
 import type { InitialAdminProfile } from "@/lib/admin-data-types";
@@ -135,12 +130,19 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Politikalar", href: "/admin/cms/politikalar" },
     ],
   },
-  { title: "Dil", icon: Languages, href: "/admin/ayarlar/dil", permissionHref: "/admin/ayarlar" },
-  { title: "Ödeme", icon: WalletCards, href: "/admin/ayarlar/odeme", permissionHref: "/admin/ayarlar" },
-  { title: "Kargo", icon: Truck, href: "/admin/ayarlar/kargo", permissionHref: "/admin/ayarlar" },
-  { title: "Entegrasyonlar", icon: Store, href: "/admin/markets" },
-  { title: "Yöneticiler", icon: AdminsIcon, href: "/admin/yoneticiler" },
-  { title: "Ayarlar", icon: Settings, href: "/admin/ayarlar" },
+  {
+    title: "Ayarlar",
+    icon: Settings,
+    href: "/admin/ayarlar",
+    submenu: [
+      { title: "Genel", href: "/admin/ayarlar" },
+      { title: "Dil", href: "/admin/ayarlar/dil" },
+      { title: "Ödeme", href: "/admin/ayarlar/odeme" },
+      { title: "Kargo", href: "/admin/ayarlar/kargo" },
+      { title: "Entegrasyonlar", href: "/admin/markets" },
+      { title: "Yöneticiler", href: "/admin/yoneticiler" },
+    ],
+  },
   {
     title: "Muhasebe",
     icon: Calculator,
@@ -170,8 +172,8 @@ const MENU_GROUPS: MenuGroup[] = [
   { id: "operations", label: "Operasyon", titles: ["Siparişler", "Müşteriler"] },
   { id: "catalog", label: "Katalog", titles: ["Ürünler"] },
   { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Pazarlama"] },
-  { id: "store", label: "Mağaza", titles: ["Mağaza Görünümü", "İçerik", "Dil"] },
-  { id: "settings", label: "Ayarlar", titles: ["Ödeme", "Kargo", "Entegrasyonlar", "Yöneticiler", "Ayarlar"] },
+  { id: "store", label: "Mağaza", titles: ["Mağaza Görünümü", "İçerik"] },
+  { id: "settings", label: "Ayarlar", titles: ["Ayarlar"] },
   { id: "advanced", label: "Gelişmiş", titles: ["Muhasebe", "SEO Araçları"] },
 ];
 
