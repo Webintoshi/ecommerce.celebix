@@ -159,8 +159,7 @@ const MENU_ITEMS: MenuItem[] = [
 
 const MENU_GROUPS: MenuGroup[] = [
   { id: "home", label: "Ana", titles: ["Giriş"] },
-  { id: "operations", label: "Operasyon", titles: ["Siparişler", "Müşteriler"] },
-  { id: "catalog", label: "Katalog", titles: ["Ürünler"] },
+  { id: "operations", label: "Operasyon", titles: ["Siparişler", "Müşteriler", "Ürünler"] },
   { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Pazarlama"] },
   { id: "settings", label: "Ayarlar", titles: ["Ayarlar"] },
   { id: "advanced", label: "Gelişmiş", titles: ["Muhasebe", "SEO Araçları"] },
