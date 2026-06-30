@@ -1,408 +1,456 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Brain,
-    Eye,
-    EyeOff,
-    Save,
-    Loader2,
-    CheckCircle,
-    XCircle,
-    Zap,
-    Sparkles,
+  AlertTriangle,
+  Brain,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  PlugZap,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  XCircle,
+  Zap,
 } from "lucide-react";
+import { AdminPageHeader, AdminPageShell } from "@/components/admin/AdminPageShell";
+import { cn } from "@/lib/utils";
 
 type AIProvider = "gemini" | "claude" | "deepseek";
 
 interface AIConfig {
-    provider: AIProvider;
-    apiKey: string;
-    model: string;
+  provider: AIProvider;
+  apiKey: string;
+  model: string;
 }
 
+type ProviderTone = {
+  border: string;
+  tint: string;
+  text: string;
+};
+
+const PROVIDER_TONES: Record<AIProvider, ProviderTone> = {
+  gemini: {
+    border: "border-[#FFD1B5]",
+    tint: "bg-[#FFF8F3]",
+    text: "text-[#E85D04]",
+  },
+  claude: {
+    border: "border-[#E1E7EF]",
+    tint: "bg-white",
+    text: "text-[#111827]",
+  },
+  deepseek: {
+    border: "border-[#E1E7EF]",
+    tint: "bg-white",
+    text: "text-[#111827]",
+  },
+};
+
 const PROVIDERS = [
-    {
-        id: "gemini" as AIProvider,
-        name: "Google Gemini",
-        description: "Google'ın en güçlü yapay zekası. Function calling destekli.",
-        models: ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite-preview-06-17", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro"],
-        color: "from-blue-500 to-cyan-500",
-        bgColor: "bg-blue-50 border-blue-200",
-        activeColor: "bg-blue-600",
-        badge: "Önerilen",
-        features: ["Function Calling ✅", "Türkçe ✅", "Hızlı ✅"],
-    },
-    {
-        id: "claude" as AIProvider,
-        name: "Anthropic Claude",
-        description: "Anthropic'in güçlü dil modeli. Detaylı analizlerde başarılı.",
-        models: ["claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"],
-        color: "from-orange-500 to-amber-500",
-        bgColor: "bg-orange-50 border-orange-200",
-        activeColor: "bg-orange-600",
-        badge: null,
-        features: ["Uzun Bağlam ✅", "Türkçe ✅", "Analiz ✅"],
-    },
-    {
-        id: "deepseek" as AIProvider,
-        name: "DeepSeek",
-        description: "Hızlı ve uygun fiyatlı yapay zeka. OpenAI uyumlu API.",
-        models: ["deepseek-chat", "deepseek-reasoner"],
-        color: "from-orange-500 to-orange-500",
-        bgColor: "bg-orange-50 border-orange-200",
-        activeColor: "bg-orange-600",
-        badge: "Ekonomik",
-        features: ["Uygun Fiyat ✅", "Türkçe ✅", "Hızlı ✅"],
-    },
+  {
+    id: "gemini" as const,
+    name: "Google Gemini",
+    label: "Önerilen",
+    description: "Toshi ve SEO akışları için ana sağlayıcı.",
+    models: [
+      "gemini-3.1-pro-preview",
+      "gemini-3-pro-preview",
+      "gemini-3-flash-preview",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "gemini-2.5-flash-lite-preview-06-17",
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-1.5-pro",
+    ],
+    feature: "Araç çağırma",
+  },
+  {
+    id: "claude" as const,
+    name: "Anthropic Claude",
+    label: "Analiz",
+    description: "Uzun metin ve detaylı yorumlama için.",
+    models: ["claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"],
+    feature: "Uzun bağlam",
+  },
+  {
+    id: "deepseek" as const,
+    name: "DeepSeek",
+    label: "Ekonomik",
+    description: "Hızlı ve düşük maliyetli alternatif.",
+    models: ["deepseek-chat", "deepseek-reasoner"],
+    feature: "Hızlı yanıt",
+  },
 ];
 
+const FIELD_CLASS =
+  "h-11 w-full rounded-[8px] border border-[#DCE3EC] bg-white px-3.5 text-sm font-medium text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#FFD1B5] focus:ring-4 focus:ring-[rgba(255,106,0,0.14)]";
+
+const SECONDARY_BUTTON =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-4 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04] disabled:cursor-not-allowed disabled:opacity-50";
+
+const PRIMARY_BUTTON =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.16)] transition hover:bg-[#E85D04] disabled:cursor-not-allowed disabled:opacity-50";
+
 export default function AISettingsPage() {
-    const [config, setConfig] = useState<AIConfig>({
-        provider: "gemini",
-        apiKey: "",
-        model: "gemini-2.5-flash",
-    });
-    const [showKey, setShowKey] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [testing, setTesting] = useState(false);
-    const [testResult, setTestResult] = useState<{
-        success: boolean;
-        message: string;
-    } | null>(null);
-    const [saveResult, setSaveResult] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [hasEnvKey, setHasEnvKey] = useState(false);
+  const [config, setConfig] = useState<AIConfig>({
+    provider: "gemini",
+    apiKey: "",
+    model: "gemini-2.5-flash",
+  });
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+  const [saveResult, setSaveResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasEnvKey, setHasEnvKey] = useState(false);
 
-    // Load current settings
-    useEffect(() => {
-        async function load() {
-            try {
-                const res = await fetch("/api/settings?type=ai");
-                const data = await res.json();
-                if (data.success && data.aiSettings) {
-                    setConfig({
-                        provider: data.aiSettings.provider || "gemini",
-                        apiKey: data.aiSettings.apiKey || "",
-                        model: data.aiSettings.model || "gemini-2.5-flash",
-                    });
-                }
-                if (data.hasEnvKey) setHasEnvKey(true);
-            } catch {
-                // ignore
-            } finally {
-                setLoading(false);
-            }
+  useEffect(() => {
+    async function load() {
+      try {
+        const response = await fetch("/api/settings?type=ai");
+        const data = await response.json();
+
+        if (data.success && data.aiSettings) {
+          setConfig({
+            provider: data.aiSettings.provider || "gemini",
+            apiKey: data.aiSettings.apiKey || "",
+            model: data.aiSettings.model || "gemini-2.5-flash",
+          });
         }
-        load();
-    }, []);
 
-    // Switch provider → reset model
-    function selectProvider(p: AIProvider) {
-        const providerData = PROVIDERS.find((pr) => pr.id === p);
-        setConfig({
-            ...config,
-            provider: p,
-            model: providerData?.models[0] || "",
-        });
-        setTestResult(null);
-        setSaveResult(null);
+        if (data.hasEnvKey) {
+          setHasEnvKey(true);
+        }
+      } catch {
+        // Sayfa acik kalmali; ayar yuklenemezse mevcut varsayilan gosterilir.
+      } finally {
+        setLoading(false);
+      }
     }
 
-    // Test connection
-    async function testConnection() {
-        if (!config.apiKey) {
-            setTestResult({ success: false, message: "API key girilmedi." });
-            return;
-        }
-        setTesting(true);
-        setTestResult(null);
-        try {
-            const res = await fetch("/api/settings", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    type: "ai-test",
-                    aiSettings: config,
-                }),
-            });
-            const data = await res.json();
-            setTestResult(data.testResult || { success: false, message: "Test başarısız." });
-        } catch {
-            setTestResult({ success: false, message: "Bağlantı hatası." });
-        } finally {
-            setTesting(false);
-        }
+    void load();
+  }, []);
+
+  const selectedProvider = useMemo(
+    () => PROVIDERS.find((provider) => provider.id === config.provider) ?? PROVIDERS[0],
+    [config.provider],
+  );
+
+  function selectProvider(providerId: AIProvider) {
+    const providerData = PROVIDERS.find((provider) => provider.id === providerId);
+
+    setConfig((current) => ({
+      ...current,
+      provider: providerId,
+      model: providerData?.models[0] || "",
+    }));
+    setTestResult(null);
+    setSaveResult(null);
+  }
+
+  async function testConnection() {
+    if (!config.apiKey) {
+      setTestResult({ success: false, message: "Anahtar girilmedi." });
+      return;
     }
 
-    // Save settings
-    async function saveSettings() {
-        setSaving(true);
-        setSaveResult(null);
-        try {
-            const res = await fetch("/api/settings", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    type: "ai",
-                    aiSettings: config,
-                }),
-            });
-            const data = await res.json();
-            if (data.success) {
-                setSaveResult("Ayarlar başarıyla kaydedildi! ✅");
-            } else {
-                setSaveResult("Kaydetme hatası: " + (data.error || "Bilinmeyen"));
-            }
-        } catch {
-            setSaveResult("Bağlantı hatası.");
-        } finally {
-            setSaving(false);
-        }
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "ai-test",
+          aiSettings: config,
+        }),
+      });
+      const data = await response.json();
+      setTestResult(data.testResult || { success: false, message: "Test başarısız." });
+    } catch {
+      setTestResult({ success: false, message: "Bağlantı hatası." });
+    } finally {
+      setTesting(false);
     }
+  }
 
-    const selectedProvider = PROVIDERS.find((p) => p.id === config.provider)!;
+  async function saveSettings() {
+    setSaving(true);
+    setSaveResult(null);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[var(--admin-bg)] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-            </div>
-        );
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "ai",
+          aiSettings: config,
+        }),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setSaveResult("Ayarlar kaydedildi.");
+      } else {
+        setSaveResult(`Kaydetme hatası: ${data.error || "Bilinmeyen"}`);
+      }
+    } catch {
+      setSaveResult("Bağlantı hatası.");
+    } finally {
+      setSaving(false);
     }
+  }
 
+  const keyStatus = config.apiKey ? "Tanımlı" : hasEnvKey ? "Ortam hazır" : "Eksik";
+
+  if (loading) {
     return (
-        <div className="min-h-screen bg-[var(--admin-bg)] p-6 md:p-8 space-y-8">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                        <Brain className="w-6 h-6 text-orange-600" />
-                        Yapay Zeka Ayarları
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-1">
-                        Toshi ve SEO araçları için AI provider ve API key yapılandırması.
-                    </p>
-                </div>
-            </div>
-
-            {/* Env key info */}
-            {hasEnvKey && !config.apiKey && (
-                <div className="bg-blue-50 border border-blue-200 rounded-[8px] p-4 flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
-                    <div>
-                        <p className="text-sm font-medium text-blue-900">
-                            .env dosyasında Gemini API key algılandı
-                        </p>
-                        <p className="text-sm text-blue-700 mt-1">
-                            Mevcut sistem .env üzerinden çalışıyor. Buradan farklı bir provider veya key ayarlayabilirsiniz.
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* Provider Selection */}
-            <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    AI Provider Seçin
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {PROVIDERS.map((p) => (
-                        <button
-                            key={p.id}
-                            onClick={() => selectProvider(p.id)}
-                            className={`relative text-left p-5 rounded-[8px] border-2 transition-all duration-200 ${config.provider === p.id
-                                ? `${p.bgColor} border-current shadow-md scale-[1.02]`
-                                : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                                }`}
-                        >
-                            {p.badge && (
-                                <span
-                                    className={`absolute top-3 right-3 text-xs font-medium px-2 py-0.5 rounded-full text-white bg-gradient-to-r ${p.color}`}
-                                >
-                                    {p.badge}
-                                </span>
-                            )}
-                            <div
-                                className={`w-10 h-10 rounded-lg bg-gradient-to-br ${p.color} flex items-center justify-center mb-3`}
-                            >
-                                <Zap className="w-5 h-5 text-white" />
-                            </div>
-                            <h3 className="font-semibold text-gray-900">{p.name}</h3>
-                            <p className="text-sm text-gray-500 mt-1">{p.description}</p>
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                                {p.features.map((f) => (
-                                    <span
-                                        key={f}
-                                        className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"
-                                    >
-                                        {f}
-                                    </span>
-                                ))}
-                            </div>
-                            {config.provider === p.id && (
-                                <div
-                                    className={`absolute bottom-0 left-0 right-0 h-1 rounded-b-xl bg-gradient-to-r ${p.color}`}
-                                />
-                            )}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* API Key Input */}
-            <div className="bg-white rounded-[8px] border border-gray-200 p-6 space-y-5">
-                <h2 className="text-lg font-semibold text-gray-900">
-                    {selectedProvider.name} Yapılandırması
-                </h2>
-
-                {/* API Key */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        API Key
-                    </label>
-                    <div className="relative">
-                        <input
-                            type={showKey ? "text" : "password"}
-                            value={config.apiKey}
-                            onChange={(e) =>
-                                setConfig({ ...config, apiKey: e.target.value })
-                            }
-                            placeholder={`${selectedProvider.name} API key'inizi girin...`}
-                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-mono text-sm pr-12"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowKey(!showKey)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                            {showKey ? (
-                                <EyeOff className="w-5 h-5" />
-                            ) : (
-                                <Eye className="w-5 h-5" />
-                            )}
-                        </button>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1.5">
-                        Key veritabanında güvenli şekilde saklanır. .env dosyasına gerek
-                        kalmaz.
-                    </p>
-                </div>
-
-                {/* Model Selection */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Model
-                    </label>
-                    <select
-                        value={config.model}
-                        onChange={(e) =>
-                            setConfig({ ...config, model: e.target.value })
-                        }
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all text-sm bg-white"
-                    >
-                        {selectedProvider.models.map((m) => (
-                            <option key={m} value={m}>
-                                {m}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-wrap gap-3 pt-2">
-                    <button
-                        onClick={testConnection}
-                        disabled={testing || !config.apiKey}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {testing ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Test ediliyor...
-                            </>
-                        ) : (
-                            <>
-                                <Zap className="w-4 h-4" />
-                                Bağlantıyı Test Et
-                            </>
-                        )}
-                    </button>
-
-                    <button
-                        onClick={saveSettings}
-                        disabled={saving || !config.apiKey}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r ${selectedProvider.color} hover:opacity-90`}
-                    >
-                        {saving ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Kaydediliyor...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="w-4 h-4" />
-                                Kaydet
-                            </>
-                        )}
-                    </button>
-                </div>
-
-                {/* Test Result */}
-                {testResult && (
-                    <div
-                        className={`flex items-start gap-3 p-4 rounded-lg ${testResult.success
-                            ? "bg-green-50 border border-green-200"
-                            : "bg-red-50 border border-red-200"
-                            }`}
-                    >
-                        {testResult.success ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                        ) : (
-                            <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                        )}
-                        <p
-                            className={`text-sm ${testResult.success ? "text-green-800" : "text-red-800"
-                                }`}
-                        >
-                            {testResult.message}
-                        </p>
-                    </div>
-                )}
-
-                {/* Save Result */}
-                {saveResult && (
-                    <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
-                        <p className="text-sm text-gray-800">{saveResult}</p>
-                    </div>
-                )}
-            </div>
-
-            {/* Info Box */}
-            <div className="bg-gray-900 rounded-[8px] p-6 text-white">
-                <h3 className="font-semibold flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-orange-400" />
-                    Nasıl Çalışır?
-                </h3>
-                <ul className="mt-3 space-y-2 text-sm text-gray-300">
-                    <li>
-                        • <strong className="text-white">Gemini:</strong> Function
-                        calling destekli — Toshi verileri doğrudan çekebilir
-                    </li>
-                    <li>
-                        • <strong className="text-white">Claude/DeepSeek:</strong> Metin
-                        tabanlı sohbet — Toshi genel bilgilendirme yapar
-                    </li>
-                    <li>
-                        • <strong className="text-white">SEO araçları:</strong> Tüm
-                        providerlar ile çalışır
-                    </li>
-                    <li>
-                        • <strong className="text-white">Fallback:</strong>{" "}
-                        Veritabanında key yoksa .env dosyasındaki Gemini key kullanılır
-                    </li>
-                </ul>
-            </div>
-        </div>
+      <main className="flex min-h-screen items-center justify-center bg-[#F9F9F9] text-[#6B7280]">
+        <Loader2 className="h-7 w-7 animate-spin text-[#FF6A00]" />
+      </main>
     );
+  }
+
+  return (
+    <main className="min-h-screen bg-[#F9F9F9] pb-8 text-[#111827]">
+      <div className="mx-auto w-full max-w-none px-4 sm:px-5 xl:px-6">
+        <AdminPageShell>
+          <AdminPageHeader
+            sectionLabel="Ayarlar"
+            title="Yapay Zeka"
+            description="Toshi ve SEO model ayarları."
+            actions={
+              <>
+                <button
+                  type="button"
+                  onClick={testConnection}
+                  disabled={testing || !config.apiKey}
+                  className={SECONDARY_BUTTON}
+                >
+                  {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />}
+                  Test et
+                </button>
+                <button
+                  type="button"
+                  onClick={saveSettings}
+                  disabled={saving || !config.apiKey}
+                  className={PRIMARY_BUTTON}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Kaydet
+                </button>
+              </>
+            }
+            metrics={
+              <>
+                <MetricCell icon={Brain} label="Sağlayıcı" value={selectedProvider.name} />
+                <MetricCell icon={Zap} label="Model" value={config.model} />
+                <MetricCell icon={KeyRound} label="Anahtar" value={keyStatus} />
+                <MetricCell icon={ShieldCheck} label="Kapsam" value="Toshi + SEO" />
+              </>
+            }
+          />
+
+          {hasEnvKey && !config.apiKey ? (
+            <section className="border-b border-[#FFD1B5] bg-[#FFF8F3] px-4 py-3 text-sm font-semibold text-[#9A4B00] xl:px-5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-[#FF6A00]" />
+                Ortam değişkeninden kullanılabilir anahtar algılandı.
+              </div>
+            </section>
+          ) : null}
+
+          <section className="grid gap-4 bg-[#F9F9F9] py-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,0.6fr)]">
+            <div className="space-y-4">
+              <div className="border-b border-[#E1E7EF] pb-3">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#4B5563]">Sağlayıcı</h2>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {PROVIDERS.map((provider) => {
+                  const isSelected = config.provider === provider.id;
+                  const tone = PROVIDER_TONES[provider.id];
+
+                  return (
+                    <button
+                      key={provider.id}
+                      type="button"
+                      onClick={() => selectProvider(provider.id)}
+                      className={cn(
+                        "group min-h-[146px] rounded-[12px] border bg-white p-4 text-left transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3]",
+                        isSelected ? `${tone.border} ${tone.tint} shadow-[0_12px_30px_rgba(255,106,0,0.08)]` : "border-[#DCE3EC]",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span
+                          className={cn(
+                            "inline-flex h-9 w-9 items-center justify-center rounded-[8px] border",
+                            isSelected
+                              ? "border-[#FFD1B5] bg-white text-[#FF6A00]"
+                              : "border-[#E1E7EF] bg-[#F9F9F9] text-[#6B7280]",
+                          )}
+                        >
+                          <Brain className="h-4 w-4" />
+                        </span>
+                        <span
+                          className={cn(
+                            "rounded-[8px] px-2 py-1 text-xs font-semibold",
+                            isSelected ? "bg-white text-[#E85D04]" : "bg-[#F9F9F9] text-[#6B7280]",
+                          )}
+                        >
+                          {provider.label}
+                        </span>
+                      </div>
+                      <h3 className="mt-4 text-base font-semibold tracking-[-0.02em] text-[#111827]">
+                        {provider.name}
+                      </h3>
+                      <p className="mt-1 line-clamp-2 text-sm font-medium text-[#6B7280]">{provider.description}</p>
+                      <div className={cn("mt-3 text-xs font-semibold", isSelected ? tone.text : "text-[#6B7280]")}>
+                        {provider.feature}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <section className="rounded-[12px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+              <div className="border-b border-[#E1E7EF] px-4 py-4 xl:px-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#FF6A00]">Ayar</p>
+                <h2 className="mt-1 text-lg font-semibold tracking-[-0.02em] text-[#111827]">
+                  {selectedProvider.name}
+                </h2>
+              </div>
+
+              <div className="space-y-4 p-4 xl:p-5">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold text-[#4B5563]">Model</span>
+                  <select
+                    value={config.model}
+                    onChange={(event) => setConfig((current) => ({ ...current, model: event.target.value }))}
+                    className={FIELD_CLASS}
+                  >
+                    {selectedProvider.models.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold text-[#4B5563]">API anahtarı</span>
+                  <span className="relative block">
+                    <input
+                      type={showKey ? "text" : "password"}
+                      value={config.apiKey}
+                      onChange={(event) => setConfig((current) => ({ ...current, apiKey: event.target.value }))}
+                      placeholder="Anahtar girin"
+                      className={`${FIELD_CLASS} pr-12 font-mono`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((current) => !current)}
+                      className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[8px] text-[#6B7280] transition hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                      aria-label={showKey ? "Anahtarı gizle" : "Anahtarı göster"}
+                    >
+                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </span>
+                </label>
+
+                <ResultMessage testResult={testResult} saveResult={saveResult} />
+
+                <div className="grid gap-2 border-t border-[#E1E7EF] pt-4 text-sm font-medium text-[#6B7280] sm:grid-cols-2">
+                  <StatusLine label="Durum" value={keyStatus} />
+                  <StatusLine label="Kullanım" value={selectedProvider.feature} />
+                </div>
+              </div>
+            </section>
+          </section>
+        </AdminPageShell>
+      </div>
+    </main>
+  );
+}
+
+function MetricCell({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Brain;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 border-r border-[#E1E7EF] px-4 py-4 last:border-r-0 xl:px-5">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#6B7280]">
+        <Icon className="h-3.5 w-3.5 text-[#FF6A00]" />
+        {label}
+      </div>
+      <p className="mt-2 truncate text-base font-semibold text-[#111827]" title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ResultMessage({
+  testResult,
+  saveResult,
+}: {
+  testResult: { success: boolean; message: string } | null;
+  saveResult: string | null;
+}) {
+  if (!testResult && !saveResult) {
+    return null;
+  }
+
+  if (testResult) {
+    return (
+      <div
+        className={cn(
+          "flex items-start gap-2 rounded-[8px] border px-3 py-2.5 text-sm font-semibold",
+          testResult.success
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : "border-rose-200 bg-rose-50 text-rose-700",
+        )}
+      >
+        {testResult.success ? (
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+        ) : (
+          <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        )}
+        <span>{testResult.message}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-[8px] border border-[#FFD1B5] bg-[#FFF8F3] px-3 py-2.5 text-sm font-semibold text-[#9A4B00]">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#FF6A00]" />
+      <span>{saveResult}</span>
+    </div>
+  );
+}
+
+function StatusLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[8px] bg-[#F9F9F9] px-3 py-2">
+      <span>{label}</span>
+      <span className="truncate font-semibold text-[#111827]">{value}</span>
+    </div>
+  );
 }
