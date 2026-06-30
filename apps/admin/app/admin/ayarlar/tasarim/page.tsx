@@ -1,124 +1,160 @@
-import { ImageIcon, LayoutTemplate, Sparkles } from "lucide-react";
+import { ImageIcon, LayoutTemplate, Megaphone } from "lucide-react";
 import Link from "next/link";
+import type { ComponentType } from "react";
+import { AdminPageHeader, AdminPageShell, AdminStatusBadge } from "@/components/admin/AdminPageShell";
 import { DesignHeroBannerSection } from "@/components/admin/DesignHeroBannerSection";
-import { DesignPromoBannerSection } from "@/components/admin/DesignPromoBannerSection";
 import { DesignMarqueeSection } from "@/components/admin/DesignMarqueeSection";
+import { DesignPromoBannerSection } from "@/components/admin/DesignPromoBannerSection";
 
 const DESIGN_SECTIONS = [
   {
     id: "hero-banner",
-    title: "Hero Banner",
-    description: "Ana sayfa üst manşeti ve ilk kampanya alanı.",
+    label: "Manşet",
+    title: "Ana manşet",
+    description: "İlk ekranda görünen büyük görsel alan.",
     icon: LayoutTemplate,
+    status: "Vitrin",
   },
   {
     id: "promosyon-banner",
-    title: "Promosyon Banner",
-    description: "Orta alanda gösterilen kampanya kartları.",
+    label: "Kampanya",
+    title: "Kampanya alanları",
+    description: "Ana sayfadaki tanıtım kartları.",
     icon: ImageIcon,
+    status: "Sıralı",
   },
   {
     id: "marquee",
-    title: "Kayan Yazı",
-    description: "Ustte hareket eden hizli bilgi seridi.",
-    icon: Sparkles,
+    label: "Bilgi şeridi",
+    title: "Bilgi şeridi",
+    description: "Kısa duyuru ve güven mesajları.",
+    icon: Megaphone,
+    status: "Kısa metin",
   },
 ] as const;
 
 export default function DesignSettingsPage() {
   return (
-    <div className="admin-page-root px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-none space-y-6">
-        <section className="relative overflow-hidden rounded-[12px] border border-[var(--admin-border)] bg-white p-6 shadow-[var(--shadow-xs)] md:p-8">
-          <div className="inline-flex items-center rounded-full border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-5 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent-hover)]">
-            Tasarım Ayarları
-          </div>
-          <div className="mt-5 max-w-3xl">
-            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--admin-heading)]">
-              Görsel alanları tek yerden yönetin
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-[var(--admin-text-secondary)]">
-              Hero banner, promosyon banner ve kayan yazı ayarları artık tek sayfada. Her bölüm kendi içinde kaydolur, diğerini bozmaz.
-            </p>
-          </div>
-          <div className="hidden" />
-        </section>
-
-        <section className="sticky top-4 z-20 rounded-[12px] border border-[var(--admin-border)] bg-white p-4 shadow-[var(--shadow-xs)] backdrop-blur-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-accent)]">Hizli Gecis</p>
-              <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">Düzenlemek istediğin bölüme tek tıkla git.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
+    <main className="min-h-screen bg-[#F9F9F9] px-4 py-5 text-[var(--admin-heading)] sm:px-5 xl:px-6">
+      <AdminPageShell className="mx-auto max-w-none">
+        <AdminPageHeader
+          sectionLabel="Ayarlar"
+          title="Tasarım"
+          description="Ana sayfa görsel alanlarını yönetin."
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
               {DESIGN_SECTIONS.map((section) => (
                 <Link
                   key={section.id}
                   href={`#${section.id}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[#F9FAFB] px-4 py-2 text-sm font-medium text-[var(--admin-text-secondary)] transition hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-[#DCE3EC] bg-white px-3 text-sm font-semibold text-[#4B5563] transition hover:border-[#FFD1B5] hover:bg-[#FFF8F3] hover:text-[#E85D04]"
                 >
                   <section.icon className="h-4 w-4" />
-                  {section.title}
+                  {section.label}
                 </Link>
               ))}
             </div>
+          }
+        />
+
+        <section className="grid gap-px overflow-hidden rounded-[10px] border border-[#E3E7EE] bg-[#E3E7EE] min-[920px]:grid-cols-3">
+          {DESIGN_SECTIONS.map((section) => (
+            <DesignSummaryCell key={section.id} section={section} />
+          ))}
+        </section>
+
+        <div className="grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="hidden h-fit xl:sticky xl:top-4 xl:block">
+            <nav className="space-y-1 border-l border-[#E3E7EE] pl-3">
+              {DESIGN_SECTIONS.map((section) => (
+                <Link
+                  key={section.id}
+                  href={`#${section.id}`}
+                  className="group flex items-center justify-between gap-3 rounded-[8px] px-3 py-2.5 text-sm font-semibold text-[#667085] transition hover:bg-[#FFF8F3] hover:text-[#E85D04]"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <section.icon className="h-4 w-4" />
+                    {section.label}
+                  </span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#D1D8E2] transition group-hover:bg-[#FF6A00]" />
+                </Link>
+              ))}
+            </nav>
+          </aside>
+
+          <div className="min-w-0 space-y-6">
+            <DesignSection
+              id="hero-banner"
+              section={DESIGN_SECTIONS[0]}
+              component={DesignHeroBannerSection}
+            />
+            <DesignSection
+              id="promosyon-banner"
+              section={DESIGN_SECTIONS[1]}
+              component={DesignPromoBannerSection}
+            />
+            <DesignSection
+              id="marquee"
+              section={DESIGN_SECTIONS[2]}
+              component={DesignMarqueeSection}
+            />
           </div>
-        </section>
-
-        <section
-          id="hero-banner"
-          className="scroll-mt-32 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
-        >
-          <SectionIntro
-            eyebrow="1. bölüm"
-            title="Hero Banner"
-            description="Ana sayfada en üstte çıkan büyük manşeti buradan yönet."
-          />
-          <DesignHeroBannerSection />
-        </section>
-
-        <section
-          id="promosyon-banner"
-          className="scroll-mt-32 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
-        >
-          <SectionIntro
-            eyebrow="2. bölüm"
-            title="Promosyon Banner"
-            description="Kampanya kutularını, rozetlerini ve görsellerini tek alanda düzenle."
-          />
-          <DesignPromoBannerSection />
-        </section>
-
-        <section
-          id="marquee"
-          className="scroll-mt-32 rounded-[12px] border border-[var(--admin-border)] bg-white p-5 shadow-[0_24px_55px_rgba(98,64,33,0.09)] md:p-6"
-        >
-          <SectionIntro
-            eyebrow="3. bölüm"
-            title="Kayan Yazı"
-            description="Ustte gorunen hizli bilgi metinlerini kolayca ekle, sil ve kaydet."
-          />
-          <DesignMarqueeSection />
-        </section>
-      </div>
-    </div>
+        </div>
+      </AdminPageShell>
+    </main>
   );
 }
 
-function SectionIntro({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
+type DesignSectionMeta = (typeof DESIGN_SECTIONS)[number];
+
+function DesignSummaryCell({ section }: { section: DesignSectionMeta }) {
   return (
-    <div className="mb-6 border-b border-[#efe3d7] pb-5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">{eyebrow}</p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{description}</p>
-    </div>
+    <Link
+      href={`#${section.id}`}
+      className="flex min-h-[86px] items-center gap-3 bg-white px-4 py-4 transition hover:bg-[#FFF8F3] sm:px-5"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-[#FFD1B5] bg-[#FFF4EC] text-[#FF6A00]">
+        <section.icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-[#182232]">{section.label}</span>
+        <span className="mt-1 block truncate text-xs font-medium text-[#667085]">{section.description}</span>
+      </span>
+    </Link>
+  );
+}
+
+function DesignSection({
+  id,
+  section,
+  component: Component,
+}: {
+  id: DesignSectionMeta["id"];
+  section: DesignSectionMeta;
+  component: ComponentType;
+}) {
+  const Icon = section.icon;
+
+  return (
+    <section id={id} className="scroll-mt-28 border-t border-[#E3E7EE] pt-5 first:border-t-0 first:pt-0">
+      <div className="mb-4 flex flex-col gap-3 min-[760px]:flex-row min-[760px]:items-center min-[760px]:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-[#FFD1B5] bg-[#FFF4EC] text-[#FF6A00]">
+            <Icon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-semibold tracking-[-0.03em] text-[#111827]">{section.title}</h2>
+            <p className="mt-1 text-sm font-medium text-[#667085]">{section.description}</p>
+          </div>
+        </div>
+        <AdminStatusBadge tone="accent" className="w-fit rounded-[8px]">
+          {section.status}
+        </AdminStatusBadge>
+      </div>
+
+      <div className="rounded-[10px] border border-[#E3E7EE] bg-white p-4 shadow-[0_10px_24px_rgba(16,24,40,0.035)] sm:p-5">
+        <Component />
+      </div>
+    </section>
   );
 }

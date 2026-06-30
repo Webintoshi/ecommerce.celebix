@@ -156,24 +156,20 @@ export function DesignMarqueeSection() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-[#efe3d7] pb-5 md:flex-row md:items-start md:justify-between">
         <div className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Kayan yazi</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Hizli bilgi seridi</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">Bilgi şeridi</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">Kısa duyurular</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
-            Ustte kayan bilgi metinlerini, hizini ve gorunurluk ayarlarini bu bolumden yonetin.
+            Metinleri, hızını ve görünürlüğünü ayarla.
           </p>
         </div>
         <button
           onClick={() => void handleSave()}
           disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-[#2f241d] to-[#4a3629] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#241a15] disabled:opacity-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.16)] transition hover:bg-[#E85D04] disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Kayan Yaziyi Kaydet
+          Kaydet
         </button>
-      </div>
-
-      <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
-        Bu alan magazanin en hizli duyuru serididir. Kisa, net ve tekrar kullanilabilir mesajlar yazin.
       </div>
 
       <div className="space-y-6">
@@ -286,7 +282,7 @@ export function DesignMarqueeSection() {
               className="inline-flex items-center gap-1 rounded-[8px] bg-[var(--admin-accent)] px-3 py-2 text-xs font-medium text-white hover:bg-[#e45700]"
             >
               <Plus className="h-3.5 w-3.5" />
-              Oge Ekle
+              Öğe ekle
             </button>
           </div>
 
@@ -361,15 +357,6 @@ export function DesignMarqueeSection() {
           </div>
         </div>
 
-        <div className="rounded-[12px] border border-blue-100 bg-blue-50 p-5">
-          <h4 className="inline-flex items-center gap-2 text-sm font-semibold text-blue-900">
-            <Sparkles className="h-4 w-4" />
-            Hizli ipucu
-          </h4>
-          <p className="mt-2 text-sm leading-6 text-blue-700">
-            Kayan yazi kisa kalirsa daha iyi okunur. Her ogeyi tek mesaj gibi dusunun: kargo, kampanya, kalite veya duyuru.
-          </p>
-        </div>
       </div>
     </div>
   );

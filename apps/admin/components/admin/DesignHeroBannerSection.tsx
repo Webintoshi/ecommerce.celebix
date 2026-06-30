@@ -599,28 +599,24 @@ export function DesignHeroBannerSection() {
       <div className="flex flex-col gap-4 border-b border-[#efe3d7] pb-5 md:flex-row md:items-start md:justify-between">
         <div className="max-w-2xl">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
-            Hero banner
+            Manşet
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
-            Ana sayfa ust manseti
+            Ana sayfa manşeti
           </h2>
           <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
-            Slaytlari kapali kartlar halinde yonetin. Ihtiyaciniz olan slaydi acin, siralamayi surukleyip birakin.
+            Slaytı seç, görseli düzenle, kaydet.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-[#2f241d] to-[#4a3629] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#241a15] disabled:opacity-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.16)] transition hover:bg-[#E85D04] disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Hero Banner Kaydet
+          Kaydet
         </button>
-      </div>
-
-      <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
-        Slaytlar varsayilan olarak kapali gelir. Acmak istediginiz karti secin; sira degistirmek icin sagdaki tutacagi kullanin.
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -650,10 +646,10 @@ export function DesignHeroBannerSection() {
       <button
         type="button"
         onClick={handleAddSlide}
-        className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-dashed border-[var(--admin-border)] py-4 font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]"
+        className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-dashed border-[#FFD1B5] bg-[#FFF8F3] py-3 text-sm font-semibold text-[#E85D04] transition hover:bg-[#FFF1E8]"
       >
         <Plus className="h-5 w-5" />
-        Yeni Slayt Ekle
+        Slayt ekle
       </button>
     </div>
   );

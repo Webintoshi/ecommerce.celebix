@@ -688,28 +688,24 @@ export function DesignPromoBannerSection() {
       <div className="flex flex-col gap-4 border-b border-[#efe3d7] pb-5 md:flex-row md:items-start md:justify-between">
         <div className="max-w-2xl">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--admin-accent)]">
-            Promosyon banner
+            Kampanya
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-heading)]">
-            Orta alan kampanya kartlari
+            Kampanya kartları
           </h2>
           <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
-            Bannerlari kapali kartlar olarak yonetin. Acmak istediginiz karti secin, sira degistirmek icin surukleyin.
+            Kartı seç, görseli ve sıralamayı düzenle.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-[#2f241d] to-[#4a3629] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#241a15] disabled:opacity-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-[#FF6A00] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,106,0,0.16)] transition hover:bg-[#E85D04] disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Promosyon Banner Kaydet
+          Kaydet
         </button>
-      </div>
-
-      <div className="rounded-[12px] border border-[var(--admin-border)] bg-[#fff9f4] px-4 py-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
-        Bannerlari acmadan bile durumunu gorun. Siralamayi surukleyerek degistirdiginizde kaydettikten sonra storefront ayni sira ile akar.
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -749,25 +745,11 @@ export function DesignPromoBannerSection() {
         <button
           type="button"
           onClick={handleAddBanner}
-          className="flex w-full items-center justify-center gap-2 rounded-[12px] border-2 border-dashed border-[var(--admin-border)] py-4 font-medium text-[var(--admin-text-secondary)] transition-all hover:border-[var(--admin-accent-border)] hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-accent-hover)]"
+          className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-dashed border-[#FFD1B5] bg-[#FFF8F3] py-3 text-sm font-semibold text-[#E85D04] transition hover:bg-[#FFF1E8]"
         >
           <Plus className="h-5 w-5" />
-          Yeni Banner Ekle
+          Banner ekle
         </button>
-      ) : null}
-
-      {banners.length > 0 ? (
-        <div className="flex items-start gap-3 rounded-[12px] border border-blue-100 bg-blue-50 p-4">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">
-            <Smartphone className="h-4 w-4 text-blue-600" />
-          </div>
-          <div>
-            <h4 className="text-sm font-medium text-blue-900">Mobil gorsel onerisi</h4>
-            <p className="mt-1 text-xs text-blue-700">
-              Mobil cihazlarda daha temiz bir gorunum icin ayri mobil gorsel kullanin. Mobil gorsel yoksa masaustu gorseli kullanilir.
-            </p>
-          </div>
-        </div>
       ) : null}
     </div>
   );
