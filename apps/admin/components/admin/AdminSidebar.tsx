@@ -15,6 +15,7 @@ import {
   Search,
   Settings,
   ShoppingBag,
+  Store,
   Users,
   X,
 } from "lucide-react";
@@ -119,6 +120,11 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
+    title: "Pazar Yerleri",
+    icon: Store,
+    href: "/admin/markets",
+  },
+  {
     title: "Ayarlar",
     icon: Settings,
     href: "/admin/ayarlar",
@@ -127,7 +133,6 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "Dil", href: "/admin/ayarlar/dil" },
       { title: "Ödeme", href: "/admin/ayarlar/odeme" },
       { title: "Kargo", href: "/admin/ayarlar/kargo" },
-      { title: "Entegrasyonlar", href: "/admin/markets" },
       { title: "Yöneticiler", href: "/admin/yoneticiler" },
     ],
   },
@@ -158,7 +163,7 @@ const MENU_ITEMS: MenuItem[] = [
 const MENU_GROUPS: MenuGroup[] = [
   { id: "home", titles: ["Giriş"] },
   { id: "operations", titles: ["Siparişler", "Müşteriler", "Ürünler"] },
-  { id: "marketing", titles: ["İndirimler", "Pazarlama"] },
+  { id: "marketing", titles: ["İndirimler", "Pazarlama", "Pazar Yerleri"] },
   { id: "settings", titles: ["Ayarlar"] },
   { id: "advanced", titles: ["Muhasebe", "SEO Araçları"] },
 ];
