@@ -7,8 +7,6 @@ import {
   Calculator,
   ChevronDown,
   ChevronRight,
-  FileText,
-  Globe2,
   Home,
   LogOut,
   Megaphone as MarketingIcon,
@@ -117,17 +115,9 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "E-posta", href: "/admin/pazarlama/email" },
       { title: "Telefon", href: "/admin/pazarlama/phone" },
       { title: "WhatsApp", href: "/admin/pazarlama/whatsapp" },
-    ],
-  },
-  { title: "Mağaza Görünümü", icon: Globe2, externalHref: STORE_RUNTIME.storefrontUrl },
-  {
-    title: "İçerik",
-    icon: FileText,
-    href: "/admin/cms",
-    submenu: [
-      { title: "Blog Yazıları", href: "/admin/cms/blog" },
-      { title: "Sayfalar", href: "/admin/cms/sayfalar" },
-      { title: "Politikalar", href: "/admin/cms/politikalar" },
+      { title: "Blog Yazıları", href: "/admin/cms/blog", group: "İçerik" },
+      { title: "Sayfalar", href: "/admin/cms/sayfalar", group: "İçerik" },
+      { title: "Politikalar", href: "/admin/cms/politikalar", group: "İçerik" },
     ],
   },
   {
@@ -172,7 +162,6 @@ const MENU_GROUPS: MenuGroup[] = [
   { id: "operations", label: "Operasyon", titles: ["Siparişler", "Müşteriler"] },
   { id: "catalog", label: "Katalog", titles: ["Ürünler"] },
   { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Pazarlama"] },
-  { id: "store", label: "Mağaza", titles: ["Mağaza Görünümü", "İçerik"] },
   { id: "settings", label: "Ayarlar", titles: ["Ayarlar"] },
   { id: "advanced", label: "Gelişmiş", titles: ["Muhasebe", "SEO Araçları"] },
 ];
