@@ -36,7 +36,6 @@ const ADMIN_BRAND_LOGO_SRC = "/Logo/celebix-beyaz-logo.svg";
 type MenuSubItem = {
   title: string;
   href: string;
-  group?: string;
   badge?: string;
 };
 
@@ -114,9 +113,9 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "E-posta", href: "/admin/pazarlama/email" },
       { title: "Telefon", href: "/admin/pazarlama/phone" },
       { title: "WhatsApp", href: "/admin/pazarlama/whatsapp" },
-      { title: "Blog Yazıları", href: "/admin/cms/blog", group: "İçerik" },
-      { title: "Sayfalar", href: "/admin/cms/sayfalar", group: "İçerik" },
-      { title: "Politikalar", href: "/admin/cms/politikalar", group: "İçerik" },
+      { title: "Blog Yazıları", href: "/admin/cms/blog" },
+      { title: "Sayfalar", href: "/admin/cms/sayfalar" },
+      { title: "Politikalar", href: "/admin/cms/politikalar" },
     ],
   },
   {
@@ -702,18 +701,11 @@ export function AdminSidebar({
                             <div className="min-h-0">
                               <div className="pb-2 pl-[3.3rem] pr-3">
                                   <div className="space-y-0.5 border-l border-white/10 pl-2.5">
-                                  {item.submenu?.map((sub, subIndex, submenu) => {
+                                  {item.submenu?.map((sub) => {
                                     const isSubActive = submenuPathMatches(pathname, sub.href, item.href);
-                                    const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
-                                    const shouldShowGroup = Boolean(sub.group && sub.group !== previousGroup);
 
                                     return (
                                       <div key={sub.href} className="space-y-1">
-                                        {shouldShowGroup ? (
-                                            <p className="px-2.5 pt-1.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-white/34">
-                                            {sub.group}
-                                          </p>
-                                        ) : null}
                                         <Link
                                           href={sub.href}
                                           aria-current={isSubActive ? "page" : undefined}
@@ -910,18 +902,11 @@ export function AdminSidebar({
                         <div className="min-h-0">
                             <div className="ml-4 border-l border-white/10 pl-2.5 pt-0.5">
                             <div className="space-y-0.5">
-                              {item.submenu?.map((sub, subIndex, submenu) => {
+                              {item.submenu?.map((sub) => {
                                 const isSubActive = submenuPathMatches(pathname, sub.href, item.href);
-                                const previousGroup = subIndex > 0 ? submenu[subIndex - 1]?.group : undefined;
-                                const shouldShowGroup = Boolean(sub.group && sub.group !== previousGroup);
 
                                 return (
                                   <div key={sub.href} className="space-y-1">
-                                    {shouldShowGroup ? (
-                                        <p className="px-2.5 pt-1.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-white/34">
-                                        {sub.group}
-                                      </p>
-                                    ) : null}
                                     <Link
                                       href={sub.href}
                                       aria-current={isSubActive ? "page" : undefined}
