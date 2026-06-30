@@ -7,6 +7,7 @@ import {
   Calculator,
   ChevronDown,
   ChevronRight,
+  FileText,
   Home,
   LogOut,
   Megaphone as MarketingIcon,
@@ -114,6 +115,13 @@ const MENU_ITEMS: MenuItem[] = [
       { title: "E-posta", href: "/admin/pazarlama/email" },
       { title: "Telefon", href: "/admin/pazarlama/phone" },
       { title: "WhatsApp", href: "/admin/pazarlama/whatsapp" },
+    ],
+  },
+  {
+    title: "İçerik",
+    icon: FileText,
+    href: "/admin/cms",
+    submenu: [
       { title: "Blog Yazıları", href: "/admin/cms/blog" },
       { title: "Sayfalar", href: "/admin/cms/sayfalar" },
       { title: "Politikalar", href: "/admin/cms/politikalar" },
@@ -163,7 +171,7 @@ const MENU_ITEMS: MenuItem[] = [
 const MENU_GROUPS: MenuGroup[] = [
   { id: "home", titles: ["Giriş"] },
   { id: "operations", titles: ["Siparişler", "Müşteriler", "Ürünler"] },
-  { id: "marketing", titles: ["İndirimler", "Pazarlama", "Pazar Yerleri"] },
+  { id: "marketing", titles: ["İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri"] },
   { id: "settings", titles: ["Ayarlar"] },
   { id: "advanced", titles: ["Muhasebe", "SEO Araçları"] },
 ];
