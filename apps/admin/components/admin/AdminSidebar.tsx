@@ -53,7 +53,6 @@ interface MenuItem {
 
 type MenuGroup = {
   id: string;
-  label: string;
   titles: string[];
 };
 
@@ -158,11 +157,11 @@ const MENU_ITEMS: MenuItem[] = [
 ];
 
 const MENU_GROUPS: MenuGroup[] = [
-  { id: "home", label: "Ana", titles: ["Giriş"] },
-  { id: "operations", label: "Operasyon", titles: ["Siparişler", "Müşteriler", "Ürünler"] },
-  { id: "marketing", label: "Pazarlama", titles: ["İndirimler", "Pazarlama"] },
-  { id: "settings", label: "Ayarlar", titles: ["Ayarlar"] },
-  { id: "advanced", label: "Gelişmiş", titles: ["Muhasebe", "SEO Araçları"] },
+  { id: "home", titles: ["Giriş"] },
+  { id: "operations", titles: ["Siparişler", "Müşteriler", "Ürünler"] },
+  { id: "marketing", titles: ["İndirimler", "Pazarlama"] },
+  { id: "settings", titles: ["Ayarlar"] },
+  { id: "advanced", titles: ["Muhasebe", "SEO Araçları"] },
 ];
 
 interface SidebarProps {
@@ -388,7 +387,6 @@ export function AdminSidebar({
     if (remainingItems.length > 0) {
       groups.push({
         id: "other",
-        label: "Diğer",
         titles: remainingItems.map((item) => item.title),
         items: remainingItems,
       });
@@ -819,12 +817,6 @@ export function AdminSidebar({
       <nav className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3">
         {groupedItems.map((group) => (
           <section key={group.id} className="space-y-1">
-            <div className="px-1.5">
-              <p className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-white/38">
-                {group.label}
-              </p>
-            </div>
-
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const { hasSubmenu, isExpanded, isActive } = getItemState(item);
