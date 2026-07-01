@@ -19,14 +19,12 @@ import {
   ListChecks,
   Package,
   ShoppingBag,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  buildDashboardAnalyticsStatus,
   buildDashboardGrowthRows,
   buildDashboardSalesChannels,
   getDashboardAnalyticsHref,
@@ -273,36 +271,6 @@ function getActivityBadge(type: DashboardCustomerActivity["type"]) {
   }
 }
 
-function getAnalysisMeta(key: DashboardAnalysisSummaryItem["key"]) {
-  switch (key) {
-    case "visitors":
-      return {
-        icon: Activity,
-        shell: "bg-[var(--admin-orange-soft)] text-[var(--admin-purple)]",
-      };
-    case "pageViews":
-      return {
-        icon: Activity,
-        shell: "bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
-      };
-    case "addToCart":
-      return {
-        icon: ShoppingBag,
-        shell: "bg-[rgba(255,241,232,0.92)] text-[var(--admin-accent-hover)]",
-      };
-    case "purchases":
-      return {
-        icon: Sparkles,
-        shell: "bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
-      };
-    default:
-      return {
-        icon: Activity,
-        shell: "bg-[var(--admin-bg)] text-[var(--admin-text-secondary)]",
-      };
-  }
-}
-
 function MiniSparkline({
   values,
   color,
@@ -371,28 +339,17 @@ function DashboardCard({
 function DashboardActionRail({
   selectedPeriod,
   onPeriodChange,
-  analyticsStatus,
   placement = "topbar",
 }: {
   selectedPeriod: TimeRange;
   onPeriodChange: (value: TimeRange) => void;
-  analyticsStatus?: DashboardBootstrapData["analyticsStatus"];
   placement?: "topbar" | "mobile";
 }) {
   const compact = placement === "mobile";
-  const analyticsPresentation = analyticsStatus
-    ? buildDashboardAnalyticsStatus(analyticsStatus)
-    : null;
   const controlClassName =
     "group relative inline-flex min-h-[42px] flex-1 items-center gap-2 rounded-[7px] border border-[rgba(224,228,235,0.96)] bg-[#f9f9f9] px-3.5 py-1.5 text-[14px] font-semibold text-[var(--admin-heading)] shadow-[0_1px_2px_rgba(17,24,39,0.025)] transition-colors hover:border-[var(--admin-accent-border)] hover:bg-white focus-within:border-[var(--admin-accent-hover)] focus-within:ring-2 focus-within:ring-[rgba(255,106,0,0.14)] sm:flex-none";
   const chevronClassName =
     "pointer-events-none absolute right-3 h-4 w-4 text-[var(--admin-text-secondary)] transition-colors group-hover:text-[var(--admin-accent-hover)]";
-  const analyticsToneClassName =
-    analyticsPresentation?.tone === "success"
-      ? "border-[rgba(22,163,74,0.2)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]"
-      : analyticsPresentation?.tone === "warning"
-        ? "border-[rgba(245,158,11,0.24)] bg-[rgba(255,247,237,0.78)] text-[var(--admin-warning)]"
-        : "border-[var(--admin-accent-border)] bg-[rgba(255,241,232,0.72)] text-[var(--admin-accent-hover)]";
 
   return (
     <div
@@ -461,30 +418,6 @@ function DashboardActionRail({
           <span className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-[7px] border border-[rgba(224,228,235,0.96)] bg-[#f9f9f9] text-[var(--admin-text-secondary)] shadow-[0_1px_2px_rgba(17,24,39,0.025)] transition-colors hover:border-[var(--admin-accent-border)] hover:bg-white hover:text-[var(--admin-accent-hover)]">
             <ListChecks className="h-5 w-5" />
           </span>
-          <span
-            title={analyticsPresentation?.details}
-            className={cn(
-              "inline-flex min-h-[42px] max-w-full items-center gap-3 rounded-[7px] border px-3.5 text-[14px] font-semibold shadow-[0_1px_2px_rgba(255,106,0,0.06)]",
-              analyticsToneClassName,
-            )}
-          >
-            <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-white">
-              <span
-                className={cn(
-                  "h-2.5 w-2.5 rounded-full",
-                  analyticsPresentation?.tone === "success"
-                    ? "bg-[var(--admin-success)]"
-                    : analyticsPresentation?.tone === "warning"
-                      ? "bg-[var(--admin-warning)]"
-                      : "bg-[var(--admin-accent)]",
-                )}
-              />
-            </span>
-            <span className="min-w-0 truncate">
-              {analyticsPresentation?.label ?? "Analytics kontrol ediliyor"}
-            </span>
-            <ArrowRight className="h-4.5 w-4.5 shrink-0" />
-          </span>
         </div>
       </div>
     </div>
@@ -494,11 +427,9 @@ function DashboardActionRail({
 function DashboardTopbarActionsPortal({
   selectedPeriod,
   onPeriodChange,
-  analyticsStatus,
 }: {
   selectedPeriod: TimeRange;
   onPeriodChange: (value: TimeRange) => void;
-  analyticsStatus?: DashboardBootstrapData["analyticsStatus"];
 }) {
   const [target, setTarget] = useState<HTMLElement | null>(null);
 
@@ -533,7 +464,6 @@ function DashboardTopbarActionsPortal({
             <DashboardActionRail
               selectedPeriod={selectedPeriod}
               onPeriodChange={onPeriodChange}
-              analyticsStatus={analyticsStatus}
             />,
             target,
           )
@@ -541,7 +471,6 @@ function DashboardTopbarActionsPortal({
       <DashboardActionRail
         selectedPeriod={selectedPeriod}
         onPeriodChange={onPeriodChange}
-        analyticsStatus={analyticsStatus}
         placement="mobile"
       />
     </>
@@ -1453,7 +1382,6 @@ function TodoCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
 }
 
 function StoreStatusCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
-  const analyticsPresentation = buildDashboardAnalyticsStatus(dashboard.analyticsStatus);
   const statusItems = [
     {
       label: "Admin çalışma durumu",
@@ -1474,21 +1402,6 @@ function StoreStatusCard({ dashboard }: { dashboard: DashboardBootstrapData }) {
       label: "Düşük stok",
       value: (dashboard.stats.lowStockProducts || dashboard.lowStockProducts.length).toLocaleString("tr-TR"),
       tone: dashboard.lowStockProducts.length > 0 ? "warning" : "success",
-    },
-    {
-      label: "Analytics",
-      value: analyticsPresentation.label,
-      tone:
-        analyticsPresentation.tone === "success"
-          ? "success"
-          : analyticsPresentation.tone === "warning"
-            ? "warning"
-            : "neutral",
-    },
-    {
-      label: "Trafik kaynağı",
-      value: analyticsPresentation.sourceLabel,
-      tone: "neutral",
     },
   ];
 
@@ -1563,163 +1476,6 @@ function CustomerActivityCard({ activities }: { activities: DashboardCustomerAct
   );
 }
 
-function InsightsStrip({ items }: { items: DashboardAnalysisSummaryItem[] }) {
-  if (!items.length) {
-    return null;
-  }
-
-  return (
-    <section className="grid overflow-hidden rounded-[12px] border border-[rgba(215,221,231,0.72)] bg-[var(--admin-bg)] sm:grid-cols-2 xl:grid-cols-4">
-      {items.map((item) => {
-        const meta = getAnalysisMeta(item.key);
-        const Icon = meta.icon as ComponentType<{ className?: string }>;
-        const delta = formatDelta(item.change);
-
-        return (
-          <div key={item.key} className="border-r border-[rgba(226,231,238,0.82)] px-4 py-4 last:border-r-0">
-            <div className="flex items-start justify-between gap-3">
-              <span className={cn("flex h-10 w-10 items-center justify-center rounded-[14px]", meta.shell)}>
-                <Icon className="h-4.5 w-4.5" />
-              </span>
-              <span
-                className={cn(
-                  "text-[11px] font-semibold",
-                  delta.positive === null
-                    ? "text-[var(--admin-text-secondary)]"
-                    : delta.positive
-                      ? "text-[var(--admin-success)]"
-                      : "text-[var(--admin-danger)]",
-                )}
-              >
-                {delta.compactLabel}
-              </span>
-            </div>
-            <p className="mt-4 text-[12px] font-medium text-[var(--admin-text-secondary)]">
-              {item.label}
-            </p>
-            <p className="mt-2 text-[1.25rem] font-semibold tracking-[-0.04em] text-[var(--admin-heading)]">
-              {item.value.toLocaleString("tr-TR")}
-            </p>
-          </div>
-        );
-      })}
-    </section>
-  );
-}
-
-function AnalyticsOverviewSection({ dashboard }: { dashboard: DashboardBootstrapData }) {
-  const analyticsPresentation = buildDashboardAnalyticsStatus(dashboard.analyticsStatus);
-  const topPages = dashboard.liveData.topPages.slice(0, 4);
-  const topReferrers = dashboard.liveData.topReferrers.slice(0, 4);
-
-  return (
-    <section id="dashboard-analytics" className="scroll-mt-24 space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 rounded-[12px] border border-[rgba(215,221,231,0.72)] bg-[var(--admin-bg)] px-4 py-4 md:px-5">
-        <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-accent-hover)]">
-            Umami Analizleri
-          </p>
-          <h2 className="mt-1 text-[1.18rem] font-semibold tracking-[-0.04em] text-[var(--admin-heading)]">
-            Trafik ve dönüşüm özeti
-          </h2>
-          <p className="mt-1 max-w-[46rem] text-sm leading-6 text-[var(--admin-text-secondary)]">
-            Ana dashboard içindeki analizler Umami öncelikli okunur; kaynak eksikse durum açık gösterilir,
-            secret değerler taşınmaz.
-          </p>
-        </div>
-        <span
-          className={cn(
-            "inline-flex min-h-9 items-center rounded-full border px-3 text-sm font-semibold",
-            analyticsPresentation.tone === "success"
-              ? "border-[rgba(22,163,74,0.2)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]"
-              : analyticsPresentation.tone === "warning"
-                ? "border-[rgba(245,158,11,0.24)] bg-[rgba(255,247,237,0.78)] text-[var(--admin-warning)]"
-                : "border-[var(--admin-border)] bg-[var(--admin-bg)] text-[var(--admin-text-secondary)]",
-          )}
-        >
-          {analyticsPresentation.label}
-        </span>
-      </div>
-
-      <InsightsStrip items={dashboard.analysisSummary.items} />
-
-      <div className="grid gap-5 xl:grid-cols-3">
-        <DashboardCard title="Analytics Kaynağı">
-          <div className="space-y-3 text-sm text-[var(--admin-text-secondary)]">
-            <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[var(--admin-border)] bg-[rgba(249,249,249,0.76)] px-3 py-2.5">
-              <span>Dashboard kaynağı</span>
-              <span className="font-semibold text-[var(--admin-heading)]">{analyticsPresentation.sourceLabel}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[var(--admin-border)] bg-[rgba(249,249,249,0.76)] px-3 py-2.5">
-              <span>Storefront tracking</span>
-              <span className="text-right font-semibold text-[var(--admin-heading)]">
-                {analyticsPresentation.storefrontLabel}
-              </span>
-            </div>
-            <p className="rounded-[10px] border border-dashed border-[var(--admin-border)] bg-[rgba(249,249,249,0.76)] px-3 py-3 leading-6">
-              {analyticsPresentation.details}
-            </p>
-          </div>
-        </DashboardCard>
-
-        <DashboardCard title="En Çok Görüntülenen Sayfalar">
-          {topPages.length > 0 ? (
-            <div className="space-y-2.5">
-              {topPages.map((page) => (
-                <div
-                  key={page.url}
-                  className="flex items-center justify-between gap-3 rounded-[10px] bg-[rgba(249,249,249,0.76)] px-3 py-2.5"
-                >
-                  <span className="min-w-0 truncate text-sm font-medium text-[var(--admin-heading)]">
-                    {page.url}
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold text-[var(--admin-accent-hover)]">
-                    {page.count.toLocaleString("tr-TR")}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[rgba(249,249,249,0.78)] px-5 py-10 text-center">
-              <Activity className="mx-auto h-8 w-8 text-[var(--admin-text-muted)]" />
-              <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">
-                Umami sayfa görüntüleme verisi henüz gelmedi.
-              </p>
-            </div>
-          )}
-        </DashboardCard>
-
-        <DashboardCard title="Trafik Referansları">
-          {topReferrers.length > 0 ? (
-            <div className="space-y-2.5">
-              {topReferrers.map((referrer) => (
-                <div
-                  key={referrer.label}
-                  className="flex items-center justify-between gap-3 rounded-[10px] bg-[rgba(249,249,249,0.76)] px-3 py-2.5"
-                >
-                  <span className="min-w-0 truncate text-sm font-medium text-[var(--admin-heading)]">
-                    {referrer.label}
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold text-[var(--admin-accent-hover)]">
-                    {referrer.count.toLocaleString("tr-TR")}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[rgba(249,249,249,0.78)] px-5 py-10 text-center">
-              <Globe2 className="mx-auto h-8 w-8 text-[var(--admin-text-muted)]" />
-              <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">
-                Referans kaynağı verisi henüz yok.
-              </p>
-            </div>
-          )}
-        </DashboardCard>
-      </div>
-    </section>
-  );
-}
-
 function DashboardSkeleton() {
   return (
     <div className="space-y-5">
@@ -1786,7 +1542,6 @@ export function DashboardHomeView({
         <DashboardTopbarActionsPortal
           selectedPeriod={selectedPeriod}
           onPeriodChange={onPeriodChange}
-          analyticsStatus={dashboard.analyticsStatus}
         />
 
         {errorMessage ? (
@@ -1801,7 +1556,7 @@ export function DashboardHomeView({
         ) : (
           <>
             <SalesChartCard dashboard={dashboard} />
-            <AnalyticsOverviewSection dashboard={dashboard} />
+            <span id="dashboard-analytics" className="sr-only" aria-hidden="true" />
             <SalesChannelsOverview dashboard={dashboard} />
             <section className="grid min-w-0 gap-5 lg:grid-cols-2">
               <AbandonedCartsCard dashboard={dashboard} />

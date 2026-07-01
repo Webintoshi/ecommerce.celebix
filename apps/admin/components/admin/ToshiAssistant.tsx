@@ -63,7 +63,7 @@ function ToshiMark({
 
 function getQuickPrompts(pathname: string): string[] {
   if (pathname === "/admin" || pathname === "/admin/") {
-    return ["Mağaza özeti", "Umami trafik özeti", "Bekleyen siparişler", "Düşük stok uyarıları"];
+    return ["Mağaza özeti", "Trafik özeti", "Bekleyen siparişler", "Düşük stok uyarıları"];
   }
 
   if (pathname.startsWith("/admin/siparisler")) {
