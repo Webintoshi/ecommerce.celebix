@@ -650,7 +650,10 @@ export default function ToshiAssistant({
             style={{
               background: canSend ? TOSHI_GRADIENT : "#f5f6f8",
               borderColor: canSend ? "#ff6a00" : "#eef1f5",
+              height: "36px",
+              minHeight: "36px",
               boxShadow: canSend ? "0 10px 18px rgba(255,106,0,0.22)" : "none",
+              width: "36px",
             }}
           >
             <Send
