@@ -28,6 +28,7 @@ const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
 const SELF_SERVE_PUBLIC_PREFIXES = [
+  "/branding",
   "/magaza-ac",
   "/kayit",
   "/onboarding",

@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <aside className="sidebar">
                 <div className="sidebar-header">
                   <Link href="/">
-                    <img src="https://celebix.co/Logo/koyu%20logo.svg" alt="Celebix" className="brand-logo" />
+                    <img src="/branding/celebix-logo.svg" alt="Celebix" className="brand-logo" />
                   </Link>
                 </div>
                 <nav className="sidebar-nav">

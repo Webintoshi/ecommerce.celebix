@@ -15,7 +15,7 @@ export default async function MagazaAcPage({ searchParams }: MagazaAcPageProps) 
     <main className="self-serve-public-page">
       <section className="self-serve-landing">
         <div className="self-serve-landing-copy">
-          <img src="https://celebix.co/Logo/koyu%20logo.svg" alt="Celebix" className="self-serve-logo" />
+          <img src="/branding/celebix-logo.svg" alt="Celebix" className="self-serve-logo" />
           <span className="pill pill-accent">Kontrollu self-serve MVP</span>
           <h1>Magazanizi Celebix ekibiyle guvenli sekilde acin.</h1>
           <p>

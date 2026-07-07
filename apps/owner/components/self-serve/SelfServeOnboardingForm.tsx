@@ -157,6 +157,7 @@ export function SelfServeOnboardingForm({ flags, applicantSession }: SelfServeOn
       <section className="self-serve-card">
         <div className="self-serve-card-head">
           <div>
+            <img src="/branding/celebix-logo.svg" alt="Celebix" className="self-serve-logo self-serve-form-logo" />
             <span className="pill pill-accent">Kontrollu self-serve</span>
             <h1>{STEPS[step - 1].title}</h1>
             <p>{STEPS[step - 1].description}</p>
