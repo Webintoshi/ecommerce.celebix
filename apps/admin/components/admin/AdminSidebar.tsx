@@ -573,7 +573,7 @@ export function AdminSidebar({
           aria-label="Mobil yönetim menüsü"
           aria-hidden={!mobileMenuOpen}
           className={cn(
-            "fixed inset-y-0 right-0 z-[74] w-[min(91vw,24.75rem)] max-w-[24.75rem] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] min-[1025px]:hidden",
+            "fixed inset-y-0 right-0 z-[74] w-[min(88vw,22.75rem)] max-w-[22.75rem] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] min-[1025px]:hidden",
             mobileMenuOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
           )}
           onTouchStart={handleDrawerTouchStart}
@@ -581,19 +581,19 @@ export function AdminSidebar({
           onTouchEnd={handleDrawerTouchEnd}
           onTouchCancel={resetTouchTracking}
         >
-          <div className="flex h-full flex-col overflow-hidden rounded-l-[24px] border-l border-white/10 bg-[#2A2A2A] text-white shadow-[-22px_0_48px_rgba(0,0,0,0.28)]">
-            <div className="border-b border-white/10 px-4 pb-3 pt-[max(env(safe-area-inset-top,0px),0.85rem)]">
+          <div className="flex h-full flex-col overflow-hidden rounded-l-[22px] border-l border-white/10 bg-[#2A2A2A] text-white shadow-[-18px_0_44px_rgba(0,0,0,0.26)]">
+            <div className="border-b border-white/10 px-3.5 pb-2.5 pt-[max(env(safe-area-inset-top,0px),0.7rem)]">
               <div className="flex justify-center">
-                <span className="h-1.5 w-14 rounded-full bg-white/20" />
+                <span className="h-1.5 w-12 rounded-full bg-white/20" />
               </div>
 
-              <div className="mt-3 flex items-center gap-2.5">
+              <div className="mt-2.5 flex items-center gap-2.5">
                 <div className="flex min-h-[36px] min-w-0 flex-1 items-center justify-center px-1">
                   <img
                     src={ADMIN_BRAND_LOGO_SRC}
                     alt="Celebix"
                     className="block object-contain"
-                    style={{ width: "136px", height: "auto" }}
+                    style={{ width: "122px", height: "auto" }}
                   />
                 </div>
 
@@ -601,7 +601,7 @@ export function AdminSidebar({
                   ref={closeButtonRef}
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.85rem] border border-white/15 bg-white/8 text-white/75 shadow-[0_10px_20px_rgba(0,0,0,0.14)] transition-colors active:scale-[0.98] hover:bg-white/12 hover:text-white"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.75rem] border border-white/15 bg-white/8 text-white/75 shadow-[0_10px_20px_rgba(0,0,0,0.14)] transition-colors active:scale-[0.98] hover:bg-white/12 hover:text-white"
                   aria-label="Menüyü kapat"
                 >
                   <X className="h-[1.1rem] w-[1.1rem]" />
@@ -609,20 +609,14 @@ export function AdminSidebar({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3.5 pb-3 pt-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-2.5 pt-2.5">
               {!role && !isRecoveringProfile ? (
                 <div className="rounded-[0.9rem] border border-white/10 bg-white/[0.06] px-3 py-2.5 text-[12.5px] font-medium text-white/62">
                   Yetki bilgisi yüklenemedi.
                 </div>
               ) : null}
 
-              <section className={cn("space-y-2.5", !role && !isRecoveringProfile ? "mt-3" : "")}>
-                <div className="px-1.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">
-                    Menü
-                  </p>
-                </div>
-
+              <section className={cn(!role && !isRecoveringProfile ? "mt-3" : "")}>
                 <div className="overflow-hidden rounded-[1rem] border border-white/10 bg-black/10">
                   {filteredItems.map((item, index) => {
                     const { hasSubmenu, isExpanded, isActive } = getItemState(item);
@@ -630,7 +624,7 @@ export function AdminSidebar({
                     const statusLabel = item.badge;
 
                       const rowClasses = cn(
-                        "group relative flex min-h-[46px] w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
+                        "group relative flex min-h-[42px] w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:rgba(255,106,0,0.16)]",
                         isActive ? "bg-[#37373B] text-white" : "bg-transparent text-white/82 hover:bg-white/[0.06] hover:text-white",
                       );
 
@@ -644,13 +638,13 @@ export function AdminSidebar({
                         />
                         <span
                           className={cn(
-                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.75rem] transition-colors",
+                              "flex h-7 w-7 shrink-0 items-center justify-center rounded-[0.65rem] transition-colors",
                               isActive ? "bg-white/[0.1] text-white" : "bg-white/[0.06] text-white/72",
                           )}
                         >
-                          <item.icon className="h-[0.98rem] w-[0.98rem]" />
+                          <item.icon className="h-[0.9rem] w-[0.9rem]" />
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium tracking-[-0.005em]">
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium tracking-[-0.005em]">
                           {item.title}
                         </span>
                         {statusLabel ? (
@@ -712,7 +706,7 @@ export function AdminSidebar({
                             )}
                           >
                             <div className="min-h-0">
-                              <div className="pb-2 pl-[3.3rem] pr-3">
+                              <div className="pb-1.5 pl-[3rem] pr-2.5">
                                   <div className="space-y-0.5 border-l border-white/10 pl-2.5">
                                   {item.submenu?.map((sub) => {
                                     const isSubActive = submenuPathMatches(pathname, sub.href, item.href);
@@ -724,7 +718,7 @@ export function AdminSidebar({
                                           aria-current={isSubActive ? "page" : undefined}
                                           onClick={handleLeafClick}
                                           className={cn(
-                                              "flex min-h-[34px] items-center gap-2 rounded-[0.75rem] px-2.5 py-1.5 text-[12.5px] transition-colors duration-200 active:scale-[0.995]",
+                                              "flex min-h-[30px] items-center gap-2 rounded-[0.7rem] px-2.5 py-1 text-[12px] transition-colors duration-200 active:scale-[0.995]",
                                               isSubActive
                                                 ? "bg-white/[0.1] text-white"
                                                 : "text-white/62 hover:bg-white/[0.06] hover:text-white",
@@ -758,13 +752,13 @@ export function AdminSidebar({
               </section>
             </div>
 
-            <div className="border-t border-white/10 bg-[#232323] px-3.5 pb-[max(env(safe-area-inset-bottom,0px),0.65rem)] pt-2">
+            <div className="border-t border-white/10 bg-[#232323] px-3 pb-[max(env(safe-area-inset-bottom,0px),0.55rem)] pt-1.5">
               <div className="flex items-center gap-2 px-1">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/14 bg-black/14 text-[10.5px] font-semibold text-white">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/14 bg-black/14 text-[10px] font-semibold text-white">
                   {adminInitials}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12.5px] font-semibold tracking-[-0.005em] text-white">{adminFullName}</p>
+                  <p className="truncate text-[12px] font-semibold tracking-[-0.005em] text-white">{adminFullName}</p>
                   <p className="truncate text-[10.5px] text-white/48">
                     {siteName} · {adminRoleLabel}
                   </p>

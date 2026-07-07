@@ -87,6 +87,7 @@
 }
 
 html {
+  background: var(--admin-bg);
   min-height: 100%;
   color-scheme: light;
   scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 6rem);
@@ -274,6 +275,38 @@ body {
   font-kerning: normal;
   font-synthesis: none;
   touch-action: manipulation;
+}
+
+.admin-mobile-app-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.54) 0%, rgba(249, 249, 249, 0) 8rem),
+    var(--admin-bg);
+  isolation: isolate;
+}
+
+.admin-mobile-app-shell main {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+body[data-admin-mobile-shell="true"] {
+  background: var(--admin-bg);
+  overscroll-behavior: none;
+}
+
+body[data-admin-mobile-shell="true"] input,
+body[data-admin-mobile-shell="true"] textarea,
+body[data-admin-mobile-shell="true"] select {
+  scroll-margin-bottom: calc(var(--admin-mobile-content-bottom, 7rem) + 1rem);
+}
+
+body[data-admin-pwa-standalone="true"] {
+  min-height: 100svh;
+}
+
+body[data-admin-pwa-standalone="true"] .admin-mobile-app-shell {
+  height: 100svh;
+  min-height: 100svh;
 }
 
 /* Brand color overrides */

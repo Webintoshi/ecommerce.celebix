@@ -200,15 +200,15 @@ function MobileDockButton({
       aria-expanded={ariaExpanded}
       aria-haspopup={ariaHaspopup}
       className={cn(
-        "group relative flex flex-1 items-center justify-center px-[0.1rem] py-1 text-[var(--admin-text-secondary)] transition-all duration-200 ease-out active:scale-[0.985] focus-visible:outline-none",
+        "group relative flex flex-1 items-center justify-center px-[0.05rem] py-0.5 text-[var(--admin-text-secondary)] transition-all duration-200 ease-out active:scale-[0.985] focus-visible:outline-none",
         active ? "text-[var(--admin-accent-hover)]" : "text-[var(--admin-text-secondary)]",
       )}
     >
       <span
         className={cn(
-          "relative flex min-h-[56px] w-full max-w-[4.05rem] flex-col items-center justify-center gap-[0.24rem] rounded-[1rem] border border-transparent px-2 py-2.5 transition-all duration-200 ease-out group-active:scale-[0.98]",
+          "relative flex min-h-[50px] w-full max-w-[3.75rem] flex-col items-center justify-center gap-[0.18rem] rounded-[0.9rem] border border-transparent px-1.5 py-2 transition-all duration-200 ease-out group-active:scale-[0.98]",
           active
-            ? "border-[var(--admin-accent-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,241,232,0.92)_100%)] shadow-[0_10px_18px_rgba(17,24,39,0.06),inset_0_1px_0_rgba(255,255,255,0.82)]"
+            ? "border-[var(--admin-accent-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,241,232,0.88)_100%)] shadow-[0_8px_16px_rgba(17,24,39,0.055),inset_0_1px_0_rgba(255,255,255,0.82)]"
             : "bg-transparent group-active:bg-white/35",
         )}
       >
@@ -220,13 +220,13 @@ function MobileDockButton({
         />
         <Icon
           className={cn(
-            "h-[1.12rem] w-[1.12rem] transition-all duration-200 ease-out",
+            "h-[1.06rem] w-[1.06rem] transition-all duration-200 ease-out",
             active ? "opacity-100 scale-100" : "opacity-[0.78] scale-[0.95]",
           )}
         />
         <span
           className={cn(
-            "text-[10.5px] font-semibold tracking-[0.01em] transition-all duration-200 ease-out",
+            "text-[10px] font-semibold tracking-[0.01em] transition-all duration-200 ease-out",
             active ? "opacity-100" : "opacity-[0.8]",
           )}
         >
@@ -253,6 +253,7 @@ export default function AdminLayoutClient({
   const [, setNotificationUnreadCount] = useState(0);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [pageChrome, setPageChrome] = useState<AdminTopbarChromeState | null>(null);
+  const [isPwaStandalone, setIsPwaStandalone] = useState(false);
   const [toshiAlertInfo, setToshiAlertInfo] = useState<{
     count: number;
     summary: string;
@@ -291,6 +292,37 @@ export default function AdminLayoutClient({
     syncMobileState();
     mediaQuery.addEventListener("change", syncMobileState);
     return () => mediaQuery.removeEventListener("change", syncMobileState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const standaloneQuery = window.matchMedia("(display-mode: standalone)");
+    const navWithStandalone = window.navigator as Navigator & { standalone?: boolean };
+    const syncStandaloneState = () => {
+      setIsPwaStandalone(Boolean(standaloneQuery.matches || navWithStandalone.standalone));
+    };
+
+    syncStandaloneState();
+    if (typeof standaloneQuery.addEventListener === "function") {
+      standaloneQuery.addEventListener("change", syncStandaloneState);
+      return () => standaloneQuery.removeEventListener("change", syncStandaloneState);
+    }
+
+    standaloneQuery.addListener(syncStandaloneState);
+    return () => standaloneQuery.removeListener(syncStandaloneState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    navigator.serviceWorker
+      .register("/admin-sw.js", { scope: "/" })
+      .catch((error) => console.warn("Admin PWA service worker registration failed:", error));
   }, []);
 
   useEffect(() => {
@@ -358,10 +390,12 @@ export default function AdminLayoutClient({
     }
 
     document.body.dataset.adminMobileShell = isMobile ? "true" : "false";
+    document.body.dataset.adminPwaStandalone = isPwaStandalone ? "true" : "false";
     return () => {
       delete document.body.dataset.adminMobileShell;
+      delete document.body.dataset.adminPwaStandalone;
     };
-  }, [isMobile]);
+  }, [isMobile, isPwaStandalone]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -449,12 +483,13 @@ export default function AdminLayoutClient({
 
   const shellStyle = {
     "--admin-mobile-keyboard-offset": `${keyboardInset}px`,
-    "--admin-mobile-panel-top": "calc(env(safe-area-inset-top, 0px) + 6.35rem)",
+    "--admin-mobile-topbar-height": "3.65rem",
+    "--admin-mobile-panel-top": "calc(env(safe-area-inset-top, 0px) + 4.25rem)",
     "--admin-mobile-panel-bottom":
-      "max(calc(env(safe-area-inset-bottom, 0px) + 6.9rem), calc(var(--admin-mobile-keyboard-offset) + 1rem))",
-    "--admin-mobile-dock-floor": "max(calc(env(safe-area-inset-bottom, 0px) + 0.3rem), 0.3rem)",
+      "max(calc(env(safe-area-inset-bottom, 0px) + 5.85rem), calc(var(--admin-mobile-keyboard-offset) + 1rem))",
+    "--admin-mobile-dock-floor": "max(calc(env(safe-area-inset-bottom, 0px) + 0.22rem), 0.22rem)",
     "--admin-mobile-content-bottom":
-      "max(calc(env(safe-area-inset-bottom, 0px) + 8.35rem), calc(var(--admin-mobile-keyboard-offset) + 1.75rem))",
+      "max(calc(env(safe-area-inset-bottom, 0px) + 7rem), calc(var(--admin-mobile-keyboard-offset) + 1.65rem))",
   } as CSSProperties;
 
   return (
@@ -462,8 +497,9 @@ export default function AdminLayoutClient({
       className={cn(
         "bg-[var(--admin-bg)] font-sans",
         isMobile
-          ? "flex h-dvh min-h-dvh overflow-hidden"
+          ? "admin-mobile-app-shell flex h-dvh min-h-dvh overflow-hidden"
           : "flex min-h-screen overflow-visible",
+        isMobile && isPwaStandalone ? "admin-pwa-standalone" : "",
       )}
       style={shellStyle}
     >
@@ -488,24 +524,24 @@ export default function AdminLayoutClient({
       >
         <div
           className={cn(
-            "px-3.5 pb-[var(--admin-mobile-content-bottom)] pt-2 min-[1025px]:px-4 min-[1025px]:pb-5 min-[1025px]:pt-4 xl:px-5 xl:pb-5 xl:pt-5 2xl:px-6",
+            "px-3 pb-[var(--admin-mobile-content-bottom)] pt-0 min-[1025px]:px-4 min-[1025px]:pb-5 min-[1025px]:pt-4 xl:px-5 xl:pb-5 xl:pt-5 2xl:px-6",
             isMobile ? "min-h-full" : "",
           )}
         >
           {isMobile && !rootAdmin ? (
-          <div className="sticky top-[max(0.45rem,env(safe-area-inset-top))] z-30 mb-2 rounded-[20px] border border-[var(--admin-border)] bg-[rgba(255,255,255,0.94)] px-3 py-2.5 shadow-[var(--shadow-xs)] backdrop-blur-xl min-[1025px]:hidden">
-            <div className="flex items-center justify-between gap-3">
+          <div className="-mx-3 sticky top-0 z-30 mb-2 border-b border-[rgba(224,228,235,0.82)] bg-[rgba(249,249,249,0.96)] px-3 pb-2 pt-[max(env(safe-area-inset-top),0.55rem)] shadow-[0_8px_18px_rgba(17,24,39,0.035)] backdrop-blur-2xl min-[1025px]:hidden">
+            <div className="flex min-h-[2.85rem] items-center justify-between gap-2.5">
               <div className="min-w-0 flex items-center gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">
-                    Modül
-                  </p>
                   <h1
-                    className="mt-0.5 truncate text-[15px] font-semibold tracking-[-0.02em] text-[var(--admin-heading)] md:text-base"
+                    className="truncate text-[15px] font-semibold tracking-[-0.02em] text-[var(--admin-heading)] md:text-base"
                     title={activeShellMeta.subtitle}
                   >
                     {activeShellMeta.title}
                   </h1>
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-[var(--admin-text-muted)]">
+                    {activeShellMeta.subtitle}
+                  </p>
                 </div>
               </div>
 
@@ -519,7 +555,7 @@ export default function AdminLayoutClient({
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--admin-border)] bg-white text-[var(--admin-text-secondary)] shadow-sm transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-[var(--admin-border)] bg-white/86 text-[var(--admin-text-secondary)] shadow-[0_8px_18px_rgba(17,24,39,0.04)] transition-all hover:border-[var(--admin-accent-border)] hover:text-[var(--admin-accent-hover)]"
                   aria-label="Sayfayı yenile"
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -552,16 +588,14 @@ export default function AdminLayoutClient({
       {isMobile ? (
         <nav
           aria-label="Alt gezinme"
-          className="pointer-events-auto fixed inset-x-0 bottom-0 z-[58] overflow-visible border-t border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(249,249,249,0.74)_0%,rgba(255,255,255,0.94)_24%,rgba(255,255,255,0.985)_100%)] px-3 pb-[var(--admin-mobile-dock-floor)] pt-2.5 shadow-[0_-16px_34px_rgba(17,24,39,0.08)] backdrop-blur-[24px] min-[1025px]:hidden"
+          className="pointer-events-auto fixed inset-x-0 bottom-0 z-[58] overflow-visible border-t border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(249,249,249,0.68)_0%,rgba(255,255,255,0.96)_30%,rgba(255,255,255,0.99)_100%)] px-2.5 pb-[var(--admin-mobile-dock-floor)] pt-1.5 shadow-[0_-12px_28px_rgba(17,24,39,0.075)] backdrop-blur-[26px] min-[1025px]:hidden"
         >
           <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.94)_50%,rgba(255,255,255,0)_100%)]" />
-          <span className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-[linear-gradient(180deg,rgba(255,255,255,0.42)_0%,rgba(255,255,255,0)_100%)]" />
-          <div className="relative mx-auto w-full max-w-[30rem]">
-            <span className="pointer-events-none absolute inset-x-0 bottom-0 top-[0.9rem] rounded-t-[1.4rem] border border-b-0 border-[rgba(231,234,240,0.92)] bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(249,249,249,0.84)_100%)] shadow-[0_-12px_24px_rgba(17,24,39,0.04)]" />
-            <span className="pointer-events-none absolute inset-x-8 top-[1rem] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.88)_50%,rgba(255,255,255,0)_100%)]" />
+          <div className="relative mx-auto w-full max-w-[29rem]">
+            <span className="pointer-events-none absolute inset-x-2 bottom-0 top-[0.45rem] rounded-t-[1.15rem] border border-b-0 border-[rgba(231,234,240,0.84)] bg-[rgba(255,255,255,0.72)]" />
             <div
               className={cn(
-                "relative grid w-full items-end gap-x-0.5 px-1.5 pb-0.5 pt-0.5",
+                "relative grid w-full items-end gap-x-0.5 px-1 pb-0.5 pt-0.5",
                 rootAdmin ? "grid-cols-4" : "grid-cols-5",
               )}
             >

@@ -1,11 +1,13 @@
-const SHELL_CACHE = "celebix-admin-shell-v3";
-const RUNTIME_CACHE = "celebix-admin-runtime-v3";
+const SHELL_CACHE = "celebix-admin-shell-v4";
+const RUNTIME_CACHE = "celebix-admin-runtime-v4";
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
   "/pwa/admin-icon.svg",
   "/pwa/admin-icon-maskable.svg",
+  "/Logo/celebix-beyaz-logo.svg",
   "/branding/toshi-mascot.png",
   "/branding/toshi-mascot-launcher.png",
+  "/branding/toshi-profile.png",
   "/branding/celebix-x.svg",
 ];
 
@@ -61,22 +63,38 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => ![SHELL_CACHE, RUNTIME_CACHE].includes(key))
-            .map((key) => caches.delete(key)),
-        ),
-      )
-      .then(() => self.clients.claim()),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => ![SHELL_CACHE, RUNTIME_CACHE].includes(key))
+          .map((key) => caches.delete(key)),
+      );
+
+      if ("navigationPreload" in self.registration) {
+        try {
+          await self.registration.navigationPreload.enable();
+        } catch {
+          // Navigation preload is best-effort only.
+        }
+      }
+
+      await self.clients.claim();
+    })(),
   );
 });
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+
+  if (event.data?.type === "CLEAR_BADGE") {
+    const badgeNavigator = self.navigator;
+
+    if (typeof badgeNavigator?.clearAppBadge === "function") {
+      event.waitUntil(badgeNavigator.clearAppBadge().catch(() => null));
+    }
   }
 });
 

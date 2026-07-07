@@ -5,15 +5,17 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/admin",
     name: `${STORE_RUNTIME.name} Admin`,
-    short_name: "Celebix Admin",
-    description: `${STORE_RUNTIME.name} için mobil odaklı yönetim paneli`,
+    short_name: "Celebix",
+    description: `${STORE_RUNTIME.name} için PWA destekli yönetim paneli`,
     start_url: "/admin",
     scope: "/admin",
     display: "standalone",
-    display_override: ["standalone", "browser"],
-    background_color: "#f6efe8",
-    theme_color: "#FE6100",
+    display_override: ["standalone", "minimal-ui", "browser"],
+    background_color: "#F9F9F9",
+    theme_color: "#FF6A00",
     orientation: "portrait",
+    lang: "tr-TR",
+    dir: "ltr",
     categories: ["business", "productivity"],
     icons: [
       {
