@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <aside className="sidebar">
                 <div className="sidebar-header">
                   <Link href="/">
-                    <img src="https://celebix.co/Logo/koyu%20logo.svg" alt="Celebix" className="brand-logo" />
+                    <img src="/branding/celebix-logo.svg" alt="Celebix" className="brand-logo" />
                   </Link>
                 </div>
                 <nav className="sidebar-nav">
@@ -90,6 +90,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
                     Yeni Proje
+                  </SidebarNavLink>
+                  <SidebarNavLink href="/owner/self-serve">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 5h16" />
+                      <path d="M4 12h10" />
+                      <path d="M4 19h7" />
+                      <path d="m17 15 3 3-3 3" />
+                    </svg>
+                    Self-serve
                   </SidebarNavLink>
 
                   <div className="sidebar-group-label">Yonetim</div>
