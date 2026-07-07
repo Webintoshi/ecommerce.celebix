@@ -27,6 +27,13 @@ const OWNER_RECOVER_PATH = "/auth/recover";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
+const SELF_SERVE_PUBLIC_PREFIXES = [
+  "/magaza-ac",
+  "/kayit",
+  "/onboarding",
+  "/api/self-serve/auth/start",
+  "/api/self-serve/requests",
+];
 
 type OwnerProfileRecord = {
   role: string;
@@ -48,6 +55,10 @@ function isProtectedOwnerPage(pathname: string) {
     pathname !== OWNER_RECOVER_PATH &&
     !pathname.startsWith(OWNER_CONFIRM_PREFIX)
   );
+}
+
+function isPublicSelfServeRoute(pathname: string) {
+  return SELF_SERVE_PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function isProtectedOwnerApi(pathname: string) {
@@ -89,6 +100,11 @@ function getSameOriginErrorMessage(reason: ReturnType<typeof validateSameOriginR
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  if (isPublicSelfServeRoute(pathname)) {
+    return withSecurity(request, NextResponse.next());
+  }
+
   const requiresAuth = isProtectedOwnerPage(pathname) || isProtectedOwnerApi(pathname);
   const missingPublicEnv = getMissingOwnerSupabaseEnvNames();
   const missingAuthEnv = getMissingOwnerSupabaseEnvNames({ requireServiceRole: true });
