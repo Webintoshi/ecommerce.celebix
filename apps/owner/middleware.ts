@@ -36,6 +36,7 @@ const SELF_SERVE_PUBLIC_PREFIXES = [
   "/kayit",
   "/onboarding",
   "/api/self-serve/auth/start",
+  "/api/self-serve/register",
   "/api/self-serve/requests",
 ];
 
