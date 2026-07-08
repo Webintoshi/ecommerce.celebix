@@ -19,8 +19,8 @@ export default async function OwnerSelfServeRequestDetailPage({ params }: OwnerS
     <>
       <div className="page-header">
         <div>
-          <h1>Self-serve Basvuru Detayi</h1>
-          <p>Basvuru bilgilerini incele; Phase 1'de onay/red butonlari production mutation yapmaz.</p>
+          <h1>Self-serve Mağaza Detayı</h1>
+          <p>Müşteri mağaza oluşturma durumunu, paket ve provisioning sinyallerini izle.</p>
         </div>
       </div>
       <SelfServeOwnerRequestDetail requestId={id} initialRequest={request} flags={flags} />
