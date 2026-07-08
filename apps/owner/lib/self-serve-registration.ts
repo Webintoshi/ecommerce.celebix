@@ -29,7 +29,7 @@ export interface SelfServeRegistrationValidationError {
 
 export interface SelfServeRegistrationRecord extends SelfServeOnboardingRequest {
   mode: "direct_registration";
-  status: "pending_provisioning";
+  status: "processing_store_creation";
   registration: {
     plan: "free";
     defaultDomainMode: "subdomain";
@@ -225,7 +225,7 @@ export function buildSelfServeRegistrationRecord(
   return {
     ...request,
     mode: "direct_registration",
-    status: "pending_provisioning",
+    status: "processing_store_creation",
     store: {
       ...request.store,
       proposedDomain,

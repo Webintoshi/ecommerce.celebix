@@ -2,6 +2,7 @@ import type { SelfServeFeatureFlags } from "@/lib/self-serve-flags";
 import { normalizeSelfServeStoreSlug, suggestSelfServeStoreSlug } from "@/lib/self-serve-store-slug";
 
 export type SelfServeRequestStatus =
+  | "processing_store_creation"
   | "pending_provisioning"
   | "pending_owner_approval"
   | "ready"
@@ -202,7 +203,7 @@ export function buildSelfServeOnboardingRequest(
   return {
     ...normalized,
     id,
-    status: "pending_owner_approval",
+    status: flags.provisioningEnabled || flags.storeCreateEnabled ? "pending_provisioning" : "processing_store_creation",
     createdAt: timestamp,
     updatedAt: timestamp,
     source: "self_serve_phase_1",
@@ -214,16 +215,18 @@ export function buildSelfServeOnboardingRequest(
 
 export function getSelfServeStatusLabel(status: SelfServeRequestStatus): string {
   switch (status) {
+    case "processing_store_creation":
+      return "Mağaza oluşturuluyor";
     case "pending_provisioning":
       return "Kurulum hazirlaniyor";
     case "pending_owner_approval":
-      return "Owner onayi bekliyor";
+      return "Operasyon bekliyor";
     case "ready":
       return "Admin panel hazir";
     case "approved":
-      return "Onaylandi";
+      return "Aktif";
     case "rejected":
-      return "Reddedildi";
+      return "Durduruldu";
     case "cancelled":
       return "Iptal edildi";
   }

@@ -61,7 +61,7 @@ test("builds a safe pending direct registration record without storing password"
 
   assert.equal(record.id, "ssr_test");
   assert.equal(record.mode, "direct_registration");
-  assert.equal(record.status, "pending_provisioning");
+  assert.equal(record.status, "processing_store_creation");
   assert.equal(record.store.slug, "cicek-pazari");
   assert.equal(record.store.proposedDomain, "cicek-pazari.celebix.site");
   assert.equal(record.store.plannedStoreUrl, "https://cicek-pazari.celebix.site");
@@ -71,6 +71,7 @@ test("builds a safe pending direct registration record without storing password"
   assert.equal(record.registration.defaultDomainMode, "subdomain");
   assert.equal(record.registration.customDomainAtRegistration, false);
   assert.equal(record.registration.ownerApprovalRequired, false);
+  assert.equal(record.ownerApprovalRequired, false);
   assert.equal(record.registration.marketingConsent, false);
   assert.equal("password" in record, false);
   assert.equal(JSON.stringify(record).includes(validRegistration.password), false);

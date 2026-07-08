@@ -37,3 +37,13 @@ test("the direct form does not reintroduce Logto-first or onboarding explainer c
   assert.doesNotMatch(formSource, /Celebix ekibi doğrulayacak/i);
   assert.doesNotMatch(formSource, /owner approval/i);
 });
+
+test("/kayit customer-facing copy is store creation language, not an application queue", () => {
+  const customerFacingSource = `${pageSource}\n${formSource}`;
+
+  assert.doesNotMatch(customerFacingSource, /basvuru/i);
+  assert.doesNotMatch(customerFacingSource, /başvuru/i);
+  assert.doesNotMatch(customerFacingSource, /admin incelemesi/i);
+  assert.doesNotMatch(customerFacingSource, /owner ekibi/i);
+  assert.doesNotMatch(customerFacingSource, /manual review/i);
+});

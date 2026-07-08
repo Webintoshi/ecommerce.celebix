@@ -24,7 +24,7 @@ export default function KayitPage() {
         {signupDisabled ? (
           <section className="self-serve-register-disabled">
             <h2>Kayıt şu anda kapalı.</h2>
-            <p>Mağaza kayıtları yeniden açıldığında bu ekrandan başvurunuzu alacağız.</p>
+            <p>Mağaza kayıtları yeniden açıldığında bu ekrandan ücretsiz mağaza kurulumunuzu başlatabilirsiniz.</p>
           </section>
         ) : (
           <SelfServeDirectRegistrationForm flags={flags} />

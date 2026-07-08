@@ -70,7 +70,7 @@ function saveBrowserRequest(request: SelfServeOnboardingRequest) {
     window.localStorage.setItem(SELF_SERVE_REQUEST_STORAGE_KEY, JSON.stringify(next));
     window.localStorage.setItem(SELF_SERVE_LAST_REQUEST_STORAGE_KEY, JSON.stringify(request));
   } catch {
-    // Local storage is a convenience mirror for Phase 1 owner review; API state remains authoritative for the request.
+    // Local storage is a convenience mirror for the control-plane monitor; API state remains authoritative.
   }
 }
 
@@ -203,7 +203,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
           </div>
           <div>
             <span>Durum</span>
-            <strong>Kurulum sırada</strong>
+            <strong>Mağaza oluşturuluyor</strong>
           </div>
         </div>
         <button className="button button-secondary" type="button" onClick={() => setSuccess(null)}>
@@ -335,7 +335,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
             onChange={(event) => updateField("privacyConsent", event.target.checked)}
             aria-invalid={Boolean(fieldErrors.privacyConsent)}
           />
-          <span>KVKK, gizlilik ve açık rıza metinlerini okudum; başvuru için onaylıyorum.</span>
+          <span>KVKK, gizlilik ve açık rıza metinlerini okudum; mağaza kaydı için kabul ediyorum.</span>
         </label>
         {fieldErrors.privacyConsent ? <small>{fieldErrors.privacyConsent}</small> : null}
       </div>

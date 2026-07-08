@@ -135,8 +135,8 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json(
     {
-      code: "self_serve_registration_pending",
-      status: "pending",
+      code: "self_serve_store_creation_processing",
+      status: "processing",
       request: result.request,
       adminRedirectUrl: null,
       plannedStoreUrl,
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
         state:
           result.autoProvisioningEnabled && result.storeCreateEnabled && result.provisioningEnabled
             ? "not_implemented_safe_stop"
-            : "disabled_by_flag",
+            : "automatic_pipeline_waiting_for_safe_enablement",
       },
     },
     { status: 202 },
