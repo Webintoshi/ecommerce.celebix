@@ -46,13 +46,13 @@ const initialForm: SelfServeRegistrationInput = {
 const fieldLabels: Record<keyof SelfServeRegistrationInput, string> = {
   firstName: "Ad",
   lastName: "Soyad",
-  storeName: "Magaza adi",
-  storeSlug: "Magaza adresi",
+  storeName: "Mağaza adı",
+  storeSlug: "Mağaza adresi",
   phone: "Telefon",
   email: "E-posta",
-  password: "Sifre",
-  marketingConsent: "Ticari iletisim onayi",
-  privacyConsent: "KVKK ve gizlilik onayi",
+  password: "Şifre",
+  marketingConsent: "Ticari iletişim onayı",
+  privacyConsent: "KVKK ve gizlilik onayı",
 };
 
 function saveBrowserRequest(request: SelfServeOnboardingRequest) {
@@ -178,32 +178,27 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
     return (
       <section className="self-serve-direct-success" aria-live="polite">
         <span className="self-serve-direct-success-icon">✓</span>
-        <p className="self-serve-direct-kicker">Basvurunuz alindi</p>
-        <h2>{success.request.store.storeName} kuruluma hazirlaniyor.</h2>
+        <h2>Başvurunuz alındı.</h2>
         <p>
-          Hesap ve magaza kurulum sureci hazir oldugunda admin panelinize guvenli sekilde
-          yonlendirileceksiniz.
+          {success.request.store.storeName} için mağaza kayıt bilgilerinizi aldık. Hazır olduğunda admin panelinize
+          güvenli şekilde yönlendirileceksiniz.
         </p>
         <div className="self-serve-direct-status-grid">
           <div>
-            <span>Magaza adresi</span>
+            <span>Mağaza adresi</span>
             <strong>{success.request.store.proposedDomain ?? `${success.request.store.slug}.${domainSuffix}`}</strong>
           </div>
           <div>
-            <span>Planlanan admin</span>
-            <strong>{success.plannedAdminUrl ?? "Guvenli handoff bekliyor"}</strong>
-          </div>
-          <div>
             <span>Durum</span>
-            <strong>Kurulum hazirlaniyor</strong>
+            <strong>Başvuru alındı</strong>
           </div>
           <div>
-            <span>Guvenlik</span>
-            <strong>{success.provisioning?.state === "disabled_by_flag" ? "Kurulum sirada" : "Hazirlaniyor"}</strong>
+            <span>Sonraki adım</span>
+            <strong>Celebix ekibi doğrulayacak</strong>
           </div>
         </div>
         <button className="button button-secondary" type="button" onClick={() => setSuccess(null)}>
-          Yeni kayit ekranina don
+          Yeni kayıt ekranına dön
         </button>
       </section>
     );
@@ -211,17 +206,6 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
 
   return (
     <form className="self-serve-direct-form" onSubmit={handleSubmit} noValidate>
-      <div className="self-serve-direct-form-head">
-        <img src="/branding/celebix-logo.svg" alt="Celebix" className="self-serve-logo self-serve-form-logo" />
-        <div>
-          <p className="self-serve-direct-kicker">Tek ekranda basla</p>
-          <h2>Magaza ve hesap bilgileri</h2>
-          <span>
-            Bilgilerinizi girin, magaza adresinizi secin ve kurulum talebinizi tek adimda baslatin.
-          </span>
-        </div>
-      </div>
-
       <div className="self-serve-direct-inline">
         <label>
           <span>{fieldName("firstName")}</span>
@@ -256,7 +240,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
           value={form.storeName}
           onChange={handleTextChange("storeName")}
           autoComplete="organization"
-          placeholder="Ornek Magaza"
+          placeholder="Örnek Mağaza"
           aria-invalid={Boolean(fieldErrors.storeName)}
         />
         {fieldErrors.storeName ? <small>{fieldErrors.storeName}</small> : null}
@@ -320,7 +304,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
             aria-invalid={Boolean(fieldErrors.password)}
           />
           <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label="Sifreyi goster veya gizle">
-            {showPassword ? "Gizle" : "Goster"}
+            {showPassword ? "Gizle" : "Göster"}
           </button>
         </div>
         {fieldErrors.password ? <small>{fieldErrors.password}</small> : null}
@@ -333,7 +317,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
             checked={form.marketingConsent}
             onChange={(event) => updateField("marketingConsent", event.target.checked)}
           />
-          <span>Firsatlar ve bilgilendirmeler icin ticari elektronik ileti almak istiyorum. (Opsiyonel)</span>
+          <span>Fırsatlar ve bilgilendirmeler için ticari elektronik ileti almak istiyorum. (Opsiyonel)</span>
         </label>
         <label className="self-serve-direct-consent">
           <input
@@ -342,7 +326,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
             onChange={(event) => updateField("privacyConsent", event.target.checked)}
             aria-invalid={Boolean(fieldErrors.privacyConsent)}
           />
-          <span>KVKK, gizlilik ve acik riza metinlerini okudum; basvuru icin onayliyorum.</span>
+          <span>KVKK, gizlilik ve açık rıza metinlerini okudum; başvuru için onaylıyorum.</span>
         </label>
         {fieldErrors.privacyConsent ? <small>{fieldErrors.privacyConsent}</small> : null}
       </div>
@@ -350,7 +334,7 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
       {globalError ? <p className="form-error self-serve-form-error">{globalError}</p> : null}
 
       <button className="button button-primary self-serve-direct-submit" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Kayit hazirlaniyor..." : "E-Ticaret Sistemi Kur"}
+        {isSubmitting ? "Kayıt hazırlanıyor..." : "E-Ticaret Sistemi Kur"}
       </button>
     </form>
   );

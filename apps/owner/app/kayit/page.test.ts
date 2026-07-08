@@ -1,0 +1,37 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const pageSource = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
+const formSource = readFileSync(
+  new URL("../../components/self-serve/SelfServeDirectRegistrationForm.tsx", import.meta.url),
+  "utf8",
+);
+
+test("/kayit is a single direct registration screen, not the old onboarding landing", () => {
+  assert.match(pageSource, /E-Ticaret sitenizi açın!/);
+  assert.match(pageSource, /Sanal POS ve kargo anlaşmalarınız anında hazır\./);
+  assert.match(pageSource, /Zaten hesabınız var mı\?/);
+  assert.match(pageSource, /Giriş Yap/);
+
+  assert.doesNotMatch(pageSource, /self-serve-direct-shell/);
+  assert.doesNotMatch(pageSource, /self-serve-direct-copy/);
+  assert.doesNotMatch(pageSource, /self-serve-trust-list/);
+  assert.doesNotMatch(pageSource, /self-serve-direct-note/);
+  assert.doesNotMatch(pageSource, /Komisyonsuz e-ticaret altyapısı/);
+  assert.doesNotMatch(pageSource, /Kurulum sonrası/);
+});
+
+test("the direct form does not reintroduce Logto-first or onboarding explainer copy", () => {
+  assert.match(formSource, /E-Ticaret Sistemi Kur/);
+  assert.match(formSource, /\.\{domainSuffix\}/);
+
+  assert.doesNotMatch(formSource, /self-serve-form-logo/);
+  assert.doesNotMatch(formSource, /Tek ekranda basla/i);
+  assert.doesNotMatch(formSource, /Magaza ve hesap bilgileri/i);
+  assert.doesNotMatch(formSource, /Planlanan admin/i);
+  assert.doesNotMatch(formSource, /handoff/i);
+  assert.doesNotMatch(formSource, /Guvenlik/i);
+  assert.doesNotMatch(formSource, /Logto ile/i);
+  assert.doesNotMatch(formSource, /Supabase Auth/i);
+});
