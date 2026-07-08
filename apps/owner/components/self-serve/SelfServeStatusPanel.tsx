@@ -77,8 +77,8 @@ export function SelfServeStatusPanel({ requestId }: SelfServeStatusPanelProps) {
       )}
 
       <div className="self-serve-actions">
-        <Link className="button button-secondary" href="/magaza-ac">Tanitim sayfasina don</Link>
-        <Link className="button button-primary" href="/onboarding">Yeni basvuru</Link>
+        <Link className="button button-secondary" href="/kayit">Kayit ekranina don</Link>
+        <Link className="button button-primary" href="/kayit">Yeni basvuru</Link>
       </div>
     </section>
   );

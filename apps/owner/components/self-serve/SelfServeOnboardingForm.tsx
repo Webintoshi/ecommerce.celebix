@@ -22,10 +22,10 @@ interface SelfServeOnboardingFormProps {
 }
 
 const STEPS = [
-  { id: 1, title: "Basvuran", description: "Iletisim ve isletme bilgileri" },
-  { id: 2, title: "Magaza", description: "Magaza kimligi ve varsayilanlar" },
-  { id: 3, title: "Ihtiyaclar", description: "Domain, mail, urun tasima" },
-  { id: 4, title: "Onay", description: "Ozet ve basvuru" },
+  { id: 1, title: "Magaza bilgileri", description: "Magaza adi, sektor ve slug" },
+  { id: 2, title: "Isletme bilgileri", description: "Yetkili kisi ve iletisim" },
+  { id: 3, title: "Kurulum tercihleri", description: "Domain, mail, urun tasima" },
+  { id: 4, title: "Ozet ve gonder", description: "Onay ve basvuru" },
 ];
 
 function saveRequestToBrowserCache(request: SelfServeOnboardingRequest) {
@@ -53,6 +53,7 @@ export function SelfServeOnboardingForm({ flags, applicantSession }: SelfServeOn
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedRequest, setSubmittedRequest] = useState<SelfServeOnboardingRequest | null>(null);
 
   useEffect(() => {
     if (slugTouched) {
@@ -72,9 +73,9 @@ export function SelfServeOnboardingForm({ flags, applicantSession }: SelfServeOn
 
   const canContinue =
     step === 1
-      ? Boolean(draft.applicant.fullName && draft.applicant.email && draft.applicant.phone && draft.business.businessName)
+      ? Boolean(draft.store.storeName && draft.store.slug && draft.store.sector && !slugIssue)
       : step === 2
-        ? Boolean(draft.store.storeName && draft.store.slug && !slugIssue)
+        ? Boolean(draft.applicant.fullName && draft.applicant.email && draft.applicant.phone && draft.business.businessName)
         : step === 3
           ? Boolean(draft.needs.approximateProductCount && draft.needs.designPreference)
           : Boolean(draft.termsAccepted && draft.privacyAccepted);
@@ -119,7 +120,9 @@ export function SelfServeOnboardingForm({ flags, applicantSession }: SelfServeOn
       }
 
       saveRequestToBrowserCache(payload.request);
-      window.location.assign(`/onboarding/status?id=${encodeURIComponent(payload.request.id)}`);
+      setSubmittedRequest(payload.request);
+      setStep(5);
+      window.history.replaceState(null, "", `/kayit?step=status&id=${encodeURIComponent(payload.request.id)}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Basvuru kaydedilemedi.");
     } finally {
@@ -133,6 +136,40 @@ export function SelfServeOnboardingForm({ flags, applicantSession }: SelfServeOn
         <span className="pill pill-accent">Basvuru kapali</span>
         <h1>Self-serve basvuru akisi su anda aktif degil.</h1>
         <p>Bu bayrak kapaliyken kullanicilar yanlislikla magaza basvurusu olusturamaz.</p>
+      </section>
+    );
+  }
+
+  if (submittedRequest) {
+    return (
+      <section className="self-serve-status-card">
+        <span className="pill pill-accent">Basvuru alindi</span>
+        <h1>{getSelfServeStatusLabel(submittedRequest.status)}</h1>
+        <p>
+          Basvurun owner ekibinin onay sirasina alindi. Bu fazda gercek store create, Coolify,
+          DNS, R2, Logto client veya DB provisioning calismaz.
+        </p>
+        <div className="self-serve-status-grid">
+          <div>
+            <span>Basvuru no</span>
+            <strong>{submittedRequest.id}</strong>
+          </div>
+          <div>
+            <span>Magaza</span>
+            <strong>{submittedRequest.store.storeName}</strong>
+          </div>
+          <div>
+            <span>Slug</span>
+            <strong>{submittedRequest.store.slug}</strong>
+          </div>
+          <div>
+            <span>Durum</span>
+            <strong>Hazirlaniyor</strong>
+          </div>
+        </div>
+        <div className="self-serve-actions">
+          <a className="button button-secondary" href="/kayit">Yeni basvuru ekranina don</a>
+        </div>
       </section>
     );
   }
@@ -171,42 +208,13 @@ export function SelfServeOnboardingForm({ flags, applicantSession }: SelfServeOn
             <span>
               Basvuruya baslamadan once Logto ile giris/kayit akisi onerilir. Bu form Supabase Auth kullanmaz.
             </span>
-            <a className="button button-secondary" href="/api/self-serve/auth/start?returnTo=/onboarding">
+            <a className="button button-secondary" href="/api/self-serve/auth/start?returnTo=/kayit">
               Logto ile devam et
             </a>
           </div>
         )}
 
         {step === 1 ? (
-          <div className="form-grid form-grid-2">
-            <label className="field">
-              <span>Ad soyad</span>
-              <input value={draft.applicant.fullName} onChange={(event) => updateApplicant("fullName", event.target.value)} />
-            </label>
-            <label className="field">
-              <span>E-posta</span>
-              <input type="email" value={draft.applicant.email} onChange={(event) => updateApplicant("email", event.target.value)} />
-            </label>
-            <label className="field">
-              <span>Telefon</span>
-              <input value={draft.applicant.phone} onChange={(event) => updateApplicant("phone", event.target.value)} />
-            </label>
-            <label className="field">
-              <span>Isletme adi</span>
-              <input value={draft.business.businessName} onChange={(event) => updateBusiness("businessName", event.target.value)} />
-            </label>
-            <label className="field field-full">
-              <span>Isletme turu</span>
-              <select value={draft.business.businessType} onChange={(event) => updateBusiness("businessType", event.target.value)}>
-                {BUSINESS_TYPE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        ) : null}
-
-        {step === 2 ? (
           <div className="form-grid form-grid-2">
             <label className="field">
               <span>Magaza adi</span>
@@ -249,6 +257,35 @@ export function SelfServeOnboardingForm({ flags, applicantSession }: SelfServeOn
             <label className="field">
               <span>Iletisim telefonu</span>
               <input value={draft.store.contactPhone} onChange={(event) => updateStore("contactPhone", event.target.value)} />
+            </label>
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="form-grid form-grid-2">
+            <label className="field">
+              <span>Ad soyad</span>
+              <input value={draft.applicant.fullName} onChange={(event) => updateApplicant("fullName", event.target.value)} />
+            </label>
+            <label className="field">
+              <span>E-posta</span>
+              <input type="email" value={draft.applicant.email} onChange={(event) => updateApplicant("email", event.target.value)} />
+            </label>
+            <label className="field">
+              <span>Telefon</span>
+              <input value={draft.applicant.phone} onChange={(event) => updateApplicant("phone", event.target.value)} />
+            </label>
+            <label className="field">
+              <span>Isletme adi</span>
+              <input value={draft.business.businessName} onChange={(event) => updateBusiness("businessName", event.target.value)} />
+            </label>
+            <label className="field field-full">
+              <span>Isletme turu</span>
+              <select value={draft.business.businessType} onChange={(event) => updateBusiness("businessType", event.target.value)}>
+                {BUSINESS_TYPE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
             </label>
           </div>
         ) : null}

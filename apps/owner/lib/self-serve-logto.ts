@@ -199,9 +199,28 @@ export function getSelfServeLogtoConfig() {
   };
 }
 
+function normalizeSelfServeReturnTo(returnTo: string) {
+  const safeReturnTo = sanitizeInternalRedirectPath(returnTo, "/kayit");
+
+  try {
+    const url = new URL(safeReturnTo, DEFAULT_OWNER_PUBLIC_URL);
+
+    if (url.pathname === "/magaza-ac" || url.pathname === "/onboarding") {
+      url.pathname = "/kayit";
+    } else if (url.pathname === "/onboarding/status") {
+      url.pathname = "/kayit";
+      url.searchParams.set("step", "status");
+    }
+
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "/kayit";
+  }
+}
+
 export function buildSelfServeLogtoStartUrl(request: Request, returnTo: string) {
   const config = getSelfServeLogtoConfig();
-  const safeReturnTo = sanitizeInternalRedirectPath(returnTo, "/onboarding");
+  const safeReturnTo = normalizeSelfServeReturnTo(returnTo);
 
   if (config.startUrl) {
     try {
@@ -215,14 +234,14 @@ export function buildSelfServeLogtoStartUrl(request: Request, returnTo: string) 
       // Fall through to the fail-closed owner URL below.
     }
 
-    const fallbackUrl = buildSelfServeOwnerPublicUrl(request, "/magaza-ac");
+    const fallbackUrl = buildSelfServeOwnerPublicUrl(request, "/kayit");
     fallbackUrl.searchParams.set("auth", "owner_public_url_not_configured");
     fallbackUrl.searchParams.set("returnTo", safeReturnTo);
     return { url: fallbackUrl, configured: false };
   }
 
   if (!config.clientId) {
-    const fallbackUrl = buildSelfServeOwnerPublicUrl(request, "/magaza-ac");
+    const fallbackUrl = buildSelfServeOwnerPublicUrl(request, "/kayit");
     fallbackUrl.searchParams.set("auth", "logto_not_configured");
     fallbackUrl.searchParams.set("returnTo", safeReturnTo);
     return { url: fallbackUrl, configured: false };
@@ -231,13 +250,13 @@ export function buildSelfServeLogtoStartUrl(request: Request, returnTo: string) 
   const publicBaseUrl = resolveSelfServePublicBaseUrl(request);
 
   if (!publicBaseUrl && !config.redirectUri) {
-    const fallbackUrl = buildSelfServeOwnerPublicUrl(request, "/magaza-ac");
+    const fallbackUrl = buildSelfServeOwnerPublicUrl(request, "/kayit");
     fallbackUrl.searchParams.set("auth", "owner_public_url_not_configured");
     fallbackUrl.searchParams.set("returnTo", safeReturnTo);
     return { url: fallbackUrl, configured: false };
   }
 
-  const redirectUri = config.redirectUri ?? new URL("/onboarding", publicBaseUrl ?? DEFAULT_OWNER_PUBLIC_URL).toString();
+  const redirectUri = config.redirectUri ?? new URL("/kayit", publicBaseUrl ?? DEFAULT_OWNER_PUBLIC_URL).toString();
   const authorizeUrl = new URL(`${config.issuer.replace(/\/$/, "")}/auth`);
 
   try {
@@ -265,7 +284,7 @@ export function buildSelfServeLogtoStartUrl(request: Request, returnTo: string) 
   }
 
   {
-    const fallbackUrl = buildSelfServeOwnerPublicUrl(request, "/magaza-ac");
+    const fallbackUrl = buildSelfServeOwnerPublicUrl(request, "/kayit");
     fallbackUrl.searchParams.set("auth", "owner_public_url_not_configured");
     fallbackUrl.searchParams.set("returnTo", safeReturnTo);
     return { url: fallbackUrl, configured: false };
