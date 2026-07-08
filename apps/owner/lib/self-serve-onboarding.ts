@@ -29,6 +29,8 @@ export interface SelfServeStoreInfo {
   contactEmail: string;
   contactPhone: string;
   proposedDomain?: string;
+  plannedStoreUrl?: string;
+  plannedAdminUrl?: string;
 }
 
 export interface SelfServeNeedsInfo {

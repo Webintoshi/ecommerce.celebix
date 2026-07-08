@@ -87,7 +87,7 @@ export function createSelfServeOnboardingRequest(input: SelfServeOnboardingInput
 export function createSelfServeDirectRegistration(input: SelfServeRegistrationInput) {
   const flags = getSelfServeFeatureFlags();
 
-  if (!flags.signupEnabled || !flags.directRegistrationEnabled) {
+  if (!flags.signupEnabled || !flags.directRegistrationEnabled || !flags.freeStarterStoreEnabled) {
     return {
       ok: false as const,
       status: 503,
@@ -139,6 +139,7 @@ export function createSelfServeDirectRegistration(input: SelfServeRegistrationIn
     ok: true as const,
     request,
     persistenceMode: getSelfServePersistenceMode(flags),
+    freeStarterStoreEnabled: flags.freeStarterStoreEnabled,
     autoProvisioningEnabled: flags.autoProvisioningEnabled,
     storeCreateEnabled: flags.storeCreateEnabled,
     provisioningEnabled: flags.provisioningEnabled,

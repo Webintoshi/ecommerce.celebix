@@ -31,6 +31,10 @@ export interface SelfServeRegistrationRecord extends SelfServeOnboardingRequest 
   mode: "direct_registration";
   status: "pending_provisioning";
   registration: {
+    plan: "free";
+    defaultDomainMode: "subdomain";
+    customDomainAtRegistration: false;
+    ownerApprovalRequired: false;
     marketingConsent: boolean;
     privacyConsent: boolean;
     emailVerificationRequired: boolean;
@@ -40,6 +44,8 @@ export interface SelfServeRegistrationRecord extends SelfServeOnboardingRequest 
   };
   store: SelfServeOnboardingRequest["store"] & {
     proposedDomain: string;
+    plannedStoreUrl: string;
+    plannedAdminUrl: string;
   };
 }
 
@@ -184,6 +190,14 @@ function normalizeDomainSuffix(suffix: string) {
   return suffix.trim().replace(/^\.+|\.+$/g, "").toLowerCase() || "celebix.site";
 }
 
+export function buildSelfServeStorefrontUrl(slug: string, domainSuffix: string) {
+  return `https://${normalizeSelfServeStoreSlug(slug)}.${normalizeDomainSuffix(domainSuffix)}`;
+}
+
+export function buildSelfServeAdminUrl(slug: string, domainSuffix: string) {
+  return `https://admin-${normalizeSelfServeStoreSlug(slug)}.${normalizeDomainSuffix(domainSuffix)}`;
+}
+
 export function buildSelfServeRegistrationRecord(
   id: string,
   input: SelfServeRegistrationInput,
@@ -191,9 +205,11 @@ export function buildSelfServeRegistrationRecord(
 ): SelfServeRegistrationRecord {
   const normalized = normalizeSelfServeRegistrationInput(input);
   const domainSuffix = normalizeDomainSuffix(options.defaultDomainSuffix);
+  const proposedDomain = `${normalized.storeSlug}.${domainSuffix}`;
   const flags = {
     signupEnabled: true,
     directRegistrationEnabled: true,
+    freeStarterStoreEnabled: true,
     storeCreateEnabled: false,
     provisioningEnabled: false,
     autoProvisioningEnabled: options.autoProvisioningEnabled,
@@ -212,9 +228,15 @@ export function buildSelfServeRegistrationRecord(
     status: "pending_provisioning",
     store: {
       ...request.store,
-      proposedDomain: `${request.store.slug}.${domainSuffix}`,
+      proposedDomain,
+      plannedStoreUrl: buildSelfServeStorefrontUrl(request.store.slug, domainSuffix),
+      plannedAdminUrl: buildSelfServeAdminUrl(request.store.slug, domainSuffix),
     },
     registration: {
+      plan: "free",
+      defaultDomainMode: "subdomain",
+      customDomainAtRegistration: false,
+      ownerApprovalRequired: false,
       marketingConsent: normalized.marketingConsent,
       privacyConsent: normalized.privacyConsent,
       emailVerificationRequired: flags.requireEmailVerification,

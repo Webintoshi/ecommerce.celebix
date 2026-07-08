@@ -21,9 +21,11 @@ interface SelfServeDirectRegistrationFormProps {
 
 interface RegistrationSuccess {
   request: SelfServeOnboardingRequest;
+  plannedStoreUrl?: string | null;
   plannedAdminUrl?: string | null;
   persistenceMode?: string;
   provisioning?: {
+    freeStarterStoreEnabled?: boolean;
     state?: string;
     autoProvisioningEnabled?: boolean;
     storeCreateEnabled?: boolean;
@@ -175,26 +177,33 @@ export function SelfServeDirectRegistrationForm({ flags }: SelfServeDirectRegist
   }
 
   if (success) {
+    const plannedStoreUrl =
+      success.plannedStoreUrl ??
+      success.request.store.plannedStoreUrl ??
+      `https://${success.request.store.proposedDomain ?? `${success.request.store.slug}.${domainSuffix}`}`;
+    const plannedAdminUrl =
+      success.plannedAdminUrl ?? success.request.store.plannedAdminUrl ?? `https://admin-${success.request.store.slug}.${domainSuffix}`;
+
     return (
       <section className="self-serve-direct-success" aria-live="polite">
         <span className="self-serve-direct-success-icon">✓</span>
-        <h2>Başvurunuz alındı.</h2>
+        <h2>Ücretsiz mağazanız hazırlanıyor.</h2>
         <p>
-          {success.request.store.storeName} için mağaza kayıt bilgilerinizi aldık. Hazır olduğunda admin panelinize
-          güvenli şekilde yönlendirileceksiniz.
+          {success.request.store.storeName} için Celebix başlangıç mağazası sıraya alındı. Hazır olduğunda doğrudan
+          yönetim panelinize yönlendirileceksiniz.
         </p>
         <div className="self-serve-direct-status-grid">
           <div>
-            <span>Mağaza adresi</span>
-            <strong>{success.request.store.proposedDomain ?? `${success.request.store.slug}.${domainSuffix}`}</strong>
+            <span>Mağaza</span>
+            <strong>{plannedStoreUrl}</strong>
+          </div>
+          <div>
+            <span>Admin panel</span>
+            <strong>{plannedAdminUrl}</strong>
           </div>
           <div>
             <span>Durum</span>
-            <strong>Başvuru alındı</strong>
-          </div>
-          <div>
-            <span>Sonraki adım</span>
-            <strong>Celebix ekibi doğrulayacak</strong>
+            <strong>Kurulum sırada</strong>
           </div>
         </div>
         <button className="button button-secondary" type="button" onClick={() => setSuccess(null)}>

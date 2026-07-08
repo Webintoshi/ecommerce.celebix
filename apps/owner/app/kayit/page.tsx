@@ -17,7 +17,7 @@ export default function KayitPage() {
 
       <section className="self-serve-register-hero" aria-labelledby="self-serve-register-title">
         <h1 id="self-serve-register-title">E-Ticaret sitenizi açın!</h1>
-        <p>Sanal POS ve kargo anlaşmalarınız anında hazır.</p>
+        <p>Sanal POS, kargo ve yönetim paneliniz hazır.</p>
       </section>
 
       <section className="self-serve-register-form-wrap" aria-label="Mağaza kayıt formu">

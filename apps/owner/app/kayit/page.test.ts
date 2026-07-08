@@ -10,7 +10,7 @@ const formSource = readFileSync(
 
 test("/kayit is a single direct registration screen, not the old onboarding landing", () => {
   assert.match(pageSource, /E-Ticaret sitenizi açın!/);
-  assert.match(pageSource, /Sanal POS ve kargo anlaşmalarınız anında hazır\./);
+  assert.match(pageSource, /Sanal POS, kargo ve yönetim paneliniz hazır\./);
   assert.match(pageSource, /Zaten hesabınız var mı\?/);
   assert.match(pageSource, /Giriş Yap/);
 
@@ -34,4 +34,6 @@ test("the direct form does not reintroduce Logto-first or onboarding explainer c
   assert.doesNotMatch(formSource, /Guvenlik/i);
   assert.doesNotMatch(formSource, /Logto ile/i);
   assert.doesNotMatch(formSource, /Supabase Auth/i);
+  assert.doesNotMatch(formSource, /Celebix ekibi doğrulayacak/i);
+  assert.doesNotMatch(formSource, /owner approval/i);
 });

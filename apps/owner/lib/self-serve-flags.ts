@@ -1,6 +1,7 @@
 export interface SelfServeFeatureFlags {
   signupEnabled: boolean;
   directRegistrationEnabled: boolean;
+  freeStarterStoreEnabled: boolean;
   storeCreateEnabled: boolean;
   provisioningEnabled: boolean;
   autoProvisioningEnabled: boolean;
@@ -59,10 +60,11 @@ export function getSelfServeFeatureFlags(): SelfServeFeatureFlags {
   return {
     signupEnabled: readBooleanFlag("SELF_SERVE_SIGNUP_ENABLED", true),
     directRegistrationEnabled: readBooleanFlag("SELF_SERVE_DIRECT_REGISTRATION_ENABLED", true),
+    freeStarterStoreEnabled: readBooleanFlag("SELF_SERVE_FREE_STARTER_STORE_ENABLED", true),
     storeCreateEnabled,
     provisioningEnabled,
     autoProvisioningEnabled,
-    requireOwnerApproval: readBooleanFlag("SELF_SERVE_REQUIRE_OWNER_APPROVAL", true),
+    requireOwnerApproval: readBooleanFlag("SELF_SERVE_REQUIRE_OWNER_APPROVAL", false),
     previewMode: readBooleanFlag(
       "SELF_SERVE_PREVIEW_MODE",
       !storeCreateEnabled && !provisioningEnabled && !autoProvisioningEnabled,
