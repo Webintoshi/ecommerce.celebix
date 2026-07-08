@@ -2,7 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { validateSameOriginRequest } from "@celebix/platform-config/src/http-security";
 import { getSelfServeFeatureFlags } from "@/lib/self-serve-flags";
 import { createSelfServeDirectRegistration, getSelfServeRequestAdapterMode } from "@/lib/self-serve-request-store";
-import type { SelfServeRegistrationInput } from "@/lib/self-serve-registration";
+import {
+  buildSelfServeAdminUrl,
+  buildSelfServeStorefrontUrl,
+  type SelfServeRegistrationInput,
+} from "@/lib/self-serve-registration";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_ATTEMPTS = 6;
@@ -124,15 +128,27 @@ export async function POST(request: NextRequest) {
   }
 
   const flags = getSelfServeFeatureFlags();
-  const adminUrl = `https://admin.${result.request.store.slug}.${flags.defaultDomainSuffix}`;
+  const plannedStoreUrl =
+    result.request.store.plannedStoreUrl ?? buildSelfServeStorefrontUrl(result.request.store.slug, flags.defaultDomainSuffix);
+  const plannedAdminUrl =
+    result.request.store.plannedAdminUrl ?? buildSelfServeAdminUrl(result.request.store.slug, flags.defaultDomainSuffix);
 
   return NextResponse.json(
     {
-      code: "self_serve_registration_pending",
-      status: "pending",
+      code: "self_serve_store_creation_processing",
+      status: "processing",
       request: result.request,
       adminRedirectUrl: null,
-      plannedAdminUrl: adminUrl,
+      plannedStoreUrl,
+      plannedAdminUrl,
+      plan: "free",
+      domain: {
+        mode: "subdomain",
+        storefront: plannedStoreUrl,
+        admin: plannedAdminUrl,
+        customDomainAtRegistration: false,
+        customDomainLaterPath: "/admin/ayarlar/domainler",
+      },
       persistenceMode: result.persistenceMode,
       auth: {
         provider: "logto",
@@ -144,13 +160,14 @@ export async function POST(request: NextRequest) {
         tokensInQueryString: false,
       },
       provisioning: {
+        freeStarterStoreEnabled: result.freeStarterStoreEnabled,
         autoProvisioningEnabled: result.autoProvisioningEnabled,
         storeCreateEnabled: result.storeCreateEnabled,
         provisioningEnabled: result.provisioningEnabled,
         state:
           result.autoProvisioningEnabled && result.storeCreateEnabled && result.provisioningEnabled
             ? "not_implemented_safe_stop"
-            : "disabled_by_flag",
+            : "automatic_pipeline_waiting_for_safe_enablement",
       },
     },
     { status: 202 },

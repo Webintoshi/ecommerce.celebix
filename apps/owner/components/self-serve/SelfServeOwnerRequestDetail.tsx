@@ -15,6 +15,15 @@ interface SelfServeOwnerRequestDetailProps {
   flags: SelfServeFeatureFlags;
 }
 
+type MonitorRequest = SelfServeOnboardingRequest & {
+  registration?: {
+    plan?: string;
+    defaultDomainMode?: string;
+    customDomainAtRegistration?: boolean;
+    autoProvisioningEnabled?: boolean;
+  };
+};
+
 function readBrowserRequest(requestId: string): SelfServeOnboardingRequest | null {
   if (typeof window === "undefined") {
     return null;
@@ -40,13 +49,24 @@ export function SelfServeOwnerRequestDetail({ requestId, initialRequest, flags }
     return (
       <div className="card">
         <div className="empty-state empty-state-compact">
-          <h3>Basvuru bulunamadi</h3>
-          <p>Volatile adapter restart edilmis olabilir veya bu basvuru farkli bir tarayicida olusturulmus olabilir.</p>
-          <Link className="button button-secondary" href="/owner/self-serve">Listeye don</Link>
+          <h3>Kayıt bulunamadı</h3>
+          <p>Volatile adapter restart edilmiş olabilir veya bu kayıt farklı bir tarayıcıda oluşturulmuş olabilir.</p>
+          <Link className="button button-secondary" href="/owner/self-serve">Listeye dön</Link>
         </div>
       </div>
     );
   }
+
+  const monitorRequest = request as MonitorRequest;
+  const planLabel = monitorRequest.registration?.plan === "free" || !monitorRequest.registration?.plan
+    ? "Free starter"
+    : monitorRequest.registration.plan;
+  const domainModeLabel = monitorRequest.registration?.defaultDomainMode === "subdomain" || request.store.proposedDomain
+    ? "Celebix subdomain"
+    : "Panelden sonra eklenecek";
+  const plannedStoreUrl =
+    request.store.plannedStoreUrl ?? (request.store.proposedDomain ? `https://${request.store.proposedDomain}` : request.store.slug);
+  const plannedAdminUrl = request.store.plannedAdminUrl ?? `https://admin-${request.store.slug}.${flags.defaultDomainSuffix}`;
 
   return (
     <div className="self-serve-detail-grid">
@@ -59,42 +79,36 @@ export function SelfServeOwnerRequestDetail({ requestId, initialRequest, flags }
           <span className="pill pill-accent">{getSelfServeStatusLabel(request.status)}</span>
         </div>
         <div className="meta-pairs">
-          <span>Basvuran: <strong>{request.applicant.fullName}</strong></span>
+          <span>Müşteri: <strong>{request.applicant.fullName}</strong></span>
           <span>E-posta: <strong>{request.applicant.email}</strong></span>
           <span>Telefon: <strong>{request.applicant.phone}</strong></span>
-          <span>Isletme: <strong>{request.business.businessName}</strong> ({request.business.businessType})</span>
-          <span>Olusturma: <strong>{new Date(request.createdAt).toLocaleString("tr-TR")}</strong></span>
+          <span>İşletme: <strong>{request.business.businessName}</strong> ({request.business.businessType})</span>
+          <span>Oluşturma: <strong>{new Date(request.createdAt).toLocaleString("tr-TR")}</strong></span>
         </div>
       </section>
 
       <section className="card">
-        <div className="card-title">Ihtiyac ozeti</div>
+        <div className="card-title">Paket ve domain</div>
         <div className="meta-pairs">
-          <span>Domaini var mi? <strong>{request.needs.hasDomain ? "Evet" : "Hayir"}</strong></span>
-          <span>Domain ister mi? <strong>{request.needs.wantsDomain ? "Evet" : "Hayir"}</strong></span>
-          <span>Kurumsal mail? <strong>{request.needs.wantsCorporateEmail ? "Evet" : "Hayir"}</strong></span>
-          <span>Urun tasima? <strong>{request.needs.wantsProductMigration ? "Evet" : "Hayir"}</strong></span>
-          <span>Urun sayisi: <strong>{request.needs.approximateProductCount}</strong></span>
-          <span>Tasarim: <strong>{request.needs.designPreference}</strong></span>
+          <span>Paket: <strong>{planLabel}</strong></span>
+          <span>Domain modu: <strong>{domainModeLabel}</strong></span>
+          <span>Mağaza URL: <strong>{plannedStoreUrl}</strong></span>
+          <span>Admin URL: <strong>{plannedAdminUrl}</strong></span>
+          <span>Özel domain: <strong>Mağaza paneli → Ayarlar → Domainler</strong></span>
+          <span>Ürün limiti modeli: <strong>Paket yükseltme sonrası genişler</strong></span>
         </div>
       </section>
 
       <section className="card">
-        <div className="card-title">Phase 1 guvenlik durumu</div>
+        <div className="card-title">Provisioning monitörü</div>
         <div className="meta-pairs">
-          <span>Owner approval: <strong>{request.ownerApprovalRequired ? "Gerekli" : "Kapali"}</strong></span>
+          <span>Otomatik pipeline: <strong>{flags.autoProvisioningEnabled ? "Acik" : "Guvenli bekleme"}</strong></span>
           <span>Store create: <strong>{flags.storeCreateEnabled ? "Acik" : "Kapali"}</strong></span>
           <span>Provisioning: <strong>{flags.provisioningEnabled ? "Acik" : "Kapali"}</strong></span>
           <span>Runtime cutover: <strong>Yok</strong></span>
         </div>
         <div className="actions stack-top-md">
-          <button className="button button-primary" type="button" disabled title="Phase 1: no real approval mutation">
-            Onayla (UI only)
-          </button>
-          <button className="button button-secondary" type="button" disabled title="Phase 1: no real rejection mutation">
-            Reddet (UI only)
-          </button>
-          <Link className="button button-ghost" href="/owner/self-serve">Listeye don</Link>
+          <Link className="button button-ghost" href="/owner/self-serve">Listeye dön</Link>
         </div>
       </section>
     </div>

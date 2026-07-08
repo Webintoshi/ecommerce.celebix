@@ -15,8 +15,8 @@ export default async function OwnerSelfServeRequestsPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Self-serve Basvurular</h1>
-          <p>Kontrollu self-serve akisiyle gelen magaza taleplerini production provisioning baslatmadan incele.</p>
+          <h1>Self-serve Mağaza Monitörü</h1>
+          <p>otomatik mağaza kayıtlarını, paket durumunu, provisioning durumunu ve hata sinyallerini izle.</p>
         </div>
       </div>
       <SelfServeOwnerRequestsPanel
