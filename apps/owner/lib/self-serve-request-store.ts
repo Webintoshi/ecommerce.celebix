@@ -8,6 +8,12 @@ import {
   type SelfServeOnboardingRequest,
   validateSelfServeOnboardingInput,
 } from "@/lib/self-serve-onboarding";
+import {
+  buildSelfServeRegistrationRecord,
+  normalizeSelfServeRegistrationInput,
+  type SelfServeRegistrationInput,
+  validateSelfServeRegistrationInput,
+} from "@/lib/self-serve-registration";
 
 const MAX_VOLATILE_REQUESTS = 100;
 
@@ -75,5 +81,66 @@ export function createSelfServeOnboardingRequest(input: SelfServeOnboardingInput
     ok: true as const,
     request,
     persistenceMode: getSelfServePersistenceMode(flags),
+  };
+}
+
+export function createSelfServeDirectRegistration(input: SelfServeRegistrationInput) {
+  const flags = getSelfServeFeatureFlags();
+
+  if (!flags.signupEnabled || !flags.directRegistrationEnabled) {
+    return {
+      ok: false as const,
+      status: 503,
+      code: "self_serve_direct_registration_disabled",
+      errors: ["Self-serve direkt kayit akisi su anda kapali."],
+    };
+  }
+
+  const normalized = normalizeSelfServeRegistrationInput(input);
+  const validationErrors = validateSelfServeRegistrationInput(normalized);
+
+  if (validationErrors.length > 0) {
+    return {
+      ok: false as const,
+      status: 400,
+      code: "self_serve_registration_rejected",
+      errors: validationErrors.map((error) => error.message),
+      fieldErrors: validationErrors,
+    };
+  }
+
+  const store = getVolatileStore();
+  const duplicateSlug = store.requests.some((request) => request.store.slug === normalized.storeSlug);
+  const duplicateEmail = store.requests.some((request) => request.applicant.email === normalized.email);
+
+  if (duplicateSlug || duplicateEmail) {
+    return {
+      ok: false as const,
+      status: 409,
+      code: duplicateSlug ? "self_serve_slug_taken" : "self_serve_email_taken",
+      errors: [
+        duplicateSlug
+          ? "Bu magaza adresi icin bekleyen bir kayit var."
+          : "Bu e-posta icin bekleyen bir kayit var.",
+      ],
+    };
+  }
+
+  const request = buildSelfServeRegistrationRecord(createRequestId(), normalized, {
+    defaultDomainSuffix: flags.defaultDomainSuffix,
+    autoProvisioningEnabled: flags.autoProvisioningEnabled,
+    requirePaymentBeforePublic: flags.requirePaymentBeforePublic,
+    requireEmailVerification: flags.requireEmailVerification,
+  });
+
+  store.requests = [request, ...store.requests].slice(0, MAX_VOLATILE_REQUESTS);
+
+  return {
+    ok: true as const,
+    request,
+    persistenceMode: getSelfServePersistenceMode(flags),
+    autoProvisioningEnabled: flags.autoProvisioningEnabled,
+    storeCreateEnabled: flags.storeCreateEnabled,
+    provisioningEnabled: flags.provisioningEnabled,
   };
 }

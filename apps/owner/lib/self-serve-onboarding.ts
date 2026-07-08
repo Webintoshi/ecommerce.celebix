@@ -2,7 +2,9 @@ import type { SelfServeFeatureFlags } from "@/lib/self-serve-flags";
 import { normalizeSelfServeStoreSlug, suggestSelfServeStoreSlug } from "@/lib/self-serve-store-slug";
 
 export type SelfServeRequestStatus =
+  | "pending_provisioning"
   | "pending_owner_approval"
+  | "ready"
   | "approved"
   | "rejected"
   | "cancelled";
@@ -26,6 +28,7 @@ export interface SelfServeStoreInfo {
   currency: "TRY";
   contactEmail: string;
   contactPhone: string;
+  proposedDomain?: string;
 }
 
 export interface SelfServeNeedsInfo {
@@ -52,6 +55,7 @@ export interface SelfServeOnboardingRequest extends SelfServeOnboardingInput {
   createdAt: string;
   updatedAt: string;
   source: "self_serve_phase_1";
+  mode?: "controlled_onboarding" | "direct_registration";
   ownerApprovalRequired: boolean;
   provisioningEnabled: boolean;
   storeCreateEnabled: boolean;
@@ -208,8 +212,12 @@ export function buildSelfServeOnboardingRequest(
 
 export function getSelfServeStatusLabel(status: SelfServeRequestStatus): string {
   switch (status) {
+    case "pending_provisioning":
+      return "Kurulum hazirlaniyor";
     case "pending_owner_approval":
       return "Owner onayi bekliyor";
+    case "ready":
+      return "Admin panel hazir";
     case "approved":
       return "Onaylandi";
     case "rejected":
