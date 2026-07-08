@@ -127,7 +127,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (isPublicSelfServeRoute(pathname)) {
-    return withSecurity(request, NextResponse.next());
+    return withSecurity(request, nextResponse(request));
   }
 
   const requiresAuth = isProtectedOwnerPage(pathname) || isProtectedOwnerApi(pathname);
