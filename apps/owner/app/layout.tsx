@@ -14,6 +14,17 @@ import {
   hasOwnerPreviewDataFallback,
 } from "@/lib/owner-preview-fixtures";
 
+const PUBLIC_SELF_SERVE_PAGE_PATHS = new Set([
+  "/kayit",
+  "/magaza-ac",
+  "/onboarding",
+  "/onboarding/status",
+]);
+
+function isPublicSelfServePagePath(pathname: string) {
+  return PUBLIC_SELF_SERVE_PAGE_PATHS.has(pathname);
+}
+
 export const metadata: Metadata = {
   title: "Celebix Owner Panel",
   description: "Tüm e-ticaret mağazalarını tek panelden yönet."
@@ -55,13 +66,17 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const [auth, requestHeaders] = await Promise.all([getOwnerAuthContext(), headers()]);
   const previewFlags = getOwnerPreviewFlags();
   const pathname = requestHeaders.get("x-owner-pathname") ?? "/";
+  const isPublicSelfServePage = isPublicSelfServePagePath(pathname);
   const canUsePreviewShell =
+    !isPublicSelfServePage &&
     !auth &&
     hasOwnerPreviewDataFallback() &&
     pathname !== "/login" &&
     pathname !== "/auth/recover" &&
     !pathname.startsWith("/auth/confirm");
-  const shellAuth = auth ?? (canUsePreviewShell ? getPreviewOwnerAuthContext() : null);
+  const shellAuth = isPublicSelfServePage
+    ? null
+    : auth ?? (canUsePreviewShell ? getPreviewOwnerAuthContext() : null);
 
   const userName = shellAuth?.profile.full_name || shellAuth?.user.email || "";
   const roleLabel =
