@@ -46,6 +46,20 @@ function withSecurity(request: NextRequest, response: NextResponse) {
   return applySecurityHeaders(request, response, "owner");
 }
 
+function buildRequestHeaders(request: NextRequest) {
+  const headers = new Headers(request.headers);
+  headers.set("x-owner-pathname", request.nextUrl.pathname);
+  return headers;
+}
+
+function nextResponse(request: NextRequest) {
+  return NextResponse.next({
+    request: {
+      headers: buildRequestHeaders(request),
+    },
+  });
+}
+
 function jsonResponse(request: NextRequest, body: Record<string, unknown>, status: number) {
   return withSecurity(request, NextResponse.json(body, { status }));
 }
@@ -104,7 +118,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (isPublicSelfServeRoute(pathname)) {
-    return withSecurity(request, NextResponse.next());
+    return withSecurity(request, nextResponse(request));
   }
 
   const requiresAuth = isProtectedOwnerPage(pathname) || isProtectedOwnerApi(pathname);

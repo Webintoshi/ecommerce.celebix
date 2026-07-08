@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import "./globals.css";
 import { getOwnerAuthContext } from "@/lib/owner-auth";
@@ -6,6 +7,17 @@ import { SidebarNavLink } from "@/components/SidebarNavLink";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+
+const PUBLIC_SELF_SERVE_PAGE_PATHS = new Set([
+  "/kayit",
+  "/magaza-ac",
+  "/onboarding",
+  "/onboarding/status",
+]);
+
+function isPublicSelfServePagePath(pathname: string) {
+  return PUBLIC_SELF_SERVE_PAGE_PATHS.has(pathname);
+}
 
 export const metadata: Metadata = {
   title: "Celebix Owner Panel",
@@ -45,10 +57,13 @@ const themeScript = `
 `;
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const auth = await getOwnerAuthContext();
+  const [auth, requestHeaders] = await Promise.all([getOwnerAuthContext(), headers()]);
+  const pathname = requestHeaders.get("x-owner-pathname") ?? "/";
+  const isPublicSelfServePage = isPublicSelfServePagePath(pathname);
+  const shellAuth = isPublicSelfServePage ? null : auth;
 
-  const userName = auth?.profile.full_name || auth?.user.email || "";
-  const roleLabel = auth?.profile.role === "super_admin" ? "Super Admin" : "Affiliate";
+  const userName = shellAuth?.profile.full_name || shellAuth?.user.email || "";
+  const roleLabel = shellAuth?.profile.role === "super_admin" ? "Super Admin" : "Affiliate";
 
   return (
     <html lang="tr" suppressHydrationWarning>
@@ -57,7 +72,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body className="owner-panel" suppressHydrationWarning>
         <ThemeProvider defaultTheme="system" enableSystem disableTransitionOnChange={false}>
-          {auth ? (
+          {shellAuth ? (
             <div className="app-shell">
               <aside className="sidebar">
                 <div className="sidebar-header">
