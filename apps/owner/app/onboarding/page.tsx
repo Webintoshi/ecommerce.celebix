@@ -1,16 +1,24 @@
-import { headers } from "next/headers";
-import { SelfServeOnboardingForm } from "@/components/self-serve/SelfServeOnboardingForm";
-import { getSelfServeFeatureFlags } from "@/lib/self-serve-flags";
-import { readSelfServeSessionFromHeaders } from "@/lib/self-serve-logto";
+import { redirect } from "next/navigation";
 
-export default async function OnboardingPage() {
-  const requestHeaders = await headers();
-  const flags = getSelfServeFeatureFlags();
-  const applicantSession = readSelfServeSessionFromHeaders(requestHeaders);
+interface OnboardingPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
-  return (
-    <main className="self-serve-public-page">
-      <SelfServeOnboardingForm flags={flags} applicantSession={applicantSession} />
-    </main>
-  );
+function buildKayitRedirect(params: Record<string, string | string[] | undefined>) {
+  const search = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.forEach((entry) => search.append(key, entry));
+    } else if (value) {
+      search.set(key, value);
+    }
+  }
+
+  const query = search.toString();
+  return query ? `/kayit?${query}` : "/kayit";
+}
+
+export default async function OnboardingPage({ searchParams }: OnboardingPageProps) {
+  redirect(buildKayitRedirect(await searchParams));
 }

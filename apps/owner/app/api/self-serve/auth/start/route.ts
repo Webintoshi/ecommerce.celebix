@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSelfServeFeatureFlags } from "@/lib/self-serve-flags";
-import { buildSelfServeLogtoStartUrl } from "@/lib/self-serve-logto";
+import { buildSelfServeLogtoStartUrl, buildSelfServeOwnerPublicUrl } from "@/lib/self-serve-logto";
 
 export async function GET(request: Request) {
   const flags = getSelfServeFeatureFlags();
   const requestUrl = new URL(request.url);
-  const returnTo = requestUrl.searchParams.get("returnTo") ?? "/onboarding";
+  const returnTo = requestUrl.searchParams.get("returnTo") ?? "/kayit";
 
   if (!flags.signupEnabled) {
-    const disabledUrl = new URL("/magaza-ac", request.url);
+    const disabledUrl = buildSelfServeOwnerPublicUrl(request, "/kayit");
     disabledUrl.searchParams.set("signup", "disabled");
     return NextResponse.redirect(disabledUrl);
   }
