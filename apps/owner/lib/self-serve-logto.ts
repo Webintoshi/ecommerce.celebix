@@ -14,7 +14,12 @@ const OWNER_PUBLIC_URL_ENV_NAMES = [
   "SELF_SERVE_PUBLIC_URL",
 ];
 const LOCALHOST_NAMES = new Set(["localhost"]);
-const FORBIDDEN_PUBLIC_HOSTS = new Set(["0.0.0.0", "127.0.0.1", "::1", "[::1]"]);
+const FORBIDDEN_PUBLIC_HOSTS = new Set([
+  "0.0.0.0",
+  "127.0.0.1",
+  "::1",
+  "[::1]",
+]);
 
 function firstEnv(...names: string[]) {
   for (const name of names) {
@@ -57,7 +62,11 @@ function normalizeHostname(hostname: string) {
 function isForbiddenPublicHostname(hostname: string) {
   const normalized = normalizeHostname(hostname);
 
-  return FORBIDDEN_PUBLIC_HOSTS.has(normalized) || normalized.endsWith(".local") || normalized.endsWith(".internal");
+  return (
+    FORBIDDEN_PUBLIC_HOSTS.has(normalized) ||
+    normalized.endsWith(".local") ||
+    normalized.endsWith(".internal")
+  );
 }
 
 function isAllowedEnvPublicUrl(url: URL) {
