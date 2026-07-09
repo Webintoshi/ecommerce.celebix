@@ -9,6 +9,7 @@ begin;
 create table if not exists self_serve_store_registrations (
   id uuid primary key default gen_random_uuid(),
   normalized_email text not null,
+  -- Stores the normalized slug produced by normalizeSelfServeStoreSlug().
   store_slug text not null,
   idempotency_key text not null,
   store_name text not null,
