@@ -26,6 +26,7 @@ test("self-serve proposal SQL has persistent adapter and idempotency columns", (
     "store_slug text not null",
     "idempotency_key text not null",
     "creation_mode text not null default 'production_safe_pending'",
+    "persistence_mode text not null default 'persistent_db_adapter'",
     "status text not null default 'processing'",
     "planned_store_url text not null",
     "planned_admin_url text not null",
@@ -53,6 +54,7 @@ test("self-serve proposal SQL has persistent adapter and idempotency columns", (
     /self_serve_store_registrations_idempotency_key[\s\S]+on self_serve_store_registrations \(idempotency_key\)/,
   );
   assert.match(proposalSql, /self_serve_store_registrations_email_key[\s\S]+on self_serve_store_registrations \(normalized_email\)/);
+  assert.match(proposalSql, /self_serve_store_registrations_persistence_mode_check/);
   assert.match(proposalSql, /self_serve_provisioning_jobs_adapter_check/);
 });
 

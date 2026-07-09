@@ -45,6 +45,7 @@ The registration table includes:
 
 - `status`
 - `creation_mode`
+- `persistence_mode`
 - `planned_store_url`
 - `planned_admin_url`
 - nullable `admin_redirect_url`
@@ -79,6 +80,7 @@ Code-level audit on `origin/main` found the current owner DB schema authority in
 - The proposal does not create generic `stores`, `store_domains`, `store_memberships`, package/subscription, or owner runtime cutover tables.
 - The persistent adapter writes only to `self_serve_store_registrations`, `self_serve_store_packages`, `self_serve_store_domains`, `self_serve_store_memberships`, and `self_serve_provisioning_jobs` when `SELF_SERVE_PERSISTENCE_MODE=persistent_db_adapter` is explicitly selected.
 - Default production behavior remains `safe_memory_adapter`; missing owner DB config fails closed before any write.
+- The proposed `persistence_mode` column records that a durable row was created by the explicitly selected `persistent_db_adapter`; adding the column does not enable the adapter or change production defaults.
 
 Direct production schema read was not performed in this task. The local execution context does not provide a fresh read-only owner DB session dedicated to this packet, and the task is explicitly no-production-apply/no-mutation. Before production apply, run the read-only preflight queries below against the real owner DB using a read-only transaction.
 
