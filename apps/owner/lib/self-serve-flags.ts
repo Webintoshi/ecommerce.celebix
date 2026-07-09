@@ -13,7 +13,11 @@ export interface SelfServeFeatureFlags {
   defaultDomainSuffix: string;
 }
 
-export type SelfServePersistenceMode = "safe_memory_adapter" | "local_mock_adapter" | "blocked_by_phase_1_safety";
+export type SelfServePersistenceMode =
+  | "safe_memory_adapter"
+  | "local_mock_adapter"
+  | "persistent_db_adapter"
+  | "blocked_by_phase_1_safety";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "on", "enabled"]);
 const FALSE_VALUES = new Set(["0", "false", "no", "off", "disabled"]);
@@ -52,6 +56,16 @@ function readStringFlag(name: string, defaultValue: string): string {
   const raw = process.env[name]?.trim();
 
   return raw || defaultValue;
+}
+
+function readPersistenceModeFlag(): SelfServePersistenceMode | null {
+  const raw = process.env.SELF_SERVE_PERSISTENCE_MODE?.trim();
+
+  if (raw === "safe_memory_adapter" || raw === "local_mock_adapter" || raw === "persistent_db_adapter") {
+    return raw;
+  }
+
+  return null;
 }
 
 export function getSelfServeFeatureFlags(): SelfServeFeatureFlags {
@@ -93,6 +107,17 @@ export function isSelfServeLocalMockCreationEnabled(
 }
 
 export function getSelfServePersistenceMode(flags = getSelfServeFeatureFlags()): SelfServePersistenceMode {
+  const explicitPersistenceMode = readPersistenceModeFlag();
+
+  if (
+    explicitPersistenceMode === "persistent_db_adapter" &&
+    !flags.storeCreateEnabled &&
+    !flags.provisioningEnabled &&
+    !flags.autoProvisioningEnabled
+  ) {
+    return "persistent_db_adapter";
+  }
+
   if (isSelfServeLocalMockCreationEnabled(flags)) {
     return "local_mock_adapter";
   }
