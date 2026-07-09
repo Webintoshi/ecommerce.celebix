@@ -139,6 +139,8 @@ export async function POST(request: NextRequest) {
       status: "processing",
       request: result.request,
       adminRedirectUrl: null,
+      creation: result.creation,
+      idempotent: result.idempotent,
       plannedStoreUrl,
       plannedAdminUrl,
       plan: "free",

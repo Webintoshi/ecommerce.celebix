@@ -40,6 +40,7 @@ export interface SelfServeRegistrationRecord extends SelfServeOnboardingRequest 
     emailVerificationRequired: boolean;
     requirePaymentBeforePublic: boolean;
     autoProvisioningEnabled: boolean;
+    freeStarterPackage: "free_starter";
     adminHandoff: "pending_secure_handoff";
   };
   store: SelfServeOnboardingRequest["store"] & {
@@ -47,6 +48,55 @@ export interface SelfServeRegistrationRecord extends SelfServeOnboardingRequest 
     plannedStoreUrl: string;
     plannedAdminUrl: string;
   };
+}
+
+export interface SelfServeLocalMockCreationArtifacts {
+  store: {
+    id: string;
+    slug: string;
+    name: string;
+    url: string;
+    adminUrl: string;
+    status: "mock_created";
+  };
+  package: {
+    id: string;
+    plan: "free_starter";
+    status: "mock_active";
+  };
+  domain: {
+    id: string;
+    hostname: string;
+    type: "platform_subdomain";
+    isPrimary: true;
+  };
+  adminDomain: {
+    id: string;
+    hostname: string;
+    type: "admin_subdomain";
+    isPrimary: true;
+  };
+  membership: {
+    id: string;
+    role: "store_owner";
+    principalEmail: string;
+    status: "mock_active";
+  };
+  provisioningJob: {
+    id: string;
+    adapter: "local_mock";
+    status: "queued_mock";
+    kind: "free_starter_store_creation";
+  };
+}
+
+export type SelfServeCreationStatus = "processing" | "mock_records_created";
+
+export interface SelfServeCreationState {
+  mode: "production_safe_pending" | "local_mock_creation";
+  status: SelfServeCreationStatus;
+  idempotent: boolean;
+  artifacts?: SelfServeLocalMockCreationArtifacts;
 }
 
 interface BuildRegistrationRecordOptions {
@@ -242,6 +292,7 @@ export function buildSelfServeRegistrationRecord(
       emailVerificationRequired: flags.requireEmailVerification,
       requirePaymentBeforePublic: flags.requirePaymentBeforePublic,
       autoProvisioningEnabled: flags.autoProvisioningEnabled,
+      freeStarterPackage: "free_starter",
       adminHandoff: "pending_secure_handoff",
     },
   };
