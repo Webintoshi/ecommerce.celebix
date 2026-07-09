@@ -9,6 +9,7 @@ begin;
 create table if not exists self_serve_store_registrations (
   id uuid primary key default gen_random_uuid(),
   normalized_email text not null,
+  -- Stores the normalized slug produced by normalizeSelfServeStoreSlug().
   store_slug text not null,
   idempotency_key text not null,
   store_name text not null,
@@ -19,6 +20,7 @@ create table if not exists self_serve_store_registrations (
   privacy_consent boolean not null,
   plan text not null default 'free_starter',
   creation_mode text not null default 'production_safe_pending',
+  persistence_mode text not null default 'persistent_db_adapter',
   status text not null default 'processing',
   planned_store_url text not null,
   planned_admin_url text not null,
@@ -43,6 +45,9 @@ create table if not exists self_serve_store_registrations (
   constraint self_serve_store_registrations_plan_check check (plan = 'free_starter'),
   constraint self_serve_store_registrations_creation_mode_check check (
     creation_mode in ('production_safe_pending', 'persistent_db_adapter')
+  ),
+  constraint self_serve_store_registrations_persistence_mode_check check (
+    persistence_mode in ('persistent_db_adapter')
   ),
   constraint self_serve_store_registrations_password_never_stored check (password_stored = false),
   constraint self_serve_store_registrations_admin_redirect_safe check (
