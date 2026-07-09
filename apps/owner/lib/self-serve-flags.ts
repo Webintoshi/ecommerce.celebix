@@ -13,6 +13,8 @@ export interface SelfServeFeatureFlags {
   defaultDomainSuffix: string;
 }
 
+export type SelfServePersistenceMode = "safe_memory_adapter" | "local_mock_adapter" | "blocked_by_phase_1_safety";
+
 const TRUE_VALUES = new Set(["1", "true", "yes", "on", "enabled"]);
 const FALSE_VALUES = new Set(["0", "false", "no", "off", "disabled"]);
 
@@ -60,7 +62,7 @@ export function getSelfServeFeatureFlags(): SelfServeFeatureFlags {
   return {
     signupEnabled: readBooleanFlag("SELF_SERVE_SIGNUP_ENABLED", true),
     directRegistrationEnabled: readBooleanFlag("SELF_SERVE_DIRECT_REGISTRATION_ENABLED", true),
-    freeStarterStoreEnabled: readBooleanFlag("SELF_SERVE_FREE_STARTER_STORE_ENABLED", true),
+    freeStarterStoreEnabled: readBooleanFlag("SELF_SERVE_FREE_STARTER_STORE_ENABLED", false),
     storeCreateEnabled,
     provisioningEnabled,
     autoProvisioningEnabled,
@@ -76,10 +78,28 @@ export function getSelfServeFeatureFlags(): SelfServeFeatureFlags {
   };
 }
 
-export function getSelfServePersistenceMode(flags = getSelfServeFeatureFlags()) {
-  if (flags.storeCreateEnabled || flags.provisioningEnabled || flags.autoProvisioningEnabled) {
-    return "blocked_by_phase_1_safety" as const;
+export function isSelfServeLocalMockCreationEnabled(
+  flags = getSelfServeFeatureFlags(),
+  nodeEnv = process.env.NODE_ENV,
+) {
+  return (
+    nodeEnv !== "production" &&
+    flags.previewMode &&
+    flags.freeStarterStoreEnabled &&
+    flags.storeCreateEnabled &&
+    !flags.provisioningEnabled &&
+    !flags.autoProvisioningEnabled
+  );
+}
+
+export function getSelfServePersistenceMode(flags = getSelfServeFeatureFlags()): SelfServePersistenceMode {
+  if (isSelfServeLocalMockCreationEnabled(flags)) {
+    return "local_mock_adapter";
   }
 
-  return "safe_memory_adapter" as const;
+  if (flags.storeCreateEnabled || flags.provisioningEnabled || flags.autoProvisioningEnabled) {
+    return "blocked_by_phase_1_safety";
+  }
+
+  return "safe_memory_adapter";
 }
