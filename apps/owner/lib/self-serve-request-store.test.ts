@@ -20,6 +20,7 @@ const SELF_SERVE_ENV_KEYS = [
   "SELF_SERVE_MAX_STORES_PER_USER",
   "SELF_SERVE_REQUIRE_EMAIL_VERIFICATION",
   "SELF_SERVE_DEFAULT_DOMAIN_SUFFIX",
+  "SELF_SERVE_PERSISTENCE_MODE",
 ] as const;
 
 const validRegistration: SelfServeRegistrationInput = {
@@ -115,7 +116,11 @@ test("local mock creation mode creates safe store package domain membership and 
       assert.equal(result.creation.mode, "local_mock_creation");
       assert.equal(result.creation.status, "mock_records_created");
 
-      if (!result.creation.artifacts) {
+      if (
+        result.creation.mode !== "local_mock_creation" ||
+        !result.creation.artifacts ||
+        !("store" in result.creation.artifacts)
+      ) {
         assert.fail("Expected local mock creation artifacts.");
       }
 

@@ -90,13 +90,22 @@ export interface SelfServeLocalMockCreationArtifacts {
   };
 }
 
-export type SelfServeCreationStatus = "processing" | "mock_records_created";
+export interface SelfServePersistentCreationArtifacts {
+  provisioningJob: {
+    id: string;
+    adapter: "persistent_db_adapter";
+    status: "queued";
+    kind: "free_starter_store_creation";
+  };
+}
+
+export type SelfServeCreationStatus = "processing" | "mock_records_created" | "persistent_records_prepared";
 
 export interface SelfServeCreationState {
-  mode: "production_safe_pending" | "local_mock_creation";
+  mode: "production_safe_pending" | "local_mock_creation" | "persistent_db_adapter";
   status: SelfServeCreationStatus;
   idempotent: boolean;
-  artifacts?: SelfServeLocalMockCreationArtifacts;
+  artifacts?: SelfServeLocalMockCreationArtifacts | SelfServePersistentCreationArtifacts;
 }
 
 interface BuildRegistrationRecordOptions {
