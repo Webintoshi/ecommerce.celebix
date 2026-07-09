@@ -10,6 +10,7 @@ create table if not exists self_serve_store_registrations (
   id uuid primary key default gen_random_uuid(),
   normalized_email text not null,
   store_slug text not null,
+  idempotency_key text not null,
   store_name text not null,
   applicant_first_name text not null,
   applicant_last_name text not null,
@@ -17,12 +18,15 @@ create table if not exists self_serve_store_registrations (
   marketing_consent boolean not null default false,
   privacy_consent boolean not null,
   plan text not null default 'free_starter',
+  creation_mode text not null default 'production_safe_pending',
   status text not null default 'processing',
   planned_store_url text not null,
   planned_admin_url text not null,
   auth_provider text not null default 'logto',
   password_stored boolean not null default false,
   admin_redirect_url text,
+  last_error_code text,
+  last_error_message text,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -37,6 +41,9 @@ create table if not exists self_serve_store_registrations (
     )
   ),
   constraint self_serve_store_registrations_plan_check check (plan = 'free_starter'),
+  constraint self_serve_store_registrations_creation_mode_check check (
+    creation_mode in ('production_safe_pending', 'persistent_db_adapter')
+  ),
   constraint self_serve_store_registrations_password_never_stored check (password_stored = false),
   constraint self_serve_store_registrations_admin_redirect_safe check (
     admin_redirect_url is null or admin_redirect_url like 'https://%'
@@ -45,6 +52,12 @@ create table if not exists self_serve_store_registrations (
 
 create unique index if not exists self_serve_store_registrations_slug_key
   on self_serve_store_registrations (store_slug);
+
+create unique index if not exists self_serve_store_registrations_email_slug_idempotency_key
+  on self_serve_store_registrations (normalized_email, store_slug);
+
+create unique index if not exists self_serve_store_registrations_idempotency_key
+  on self_serve_store_registrations (idempotency_key);
 
 -- Current product limit is one store per user/email. If the limit changes, replace this
 -- with a scoped quota table before enabling production writes.
@@ -106,15 +119,18 @@ create table if not exists self_serve_provisioning_jobs (
   id uuid primary key default gen_random_uuid(),
   registration_id uuid not null references self_serve_store_registrations(id) on delete cascade,
   kind text not null default 'free_starter_store_creation',
+  adapter text not null default 'persistent_db_adapter',
   status text not null default 'queued',
   attempts integer not null default 0,
   locked_at timestamptz,
   completed_at timestamptz,
   error_code text,
+  error_message text,
   safe_metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint self_serve_provisioning_jobs_kind_check check (kind = 'free_starter_store_creation'),
+  constraint self_serve_provisioning_jobs_adapter_check check (adapter = 'persistent_db_adapter'),
   constraint self_serve_provisioning_jobs_status_check check (
     status in ('queued', 'running', 'succeeded', 'failed', 'cancelled')
   )

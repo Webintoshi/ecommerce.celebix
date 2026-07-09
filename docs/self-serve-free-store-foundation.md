@@ -52,6 +52,7 @@ Safe defaults:
 | `SELF_SERVE_MAX_STORES_PER_USER` | `1` | One active/pending store per normalized email. |
 | `SELF_SERVE_REQUIRE_EMAIL_VERIFICATION` | `true` | Future auth handoff must verify email. |
 | `SELF_SERVE_DEFAULT_DOMAIN_SUFFIX` | `celebix.site` | Planned storefront domain suffix. |
+| `SELF_SERVE_PERSISTENCE_MODE` | unset | Defaults to `safe_memory_adapter`; `persistent_db_adapter` is only used when explicitly set. |
 
 Local mock creation requires all of these:
 
@@ -63,6 +64,14 @@ Local mock creation requires all of these:
 - `SELF_SERVE_AUTO_PROVISIONING_ENABLED=false`
 
 If any real production mutation flag is enabled without the required safe local conditions, the persistence mode becomes `blocked_by_phase_1_safety`.
+
+Persistent DB mode is explicit only:
+
+- `SELF_SERVE_PERSISTENCE_MODE=persistent_db_adapter`
+- Owner DB Supabase env must be present.
+- Missing DB config fails closed before any write.
+- Production defaults remain `safe_memory_adapter`.
+- Real store creation and provisioning remain disabled even when persistent request storage is selected.
 
 ## API Contract
 
@@ -113,6 +122,19 @@ Proposal-only SQL is included for review:
 - `../apps/owner/scripts/sql/self-serve-free-store-foundation-rollback.sql`
 
 These files are not wired into migrations and must not be applied to production without a separate Atlas approval, backup, restore rehearsal, rollback review, and runtime cutover plan.
+
+The proposal now includes:
+
+- `idempotency_key` for request-safe retry behavior.
+- A normalized `(normalized_email, store_slug)` idempotency index.
+- A unique `store_slug` guard.
+- A current-product-limit unique `normalized_email` guard.
+- `creation_mode`, planned URLs, nullable `admin_redirect_url`, status, package/membership/domain/job tables.
+- `adapter` and safe job metadata for future worker pickup.
+- Error code/message fields for registration/job observability.
+- `password_stored=false` guard and no raw password/token/secret columns.
+
+See `self-serve-persistent-registration-adapter.md` for the adapter foundation audit and rollout notes.
 
 ## Future Direct-to-Admin Handoff
 

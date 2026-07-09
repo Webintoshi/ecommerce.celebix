@@ -17,9 +17,45 @@ const validRegistration: SelfServeRegistrationInput = {
   privacyConsent: true,
 };
 
+const SELF_SERVE_ENV_KEYS = [
+  "SELF_SERVE_PERSISTENCE_MODE",
+  "NEXT_PUBLIC_OWNER_SUPABASE_URL",
+  "NEXT_PUBLIC_OWNER_SUPABASE_ANON_KEY",
+  "OWNER_SUPABASE_SERVICE_ROLE_KEY",
+] as const;
+
 function resetSelfServeGlobals() {
   delete globalThis.__celebixSelfServeOnboardingStore;
   delete globalThis.__celebixSelfServeRegistrationRateLimit;
+}
+
+async function withSelfServeEnv<T>(env: Record<string, string | undefined>, callback: () => T | Promise<T>): Promise<T> {
+  const previous = new Map<string, string | undefined>();
+
+  for (const key of SELF_SERVE_ENV_KEYS) {
+    previous.set(key, process.env[key]);
+    delete process.env[key];
+  }
+
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  try {
+    return await callback();
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
 }
 
 function makeRequest(input: SelfServeRegistrationInput, headers: Record<string, string> = {}) {
@@ -94,4 +130,18 @@ test("self-serve register default mode returns safe processing response with pla
   const creation = body.creation as Record<string, unknown>;
   assert.equal(creation.mode, "production_safe_pending");
   assert.equal(creation.idempotent, false);
+});
+
+test("self-serve register persistent DB mode fails closed when owner DB config is missing", async () => {
+  await withSelfServeEnv({ SELF_SERVE_PERSISTENCE_MODE: "persistent_db_adapter" }, async () => {
+    resetSelfServeGlobals();
+
+    const response = await POST(makeRequest(validRegistration, { origin: "https://ecommerce.celebix.co" }));
+    const body = await readJson(response);
+
+    assert.equal(response.status, 503);
+    assert.equal(body.code, "self_serve_persistent_adapter_unavailable");
+    assert.equal(body.persistenceMode, "persistent_db_adapter");
+    assert.equal(JSON.stringify(body).includes(validRegistration.password), false);
+  });
 });

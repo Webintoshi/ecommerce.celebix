@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { validateSameOriginRequest } from "@celebix/platform-config/src/http-security";
 import { getSelfServeFeatureFlags } from "@/lib/self-serve-flags";
+import { createSelfServeDirectPersistentRegistration } from "@/lib/self-serve-persistent-registration-adapter";
 import { createSelfServeDirectRegistration, getSelfServeRequestAdapterMode } from "@/lib/self-serve-request-store";
 import {
   buildSelfServeAdminUrl,
@@ -113,7 +114,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = createSelfServeDirectRegistration(body);
+  const adapterMode = getSelfServeRequestAdapterMode();
+  const result =
+    adapterMode === "persistent_db_adapter"
+      ? await createSelfServeDirectPersistentRegistration(body)
+      : createSelfServeDirectRegistration(body);
 
   if (!result.ok) {
     return NextResponse.json(
@@ -121,7 +126,7 @@ export async function POST(request: NextRequest) {
         code: result.code,
         errors: result.errors,
         fieldErrors: "fieldErrors" in result ? result.fieldErrors : undefined,
-        persistenceMode: getSelfServeRequestAdapterMode(),
+        persistenceMode: adapterMode,
       },
       { status: result.status },
     );
