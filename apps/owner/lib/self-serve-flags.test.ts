@@ -16,6 +16,7 @@ const SELF_SERVE_ENV_KEYS = [
   "SELF_SERVE_MAX_STORES_PER_USER",
   "SELF_SERVE_REQUIRE_EMAIL_VERIFICATION",
   "SELF_SERVE_DEFAULT_DOMAIN_SUFFIX",
+  "SELF_SERVE_PERSISTENCE_MODE",
 ] as const;
 
 function withSelfServeEnv<T>(env: Record<string, string | undefined>, callback: () => T): T {
@@ -85,4 +86,20 @@ test("self-serve local mock creation mode requires explicit non-production-safe 
       assert.equal(getSelfServePersistenceMode(flags), "local_mock_adapter");
     },
   );
+});
+
+test("self-serve persistent DB adapter requires an explicit persistence mode flag", () => {
+  withSelfServeEnv({ SELF_SERVE_PERSISTENCE_MODE: "persistent_db_adapter" }, () => {
+    const flags = getSelfServeFeatureFlags();
+
+    assert.equal(getSelfServePersistenceMode(flags), "persistent_db_adapter");
+  });
+});
+
+test("self-serve unknown persistence mode values fail back to the safe memory adapter", () => {
+  withSelfServeEnv({ SELF_SERVE_PERSISTENCE_MODE: "postgres" }, () => {
+    const flags = getSelfServeFeatureFlags();
+
+    assert.equal(getSelfServePersistenceMode(flags), "safe_memory_adapter");
+  });
 });
