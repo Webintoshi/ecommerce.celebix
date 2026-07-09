@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const pageSource = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
+const rootLayoutSource = readFileSync(new URL("../layout.tsx", import.meta.url), "utf8");
+const middlewareSource = readFileSync(new URL("../../middleware.ts", import.meta.url), "utf8");
 const formSource = readFileSync(
   new URL("../../components/self-serve/SelfServeDirectRegistrationForm.tsx", import.meta.url),
   "utf8",
@@ -46,4 +48,16 @@ test("/kayit customer-facing copy is store creation language, not an application
   assert.doesNotMatch(customerFacingSource, /admin incelemesi/i);
   assert.doesNotMatch(customerFacingSource, /owner ekibi/i);
   assert.doesNotMatch(customerFacingSource, /manual review/i);
+});
+
+test("/kayit and legacy public aliases bypass Owner admin shell chrome", () => {
+  assert.match(rootLayoutSource, /PUBLIC_SELF_SERVE_PAGE_PATHS/);
+  assert.match(rootLayoutSource, /"\/kayit"/);
+  assert.match(rootLayoutSource, /"\/magaza-ac"/);
+  assert.match(rootLayoutSource, /"\/onboarding"/);
+  assert.match(rootLayoutSource, /"\/onboarding\/status"/);
+  assert.match(rootLayoutSource, /isPublicSelfServePage\s*\?\s*null/);
+
+  assert.match(middlewareSource, /SELF_SERVE_PUBLIC_PREFIXES/);
+  assert.match(middlewareSource, /return withSecurity\(request, nextResponse\(request\)\)/);
 });
