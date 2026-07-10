@@ -77,6 +77,7 @@ function validateInput(value: unknown): CreateStarterTenantInput {
   if (
     !isNonEmptyString(value.idempotencyKey) ||
     value.idempotencyKey.length > 128 ||
+    value.idempotencyKey !== value.idempotencyKey.trim() ||
     /password|token|secret|bearer/i.test(value.idempotencyKey)
   ) {
     throw new TenantCoreFailure("invalid_input", "idempotencyKey");

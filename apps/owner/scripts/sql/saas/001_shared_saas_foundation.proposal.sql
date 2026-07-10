@@ -157,6 +157,8 @@ CREATE TABLE saas_tenant_operations (
   result_store_id uuid REFERENCES saas_stores(id),
   result_domain_id uuid,
   result_membership_id uuid,
+  result_subscription_id uuid,
+  result_payload jsonb,
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   CONSTRAINT saas_tenant_operations_idempotency_key_nonempty CHECK (btrim(idempotency_key) <> ''),
@@ -169,9 +171,33 @@ CREATE TABLE saas_tenant_operations (
   CONSTRAINT saas_tenant_operations_store_membership_fk
     FOREIGN KEY (result_store_id, result_membership_id)
     REFERENCES saas_memberships(store_id, id),
+  CONSTRAINT saas_tenant_operations_store_subscription_fk
+    FOREIGN KEY (result_store_id, result_subscription_id)
+    REFERENCES saas_subscriptions(store_id, id),
+  CONSTRAINT saas_tenant_operations_result_payload_shape CHECK (
+    result_payload IS NULL
+    OR (
+      jsonb_typeof(result_payload) = 'object'
+      AND result_payload @> '{"schemaVersion":1}'::jsonb
+    )
+  ),
   CONSTRAINT saas_tenant_operations_committed_result CHECK (
-    status <> 'committed'
-    OR (result_store_id IS NOT NULL AND result_domain_id IS NOT NULL AND result_membership_id IS NOT NULL)
+    (
+      status = 'committed'
+      AND result_store_id IS NOT NULL
+      AND result_domain_id IS NOT NULL
+      AND result_membership_id IS NOT NULL
+      AND result_subscription_id IS NOT NULL
+      AND result_payload IS NOT NULL
+    )
+    OR (
+      status IN ('processing', 'failed')
+      AND result_store_id IS NULL
+      AND result_domain_id IS NULL
+      AND result_membership_id IS NULL
+      AND result_subscription_id IS NULL
+      AND result_payload IS NULL
+    )
   )
 );
 
@@ -187,11 +213,16 @@ CREATE INDEX idx_saas_tenant_operations_status_created_at ON saas_tenant_operati
 CREATE INDEX idx_saas_tenant_operations_result_store ON saas_tenant_operations (result_store_id);
 CREATE INDEX idx_saas_tenant_operations_result_domain ON saas_tenant_operations (result_store_id, result_domain_id);
 CREATE INDEX idx_saas_tenant_operations_result_membership ON saas_tenant_operations (result_store_id, result_membership_id);
+CREATE INDEX idx_saas_tenant_operations_result_subscription ON saas_tenant_operations (result_store_id, result_subscription_id);
 
 -- Future PostgreSQL operation claim adapter contract:
 -- Atomically attempt INSERT ... ON CONFLICT DO NOTHING RETURNING the operation row for one idempotency key.
 -- If insertion loses, perform an exact SELECT after the winning transaction exposes its final committed row.
 -- The adapter must return created to one caller only and existing to every loser; a unique exception alone is not a mismatch.
+-- markCommitted stores the exact safe frozen-contract result in result_payload in the same transaction.
+-- Existing committed claims replay only the stored result_payload; mutable tenant business rows are not replay authority.
+-- Committed result_payload is immutable, and the adapter transition to committed uses a processing-only predicate.
+-- Later store, domain, membership, plan, or subscription changes never rewrite the original replay snapshot.
 
 INSERT INTO saas_plans (id, plan_code, version, status, valid_from, created_at)
 VALUES (
@@ -231,6 +262,14 @@ VALUES
 -- A future production adapter requires a separately reviewed bootstrap authority design: either one tightly scoped SECURITY DEFINER transaction function or one isolated internal bootstrap role with narrowly controlled BYPASSRLS.
 -- That authority must never be reachable from arbitrary tenant requests.
 -- This proposal does not approve or implement either option and does not weaken tenant RLS for bootstrap writes.
+-- A principal can discover their active memberships before selecting activeStoreId; application authorization still filters status.
+-- Agent C's public StoreDomainResolver resolves an exact normalized hostname before current_store_id exists.
+-- Normal store-scoped saas_domains RLS cannot perform that initial lookup.
+-- A future production adapter requires a separately reviewed narrowly scoped host-resolution authority.
+-- It may expose only the safe fields required for ResolvedStoreHost and must bind exact normalized hostname, active domain, active store, exact store ID and slug, and canonical active domain.
+-- Unknown, ambiguous, pending, disabled, and cross-store records fail closed.
+-- There is no wildcard, suffix, or default-store resolution, no broad service-role client in the public request path, and no unrestricted BYPASSRLS access.
+-- This proposal does not implement or approve the resolver authority.
 
 ALTER TABLE saas_principals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas_principals FORCE ROW LEVEL SECURITY;
@@ -252,9 +291,22 @@ CREATE POLICY saas_domains_tenant_isolation ON saas_domains
 
 ALTER TABLE saas_memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas_memberships FORCE ROW LEVEL SECURITY;
-CREATE POLICY saas_memberships_tenant_isolation ON saas_memberships
+CREATE POLICY saas_memberships_principal_read ON saas_memberships
+  FOR SELECT
+  USING (principal_id = nullif((SELECT current_setting('app.current_principal_id', true)), '')::uuid);
+CREATE POLICY saas_memberships_store_read ON saas_memberships
+  FOR SELECT
+  USING (store_id = nullif((SELECT current_setting('app.current_store_id', true)), '')::uuid);
+CREATE POLICY saas_memberships_store_insert ON saas_memberships
+  FOR INSERT
+  WITH CHECK (store_id = nullif((SELECT current_setting('app.current_store_id', true)), '')::uuid);
+CREATE POLICY saas_memberships_store_update ON saas_memberships
+  FOR UPDATE
   USING (store_id = nullif((SELECT current_setting('app.current_store_id', true)), '')::uuid)
   WITH CHECK (store_id = nullif((SELECT current_setting('app.current_store_id', true)), '')::uuid);
+CREATE POLICY saas_memberships_store_delete ON saas_memberships
+  FOR DELETE
+  USING (store_id = nullif((SELECT current_setting('app.current_store_id', true)), '')::uuid);
 
 ALTER TABLE saas_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas_plans FORCE ROW LEVEL SECURITY;

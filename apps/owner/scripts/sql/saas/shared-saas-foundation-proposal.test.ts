@@ -142,6 +142,67 @@ test("proposal documents an atomic PostgreSQL claim and a separate bootstrap aut
   assert.doesNotMatch(executableSql, /\bbypassrls\b/i);
 });
 
+test("committed operations persist an exact immutable result snapshot and subscription reference", () => {
+  assert.match(proposal, /result_subscription_id uuid/i);
+  assert.match(proposal, /result_payload jsonb/i);
+  assert.match(
+    proposal,
+    /foreign key \(result_store_id, result_subscription_id\)\s+references saas_subscriptions\(store_id, id\)/is,
+  );
+  assert.match(proposal, /status = 'committed'[^;]+result_subscription_id is not null/is);
+  assert.match(proposal, /status = 'committed'[^;]+result_payload is not null/is);
+  assert.match(proposal, /status in \('processing', 'failed'\)[^;]+result_subscription_id is null/is);
+  assert.match(proposal, /status in \('processing', 'failed'\)[^;]+result_payload is null/is);
+  assert.match(proposal, /jsonb_typeof\(result_payload\) = 'object'/i);
+  assert.match(proposal, /result_payload @> '\{"schemaVersion":1\}'::jsonb/i);
+  assert.match(proposal, /markCommitted[^\n]+result_payload[^\n]+same transaction/i);
+  assert.match(proposal, /committed[^\n]+replay[^\n]+stored result_payload/i);
+  assert.match(proposal, /result_payload is immutable/i);
+  assert.match(proposal, /processing-only predicate/i);
+  assert.match(proposal, /mutable[^\n]+rows[^\n]+not[^\n]+replay authority/i);
+  assert.match(proposal, /saas_tenant_operations\s*\(result_store_id, result_subscription_id\)/i);
+});
+
+test("membership RLS supports principal discovery while mutations remain store scoped", () => {
+  assert.match(
+    proposal,
+    /create policy saas_memberships_principal_read on saas_memberships\s+for select\s+using \(principal_id = nullif\(\(select current_setting\('app\.current_principal_id', true\)\), ''\)::uuid\)/is,
+  );
+  assert.match(
+    proposal,
+    /create policy saas_memberships_store_read on saas_memberships\s+for select\s+using \(store_id = nullif\(\(select current_setting\('app\.current_store_id', true\)\), ''\)::uuid\)/is,
+  );
+  assert.match(proposal, /create policy saas_memberships_store_insert[^;]+for insert[^;]+with check \(store_id =/is);
+  assert.match(proposal, /create policy saas_memberships_store_update[^;]+for update[^;]+using \(store_id =[^;]+with check \(store_id =/is);
+  assert.match(proposal, /create policy saas_memberships_store_delete[^;]+for delete[^;]+using \(store_id =/is);
+
+  const membershipPolicies = proposal
+    .match(/create policy saas_memberships_[^;]+;/gis)
+    ?.join("\n") ?? "";
+  assert.doesNotMatch(membershipPolicies, /using \(true\)|with check \(true\)/i);
+  assert.doesNotMatch(membershipPolicies, /email/i);
+  assert.match(proposal, /principal[^\n]+active memberships[^\n]+before[^\n]+activeStoreId/i);
+});
+
+test("public exact-host resolution remains a separate narrow authority gate", () => {
+  assert.match(proposal, /public StoreDomainResolver[^\n]+exact normalized hostname[^\n]+before current_store_id exists/i);
+  assert.match(proposal, /normal store-scoped saas_domains RLS cannot perform that initial lookup/i);
+  assert.match(proposal, /separately reviewed narrowly scoped host-resolution authority/i);
+  assert.match(proposal, /safe fields required for ResolvedStoreHost/i);
+  assert.match(proposal, /exact store ID and slug/i);
+  assert.match(proposal, /unknown, ambiguous, pending, disabled[^\n]+cross-store[^\n]+fail closed/i);
+  assert.match(proposal, /no wildcard, suffix, or default-store resolution/i);
+  assert.match(proposal, /no broad service-role client/i);
+  assert.match(proposal, /no unrestricted BYPASSRLS access/i);
+  assert.match(proposal, /does not implement or approve the resolver authority/i);
+
+  const executableSql = proposal
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+  assert.doesNotMatch(executableSql, /\bsecurity\s+definer\b|\bbypassrls\b|\bcreate\s+role\b/i);
+});
+
 test("finite feature and limit registries exactly match frozen contracts", () => {
   const featureConstraint = proposal.match(/feature_key in \(([^)]+)\)/i)?.[1] ?? "";
   const limitConstraint = proposal.match(/limit_key in \(([^)]+)\)/i)?.[1] ?? "";

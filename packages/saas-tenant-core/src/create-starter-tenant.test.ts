@@ -12,9 +12,12 @@ import {
   SaaSDataUniqueConflict,
   createCanonicalTenantFingerprint,
   type DomainRecord,
+  type MembershipRecord,
   type PrincipalRecord,
   type SaaSDataRepository,
   type SaaSDataTransaction,
+  type StoreRecord,
+  type SubscriptionRecord,
   type TenantOperationRecord,
 } from "@celebix/saas-data";
 import { createInMemorySaaSDataRepository } from "@celebix/saas-data/testing";
@@ -325,6 +328,26 @@ test("canonical UTC timestamps are accepted for all consent fields", async () =>
   assert.equal(result.replayed, false);
 });
 
+test("idempotency key must be exact, trimmed, non-empty, and at most 128 characters", async () => {
+  for (const idempotencyKey of [" leading", "trailing ", "   ", "a".repeat(129)]) {
+    const repository = createInMemorySaaSDataRepository();
+    const error = requireError(
+      await createStarterTenantService({ repository }).execute({ ...baseInput, idempotencyKey }),
+    );
+    assert.equal(error.code, "invalid_input", JSON.stringify(idempotencyKey));
+    assert.equal(error.field, "idempotencyKey", JSON.stringify(idempotencyKey));
+    assert.equal(repository.inspectMetrics().begins, 0, JSON.stringify(idempotencyKey));
+  }
+
+  for (const idempotencyKey of ["canonical-opaque-key", "a".repeat(128)]) {
+    const repository = createInMemorySaaSDataRepository();
+    const result = requireSuccess(
+      await createStarterTenantService({ repository }).execute({ ...baseInput, idempotencyKey }),
+    );
+    assert.equal(result.replayed, false, String(idempotencyKey.length));
+  }
+});
+
 test("non-canonical consent timestamps fail before a transaction begins", async () => {
   for (const consents of [
     { privacyAcceptedAt: "2026-07-10T03:00:00.000+03:00" },
@@ -461,6 +484,76 @@ test("atomic claim race with the same fingerprint replays the winner", async () 
   assert.equal(state.memberships.length, 0);
   assert.equal(state.subscriptions.length, 0);
   assert.equal(backing.inspectMetrics().rollbacks, 1);
+});
+
+test("committed replay uses the immutable operation snapshot after tenant rows change", async () => {
+  const { operation, result } = await committedOperationFixture();
+  const changedAt = "2026-07-11T00:00:00.000Z";
+  const changedStore: StoreRecord = {
+    id: result.store.id,
+    name: "Renamed Store",
+    slug: result.store.slug,
+    status: "suspended",
+    locale: "tr",
+    currency: "TRY",
+    themeKey: "changed",
+    createdAt: baseInput.requestedAt,
+    updatedAt: changedAt,
+  };
+  const changedDomain: DomainRecord = {
+    id: result.primaryDomain.domainId,
+    storeId: result.store.id,
+    hostname: result.primaryDomain.hostname,
+    type: result.primaryDomain.domainType,
+    status: "disabled",
+    canonical: false,
+    cacheVersion: 2,
+    createdAt: baseInput.requestedAt,
+    updatedAt: changedAt,
+  };
+  const changedMembership: MembershipRecord = {
+    ...result.membership,
+    status: "revoked",
+    updatedAt: changedAt,
+  };
+  const changedSubscription: SubscriptionRecord = {
+    id: "subscription_changed",
+    storeId: result.store.id,
+    planId: result.plan.planId,
+    planCode: result.plan.planCode,
+    planVersion: result.plan.version,
+    status: "expired",
+    validFrom: result.plan.validFrom,
+    validUntil: changedAt,
+    createdAt: baseInput.requestedAt,
+    updatedAt: changedAt,
+  };
+  const backing = createInMemorySaaSDataRepository({
+    initialState: {
+      stores: [changedStore],
+      domains: [changedDomain],
+      memberships: [changedMembership],
+      subscriptions: [changedSubscription],
+    },
+  });
+  const repository = transformTransactions(backing, (transaction) =>
+    overrideTransaction(transaction, {
+      operations: {
+        ...transaction.operations,
+        claim: async () => ({ kind: "existing", operation }),
+      },
+    }),
+  );
+
+  const replay = requireSuccess(await createStarterTenantService({ repository }).execute(baseInput));
+  assert.deepEqual(replay, { ...result, replayed: true });
+  assert.equal(replay.store.status, "active");
+  assert.equal(replay.primaryDomain.status, "active");
+  assert.equal(replay.membership.status, "active");
+  assert.equal(replay.plan.status, "active");
+  const withoutReplay = { ...replay, replayed: false };
+  assert.deepEqual(withoutReplay, result);
+  assert.doesNotMatch(JSON.stringify(operation.result), /password|token|secret|databaseurl|connectionstring/i);
 });
 
 test("atomic claim race with a different fingerprint returns mismatch", async () => {
