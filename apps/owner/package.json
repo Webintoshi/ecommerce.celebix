@@ -11,6 +11,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.985.0",
     "@celebix/platform-config": "0.1.0",
+    "@celebix/saas-contracts": "0.1.0",
+    "@celebix/saas-data": "0.1.0",
+    "@celebix/saas-tenant-core": "0.1.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "cross-env": "^10.1.0",
