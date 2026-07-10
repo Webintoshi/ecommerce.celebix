@@ -261,7 +261,7 @@ function insertFakeBundle(connection) {
   const idempotencyKey = "dryrun-idempotency-key";
   const email = "dryrun@example.test";
   const slug = "dryrun-store";
-  const registrationId = runQuery(
+  const registrationOutput = runQuery(
     connection,
     `
       insert into self_serve_store_registrations (
@@ -295,6 +295,7 @@ function insertFakeBundle(connection) {
       returning id;
     `,
   );
+  const registrationId = registrationOutput.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
   assert(registrationId, "registration insert did not return an id.");
 
   runQuery(
