@@ -35,8 +35,8 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: self_serve_migration_rehearsal
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -67,8 +67,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends postgresql-client
 
       - name: Wait for disposable PostgreSQL
-        env:
-          PGPASSWORD: postgres
         run: |
           for attempt in {1..30}; do
             if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d self_serve_migration_rehearsal; then
@@ -78,8 +76,17 @@ jobs:
           done
           exit 1
 
+      - name: Prepare masked disposable connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          disposable_password="$(openssl rand -hex 32)"
+          rehearsal_url="postgresql://postgres:${disposable_password}@127.0.0.1:5432/self_serve_migration_rehearsal"
+          echo "::add-mask::${disposable_password}"
+          echo "::add-mask::${rehearsal_url}"
+          echo "SELF_SERVE_REHEARSAL_DATABASE_URL=${rehearsal_url}" >> "$GITHUB_ENV"
+
       - name: Run self-serve migration rehearsal
         env:
           SELF_SERVE_REHEARSAL_ACK: disposable-only
-          SELF_SERVE_REHEARSAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/self_serve_migration_rehearsal
         run: node apps/owner/scripts/self-serve-db-migration-rehearsal.mjs
