@@ -1,16 +1,16 @@
 # Self-Serve Persistent Registration DB Dry-Run Result
 
-Date/time: 2026-07-10T04:20:50Z
+Date/time: 2026-07-10T04:51:25Z
 
 Branch: `codex/self-serve-db-migration-dry-run`
 
 Base commit: `0703f743f8f0a25e640caac91fbf8f780dba4041`
 
-Rehearsal commit: `411463e253b1605507ef95cfdff5f4be8f70ff9e`
+Rehearsal commit: `4c7222059e4865f92c1ed787e96a228f9fe32012`
 
 Workflow: `Self-Serve DB Migration Rehearsal`
 
-Run: https://github.com/Webintoshi/ecommerce.celebix/actions/runs/29068833444
+Run: https://github.com/Webintoshi/ecommerce.celebix/actions/runs/29069967435
 
 Job: `Disposable PostgreSQL rehearsal`
 
@@ -72,6 +72,10 @@ Fail-closed guard summary:
 - Rejected production, cloud, Supabase, Coolify, and Celebix host patterns.
 - Rejected ambient `DATABASE_URL`, `SUPABASE_URL`, and `OWNER_SUPABASE_SERVICE_ROLE_KEY`.
 - Did not print the full connection string.
+- Used no repository or environment secret.
+- Used trust authentication only inside the isolated disposable PostgreSQL service.
+- Generated a throwaway URL password component at run time solely to satisfy the runner's non-empty URL guard.
+- Masked both the throwaway component and complete URL before exporting the connection to the rehearsal step.
 
 ## Proposal Apply Result
 
@@ -130,6 +134,15 @@ Verified check constraints include:
 - membership role/status
 - provisioning job kind/adapter/status
 
+Exact schema contract checks passed for all five proposal tables:
+
+- complete column sets
+- PostgreSQL data types
+- nullability, including nullable `admin_redirect_url` and error fields
+- required unique index definitions
+- all package/domain/membership/provisioning-job foreign keys
+- `ON DELETE CASCADE` relationships to `self_serve_store_registrations(id)`
+
 ## Minimal Insert And Idempotency Check
 
 Status: `PASS`
@@ -149,6 +162,8 @@ Inserted dependency-ordered rows successfully:
 - admin subdomain
 - store owner membership
 - provisioning job
+
+The inserted bundle was read back and verified for registration defaults, creation/persistence/status fields, planned URLs, nullable handoff/error fields, timestamps, and every related row.
 
 Constraint behavior passed:
 
@@ -170,6 +185,8 @@ Rollback verification:
 
 - All proposed `self_serve_*` tables were removed.
 - The unrelated `rehearsal_sentinel` table remained after rollback.
+- A separate `owner_rehearsal_sentinel` schema/data fingerprint remained unchanged through proposal apply and rollback.
+- No additional `owner_*` table appeared relative to the disposable baseline.
 - No unrelated table was removed.
 - No `DELETE` or `TRUNCATE` against existing business tables was required.
 - The sentinel was dropped only as final disposable cleanup.
@@ -182,10 +199,12 @@ The workflow printed this secret-free PASS summary:
 proposal apply: PASS
 expected tables: PASS
 constraints/indexes: PASS
+column/foreign-key contracts: PASS
 fake inserts: PASS
 uniqueness checks: PASS
 rollback: PASS
 unrelated sentinel preserved: PASS
+owner sentinel preserved: PASS
 production connection used: NO
 ```
 
@@ -193,6 +212,8 @@ production connection used: NO
 
 - This was a disposable PostgreSQL rehearsal, not a production apply.
 - Fresh owner DB backup and temp restore rehearsal remain required before any production SQL apply.
+- Backup/restore rehearsal has not passed yet.
+- The persistent registration write path still requires transactional/RPC hardening before enablement.
 - Production SQL apply still requires a separate explicit Atlas approval gate.
 - Runtime reads are not cut over to the new self-serve tables.
 - `persistent_db_adapter` remains disabled until a separate approval gate.
@@ -207,5 +228,6 @@ Before production SQL apply can be considered, Atlas should require:
 4. Backfill/parity checks, if any live owner data will be mirrored.
 5. Rollback rehearsal PASS on the restored temp database.
 6. SQL review and rollback SQL review.
-7. Explicit production SQL apply approval.
-8. Confirmation that no runtime reads are cut over to the new tables during SQL apply.
+7. Transactional/RPC hardening review for the future persistent adapter write path.
+8. Explicit production SQL apply approval.
+9. Confirmation that no runtime reads are cut over to the new tables during SQL apply.
