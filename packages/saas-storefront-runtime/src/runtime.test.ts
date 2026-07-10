@@ -19,6 +19,13 @@ const activeHost: ResolvedStoreHost = {
   cacheVersion: 3,
 };
 
+const aliasHost: ResolvedStoreHost = {
+  ...activeHost,
+  hostname: "alias.example.test",
+  domainId: "domain_alias",
+  domainType: "custom",
+};
+
 const entitlements: PlanEntitlements = {
   schemaVersion: 1,
   planId: "plan_free",
@@ -181,6 +188,21 @@ function createContextInput(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function createAliasContextInput(
+  canonicalRecords: readonly ResolvedStoreHost[],
+  overrides: Record<string, unknown> = {},
+) {
+  const api = requireRuntime();
+  return createContextInput({
+    trustedHost: aliasHost.hostname,
+    resolver: new api.InMemoryStoreDomainResolver([
+      { host: aliasHost, storeStatus: "active" },
+      ...canonicalRecords.map((host) => ({ host, storeStatus: "active" as const })),
+    ]),
+    ...overrides,
+  });
+}
+
 test("creates a server-produced public storefront context without principal or membership", async () => {
   const api = requireRuntime();
   const result = await api.resolveStorefrontRequestContext(createContextInput());
@@ -221,6 +243,197 @@ test("host and store ID mismatch rejects public context", async () => {
     }),
   );
   assert.equal(errorCode(result), "host_store_mismatch");
+});
+
+test("host and store slug mismatch rejects public context", async () => {
+  const api = requireRuntime();
+  const result = await api.resolveStorefrontRequestContext(
+    createContextInput({
+      loadStorefrontStore: async () => ({
+        id: "store_shop",
+        slug: "wrong-slug",
+        status: "active",
+        locale: "tr-TR",
+        currency: "TRY",
+        themeKey: "starter",
+        entitlements,
+      }),
+    }),
+  );
+  assert.equal(errorCode(result), "host_store_mismatch");
+});
+
+test("self-canonical host resolves without a second domain lookup", async () => {
+  const api = requireRuntime();
+  const lookups: string[] = [];
+  const result = await api.resolveStorefrontRequestContext(
+    createContextInput({
+      resolver: {
+        resolveExactHostname: async (hostname: string) => {
+          lookups.push(hostname);
+          return activeHost;
+        },
+      },
+    }),
+  );
+
+  assert.equal(errorCode(result), undefined);
+  assert.deepEqual(lookups, [activeHost.hostname]);
+});
+
+test("alias context requires a second exact active canonical lookup", async () => {
+  const api = requireRuntime();
+  const memoryResolver = new api.InMemoryStoreDomainResolver([
+    { host: aliasHost, storeStatus: "active" },
+    { host: activeHost, storeStatus: "active" },
+  ]);
+  const lookups: string[] = [];
+  const result = await api.resolveStorefrontRequestContext(
+    createContextInput({
+      trustedHost: aliasHost.hostname,
+      resolver: {
+        resolveExactHostname: async (hostname: string) => {
+          lookups.push(hostname);
+          return memoryResolver.resolveExactHostname(hostname);
+        },
+      },
+    }),
+  );
+
+  assert.equal(errorCode(result), undefined);
+  assert.deepEqual(lookups, [aliasHost.hostname, activeHost.hostname]);
+  if (!(result instanceof api.StorefrontResolutionError)) {
+    assert.equal(result.canonicalOrigin, "https://shop.example.test");
+    assert.equal(result.store.id, aliasHost.storeId);
+    assert.equal(result.store.slug, aliasHost.storeSlug);
+  }
+});
+
+test("store loader cannot mutate the verified alias canonical target", async () => {
+  const api = requireRuntime();
+  const result = await api.resolveStorefrontRequestContext(
+    createAliasContextInput([activeHost], {
+      loadStorefrontStore: async (
+        _storeId: string,
+        resolvedHost: ResolvedStoreHost & { status: "active" },
+      ) => {
+        resolvedHost.canonicalHostname = "evil.example.test";
+        return {
+          id: "store_shop",
+          slug: "shop",
+          status: "active",
+          locale: "tr-TR",
+          currency: "TRY",
+          themeKey: "starter",
+          entitlements,
+        };
+      },
+    }),
+  );
+
+  assert.equal(errorCode(result), undefined);
+  if (!(result instanceof api.StorefrontResolutionError)) {
+    assert.equal(result.resolvedHost.canonicalHostname, activeHost.hostname);
+    assert.equal(result.canonicalOrigin, "https://shop.example.test");
+  }
+});
+
+test("missing canonical exact record fails before loading the store", async () => {
+  let storeLoaderCalled = false;
+  const result = await requireRuntime().resolveStorefrontRequestContext(
+    createAliasContextInput([], {
+      loadStorefrontStore: async () => {
+        storeLoaderCalled = true;
+        return null;
+      },
+    }),
+  );
+
+  assert.equal(errorCode(result), "host_store_mismatch");
+  assert.equal(storeLoaderCalled, false);
+});
+
+test("pending canonical exact record fails closed", async () => {
+  const result = await requireRuntime().resolveStorefrontRequestContext(
+    createAliasContextInput([{ ...activeHost, status: "pending_verification" }]),
+  );
+  assert.equal(errorCode(result), "host_store_mismatch");
+});
+
+test("disabled canonical exact record fails closed", async () => {
+  const result = await requireRuntime().resolveStorefrontRequestContext(
+    createAliasContextInput([{ ...activeHost, status: "disabled" }]),
+  );
+  assert.equal(errorCode(result), "host_store_mismatch");
+});
+
+test("ambiguous canonical exact records fail closed", async () => {
+  const result = await requireRuntime().resolveStorefrontRequestContext(
+    createAliasContextInput([
+      activeHost,
+      { ...activeHost, domainId: "domain_canonical_duplicate" },
+    ]),
+  );
+  assert.equal(errorCode(result), "host_store_mismatch");
+});
+
+test("canonical exact record belonging to another store fails before store loading", async () => {
+  let storeLoaderCalled = false;
+  const result = await requireRuntime().resolveStorefrontRequestContext(
+    createAliasContextInput(
+      [{ ...activeHost, storeId: "store_other", storeSlug: "other" }],
+      {
+        loadStorefrontStore: async () => {
+          storeLoaderCalled = true;
+          return null;
+        },
+      },
+    ),
+  );
+
+  assert.equal(errorCode(result), "host_store_mismatch");
+  assert.equal(storeLoaderCalled, false);
+});
+
+test("alias and canonical exact records with different store slugs fail closed", async () => {
+  const result = await requireRuntime().resolveStorefrontRequestContext(
+    createAliasContextInput([{ ...activeHost, storeSlug: "wrong-slug" }]),
+  );
+  assert.equal(errorCode(result), "host_store_mismatch");
+});
+
+test("canonical redirect chains fail closed", async () => {
+  const result = await requireRuntime().resolveStorefrontRequestContext(
+    createAliasContextInput([{ ...activeHost, canonicalHostname: "third.example.test" }]),
+  );
+  assert.equal(errorCode(result), "host_store_mismatch");
+});
+
+test("canonical resolver output hostname must equal the canonical lookup hostname", async () => {
+  const api = requireRuntime();
+  let storeLoaderCalled = false;
+  const result = await api.resolveStorefrontRequestContext(
+    createContextInput({
+      trustedHost: aliasHost.hostname,
+      resolver: {
+        resolveExactHostname: async (hostname: string) =>
+          hostname === aliasHost.hostname
+            ? aliasHost
+            : {
+                ...activeHost,
+                hostname: "wrong.example.test",
+                canonicalHostname: "wrong.example.test",
+              },
+      },
+      loadStorefrontStore: async () => {
+        storeLoaderCalled = true;
+        return null;
+      },
+    }),
+  );
+
+  assert.equal(errorCode(result), "host_store_mismatch");
+  assert.equal(storeLoaderCalled, false);
 });
 
 test("resolver output hostname must equal the normalized requested hostname", async () => {

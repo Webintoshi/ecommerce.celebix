@@ -56,9 +56,19 @@ function requestHeaders(host: string | null, forwardedHost = "attacker.example.t
   return { get: (name: string) => values.get(name.toLowerCase()) ?? null };
 }
 
-function dependencies(host = activeHost, currentStore: StorefrontStoreRecord | null = store) {
+function dependencies(
+  host = activeHost,
+  currentStore: StorefrontStoreRecord | null = store,
+  canonicalHosts: readonly ResolvedStoreHost[] = [],
+) {
   return {
-    resolver: new InMemoryStoreDomainResolver([{ host, storeStatus: currentStore?.status ?? "failed" }]),
+    resolver: new InMemoryStoreDomainResolver([
+      { host, storeStatus: currentStore?.status ?? "failed" },
+      ...canonicalHosts.map((canonicalHost) => ({
+        host: canonicalHost,
+        storeStatus: currentStore?.status ?? "failed",
+      })),
+    ]),
     loadStorefrontStore: async () => currentStore,
   };
 }
@@ -142,7 +152,7 @@ test("active exact host returns only the placeholder storefront shell", async ()
 
 test("active alias redirects to persisted canonical authority", async () => {
   const aliasHost = { ...activeHost, hostname: "alias.example.test", domainType: "custom" as const };
-  const result = await requireApp().createStorefrontRequestHandler(dependencies(aliasHost))({
+  const result = await requireApp().createStorefrontRequestHandler(dependencies(aliasHost, store, [activeHost]))({
     headers: requestHeaders(aliasHost.hostname),
     pathname: "/products/item",
     requestId: "request_alias",
@@ -150,6 +160,43 @@ test("active alias redirects to persisted canonical authority", async () => {
   assert.equal(result.kind, "canonical_redirect");
   assert.equal(result.status, 308);
   assert.equal(result.location, "https://shop.example.test/products/item");
+});
+
+test("store loader cannot mutate a verified alias into another redirect authority", async () => {
+  const aliasHost = { ...activeHost, hostname: "alias.example.test", domainType: "custom" as const };
+  const resolver = new InMemoryStoreDomainResolver([
+    { host: aliasHost, storeStatus: "active" },
+    { host: activeHost, storeStatus: "active" },
+  ]);
+  const result = await requireApp().createStorefrontRequestHandler({
+    resolver,
+    loadStorefrontStore: async (_storeId, resolvedHost) => {
+      resolvedHost.canonicalHostname = "evil.example.test";
+      return store;
+    },
+  })({
+    headers: requestHeaders(aliasHost.hostname),
+    pathname: "/products/item",
+    requestId: "request_alias_mutation",
+  });
+
+  assert.equal(result.kind, "canonical_redirect");
+  assert.equal(result.status, 308);
+  assert.equal(result.location, "https://shop.example.test/products/item");
+});
+
+test("alias with a missing canonical exact record fails closed without Location", async () => {
+  const aliasHost = { ...activeHost, hostname: "alias.example.test", domainType: "custom" as const };
+  const result = await requireApp().createStorefrontRequestHandler(dependencies(aliasHost))({
+    headers: requestHeaders(aliasHost.hostname),
+    pathname: "/products/item",
+    requestId: "request_missing_canonical",
+  });
+
+  assert.equal(result.kind, "inactive_host");
+  assert.equal(result.status, 503);
+  assert.equal(result.location, undefined);
+  assert.equal(result.context, undefined);
 });
 
 test("health response is safe and carries no tenant data", () => {

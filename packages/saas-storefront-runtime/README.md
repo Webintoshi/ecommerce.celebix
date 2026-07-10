@@ -10,6 +10,8 @@ This package provides the pure, infrastructure-free storefront request boundary:
 
 `normalizeStoreHostname` accepts a host value already selected by a trusted server/proxy adapter. It does not read or trust `X-Forwarded-Host`. Production proxy trust configuration, exact domain verification, TLS issuance, and persistence adapters are later infrastructure gates. Unknown, unverified, disabled, inactive, duplicate, and mismatched records fail closed; there is no suffix lookup or default tenant.
 
+An alias record does not make its `canonicalHostname` authoritative by itself. Redirect eligibility requires a second exact active resolver lookup. The alias, canonical record, and loaded store must share the same store ID and slug, and the canonical record must point to itself. Missing, ambiguous, inactive, cross-store, or chained canonical targets fail closed before a redirect can be emitted.
+
 The included `InMemoryStoreDomainResolver` is for tests only. This phase has no database, object storage, cache, queue, payment, DNS, TLS, or deployment implementation.
 
 Namespace helper inputs are normalized opaque identifiers, not presentation data. Cache and job keys must never receive email addresses, hostnames, customer names, or other PII. Object names should use random or immutable IDs instead of raw customer-provided filenames or names.

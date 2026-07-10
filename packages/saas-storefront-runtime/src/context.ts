@@ -87,19 +87,56 @@ export async function resolveStorefrontRequestContext(
     return new StorefrontResolutionError("host_store_mismatch");
   }
 
-  const activeHost = resolution as ResolvedStoreHost & { status: "active" };
-  const store = await input.loadStorefrontStore(activeHost.storeId, activeHost);
+  const activeHost = { ...resolution } as ResolvedStoreHost & { status: "active" };
+  let verifiedCanonicalHost = activeHost;
+
+  if (activeHost.canonicalHostname !== activeHost.hostname) {
+    let canonicalResolution: Awaited<ReturnType<StoreDomainResolver["resolveExactHostname"]>>;
+    try {
+      canonicalResolution = await input.resolver.resolveExactHostname(activeHost.canonicalHostname);
+    } catch {
+      return new StorefrontResolutionError("host_store_mismatch");
+    }
+
+    if (canonicalResolution instanceof StorefrontResolutionError || canonicalResolution.status !== "active") {
+      return new StorefrontResolutionError("host_store_mismatch");
+    }
+
+    let canonicalResolvedHostname: string;
+    let canonicalSelfHostname: string;
+    try {
+      canonicalResolvedHostname = normalizeStoreHostname(canonicalResolution.hostname, input.hostPolicy).hostname;
+      canonicalSelfHostname = normalizeStoreHostname(canonicalResolution.canonicalHostname, input.hostPolicy).hostname;
+    } catch {
+      return new StorefrontResolutionError("host_store_mismatch");
+    }
+
+    if (
+      canonicalResolvedHostname !== canonicalResolution.hostname ||
+      canonicalSelfHostname !== canonicalResolution.canonicalHostname ||
+      canonicalResolvedHostname !== activeHost.canonicalHostname ||
+      canonicalResolution.canonicalHostname !== canonicalResolution.hostname ||
+      canonicalResolution.storeId !== activeHost.storeId ||
+      canonicalResolution.storeSlug !== activeHost.storeSlug
+    ) {
+      return new StorefrontResolutionError("host_store_mismatch");
+    }
+
+    verifiedCanonicalHost = { ...canonicalResolution } as ResolvedStoreHost & { status: "active" };
+  }
+
+  const store = await input.loadStorefrontStore(activeHost.storeId, { ...activeHost });
   if (!store || store.status !== "active") {
     return new StorefrontResolutionError("store_inactive");
   }
 
-  if (store.id !== activeHost.storeId) {
+  if (store.id !== activeHost.storeId || store.slug !== activeHost.storeSlug) {
     return new StorefrontResolutionError("host_store_mismatch");
   }
 
   let canonicalOrigin: string;
   try {
-    const canonicalUrl = buildCanonicalStorefrontUrl(activeHost, "/", input.hostPolicy);
+    const canonicalUrl = buildCanonicalStorefrontUrl(verifiedCanonicalHost, "/", input.hostPolicy);
     canonicalOrigin = new URL(canonicalUrl).origin;
   } catch {
     return new StorefrontResolutionError("invalid_input");
