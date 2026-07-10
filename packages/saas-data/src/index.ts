@@ -33,6 +33,7 @@ export type {
   StoreRecord,
   StoreSettingRecord,
   SubscriptionRecord,
+  TenantOperationClaim,
   TenantOperationRecord,
   TenantOperationStatus,
   UniqueConflictKind,

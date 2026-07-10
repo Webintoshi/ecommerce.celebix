@@ -34,6 +34,7 @@ export type UniqueConflictKind =
 
 export type InMemoryFailurePoint =
   | "after_principal_create"
+  | "after_principal_email_update"
   | "after_store_create"
   | "after_domain_create"
   | "after_membership_create"
@@ -122,6 +123,10 @@ export interface TenantOperationRecord {
   createdAt: string;
   updatedAt: string;
 }
+
+export type TenantOperationClaim =
+  | { kind: "created"; operation: TenantOperationRecord }
+  | { kind: "existing"; operation: TenantOperationRecord };
 
 export interface StoreBootstrapRecords {
   principal: PrincipalRecord;

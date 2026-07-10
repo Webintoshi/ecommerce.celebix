@@ -97,7 +97,14 @@ export function createInternalSaaSTenantsPostHandler(options: InternalSaaSTenant
       return errorResponse(503, "service_unavailable", true);
     }
 
-    if (!(await options.isTrustedRequest(request))) {
+    let trusted: boolean;
+    try {
+      trusted = await options.isTrustedRequest(request);
+    } catch {
+      return errorResponse(503, "service_unavailable", true);
+    }
+
+    if (!trusted) {
       return errorResponse(401, "unauthenticated");
     }
 
@@ -112,7 +119,12 @@ export function createInternalSaaSTenantsPostHandler(options: InternalSaaSTenant
       return errorResponse(400, "invalid_input");
     }
 
-    const outcome = await options.adapter.createStarterTenant(body);
+    let outcome: OwnerTenantCoreOutcome;
+    try {
+      outcome = await options.adapter.createStarterTenant(body);
+    } catch {
+      return errorResponse(500, "tenant_transaction_failed", true);
+    }
     return json(statusForOutcome(outcome), outcome);
   };
 }

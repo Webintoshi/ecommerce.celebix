@@ -8,7 +8,15 @@ import {
   type CreateStarterTenantResult,
   type StoreMembership,
 } from "@celebix/saas-contracts";
-import type { DomainRecord, PrincipalRecord } from "@celebix/saas-data";
+import {
+  SaaSDataUniqueConflict,
+  createCanonicalTenantFingerprint,
+  type DomainRecord,
+  type PrincipalRecord,
+  type SaaSDataRepository,
+  type SaaSDataTransaction,
+  type TenantOperationRecord,
+} from "@celebix/saas-data";
 import { createInMemorySaaSDataRepository } from "@celebix/saas-data/testing";
 
 import { createStarterTenantService } from "./index.ts";
@@ -49,6 +57,42 @@ function requireError(outcome: Awaited<ReturnType<ReturnType<typeof createStarte
     throw new Error("Expected error, received success");
   }
   return outcome.error;
+}
+
+function overrideTransaction(
+  transaction: SaaSDataTransaction,
+  overrides: Partial<Pick<SaaSDataTransaction, "principals" | "subscriptions" | "operations">>,
+): SaaSDataTransaction {
+  return {
+    principals: overrides.principals ?? transaction.principals,
+    stores: transaction.stores,
+    domains: transaction.domains,
+    memberships: transaction.memberships,
+    plans: transaction.plans,
+    subscriptions: overrides.subscriptions ?? transaction.subscriptions,
+    settings: transaction.settings,
+    operations: overrides.operations ?? transaction.operations,
+    generateId: transaction.generateId.bind(transaction),
+    commit: transaction.commit.bind(transaction),
+    rollback: transaction.rollback.bind(transaction),
+  };
+}
+
+function transformTransactions(
+  repository: SaaSDataRepository,
+  transform: (transaction: SaaSDataTransaction) => SaaSDataTransaction,
+): SaaSDataRepository {
+  return {
+    beginTransaction: async () => transform(await repository.beginTransaction()),
+  };
+}
+
+async function committedOperationFixture() {
+  const repository = createInMemorySaaSDataRepository();
+  const result = requireSuccess(await createStarterTenantService({ repository }).execute(baseInput));
+  const operation = repository.inspectState().operations[0];
+  assert.ok(operation);
+  return { operation, result };
 }
 
 test("successfully bootstraps an atomic free starter tenant", async () => {
@@ -152,23 +196,89 @@ test("principal authority is issuer plus subject rather than email", async () =>
   assert.equal(new Set(principals.map((principal) => principal.subject)).size, 2);
 });
 
-test("incompatible metadata for the same identity fails safely", async () => {
+test("same issuer and subject reuse the principal when verified email is unchanged", async () => {
   const repository = createInMemorySaaSDataRepository();
   const service = createStarterTenantService({ repository });
   requireSuccess(await service.execute(baseInput));
-
-  const error = requireError(
+  requireSuccess(
     await service.execute({
       ...baseInput,
       idempotencyKey: "opaque-request-2",
-      principal: { ...baseInput.principal, email: "different@example.test" },
-      store: { ...baseInput.store, slug: "ikinci-magaza" },
+      store: { ...baseInput.store, name: "Ikinci Magaza", slug: "ikinci-magaza" },
     }),
   );
 
-  assert.equal(error.code, "invalid_input");
-  assert.equal(error.field, "principal.email");
-  assert.equal(repository.inspectState().stores.length, 1);
+  assert.equal(repository.inspectState().principals.length, 1);
+  assert.equal(repository.inspectState().stores.length, 2);
+});
+
+test("changed verified email updates metadata and permits a second store", async () => {
+  const repository = createInMemorySaaSDataRepository();
+  const service = createStarterTenantService({ repository });
+  requireSuccess(await service.execute(baseInput));
+  requireSuccess(
+    await service.execute({
+      ...baseInput,
+      idempotencyKey: "opaque-request-2",
+      principal: { ...baseInput.principal, email: "new-owner@example.test" },
+      store: { ...baseInput.store, name: "Ikinci Magaza", slug: "ikinci-magaza" },
+    }),
+  );
+
+  const state = repository.inspectState();
+  assert.equal(state.principals.length, 1);
+  assert.equal(state.principals[0]?.email, "new-owner@example.test");
+  assert.equal(state.principals[0]?.issuer, baseInput.principal.issuer);
+  assert.equal(state.principals[0]?.subject, baseInput.principal.subject);
+  assert.equal(state.stores.length, 2);
+});
+
+test("same subject under a different issuer remains a separate principal", async () => {
+  const repository = createInMemorySaaSDataRepository();
+  const service = createStarterTenantService({ repository });
+  requireSuccess(await service.execute(baseInput));
+  requireSuccess(
+    await service.execute({
+      ...baseInput,
+      idempotencyKey: "opaque-request-2",
+      principal: { ...baseInput.principal, issuer: "https://second-auth.example.test/oidc" },
+      store: { ...baseInput.store, name: "Ikinci Magaza", slug: "ikinci-magaza" },
+    }),
+  );
+
+  const principals = repository.inspectState().principals;
+  assert.equal(principals.length, 2);
+  assert.equal(new Set(principals.map((principal) => principal.issuer)).size, 2);
+  assert.equal(new Set(principals.map((principal) => principal.subject)).size, 1);
+});
+
+test("verified email metadata update failure rolls back the full bootstrap", async () => {
+  const principal: PrincipalRecord = {
+    id: "principal_existing",
+    issuer: baseInput.principal.issuer,
+    subject: baseInput.principal.subject,
+    email: baseInput.principal.email,
+    emailVerified: true,
+    createdAt: baseInput.requestedAt,
+    updatedAt: baseInput.requestedAt,
+  };
+  const repository = createInMemorySaaSDataRepository({
+    failAt: "after_principal_email_update",
+    initialState: { principals: [principal] },
+  });
+  const service = createStarterTenantService({ repository });
+  const error = requireError(
+    await service.execute({
+      ...baseInput,
+      principal: { ...baseInput.principal, email: "new-owner@example.test" },
+    }),
+  );
+
+  const state = repository.inspectState();
+  assert.equal(error.code, "tenant_transaction_failed");
+  assert.equal(state.principals[0]?.email, baseInput.principal.email);
+  assert.equal(state.stores.length, 0);
+  assert.equal(state.operations.length, 0);
 });
 
 test("runtime-unverified identity cannot create a tenant", async () => {
@@ -181,6 +291,55 @@ test("runtime-unverified identity cannot create a tenant", async () => {
   assert.equal(error.code, "identity_unverified");
   assert.equal(repository.inspectState().stores.length, 0);
   assert.equal(repository.inspectMetrics().begins, 0);
+});
+
+test("timestamps must use canonical millisecond UTC form before a transaction begins", async () => {
+  for (const timestamp of [
+    "2026-07-10T03:00:00.000+03:00",
+    "2026-07-10T00:00:00",
+    "July 10, 2026 00:00:00 UTC",
+    "2026-02-30T00:00:00.000Z",
+    "2026-07-10T00:00:00Z",
+    "not-a-date",
+  ]) {
+    const repository = createInMemorySaaSDataRepository();
+    const service = createStarterTenantService({ repository });
+    const error = requireError(await service.execute({ ...baseInput, requestedAt: timestamp }));
+    assert.equal(error.code, "invalid_input", timestamp);
+    assert.equal(error.field, "requestedAt", timestamp);
+    assert.equal(repository.inspectMetrics().begins, 0, timestamp);
+  }
+});
+
+test("canonical UTC timestamps are accepted for all consent fields", async () => {
+  const repository = createInMemorySaaSDataRepository();
+  const result = requireSuccess(
+    await createStarterTenantService({ repository }).execute({
+      ...baseInput,
+      consents: {
+        privacyAcceptedAt: "2026-07-10T00:00:00.000Z",
+        marketingAcceptedAt: "2026-07-10T00:00:01.000Z",
+      },
+    }),
+  );
+  assert.equal(result.replayed, false);
+});
+
+test("non-canonical consent timestamps fail before a transaction begins", async () => {
+  for (const consents of [
+    { privacyAcceptedAt: "2026-07-10T03:00:00.000+03:00" },
+    {
+      privacyAcceptedAt: baseInput.consents.privacyAcceptedAt,
+      marketingAcceptedAt: "2026-07-10T00:00:01Z",
+    },
+  ]) {
+    const repository = createInMemorySaaSDataRepository();
+    const error = requireError(
+      await createStarterTenantService({ repository }).execute({ ...baseInput, consents }),
+    );
+    assert.equal(error.code, "invalid_input");
+    assert.equal(repository.inspectMetrics().begins, 0);
+  }
 });
 
 test("caller-provided authority IDs are rejected before a transaction starts", async () => {
@@ -281,6 +440,100 @@ test("concurrent duplicate requests create one store and one replay", async () =
   assert.equal(repository.inspectState().operations.length, 1);
 });
 
+test("atomic claim race with the same fingerprint replays the winner", async () => {
+  const { operation, result } = await committedOperationFixture();
+  const backing = createInMemorySaaSDataRepository();
+  const repository = transformTransactions(backing, (transaction) =>
+    overrideTransaction(transaction, {
+      operations: {
+        ...transaction.operations,
+        claim: async () => ({ kind: "existing", operation }),
+      },
+    }),
+  );
+
+  const replay = requireSuccess(await createStarterTenantService({ repository }).execute(baseInput));
+  assert.deepEqual(replay, { ...result, replayed: true });
+  const state = backing.inspectState();
+  assert.equal(state.operations.length, 0);
+  assert.equal(state.stores.length, 0);
+  assert.equal(state.domains.length, 0);
+  assert.equal(state.memberships.length, 0);
+  assert.equal(state.subscriptions.length, 0);
+  assert.equal(backing.inspectMetrics().rollbacks, 1);
+});
+
+test("atomic claim race with a different fingerprint returns mismatch", async () => {
+  const { operation } = await committedOperationFixture();
+  const backing = createInMemorySaaSDataRepository();
+  const repository = transformTransactions(backing, (transaction) =>
+    overrideTransaction(transaction, {
+      operations: {
+        ...transaction.operations,
+        claim: async () => ({ kind: "existing", operation }),
+      },
+    }),
+  );
+  const changed = { ...baseInput, store: { ...baseInput.store, name: "Changed Name" } };
+
+  const error = requireError(await createStarterTenantService({ repository }).execute(changed));
+  assert.equal(error.code, "idempotency_mismatch");
+  assert.equal(backing.inspectState().stores.length, 0);
+});
+
+test("same-fingerprint processing and failed claims return retryable failure, not mismatch", async () => {
+  const fingerprint = createCanonicalTenantFingerprint(baseInput);
+  for (const status of ["processing", "failed"] as const) {
+    const operation: TenantOperationRecord = {
+      id: `operation_${status}`,
+      idempotencyKey: baseInput.idempotencyKey,
+      fingerprint,
+      status,
+      createdAt: baseInput.requestedAt,
+      updatedAt: baseInput.requestedAt,
+    };
+    const backing = createInMemorySaaSDataRepository();
+    const repository = transformTransactions(backing, (transaction) =>
+      overrideTransaction(transaction, {
+        operations: {
+          ...transaction.operations,
+          claim: async () => ({ kind: "existing", operation }),
+        },
+      }),
+    );
+
+    const error = requireError(await createStarterTenantService({ repository }).execute(baseInput));
+    assert.deepEqual(error, {
+      schemaVersion: 1,
+      code: "tenant_transaction_failed",
+      retryable: true,
+    });
+    assert.equal(backing.inspectState().stores.length, 0);
+  }
+});
+
+test("unexpected operation unique conflict is a retryable transaction failure", async () => {
+  const backing = createInMemorySaaSDataRepository();
+  const repository = transformTransactions(backing, (transaction) =>
+    overrideTransaction(transaction, {
+      operations: {
+        ...transaction.operations,
+        claim: async () => {
+          throw new SaaSDataUniqueConflict("operation_idempotency");
+        },
+      },
+    }),
+  );
+
+  const error = requireError(await createStarterTenantService({ repository }).execute(baseInput));
+  assert.deepEqual(error, {
+    schemaVersion: 1,
+    code: "tenant_transaction_failed",
+    retryable: true,
+  });
+  assert.equal(backing.inspectState().stores.length, 0);
+});
+
 test("result URLs and plan entitlements derive from persisted records", async () => {
   const repository = createInMemorySaaSDataRepository();
   const service = createStarterTenantService({ repository });
@@ -292,6 +545,36 @@ test("result URLs and plan entitlements derive from persisted records", async ()
   assert.equal(result.plan.planId, state.plans[0]?.id);
   assert.ok(result.plan.features.every((feature) => PLAN_FEATURE_KEYS.includes(feature)));
   assert.ok(Object.keys(result.plan.limits).every((limit) => PLAN_LIMIT_KEYS.includes(limit as never)));
+});
+
+test("entitlement validity and status derive from the persisted subscription", async () => {
+  const backing = createInMemorySaaSDataRepository();
+  const subscriptionValidFrom = "2026-07-10T00:00:05.000Z";
+  const subscriptionValidUntil = "2026-08-10T00:00:05.000Z";
+  const repository = transformTransactions(backing, (transaction) =>
+    overrideTransaction(transaction, {
+      subscriptions: {
+        ...transaction.subscriptions,
+        create: (record) =>
+          transaction.subscriptions.create({
+            ...record,
+            status: "inactive",
+            validFrom: subscriptionValidFrom,
+            validUntil: subscriptionValidUntil,
+          }),
+      },
+    }),
+  );
+
+  const result = requireSuccess(await createStarterTenantService({ repository }).execute(baseInput));
+  const plan = backing.inspectState().plans[0];
+  assert.ok(plan);
+  assert.notEqual(plan.validFrom, subscriptionValidFrom);
+  assert.equal(result.plan.status, "inactive");
+  assert.equal(result.plan.validFrom, subscriptionValidFrom);
+  assert.equal(result.plan.validUntil, subscriptionValidUntil);
+  assert.deepEqual(result.plan.features, plan.features);
+  assert.deepEqual(result.plan.limits, plan.limits);
 });
 
 test("persisted and returned values contain no password, token, or secret keys", async () => {

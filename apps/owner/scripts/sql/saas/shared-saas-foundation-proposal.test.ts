@@ -71,6 +71,77 @@ test("identity, slug, domain, membership, and canonical uniqueness are explicit"
   assert.doesNotMatch(proposal, /email[^,\n]+unique/i);
 });
 
+test("slug, hostname, and idempotency constraints match the exact normalized contracts", () => {
+  assert.match(proposal, /char_length\(slug\) between 3 and 63/i);
+  const slugPattern = proposal.match(/slug ~ '([^']+)'/i)?.[1];
+  assert.ok(slugPattern, "slug constraint regex must be present");
+  const slugRegex = new RegExp(slugPattern);
+  for (const slug of ["abc", "starter-store", "store-123"]) {
+    assert.match(slug, slugRegex, slug);
+    assert.ok(slug.length >= 3 && slug.length <= 63, slug);
+  }
+  for (const slug of ["ab", "Store", "-store", "store-", "store--name", "a".repeat(64)]) {
+    assert.ok(!(slugRegex.test(slug) && slug.length >= 3 && slug.length <= 63), slug);
+  }
+  assert.match(proposal, /char_length\(normalized_hostname\) between 3 and 253/i);
+
+  const hostnamePattern = proposal.match(/normalized_hostname ~ '([^']+)'/i)?.[1];
+  assert.ok(hostnamePattern, "hostname constraint regex must be present");
+  const hostnameRegex = new RegExp(hostnamePattern);
+  const validHostname = (hostname: string) =>
+    hostname.length >= 3 && hostname.length <= 253 && hostnameRegex.test(hostname);
+  for (const hostname of ["store.celebix.site", "a-b.example", "xn--bcher-kva.celebix.site"]) {
+    assert.equal(validHostname(hostname), true, hostname);
+  }
+  for (const hostname of [
+    "",
+    "localhost",
+    "*.celebix.site",
+    "https://store.celebix.site",
+    "store.celebix.site/path",
+    "store.celebix.site?query=1",
+    "store.celebix.site#fragment",
+    "store.celebix.site:443",
+    "store .celebix.site",
+    "user@store.celebix.site",
+    "Store.celebix.site",
+    "-store.celebix.site",
+    "store-.celebix.site",
+    `${"a".repeat(64)}.celebix.site`,
+    `${"a.".repeat(126)}aa`,
+  ]) {
+    assert.equal(validHostname(hostname), false, hostname);
+  }
+
+  assert.match(proposal, /btrim\(idempotency_key\) <> ''/i);
+  assert.match(proposal, /char_length\(idempotency_key\) <= 128/i);
+  assert.match(proposal, /idempotency_key = btrim\(idempotency_key\)/i);
+  const validIdempotencyKey = (key: string) => key.length > 0 && key.length <= 128 && key === key.trim();
+  assert.equal(validIdempotencyKey("opaque-request-1"), true);
+  for (const key of ["", " leading", "trailing ", "a".repeat(129)]) {
+    assert.equal(validIdempotencyKey(key), false, key);
+  }
+});
+
+test("proposal documents an atomic PostgreSQL claim and a separate bootstrap authority gate", () => {
+  assert.match(proposal, /insert[^\n]+on conflict do nothing returning/is);
+  assert.match(proposal, /exact select[^\n]+winning transaction[^\n]+committed row/is);
+  assert.match(proposal, /CreateStarterTenant is a privileged internal bootstrap transaction/i);
+  assert.match(proposal, /tenant RLS policies are not sufficient/i);
+  assert.match(proposal, /tightly scoped SECURITY DEFINER transaction function/i);
+  assert.match(proposal, /isolated internal bootstrap role[^\n]+BYPASSRLS/i);
+  assert.match(proposal, /never be reachable from arbitrary tenant requests/i);
+  assert.match(proposal, /does not approve or implement either option/i);
+
+  const executableSql = proposal
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+  assert.doesNotMatch(executableSql, /\bcreate\s+role\b/i);
+  assert.doesNotMatch(executableSql, /\bsecurity\s+definer\b/i);
+  assert.doesNotMatch(executableSql, /\bbypassrls\b/i);
+});
+
 test("finite feature and limit registries exactly match frozen contracts", () => {
   const featureConstraint = proposal.match(/feature_key in \(([^)]+)\)/i)?.[1] ?? "";
   const limitConstraint = proposal.match(/limit_key in \(([^)]+)\)/i)?.[1] ?? "";

@@ -120,6 +120,18 @@ class InMemoryTransaction implements SaaSDataTransaction {
         maybeFail("after_principal_create");
         return structuredClone(record);
       },
+      updateVerifiedEmail: async (principalId: string, verifiedEmail: string, updatedAt: string) => {
+        ensureActive();
+        const principal = this.state.principals.find((record) => record.id === principalId);
+        if (!principal) {
+          throw new Error("Principal not found");
+        }
+        principal.email = verifiedEmail;
+        principal.emailVerified = true;
+        principal.updatedAt = updatedAt;
+        maybeFail("after_principal_email_update");
+        return structuredClone(principal);
+      },
     };
 
     this.stores = {
@@ -219,18 +231,15 @@ class InMemoryTransaction implements SaaSDataTransaction {
     };
 
     this.operations = {
-      findByIdempotencyKey: async (idempotencyKey: string) => {
+      claim: async (record: TenantOperationRecord) => {
         ensureActive();
-        return this.state.operations.find((record) => record.idempotencyKey === idempotencyKey) ?? null;
-      },
-      create: async (record: TenantOperationRecord) => {
-        ensureActive();
-        if (this.state.operations.some((entry) => entry.idempotencyKey === record.idempotencyKey)) {
-          throw new SaaSDataUniqueConflict("operation_idempotency");
+        const existing = this.state.operations.find((entry) => entry.idempotencyKey === record.idempotencyKey);
+        if (existing) {
+          return { kind: "existing" as const, operation: structuredClone(existing) };
         }
         this.state.operations.push(structuredClone(record));
         maybeFail("after_operation_create");
-        return structuredClone(record);
+        return { kind: "created" as const, operation: structuredClone(record) };
       },
       markCommitted: async (operationId: string, result: NonNullable<TenantOperationRecord["result"]>, updatedAt: string) => {
         ensureActive();

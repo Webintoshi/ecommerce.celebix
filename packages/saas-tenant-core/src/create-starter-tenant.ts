@@ -56,8 +56,15 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function isIsoTimestamp(value: unknown): value is string {
-  return isNonEmptyString(value) && Number.isFinite(Date.parse(value));
+function isCanonicalUtcTimestamp(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    return false;
+  }
+  try {
+    return new Date(value).toISOString() === value;
+  } catch {
+    return false;
+  }
 }
 
 function validateInput(value: unknown): CreateStarterTenantInput {
@@ -115,13 +122,16 @@ function validateInput(value: unknown): CreateStarterTenantInput {
   if (!isRecord(value.consents) || !hasOnlyKeys(value.consents, ["privacyAcceptedAt", "marketingAcceptedAt"])) {
     throw new TenantCoreFailure("invalid_input", "consents");
   }
-  if (!isIsoTimestamp(value.consents.privacyAcceptedAt)) {
+  if (!isCanonicalUtcTimestamp(value.consents.privacyAcceptedAt)) {
     throw new TenantCoreFailure("invalid_input", "consents.privacyAcceptedAt");
   }
-  if (value.consents.marketingAcceptedAt !== undefined && !isIsoTimestamp(value.consents.marketingAcceptedAt)) {
+  if (
+    value.consents.marketingAcceptedAt !== undefined &&
+    !isCanonicalUtcTimestamp(value.consents.marketingAcceptedAt)
+  ) {
     throw new TenantCoreFailure("invalid_input", "consents.marketingAcceptedAt");
   }
-  if (!isIsoTimestamp(value.requestedAt)) {
+  if (!isCanonicalUtcTimestamp(value.requestedAt)) {
     throw new TenantCoreFailure("invalid_input", "requestedAt");
   }
 
@@ -148,7 +158,7 @@ function mapUniqueConflict(kind: UniqueConflictKind): SaaSContractError {
     return safeError("membership_conflict");
   }
   if (kind === "operation_idempotency") {
-    return safeError("idempotency_mismatch", "idempotencyKey");
+    return safeError("tenant_transaction_failed", undefined, true);
   }
   return safeError("tenant_transaction_failed", undefined, true);
 }
@@ -194,22 +204,9 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
     let transactionClosed = false;
 
     try {
-      const priorOperation = await transaction.operations.findByIdempotencyKey(input.idempotencyKey);
-      if (priorOperation) {
-        await transaction.rollback();
-        transactionClosed = true;
-        if (priorOperation.fingerprint !== fingerprint) {
-          return { ok: false, error: safeError("idempotency_mismatch", "idempotencyKey") };
-        }
-        if (priorOperation.status !== "committed" || !priorOperation.result) {
-          return { ok: false, error: safeError("tenant_transaction_failed", undefined, true) };
-        }
-        return { ok: true, value: { ...structuredClone(priorOperation.result), replayed: true } };
-      }
-
       const timestamp = input.requestedAt;
       const operationId = transaction.generateId("operation");
-      await transaction.operations.create({
+      const claim = await transaction.operations.claim({
         id: operationId,
         idempotencyKey: input.idempotencyKey,
         fingerprint,
@@ -217,10 +214,28 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         createdAt: timestamp,
         updatedAt: timestamp,
       });
+      if (claim.kind === "existing") {
+        await transaction.rollback();
+        transactionClosed = true;
+        const priorOperation = claim.operation;
+        if (priorOperation.fingerprint !== fingerprint) {
+          return { ok: false, error: safeError("idempotency_mismatch", "idempotencyKey") };
+        }
+        if (priorOperation.status !== "committed" || !priorOperation.result) {
+          // Processing and failed claims are never reused for a second bootstrap.
+          // Recovery/retry policy requires a separately reviewed operation flow.
+          return { ok: false, error: safeError("tenant_transaction_failed", undefined, true) };
+        }
+        return { ok: true, value: { ...structuredClone(priorOperation.result), replayed: true } };
+      }
 
       let principal = await transaction.principals.findByIdentity(input.principal.issuer, input.principal.subject);
       if (principal && principal.email.trim().toLowerCase() !== input.principal.email.trim().toLowerCase()) {
-        throw new TenantCoreFailure("invalid_input", "principal.email");
+        principal = await transaction.principals.updateVerifiedEmail(
+          principal.id,
+          input.principal.email,
+          timestamp,
+        );
       }
       if (!principal) {
         principal = await transaction.principals.create({
@@ -281,7 +296,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       if (!plan || plan.status !== "active") {
         throw new TenantCoreFailure("tenant_transaction_failed", undefined, true);
       }
-      await transaction.subscriptions.create({
+      const subscription = await transaction.subscriptions.create({
         id: transaction.generateId("subscription"),
         storeId: store.id,
         planId: plan.id,
@@ -313,11 +328,11 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         planId: plan.id,
         planCode: plan.code,
         version: plan.version,
-        status: plan.status,
+        status: subscription.status,
         features: [...plan.features],
         limits: { ...plan.limits },
-        validFrom: plan.validFrom,
-        ...(plan.validUntil ? { validUntil: plan.validUntil } : {}),
+        validFrom: subscription.validFrom,
+        ...(subscription.validUntil ? { validUntil: subscription.validUntil } : {}),
       };
       const result: CreateStarterTenantResult = {
         schemaVersion: 1,

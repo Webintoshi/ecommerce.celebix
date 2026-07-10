@@ -7,12 +7,14 @@ import type {
   StoreRecord,
   StoreSettingRecord,
   SubscriptionRecord,
+  TenantOperationClaim,
   TenantOperationRecord,
 } from "./types.ts";
 
 export interface PrincipalRepositoryPort {
   findByIdentity(issuer: string, subject: string): Promise<PrincipalRecord | null>;
   create(record: PrincipalRecord): Promise<PrincipalRecord>;
+  updateVerifiedEmail(principalId: string, verifiedEmail: string, updatedAt: string): Promise<PrincipalRecord>;
 }
 
 export interface StoreRepositoryPort {
@@ -45,8 +47,11 @@ export interface StoreSettingRepositoryPort {
 }
 
 export interface TenantOperationRepositoryPort {
-  findByIdempotencyKey(idempotencyKey: string): Promise<TenantOperationRecord | null>;
-  create(record: TenantOperationRecord): Promise<TenantOperationRecord>;
+  /**
+   * Atomically claims one idempotency key. A production adapter must allow only
+   * one created result and return the winner's final visible row to every loser.
+   */
+  claim(record: TenantOperationRecord): Promise<TenantOperationClaim>;
   markCommitted(
     operationId: string,
     result: NonNullable<TenantOperationRecord["result"]>,

@@ -27,7 +27,11 @@ CREATE TABLE saas_stores (
   theme_key text NOT NULL,
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
-  CONSTRAINT saas_stores_slug_normalized CHECK (slug = lower(slug) AND slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+  CONSTRAINT saas_stores_slug_normalized CHECK (
+    slug = lower(slug)
+    AND char_length(slug) BETWEEN 3 AND 63
+    AND slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+  ),
   CONSTRAINT saas_stores_store_id_pair UNIQUE (id, slug)
 );
 
@@ -43,7 +47,8 @@ CREATE TABLE saas_domains (
   updated_at timestamptz NOT NULL,
   CONSTRAINT saas_domains_hostname_normalized CHECK (
     normalized_hostname = lower(normalized_hostname)
-    AND normalized_hostname !~ '[*:/]'
+    AND char_length(normalized_hostname) BETWEEN 3 AND 253
+    AND normalized_hostname ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
   ),
   CONSTRAINT saas_domains_store_domain_pair UNIQUE (store_id, id)
 );
@@ -154,6 +159,9 @@ CREATE TABLE saas_tenant_operations (
   result_membership_id uuid,
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
+  CONSTRAINT saas_tenant_operations_idempotency_key_nonempty CHECK (btrim(idempotency_key) <> ''),
+  CONSTRAINT saas_tenant_operations_idempotency_key_length CHECK (char_length(idempotency_key) <= 128),
+  CONSTRAINT saas_tenant_operations_idempotency_key_trimmed CHECK (idempotency_key = btrim(idempotency_key)),
   CONSTRAINT saas_tenant_operations_fingerprint_hex CHECK (payload_fingerprint ~ '^[a-f0-9]{64}$'),
   CONSTRAINT saas_tenant_operations_store_domain_fk
     FOREIGN KEY (result_store_id, result_domain_id)
@@ -179,6 +187,11 @@ CREATE INDEX idx_saas_tenant_operations_status_created_at ON saas_tenant_operati
 CREATE INDEX idx_saas_tenant_operations_result_store ON saas_tenant_operations (result_store_id);
 CREATE INDEX idx_saas_tenant_operations_result_domain ON saas_tenant_operations (result_store_id, result_domain_id);
 CREATE INDEX idx_saas_tenant_operations_result_membership ON saas_tenant_operations (result_store_id, result_membership_id);
+
+-- Future PostgreSQL operation claim adapter contract:
+-- Atomically attempt INSERT ... ON CONFLICT DO NOTHING RETURNING the operation row for one idempotency key.
+-- If insertion loses, perform an exact SELECT after the winning transaction exposes its final committed row.
+-- The adapter must return created to one caller only and existing to every loser; a unique exception alone is not a mismatch.
 
 INSERT INTO saas_plans (id, plan_code, version, status, valid_from, created_at)
 VALUES (
@@ -213,6 +226,11 @@ VALUES
 -- app.current_store_id and app.current_principal_id are set only from authenticated server context.
 -- A caller-provided store_id is never authority; application membership checks remain mandatory.
 -- Any future maintenance/admin bypass role must be isolated from untrusted request paths.
+-- CreateStarterTenant is a privileged internal bootstrap transaction.
+-- The tenant RLS policies are not sufficient to insert its processing operation before result_store_id is known.
+-- A future production adapter requires a separately reviewed bootstrap authority design: either one tightly scoped SECURITY DEFINER transaction function or one isolated internal bootstrap role with narrowly controlled BYPASSRLS.
+-- That authority must never be reachable from arbitrary tenant requests.
+-- This proposal does not approve or implement either option and does not weaken tenant RLS for bootstrap writes.
 
 ALTER TABLE saas_principals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas_principals FORCE ROW LEVEL SECURITY;

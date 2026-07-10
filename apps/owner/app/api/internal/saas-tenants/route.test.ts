@@ -124,6 +124,59 @@ test("trusted valid input delegates to the configured adapter", async () => {
   assert.equal(calls, 1);
 });
 
+test("trust verifier exceptions fail closed before reading the body or invoking the adapter", async () => {
+  let bodyReads = 0;
+  let adapterCalls = 0;
+  const unsafeRequest = {
+    json: async () => {
+      bodyReads += 1;
+      return input;
+    },
+  } as Request;
+  const handler = createInternalSaaSTenantsPostHandler({
+    enabled: true,
+    isTrustedRequest: async () => {
+      throw new Error("private verifier detail");
+    },
+    adapter: {
+      createStarterTenant: async () => {
+        adapterCalls += 1;
+        throw new Error("must not run");
+      },
+    },
+  });
+
+  const response = await handler(unsafeRequest);
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    error: { schemaVersion: 1, code: "service_unavailable", retryable: true },
+  });
+  assert.equal(bodyReads, 0);
+  assert.equal(adapterCalls, 0);
+});
+
+test("adapter exceptions become a safe retryable transaction failure", async () => {
+  const handler = createInternalSaaSTenantsPostHandler({
+    enabled: true,
+    isTrustedRequest: async () => true,
+    adapter: {
+      createStarterTenant: async () => {
+        throw new Error("private database stack and provider response");
+      },
+    },
+  });
+
+  const response = await handler(request(input));
+  const body = await response.json();
+  assert.equal(response.status, 500);
+  assert.deepEqual(body, {
+    ok: false,
+    error: { schemaVersion: 1, code: "tenant_transaction_failed", retryable: true },
+  });
+  assert.doesNotMatch(JSON.stringify(body), /private|database|stack|provider/i);
+});
+
 test("responses and route sources expose no secrets or legacy provisioning fallback", async () => {
   const response = await POST(request({ password: "unsafe", token: "unsafe" }));
   const serialized = JSON.stringify(await response.json()).toLowerCase();
@@ -132,4 +185,5 @@ test("responses and route sources expose no secrets or legacy provisioning fallb
   const routeSource = readFileSync(new URL("./route.ts", import.meta.url), "utf8");
   assert.doesNotMatch(routeSource, /store-provisioning|admin-deployment|storefront-deployment|create-store/i);
   assert.doesNotMatch(routeSource, /coolify|cloudflare|r2|logto|supabase/i);
+  assert.doesNotMatch(routeSource, /process\.env|SELF_SERVE|INTERNAL_SAAS/i);
 });
