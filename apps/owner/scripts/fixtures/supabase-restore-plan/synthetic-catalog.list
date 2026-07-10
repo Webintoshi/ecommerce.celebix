@@ -1,0 +1,10 @@
+;
+; Synthetic catalog fixture. It does not represent a real archive.
+;
+101; 1259 20001 TABLE app_sandbox tenant_registry fixture_owner
+102; 2615 20002 SCHEMA - identity_seed fixture_owner
+103; 1255 20003 FUNCTION identity_seed issue_session_token() fixture_owner
+104; 1255 20004 FUNCTION secrets_engine seal_value(text) fixture_owner
+105; 1259 20005 VIEW secrets_engine revealed_values fixture_owner
+106; 1259 20006 TABLE identity_seed application_session_audit fixture_owner
+107; 1259 20007 TABLE public owner_fixture fixture_owner

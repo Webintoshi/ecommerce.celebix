@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetObjects": [
+    {
+      "schema": "app_sandbox",
+      "objectType": "TABLE",
+      "name": "tenant_registry",
+      "management": "unknown",
+      "fingerprint": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "reviewedCandidates": []
+}

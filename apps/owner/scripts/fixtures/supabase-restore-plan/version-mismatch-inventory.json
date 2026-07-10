@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetVersion": {
+    "postgresMajor": 16,
+    "supabaseImage": "supabase/postgres:16.0.0.synthetic"
+  },
+  "targetObjects": [],
+  "reviewedCandidates": []
+}

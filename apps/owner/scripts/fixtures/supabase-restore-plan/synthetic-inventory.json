@@ -1,0 +1,81 @@
+{
+  "formatVersion": 1,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetObjects": [
+    {
+      "schema": null,
+      "objectType": "SCHEMA",
+      "name": "identity_seed",
+      "management": "bootstrap",
+      "fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "schema": "identity_seed",
+      "objectType": "FUNCTION",
+      "name": "issue_session_token()",
+      "management": "bootstrap",
+      "fingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "schema": "secrets_engine",
+      "objectType": "FUNCTION",
+      "name": "seal_value(text)",
+      "management": "extension",
+      "extension": "synthetic_secrets_extension",
+      "fingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "schema": "secrets_engine",
+      "objectType": "VIEW",
+      "name": "revealed_values",
+      "management": "extension",
+      "extension": "synthetic_secrets_extension",
+      "fingerprint": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "reviewedCandidates": [
+    {
+      "archiveItemId": "102",
+      "schema": null,
+      "objectType": "SCHEMA",
+      "name": "identity_seed",
+      "management": "bootstrap",
+      "reasonCode": "SOURCE_MATCHED_BOOTSTRAP_OBJECT",
+      "expectedTargetFingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "archiveItemId": "103",
+      "schema": "identity_seed",
+      "objectType": "FUNCTION",
+      "name": "issue_session_token()",
+      "management": "bootstrap",
+      "reasonCode": "SOURCE_MATCHED_BOOTSTRAP_OBJECT",
+      "expectedTargetFingerprint": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "archiveItemId": "104",
+      "schema": "secrets_engine",
+      "objectType": "FUNCTION",
+      "name": "seal_value(text)",
+      "management": "extension",
+      "reasonCode": "SOURCE_MATCHED_EXTENSION_OBJECT",
+      "expectedTargetFingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "archiveItemId": "105",
+      "schema": "secrets_engine",
+      "objectType": "VIEW",
+      "name": "revealed_values",
+      "management": "extension",
+      "reasonCode": "SOURCE_MATCHED_EXTENSION_OBJECT",
+      "expectedTargetFingerprint": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ]
+}

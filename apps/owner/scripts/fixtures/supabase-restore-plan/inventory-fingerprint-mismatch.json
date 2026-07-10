@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetObjects": [
+    {
+      "schema": null,
+      "objectType": "SCHEMA",
+      "name": "identity_seed",
+      "management": "bootstrap",
+      "fingerprint": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+    }
+  ],
+  "reviewedCandidates": [
+    {
+      "archiveItemId": "102",
+      "schema": null,
+      "objectType": "SCHEMA",
+      "name": "identity_seed",
+      "management": "bootstrap",
+      "reasonCode": "SOURCE_MATCHED_BOOTSTRAP_OBJECT",
+      "expectedTargetFingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

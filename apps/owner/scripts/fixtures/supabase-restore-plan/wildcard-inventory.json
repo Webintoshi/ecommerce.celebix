@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetObjects": [],
+  "reviewedCandidates": [
+    {
+      "archiveItemId": "*",
+      "schema": "identity_*",
+      "objectType": "SCHEMA",
+      "name": "*",
+      "management": "bootstrap",
+      "reasonCode": "SOURCE_MATCHED_BOOTSTRAP_OBJECT",
+      "expectedTargetFingerprint": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+    }
+  ]
+}

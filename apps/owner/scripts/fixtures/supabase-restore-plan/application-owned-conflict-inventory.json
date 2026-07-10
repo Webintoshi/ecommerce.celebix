@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+  },
+  "targetObjects": [
+    {
+      "schema": "identity_seed",
+      "objectType": "TABLE",
+      "name": "application_session_audit",
+      "management": "application",
+      "fingerprint": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  ],
+  "reviewedCandidates": []
+}
