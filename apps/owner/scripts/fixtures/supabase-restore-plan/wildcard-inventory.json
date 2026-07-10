@@ -1,0 +1,31 @@
+{
+  "formatVersion": 2,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "targetInventoryEvidence": {
+    "version": "synthetic-bootstrap-inventory-v1",
+    "sha256": "sha256:59ec9d500a8a1ca2a55aebbc60501f535c526b8586cfcd358115efdd55d34835"
+  },
+  "targetObjects": [],
+  "reviewedCandidates": [
+    {
+      "archiveItemId": "*",
+      "schema": "identity_*",
+      "objectType": "SCHEMA",
+      "name": "*",
+      "management": "bootstrap",
+      "reasonCode": "SOURCE_MATCHED_BOOTSTRAP_OBJECT",
+      "expectedTargetFingerprint": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+    }
+  ]
+}

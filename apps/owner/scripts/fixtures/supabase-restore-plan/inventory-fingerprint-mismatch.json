@@ -1,0 +1,42 @@
+{
+  "formatVersion": 2,
+  "sourceVersion": {
+    "postgresMajor": 15,
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "targetVersion": {
+    "postgresMajor": 15,
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "targetInventoryEvidence": {
+    "version": "synthetic-bootstrap-inventory-v1",
+    "sha256": "sha256:8092f6e8f5669f4d8b155430bfb24cda1d1cb0f35a22584ce121dc4439922b68"
+  },
+  "targetObjects": [
+    {
+      "schema": null,
+      "objectType": "SCHEMA",
+      "name": "identity_seed",
+      "management": "bootstrap",
+      "owner": "bootstrap_target_owner",
+      "fingerprint": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+    }
+  ],
+  "reviewedCandidates": [
+    {
+      "archiveItemId": "102",
+      "schema": null,
+      "objectType": "SCHEMA",
+      "name": "identity_seed",
+      "management": "bootstrap",
+      "archiveOwner": "fixture_owner",
+      "expectedTargetOwner": "bootstrap_target_owner",
+      "reasonCode": "SOURCE_MATCHED_BOOTSTRAP_OBJECT",
+      "expectedTargetFingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}
