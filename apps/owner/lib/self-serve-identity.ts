@@ -49,7 +49,8 @@ export interface ValidatedRegistrationDetails {
 
 interface IdentityBoundaryDependencies {
   now?: () => Date;
-  createIdempotencyKey?: (canonicalFingerprint: string) => string | Promise<string>;
+  idempotencyKey?: string;
+  onCanonicalFingerprint?: (canonicalFingerprint: string) => void;
 }
 
 export type IdentityBoundaryResult =
@@ -84,13 +85,6 @@ function canonicalFingerprint(input: Omit<CreateStarterTenantInput, "idempotency
     consents: input.consents,
     requestedAt: input.requestedAt,
   });
-}
-
-async function defaultIdempotencyKey(fingerprint: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fingerprint));
-  const random = new Uint8Array(24);
-  crypto.getRandomValues(random);
-  return `ssik_${Buffer.from(random).toString("base64url")}_${Buffer.from(digest).toString("base64url").slice(0, 16)}`;
 }
 
 export async function buildCreateStarterTenantInput(
@@ -142,9 +136,12 @@ export async function buildCreateStarterTenantInput(
     requestedAt,
   };
   const fingerprint = canonicalFingerprint(withoutKey);
-  const idempotencyKey = await (dependencies.createIdempotencyKey ?? defaultIdempotencyKey)(fingerprint);
+  dependencies.onCanonicalFingerprint?.(fingerprint);
+  const idempotencyKey = dependencies.idempotencyKey ?? "";
 
-  if (!idempotencyKey.trim()) return safeError("invalid_input", "idempotencyKey");
+  if (!/^[A-Za-z0-9_-]{16,200}$/.test(idempotencyKey)) {
+    return safeError("invalid_input", "idempotencyKey");
+  }
 
   return {
     ok: true,

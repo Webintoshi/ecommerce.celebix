@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type {
   OidcAuthorizationRequest,
+  OidcAuthorizationTransaction,
   OidcCallbackInput,
   OidcProviderCallbackInput,
   OidcProviderPort,
@@ -24,6 +25,7 @@ class FakeProvider implements OidcProviderPort {
   readonly identities = new Map<string, OidcVerifiedIdentity>();
   lastAuthorizationRequest: OidcAuthorizationRequest | null = null;
   lastCallbackInput: OidcProviderCallbackInput | null = null;
+  mutateAuthorizationUrl?: (url: URL, input: OidcAuthorizationRequest) => URL;
 
   buildAuthorizationUrl(input: OidcAuthorizationRequest) {
     this.lastAuthorizationRequest = input;
@@ -34,7 +36,7 @@ class FakeProvider implements OidcProviderPort {
     url.searchParams.set("code_challenge", input.codeChallenge);
     url.searchParams.set("code_challenge_method", input.codeChallengeMethod);
     url.searchParams.set("redirect_uri", input.redirectUri);
-    return url;
+    return this.mutateAuthorizationUrl?.(url, input) ?? url;
   }
 
   async verifyCallback(input: OidcProviderCallbackInput) {
@@ -70,6 +72,7 @@ async function begin(provider: FakeProvider, now = NOW, returnTo = "/kayit") {
     returnTo,
     expectedIssuer: EXPECTED_ISSUER,
     expectedAudience: EXPECTED_AUDIENCE,
+    expectedAuthorizationOrigin: "https://identity.example.test",
     now: () => now,
   });
   return { result, store };
@@ -201,3 +204,111 @@ test("restricts redirect targets to approved internal registration paths", async
   assert.equal(result.returnTo, "/kayit");
   assert.equal(result.authorizationUrl.includes("attacker.example"), false);
 });
+
+test("returnTo is always the exact approved path without query or fragment", () => {
+  if (!oidc.sanitizeOidcReturnTo) return;
+  for (const unsafe of [
+    "/kayit?next=https://attacker.example",
+    "/kayit#secret",
+    "//attacker.example/kayit",
+    "https://attacker.example/kayit",
+    "/unknown",
+  ]) {
+    assert.equal(oidc.sanitizeOidcReturnTo(unsafe), "/kayit");
+  }
+  assert.equal(oidc.sanitizeOidcReturnTo("/kayit"), "/kayit");
+});
+
+test("rejects blank normalized callback state and code before consuming state or calling provider", async () => {
+  if (!oidc.completeOidcCallback || !oidc.InMemoryOidcTransactionStore) return;
+  const provider = new FakeProvider();
+  const { result, store } = await begin(provider);
+
+  for (const callback of [
+    { state: "   ", code: "valid-code" },
+    { state: result.state, code: "\n\t" },
+  ]) {
+    await assert.rejects(
+      () => oidc.completeOidcCallback!({ provider, transactionStore: store, callback, now: () => NOW }),
+      (error: unknown) => (error as { code?: string }).code === "oidc_invalid_callback",
+    );
+  }
+  assert.equal(provider.lastCallbackInput, null);
+
+  const nonce = new URL(result.authorizationUrl).searchParams.get("nonce");
+  assert.ok(nonce);
+  provider.identities.set("valid-code", verifiedIdentity({ nonce }));
+  const completed = await oidc.completeOidcCallback({
+    provider,
+    transactionStore: store,
+    callback: { state: result.state, code: "valid-code" },
+    now: () => NOW,
+  });
+  assert.equal(completed.identity.subject, "subject_123");
+});
+
+test("discards a saved transaction when provider authorization output is rejected", async () => {
+  if (!oidc.beginOidcAuthorization || !oidc.InMemoryOidcTransactionStore) return;
+  const provider = new FakeProvider();
+  provider.mutateAuthorizationUrl = (url) => {
+    url.searchParams.set("redirect_uri", "https://attacker.example/callback");
+    return url;
+  };
+  const store = new oidc.InMemoryOidcTransactionStore();
+  let state = "";
+  const originalSave = store.save.bind(store);
+  store.save = async (transaction: OidcAuthorizationTransaction) => {
+    state = transaction.state;
+    await originalSave(transaction);
+  };
+
+  await assert.rejects(
+    () => oidc.beginOidcAuthorization!({
+      provider,
+      transactionStore: store,
+      redirectUri: REDIRECT_URI,
+      returnTo: "/kayit",
+      expectedIssuer: EXPECTED_ISSUER,
+      expectedAudience: EXPECTED_AUDIENCE,
+      expectedAuthorizationOrigin: "https://identity.example.test",
+      now: () => NOW,
+    }),
+    (error: unknown) => (error as { code?: string }).code === "oidc_provider_rejected",
+  );
+  assert.ok(state);
+  await assert.rejects(
+    () => store.consume(state, NOW),
+    (error: unknown) => (error as { code?: string }).code === "oidc_invalid_state",
+  );
+});
+
+for (const [name, mutate] of [
+  ["non-HTTPS URL", (url: URL) => new URL(url.toString().replace("https://", "http://"))],
+  ["unexpected origin", (url: URL) => new URL(url.toString().replace("identity.example.test", "attacker.example"))],
+  ["username", (url: URL) => { url.username = "user"; return url; }],
+  ["password", (url: URL) => { url.password = "secret"; return url; }],
+  ["fragment", (url: URL) => { url.hash = "leak"; return url; }],
+  ["missing state", (url: URL) => { url.searchParams.delete("state"); return url; }],
+  ["wrong state", (url: URL) => { url.searchParams.set("state", "wrong"); return url; }],
+  ["duplicate state", (url: URL, input: OidcAuthorizationRequest) => { url.searchParams.append("state", input.state); return url; }],
+  ["wrong nonce", (url: URL) => { url.searchParams.set("nonce", "wrong"); return url; }],
+  ["duplicate nonce", (url: URL) => { url.searchParams.append("nonce", "other"); return url; }],
+  ["duplicate challenge", (url: URL) => { url.searchParams.append("code_challenge", "other"); return url; }],
+  ["wrong challenge method", (url: URL) => { url.searchParams.set("code_challenge_method", "plain"); return url; }],
+  ["duplicate challenge method", (url: URL) => { url.searchParams.append("code_challenge_method", "S256"); return url; }],
+  ["wrong redirect URI", (url: URL) => { url.searchParams.set("redirect_uri", "https://attacker.example/callback"); return url; }],
+  ["duplicate redirect URI", (url: URL) => { url.searchParams.append("redirect_uri", REDIRECT_URI); return url; }],
+  ["response type without code", (url: URL) => { url.searchParams.set("response_type", "token"); return url; }],
+  ["duplicate response type", (url: URL) => { url.searchParams.append("response_type", "code"); return url; }],
+  ["PKCE verifier", (url: URL) => { url.searchParams.set("code_verifier", "private"); return url; }],
+] as const) {
+  test(`rejects provider authorization output with ${name}`, async () => {
+    if (!oidc.beginOidcAuthorization) return;
+    const provider = new FakeProvider();
+    provider.mutateAuthorizationUrl = mutate;
+    await assert.rejects(
+      () => begin(provider),
+      (error: unknown) => (error as { code?: string }).code === "oidc_provider_rejected",
+    );
+  });
+}

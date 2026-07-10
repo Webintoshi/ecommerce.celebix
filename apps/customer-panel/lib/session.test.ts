@@ -9,6 +9,7 @@ const sessions = await import(new URL("./session.ts", import.meta.url).href).cat
 );
 
 const NOW = new Date("2026-07-10T10:00:00.000Z");
+const SESSION_ID = "session_opaque_1234567890abcdefghijklmnop";
 
 function membership(
   storeId: string,
@@ -29,7 +30,7 @@ function membership(
 
 function panelSession(overrides: Record<string, unknown> = {}) {
   return {
-    id: "session_opaque_1234567890",
+    id: SESSION_ID,
     principal: {
       id: "principal_1",
       issuer: "https://identity.example.test/oidc",
@@ -49,17 +50,37 @@ test("exports the panel session and active-store security surface", () => {
   assert.equal(typeof sessions.rotatePanelSessionForStore, "function");
 });
 
-test("defines HttpOnly bounded Lax cookies that are Secure in production", () => {
+test("defines shared production and explicit local-test cookie policies", () => {
   if (!sessions.getPanelSessionCookieOptions) return;
-  assert.deepEqual(sessions.getPanelSessionCookieOptions("production"), {
+  assert.deepEqual(sessions.getPanelSessionCookieOptions({ kind: "production" }), {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
     maxAge: 28_800,
   });
-  assert.equal(sessions.getPanelSessionCookieOptions("test").secure, false);
-  assert.match(sessions.PANEL_SESSION_COOKIE_NAME ?? "", /^__Host-/);
+  assert.deepEqual(sessions.getPanelSessionCookieOptions({ kind: "local-http-test" }), {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 28_800,
+  });
+  assert.equal(sessions.getPanelSessionCookieName?.({ kind: "production" }), "__Host-celebix_panel");
+  assert.equal(sessions.getPanelSessionCookieName?.({ kind: "local-http-test" }), "celebix_panel_local");
+
+  const setCookie = sessions.buildPanelSessionSetCookie?.(SESSION_ID, { kind: "production" }) ?? "";
+  const clearCookie = sessions.buildPanelSessionClearCookie?.({ kind: "production" }) ?? "";
+  for (const cookie of [setCookie, clearCookie]) {
+    assert.match(cookie, /^__Host-celebix_panel=/);
+    assert.match(cookie, /HttpOnly/);
+    assert.match(cookie, /Secure/);
+    assert.match(cookie, /SameSite=Lax/);
+    assert.match(cookie, /Path=\//);
+    assert.equal(/Domain=/i.test(cookie), false);
+  }
+  assert.match(setCookie, /Max-Age=28800/);
+  assert.match(clearCookie, /Max-Age=0/);
 });
 
 test("unauthenticated and expired sessions are rejected for panel pages", async () => {
@@ -73,11 +94,53 @@ test("unauthenticated and expired sessions are rejected for panel pages", async 
   });
 
   await store.create(panelSession({ expiresAt: new Date(NOW.getTime() - 1).toISOString() }));
-  assert.deepEqual(await sessions.resolvePanelPageAccess("session_opaque_1234567890", store, NOW), {
+  assert.deepEqual(await sessions.resolvePanelPageAccess(SESSION_ID, store, NOW), {
     allowed: false,
     redirectTo: "/login",
     code: "unauthenticated",
   });
+});
+
+test("invalid persisted sessions are rejected and destroyed", async () => {
+  if (!sessions.resolvePanelSession || !sessions.InMemoryPanelSessionStore) return;
+  const invalidCases = [
+    { id: "short" },
+    { id: `${SESSION_ID}!` },
+    { createdAt: "2026-07-10T10:00:00Z" },
+    { createdAt: "2026-07-10T10:00:01.000Z" },
+    { rotatedAt: "2026-07-10T09:59:59.000Z" },
+    { rotatedAt: "2026-07-10T10:01:00.000Z" },
+    { expiresAt: "2026-07-10T09:59:59.000Z" },
+    { expiresAt: "2026-07-10T10:00:00.000Z" },
+    { expiresAt: "2026-07-10T18:00:00.001Z" },
+    { activeStoreId: " store_1 " },
+    { principal: { id: "", issuer: "https://identity.example.test", subject: "subject_123" } },
+  ];
+
+  for (const [index, overrides] of invalidCases.entries()) {
+    const store = new sessions.InMemoryPanelSessionStore();
+    const value = panelSession({ id: `${SESSION_ID.slice(0, -2)}${String(index).padStart(2, "0")}`, ...overrides });
+    await store.create(value);
+    assert.equal(await sessions.resolvePanelSession(value.id, store, NOW), null);
+    assert.equal(await store.read(value.id), null);
+  }
+});
+
+test("in-memory session persistence rejects duplicate create and missing or colliding rotation", async () => {
+  if (!sessions.InMemoryPanelSessionStore) return;
+  const store = new sessions.InMemoryPanelSessionStore();
+  const original = panelSession();
+  await store.create(original);
+  await assert.rejects(() => store.create(original), /panel_session_conflict/);
+  await assert.rejects(
+    () => store.rotate("missing_session_1234567890abcdefghij", { ...original, id: `${SESSION_ID}next` }),
+    /panel_session_missing/,
+  );
+  const existing = { ...original, id: `${SESSION_ID}existing` };
+  await store.create(existing);
+  await assert.rejects(() => store.rotate(original.id, existing), /panel_session_conflict/);
+  assert.deepEqual(await store.read(original.id), original);
+  assert.deepEqual(await store.read(existing.id), existing);
 });
 
 test("active store selection validates current active membership and rejects invited, revoked, or foreign stores", () => {

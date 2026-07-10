@@ -1,11 +1,15 @@
-export async function POST() {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+import { buildPanelSessionClearCookie } from "../../../lib/session.ts";
+import { rejectInvalidPanelMutation } from "../../../lib/request-security.ts";
+
+export async function POST(request: Request) {
+  const rejected = rejectInvalidPanelMutation(request);
+  if (rejected) return rejected;
   return new Response(null, {
     status: 303,
     headers: {
       location: "https://panel.celebix.site/login",
       "cache-control": "no-store",
-      "set-cookie": `__Host-celebix_panel=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0`,
+      "set-cookie": buildPanelSessionClearCookie({ kind: "production" }),
     },
   });
 }

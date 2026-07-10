@@ -2,8 +2,17 @@ import type { SaaSContractError, StoreMembership } from "@celebix/saas-contracts
 
 const PANEL_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 const PANEL_SESSION_MAX_AGE_MS = PANEL_SESSION_MAX_AGE_SECONDS * 1000;
+const PANEL_SESSION_CLOCK_SKEW_MS = 30_000;
+const PANEL_SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+const AUTHORITY_ID_PATTERN = /^[A-Za-z0-9._:@/-]{1,512}$/;
+const STORE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export const PANEL_SESSION_COOKIE_NAME = "__Host-celebix_panel";
+export const PANEL_LOCAL_TEST_SESSION_COOKIE_NAME = "celebix_panel_local";
+
+export type PanelSessionCookiePolicy =
+  | { kind: "production" }
+  | { kind: "local-http-test" };
 
 export interface PanelSession {
   id: string;
@@ -30,14 +39,36 @@ export interface ActiveStoreSelection {
   membership: StoreMembership & { status: "active" };
 }
 
-export function getPanelSessionCookieOptions(nodeEnv = process.env.NODE_ENV) {
+export function getPanelSessionCookieName(policy: PanelSessionCookiePolicy) {
+  return policy.kind === "production" ? PANEL_SESSION_COOKIE_NAME : PANEL_LOCAL_TEST_SESSION_COOKIE_NAME;
+}
+
+export function getPanelSessionCookieOptions(policy: PanelSessionCookiePolicy) {
   return {
     httpOnly: true as const,
-    secure: nodeEnv === "production",
+    secure: policy.kind === "production",
     sameSite: "lax" as const,
     path: "/" as const,
     maxAge: PANEL_SESSION_MAX_AGE_SECONDS,
   };
+}
+
+function serializePanelSessionCookie(
+  value: string,
+  policy: PanelSessionCookiePolicy,
+  maxAge: number,
+) {
+  const secure = policy.kind === "production" ? "; Secure" : "";
+  return `${getPanelSessionCookieName(policy)}=${value}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+}
+
+export function buildPanelSessionSetCookie(sessionId: string, policy: PanelSessionCookiePolicy) {
+  if (!PANEL_SESSION_ID_PATTERN.test(sessionId)) throw new Error("panel_session_id_invalid");
+  return serializePanelSessionCookie(sessionId, policy, PANEL_SESSION_MAX_AGE_SECONDS);
+}
+
+export function buildPanelSessionClearCookie(policy: PanelSessionCookiePolicy) {
+  return serializePanelSessionCookie("", policy, 0);
 }
 
 function cloneSession(session: PanelSession) {
@@ -48,6 +79,7 @@ export class InMemoryPanelSessionStore implements PanelSessionStore {
   private readonly sessions = new Map<string, PanelSession>();
 
   async create(session: PanelSession) {
+    if (this.sessions.has(session.id)) throw new Error("panel_session_conflict");
     this.sessions.set(session.id, cloneSession(session));
   }
 
@@ -57,6 +89,10 @@ export class InMemoryPanelSessionStore implements PanelSessionStore {
   }
 
   async rotate(previousSessionId: string, session: PanelSession) {
+    if (!this.sessions.has(previousSessionId)) throw new Error("panel_session_missing");
+    if (session.id !== previousSessionId && this.sessions.has(session.id)) {
+      throw new Error("panel_session_conflict");
+    }
     this.sessions.delete(previousSessionId);
     this.sessions.set(session.id, cloneSession(session));
   }
@@ -101,14 +137,35 @@ export function toSafePanelSession(value: unknown): PanelSession {
   };
 }
 
+function canonicalTimestamp(value: string) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value ? timestamp : null;
+}
+
+function isNormalizedAuthority(value: string) {
+  return value === value.trim() && AUTHORITY_ID_PATTERN.test(value);
+}
+
 function isValidSession(session: PanelSession, now: Date) {
+  const createdAt = canonicalTimestamp(session.createdAt);
+  const rotatedAt = canonicalTimestamp(session.rotatedAt);
+  const expiresAt = canonicalTimestamp(session.expiresAt);
+  if (createdAt === null || rotatedAt === null || expiresAt === null) return false;
+  if (!PANEL_SESSION_ID_PATTERN.test(session.id)) return false;
+  if (
+    !isNormalizedAuthority(session.principal.id) ||
+    !isNormalizedAuthority(session.principal.issuer) ||
+    !isNormalizedAuthority(session.principal.subject)
+  ) return false;
+  if (session.activeStoreId !== undefined && !STORE_ID_PATTERN.test(session.activeStoreId)) return false;
   return (
-    session.id.length >= 16 &&
-    Boolean(session.principal.id && session.principal.issuer && session.principal.subject) &&
-    Number.isFinite(Date.parse(session.createdAt)) &&
-    Number.isFinite(Date.parse(session.expiresAt)) &&
-    Date.parse(session.expiresAt) > now.getTime() &&
-    Date.parse(session.expiresAt) - Date.parse(session.createdAt) <= PANEL_SESSION_MAX_AGE_MS
+    createdAt <= now.getTime() &&
+    rotatedAt >= createdAt &&
+    rotatedAt <= now.getTime() + PANEL_SESSION_CLOCK_SKEW_MS &&
+    rotatedAt < expiresAt &&
+    expiresAt > now.getTime() &&
+    expiresAt > createdAt &&
+    expiresAt <= createdAt + PANEL_SESSION_MAX_AGE_MS
   );
 }
 
@@ -117,11 +174,16 @@ export async function resolvePanelSession(
   store: PanelSessionStore,
   now = new Date(),
 ) {
-  if (!sessionId || sessionId.length < 16) return null;
+  if (!sessionId) return null;
   const stored = await store.read(sessionId);
-  if (!stored) return null;
+  if (!stored) {
+    if (!PANEL_SESSION_ID_PATTERN.test(sessionId)) await store.destroy(sessionId).catch(() => undefined);
+    return null;
+  }
   const safe = toSafePanelSession(stored);
-  return isValidSession(safe, now) ? safe : null;
+  if (isValidSession(safe, now)) return safe;
+  await store.destroy(sessionId).catch(() => undefined);
+  return null;
 }
 
 export async function resolvePanelPageAccess(
@@ -170,6 +232,22 @@ function createOpaqueSessionId() {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   return Buffer.from(bytes).toString("base64url");
+}
+
+export function createPanelSession(input: {
+  principal: PanelSession["principal"];
+  activeStoreId?: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  return toSafePanelSession({
+    id: createOpaqueSessionId(),
+    principal: input.principal,
+    ...(input.activeStoreId ? { activeStoreId: input.activeStoreId } : {}),
+    createdAt: now.toISOString(),
+    rotatedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + PANEL_SESSION_MAX_AGE_MS).toISOString(),
+  });
 }
 
 export async function rotatePanelSessionForStore(input: {

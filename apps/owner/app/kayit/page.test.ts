@@ -24,27 +24,32 @@ test("/kayit is a single direct registration screen, not the old onboarding land
   assert.doesNotMatch(pageSource, /Kurulum sonrası/);
 });
 
-test("/kayit keeps the new SaaS registration foundation disabled by default", () => {
+test("/kayit renders the safe direct registration form while remaining disabled by default", () => {
   assert.match(pageSource, /SELF_SERVE_SAAS_REGISTRATION_ENABLED/);
   assert.match(pageSource, /Kayıt altyapısı hazırlanıyor/);
   assert.match(pageSource, /canlı mağaza oluşturmaz/);
-  assert.doesNotMatch(pageSource, /SelfServeDirectRegistrationForm/);
+  assert.match(pageSource, /SelfServeDirectRegistrationForm/);
+  assert.match(formSource, /name="storeName"/);
+  assert.match(formSource, /name="storeSlug"/);
+  assert.match(formSource, /name="privacyConsent"/);
+  assert.match(formSource, /name="marketingConsent"/);
+  assert.match(formSource, /Kimliğimi doğrula ve mağazamı kur/);
+  assert.match(formSource, /disabled/);
 });
 
-test("the direct form does not reintroduce Logto-first or onboarding explainer copy", () => {
-  assert.match(formSource, /E-Ticaret Sistemi Kur/);
+test("the direct form collects no browser identity credentials or authority IDs", () => {
   assert.match(formSource, /\.\{domainSuffix\}/);
-
-  assert.doesNotMatch(formSource, /self-serve-form-logo/);
-  assert.doesNotMatch(formSource, /Tek ekranda basla/i);
-  assert.doesNotMatch(formSource, /Magaza ve hesap bilgileri/i);
-  assert.doesNotMatch(formSource, /Planlanan admin/i);
-  assert.doesNotMatch(formSource, /handoff/i);
-  assert.doesNotMatch(formSource, /Guvenlik/i);
-  assert.doesNotMatch(formSource, /Logto ile/i);
-  assert.doesNotMatch(formSource, /Supabase Auth/i);
-  assert.doesNotMatch(formSource, /Celebix ekibi doğrulayacak/i);
-  assert.doesNotMatch(formSource, /owner approval/i);
+  for (const prohibited of [
+    /name="email"/,
+    /name="password"/,
+    /name="phone"/,
+    /name="firstName"/,
+    /name="lastName"/,
+    /storeId/,
+    /membershipId/,
+    /localStorage/,
+    /fetch\(/,
+  ]) assert.doesNotMatch(formSource, prohibited);
 });
 
 test("/kayit customer-facing copy is store creation language, not an application queue", () => {

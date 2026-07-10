@@ -36,10 +36,8 @@ test("uses issuer plus subject as authority and emits canonical contract input",
   let fingerprint = "";
   const result = await identityBoundary.buildCreateStarterTenantInput(verifiedIdentity, details, {
     now: () => new Date("2026-07-10T10:00:00.000Z"),
-    createIdempotencyKey: async (value: string) => {
-      fingerprint = value;
-      return "ssik_server_owned_123";
-    },
+    idempotencyKey: "ssik_server_owned_123",
+    onCanonicalFingerprint: (value: string) => { fingerprint = value; },
   });
 
   assert.equal(result.ok, true);
@@ -106,7 +104,7 @@ test("never copies password, browser IDs, or provider tokens into Tenant Core in
   } as OidcVerifiedIdentity;
 
   const result = await identityBoundary.buildCreateStarterTenantInput(unsafeIdentity, unsafeDetails, {
-    createIdempotencyKey: async () => "ssik_server_owned_456",
+    idempotencyKey: "ssik_server_owned_456",
   });
   assert.equal(result.ok, true);
   if (!result.ok) return;
@@ -122,4 +120,19 @@ test("never copies password, browser IDs, or provider tokens into Tenant Core in
   ]) {
     assert.equal(serialized.includes(prohibited), false);
   }
+});
+
+test("requires and preserves the immutable server-stored idempotency key", async () => {
+  if (!identityBoundary.buildCreateStarterTenantInput) return;
+  const missing = await identityBoundary.buildCreateStarterTenantInput(verifiedIdentity, details, {
+    idempotencyKey: "   ",
+  });
+  assert.equal(missing.ok, false);
+  if (!missing.ok) assert.equal(missing.error.field, "idempotencyKey");
+
+  const result = await identityBoundary.buildCreateStarterTenantInput(verifiedIdentity, details, {
+    idempotencyKey: "ssik_attempt_immutable_123",
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.input.idempotencyKey, "ssik_attempt_immutable_123");
 });

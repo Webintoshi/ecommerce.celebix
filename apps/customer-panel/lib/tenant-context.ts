@@ -51,6 +51,7 @@ export function buildTenantContext(input: {
 
   if (input.resolvedHost) {
     if (input.resolvedHost.storeId !== input.store.id) return denied("host_store_mismatch");
+    if (input.resolvedHost.storeSlug !== input.store.slug) return denied("host_store_mismatch");
     if (input.resolvedHost.status !== "active") return denied("host_unverified");
   }
 

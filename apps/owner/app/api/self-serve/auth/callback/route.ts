@@ -1,8 +1,6 @@
-import { NextResponse } from "next/server";
-import { buildSelfServeOwnerPublicUrl } from "@/lib/self-serve-logto";
-
-export async function GET(request: Request) {
-  const url = buildSelfServeOwnerPublicUrl(request, "/kayit");
-  url.searchParams.set("auth", "disabled");
-  return NextResponse.redirect(url, 303);
+export async function GET() {
+  return Response.json(
+    { code: "panel_callback_required" },
+    { status: 503, headers: { "cache-control": "no-store" } },
+  );
 }

@@ -1,31 +1,17 @@
-import type {
-  CreateStarterTenantInput,
-  CreateStarterTenantResult,
-  SaaSContractError,
-  StoreMembership,
-} from "@celebix/saas-contracts";
-import type { IdentityBoundaryResult, ValidatedRegistrationDetails } from "./self-serve-identity";
-import type { OidcVerifiedIdentity } from "./self-serve-oidc";
+import type { ValidatedRegistrationDetails } from "./self-serve-identity";
 import type { SelfServeRegistrationInput } from "./self-serve-registration";
-import type { TenantCoreClient } from "./self-serve-tenant-core-client";
 
 const ATTEMPT_LIFETIME_MS = 10 * 60_000;
-const PANEL_SESSION_LIFETIME_MS = 8 * 60 * 60_000;
-const PANEL_ORIGIN = "https://panel.celebix.site";
 
 export const SELF_SERVE_SAAS_REGISTRATION_ENABLED = false;
 
-export type RegistrationFlowState =
-  | "disabled"
-  | "awaiting_identity"
-  | "creating_tenant"
-  | "provisioning"
-  | "ready"
-  | "failed";
-
 export interface RegistrationAttempt {
+  id: string;
   state: string;
   details: ValidatedRegistrationDetails;
+  idempotencyKey: string;
+  canonicalFingerprint: string;
+  status: "awaiting_identity" | "identity_verified" | "tenant_created" | "session_created" | "failed";
   createdAt: string;
   expiresAt: string;
 }
@@ -41,37 +27,8 @@ export interface RegistrationOidcPort {
     authorizationUrl: string;
     expiresAt: string;
   }>;
-  complete(input: { code: string; state: string }): Promise<OidcVerifiedIdentity>;
+  cancel(state: string): Promise<void>;
 }
-
-export interface ActiveStoreSelection {
-  storeId: string;
-  membershipId: string;
-  selectedAt: string;
-}
-
-export interface PanelSession {
-  id: string;
-  principal: {
-    id: string;
-    issuer: string;
-    subject: string;
-  };
-  memberships: readonly StoreMembership[];
-  activeStore: ActiveStoreSelection;
-  createdAt: string;
-  rotatedAt: string;
-  expiresAt: string;
-}
-
-export interface PanelSessionStore {
-  create(session: PanelSession): Promise<void>;
-}
-
-export type TenantInputBuilder = (
-  identity: OidcVerifiedIdentity,
-  details: ValidatedRegistrationDetails,
-) => Promise<IdentityBoundaryResult>;
 
 type BeginRegistrationResult =
   | {
@@ -86,20 +43,6 @@ type BeginRegistrationResult =
       code: string;
       status: number;
       errors?: readonly string[];
-    };
-
-type CompleteRegistrationResult =
-  | {
-      ok: true;
-      state: "provisioning" | "ready";
-      redirectTo: string;
-      operationId: string;
-    }
-  | {
-      ok: false;
-      state: "failed";
-      status: number;
-      error: SaaSContractError;
     };
 
 function normalizeSlug(value: string) {
@@ -134,7 +77,6 @@ function validateAndSanitizeRegistration(
     errors.push("Geçerli bir mağaza adresi gerekli.");
   }
   if (!input.privacyConsent) errors.push("KVKK ve gizlilik onayı gerekli.");
-
   if (errors.length > 0) return { ok: false, errors };
 
   const acceptedAt = now.toISOString();
@@ -150,6 +92,24 @@ function validateAndSanitizeRegistration(
       ...(input.marketingConsent ? { marketingAcceptedAt: acceptedAt } : {}),
     },
   };
+}
+
+function randomServerOwnedValue(prefix: "attempt" | "ssik") {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return `${prefix}_${Buffer.from(bytes).toString("base64url")}`;
+}
+
+function registrationFingerprint(details: ValidatedRegistrationDetails) {
+  return JSON.stringify({
+    storeName: details.storeName,
+    storeSlug: details.storeSlug,
+    locale: details.locale,
+    currency: details.currency,
+    themeKey: details.themeKey,
+    privacyAcceptedAt: details.privacyAcceptedAt,
+    marketingAcceptedAt: details.marketingAcceptedAt ?? null,
+  });
 }
 
 export class InMemoryRegistrationAttemptStore implements RegistrationAttemptStore {
@@ -175,19 +135,8 @@ export class InMemoryRegistrationAttemptStore implements RegistrationAttemptStor
 }
 
 export class DisabledRegistrationAttemptStore implements RegistrationAttemptStore {
-  async save() {
-    throw new Error("registration_attempt_store_disabled");
-  }
-
-  async consume(): Promise<RegistrationAttempt> {
-    throw new Error("registration_attempt_store_disabled");
-  }
-}
-
-export class DisabledPanelSessionStore implements PanelSessionStore {
-  async create() {
-    throw new Error("panel_session_store_disabled");
-  }
+  async save() { throw new Error("registration_attempt_store_disabled"); }
+  async consume(): Promise<RegistrationAttempt> { throw new Error("registration_attempt_store_disabled"); }
 }
 
 export async function beginSelfServeRegistration(input: {
@@ -220,12 +169,21 @@ export async function beginSelfServeRegistration(input: {
 
   try {
     const authorization = await input.oidc.begin({ returnTo: "/kayit" });
-    await input.attemptStore.save({
-      state: authorization.state,
-      details: validated.details,
-      createdAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + ATTEMPT_LIFETIME_MS).toISOString(),
-    });
+    try {
+      await input.attemptStore.save({
+        id: randomServerOwnedValue("attempt"),
+        state: authorization.state,
+        details: validated.details,
+        idempotencyKey: randomServerOwnedValue("ssik"),
+        canonicalFingerprint: registrationFingerprint(validated.details),
+        status: "awaiting_identity",
+        createdAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + ATTEMPT_LIFETIME_MS).toISOString(),
+      });
+    } catch (error) {
+      await input.oidc.cancel(authorization.state).catch(() => undefined);
+      throw error;
+    }
     return {
       ok: true,
       state: "awaiting_identity",
@@ -239,96 +197,5 @@ export async function beginSelfServeRegistration(input: {
       code: "self_serve_identity_start_failed",
       status: 503,
     };
-  }
-}
-
-function orchestrationError(error: SaaSContractError, status = 403): CompleteRegistrationResult {
-  return { ok: false, state: "failed", status, error };
-}
-
-function randomSessionId() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Buffer.from(bytes).toString("base64url");
-}
-
-function buildPanelSession(
-  identity: OidcVerifiedIdentity,
-  result: CreateStarterTenantResult,
-  now: Date,
-): PanelSession {
-  return {
-    id: randomSessionId(),
-    principal: {
-      id: result.membership.principalId,
-      issuer: identity.issuer,
-      subject: identity.subject,
-    },
-    memberships: [structuredClone(result.membership)],
-    activeStore: {
-      storeId: result.store.id,
-      membershipId: result.membership.id,
-      selectedAt: now.toISOString(),
-    },
-    createdAt: now.toISOString(),
-    rotatedAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + PANEL_SESSION_LIFETIME_MS).toISOString(),
-  };
-}
-
-export async function completeSelfServeRegistration(input: {
-  callback: { code: string; state: string };
-  oidc: RegistrationOidcPort;
-  attemptStore: RegistrationAttemptStore;
-  buildTenantInput: TenantInputBuilder;
-  tenantCoreClient: TenantCoreClient;
-  panelSessionStore: PanelSessionStore;
-  now?: () => Date;
-}): Promise<CompleteRegistrationResult> {
-  const now = input.now?.() ?? new Date();
-
-  try {
-    const identity = await input.oidc.complete(input.callback);
-    const attempt = await input.attemptStore.consume(input.callback.state, now);
-
-    if (!identity.emailVerified) {
-      return orchestrationError({ schemaVersion: 1, code: "identity_unverified", retryable: false });
-    }
-
-    const tenantInput = await input.buildTenantInput(identity, attempt.details);
-    if (!tenantInput.ok) return orchestrationError(tenantInput.error, 400);
-
-    const tenant = await input.tenantCoreClient.createStarterTenant(tenantInput.input);
-    if (!tenant.ok) return orchestrationError(tenant.error, tenant.error.retryable ? 503 : 409);
-    if (tenant.value.provisioningStatus === "failed") {
-      return orchestrationError({
-        schemaVersion: 1,
-        code: "tenant_transaction_failed",
-        retryable: false,
-        operationId: tenant.value.operationId,
-      }, 409);
-    }
-    if (
-      tenant.value.membership.status !== "active" ||
-      tenant.value.membership.storeId !== tenant.value.store.id
-    ) {
-      return orchestrationError({ schemaVersion: 1, code: "membership_denied", retryable: false });
-    }
-
-    await input.panelSessionStore.create(buildPanelSession(identity, tenant.value, now));
-    const provisioning = tenant.value.provisioningStatus !== "ready";
-    return {
-      ok: true,
-      state: provisioning ? "provisioning" : "ready",
-      redirectTo: provisioning ? `${PANEL_ORIGIN}/setup` : `${PANEL_ORIGIN}/`,
-      operationId: tenant.value.operationId,
-    };
-  } catch {
-    return orchestrationError({
-      schemaVersion: 1,
-      code: "tenant_transaction_failed",
-      retryable: false,
-      safeMessage: "Kayıt işlemi güvenli şekilde tamamlanamadı.",
-    }, 503);
   }
 }

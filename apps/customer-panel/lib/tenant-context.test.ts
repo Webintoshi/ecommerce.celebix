@@ -122,6 +122,13 @@ test("host and membership mismatch is denied", () => {
   if (!result.ok) assert.equal(result.error.code, "host_store_mismatch");
 });
 
+test("host store slug mismatch is denied even when store ID matches", () => {
+  if (!tenantContexts.buildTenantContext) return;
+  const result = build({ resolvedHost: { ...host, storeSlug: "different-store" } });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error.code, "host_store_mismatch");
+});
+
 test("unknown features remain denied", () => {
   if (!tenantContexts.canUseTenantFeature || !tenantContexts.buildTenantContext) return;
   const result = build();

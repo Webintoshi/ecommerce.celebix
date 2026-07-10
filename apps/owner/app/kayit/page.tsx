@@ -1,4 +1,5 @@
 import { SELF_SERVE_SAAS_REGISTRATION_ENABLED } from "@/lib/self-serve-registration-orchestrator";
+import { SelfServeDirectRegistrationForm } from "@/components/self-serve/SelfServeDirectRegistrationForm";
 import Link from "next/link";
 
 export default function KayitPage() {
@@ -19,8 +20,9 @@ export default function KayitPage() {
       </section>
 
       <section className="self-serve-register-form-wrap" aria-label="Mağaza kayıt durumu" data-state={registrationState}>
+        <SelfServeDirectRegistrationForm enabled={SELF_SERVE_SAAS_REGISTRATION_ENABLED} />
         <section className="self-serve-register-disabled">
-          <h2>Kayıt altyapısı hazırlanıyor.</h2>
+          <h2 id="self-serve-registration-state">Kayıt altyapısı hazırlanıyor.</h2>
           <p>
             Bu güvenli temel henüz canlı mağaza oluşturmaz. Kimlik doğrulama ve mağaza kurulumu açık bir
             entegrasyon onayından sonra etkinleştirilecektir.
