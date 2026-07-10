@@ -1,0 +1,298 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import type {
+  CreateStarterTenantInput,
+  CreateStarterTenantResult,
+  PlanEntitlements,
+  ResolvedStoreHost,
+  SaaSContractError,
+  StoreMembership,
+  TenantContext,
+} from "./index.ts";
+
+type ContractModule = typeof import("./index.ts");
+
+const contracts = await import("./index.ts").catch(() => ({} as Partial<ContractModule>));
+
+const REQUIRED_ERROR_CODES = [
+  "invalid_input",
+  "identity_unverified",
+  "slug_taken",
+  "quota_exceeded",
+  "idempotency_mismatch",
+  "tenant_transaction_failed",
+  "domain_conflict",
+  "membership_conflict",
+  "unauthenticated",
+  "membership_denied",
+  "store_inactive",
+  "host_store_mismatch",
+  "host_not_found",
+  "host_unverified",
+  "ambiguous_host",
+  "feature_not_enabled",
+  "limit_exceeded",
+] as const;
+
+const SENSITIVE_KEY_PARTS = [
+  "password",
+  "token",
+  "secret",
+  "databaseurl",
+  "connectionstring",
+  "privatekey",
+  "credential",
+] as const;
+
+function collectSensitiveKeys(value: unknown, path = "root"): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => collectSensitiveKeys(entry, `${path}[${index}]`));
+  }
+
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  return Object.entries(value).flatMap(([key, nestedValue]) => {
+    const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const currentPath = `${path}.${key}`;
+    const matches = SENSITIVE_KEY_PARTS.some((part) => normalizedKey.includes(part)) ? [currentPath] : [];
+    return [...matches, ...collectSensitiveKeys(nestedValue, currentPath)];
+  });
+}
+
+function classifyIdempotency(
+  stored: { key: string; fingerprint: string } | null,
+  incoming: { key: string; fingerprint: string },
+) {
+  if (!stored || stored.key !== incoming.key) {
+    return "new" as const;
+  }
+
+  return stored.fingerprint === incoming.fingerprint ? ("replay" as const) : ("idempotency_mismatch" as const);
+}
+
+function isMembershipActive(membership: StoreMembership) {
+  return membership.status === "active";
+}
+
+function canResolveActiveHost(host: ResolvedStoreHost) {
+  return host.status === "active";
+}
+
+const entitlements: PlanEntitlements = {
+  schemaVersion: 1,
+  planId: "plan_free",
+  planCode: "free_starter",
+  version: 1,
+  status: "active",
+  features: ["catalog"],
+  limits: {
+    products: 100,
+    staff: 1,
+    storageBytes: 1_000_000_000,
+  },
+  validFrom: "2026-07-10T00:00:00.000Z",
+};
+
+const membership: StoreMembership = {
+  schemaVersion: 1,
+  id: "membership_1",
+  principalId: "principal_1",
+  storeId: "store_1",
+  role: "store_owner",
+  status: "active",
+  createdAt: "2026-07-10T00:00:00.000Z",
+  updatedAt: "2026-07-10T00:00:00.000Z",
+};
+
+const activeHost: ResolvedStoreHost & { status: "active" } = {
+  schemaVersion: 1,
+  hostname: "ornek.celebix.site",
+  domainId: "domain_1",
+  domainType: "platform_subdomain",
+  storeId: "store_1",
+  storeSlug: "ornek",
+  canonicalHostname: "ornek.celebix.site",
+  status: "active",
+  cacheVersion: 1,
+};
+
+const starterInput: CreateStarterTenantInput = {
+  schemaVersion: 1,
+  idempotencyKey: "opaque-request-1",
+  principal: {
+    issuer: "https://auth.example.test/oidc",
+    subject: "subject_1",
+    email: "owner@example.test",
+    emailVerified: true,
+  },
+  store: {
+    name: "Ornek Magaza",
+    slug: "ornek",
+    locale: "tr",
+    currency: "TRY",
+    themeKey: "starter",
+  },
+  consents: {
+    privacyAcceptedAt: "2026-07-10T00:00:00.000Z",
+  },
+  requestedAt: "2026-07-10T00:00:00.000Z",
+};
+
+const starterResult: CreateStarterTenantResult = {
+  schemaVersion: 1,
+  operationId: "operation_1",
+  replayed: false,
+  store: {
+    id: "store_1",
+    slug: "ornek",
+    status: "active",
+  },
+  primaryDomain: activeHost,
+  membership,
+  plan: entitlements,
+  provisioningStatus: "ready",
+  panelUrl: "https://panel.celebix.site",
+  storefrontUrl: "https://ornek.celebix.site",
+};
+
+const tenantContext: TenantContext = {
+  schemaVersion: 1,
+  requestId: "request_1",
+  principal: {
+    id: "principal_1",
+    issuer: "https://auth.example.test/oidc",
+    subject: "subject_1",
+  },
+  store: {
+    id: "store_1",
+    slug: "ornek",
+    status: "active",
+  },
+  membership: {
+    id: "membership_1",
+    role: "store_owner",
+    status: "active",
+  },
+  entitlements,
+  resolvedHost: activeHost,
+  locale: "tr",
+};
+
+test("freezes the SaaS contract schema at version 1", () => {
+  assert.equal(contracts.SAAS_CONTRACT_SCHEMA_VERSION, 1);
+});
+
+test("requires schemaVersion on every top-level contract", () => {
+  const error: SaaSContractError = {
+    schemaVersion: 1,
+    code: "invalid_input",
+    retryable: false,
+  };
+
+  for (const contract of [starterInput, starterResult, membership, entitlements, activeHost, tenantContext, error]) {
+    assert.equal(contract.schemaVersion, 1);
+  }
+});
+
+test("exports every required error code exactly once", () => {
+  assert.deepEqual(contracts.SAAS_ERROR_CODES, REQUIRED_ERROR_CODES);
+  assert.equal(new Set(contracts.SAAS_ERROR_CODES).size, REQUIRED_ERROR_CODES.length);
+});
+
+test("CreateStarterTenantInput contains no sensitive keys", () => {
+  assert.deepEqual(collectSensitiveKeys(starterInput), []);
+});
+
+test("CreateStarterTenantResult contains no sensitive keys", () => {
+  assert.deepEqual(collectSensitiveKeys(starterResult), []);
+});
+
+test("TenantContext contains no sensitive keys", () => {
+  assert.deepEqual(collectSensitiveKeys(tenantContext), []);
+});
+
+test("recursive scanner detects prohibited sensitive key families", () => {
+  const unsafe = {
+    password: "unsafe",
+    nested: {
+      accessToken: "unsafe",
+      webhookSecret: "unsafe",
+      databaseUrl: "unsafe",
+      connectionString: "unsafe",
+      privateKey: "unsafe",
+    },
+  };
+
+  assert.deepEqual(collectSensitiveKeys(unsafe), [
+    "root.password",
+    "root.nested.accessToken",
+    "root.nested.webhookSecret",
+    "root.nested.databaseUrl",
+    "root.nested.connectionString",
+    "root.nested.privateKey",
+  ]);
+});
+
+test("denies unknown plan features by default", () => {
+  assert.equal(contracts.isPlanFeatureEnabled?.(entitlements, "catalog"), true);
+  assert.equal(contracts.isPlanFeatureEnabled?.(entitlements, "unknown-feature"), false);
+});
+
+test("same idempotency key and fingerprint replays the prior operation", () => {
+  const stored = { key: "opaque-request-1", fingerprint: "fingerprint-a" };
+  assert.equal(classifyIdempotency(stored, stored), "replay");
+});
+
+test("same idempotency key with a different fingerprint maps to idempotency_mismatch", () => {
+  const stored = { key: "opaque-request-1", fingerprint: "fingerprint-a" };
+  assert.equal(
+    classifyIdempotency(stored, { key: stored.key, fingerprint: "fingerprint-b" }),
+    "idempotency_mismatch",
+  );
+});
+
+test("revoked memberships never authorize", () => {
+  assert.equal(isMembershipActive(membership), true);
+  assert.equal(isMembershipActive({ ...membership, status: "revoked" }), false);
+});
+
+test("pending verification domains cannot form an active host fixture", () => {
+  assert.equal(canResolveActiveHost(activeHost), true);
+  assert.equal(canResolveActiveHost({ ...activeHost, status: "pending_verification" }), false);
+});
+
+test("disabled domains cannot form an active host fixture", () => {
+  assert.equal(canResolveActiveHost({ ...activeHost, status: "disabled" }), false);
+});
+
+test("unknown error codes are not part of the frozen success or authorization surface", () => {
+  assert.equal((contracts.SAAS_ERROR_CODES as readonly string[]).includes("unknown_error"), false);
+});
+
+test("keeps the public runtime export surface frozen", () => {
+  assert.deepEqual(Object.keys(contracts).sort(), [
+    "PLAN_ENTITLEMENT_STATUSES",
+    "PROVISIONING_STATUSES",
+    "SAAS_CONTRACT_SCHEMA_VERSION",
+    "SAAS_ERROR_CODES",
+    "STORE_DOMAIN_TYPES",
+    "STORE_HOST_STATUSES",
+    "STORE_MEMBERSHIP_ROLES",
+    "STORE_MEMBERSHIP_STATUSES",
+    "STORE_STATUSES",
+    "isPlanFeatureEnabled",
+  ]);
+});
+
+test("contract sources import no runtime application code", async () => {
+  const sourceFiles = ["index.ts", "types.ts", "errors.ts"];
+  const sources = await Promise.all(sourceFiles.map((file) => readFile(new URL(file, import.meta.url), "utf8")));
+
+  for (const source of sources) {
+    assert.doesNotMatch(source, /from\s+["'](?:@\/|\.\.\/\.\.\/apps\/|apps\/)/);
+  }
+});
