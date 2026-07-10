@@ -10,7 +10,8 @@ export interface RegistrationAttempt {
   state: string;
   details: ValidatedRegistrationDetails;
   idempotencyKey: string;
-  canonicalFingerprint: string;
+  requestedAt: string;
+  canonicalFingerprint?: string;
   status: "awaiting_identity" | "identity_verified" | "tenant_created" | "session_created" | "failed";
   createdAt: string;
   expiresAt: string;
@@ -100,18 +101,6 @@ function randomServerOwnedValue(prefix: "attempt" | "ssik") {
   return `${prefix}_${Buffer.from(bytes).toString("base64url")}`;
 }
 
-function registrationFingerprint(details: ValidatedRegistrationDetails) {
-  return JSON.stringify({
-    storeName: details.storeName,
-    storeSlug: details.storeSlug,
-    locale: details.locale,
-    currency: details.currency,
-    themeKey: details.themeKey,
-    privacyAcceptedAt: details.privacyAcceptedAt,
-    marketingAcceptedAt: details.marketingAcceptedAt ?? null,
-  });
-}
-
 export class InMemoryRegistrationAttemptStore implements RegistrationAttemptStore {
   private readonly attempts = new Map<string, RegistrationAttempt>();
   private readonly consumed = new Set<string>();
@@ -175,7 +164,7 @@ export async function beginSelfServeRegistration(input: {
         state: authorization.state,
         details: validated.details,
         idempotencyKey: randomServerOwnedValue("ssik"),
-        canonicalFingerprint: registrationFingerprint(validated.details),
+        requestedAt: now.toISOString(),
         status: "awaiting_identity",
         createdAt: now.toISOString(),
         expiresAt: new Date(now.getTime() + ATTEMPT_LIFETIME_MS).toISOString(),

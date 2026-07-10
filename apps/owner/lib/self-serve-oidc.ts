@@ -1,3 +1,5 @@
+import { PANEL_OIDC_CALLBACK_URL } from "../../../packages/platform-config/src/saas.ts";
+
 const OIDC_TRANSACTION_LIFETIME_MS = 10 * 60_000;
 const APPROVED_RETURN_PATHS = new Set(["/kayit"]);
 
@@ -88,6 +90,7 @@ export interface BeginOidcAuthorizationInput {
   expectedAudience: string;
   expectedAuthorizationOrigin?: string;
   allowInsecureLocalAuthorization?: boolean;
+  allowLocalTestCallback?: boolean;
   now?: () => Date;
 }
 
@@ -196,6 +199,27 @@ function isExplicitLocalHttp(url: URL, allowed: boolean | undefined) {
   );
 }
 
+function assertCallbackUrl(value: string, allowLocalTestCallback: boolean | undefined) {
+  if (value === PANEL_OIDC_CALLBACK_URL) return;
+  try {
+    const url = new URL(value);
+    if (
+      allowLocalTestCallback &&
+      isExplicitLocalHttp(url, true) &&
+      url.pathname === "/auth/callback" &&
+      !url.search &&
+      !url.hash &&
+      !url.username &&
+      !url.password
+    ) {
+      return;
+    }
+  } catch {
+    // Fall through to the controlled callback error.
+  }
+  throw new OidcFlowError("oidc_invalid_callback", "OIDC callback URL is invalid.");
+}
+
 function assertAuthorizationUrl(input: {
   url: URL;
   request: OidcAuthorizationRequest;
@@ -238,6 +262,7 @@ function assertAuthorizationUrl(input: {
 }
 
 export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput) {
+  assertCallbackUrl(input.redirectUri, input.allowLocalTestCallback);
   const now = input.now?.() ?? new Date();
   const state = randomOpaqueValue(32);
   const nonce = randomOpaqueValue(32);

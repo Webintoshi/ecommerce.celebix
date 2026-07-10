@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createCanonicalTenantFingerprint } from "@celebix/saas-data";
 import type { OidcVerifiedIdentity } from "./self-serve-oidc";
 
 type IdentityModule = typeof import("./self-serve-identity");
@@ -16,6 +17,7 @@ const verifiedIdentity: OidcVerifiedIdentity = {
   email: "OWNER@EXAMPLE.TEST",
   emailVerified: true,
 };
+const REQUESTED_AT = "2026-07-10T10:00:00.000Z";
 
 const details = {
   storeName: "  Çiçek Pazarı  ",
@@ -35,7 +37,7 @@ test("uses issuer plus subject as authority and emits canonical contract input",
   if (!identityBoundary.buildCreateStarterTenantInput) return;
   let fingerprint = "";
   const result = await identityBoundary.buildCreateStarterTenantInput(verifiedIdentity, details, {
-    now: () => new Date("2026-07-10T10:00:00.000Z"),
+    requestedAt: REQUESTED_AT,
     idempotencyKey: "ssik_server_owned_123",
     onCanonicalFingerprint: (value: string) => { fingerprint = value; },
   });
@@ -50,13 +52,12 @@ test("uses issuer plus subject as authority and emits canonical contract input",
   });
   assert.equal(result.input.store.slug, "cicek-pazari");
   assert.equal(result.input.store.name, "Çiçek Pazarı");
-  assert.equal(result.input.requestedAt, "2026-07-10T10:00:00.000Z");
+  assert.equal(result.input.requestedAt, REQUESTED_AT);
   assert.equal(result.input.consents.privacyAcceptedAt, "2026-07-10T09:00:00.000Z");
   assert.equal(result.input.consents.marketingAcceptedAt, "2026-07-10T09:05:00.000Z");
   assert.equal(result.input.idempotencyKey, "ssik_server_owned_123");
-  assert.match(fingerprint, /identity\.example\.test/);
-  assert.match(fingerprint, /subject_123/);
-  assert.match(fingerprint, /cicek-pazari/);
+  assert.equal(fingerprint, createCanonicalTenantFingerprint(result.input));
+  assert.equal(result.canonicalFingerprint, fingerprint);
 });
 
 test("maps unverified email identity to identity_unverified", async () => {
@@ -105,6 +106,7 @@ test("never copies password, browser IDs, or provider tokens into Tenant Core in
 
   const result = await identityBoundary.buildCreateStarterTenantInput(unsafeIdentity, unsafeDetails, {
     idempotencyKey: "ssik_server_owned_456",
+    requestedAt: REQUESTED_AT,
   });
   assert.equal(result.ok, true);
   if (!result.ok) return;
@@ -126,13 +128,33 @@ test("requires and preserves the immutable server-stored idempotency key", async
   if (!identityBoundary.buildCreateStarterTenantInput) return;
   const missing = await identityBoundary.buildCreateStarterTenantInput(verifiedIdentity, details, {
     idempotencyKey: "   ",
+    requestedAt: REQUESTED_AT,
   });
   assert.equal(missing.ok, false);
   if (!missing.ok) assert.equal(missing.error.field, "idempotencyKey");
 
   const result = await identityBoundary.buildCreateStarterTenantInput(verifiedIdentity, details, {
     idempotencyKey: "ssik_attempt_immutable_123",
+    requestedAt: REQUESTED_AT,
   });
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.input.idempotencyKey, "ssik_attempt_immutable_123");
+});
+
+test("matches Tenant Core idempotency validation exactly", async () => {
+  if (!identityBoundary.buildCreateStarterTenantInput) return;
+  for (const idempotencyKey of [" leading-key", "trailing-key ", " ", "a".repeat(129)]) {
+    const result = await identityBoundary.buildCreateStarterTenantInput(verifiedIdentity, details, {
+      idempotencyKey,
+      requestedAt: REQUESTED_AT,
+    });
+    assert.equal(result.ok, false, JSON.stringify(idempotencyKey));
+    if (!result.ok) assert.equal(result.error.field, "idempotencyKey");
+  }
+
+  const maximum = await identityBoundary.buildCreateStarterTenantInput(verifiedIdentity, details, {
+    idempotencyKey: "a".repeat(128),
+    requestedAt: REQUESTED_AT,
+  });
+  assert.equal(maximum.ok, true);
 });

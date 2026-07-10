@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { CreateStarterTenantInput, CreateStarterTenantResult } from "@celebix/saas-contracts";
+import { createCanonicalTenantFingerprint } from "@celebix/saas-data";
 import type { PanelSession } from "./session";
 import type {
   PanelVerifiedIdentity,
@@ -19,10 +20,11 @@ const identity: PanelVerifiedIdentity = {
   issuer: "https://identity.example.test/oidc",
   subject: "subject_123",
   email: "owner@example.test",
-  emailVerified: true,
+  emailVerified: true as const,
 };
 
 function attempt(overrides: Partial<StoredRegistrationAttempt> = {}): StoredRegistrationAttempt {
+  const input = tenantInput("ssik_1234567890abcdefghijklmnopqr");
   return {
     id: "attempt_1234567890abcdefghijklmnop",
     state: "state_1234567890abcdefghijklmnopqr",
@@ -35,7 +37,8 @@ function attempt(overrides: Partial<StoredRegistrationAttempt> = {}): StoredRegi
       privacyAcceptedAt: "2026-07-11T09:59:00.000Z",
     },
     idempotencyKey: "ssik_1234567890abcdefghijklmnopqr",
-    canonicalFingerprint: "fingerprint:cicek-pazari",
+    requestedAt: NOW.toISOString(),
+    canonicalFingerprint: createCanonicalTenantFingerprint(input),
     status: "awaiting_identity",
     createdAt: "2026-07-11T09:59:00.000Z",
     expiresAt: "2026-07-11T10:09:00.000Z",
@@ -122,10 +125,21 @@ function dependencies(store: RegistrationCompletionStore, sessions = new Recordi
     input: {
       completionStore: store,
       panelSessionStore: sessions,
-      buildTenantInput: async (_identity: PanelVerifiedIdentity, _details: unknown, idempotencyKey: string) => ({
-        ok: true as const,
-        input: tenantInput(idempotencyKey),
-      }),
+      buildTenantInput: async (
+        _identity: PanelVerifiedIdentity,
+        attemptOrDetails: StoredRegistrationAttempt | unknown,
+        legacyIdempotencyKey?: string,
+      ) => {
+        const idempotencyKey = attemptOrDetails && typeof attemptOrDetails === "object" && "idempotencyKey" in attemptOrDetails
+          ? String((attemptOrDetails as StoredRegistrationAttempt).idempotencyKey)
+          : String(legacyIdempotencyKey ?? "");
+        const input = tenantInput(idempotencyKey);
+        return {
+          ok: true as const,
+          input,
+          canonicalFingerprint: createCanonicalTenantFingerprint(input),
+        };
+      },
       tenantCoreClient: {
         async createStarterTenant(input: CreateStarterTenantInput) {
           tenantCalls += 1;
@@ -158,13 +172,13 @@ test("completion store rejects immutable authority changes and status regression
   if (!completions.InMemoryRegistrationCompletionStore) return;
   const verified = attempt({
     status: "identity_verified",
-    verifiedPrincipal: { issuer: identity.issuer, subject: identity.subject },
+    verifiedPrincipal: { ...identity, emailVerified: true },
   });
   const store = new completions.InMemoryRegistrationCompletionStore([verified]);
   await assert.rejects(
     () => store.update({
       ...verified,
-      verifiedPrincipal: { issuer: identity.issuer, subject: "attacker" },
+      verifiedPrincipal: { ...identity, subject: "attacker" },
     }),
     /registration_attempt_immutable_field_changed/,
   );
@@ -172,6 +186,7 @@ test("completion store rejects immutable authority changes and status regression
   const tenantCreated = attempt({
     ...verified,
     status: "tenant_created",
+    tenantResult: tenantResult(),
     tenantOperation: {
       operationId: "operation_1",
       principalId: "principal_1",
@@ -184,6 +199,36 @@ test("completion store rejects immutable authority changes and status regression
     () => tenantStore.update({ ...tenantCreated, status: "identity_verified" }),
     /registration_attempt_status_invalid/,
   );
+});
+
+test("completion store freezes attempt details, requestedAt, canonical input, fingerprint, and tenant result", async () => {
+  if (!completions.InMemoryRegistrationCompletionStore) return;
+  const input = tenantInput(attempt().idempotencyKey);
+  const frozen = attempt({
+    status: "tenant_created",
+    verifiedPrincipal: { ...identity, emailVerified: true },
+    tenantInputSnapshot: input,
+    canonicalFingerprint: createCanonicalTenantFingerprint(input),
+    tenantResult: tenantResult(),
+    tenantOperation: {
+      operationId: "operation_1",
+      principalId: "principal_1",
+      storeId: "store_1",
+      provisioningStatus: "ready",
+    },
+  });
+  const mutations: StoredRegistrationAttempt[] = [
+    { ...frozen, details: { ...frozen.details, storeName: "Mutated" } },
+    { ...frozen, requestedAt: "2026-07-11T10:00:01.000Z" },
+    { ...frozen, canonicalFingerprint: "0".repeat(64) },
+    { ...frozen, tenantInputSnapshot: { ...input, requestedAt: "2026-07-11T10:00:01.000Z" } },
+    { ...frozen, tenantResult: { ...tenantResult(), store: { ...tenantResult().store, slug: "mutated" } } },
+  ];
+
+  for (const mutation of mutations) {
+    const store = new completions.InMemoryRegistrationCompletionStore([frozen]);
+    await assert.rejects(() => store.update(mutation), /registration_attempt_immutable_field_changed/);
+  }
 });
 
 test("callback normalizes non-empty state/code and checks attempt before provider verification", async () => {
@@ -310,4 +355,202 @@ test("disabled live callback returns 503 without provider, TenantCore, session, 
   assert.equal(providerCalls, 0);
   assert.equal(deps.tenantCalls, 0);
   assert.equal(deps.sessions.sessions.size, 0);
+});
+
+test("panel callback is bound to the exact callback URL", async () => {
+  if (!completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler) return;
+  const store = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+  const deps = dependencies(store);
+  let providerCalls = 0;
+  const handler = completions.createPanelOidcCallbackHandler({
+    enabled: true,
+    ...deps.input,
+    oidc: { async complete() { providerCalls += 1; return identity; } },
+    cookiePolicy: { kind: "production" },
+  });
+  const response = await handler(new Request(
+    `https://panel.celebix.site/not-the-callback?state=${attempt().state}&code=valid-code`,
+  ));
+  assert.equal(response.status, 400);
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(response.headers.has("location"), false);
+  assert.equal(providerCalls, 0);
+});
+
+test("completion dependency failures are controlled and never expose private errors", async () => {
+  if (!completions.completePanelRegistration || !completions.InMemoryRegistrationCompletionStore) return;
+  const privateMessage = "postgres://private-provider-message";
+  const baseStore = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+
+  const cases = [
+    {
+      name: "lookup",
+      input: {
+        ...dependencies(baseStore).input,
+        completionStore: { ...baseStore, async findById() { throw new Error(privateMessage); } },
+      },
+    },
+    {
+      name: "input build",
+      input: {
+        ...dependencies(new completions.InMemoryRegistrationCompletionStore([attempt()])).input,
+        async buildTenantInput() { throw new Error(privateMessage); },
+      },
+    },
+    {
+      name: "tenant core",
+      input: {
+        ...dependencies(new completions.InMemoryRegistrationCompletionStore([attempt()])).input,
+        tenantCoreClient: { async createStarterTenant() { throw new Error(privateMessage); } },
+      },
+    },
+  ];
+
+  for (const failure of cases) {
+    const result = await completions.completePanelRegistration({
+      ...failure.input,
+      attemptId: attempt().id,
+      identity,
+    } as never);
+    assert.equal(result.ok, false, failure.name);
+    if (!result.ok) {
+      assert.equal(result.status, 503, failure.name);
+      assert.equal(JSON.stringify(result).includes(privateMessage), false, failure.name);
+    }
+  }
+});
+
+test("callback store and cookie failures return controlled 503 without redirect or cookie", async () => {
+  if (!completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler) return;
+  const privateMessage = "provider-secret-detail";
+  const failures = [
+    {
+      completionStore: {
+        async findByState() { throw new Error(privateMessage); },
+        async findById() { throw new Error(privateMessage); },
+        async save() { throw new Error(privateMessage); },
+        async update() { throw new Error(privateMessage); },
+      },
+    },
+    {
+      completionStore: new completions.InMemoryRegistrationCompletionStore([attempt()]),
+      serializeSessionCookie() { throw new Error(privateMessage); },
+    },
+  ];
+
+  for (const failure of failures) {
+    const deps = dependencies(failure.completionStore as RegistrationCompletionStore);
+    const handler = completions.createPanelOidcCallbackHandler({
+      enabled: true,
+      ...deps.input,
+      ...failure,
+      oidc: { async complete() { return identity; } },
+      cookiePolicy: { kind: "production" },
+    } as never);
+    const response = await handler(new Request(
+      `https://panel.celebix.site/auth/callback?state=${attempt().state}&code=valid-code`,
+    ));
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.has("set-cookie"), false);
+    assert.equal(response.headers.has("location"), false);
+    assert.equal((await response.text()).includes(privateMessage), false);
+  }
+});
+
+test("completion update and session read failures remain controlled and recoverable", async () => {
+  if (!completions.completePanelRegistration || !completions.InMemoryRegistrationCompletionStore) return;
+  const privateMessage = "private-adapter-failure";
+  const base = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+  const updateFailure: RegistrationCompletionStore = {
+    save: (value) => base.save(value),
+    async update() { throw new Error(privateMessage); },
+    findByState: (state, now) => base.findByState(state, now),
+    findById: (id, now) => base.findById(id, now),
+  };
+  const updateResult = await completions.completePanelRegistration({
+    ...dependencies(updateFailure).input,
+    attemptId: attempt().id,
+    identity,
+  });
+  assert.equal(updateResult.ok, false);
+  if (!updateResult.ok) {
+    assert.equal(updateResult.status, 503);
+    assert.equal(JSON.stringify(updateResult).includes(privateMessage), false);
+  }
+
+  const input = tenantInput(attempt().idempotencyKey);
+  const tenantCreated = attempt({
+    status: "tenant_created",
+    verifiedPrincipal: { ...identity, emailVerified: true },
+    tenantInputSnapshot: input,
+    canonicalFingerprint: createCanonicalTenantFingerprint(input),
+    tenantResult: tenantResult(),
+    tenantOperation: {
+      operationId: "operation_1",
+      principalId: "principal_1",
+      storeId: "store_1",
+      provisioningStatus: "ready",
+    },
+  });
+  const createdStore = new completions.InMemoryRegistrationCompletionStore([tenantCreated]);
+  const readResult = await completions.completePanelRegistration({
+    ...dependencies(createdStore).input,
+    panelSessionStore: {
+      async create() {},
+      async read() { throw new Error(privateMessage); },
+      async rotate() {},
+      async destroy() {},
+    },
+    attemptId: tenantCreated.id,
+    identity,
+  });
+  assert.equal(readResult.ok, false);
+  if (!readResult.ok) {
+    assert.equal(readResult.status, 503);
+    assert.equal(readResult.retryable, true);
+    assert.equal(JSON.stringify(readResult).includes(privateMessage), false);
+  }
+  assert.equal((await createdStore.findById(tenantCreated.id, NOW))?.status, "tenant_created");
+});
+
+test("retryable Tenant Core and OIDC provider failures fail closed without cookie or redirect", async () => {
+  if (!completions.completePanelRegistration || !completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler) return;
+  const retryStore = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+  const retryResult = await completions.completePanelRegistration({
+    ...dependencies(retryStore).input,
+    tenantCoreClient: {
+      async createStarterTenant() {
+        return {
+          ok: false as const,
+          error: { schemaVersion: 1 as const, code: "tenant_transaction_failed" as const, retryable: true },
+        };
+      },
+    },
+    attemptId: attempt().id,
+    identity,
+  });
+  assert.equal(retryResult.ok, false);
+  if (!retryResult.ok) {
+    assert.equal(retryResult.status, 503);
+    assert.equal(retryResult.retryable, true);
+  }
+  const recoverable = await retryStore.findById(attempt().id, NOW);
+  assert.equal(recoverable?.status, "identity_verified");
+  assert.ok(recoverable?.tenantInputSnapshot);
+
+  const providerStore = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+  const providerDeps = dependencies(providerStore);
+  const handler = completions.createPanelOidcCallbackHandler({
+    enabled: true,
+    ...providerDeps.input,
+    oidc: { async complete() { throw new Error("private-provider-token"); } },
+    cookiePolicy: { kind: "production" },
+  });
+  const response = await handler(new Request(
+    `https://panel.celebix.site/auth/callback?state=${attempt().state}&code=valid-code`,
+  ));
+  assert.equal(response.status, 400);
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(response.headers.has("location"), false);
+  assert.equal((await response.text()).includes("private-provider-token"), false);
 });

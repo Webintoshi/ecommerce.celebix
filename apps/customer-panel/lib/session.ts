@@ -67,6 +67,10 @@ export function buildPanelSessionSetCookie(sessionId: string, policy: PanelSessi
   return serializePanelSessionCookie(sessionId, policy, PANEL_SESSION_MAX_AGE_SECONDS);
 }
 
+export function isValidPanelSessionId(value: string) {
+  return PANEL_SESSION_ID_PATTERN.test(value);
+}
+
 export function buildPanelSessionClearCookie(policy: PanelSessionCookiePolicy) {
   return serializePanelSessionCookie("", policy, 0);
 }

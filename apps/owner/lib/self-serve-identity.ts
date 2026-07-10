@@ -1,4 +1,5 @@
 import type { CreateStarterTenantInput, SaaSContractError } from "@celebix/saas-contracts";
+import { createCanonicalTenantFingerprint } from "@celebix/saas-data";
 import type { OidcVerifiedIdentity } from "./self-serve-oidc";
 
 const RESERVED_STARTER_SLUGS = new Set(["admin", "api", "auth", "celebix", "owner", "panel", "www"]);
@@ -48,13 +49,13 @@ export interface ValidatedRegistrationDetails {
 }
 
 interface IdentityBoundaryDependencies {
-  now?: () => Date;
+  requestedAt?: string;
   idempotencyKey?: string;
   onCanonicalFingerprint?: (canonicalFingerprint: string) => void;
 }
 
 export type IdentityBoundaryResult =
-  | { ok: true; input: CreateStarterTenantInput }
+  | { ok: true; input: CreateStarterTenantInput; canonicalFingerprint: string }
   | { ok: false; error: SaaSContractError };
 
 function safeError(code: SaaSContractError["code"], field?: string): IdentityBoundaryResult {
@@ -72,19 +73,6 @@ function safeError(code: SaaSContractError["code"], field?: string): IdentityBou
 function canonicalUtc(value: string) {
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
-}
-
-function canonicalFingerprint(input: Omit<CreateStarterTenantInput, "idempotencyKey">) {
-  return JSON.stringify({
-    schemaVersion: input.schemaVersion,
-    principal: {
-      issuer: input.principal.issuer,
-      subject: input.principal.subject,
-    },
-    store: input.store,
-    consents: input.consents,
-    requestedAt: input.requestedAt,
-  });
 }
 
 export async function buildCreateStarterTenantInput(
@@ -113,7 +101,10 @@ export async function buildCreateStarterTenantInput(
     return safeError("invalid_input", "consents.marketingAcceptedAt");
   }
 
-  const requestedAt = (dependencies.now?.() ?? new Date()).toISOString();
+  const requestedAt = canonicalUtc(dependencies.requestedAt ?? "");
+  if (!requestedAt || requestedAt !== dependencies.requestedAt) {
+    return safeError("invalid_input", "requestedAt");
+  }
   const withoutKey: Omit<CreateStarterTenantInput, "idempotencyKey"> = {
     schemaVersion: 1,
     principal: {
@@ -135,19 +126,22 @@ export async function buildCreateStarterTenantInput(
     },
     requestedAt,
   };
-  const fingerprint = canonicalFingerprint(withoutKey);
-  dependencies.onCanonicalFingerprint?.(fingerprint);
   const idempotencyKey = dependencies.idempotencyKey ?? "";
 
-  if (!/^[A-Za-z0-9_-]{16,200}$/.test(idempotencyKey)) {
+  if (
+    !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey) ||
+    idempotencyKey !== idempotencyKey.trim()
+  ) {
     return safeError("invalid_input", "idempotencyKey");
   }
 
+  const input: CreateStarterTenantInput = { ...withoutKey, idempotencyKey };
+  const fingerprint = createCanonicalTenantFingerprint(input);
+  dependencies.onCanonicalFingerprint?.(fingerprint);
+
   return {
     ok: true,
-    input: {
-      ...withoutKey,
-      idempotencyKey,
-    },
+    input,
+    canonicalFingerprint: fingerprint,
   };
 }

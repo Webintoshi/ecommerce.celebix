@@ -86,8 +86,12 @@ test("valid input stores one safe immutable attempt before awaiting identity", a
   assert.equal(attempts.saved?.details.storeSlug, "cicek-pazari");
   assert.match(attempts.saved?.id ?? "", /^attempt_[A-Za-z0-9_-]{20,}$/);
   assert.match(attempts.saved?.idempotencyKey ?? "", /^ssik_[A-Za-z0-9_-]{20,}$/);
+  assert.equal(attempts.saved?.idempotencyKey, attempts.saved?.idempotencyKey.trim());
+  assert.equal((attempts.saved?.idempotencyKey.length ?? 129) <= 128, true);
+  assert.equal(attempts.saved?.requestedAt, "2026-07-11T10:00:00.000Z");
+  assert.equal(attempts.saved?.createdAt, attempts.saved?.requestedAt);
   assert.equal(attempts.saved?.status, "awaiting_identity");
-  assert.match(attempts.saved?.canonicalFingerprint ?? "", /cicek-pazari/);
+  assert.equal(attempts.saved?.canonicalFingerprint, undefined);
   const persisted = JSON.stringify(attempts.saved);
   for (const prohibited of [registration.password, registration.email, registration.phone]) {
     assert.equal(persisted.includes(prohibited), false);

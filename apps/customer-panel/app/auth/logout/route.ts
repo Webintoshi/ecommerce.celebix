@@ -1,15 +1,8 @@
-import { buildPanelSessionClearCookie } from "../../../lib/session.ts";
-import { rejectInvalidPanelMutation } from "../../../lib/request-security.ts";
+import { createPanelLogoutHandler } from "../../../lib/logout.ts";
+import { DisabledPanelSessionStore } from "../../../lib/session.ts";
 
-export async function POST(request: Request) {
-  const rejected = rejectInvalidPanelMutation(request);
-  if (rejected) return rejected;
-  return new Response(null, {
-    status: 303,
-    headers: {
-      location: "https://panel.celebix.site/login",
-      "cache-control": "no-store",
-      "set-cookie": buildPanelSessionClearCookie({ kind: "production" }),
-    },
-  });
-}
+export const POST = createPanelLogoutHandler({
+  enabled: false,
+  sessionStore: new DisabledPanelSessionStore(),
+  cookiePolicy: { kind: "production" },
+});

@@ -3,6 +3,7 @@ import type {
   CreateStarterTenantResult,
   SaaSContractError,
 } from "@celebix/saas-contracts";
+import { createCanonicalTenantFingerprint } from "@celebix/saas-data";
 import {
   buildPanelSessionSetCookie,
   createPanelSession,
@@ -10,8 +11,10 @@ import {
   type PanelSessionCookiePolicy,
   type PanelSessionStore,
 } from "./session.ts";
-
-const PANEL_ORIGIN = "https://panel.celebix.site";
+import {
+  PANEL_OIDC_CALLBACK_URL,
+  PANEL_ORIGIN,
+} from "./config.ts";
 
 export type RegistrationCompletionStatus =
   | "awaiting_identity"
@@ -40,11 +43,14 @@ export interface StoredRegistrationAttempt {
     marketingAcceptedAt?: string;
   };
   idempotencyKey: string;
-  canonicalFingerprint: string;
+  requestedAt: string;
+  canonicalFingerprint?: string;
   status: RegistrationCompletionStatus;
   createdAt: string;
   expiresAt: string;
-  verifiedPrincipal?: { issuer: string; subject: string };
+  verifiedPrincipal?: PanelVerifiedIdentity & { emailVerified: true };
+  tenantInputSnapshot?: CreateStarterTenantInput;
+  tenantResult?: CreateStarterTenantResult;
   tenantOperation?: {
     operationId: string;
     principalId: string;
@@ -104,9 +110,15 @@ export class InMemoryRegistrationCompletionStore implements RegistrationCompleti
     if (!current) throw new Error("registration_attempt_missing");
     if (
       current.state !== attempt.state ||
+      immutableValueChanged(current.details, attempt.details) ||
       current.idempotencyKey !== attempt.idempotencyKey ||
-      current.canonicalFingerprint !== attempt.canonicalFingerprint ||
+      current.requestedAt !== attempt.requestedAt ||
+      current.createdAt !== attempt.createdAt ||
+      current.expiresAt !== attempt.expiresAt ||
+      immutableValueChanged(current.canonicalFingerprint, attempt.canonicalFingerprint) ||
       immutableValueChanged(current.verifiedPrincipal, attempt.verifiedPrincipal) ||
+      immutableValueChanged(current.tenantInputSnapshot, attempt.tenantInputSnapshot) ||
+      immutableValueChanged(current.tenantResult, attempt.tenantResult) ||
       immutableValueChanged(current.tenantOperation, attempt.tenantOperation) ||
       immutableValueChanged(current.pendingSession, attempt.pendingSession)
     ) {
@@ -138,7 +150,7 @@ interface TenantCorePort {
 }
 
 type TenantInputBuildResult =
-  | { ok: true; input: CreateStarterTenantInput }
+  | { ok: true; input: CreateStarterTenantInput; canonicalFingerprint?: string }
   | { ok: false; error: SaaSContractError };
 
 interface CompletionDependencies {
@@ -146,8 +158,7 @@ interface CompletionDependencies {
   panelSessionStore: PanelSessionStore;
   buildTenantInput(
     identity: PanelVerifiedIdentity,
-    details: StoredRegistrationAttempt["details"],
-    idempotencyKey: string,
+    attempt: StoredRegistrationAttempt,
   ): Promise<TenantInputBuildResult>;
   tenantCoreClient: TenantCorePort;
   now?: () => Date;
@@ -168,6 +179,63 @@ function identityMatches(
   return expected.issuer === actual.issuer && expected.subject === actual.subject;
 }
 
+function verifiedIdentityMatches(
+  expected: PanelVerifiedIdentity,
+  actual: PanelVerifiedIdentity,
+) {
+  return (
+    identityMatches(expected, actual) &&
+    expected.emailVerified &&
+    actual.emailVerified &&
+    expected.email.trim().toLowerCase() === actual.email.trim().toLowerCase()
+  );
+}
+
+function normalizedVerifiedIdentity(identity: PanelVerifiedIdentity) {
+  return {
+    issuer: identity.issuer,
+    subject: identity.subject,
+    email: identity.email.trim().toLowerCase(),
+    emailVerified: true as const,
+  };
+}
+
+async function safeUpdate(
+  store: RegistrationCompletionStore,
+  attempt: StoredRegistrationAttempt,
+) {
+  try {
+    await store.update(attempt);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function snapshotMatchesAttempt(
+  attempt: StoredRegistrationAttempt,
+  identity: PanelVerifiedIdentity,
+) {
+  const snapshot = attempt.tenantInputSnapshot;
+  if (!snapshot || !attempt.canonicalFingerprint) return false;
+  return (
+    snapshot.idempotencyKey === attempt.idempotencyKey &&
+    snapshot.requestedAt === attempt.requestedAt &&
+    snapshot.principal.issuer === identity.issuer &&
+    snapshot.principal.subject === identity.subject &&
+    snapshot.principal.email === identity.email.trim().toLowerCase() &&
+    snapshot.principal.emailVerified === true &&
+    snapshot.store.name === attempt.details.storeName &&
+    snapshot.store.slug === attempt.details.storeSlug &&
+    snapshot.store.locale === attempt.details.locale &&
+    snapshot.store.currency === attempt.details.currency &&
+    snapshot.store.themeKey === attempt.details.themeKey &&
+    snapshot.consents.privacyAcceptedAt === attempt.details.privacyAcceptedAt &&
+    snapshot.consents.marketingAcceptedAt === attempt.details.marketingAcceptedAt &&
+    createCanonicalTenantFingerprint(snapshot) === attempt.canonicalFingerprint
+  );
+}
+
 function validTenantResult(result: CreateStarterTenantResult) {
   return (
     result.provisioningStatus !== "failed" &&
@@ -182,25 +250,19 @@ async function establishSession(
   dependencies: CompletionDependencies,
   now: Date,
 ): Promise<CompletionResult> {
-  if (!attempt.verifiedPrincipal || !attempt.tenantOperation) {
+  if (!attempt.verifiedPrincipal || !attempt.tenantOperation || !attempt.tenantResult) {
     return denied("registration_attempt_invalid", 409);
   }
 
   let current = cloneAttempt(attempt);
   const verifiedPrincipal = current.verifiedPrincipal;
   const tenantOperation = current.tenantOperation;
-  if (!verifiedPrincipal || !tenantOperation) return denied("registration_attempt_invalid", 409);
+  const tenantResult = current.tenantResult;
+  if (!verifiedPrincipal || !tenantOperation || !tenantResult) {
+    return denied("registration_attempt_invalid", 409);
+  }
   if (current.status === "session_created") {
     if (!current.pendingSession) return denied("registration_attempt_invalid", 409);
-    const existing = await dependencies.panelSessionStore.read(current.pendingSession.id);
-    return existing
-      ? {
-          ok: true,
-          session: existing,
-          redirectTo: tenantOperation.provisioningStatus === "ready" ? `${PANEL_ORIGIN}/` : `${PANEL_ORIGIN}/setup`,
-          operationId: tenantOperation.operationId,
-        }
-      : denied("registration_recovery_denied", 403);
   }
 
   if (!current.pendingSession) {
@@ -213,11 +275,18 @@ async function establishSession(
       activeStoreId: tenantOperation.storeId,
       now,
     });
-    await dependencies.completionStore.update(current);
+    if (!(await safeUpdate(dependencies.completionStore, current))) {
+      return denied("panel_session_retry_required", 503, true);
+    }
   }
 
   const pending = current.pendingSession;
-  const existing = await dependencies.panelSessionStore.read(pending.id);
+  let existing: PanelSession | null;
+  try {
+    existing = await dependencies.panelSessionStore.read(pending.id);
+  } catch {
+    return denied("panel_session_retry_required", 503, true);
+  }
   if (!existing) {
     try {
       await dependencies.panelSessionStore.create(pending);
@@ -226,16 +295,16 @@ async function establishSession(
     }
   }
 
-  current = { ...current, status: "session_created" };
-  try {
-    await dependencies.completionStore.update(current);
-  } catch {
-    return denied("panel_session_retry_required", 503, true);
+  if (current.status !== "session_created") {
+    current = { ...current, status: "session_created" };
+    if (!(await safeUpdate(dependencies.completionStore, current))) {
+      return denied("panel_session_retry_required", 503, true);
+    }
   }
   return {
     ok: true,
-    session: pending,
-    redirectTo: tenantOperation.provisioningStatus === "ready" ? `${PANEL_ORIGIN}/` : `${PANEL_ORIGIN}/setup`,
+    session: existing ?? pending,
+    redirectTo: tenantResult.provisioningStatus === "ready" ? `${PANEL_ORIGIN}/` : `${PANEL_ORIGIN}/setup`,
     operationId: tenantOperation.operationId,
   };
 }
@@ -244,13 +313,23 @@ export async function completePanelRegistration(
   input: CompletionDependencies & { attemptId: string; identity: PanelVerifiedIdentity },
 ): Promise<CompletionResult> {
   const now = input.now?.() ?? new Date();
-  let attempt = await input.completionStore.findById(input.attemptId, now);
+  let attempt: StoredRegistrationAttempt | null;
+  try {
+    attempt = await input.completionStore.findById(input.attemptId, now);
+  } catch {
+    return denied("panel_completion_unavailable", 503, true);
+  }
   if (!attempt) return denied("registration_attempt_missing", 400);
-  if (!input.identity.emailVerified || !input.identity.issuer.trim() || !input.identity.subject.trim()) {
+  if (
+    !input.identity.emailVerified ||
+    !input.identity.issuer.trim() ||
+    !input.identity.subject.trim() ||
+    !input.identity.email.trim()
+  ) {
     return denied("identity_unverified", 403);
   }
 
-  if (attempt.verifiedPrincipal && !identityMatches(attempt.verifiedPrincipal, input.identity)) {
+  if (attempt.verifiedPrincipal && !verifiedIdentityMatches(attempt.verifiedPrincipal, input.identity)) {
     return denied("registration_recovery_denied", 403);
   }
   if (attempt.status === "failed") return denied("registration_attempt_failed", 409);
@@ -258,38 +337,91 @@ export async function completePanelRegistration(
   if (attempt.status === "awaiting_identity") {
     attempt = {
       ...attempt,
-      verifiedPrincipal: { issuer: input.identity.issuer, subject: input.identity.subject },
+      verifiedPrincipal: normalizedVerifiedIdentity(input.identity),
       status: "identity_verified",
     };
-    await input.completionStore.update(attempt);
+    if (!(await safeUpdate(input.completionStore, attempt))) {
+      return denied("panel_completion_unavailable", 503, true);
+    }
   }
 
   if (attempt.status === "identity_verified") {
-    const built = await input.buildTenantInput(input.identity, attempt.details, attempt.idempotencyKey);
-    if (
-      !built.ok ||
-      built.input.idempotencyKey !== attempt.idempotencyKey ||
-      !identityMatches(input.identity, built.input.principal)
-    ) {
-      const safeError = built.ok
-        ? { schemaVersion: 1 as const, code: "invalid_input" as const, retryable: false }
-        : built.error;
-      await input.completionStore.update({ ...attempt, status: "failed", safeError });
-      return denied(safeError.code, 400, safeError.retryable);
+    if (!attempt.tenantInputSnapshot) {
+      let built: TenantInputBuildResult;
+      try {
+        built = await input.buildTenantInput(input.identity, cloneAttempt(attempt));
+      } catch {
+        return denied("tenant_transaction_failed", 503, true);
+      }
+      if (!built.ok) {
+        if (built.error.retryable) return denied(built.error.code, 503, true);
+        const failed = { ...attempt, status: "failed" as const, safeError: built.error };
+        if (!(await safeUpdate(input.completionStore, failed))) {
+          return denied("panel_completion_unavailable", 503, true);
+        }
+        return denied(built.error.code, 400, false);
+      }
+      const computedFingerprint = createCanonicalTenantFingerprint(built.input);
+      if (
+        built.input.idempotencyKey !== attempt.idempotencyKey ||
+        built.input.requestedAt !== attempt.requestedAt ||
+        !verifiedIdentityMatches(input.identity, built.input.principal) ||
+        ("canonicalFingerprint" in built && built.canonicalFingerprint !== computedFingerprint)
+      ) {
+        const safeError = { schemaVersion: 1 as const, code: "invalid_input" as const, retryable: false };
+        const failed = { ...attempt, status: "failed" as const, safeError };
+        if (!(await safeUpdate(input.completionStore, failed))) {
+          return denied("panel_completion_unavailable", 503, true);
+        }
+        return denied(safeError.code, 400, false);
+      }
+      attempt = {
+        ...attempt,
+        tenantInputSnapshot: structuredClone(built.input),
+        canonicalFingerprint: computedFingerprint,
+      };
+      if (!(await safeUpdate(input.completionStore, attempt))) {
+        return denied("panel_completion_unavailable", 503, true);
+      }
     }
 
-    const tenant = await input.tenantCoreClient.createStarterTenant(built.input);
+    if (!attempt.tenantInputSnapshot || !snapshotMatchesAttempt(attempt, input.identity)) {
+      const safeError = {
+        schemaVersion: 1 as const,
+        code: "invalid_input" as const,
+        retryable: false,
+      };
+      const failed = { ...attempt, status: "failed" as const, safeError };
+      if (!(await safeUpdate(input.completionStore, failed))) {
+        return denied("panel_completion_unavailable", 503, true);
+      }
+      return denied(safeError.code, 400, false);
+    }
+
+    let tenant: Awaited<ReturnType<TenantCorePort["createStarterTenant"]>>;
+    try {
+      tenant = await input.tenantCoreClient.createStarterTenant(
+        structuredClone(attempt.tenantInputSnapshot),
+      );
+    } catch {
+      return denied("tenant_transaction_failed", 503, true);
+    }
     if (!tenant.ok || !validTenantResult(tenant.value)) {
       const safeError = tenant.ok
         ? { schemaVersion: 1 as const, code: "tenant_transaction_failed" as const, retryable: false }
         : tenant.error;
-      await input.completionStore.update({ ...attempt, status: "failed", safeError });
-      return denied(safeError.code, safeError.retryable ? 503 : 409, safeError.retryable);
+      if (safeError.retryable) return denied(safeError.code, 503, true);
+      const failed = { ...attempt, status: "failed" as const, safeError };
+      if (!(await safeUpdate(input.completionStore, failed))) {
+        return denied("panel_completion_unavailable", 503, true);
+      }
+      return denied(safeError.code, 409, false);
     }
 
     attempt = {
       ...attempt,
       status: "tenant_created",
+      tenantResult: structuredClone(tenant.value),
       tenantOperation: {
         operationId: tenant.value.operationId,
         principalId: tenant.value.membership.principalId,
@@ -297,7 +429,9 @@ export async function completePanelRegistration(
         provisioningStatus: tenant.value.provisioningStatus,
       },
     };
-    await input.completionStore.update(attempt);
+    if (!(await safeUpdate(input.completionStore, attempt))) {
+      return denied("panel_completion_unavailable", 503, true);
+    }
   }
 
   return establishSession(attempt, input, now);
@@ -317,8 +451,13 @@ export async function recoverPanelRegistration(
   },
 ): Promise<CompletionResult> {
   const now = input.now?.() ?? new Date();
-  const attempt = await input.completionStore.findById(input.attemptId, now);
-  if (!attempt?.verifiedPrincipal || !attempt.tenantOperation) {
+  let attempt: StoredRegistrationAttempt | null;
+  try {
+    attempt = await input.completionStore.findById(input.attemptId, now);
+  } catch {
+    return denied("panel_completion_unavailable", 503, true);
+  }
+  if (!attempt?.verifiedPrincipal || !attempt.tenantOperation || !attempt.tenantResult) {
     return denied("registration_recovery_denied", 403);
   }
 
@@ -339,6 +478,8 @@ interface CallbackDependencies extends CompletionDependencies {
     complete(callback: { state: string; code: string }): Promise<PanelVerifiedIdentity>;
   };
   cookiePolicy: PanelSessionCookiePolicy;
+  callbackUrl?: string;
+  serializeSessionCookie?: typeof buildPanelSessionSetCookie;
 }
 
 function callbackJson(code: string, status: number) {
@@ -349,30 +490,60 @@ export function createPanelOidcCallbackHandler(dependencies: CallbackDependencie
   return async function panelOidcCallback(request: Request) {
     if (!dependencies.enabled) return callbackJson("panel_auth_disabled", 503);
     const url = new URL(request.url);
+    const callbackUrl = new URL(dependencies.callbackUrl ?? PANEL_OIDC_CALLBACK_URL);
+    if (url.origin !== callbackUrl.origin || url.pathname !== callbackUrl.pathname) {
+      return callbackJson("invalid_callback_url", 400);
+    }
     const state = (url.searchParams.get("state") ?? "").trim();
     const code = (url.searchParams.get("code") ?? "").trim();
     if (!state || !code) return callbackJson("invalid_callback_state", 400);
 
-    const attempt = await dependencies.completionStore.findByState(state, dependencies.now?.() ?? new Date());
-    if (!attempt || attempt.status !== "awaiting_identity") {
+    let attempt: StoredRegistrationAttempt | null;
+    try {
+      attempt = await dependencies.completionStore.findByState(state, dependencies.now?.() ?? new Date());
+    } catch {
+      return callbackJson("panel_completion_unavailable", 503);
+    }
+    if (!attempt) {
       return callbackJson("invalid_callback_state", 400);
     }
 
     let identity: PanelVerifiedIdentity;
-    try {
-      identity = await dependencies.oidc.complete({ state, code });
-    } catch {
+    if (attempt.status === "awaiting_identity") {
+      try {
+        identity = await dependencies.oidc.complete({ state, code });
+      } catch {
+        return callbackJson("invalid_callback_state", 400);
+      }
+    } else if (attempt.verifiedPrincipal) {
+      identity = attempt.verifiedPrincipal;
+    } else {
       return callbackJson("invalid_callback_state", 400);
     }
-    const completed = await completePanelRegistration({ ...dependencies, attemptId: attempt.id, identity });
+    let completed: CompletionResult;
+    try {
+      completed = await completePanelRegistration({ ...dependencies, attemptId: attempt.id, identity });
+    } catch {
+      return callbackJson("panel_completion_unavailable", 503);
+    }
     if (!completed.ok) return callbackJson(completed.code, completed.status);
+
+    let sessionCookie: string;
+    try {
+      sessionCookie = (dependencies.serializeSessionCookie ?? buildPanelSessionSetCookie)(
+        completed.session.id,
+        dependencies.cookiePolicy,
+      );
+    } catch {
+      return callbackJson("panel_session_retry_required", 503);
+    }
 
     return new Response(null, {
       status: 303,
       headers: {
         location: completed.redirectTo,
         "cache-control": "no-store",
-        "set-cookie": buildPanelSessionSetCookie(completed.session.id, dependencies.cookiePolicy),
+        "set-cookie": sessionCookie,
       },
     });
   };

@@ -19,7 +19,7 @@ const oidc = await import(new URL("./self-serve-oidc.ts", import.meta.url).href)
 const NOW = new Date("2026-07-10T12:00:00.000Z");
 const EXPECTED_ISSUER = "https://identity.example.test/oidc";
 const EXPECTED_AUDIENCE = "customer-panel";
-const REDIRECT_URI = "https://ecommerce.celebix.co/api/self-serve/auth/callback";
+const REDIRECT_URI = "https://panel.celebix.site/auth/callback";
 
 class FakeProvider implements OidcProviderPort {
   readonly identities = new Map<string, OidcVerifiedIdentity>();
@@ -82,6 +82,27 @@ test("exports the provider-neutral OIDC BFF surface", () => {
   assert.equal(typeof oidc.beginOidcAuthorization, "function");
   assert.equal(typeof oidc.completeOidcCallback, "function");
   assert.equal(typeof oidc.InMemoryOidcTransactionStore, "function");
+});
+
+test("uses the one shared exact panel callback and rejects the legacy Owner callback", async () => {
+  const platformConfig = await import(
+    new URL("../../../packages/platform-config/src/saas.ts", import.meta.url).href
+  ).catch(() => ({} as { PANEL_OIDC_CALLBACK_URL?: string }));
+  assert.equal(platformConfig.PANEL_OIDC_CALLBACK_URL, REDIRECT_URI);
+  if (!oidc.beginOidcAuthorization || !oidc.InMemoryOidcTransactionStore) return;
+  await assert.rejects(
+    () => oidc.beginOidcAuthorization({
+      provider: new FakeProvider(),
+      transactionStore: new oidc.InMemoryOidcTransactionStore(),
+      redirectUri: "https://ecommerce.celebix.co/api/self-serve/auth/callback",
+      returnTo: "/kayit",
+      expectedIssuer: EXPECTED_ISSUER,
+      expectedAudience: EXPECTED_AUDIENCE,
+      expectedAuthorizationOrigin: "https://identity.example.test",
+      now: () => NOW,
+    }),
+    /callback/i,
+  );
 });
 
 test("creates opaque state, nonce and an S256 challenge without exposing the PKCE verifier", async () => {

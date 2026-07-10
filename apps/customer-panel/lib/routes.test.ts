@@ -63,7 +63,7 @@ test("live auth callback remains disabled without setting a cookie", async () =>
   assert.equal(response.headers.has("set-cookie"), false);
 });
 
-test("login remains disabled and logout clears only the opaque session cookie", async () => {
+test("login and logout remain disabled without a persistent session adapter", async () => {
   const login = await load("../app/auth/login/route.ts");
   const logout = await load("../app/auth/logout/route.ts");
   assert.equal(typeof login.GET, "function");
@@ -83,16 +83,10 @@ test("login remains disabled and logout clears only the opaque session cookie", 
     method: "POST",
     headers: { origin: "https://panel.celebix.site" },
   }));
-  assert.equal(logoutResponse.status, 303);
-  assert.equal(logoutResponse.headers.get("location"), "https://panel.celebix.site/login");
-  const cookie = logoutResponse.headers.get("set-cookie") ?? "";
-  assert.match(cookie, /__Host-celebix_panel=/);
-  assert.match(cookie, /HttpOnly/i);
-  assert.match(cookie, /Secure/i);
-  assert.match(cookie, /SameSite=Lax/i);
-  assert.match(cookie, /Path=\//i);
-  assert.match(cookie, /Max-Age=0/i);
-  assert.equal(cookie.toLowerCase().includes("token"), false);
+  assert.equal(logoutResponse.status, 503);
+  assert.deepEqual(await logoutResponse.json(), { code: "panel_auth_disabled" });
+  assert.equal(logoutResponse.headers.has("location"), false);
+  assert.equal(logoutResponse.headers.has("set-cookie"), false);
 });
 
 test("state-changing routes reject near-match and cross-site origins", async () => {
