@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { NextRequest } from "next/server";
-import { POST } from "./route";
 import type { SelfServeRegistrationInput } from "@/lib/self-serve-registration";
+
+type RouteModule = typeof import("./route");
+const { POST } = (await import(new URL("./route.ts", import.meta.url).href)) as RouteModule;
 
 const validRegistration: SelfServeRegistrationInput = {
   firstName: "Ada",
@@ -19,15 +21,7 @@ const validRegistration: SelfServeRegistrationInput = {
 
 const SELF_SERVE_ENV_KEYS = [
   "SELF_SERVE_PERSISTENCE_MODE",
-  "NEXT_PUBLIC_OWNER_SUPABASE_URL",
-  "NEXT_PUBLIC_OWNER_SUPABASE_ANON_KEY",
-  "OWNER_SUPABASE_SERVICE_ROLE_KEY",
 ] as const;
-
-function resetSelfServeGlobals() {
-  delete globalThis.__celebixSelfServeOnboardingStore;
-  delete globalThis.__celebixSelfServeRegistrationRateLimit;
-}
 
 async function withSelfServeEnv<T>(env: Record<string, string | undefined>, callback: () => T | Promise<T>): Promise<T> {
   const previous = new Map<string, string | undefined>();
@@ -81,8 +75,6 @@ async function readJson(response: Response) {
 }
 
 test("self-serve register rejects POST without Origin before reading creation flow", async () => {
-  resetSelfServeGlobals();
-
   const response = await POST(makeRequest(validRegistration));
   const body = await readJson(response);
 
@@ -90,9 +82,7 @@ test("self-serve register rejects POST without Origin before reading creation fl
   assert.equal(body.code, "self_serve_origin_required");
 });
 
-test("self-serve register returns validation error when KVKK consent is missing", async () => {
-  resetSelfServeGlobals();
-
+test("self-serve register remains explicitly disabled before reading registration credentials", async () => {
   const response = await POST(
     makeRequest(
       {
@@ -104,44 +94,34 @@ test("self-serve register returns validation error when KVKK consent is missing"
   );
   const body = await readJson(response);
 
-  assert.equal(response.status, 400);
-  assert.equal(body.code, "self_serve_registration_rejected");
+  assert.equal(response.status, 503);
+  assert.equal(body.code, "self_serve_saas_registration_disabled");
+  assert.equal(body.state, "disabled");
   assert.equal(JSON.stringify(body).includes(validRegistration.password), false);
 });
 
-test("self-serve register default mode returns safe processing response with planned store/admin URLs", async () => {
-  resetSelfServeGlobals();
-
+test("self-serve register returns no false processing, ready, store, admin, or handoff result", async () => {
   const response = await POST(makeRequest(validRegistration, { origin: "https://ecommerce.celebix.co" }));
   const body = await readJson(response);
 
-  assert.equal(response.status, 202);
-  assert.equal(body.code, "self_serve_store_creation_processing");
-  assert.equal(body.adminRedirectUrl, null);
-  assert.equal(body.plannedStoreUrl, "https://cicek-pazari.celebix.site");
-  assert.equal(body.plannedAdminUrl, "https://admin-cicek-pazari.celebix.site");
+  assert.equal(response.status, 503);
+  assert.equal(body.code, "self_serve_saas_registration_disabled");
+  assert.equal(body.state, "disabled");
   assert.equal(JSON.stringify(body).includes(validRegistration.password), false);
-
-  const provisioning = body.provisioning as Record<string, unknown>;
-  assert.equal(provisioning.freeStarterStoreEnabled, false);
-  assert.equal(provisioning.storeCreateEnabled, false);
-  assert.equal(provisioning.provisioningEnabled, false);
-
-  const creation = body.creation as Record<string, unknown>;
-  assert.equal(creation.mode, "production_safe_pending");
-  assert.equal(creation.idempotent, false);
+  for (const prohibited of ["plannedStoreUrl", "plannedAdminUrl", "adminRedirectUrl", "handoff", "ready", "processing"]) {
+    assert.equal(prohibited in body, false);
+  }
 });
 
-test("self-serve register persistent DB mode fails closed when owner DB config is missing", async () => {
+test("legacy persistent DB mode cannot bypass the Phase 1 disabled gate", async () => {
   await withSelfServeEnv({ SELF_SERVE_PERSISTENCE_MODE: "persistent_db_adapter" }, async () => {
-    resetSelfServeGlobals();
-
     const response = await POST(makeRequest(validRegistration, { origin: "https://ecommerce.celebix.co" }));
     const body = await readJson(response);
 
     assert.equal(response.status, 503);
-    assert.equal(body.code, "self_serve_persistent_adapter_unavailable");
-    assert.equal(body.persistenceMode, "persistent_db_adapter");
+    assert.equal(body.code, "self_serve_saas_registration_disabled");
+    assert.equal(body.state, "disabled");
+    assert.equal("persistenceMode" in body, false);
     assert.equal(JSON.stringify(body).includes(validRegistration.password), false);
   });
 });

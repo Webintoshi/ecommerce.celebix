@@ -24,6 +24,13 @@ test("/kayit is a single direct registration screen, not the old onboarding land
   assert.doesNotMatch(pageSource, /Kurulum sonrası/);
 });
 
+test("/kayit keeps the new SaaS registration foundation disabled by default", () => {
+  assert.match(pageSource, /SELF_SERVE_SAAS_REGISTRATION_ENABLED/);
+  assert.match(pageSource, /Kayıt altyapısı hazırlanıyor/);
+  assert.match(pageSource, /canlı mağaza oluşturmaz/);
+  assert.doesNotMatch(pageSource, /SelfServeDirectRegistrationForm/);
+});
+
 test("the direct form does not reintroduce Logto-first or onboarding explainer copy", () => {
   assert.match(formSource, /E-Ticaret Sistemi Kur/);
   assert.match(formSource, /\.\{domainSuffix\}/);
