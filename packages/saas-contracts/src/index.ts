@@ -7,6 +7,8 @@
  */
 export {
   PLAN_ENTITLEMENT_STATUSES,
+  PLAN_FEATURE_KEYS,
+  PLAN_LIMIT_KEYS,
   PROVISIONING_STATUSES,
   SAAS_CONTRACT_SCHEMA_VERSION,
   STORE_DOMAIN_TYPES,
@@ -14,7 +16,10 @@ export {
   STORE_MEMBERSHIP_ROLES,
   STORE_MEMBERSHIP_STATUSES,
   STORE_STATUSES,
+  getPlanLimit,
   isPlanFeatureEnabled,
+  isPlanFeatureKey,
+  isPlanLimitKey,
 } from "./types.ts";
 
 export type {
@@ -26,7 +31,9 @@ export type {
   PlanEntitlementLimits,
   PlanEntitlementStatus,
   PlanEntitlements,
+  PlanFeatureKey,
   PlanId,
+  PlanLimitKey,
   PrincipalId,
   ProvisioningStatus,
   ResolvedStoreHost,

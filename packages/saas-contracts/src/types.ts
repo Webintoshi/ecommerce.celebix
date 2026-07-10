@@ -24,6 +24,43 @@ export type StoreMembershipStatus = (typeof STORE_MEMBERSHIP_STATUSES)[number];
 export const PLAN_ENTITLEMENT_STATUSES = ["active", "inactive", "expired"] as const;
 export type PlanEntitlementStatus = (typeof PLAN_ENTITLEMENT_STATUSES)[number];
 
+export const PLAN_FEATURE_KEYS = [
+  "catalog",
+  "orders",
+  "customers",
+  "content",
+  "media",
+  "analytics",
+  "checkout",
+  "custom_domains",
+  "staff_management",
+  "promotions",
+  "integrations",
+  "accounting",
+  "marketplaces",
+] as const;
+export type PlanFeatureKey = (typeof PLAN_FEATURE_KEYS)[number];
+
+export const PLAN_LIMIT_KEYS = [
+  "products",
+  "staff",
+  "storageBytes",
+  "monthlyOrders",
+  "customDomains",
+] as const;
+export type PlanLimitKey = (typeof PLAN_LIMIT_KEYS)[number];
+
+const PLAN_FEATURE_KEY_SET: ReadonlySet<string> = new Set(PLAN_FEATURE_KEYS);
+const PLAN_LIMIT_KEY_SET: ReadonlySet<string> = new Set(PLAN_LIMIT_KEYS);
+
+export function isPlanFeatureKey(value: string): value is PlanFeatureKey {
+  return PLAN_FEATURE_KEY_SET.has(value);
+}
+
+export function isPlanLimitKey(value: string): value is PlanLimitKey {
+  return PLAN_LIMIT_KEY_SET.has(value);
+}
+
 export const STORE_DOMAIN_TYPES = ["platform_subdomain", "custom"] as const;
 export type StoreDomainType = (typeof STORE_DOMAIN_TYPES)[number];
 
@@ -50,7 +87,7 @@ export interface CreateStarterTenantInput {
     issuer: string;
     subject: string;
     email: string;
-    emailVerified: boolean;
+    emailVerified: true;
   };
   store: {
     name: string;
@@ -110,7 +147,7 @@ export interface PlanEntitlements {
   planCode: string;
   version: number;
   status: PlanEntitlementStatus;
-  features: readonly string[];
+  features: readonly PlanFeatureKey[];
   limits: PlanEntitlementLimits;
   validFrom: string;
   validUntil?: string;
@@ -121,7 +158,28 @@ export function isPlanFeatureEnabled(
   entitlements: Pick<PlanEntitlements, "features" | "status">,
   feature: string,
 ): boolean {
-  return entitlements.status === "active" && entitlements.features.includes(feature);
+  return (
+    entitlements.status === "active" &&
+    isPlanFeatureKey(feature) &&
+    entitlements.features.includes(feature)
+  );
+}
+
+/** Resolves missing, unknown, or invalid plan limits to zero. */
+export function getPlanLimit(
+  entitlements: Pick<PlanEntitlements, "limits">,
+  limit: string,
+): number {
+  if (!isPlanLimitKey(limit)) {
+    return 0;
+  }
+
+  const value = entitlements.limits[limit];
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+
+  return Math.floor(value);
 }
 
 /**

@@ -124,13 +124,16 @@ Reading donor code is allowed. Editing it is not.
 ## Shared Contract Rules
 
 - Identity authority is immutable issuer plus subject; email is contact metadata only.
+- Automatic starter tenant creation requires a verified identity represented by the literal `emailVerified: true`; an unverified identity cannot satisfy the shared input contract.
 - No password, private authentication material, credential, database location, or private infrastructure value crosses a contract boundary.
 - `TenantContext` is server-produced and requires an authenticated principal, active membership, and allowed store.
 - Caller-provided store IDs are hints and never authority.
 - When membership and resolved host are both present, their store IDs match.
 - Exact host resolution fails closed for unknown, ambiguous, disabled, or unverified hosts.
 - Idempotency binds an opaque key to a canonical payload fingerprint. A matching replay returns the prior operation; a fingerprint mismatch returns `idempotency_mismatch`.
-- Entitlements deny unknown features and limits by default.
+- Feature keys are finite and shared through `PLAN_FEATURE_KEYS`; unknown features fail closed even when injected through an unsafe runtime cast.
+- Limit keys are finite and shared through `PLAN_LIMIT_KEYS`; missing, unknown, negative, non-finite, or otherwise invalid limits resolve to zero and never imply unlimited capacity.
+- Agents must import the shared feature and limit registries and may not define local entitlement registries.
 - Agent outputs must import shared contract types and must not redefine them.
 
 ## Global Stop Conditions

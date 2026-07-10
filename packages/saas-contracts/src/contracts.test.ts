@@ -6,6 +6,8 @@ import type {
   CreateStarterTenantInput,
   CreateStarterTenantResult,
   PlanEntitlements,
+  PlanFeatureKey,
+  PlanLimitKey,
   ResolvedStoreHost,
   SaaSContractError,
   StoreMembership,
@@ -35,6 +37,30 @@ const REQUIRED_ERROR_CODES = [
   "feature_not_enabled",
   "limit_exceeded",
 ] as const;
+
+const REQUIRED_PLAN_FEATURE_KEYS = [
+  "catalog",
+  "orders",
+  "customers",
+  "content",
+  "media",
+  "analytics",
+  "checkout",
+  "custom_domains",
+  "staff_management",
+  "promotions",
+  "integrations",
+  "accounting",
+  "marketplaces",
+] as const satisfies readonly PlanFeatureKey[];
+
+const REQUIRED_PLAN_LIMIT_KEYS = [
+  "products",
+  "staff",
+  "storageBytes",
+  "monthlyOrders",
+  "customDomains",
+] as const satisfies readonly PlanLimitKey[];
 
 const SENSITIVE_KEY_PARTS = [
   "password",
@@ -142,6 +168,18 @@ const starterInput: CreateStarterTenantInput = {
   requestedAt: "2026-07-10T00:00:00.000Z",
 };
 
+if (false) {
+  const unverifiedStarterInput: CreateStarterTenantInput = {
+    ...starterInput,
+    principal: {
+      ...starterInput.principal,
+      // @ts-expect-error Automatic starter creation requires a verified identity.
+      emailVerified: false,
+    },
+  };
+  void unverifiedStarterInput;
+}
+
 const starterResult: CreateStarterTenantResult = {
   schemaVersion: 1,
   operationId: "operation_1",
@@ -207,6 +245,10 @@ test("CreateStarterTenantInput contains no sensitive keys", () => {
   assert.deepEqual(collectSensitiveKeys(starterInput), []);
 });
 
+test("CreateStarterTenantInput requires a verified identity literal", () => {
+  assert.equal(starterInput.principal.emailVerified, true);
+});
+
 test("CreateStarterTenantResult contains no sensitive keys", () => {
   assert.deepEqual(collectSensitiveKeys(starterResult), []);
 });
@@ -237,9 +279,52 @@ test("recursive scanner detects prohibited sensitive key families", () => {
   ]);
 });
 
-test("denies unknown plan features by default", () => {
+test("exports the exact finite feature registry without duplicates", () => {
+  assert.deepEqual(contracts.PLAN_FEATURE_KEYS, REQUIRED_PLAN_FEATURE_KEYS);
+  assert.equal(new Set(contracts.PLAN_FEATURE_KEYS).size, REQUIRED_PLAN_FEATURE_KEYS.length);
+  assert.equal(contracts.isPlanFeatureKey?.("catalog"), true);
+  assert.equal(contracts.isPlanFeatureKey?.("unknown-feature"), false);
+});
+
+test("enables only configured known features on active plans", () => {
   assert.equal(contracts.isPlanFeatureEnabled?.(entitlements, "catalog"), true);
+  assert.equal(contracts.isPlanFeatureEnabled?.(entitlements, "orders"), false);
   assert.equal(contracts.isPlanFeatureEnabled?.(entitlements, "unknown-feature"), false);
+});
+
+test("denies unknown features injected through an unsafe runtime cast", () => {
+  const unsafeEntitlements = {
+    ...entitlements,
+    features: ["catalog", "unknown-feature"] as unknown as PlanEntitlements["features"],
+  };
+
+  assert.equal(contracts.isPlanFeatureEnabled?.(unsafeEntitlements, "unknown-feature"), false);
+});
+
+test("denies known features on inactive and expired plans", () => {
+  assert.equal(contracts.isPlanFeatureEnabled?.({ ...entitlements, status: "inactive" }, "catalog"), false);
+  assert.equal(contracts.isPlanFeatureEnabled?.({ ...entitlements, status: "expired" }, "catalog"), false);
+});
+
+test("exports the exact finite limit registry without duplicates", () => {
+  assert.deepEqual(contracts.PLAN_LIMIT_KEYS, REQUIRED_PLAN_LIMIT_KEYS);
+  assert.equal(new Set(contracts.PLAN_LIMIT_KEYS).size, REQUIRED_PLAN_LIMIT_KEYS.length);
+  assert.equal(contracts.isPlanLimitKey?.("products"), true);
+  assert.equal(contracts.isPlanLimitKey?.("unknown-limit"), false);
+});
+
+test("resolves unknown, missing, and invalid limits to zero", () => {
+  assert.equal(contracts.getPlanLimit?.(entitlements, "unknown-limit"), 0);
+  assert.equal(contracts.getPlanLimit?.(entitlements, "monthlyOrders"), 0);
+  assert.equal(contracts.getPlanLimit?.({ ...entitlements, limits: { ...entitlements.limits, products: -1 } }, "products"), 0);
+  assert.equal(contracts.getPlanLimit?.({ ...entitlements, limits: { ...entitlements.limits, products: Number.NaN } }, "products"), 0);
+  assert.equal(contracts.getPlanLimit?.({ ...entitlements, limits: { ...entitlements.limits, products: Number.POSITIVE_INFINITY } }, "products"), 0);
+});
+
+test("floors positive decimal limits and preserves non-negative integers", () => {
+  assert.equal(contracts.getPlanLimit?.({ ...entitlements, limits: { ...entitlements.limits, products: 12.9 } }, "products"), 12);
+  assert.equal(contracts.getPlanLimit?.(entitlements, "products"), 100);
+  assert.equal(contracts.getPlanLimit?.({ ...entitlements, limits: { ...entitlements.limits, products: 0 } }, "products"), 0);
 });
 
 test("same idempotency key and fingerprint replays the prior operation", () => {
@@ -276,6 +361,8 @@ test("unknown error codes are not part of the frozen success or authorization su
 test("keeps the public runtime export surface frozen", () => {
   assert.deepEqual(Object.keys(contracts).sort(), [
     "PLAN_ENTITLEMENT_STATUSES",
+    "PLAN_FEATURE_KEYS",
+    "PLAN_LIMIT_KEYS",
     "PROVISIONING_STATUSES",
     "SAAS_CONTRACT_SCHEMA_VERSION",
     "SAAS_ERROR_CODES",
@@ -284,7 +371,10 @@ test("keeps the public runtime export surface frozen", () => {
     "STORE_MEMBERSHIP_ROLES",
     "STORE_MEMBERSHIP_STATUSES",
     "STORE_STATUSES",
+    "getPlanLimit",
     "isPlanFeatureEnabled",
+    "isPlanFeatureKey",
+    "isPlanLimitKey",
   ]);
 });
 
