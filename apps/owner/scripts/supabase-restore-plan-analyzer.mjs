@@ -147,9 +147,19 @@ export function analyzeRestorePlan({ catalogText, inventoryText }) {
   const catalogIds = new Set(catalog.map(({ archiveItemId }) => archiveItemId));
   const globalConflicts = [];
 
-  const compatible =
-    inventory.sourceVersion.postgresMajor === inventory.targetVersion.postgresMajor &&
-    inventory.sourceVersion.supabaseImage === inventory.targetVersion.supabaseImage;
+  const versionChecks = {
+    postgresMajor:
+      inventory.sourceVersion.postgresMajor === inventory.targetVersion.postgresMajor,
+    postgresVersion:
+      inventory.sourceVersion.postgresVersion ===
+      inventory.targetVersion.postgresVersion,
+    supabaseImage:
+      inventory.sourceVersion.supabaseImage === inventory.targetVersion.supabaseImage,
+    supabaseImageDigest:
+      inventory.sourceVersion.supabaseImageDigest ===
+      inventory.targetVersion.supabaseImageDigest,
+  };
+  const compatible = Object.values(versionChecks).every(Boolean);
   if (!compatible) {
     globalConflicts.push({
       reasonCode: "SOURCE_TARGET_VERSION_MISMATCH",
@@ -188,11 +198,12 @@ export function analyzeRestorePlan({ catalogText, inventoryText }) {
   );
   const reportWithoutPlanHash = {
     advisory: ADVISORY,
-    schemaVersion: 1,
+    schemaVersion: 2,
     status: blocked ? "blocked" : "review_required",
     executablePlanEmitted: false,
     versionCompatibility: {
       compatible,
+      checks: versionChecks,
       source: inventory.sourceVersion,
       target: inventory.targetVersion,
     },
@@ -217,6 +228,9 @@ export function analyzeRestorePlan({ catalogText, inventoryText }) {
 }
 
 export function renderMarkdown(report) {
+  const extensionEntries = report.entries.filter(
+    (entry) => entry.sourceExtension && entry.targetExtension,
+  );
   const lines = [
     "# Supabase Restore Plan Analysis",
     "",
@@ -245,13 +259,27 @@ export function renderMarkdown(report) {
     "",
     "## Catalog Entries",
     "",
-    "| ID | Schema | Type | Name | Classification | Reason |",
-    "| ---: | --- | --- | --- | --- | --- |",
+    "| ID | Schema | Type | Name | Archive owner | Target owner | Classification | Reason |",
+    "| ---: | --- | --- | --- | --- | --- | --- | --- |",
     ...report.entries.map(
       (entry) =>
-        `| ${escapeTable(entry.archiveItemId)} | ${escapeTable(entry.schema ?? "-")} | ${escapeTable(entry.objectType)} | ${escapeTable(entry.name)} | ${escapeTable(entry.classification)} | ${escapeTable(entry.reasonCode)} |`,
+        `| ${escapeTable(entry.archiveItemId)} | ${escapeTable(entry.schema ?? "-")} | ${escapeTable(entry.objectType)} | ${escapeTable(entry.name)} | ${escapeTable(entry.archiveOwner)} | ${escapeTable(entry.targetOwner ?? "-")} | ${escapeTable(entry.classification)} | ${escapeTable(entry.reasonCode)} |`,
     ),
   ];
+
+  if (extensionEntries.length > 0) {
+    lines.push(
+      "",
+      "## Extension Evidence",
+      "",
+      "| ID | Source extension | Source membership evidence | Target extension | Target membership evidence |",
+      "| ---: | --- | --- | --- | --- |",
+      ...extensionEntries.map(
+        (entry) =>
+          `| ${escapeTable(entry.archiveItemId)} | ${escapeTable(`${entry.sourceExtension.name}@${entry.sourceExtension.version}`)} | ${escapeTable(entry.sourceExtension.membershipEvidenceSha256)} | ${escapeTable(`${entry.targetExtension.name}@${entry.targetExtension.version}`)} | ${escapeTable(entry.targetExtension.membershipEvidenceSha256)} |`,
+      ),
+    );
+  }
 
   if (report.globalConflicts.length > 0) {
     lines.push(
@@ -284,6 +312,7 @@ export async function writeAnalysisOutputs({ report, jsonPath, markdownPath }) {
 function classifyEntry({ candidate, entry, targetObjects }) {
   const base = {
     archiveItemId: entry.archiveItemId,
+    archiveOwner: entry.owner,
     schema: entry.schema,
     objectType: entry.objectType,
     name: entry.name,
@@ -294,6 +323,7 @@ function classifyEntry({ candidate, entry, targetObjects }) {
       ...base,
       classification: "restore",
       reasonCode: "NO_TARGET_OBJECT_MATCH",
+      targetOwner: null,
       targetManagement: null,
     };
   }
@@ -303,6 +333,7 @@ function classifyEntry({ candidate, entry, targetObjects }) {
       ...base,
       classification: "unknown_conflict",
       reasonCode: "TARGET_OBJECT_NOT_EXACTLY_REVIEWED",
+      targetOwner: uniqueValue(targetObjects, "owner"),
       targetManagement: uniqueManagement(targetObjects),
     };
   }
@@ -318,7 +349,37 @@ function classifyEntry({ candidate, entry, targetObjects }) {
       ...base,
       classification: "unknown_conflict",
       reasonCode: "REVIEWED_CANDIDATE_IDENTITY_OR_FINGERPRINT_MISMATCH",
+      targetOwner: uniqueValue(targetObjects, "owner"),
       targetManagement: uniqueManagement(targetObjects),
+    };
+  }
+
+  if (
+    candidate.archiveOwner !== entry.owner ||
+    candidate.expectedTargetOwner !== matchingTarget.owner
+  ) {
+    return {
+      ...base,
+      classification: "unknown_conflict",
+      reasonCode: "REVIEWED_CANDIDATE_OWNER_MISMATCH",
+      targetOwner: matchingTarget.owner,
+      targetManagement: matchingTarget.management,
+    };
+  }
+
+  if (
+    candidate.management === "extension" &&
+    !extensionEvidenceMatches({ candidate, target: matchingTarget })
+  ) {
+    return {
+      ...base,
+      classification: "unknown_conflict",
+      reasonCode: "REVIEWED_EXTENSION_EVIDENCE_MISMATCH",
+      targetOwner: matchingTarget.owner,
+      targetManagement: matchingTarget.management,
+      sourceExtension: candidate.sourceExtension,
+      expectedTargetExtension: candidate.expectedTargetExtension,
+      targetExtension: matchingTarget.extension,
     };
   }
 
@@ -329,8 +390,10 @@ function classifyEntry({ candidate, entry, targetObjects }) {
         ? "exact_bootstrap_duplicate_candidate"
         : "extension_managed_candidate",
     reasonCode: candidate.reasonCode,
+    targetOwner: matchingTarget.owner,
     targetManagement: matchingTarget.management,
     targetFingerprint: matchingTarget.fingerprint,
+    sourceExtension: candidate.sourceExtension ?? null,
     targetExtension: matchingTarget.extension ?? null,
   };
 }
@@ -343,8 +406,8 @@ function parseInventory(inventoryText) {
     throw new Error("Inventory must be valid JSON.");
   }
 
-  if (inventory.formatVersion !== 1) {
-    throw new Error("Inventory formatVersion must be exactly 1.");
+  if (inventory.formatVersion !== 2) {
+    throw new Error("Inventory formatVersion must be exactly 2.");
   }
   validateVersion(inventory.sourceVersion, "sourceVersion");
   validateVersion(inventory.targetVersion, "targetVersion");
@@ -360,7 +423,11 @@ function parseInventory(inventoryText) {
     if (!["application", "bootstrap", "extension", "unknown"].includes(target.management)) {
       throw new Error("Target object management is invalid.");
     }
+    validateOwner(target.owner, "target object owner evidence");
     validateFingerprint(target.fingerprint, "target object fingerprint");
+    if (target.management === "extension") {
+      validateExtensionEvidence(target.extension, "target extension evidence");
+    }
   }
 
   const candidateIds = new Set();
@@ -376,6 +443,11 @@ function parseInventory(inventoryText) {
     if (!["bootstrap", "extension"].includes(candidate.management)) {
       throw new Error("Reviewed candidates may only be bootstrap or extension managed.");
     }
+    validateOwner(candidate.archiveOwner, "reviewed candidate archive owner evidence");
+    validateOwner(
+      candidate.expectedTargetOwner,
+      "reviewed candidate target owner evidence",
+    );
     if (!/^[A-Z][A-Z0-9_]+$/.test(candidate.reasonCode ?? "")) {
       throw new Error("Every reviewed candidate requires a stable reason code.");
     }
@@ -383,6 +455,16 @@ function parseInventory(inventoryText) {
       candidate.expectedTargetFingerprint,
       "expected target fingerprint",
     );
+    if (candidate.management === "extension") {
+      validateExtensionEvidence(
+        candidate.sourceExtension,
+        "source extension evidence",
+      );
+      validateExtensionEvidence(
+        candidate.expectedTargetExtension,
+        "expected target extension evidence",
+      );
+    }
   }
 
   return inventory;
@@ -395,6 +477,50 @@ function validateVersion(version, label) {
   if (typeof version.supabaseImage !== "string" || !version.supabaseImage.trim()) {
     throw new Error(`${label}.supabaseImage is required.`);
   }
+  if (!/^\d+\.\d+(?:\.\d+)?$/.test(version.postgresVersion ?? "")) {
+    throw new Error(`${label}.postgresVersion must be an exact numeric version.`);
+  }
+  if (Number.parseInt(version.postgresVersion, 10) !== version.postgresMajor) {
+    throw new Error(`${label}.postgresVersion must match postgresMajor.`);
+  }
+  if (!/^[^\s/:]+\/[^\s:]+:[^\s:]+$/.test(version.supabaseImage)) {
+    throw new Error(`${label}.supabaseImage must use an exact tagged image.`);
+  }
+  if (/:(?:latest|stable|edge|main)$/i.test(version.supabaseImage)) {
+    throw new Error(`${label}.supabaseImage may not use a floating tag.`);
+  }
+  validateFingerprint(
+    version.supabaseImageDigest,
+    `${label}.supabaseImageDigest`,
+  );
+}
+
+function validateOwner(value, label) {
+  if (typeof value !== "string" || !value.trim() || containsWildcard(value)) {
+    throw new Error(`${label} requires exact owner evidence.`);
+  }
+}
+
+function validateExtensionEvidence(value, label) {
+  if (!value || typeof value !== "object") {
+    throw new Error(`${label} is required.`);
+  }
+  for (const field of ["name", "version"]) {
+    if (
+      typeof value[field] !== "string" ||
+      !value[field].trim() ||
+      containsWildcard(value[field])
+    ) {
+      throw new Error(`${label}.${field} must be exact.`);
+    }
+  }
+  if (value.membershipVerified !== true) {
+    throw new Error(`${label} membership must be verified.`);
+  }
+  validateFingerprint(
+    value.membershipEvidenceSha256,
+    `${label} membership evidence`,
+  );
 }
 
 function validateIdentity(value, label) {
@@ -445,6 +571,27 @@ function sameIdentity(left, right) {
 function uniqueManagement(targetObjects) {
   const management = [...new Set(targetObjects.map((target) => target.management))];
   return management.length === 1 ? management[0] : "mixed";
+}
+
+function uniqueValue(values, field) {
+  const exactValues = [...new Set(values.map((value) => value[field]))];
+  return exactValues.length === 1 ? exactValues[0] : null;
+}
+
+function extensionEvidenceMatches({ candidate, target }) {
+  const source = candidate.sourceExtension;
+  const expectedTarget = candidate.expectedTargetExtension;
+  const actualTarget = target.extension;
+
+  return (
+    source.name === expectedTarget.name &&
+    source.version === expectedTarget.version &&
+    expectedTarget.name === actualTarget.name &&
+    expectedTarget.version === actualTarget.version &&
+    expectedTarget.membershipVerified === actualTarget.membershipVerified &&
+    expectedTarget.membershipEvidenceSha256 ===
+      actualTarget.membershipEvidenceSha256
+  );
 }
 
 function compareArchiveIds(left, right) {

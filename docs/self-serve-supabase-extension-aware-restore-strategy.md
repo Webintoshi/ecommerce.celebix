@@ -68,7 +68,7 @@ Schema names do not prove object ownership or extension membership. The Owner sc
 
 | Strategy | Deterministic inputs | Safety guarantees | Failure modes | Reproducibility / auditability | Existing archive | New backup | Complexity | Decision |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **A. Source-matched bootstrap plus exact TOC item policy** | Source/target image versions; sanitized catalog; target object inventory; extension membership/version inventory; exact item ID, schema, type, name, reason, and target fingerprint for every candidate; input and plan hashes | One-to-one review; no wildcard; unknown collision blocks; application objects default to restore | Incomplete inventory, false fingerprint, ownership mismatch, unreviewed duplicate, role incompatibility | High when inputs and plan are hashed and retained; exact IDs make each decision traceable | Compatible in principle | No | High | **Primary**, with Strategy C phase gates |
+| **A. Source-matched bootstrap plus exact TOC item policy** | Source/target PostgreSQL major and exact version; pinned image tag and digest; sanitized catalog; target object inventory; source/target owner plus extension membership/version evidence; exact item ID, schema, type, name, reason, and target fingerprint for every candidate; input and plan hashes | One-to-one review; no wildcard; unknown collision blocks; application objects default to restore | Incomplete inventory, false fingerprint, ownership mismatch, unreviewed duplicate, role incompatibility | High when inputs and plan are hashed and retained; exact IDs make each decision traceable | Compatible in principle | No | High | **Primary**, with Strategy C phase gates |
 | **B. Fresh Supabase-aware logical backup** | Separately approved source inventory; extension membership query design; reviewed export policy; new archive checksum/catalog | Avoids known bootstrap/extension duplicates at backup time while retaining application data | Incorrect source-side policy can omit application objects; requires source access and a new backup approval | High only if export policy, inventory, archive, and catalog are versioned and independently reviewed | Does not use the current archive | Yes | Medium to high | **Fallback** if Strategy A cannot reach zero unknown conflicts |
 | **C. Controlled staged restore** | Approved Strategy A plan; stage manifests for pre-data, data, post-data; between-stage inventory/fingerprint gates | Limits blast radius and stops before later stages when ownership/membership diverges | Staging alone does not resolve duplicate selection; a wrong exact policy remains wrong | High when every stage is transactional, hashed, and evidenced | Compatible | No | Highest operationally | Required execution overlay for A, not a standalone duplicate-resolution strategy |
 
@@ -84,6 +84,10 @@ Strategy C is mandatory during a future execution: pre-data, data, and post-data
 
 Use **Strategy B** only if the existing archive cannot produce a zero-unknown exact plan or cannot be restored without unsafe ownership manipulation. It requires a separate Atlas gate for source access and a new backup. The source-side export policy must derive exclusions from verified extension membership and approved bootstrap ownership, never from schema-name patterns. The current archive remains unchanged and retained as evidence.
 
+Supabase's [self-hosted restore guidance](https://supabase.com/docs/guides/self-hosting/restore-from-platform) recommends its filtered dump workflow because it removes internal schemas and reserved-role material that a raw dump can carry into a conflicting restore. That guidance supports Strategy B as the fallback, but it does not authorize a new backup in this task.
+
+Supabase has also announced that the default self-hosted image is moving from PostgreSQL 15 to PostgreSQL 17. The [breaking-change notice](https://supabase.com/changelog/46080-self-hosted-supabase-upgrading-from-pg-15-to-17-breaking-change) reinforces why a future rehearsal must pin the approved PostgreSQL 15 image tag and digest rather than accepting the current default.
+
 ## 7. Rejected Unsafe Approaches
 
 - Broad schema, wildcard, object-type, owner, or name-pattern exclusions.
@@ -98,14 +102,14 @@ Use **Strategy B** only if the existing archive cannot produce a zero-unknown ex
 
 ## 8. Immutable Restore Invariants
 
-1. Source and target PostgreSQL major plus Supabase image/bootstrap compatibility must be exact and evidenced.
+1. Source and target PostgreSQL major, exact PostgreSQL version, Supabase image tag, image digest, and bootstrap compatibility must be exact and evidenced. Floating image tags are forbidden.
 2. The target must be isolated, non-public, disposable, and empty except approved bootstrap objects.
 3. Every candidate exclusion must identify the exact archive item ID, schema, object type, and object name.
-4. Every candidate must include a stable reason code, expected target object, owner/manager, extension when applicable, and deterministic target fingerprint.
+4. Every candidate must include a stable reason code, exact archive owner, expected target owner, extension when applicable, and deterministic target fingerprint.
 5. Wildcards and schema-wide exclusions are forbidden.
 6. Repeated trial-and-error exclusions are forbidden.
 7. Any unknown duplicate, ownership ambiguity, fingerprint mismatch, missing ID, or version mismatch stops the rehearsal.
-8. Extension ownership and extension membership must be verified independently; schema location is insufficient.
+8. Extension ownership, exact source/target extension version, and exact source/target membership evidence must be verified independently; schema location is insufficient.
 9. Application-owned objects must never be silently excluded. Unreviewed target collisions are `unknown_conflict`.
 10. Catalog, inventory, combined inputs, and proposed advisory plan must have deterministic SHA-256 values.
 11. The complete advisory plan must be human-reviewable before any use-list is produced or used.
@@ -122,19 +126,22 @@ Each reviewed candidate record must contain:
 - Exact object type.
 - Exact object name/signature.
 - Management class: `bootstrap` or `extension` only.
+- Exact archive owner from the catalog.
+- Exact expected target owner from the target inventory.
 - Stable reason code.
 - Expected target fingerprint.
-- Expected extension identity/version when extension-managed.
+- Exact source and target extension identity/version when extension-managed.
+- Verified source and target extension-membership evidence SHA-256 when extension-managed.
 
-The target inventory must independently contain the same object identity, management class, and fingerprint. A candidate with a missing catalog ID, mismatched identity, multiple target matches, or mismatched fingerprint is an unknown conflict. Candidate classification does not itself authorize exclusion. An execution use-list may be prepared only after separate human review and Atlas approval; this task does not generate one.
+The target inventory must independently contain the same object identity, management class, exact owner, fingerprint, and extension evidence. A candidate with a missing catalog ID, mismatched identity, owner mismatch, multiple target matches, extension version/membership mismatch, or mismatched fingerprint is an unknown conflict. Candidate classification does not itself authorize exclusion. An execution use-list may be prepared only after separate human review and Atlas approval; this task does not generate one.
 
 ## 10. Extension Ownership And Membership Policy
 
 Before another rehearsal, the approval packet must establish for each extension-managed candidate:
 
 1. Extension name and exact version on source and target.
-2. Target extension membership for the exact object.
-3. Target object owner and expected bootstrap owner.
+2. Source and target extension membership for the exact object, each represented by a reviewed evidence SHA-256.
+3. Exact archive owner, target object owner, and expected bootstrap/extension owner.
 4. Stable object definition/fingerprint suitable for that object type.
 5. Evidence that the archive item is not application-owned and has no application data payload that would be lost.
 
@@ -144,11 +151,13 @@ An object located in an extension-adjacent schema is not automatically extension
 
 `apps/owner/scripts/supabase-restore-plan-analyzer.mjs` is a local, non-executing planner. It:
 
+- Requires inventory `formatVersion: 2`.
 - Reads only two caller-supplied local text files: a sanitized list-format catalog and sanitized target inventory JSON.
 - Parses exact numeric item IDs and object metadata.
-- Rejects wildcard/schema-wide candidates, duplicate IDs, missing IDs, malformed fingerprints, URLs, and credential-like input.
+- Rejects wildcard/schema-wide candidates, duplicate IDs, missing IDs, missing owner evidence, missing/unverified extension-membership evidence, malformed fingerprints, floating image tags, URLs, and credential-like input.
 - Classifies every entry as `restore`, `exact_bootstrap_duplicate_candidate`, `extension_managed_candidate`, or `unknown_conflict`.
-- Marks the report `blocked` on any unknown conflict or source/target version mismatch.
+- Machine-checks PostgreSQL major/exact version, image tag/digest, archive/target owner, extension name/version, and membership evidence.
+- Marks the report `blocked` on any unknown conflict, owner mismatch, extension evidence mismatch, or source/target version/image mismatch.
 - Produces deterministic JSON and Markdown plus SHA-256 values for each input, combined inputs, and the advisory plan.
 - Emits no executable restore command or use-list.
 - Has no process execution, shell, database, HTTP, or network capability.
@@ -161,11 +170,11 @@ The committed fixtures are synthetic. Names, object IDs, object fingerprints, an
 ## 12. Restore-Plan Review Process
 
 1. Obtain separate Atlas approval to generate sanitized catalog metadata and target inventory; do not access the archive under this design-only task.
-2. Record exact source and target image/version evidence.
+2. Record exact source and target PostgreSQL major/version plus image tag/digest evidence.
 3. Build a target inventory from approved bootstrap and extension ownership/membership evidence.
 4. Run the non-executing analyzer on local sanitized inputs.
 5. Require zero `unknown_conflict`, exact deterministic hashes, and complete entry accounting.
-6. Review every candidate row manually with its reason and target fingerprint.
+6. Review every candidate row manually with its reason, archive/target owner, extension evidence, and target fingerprint.
 7. Archive the sanitized report and review decision without credentials, URLs, archive contents, or PII.
 8. Request a separate Atlas execution gate. Only that future gate may authorize creation/use of an exact use-list and an isolated restore attempt.
 
@@ -173,12 +182,12 @@ The committed fixtures are synthetic. Names, object IDs, object fingerprints, an
 
 Stop before or during a future rehearsal if any of these occur:
 
-- Source/target PostgreSQL major or Supabase image mismatch.
+- Source/target PostgreSQL major, exact version, Supabase image tag, or image digest mismatch.
 - Target is reachable publicly, non-disposable, non-empty beyond approved bootstrap, or connected to traffic.
 - Catalog, inventory, or plan hash differs from the approved packet.
 - Missing, duplicate, wildcard, or non-numeric archive item ID.
 - Unknown target collision or multiple target matches.
-- Ownership, extension version, membership, or fingerprint cannot be proven.
+- Archive/target ownership, source/target extension version, membership evidence, or fingerprint cannot be proven.
 - An application-owned object is proposed for exclusion.
 - A new duplicate appears that was not in the approved plan.
 - Any stage fails transactionally or leaves an unverifiable state.
@@ -189,13 +198,13 @@ Stop before or during a future rehearsal if any of these occur:
 
 Atlas must review all of the following before another restore attempt:
 
-- Source PostgreSQL/Supabase image/version evidence.
-- Target bootstrap image/version evidence.
+- Source PostgreSQL major/exact version and Supabase image tag/digest evidence.
+- Target bootstrap PostgreSQL major/exact version and image tag/digest evidence.
 - Sanitized archive catalog metadata summary, generated under separate approval.
 - Sanitized target bootstrap and extension inventory summary.
 - Proposed exact-ID candidate policy.
-- Candidate reason table with exact identity and target fingerprint.
-- Extension ownership/version/membership evidence.
+- Candidate reason table with exact identity, archive/target owner, and target fingerprint.
+- Source/target extension ownership, exact version, and membership evidence SHA-256.
 - Zero unknown-conflict confirmation.
 - Catalog, inventory, combined-input, and proposed-plan SHA-256 values.
 - Isolated target topology: no public network, no traffic, disposable storage, and source separation.

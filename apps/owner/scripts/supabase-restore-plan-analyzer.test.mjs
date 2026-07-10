@@ -30,6 +30,17 @@ async function analyze(inventoryName = "synthetic-inventory.json") {
   });
 }
 
+async function syntheticInventory() {
+  return JSON.parse(await fixture("synthetic-inventory.json"));
+}
+
+async function analyzeInventory(inventory) {
+  return analyzeRestorePlan({
+    catalogText: await fixture("synthetic-catalog.list"),
+    inventoryText: JSON.stringify(inventory, null, 2),
+  });
+}
+
 test("classifies all exact bootstrap and extension candidates together", async () => {
   const report = await analyze();
   const classifications = report.entries.map((entry) => [
@@ -54,6 +65,102 @@ test("classifies all exact bootstrap and extension candidates together", async (
     restore: 3,
     unknown_conflict: 0,
   });
+  assert.deepEqual(report.versionCompatibility.checks, {
+    postgresMajor: true,
+    postgresVersion: true,
+    supabaseImage: true,
+    supabaseImageDigest: true,
+  });
+  assert.equal(report.entries[1].archiveOwner, "fixture_owner");
+  assert.equal(report.entries[1].targetOwner, "bootstrap_target_owner");
+  assert.deepEqual(report.entries[3].sourceExtension, {
+    name: "synthetic_secrets_extension",
+    version: "1.2.3-synthetic",
+    membershipVerified: true,
+    membershipEvidenceSha256:
+      "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  });
+});
+
+test("rejects candidate and target records with missing exact owner evidence", async () => {
+  const missingTargetOwner = await syntheticInventory();
+  delete missingTargetOwner.targetObjects[0].owner;
+  await assert.rejects(
+    analyzeInventory(missingTargetOwner),
+    /owner evidence/i,
+  );
+
+  const missingArchiveOwner = await syntheticInventory();
+  delete missingArchiveOwner.reviewedCandidates[0].archiveOwner;
+  await assert.rejects(
+    analyzeInventory(missingArchiveOwner),
+    /owner evidence/i,
+  );
+});
+
+test("blocks exact candidate classification on source or target owner mismatch", async () => {
+  const archiveOwnerMismatch = await syntheticInventory();
+  archiveOwnerMismatch.reviewedCandidates[0].archiveOwner = "unexpected_fixture_owner";
+  const sourceReport = await analyzeInventory(archiveOwnerMismatch);
+  assert.equal(sourceReport.status, "blocked");
+  assert.equal(
+    sourceReport.entries[1].reasonCode,
+    "REVIEWED_CANDIDATE_OWNER_MISMATCH",
+  );
+
+  const targetOwnerMismatch = await syntheticInventory();
+  targetOwnerMismatch.reviewedCandidates[0].expectedTargetOwner =
+    "unexpected_target_owner";
+  const targetReport = await analyzeInventory(targetOwnerMismatch);
+  assert.equal(targetReport.status, "blocked");
+  assert.equal(
+    targetReport.entries[1].reasonCode,
+    "REVIEWED_CANDIDATE_OWNER_MISMATCH",
+  );
+});
+
+test("requires verified source and target extension-membership evidence", async () => {
+  const missingSourceEvidence = await syntheticInventory();
+  delete missingSourceEvidence.reviewedCandidates[2].sourceExtension;
+  await assert.rejects(
+    analyzeInventory(missingSourceEvidence),
+    /source extension evidence/i,
+  );
+
+  const unverifiedTargetMembership = await syntheticInventory();
+  unverifiedTargetMembership.targetObjects[2].extension.membershipVerified = false;
+  await assert.rejects(
+    analyzeInventory(unverifiedTargetMembership),
+    /membership.*verified/i,
+  );
+});
+
+test("blocks extension candidate classification on extension version mismatch", async () => {
+  const inventory = await syntheticInventory();
+  inventory.reviewedCandidates[2].sourceExtension.version = "9.9.9-synthetic";
+
+  const report = await analyzeInventory(inventory);
+
+  assert.equal(report.status, "blocked");
+  assert.equal(
+    report.entries[3].reasonCode,
+    "REVIEWED_EXTENSION_EVIDENCE_MISMATCH",
+  );
+});
+
+test("requires exact PostgreSQL version, image tag, and image digest matching", async () => {
+  const postgresMismatch = await syntheticInventory();
+  postgresMismatch.targetVersion.postgresVersion = "15.9";
+  const postgresReport = await analyzeInventory(postgresMismatch);
+  assert.equal(postgresReport.status, "blocked");
+  assert.equal(postgresReport.versionCompatibility.checks.postgresVersion, false);
+
+  const digestMismatch = await syntheticInventory();
+  digestMismatch.targetVersion.supabaseImageDigest =
+    "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+  const digestReport = await analyzeInventory(digestMismatch);
+  assert.equal(digestReport.status, "blocked");
+  assert.equal(digestReport.versionCompatibility.checks.supabaseImageDigest, false);
 });
 
 test("blocks on an unknown duplicate instead of auto-excluding it", async () => {
@@ -118,13 +225,23 @@ test("blocks a reviewed candidate when target inventory fingerprint differs", as
 test("ordering, JSON hashes, and Markdown are deterministic", async () => {
   const first = await analyze();
   const second = await analyze();
+  const markdown = renderMarkdown(first);
 
   assert.deepEqual(first, second);
   assert.match(first.hashes.catalogSha256, /^[a-f0-9]{64}$/);
   assert.match(first.hashes.inventorySha256, /^[a-f0-9]{64}$/);
   assert.match(first.hashes.inputsSha256, /^[a-f0-9]{64}$/);
   assert.match(first.hashes.proposedPlanSha256, /^[a-f0-9]{64}$/);
-  assert.equal(renderMarkdown(first), renderMarkdown(second));
+  assert.equal(markdown, renderMarkdown(second));
+  assert.match(markdown, /synthetic_secrets_extension@1\.2\.3-synthetic/);
+  assert.match(
+    markdown,
+    /sha256:7777777777777777777777777777777777777777777777777777777777777777/,
+  );
+  assert.match(
+    markdown,
+    /sha256:5555555555555555555555555555555555555555555555555555555555555555/,
+  );
 });
 
 test("writes advisory JSON and Markdown without an executable restore command", async () => {

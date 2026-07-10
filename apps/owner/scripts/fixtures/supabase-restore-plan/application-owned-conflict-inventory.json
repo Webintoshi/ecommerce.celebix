@@ -1,12 +1,16 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "sourceVersion": {
     "postgresMajor": 15,
-    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "targetVersion": {
     "postgresMajor": 15,
-    "supabaseImage": "supabase/postgres:15.8.1.synthetic"
+    "postgresVersion": "15.8",
+    "supabaseImage": "supabase/postgres:15.8.1.synthetic",
+    "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "targetObjects": [
     {
@@ -14,6 +18,7 @@
       "objectType": "TABLE",
       "name": "application_session_audit",
       "management": "application",
+      "owner": "application_target_owner",
       "fingerprint": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
     }
   ],
