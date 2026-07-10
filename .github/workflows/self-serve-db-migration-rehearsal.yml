@@ -1,0 +1,85 @@
+name: Self-Serve DB Migration Rehearsal
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/self-serve-db-migration-rehearsal.yml"
+      - "apps/owner/scripts/self-serve-db-migration-rehearsal.mjs"
+      - "apps/owner/scripts/sql/self-serve-free-store-foundation-proposal.sql"
+      - "apps/owner/scripts/sql/self-serve-free-store-foundation-rollback.sql"
+      - "docs/self-serve-persistent-registration-dry-run-result.md"
+  push:
+    branches:
+      - codex/self-serve-db-migration-dry-run
+    paths:
+      - ".github/workflows/self-serve-db-migration-rehearsal.yml"
+      - "apps/owner/scripts/self-serve-db-migration-rehearsal.mjs"
+      - "apps/owner/scripts/sql/self-serve-free-store-foundation-proposal.sql"
+      - "apps/owner/scripts/sql/self-serve-free-store-foundation-rollback.sql"
+      - "docs/self-serve-persistent-registration-dry-run-result.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disposable-postgres-rehearsal:
+    name: Disposable PostgreSQL rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: self_serve_migration_rehearsal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d self_serve_migration_rehearsal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Use repository npm version
+        run: npm install -g npm@11.8.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Wait for disposable PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for attempt in {1..30}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d self_serve_migration_rehearsal; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Run self-serve migration rehearsal
+        env:
+          SELF_SERVE_REHEARSAL_ACK: disposable-only
+          SELF_SERVE_REHEARSAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/self_serve_migration_rehearsal
+        run: node apps/owner/scripts/self-serve-db-migration-rehearsal.mjs
