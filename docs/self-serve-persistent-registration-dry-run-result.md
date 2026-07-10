@@ -202,6 +202,7 @@ constraints/indexes: PASS
 column/foreign-key contracts: PASS
 fake inserts: PASS
 uniqueness checks: PASS
+foreign key rejection: PASS
 rollback: PASS
 unrelated sentinel preserved: PASS
 owner sentinel preserved: PASS

@@ -783,6 +783,7 @@ function main() {
 
   exerciseUniqueness(connection, fake);
   printStep("uniqueness checks");
+  printStep("foreign key rejection");
 
   runFile(connection, rollbackSqlPath);
   printStep("rollback");
@@ -814,6 +815,7 @@ function main() {
   summary.push("- Column/foreign-key contracts: PASS");
   summary.push("- Fake inserts: PASS");
   summary.push("- Uniqueness checks: PASS");
+  summary.push("- Foreign key rejection: PASS");
   summary.push("- Rollback: PASS");
   summary.push("- Unrelated sentinel preserved: PASS");
   summary.push("- Owner sentinel preserved: PASS");
