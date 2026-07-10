@@ -12,6 +12,10 @@
     "supabaseImage": "supabase/postgres:15.8.1.synthetic",
     "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
+  "targetInventoryEvidence": {
+    "version": "synthetic-bootstrap-inventory-v1",
+    "sha256": "sha256:d9cb4ac6d0e9f5017bd86f06ee3dd148a814145d1f29871a277fe4dca70d812b"
+  },
   "targetObjects": [
     {
       "schema": null,
@@ -39,6 +43,7 @@
         "name": "synthetic_secrets_extension",
         "version": "1.2.3-synthetic",
         "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
         "membershipEvidenceSha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
       },
       "fingerprint": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
@@ -53,6 +58,7 @@
         "name": "synthetic_secrets_extension",
         "version": "1.2.3-synthetic",
         "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
         "membershipEvidenceSha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
       },
       "fingerprint": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
@@ -93,12 +99,14 @@
         "name": "synthetic_secrets_extension",
         "version": "1.2.3-synthetic",
         "membershipVerified": true,
-        "membershipEvidenceSha256": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
+        "membershipEvidenceSha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
       },
       "expectedTargetExtension": {
         "name": "synthetic_secrets_extension",
         "version": "1.2.3-synthetic",
         "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
         "membershipEvidenceSha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
       },
       "reasonCode": "SOURCE_MATCHED_EXTENSION_OBJECT",
@@ -116,12 +124,14 @@
         "name": "synthetic_secrets_extension",
         "version": "1.2.3-synthetic",
         "membershipVerified": true,
-        "membershipEvidenceSha256": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
+        "membershipEvidenceSha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
       },
       "expectedTargetExtension": {
         "name": "synthetic_secrets_extension",
         "version": "1.2.3-synthetic",
         "membershipVerified": true,
+        "membershipEvidenceType": "synthetic_pg_depend_snapshot",
         "membershipEvidenceSha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
       },
       "reasonCode": "SOURCE_MATCHED_EXTENSION_OBJECT",

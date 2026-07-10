@@ -10,6 +10,8 @@ The latest isolated Owner database rehearsal proved that the retained custom arc
 
 A safe retry needs a complete, version-pinned inventory and an exact archive-item policy before execution. It must never infer ownership from schema names alone and must stop on every unknown collision.
 
+The database remains **PostgreSQL**. This strategy does not replace PostgreSQL or introduce a new database mode. The collision class comes from exact PostgreSQL distribution image bootstrap objects and extension-managed objects already present on the target.
+
 ## 2. Confirmed Sanitized Evidence
 
 Only repository files and sanitized documentation were reviewed. No backup or archive was accessed.
@@ -102,20 +104,21 @@ Supabase has also announced that the default self-hosted image is moving from Po
 
 ## 8. Immutable Restore Invariants
 
-1. Source and target PostgreSQL major, exact PostgreSQL version, Supabase image tag, image digest, and bootstrap compatibility must be exact and evidenced. Floating image tags are forbidden.
+1. Source and target PostgreSQL major, exact PostgreSQL version, distribution image name, pinned image tag, image SHA-256 digest, and bootstrap compatibility must be exact and evidenced. A matching major version alone is insufficient, and floating image tags are forbidden.
 2. The target must be isolated, non-public, disposable, and empty except approved bootstrap objects.
 3. Every candidate exclusion must identify the exact archive item ID, schema, object type, and object name.
 4. Every candidate must include a stable reason code, exact archive owner, expected target owner, extension when applicable, and deterministic target fingerprint.
 5. Wildcards and schema-wide exclusions are forbidden.
 6. Repeated trial-and-error exclusions are forbidden.
 7. Any unknown duplicate, ownership ambiguity, fingerprint mismatch, missing ID, or version mismatch stops the rehearsal.
-8. Extension ownership, exact source/target extension version, and exact source/target membership evidence must be verified independently; schema location is insufficient.
+8. Extension ownership, exact source/target extension name and version, membership verification, membership evidence type, and membership evidence SHA-256 must be verified independently and match exactly; schema location and matching owners are insufficient.
 9. Application-owned objects must never be silently excluded. Unreviewed target collisions are `unknown_conflict`.
 10. Catalog, inventory, combined inputs, and proposed advisory plan must have deterministic SHA-256 values.
 11. The complete advisory plan must be human-reviewable before any use-list is produced or used.
 12. No archive entry may be silently skipped; every item receives one classification.
 13. Proposal/parity testing cannot start until the restore completes successfully.
 14. A generated analyzer report is advisory and never grants execution approval.
+15. The target inventory requires an exact evidence version and a SHA-256 equal to the canonical, stably sorted target-object inventory. A syntactically valid but stale or unrelated hash blocks the report.
 
 ## 9. Exact TOC Review Policy
 
@@ -132,6 +135,7 @@ Each reviewed candidate record must contain:
 - Expected target fingerprint.
 - Exact source and target extension identity/version when extension-managed.
 - Verified source and target extension-membership evidence SHA-256 when extension-managed.
+- Exact source and target membership evidence type when extension-managed.
 
 The target inventory must independently contain the same object identity, management class, exact owner, fingerprint, and extension evidence. A candidate with a missing catalog ID, mismatched identity, owner mismatch, multiple target matches, extension version/membership mismatch, or mismatched fingerprint is an unknown conflict. Candidate classification does not itself authorize exclusion. An execution use-list may be prepared only after separate human review and Atlas approval; this task does not generate one.
 
@@ -140,7 +144,7 @@ The target inventory must independently contain the same object identity, manage
 Before another rehearsal, the approval packet must establish for each extension-managed candidate:
 
 1. Extension name and exact version on source and target.
-2. Source and target extension membership for the exact object, each represented by a reviewed evidence SHA-256.
+2. Source and target extension membership for the exact object, each represented by `membershipVerified=true`, an exact evidence type, and a reviewed evidence SHA-256.
 3. Exact archive owner, target object owner, and expected bootstrap/extension owner.
 4. Stable object definition/fingerprint suitable for that object type.
 5. Evidence that the archive item is not application-owned and has no application data payload that would be lost.
@@ -154,16 +158,30 @@ An object located in an extension-adjacent schema is not automatically extension
 - Requires inventory `formatVersion: 2`.
 - Reads only two caller-supplied local text files: a sanitized list-format catalog and sanitized target inventory JSON.
 - Parses exact numeric item IDs and object metadata.
-- Rejects wildcard/schema-wide candidates, duplicate IDs, missing IDs, missing owner evidence, missing/unverified extension-membership evidence, malformed fingerprints, floating image tags, URLs, and credential-like input.
+- Returns a deterministic blocked advisory report with machine reason codes for all discoverable malformed evidence instead of stopping after the first validation error.
+- Rejects wildcard/schema-wide/object-type-wide candidates, duplicate IDs, missing IDs, missing owner evidence, missing/unverified extension-membership evidence, generic extension labels, malformed fingerprints, floating image tags, URLs, and credential-like input.
 - Classifies every entry as `restore`, `exact_bootstrap_duplicate_candidate`, `extension_managed_candidate`, or `unknown_conflict`.
-- Machine-checks PostgreSQL major/exact version, image tag/digest, archive/target owner, extension name/version, and membership evidence.
+- Machine-checks PostgreSQL major/exact version, distribution image name/tag/digest, canonical target inventory version/hash, archive/target owner, extension name/version, and membership evidence type/hash.
 - Marks the report `blocked` on any unknown conflict, owner mismatch, extension evidence mismatch, or source/target version/image mismatch.
-- Produces deterministic JSON and Markdown plus SHA-256 values for each input, combined inputs, and the advisory plan.
+- Produces deterministic JSON and Markdown plus SHA-256 values for canonical parsed inputs, combined inputs, and the advisory plan. JSON property order, timestamps, absolute paths, and machine metadata do not participate in valid-input hashes.
 - Emits no executable restore command or use-list.
 - Has no process execution, shell, database, HTTP, or network capability.
 - Does not change runtime application behavior.
 
 Every output is marked **NOT APPROVED FOR RESTORE EXECUTION**.
+
+### Machine-readable stop reasons
+
+Machine codes are separate from human-readable messages and participate in the proposed-plan hash. The analyzer emits deterministic codes from these families:
+
+- Catalog/input: `CATALOG_INPUT_MISSING`, `CATALOG_INPUT_NOT_SANITIZED`, `CATALOG_EMPTY`, `CATALOG_ITEM_ID_MISSING`, `CATALOG_ITEM_ID_DUPLICATE`, `CATALOG_OBJECT_TYPE_UNSUPPORTED`, `CATALOG_OBJECT_METADATA_INCOMPLETE`, `CATALOG_OBJECT_NAME_MISSING`, `CATALOG_OWNER_MISSING`, `INVENTORY_INPUT_MISSING`, `INVENTORY_INPUT_NOT_SANITIZED`, `INVENTORY_JSON_INVALID`, `INVENTORY_ROOT_INVALID`, `INVENTORY_FORMAT_UNSUPPORTED`.
+- Platform/inventory: `SOURCE_PLATFORM_EVIDENCE_MISSING`, `TARGET_PLATFORM_EVIDENCE_MISSING`, source/target `POSTGRES_MAJOR_INVALID`, `POSTGRES_VERSION_INVALID`, `POSTGRES_VERSION_MAJOR_INCONSISTENT`, `IMAGE_EVIDENCE_MISSING`, `IMAGE_REFERENCE_INVALID`, `IMAGE_TAG_FLOATING`, `IMAGE_DIGEST_INVALID`, plus `TARGET_INVENTORY_EVIDENCE_MISSING`, `TARGET_INVENTORY_VERSION_MISSING`, `TARGET_INVENTORY_HASH_INVALID`, and `TARGET_INVENTORY_HASH_MISMATCH`.
+- Exact compatibility: `SOURCE_TARGET_POSTGRES_MAJOR_MISMATCH`, `SOURCE_TARGET_POSTGRES_VERSION_MISMATCH`, `DISTRIBUTION_IMAGE_NAME_MISMATCH`, `DISTRIBUTION_IMAGE_TAG_MISMATCH`, `DISTRIBUTION_IMAGE_DIGEST_MISMATCH`, and `PLATFORM_COMPATIBILITY_BLOCKED`.
+- Owner/object/candidate: missing or invalid target/candidate identity, owner, management, fingerprint, reason, and item-ID codes; `APPLICATION_OWNED_COLLISION`, `REVIEWED_ID_NOT_PRESENT_IN_CATALOG`, `TARGET_OBJECT_NOT_EXACTLY_REVIEWED`, `TARGET_OBJECT_MATCH_COUNT_MISMATCH`, `REVIEWED_CANDIDATE_IDENTITY_MISMATCH`, `REVIEWED_CANDIDATE_MANAGEMENT_MISMATCH`, `REVIEWED_CANDIDATE_OWNER_MISMATCH`, and `TARGET_OBJECT_FINGERPRINT_MISMATCH`.
+- Extension/membership: source, expected-target, and target `EVIDENCE_MISSING`, `NAME_MISSING`, `NAME_GENERIC`, `VERSION_MISSING`, `MEMBERSHIP_UNVERIFIED`, `MEMBERSHIP_TYPE_MISSING`, `MEMBERSHIP_TYPE_GENERIC`, `MEMBERSHIP_FINGERPRINT_INVALID`, plus `REVIEWED_EXTENSION_NAME_MISMATCH`, `REVIEWED_EXTENSION_VERSION_MISMATCH`, `REVIEWED_EXTENSION_MEMBERSHIP_TYPE_MISMATCH`, and `REVIEWED_EXTENSION_MEMBERSHIP_FINGERPRINT_MISMATCH`.
+- Broad-policy rejection: `OBJECT_NAME_WILDCARD_FORBIDDEN`, `SCHEMA_WIDE_EXCLUSION_FORBIDDEN`, `OBJECT_TYPE_WIDE_EXCLUSION_FORBIDDEN`, and `INPUT_VALIDATION_BLOCKED`.
+
+The source/target prefixes above are literal parts of emitted codes. Missing evidence never degrades to a candidate classification. Candidate means only “advisory human-review candidate”; it is not an approved exclusion and cannot produce an executable plan.
 
 The committed fixtures are synthetic. Names, object IDs, object fingerprints, and versions are invented and do not reproduce archive contents, private object names, PII, credentials, or customer data.
 
@@ -244,3 +262,5 @@ No step may continue after an unknown conflict or hash mismatch.
 - Runtime Owner behavior and `owner_*` authority were not changed.
 
 Another explicit Atlas gate is required before backup access, real catalog generation, target inventory collection, exact use-list production, restore execution, or SQL application.
+
+PR #22 does not approve backup access, real archive catalog extraction, real target inventory extraction, use-list generation, restore execution, production SQL, deployment, or runtime authority cutover.

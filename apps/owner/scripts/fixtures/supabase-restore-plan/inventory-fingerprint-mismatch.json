@@ -12,6 +12,10 @@
     "supabaseImage": "supabase/postgres:15.8.1.synthetic",
     "supabaseImageDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
+  "targetInventoryEvidence": {
+    "version": "synthetic-bootstrap-inventory-v1",
+    "sha256": "sha256:8092f6e8f5669f4d8b155430bfb24cda1d1cb0f35a22584ce121dc4439922b68"
+  },
   "targetObjects": [
     {
       "schema": null,

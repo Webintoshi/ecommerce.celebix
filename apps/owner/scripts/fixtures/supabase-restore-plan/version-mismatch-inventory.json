@@ -12,6 +12,10 @@
     "supabaseImage": "supabase/postgres:16.0.0.synthetic",
     "supabaseImageDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
   },
+  "targetInventoryEvidence": {
+    "version": "synthetic-bootstrap-inventory-v1",
+    "sha256": "sha256:59ec9d500a8a1ca2a55aebbc60501f535c526b8586cfcd358115efdd55d34835"
+  },
   "targetObjects": [],
   "reviewedCandidates": []
 }
