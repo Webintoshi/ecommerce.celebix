@@ -4,7 +4,7 @@ import test from "node:test";
 import type { Pool, QueryResult } from "pg";
 
 import { PostgresSaaSDataRepository, type PostgresPoolLike } from "./repository.ts";
-import { SaaSDataPoolTimeoutError, SaaSDataTransactionStateError, SaaSDataUnknownCommitError } from "./errors.ts";
+import { SaaSDataPersistenceError, SaaSDataPoolTimeoutError, SaaSDataTransactionStateError, SaaSDataUnknownCommitError } from "./errors.ts";
 
 function proveNativePoolCompatibility(nativePgPool: Pool): PostgresPoolLike {
   return nativePgPool;
@@ -33,8 +33,9 @@ function repository(client: FakeClient, events: string[] = []) {
     pool: { connect: async () => client },
     generateId: () => `00000000-0000-4000-8000-${String(++next).padStart(12, "0")}`,
     audit: (event) => events.push(event.type),
-    timeouts: { statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
+    timeouts: { poolCheckoutMs: 100, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
     bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test",
   });
 }
 
@@ -52,20 +53,98 @@ test("beginTransaction binds one client, READ COMMITTED, local timeouts, then ex
   assert.deepEqual(client.releases, [undefined]);
 });
 
-test("pool acquisition failures are redacted and the adapter exposes no generic query method", async () => {
-  const adapter = new PostgresSaaSDataRepository({
-    pool: { connect: async () => { throw new Error("postgres://secret@production/database"); } },
+test("repository construction rejects a non-origin panel authority with a safe error", () => {
+  const client = new FakeClient();
+  assert.throws(() => new PostgresSaaSDataRepository({
+    pool: { connect: async () => client },
     generateId: () => "00000000-0000-4000-8000-000000000001",
     audit: () => undefined,
-    timeouts: { statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
+    timeouts: { poolCheckoutMs: 100, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
     bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test/path",
+  }), SaaSDataPersistenceError);
+  assert.equal(client.calls.length, 0);
+});
+
+test("generic pool acquisition failures remain persistence errors rather than adapter timeouts", async () => {
+  for (const driverError of [new Error("postgres://secret@production/database"), { code: "08006", message: "private host" }]) {
+    const adapter = new PostgresSaaSDataRepository({
+      pool: { connect: async () => { throw driverError; } },
+      generateId: () => "00000000-0000-4000-8000-000000000001",
+      audit: () => undefined,
+      timeouts: { poolCheckoutMs: 25, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
+      bootstrapRole: "celebix_saas_bootstrap",
+      panelOrigin: "https://panel.example.test",
+    });
+    await assert.rejects(adapter.beginTransaction(), (error: unknown) => {
+      assert.ok(error instanceof SaaSDataPersistenceError);
+      assert.equal(error instanceof SaaSDataPoolTimeoutError, false);
+      assert.doesNotMatch(error.message, /postgres|secret|production|database|host/i);
+      return true;
+    });
+    assert.equal("query" in adapter, false);
+  }
+});
+
+test("only the adapter-owned checkout deadline produces a pool timeout", async () => {
+  const adapter = new PostgresSaaSDataRepository({
+    pool: { connect: () => new Promise(() => undefined) },
+    generateId: () => "00000000-0000-4000-8000-000000000001",
+    audit: () => undefined,
+    timeouts: { poolCheckoutMs: 10, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
+    bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test",
   });
-  await assert.rejects(adapter.beginTransaction(), (error: unknown) => {
-    assert.ok(error instanceof SaaSDataPoolTimeoutError);
-    assert.doesNotMatch(error.message, /postgres|secret|production|database/i);
-    return true;
+  const outcome = await Promise.race([
+    adapter.beginTransaction().catch((error: unknown) => error),
+    new Promise<Error>((resolve) => setTimeout(() => resolve(new Error("external_test_deadline")), 40)),
+  ]);
+  assert.ok(outcome instanceof SaaSDataPoolTimeoutError);
+});
+
+test("a client resolving after checkout timeout is destroyed exactly once without being used", async () => {
+  let resolveClient!: (client: FakeClient) => void;
+  const lateClient = new FakeClient();
+  const adapter = new PostgresSaaSDataRepository({
+    pool: { connect: () => new Promise((resolve) => { resolveClient = resolve; }) },
+    generateId: () => "00000000-0000-4000-8000-000000000001",
+    audit: () => undefined,
+    timeouts: { poolCheckoutMs: 10, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
+    bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test",
   });
-  assert.equal("query" in adapter, false);
+
+  await assert.rejects(adapter.beginTransaction(), SaaSDataPoolTimeoutError);
+  resolveClient(lateClient);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(lateClient.releases, [true]);
+  assert.equal(lateClient.calls.length, 0);
+});
+
+test("successful and repeated checkout outcomes leave no active deadline behavior or late clients", async () => {
+  const normalClient = new FakeClient();
+  const normal = repository(normalClient);
+  const transaction = await normal.beginTransaction();
+  await transaction.rollback();
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.deepEqual(normalClient.releases, [undefined]);
+
+  const lateClients = Array.from({ length: 5 }, () => new FakeClient());
+  await Promise.all(lateClients.map(async (client) => {
+    let resolveClient!: (value: FakeClient) => void;
+    const adapter = new PostgresSaaSDataRepository({
+      pool: { connect: () => new Promise((resolve) => { resolveClient = resolve; }) },
+      generateId: () => "00000000-0000-4000-8000-000000000001",
+      audit: () => undefined,
+      timeouts: { poolCheckoutMs: 5, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
+      bootstrapRole: "celebix_saas_bootstrap",
+      panelOrigin: "https://panel.example.test",
+    });
+    await assert.rejects(adapter.beginTransaction(), SaaSDataPoolTimeoutError);
+    resolveClient(client);
+  }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(lateClients.every((client) => client.releases.length === 1 && client.releases[0] === true));
 });
 
 test("all calls after a confirmed rollback reject locally without touching the client", async () => {

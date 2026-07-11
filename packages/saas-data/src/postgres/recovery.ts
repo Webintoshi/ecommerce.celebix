@@ -1,9 +1,10 @@
 import type { CreateStarterTenantResult } from "@celebix/saas-contracts";
 
 import type { CanonicalTenantFingerprint } from "../types.ts";
+import { normalizeExactHttpsOrigin } from "../panel-origin.ts";
 import { SaaSDataCorruptionError, SaaSDataPersistenceError, mapPostgresError } from "./errors.ts";
 import { parseTenantOperationRow, postgresParserInternals as parse } from "./parsers.ts";
-import type { PostgresPoolLike, PostgresTimeoutOptions } from "./repository.ts";
+import { acquirePostgresClient, type PostgresPoolLike, type PostgresTimeoutOptions } from "./pool.ts";
 
 export type PostgresTenantOperationRecoveryResult =
   | { kind: "committed_match"; result: CreateStarterTenantResult }
@@ -17,6 +18,7 @@ export interface PostgresTenantOperationRecoveryOptions {
   pool: PostgresPoolLike;
   timeouts: PostgresTimeoutOptions;
   bootstrapRole: "celebix_saas_bootstrap";
+  panelOrigin: string;
 }
 
 function timeout(value: number): string {
@@ -26,13 +28,16 @@ function timeout(value: number): string {
 
 export class PostgresTenantOperationRecovery {
   private readonly options: PostgresTenantOperationRecoveryOptions;
+  private readonly panelOrigin: string;
   constructor(options: PostgresTenantOperationRecoveryOptions) {
     if (options.bootstrapRole !== "celebix_saas_bootstrap") throw new SaaSDataPersistenceError();
     this.options = options;
+    try { this.panelOrigin = normalizeExactHttpsOrigin(options.panelOrigin); }
+    catch { throw new SaaSDataPersistenceError(); }
   }
 
   async recover(idempotencyKey: string, fingerprint: CanonicalTenantFingerprint): Promise<PostgresTenantOperationRecoveryResult> {
-    const client = await this.options.pool.connect().catch(() => { throw new SaaSDataPersistenceError(); });
+    const client = await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs);
     let began = false;
     let commitAttempted = false;
     try {
@@ -48,7 +53,7 @@ export class PostgresTenantOperationRecovery {
       let classification: PostgresTenantOperationRecoveryResult;
       if (query.rows.length === 0) classification = { kind: "absent" };
       else if (query.rows.length !== 1) classification = { kind: "corrupt" };
-      else classification = classify(query.rows[0], idempotencyKey, fingerprint);
+      else classification = classify(query.rows[0], idempotencyKey, fingerprint, this.panelOrigin);
       commitAttempted = true;
       await client.query("COMMIT");
       client.release();
@@ -65,13 +70,13 @@ export class PostgresTenantOperationRecovery {
   }
 }
 
-function classify(rowValue: unknown, idempotencyKey: string, fingerprint: CanonicalTenantFingerprint): PostgresTenantOperationRecoveryResult {
+function classify(rowValue: unknown, idempotencyKey: string, fingerprint: CanonicalTenantFingerprint, panelOrigin: string): PostgresTenantOperationRecoveryResult {
   try {
     const raw = parse.exact(rowValue, ["id", "idempotency_key", "payload_fingerprint", "status", "result_payload", "created_at", "updated_at"]);
     const status = typeof raw.status === "string" ? raw.status : "";
     if (raw.idempotency_key !== idempotencyKey || !["processing", "failed", "committed"].includes(status)) throw new SaaSDataCorruptionError();
     if (status === "committed" && raw.payload_fingerprint !== fingerprint) return { kind: "committed_mismatch" };
-    const operation = parseTenantOperationRow(raw);
+    const operation = parseTenantOperationRow(raw, panelOrigin);
     if (operation.status === "processing") return { kind: "processing" };
     if (operation.status === "failed") return { kind: "failed" };
     if (!operation.result) return { kind: "corrupt" };

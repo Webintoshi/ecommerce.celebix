@@ -395,6 +395,33 @@ test("transaction acquisition failures map to a safe retryable error", async () 
   assert.doesNotMatch(JSON.stringify(outcome), /private adapter detail/);
 });
 
+test("service construction accepts only an exact HTTPS panel origin", () => {
+  const repository = createInMemorySaaSDataRepository();
+  for (const accepted of ["https://panel.celebix.site", "https://panel.example.test", "https://panel.example.test/"]) {
+    assert.doesNotThrow(() => createStarterTenantService({ repository, panelBaseUrl: accepted }));
+  }
+  for (const rejected of [
+    "http://panel.example.test",
+    "https://user:password@panel.example.test",
+    "https://panel.example.test?query=1",
+    "https://panel.example.test#fragment",
+    "https://panel.example.test/path",
+    "/relative",
+    "not a url",
+    "https:///empty-host",
+    "https://panel.example.test/%2Fconfused",
+    "https://panel.example.test/path/extra",
+  ]) {
+    assert.throws(() => createStarterTenantService({ repository, panelBaseUrl: rejected }), /invalid_exact_https_origin/, rejected);
+  }
+});
+
+test("one trailing slash is normalized before constructing the panel store URL", async () => {
+  const repository = createInMemorySaaSDataRepository();
+  const value = requireSuccess(await createStarterTenantService({ repository, panelBaseUrl: "https://panel.example.test/" }).execute(baseInput));
+  assert.equal(value.panelUrl, "https://panel.example.test/stores/ornek-magaza");
+});
+
 test("unknown COMMIT outcome is non-retryable and never triggers rollback", async () => {
   const backing = createInMemorySaaSDataRepository();
   let rollbackCalls = 0;

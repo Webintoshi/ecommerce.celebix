@@ -27,8 +27,9 @@ function make(client: MethodClient) {
     pool: { connect: async () => client },
     generateId: () => "90000000-0000-4000-8000-000000000001",
     audit: () => undefined,
-    timeouts: { statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
+    timeouts: { poolCheckoutMs: 100, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
     bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test",
   });
 }
 

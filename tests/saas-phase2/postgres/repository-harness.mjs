@@ -12,7 +12,10 @@ import pg from "pg";
 import {
   PostgresSaaSDataRepository,
   PostgresTenantOperationRecovery,
+  SaaSDataCorruptionError,
   SaaSDataLockTimeoutError,
+  SaaSDataPersistenceError,
+  SaaSDataPoolTimeoutError,
   SaaSDataStatementTimeoutError,
   createCanonicalTenantFingerprint,
 } from "../../../packages/saas-data/src/index.ts";
@@ -165,13 +168,14 @@ function repositoryOptions(pool, auditEvents = []) {
     pool,
     generateId: () => randomUUID(),
     audit: (event) => auditEvents.push(event.type),
-    timeouts: { statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
+    timeouts: { poolCheckoutMs: 500, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
     bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test",
   };
 }
 
-function service(repository) {
-  return createStarterTenantService({ repository, platformDomainSuffix: "example.test", panelBaseUrl: "https://panel.example.test" });
+function service(repository, panelBaseUrl = "https://panel.example.test") {
+  return createStarterTenantService({ repository, platformDomainSuffix: "example.test", panelBaseUrl });
 }
 
 async function scalar(pool, text, values = []) {
@@ -200,6 +204,14 @@ async function holdStoreLock(adminPool, action) {
     await client.query("ROLLBACK");
     client.release();
   }
+}
+
+async function waitUntil(predicate, label) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Timed out waiting for ${label}`);
 }
 
 async function run() {
@@ -232,11 +244,29 @@ async function run() {
     const firstInput = input("first");
     const first = requireSuccess(await baseService.execute(firstInput), "first creation");
     assert.equal(first.replayed, false);
-    pass("first tenant creation");
+    assert.equal(first.panelUrl, "https://panel.example.test/stores/phase-two-first");
+    pass("correct panel origin tenant creation");
+
+    const wrongPanelInput = input("wrong-panel");
+    requireError(await service(baseRepository, "https://wrong.example.test").execute(wrongPanelInput), "tenant_transaction_failed", "wrong panel host");
+    assert.deepEqual(await countGraph(adminPool, wrongPanelInput.store.slug, wrongPanelInput.idempotencyKey), { stores: 0, domains: 0, operations: 0 });
+    pass("wrong panel host pre-commit rejection and zero partial graph");
+
+    for (const suffix of ["?next=evil", "#fragment"]) {
+      const transaction = await baseRepository.beginTransaction();
+      const malicious = structuredClone(first);
+      malicious.panelUrl += suffix;
+      await assert.rejects(transaction.operations.markCommitted(first.operationId, malicious, firstInput.requestedAt), SaaSDataCorruptionError);
+      await transaction.rollback();
+    }
+    assert.throws(() => service(baseRepository, "https://panel.example.test?next=evil"), /invalid_exact_https_origin/);
+    assert.throws(() => service(baseRepository, "https://panel.example.test#fragment"), /invalid_exact_https_origin/);
+    pass("panel query and fragment rejection");
 
     const replay = requireSuccess(await baseService.execute(firstInput), "same-key replay");
     assert.equal(replay.replayed, true);
     assert.deepEqual({ ...replay, replayed: false }, first);
+    assert.equal(await scalar(adminPool, "SELECT result_payload ->> 'replayed' AS value FROM saas.tenant_operations WHERE id = $1", [first.operationId]), "false");
     pass("matching immutable replay");
 
     const mismatchInput = structuredClone(firstInput);
@@ -327,8 +357,28 @@ async function run() {
     await singlePool.end();
     pass("pool size one contention");
 
+    const failedConnectionPool = new Pool({ host: path.join(backend.temporaryDirectory, "missing-socket"), port: backend.port, user: workloadRole, database, max: 1, connectionTimeoutMillis: 100 });
+    failedConnectionPool.on("error", () => undefined);
+    const failedConnectionOptions = repositoryOptions(failedConnectionPool);
+    failedConnectionOptions.timeouts.poolCheckoutMs = 500;
+    await assert.rejects(new PostgresSaaSDataRepository(failedConnectionOptions).beginTransaction(), (error) => error instanceof SaaSDataPersistenceError && !(error instanceof SaaSDataPoolTimeoutError));
+    await failedConnectionPool.end();
+    pass("generic pg connection failure classification");
+
+    const checkoutPool = new Pool({ host: backend.host, port: backend.port, user: workloadRole, database, max: 1 });
+    checkoutPool.on("error", () => undefined);
+    const heldClient = await checkoutPool.connect();
+    const checkoutOptions = repositoryOptions(checkoutPool);
+    checkoutOptions.timeouts.poolCheckoutMs = 20;
+    await assert.rejects(new PostgresSaaSDataRepository(checkoutOptions).beginTransaction(), SaaSDataPoolTimeoutError);
+    assert.equal(checkoutPool.waitingCount, 1);
+    heldClient.release();
+    await waitUntil(() => checkoutPool.waitingCount === 0 && checkoutPool.totalCount === 0, "late checkout client destruction");
+    await checkoutPool.end();
+    pass("actual pool checkout timeout and late client destruction");
+
     const statementOptions = repositoryOptions(workloadPool);
-    statementOptions.timeouts = { statementMs: 20, lockMs: 2_000, idleTransactionMs: 3_000 };
+    statementOptions.timeouts = { poolCheckoutMs: 500, statementMs: 20, lockMs: 2_000, idleTransactionMs: 3_000 };
     const statementTransaction = await new PostgresSaaSDataRepository(statementOptions).beginTransaction();
     await holdStoreLock(adminPool, async () => {
       await assert.rejects(statementTransaction.stores.findBySlug("timeout-proof"), SaaSDataStatementTimeoutError);
@@ -336,7 +386,7 @@ async function run() {
     await statementTransaction.rollback();
 
     const lockOptions = repositoryOptions(workloadPool);
-    lockOptions.timeouts = { statementMs: 2_000, lockMs: 20, idleTransactionMs: 3_000 };
+    lockOptions.timeouts = { poolCheckoutMs: 500, statementMs: 2_000, lockMs: 20, idleTransactionMs: 3_000 };
     const lockTransaction = await new PostgresSaaSDataRepository(lockOptions).beginTransaction();
     await holdStoreLock(adminPool, async () => {
       await assert.rejects(lockTransaction.stores.findBySlug("lock-proof"), SaaSDataLockTimeoutError);
@@ -357,12 +407,17 @@ async function run() {
     const unknownA = requireError(await service(unknownARepository).execute(unknownAInput), "tenant_transaction_failed", "unknown commit A");
     assert.equal(unknownA.retryable, false);
     assert.deepEqual(auditA, ["tenant_bootstrap_commit_unknown"]);
-    const recovery = new PostgresTenantOperationRecovery({ pool: workloadPool, timeouts: { statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 }, bootstrapRole: "celebix_saas_bootstrap" });
+    const recovery = new PostgresTenantOperationRecovery({ pool: workloadPool, timeouts: { poolCheckoutMs: 500, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 }, bootstrapRole: "celebix_saas_bootstrap", panelOrigin: "https://panel.example.test" });
     const recoveredA = await recovery.recover(unknownAInput.idempotencyKey, createCanonicalTenantFingerprint(unknownAInput));
     assert.equal(recoveredA.kind, "committed_match");
     assert.equal(recoveredA.result.replayed, true);
+    assert.equal(await scalar(adminPool, "SELECT result_payload ->> 'replayed' AS value FROM saas.tenant_operations WHERE id = $1", [recoveredA.result.operationId]), "false");
     assert.equal(await scalar(adminPool, "SELECT count(*)::int AS value FROM saas.stores WHERE slug = $1", [unknownAInput.store.slug]), 1);
     pass("unknown COMMIT forwarded and durable recovery");
+
+    const wrongOriginRecovery = new PostgresTenantOperationRecovery({ pool: workloadPool, timeouts: { poolCheckoutMs: 500, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 }, bootstrapRole: "celebix_saas_bootstrap", panelOrigin: "https://wrong.example.test" });
+    assert.equal((await wrongOriginRecovery.recover(unknownAInput.idempotencyKey, createCanonicalTenantFingerprint(unknownAInput))).kind, "corrupt");
+    pass("recovery expected panel origin binding");
 
     const auditB = [];
     const unknownBInput = input("unknown-b");
@@ -382,10 +437,13 @@ async function run() {
     await adminPool.query("ALTER TABLE saas.tenant_operations DROP CONSTRAINT tenant_operations_result_payload_shape_check");
     await adminPool.query("ALTER TABLE saas.tenant_operations DISABLE TRIGGER tenant_operations_replay_immutable");
     await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{store,slug}', '\"INVALID SLUG\"'::jsonb) WHERE id = $1", [first.operationId]);
+    await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{replayed}', 'true'::jsonb) WHERE id = $1", [recoveredA.result.operationId]);
     await adminPool.query("ALTER TABLE saas.tenant_operations ENABLE TRIGGER tenant_operations_replay_immutable");
     requireError(await baseService.execute(firstInput), "tenant_transaction_failed", "malformed committed replay");
     assert.equal((await recovery.recover(firstInput.idempotencyKey, createCanonicalTenantFingerprint(firstInput))).kind, "corrupt");
     pass("malformed committed payload denial");
+    assert.equal((await recovery.recover(unknownAInput.idempotencyKey, createCanonicalTenantFingerprint(unknownAInput))).kind, "corrupt");
+    pass("persisted replayed true recovery corruption");
 
     await workloadPool.end();
     workloadPool = undefined;

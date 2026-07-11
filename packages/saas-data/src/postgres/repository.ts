@@ -6,23 +6,18 @@ import type {
   DomainRecord, MembershipRecord, PlanRecord, PrincipalRecord, SaaSGeneratedIdKind,
   StoreRecord, StoreSettingRecord, SubscriptionRecord, TenantOperationRecord,
 } from "../types.ts";
+import { normalizeExactHttpsOrigin } from "../panel-origin.ts";
 import {
   SaaSDataPersistenceError,
-  SaaSDataPoolTimeoutError,
   SaaSDataCorruptionError,
   SaaSDataTransactionStateError,
   SaaSDataUnknownCommitError,
   mapPostgresError,
 } from "./errors.ts";
-import { parseTenantOperationRow, postgresParserInternals as parse } from "./parsers.ts";
+import { parseCreateStarterTenantResult, parseTenantOperationRow, postgresParserInternals as parse } from "./parsers.ts";
+import { acquirePostgresClient, type PostgresClientLike, type PostgresPoolLike, type PostgresTimeoutOptions } from "./pool.ts";
 
-export interface PostgresClientLike {
-  query(text: string, values?: unknown[]): Promise<QueryResult<Record<string, unknown>>>;
-  release(destroy?: boolean | Error): void;
-}
-
-export interface PostgresPoolLike { connect(): Promise<PostgresClientLike>; }
-export interface PostgresTimeoutOptions { statementMs: number; lockMs: number; idleTransactionMs: number; }
+export type { PostgresClientLike, PostgresPoolLike, PostgresTimeoutOptions } from "./pool.ts";
 export interface PostgresAuditEvent { type: "tenant_bootstrap_commit_unknown"; }
 
 export interface PostgresRepositoryOptions {
@@ -31,6 +26,7 @@ export interface PostgresRepositoryOptions {
   audit(event: PostgresAuditEvent): void;
   timeouts: PostgresTimeoutOptions;
   bootstrapRole: "celebix_saas_bootstrap";
+  panelOrigin: string;
 }
 
 export type PostgresFailurePoint =
@@ -59,6 +55,7 @@ class PostgresTransaction implements SaaSDataTransaction {
   private readonly idGenerator: (kind: SaaSGeneratedIdKind) => string;
   private readonly audit: (event: PostgresAuditEvent) => void;
   private readonly failAt: PostgresFailurePoint | undefined;
+  private readonly panelOrigin: string;
 
   readonly principals;
   readonly stores;
@@ -73,11 +70,13 @@ class PostgresTransaction implements SaaSDataTransaction {
     client: PostgresClientLike,
     idGenerator: (kind: SaaSGeneratedIdKind) => string,
     audit: (event: PostgresAuditEvent) => void,
+    panelOrigin: string,
     failAt?: PostgresFailurePoint,
   ) {
     this.client = client;
     this.idGenerator = idGenerator;
     this.audit = audit;
+    this.panelOrigin = panelOrigin;
     this.failAt = failAt;
     this.principals = {
       findByIdentity: async (issuer: string, subject: string) => this.optional(
@@ -220,24 +219,25 @@ class PostgresTransaction implements SaaSDataTransaction {
       [value.id, value.idempotencyKey, value.fingerprint, value.status, value.createdAt, value.createdAt, value.updatedAt],
     );
     if (insert.rows.length === 1) {
-      const claim = { kind: "created" as const, operation: parseTenantOperationRow(insert.rows[0]) };
+      const claim = { kind: "created" as const, operation: parseTenantOperationRow(insert.rows[0], this.panelOrigin) };
       this.checkpoint("after_operation_claim");
       return claim;
     }
     if (insert.rows.length !== 0) throw new SaaSDataCorruptionError();
     const winner = await this.required(
       `SELECT id, idempotency_key, payload_fingerprint, status, result_payload, created_at, updated_at
-       FROM saas.tenant_operations WHERE idempotency_key = $1`, [value.idempotencyKey], parseTenantOperationRow,
+      FROM saas.tenant_operations WHERE idempotency_key = $1`, [value.idempotencyKey], (row) => parseTenantOperationRow(row, this.panelOrigin),
     );
     this.checkpoint("after_operation_claim");
     return { kind: "existing" as const, operation: winner };
   }
 
   private async markCommitted(operationId: string, resultPayload: NonNullable<TenantOperationRecord["result"]>, updatedAt: string) {
+    const result = parseCreateStarterTenantResult(resultPayload, this.panelOrigin);
     this.checkpoint("before_mark_committed");
     const subscription = await this.required(
       `SELECT id FROM saas.subscriptions WHERE store_id = $1 AND plan_id = $2 AND status = 'active'`,
-      [resultPayload.store.id, resultPayload.plan.planId], subscriptionIdRow,
+      [result.store.id, result.plan.planId], subscriptionIdRow,
     );
     const committed = await this.required(
       `UPDATE saas.tenant_operations
@@ -246,9 +246,9 @@ class PostgresTransaction implements SaaSDataTransaction {
            result_payload = $8::jsonb, committed_at = $9, updated_at = $9
        WHERE id = $1 AND status = 'processing'
        RETURNING id, idempotency_key, payload_fingerprint, status, result_payload, created_at, updated_at`,
-      [operationId, resultPayload.store.id, resultPayload.primaryDomain.domainId, resultPayload.membership.id,
-        resultPayload.membership.principalId, subscription, resultPayload.plan.planId, JSON.stringify(resultPayload), updatedAt],
-      parseTenantOperationRow,
+      [operationId, result.store.id, result.primaryDomain.domainId, result.membership.id,
+        result.membership.principalId, subscription, result.plan.planId, JSON.stringify(result), updatedAt],
+      (row) => parseTenantOperationRow(row, this.panelOrigin),
     );
     this.checkpoint("after_mark_committed");
     return committed;
@@ -356,15 +356,17 @@ function timeout(value: number): string {
 
 export class PostgresSaaSDataRepository implements SaaSDataRepository {
   private readonly options: PostgresRepositoryOptions;
+  private readonly panelOrigin: string;
 
   constructor(options: PostgresRepositoryOptions) {
     if (options.bootstrapRole !== "celebix_saas_bootstrap") throw new SaaSDataPersistenceError();
     this.options = options;
+    try { this.panelOrigin = normalizeExactHttpsOrigin(options.panelOrigin); }
+    catch { throw new SaaSDataPersistenceError(); }
   }
 
   async beginTransaction(): Promise<SaaSDataTransaction> {
-    let client: PostgresClientLike;
-    try { client = await this.options.pool.connect(); } catch { throw new SaaSDataPoolTimeoutError(); }
+    const client = await acquirePostgresClient(this.options.pool, this.options.timeouts.poolCheckoutMs);
     let began = false;
     try {
       await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
@@ -373,7 +375,7 @@ export class PostgresSaaSDataRepository implements SaaSDataRepository {
       await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [timeout(this.options.timeouts.lockMs)]);
       await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.options.timeouts.idleTransactionMs)]);
       await client.query("SET LOCAL ROLE celebix_saas_bootstrap");
-      return new PostgresTransaction(client, this.options.generateId, this.options.audit, TEST_FAILURES.get(this.options));
+      return new PostgresTransaction(client, this.options.generateId, this.options.audit, this.panelOrigin, TEST_FAILURES.get(this.options));
     } catch (error) {
       if (began) {
         try { await client.query("ROLLBACK"); client.release(); }

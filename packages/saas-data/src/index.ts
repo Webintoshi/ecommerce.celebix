@@ -6,6 +6,7 @@ export {
   createPrincipalIdentityKey,
 } from "./canonical.ts";
 export { SaaSDataUniqueConflict } from "./errors.ts";
+export { createPanelStoreUrl, normalizeExactHttpsOrigin } from "./panel-origin.ts";
 export {
   SaaSDataCorruptionError,
   SaaSDataLockTimeoutError,

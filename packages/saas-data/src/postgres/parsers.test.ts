@@ -11,6 +11,8 @@ import {
 import { SaaSDataUniqueConflict } from "../errors.ts";
 import { parseTenantOperationRow } from "./parsers.ts";
 
+const panelOrigin = "https://panel.example.test";
+
 const ids = {
   operation: "70000000-0000-4000-8000-000000000001",
   principal: "10000000-0000-4000-8000-000000000001",
@@ -75,22 +77,22 @@ function committedRow(overrides: Record<string, unknown> = {}) {
 }
 
 test("strict operation parser accepts a complete committed immutable snapshot", () => {
-  const parsed = parseTenantOperationRow(committedRow());
+  const parsed = parseTenantOperationRow(committedRow(), panelOrigin);
   assert.equal(parsed.status, "committed");
   assert.deepEqual(parsed.result, result);
 });
 
 test("strict operation parser rejects extra keys, malformed IDs, and inconsistent nested authority", () => {
-  assert.throws(() => parseTenantOperationRow({ ...committedRow(), extra: true }), SaaSDataCorruptionError);
-  assert.throws(() => parseTenantOperationRow(committedRow({ id: "not-a-uuid" })), SaaSDataCorruptionError);
+  assert.throws(() => parseTenantOperationRow({ ...committedRow(), extra: true }, panelOrigin), SaaSDataCorruptionError);
+  assert.throws(() => parseTenantOperationRow(committedRow({ id: "not-a-uuid" }), panelOrigin), SaaSDataCorruptionError);
   const mismatched = structuredClone(result);
   mismatched.primaryDomain.storeId = "20000000-0000-4000-8000-000000000002";
-  assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: mismatched })), SaaSDataCorruptionError);
+  assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: mismatched }), panelOrigin), SaaSDataCorruptionError);
 });
 
 test("strict operation parser rejects malformed committed snapshots and permits result-less processing rows", () => {
-  assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: null })), SaaSDataCorruptionError);
-  const processing = parseTenantOperationRow(committedRow({ status: "processing", result_payload: null }));
+  assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: null }), panelOrigin), SaaSDataCorruptionError);
+  const processing = parseTenantOperationRow(committedRow({ status: "processing", result_payload: null }), panelOrigin);
   assert.equal(processing.status, "processing");
   assert.equal(processing.result, undefined);
 });
@@ -112,7 +114,53 @@ test("strict snapshot parsing rejects invalid timestamps, URLs, features, and li
   negativeLimit.plan.limits.products = -1;
 
   for (const candidate of [invalidTimestamp, invalidUrl, unknownFeature, duplicateFeature, missingLimit, decimalLimit, negativeLimit]) {
-    assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: candidate })), SaaSDataCorruptionError);
+    assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: candidate }), panelOrigin), SaaSDataCorruptionError);
+  }
+});
+
+test("persisted committed snapshots require replayed false and preserve the source payload", () => {
+  const source = structuredClone(result);
+  const parsed = parseTenantOperationRow(committedRow({ result_payload: source }), panelOrigin);
+  assert.equal(parsed.result?.replayed, false);
+  assert.equal(source.replayed, false);
+
+  const replayed = structuredClone(result);
+  replayed.replayed = true;
+  assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: replayed }), panelOrigin), SaaSDataCorruptionError);
+  assert.equal(replayed.replayed, true);
+});
+
+test("strict snapshot parser binds panelUrl to the approved origin and exact store path", () => {
+  const maliciousPanelUrls = [
+    "https://user:password@panel.example.test/stores/tenant-a",
+    "https://panel.example.test/stores/tenant-a?next=evil",
+    "https://panel.example.test/stores/tenant-a#fragment",
+    "https://wrong.example.test/stores/tenant-a",
+    "https://panel.example.test/stores/tenant-b",
+    "https://panel.example.test/stores/tenant-a/extra",
+    "https://panel.example.test/stores%2Ftenant-a",
+    "https://panel.example.test//stores/tenant-a",
+    "http://panel.example.test/stores/tenant-a",
+  ];
+  for (const panelUrl of maliciousPanelUrls) {
+    const candidate = structuredClone(result);
+    candidate.panelUrl = panelUrl;
+    assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: candidate }), panelOrigin), SaaSDataCorruptionError, panelUrl);
+  }
+});
+
+test("strict rows reject feature-order, validity-range, and idempotency-key corruption", () => {
+  const outOfOrder = structuredClone(result);
+  outOfOrder.plan.features = ["orders", "catalog"];
+  assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: outOfOrder }), panelOrigin), SaaSDataCorruptionError);
+
+  const invalidValidity = structuredClone(result);
+  invalidValidity.plan.validFrom = "2026-07-11T01:00:00.000Z";
+  Object.assign(invalidValidity.plan, { validUntil: "2026-07-10T01:00:00.000Z" });
+  assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: invalidValidity }), panelOrigin), SaaSDataCorruptionError);
+
+  for (const idempotencyKey of [" leading", "trailing ", "", "a".repeat(129)]) {
+    assert.throws(() => parseTenantOperationRow(committedRow({ idempotency_key: idempotencyKey }), panelOrigin), SaaSDataCorruptionError);
   }
 });
 

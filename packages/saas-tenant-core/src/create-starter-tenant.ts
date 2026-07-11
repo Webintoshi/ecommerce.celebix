@@ -12,6 +12,8 @@ import {
   assertNormalizedExactHostname,
   assertNormalizedSlug,
   createCanonicalTenantFingerprint,
+  createPanelStoreUrl,
+  normalizeExactHttpsOrigin,
   type SaaSDataRepository,
   type SaaSDataTransaction,
   type UniqueConflictKind,
@@ -181,7 +183,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
   constructor(options: CreateStarterTenantServiceOptions) {
     this.repository = options.repository;
     this.platformDomainSuffix = options.platformDomainSuffix ?? "celebix.site";
-    this.panelBaseUrl = (options.panelBaseUrl ?? "https://panel.celebix.site").replace(/\/$/, "");
+    this.panelBaseUrl = normalizeExactHttpsOrigin(options.panelBaseUrl ?? "https://panel.celebix.site");
   }
 
   async execute(rawInput: unknown): Promise<CreateStarterTenantOutcome> {
@@ -357,7 +359,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         membership,
         plan: planEntitlements,
         provisioningStatus: "ready",
-        panelUrl: `${this.panelBaseUrl}/stores/${store.slug}`,
+        panelUrl: createPanelStoreUrl(this.panelBaseUrl, store.slug),
         storefrontUrl: `https://${domain.hostname}`,
       };
 

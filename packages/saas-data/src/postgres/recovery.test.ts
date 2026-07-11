@@ -3,6 +3,7 @@ import test from "node:test";
 import type { QueryResult } from "pg";
 
 import type { CanonicalTenantFingerprint } from "../types.ts";
+import { SaaSDataPersistenceError, SaaSDataPoolTimeoutError } from "./errors.ts";
 import { PostgresTenantOperationRecovery } from "./recovery.ts";
 import type { PostgresClientLike } from "./repository.ts";
 
@@ -31,8 +32,9 @@ function operation(status: "processing" | "failed" | "committed", fingerprint = 
 function recovery(client: RecoveryClient) {
   return new PostgresTenantOperationRecovery({
     pool: { connect: async () => client },
-    timeouts: { statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
+    timeouts: { poolCheckoutMs: 100, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
     bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test",
   });
 }
 
@@ -45,6 +47,17 @@ test("recovery uses a fresh read-only transaction and classifies absent, process
     assert.equal(client.calls.at(-1), "COMMIT");
     assert.deepEqual(client.released, [undefined]);
   }
+});
+
+test("recovery construction rejects a non-origin panel authority before pool access", () => {
+  let connects = 0;
+  assert.throws(() => new PostgresTenantOperationRecovery({
+    pool: { connect: async () => { connects += 1; return new RecoveryClient(); } },
+    timeouts: { poolCheckoutMs: 100, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
+    bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "http://panel.example.test",
+  }), SaaSDataPersistenceError);
+  assert.equal(connects, 0);
 });
 
 test("recovery classifies malformed and fingerprint-mismatched durable rows without mutation", async () => {
@@ -61,4 +74,26 @@ test("recovery destroys a client after a COMMIT response error and never sends r
   await assert.rejects(recovery(client).recover("opaque-key", "a".repeat(64) as CanonicalTenantFingerprint), /saas_data_persistence_failed/);
   assert.equal(client.calls.filter((text) => text === "ROLLBACK").length, 0);
   assert.deepEqual(client.released, [true]);
+});
+
+test("recovery shares generic rejection and adapter-owned checkout-timeout classification", async () => {
+  const generic = new PostgresTenantOperationRecovery({
+    pool: { connect: async () => { throw Object.assign(new Error("private DNS detail"), { code: "08006" }); } },
+    timeouts: { poolCheckoutMs: 20, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
+    bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test",
+  });
+  await assert.rejects(generic.recover("opaque-key", "a".repeat(64) as CanonicalTenantFingerprint), (error: unknown) => {
+    assert.ok(error instanceof SaaSDataPersistenceError);
+    assert.equal(error instanceof SaaSDataPoolTimeoutError, false);
+    return true;
+  });
+
+  const timedOut = new PostgresTenantOperationRecovery({
+    pool: { connect: () => new Promise(() => undefined) },
+    timeouts: { poolCheckoutMs: 5, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
+    bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.example.test",
+  });
+  await assert.rejects(timedOut.recover("opaque-key", "a".repeat(64) as CanonicalTenantFingerprint), SaaSDataPoolTimeoutError);
 });

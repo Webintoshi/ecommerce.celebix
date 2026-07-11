@@ -13,7 +13,7 @@ class Client implements PostgresClientLike {
   release(value?: boolean | Error) { this.releases.push(value); }
 }
 function options(client: Client) {
-  return { pool: { connect: async () => client }, generateId: () => "90000000-0000-4000-8000-000000000001", audit: () => undefined, timeouts: { statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 }, bootstrapRole: "celebix_saas_bootstrap" as const };
+  return { pool: { connect: async () => client }, generateId: () => "90000000-0000-4000-8000-000000000001", audit: () => undefined, timeouts: { poolCheckoutMs: 100, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 }, bootstrapRole: "celebix_saas_bootstrap" as const, panelOrigin: "https://panel.example.test" };
 }
 
 test("before_commit fault remains rollback-safe and does not forward COMMIT", async () => {
