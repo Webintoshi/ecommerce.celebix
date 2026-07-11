@@ -95,8 +95,6 @@ GRANT UPDATE (
 
 GRANT SELECT (id, issuer, subject, email, email_verified, created_at, updated_at)
   ON saas.principals TO celebix_saas_app;
-GRANT UPDATE (email, email_verified, updated_at)
-  ON saas.principals TO celebix_saas_app;
 GRANT SELECT (id, name, slug, status, locale, currency, theme_key, created_at, updated_at)
   ON saas.stores TO celebix_saas_app;
 GRANT UPDATE (name, locale, currency, theme_key, updated_at)

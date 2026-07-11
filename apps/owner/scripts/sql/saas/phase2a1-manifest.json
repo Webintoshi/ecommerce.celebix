@@ -14,8 +14,8 @@
       "id": "202607110002_foundation_up",
       "direction": "up",
       "file": "202607110002_foundation.up.sql",
-      "sha256": "42e758f3db6becc527f76a7e61173a1b2a303336004c113c7b2c7d9ec8584cad",
-      "purpose": "Create the approved tenant authority schema, constraints, RLS, and exact-host function."
+      "sha256": "e74044b59e3425dc4e53de6aaf747e31194399e9c3938ca8aa08fc62e2acb02b",
+      "purpose": "Create the tenant authority schema, RLS, exact-host resolver, and persisted-graph snapshot validation."
     },
     {
       "id": "202607110002_foundation_down",
@@ -49,15 +49,15 @@
       "id": "202607110004_grants",
       "direction": "up",
       "file": "202607110004_grants.sql",
-      "sha256": "6d5625ec13f4349f14ac3f44150f7c2b6dd00c4b7ae0f741ccea1daed4e7ba59",
-      "purpose": "Apply exact bootstrap columns, RLS application rights, and resolver execution grants."
+      "sha256": "89c27a2c46f14f9687647383eace6a272d7ef070c1a3ea4d2ed799068c33cd12",
+      "purpose": "Apply exact bootstrap rights, read-only application principal access, RLS rights, and resolver execution grants."
     },
     {
       "id": "202607110005_catalog_assertions",
       "direction": "verify",
       "file": "202607110005_catalog_assertions.sql",
-      "sha256": "14f3ddcde712f891e4dcffdd4bace8e6ae2b1d3500f6a45535d3a5807ae83054",
-      "purpose": "Fail on ownership, role, RLS, PUBLIC, function, or column-grant drift."
+      "sha256": "d991d3106153a9569857e08518fda49cb0e5a8adbc970fab3f331ee8968ed694",
+      "purpose": "Fail on ownership, role, RLS, PUBLIC, function, or exact read-only application ACL drift."
     },
     {
       "id": "202607110006_roles_down",

@@ -226,7 +226,6 @@ BEGIN
         ('celebix_saas_bootstrap', 'tenant_operations', 'INSERT', ARRAY['id','idempotency_key','payload_fingerprint','status','requested_at','created_at','updated_at']),
         ('celebix_saas_bootstrap', 'tenant_operations', 'UPDATE', ARRAY['status','result_store_id','result_domain_id','result_membership_id','result_principal_id','result_subscription_id','result_plan_id','result_payload','committed_at','updated_at']),
         ('celebix_saas_app', 'principals', 'SELECT', ARRAY['id','issuer','subject','email','email_verified','created_at','updated_at']),
-        ('celebix_saas_app', 'principals', 'UPDATE', ARRAY['email','email_verified','updated_at']),
         ('celebix_saas_app', 'stores', 'SELECT', ARRAY['id','name','slug','status','locale','currency','theme_key','created_at','updated_at']),
         ('celebix_saas_app', 'stores', 'UPDATE', ARRAY['name','locale','currency','theme_key','updated_at']),
         ('celebix_saas_app', 'domains', 'SELECT', ARRAY['id','store_id','normalized_hostname','domain_type','status','canonical','cache_version','created_at','updated_at']),

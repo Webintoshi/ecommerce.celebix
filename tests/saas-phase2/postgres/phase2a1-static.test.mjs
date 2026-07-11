@@ -165,6 +165,18 @@ test("bootstrap and runtime grants remain least privilege", () => {
   assert.doesNotMatch(grants, /grant\s+all\b/i);
   assert.doesNotMatch(grants, /grant\s+select\b[^;]+to celebix_saas_host_resolver/i);
   assert.match(grants, /grant execute on function saas\.resolve_store_host\(text\)\s+to celebix_saas_host_resolver/i);
+  assert.doesNotMatch(
+    grants,
+    /grant\s+update\s*\([^;]*\)\s+on\s+saas\.principals\s+to\s+celebix_saas_app/i,
+    "the application role must not mutate verified identity metadata",
+  );
+
+  const assertions = readArtifact("202607110005_catalog_assertions.sql");
+  assert.doesNotMatch(
+    assertions,
+    /celebix_saas_app',\s*'principals',\s*'UPDATE'/i,
+    "the exact ACL matrix must deny every application principal UPDATE column",
+  );
 });
 
 test("every tenant table forces RLS and store access requires principal membership", () => {
@@ -321,4 +333,19 @@ test("committed result snapshots validate the complete frozen result shape", () 
   assert.doesNotMatch(forward, /jsonb_object_length/i);
   assert.match(forward, /result_payload\s*-\s*array\[[\s\S]+?storefrontUrl[\s\S]+?=\s*'\{\}'::jsonb/i);
   assert.match(forward, /\(result_payload\s*->\s*'plan'\)\s*-\s*array\[[\s\S]+?validUntil[\s\S]+?=\s*'\{\}'::jsonb/i);
+  for (const requiredBinding of [
+    /store\.slug\s*=\s*new\.result_payload\s*#>>\s*'\{store,slug\}'/i,
+    /domain\.canonical/i,
+    /domain\.normalized_hostname\s*=\s*new\.result_payload\s*#>>\s*'\{primaryDomain,hostname\}'/i,
+    /membership\.created_at\s*=\s*\(new\.result_payload\s*#>>\s*'\{membership,createdAt\}'\)::timestamptz/i,
+    /subscription\.status\s*=\s*'active'/i,
+    /subscription\.valid_from\s*<=\s*new\.committed_at/i,
+    /plan\.plan_code\s*=\s*new\.result_payload\s*#>>\s*'\{plan,planCode\}'/i,
+    /jsonb_agg\(feature\.feature_key\s+order by feature\.feature_ordinal\)/i,
+    /jsonb_object_agg\(\s*limit_row\.limit_key,\s*limit_row\.effective_limit\s+order by limit_row\.limit_ordinal\s*\)/i,
+    /new\.result_payload\s*->>\s*'storefrontUrl'\s*=\s*'https:\/\/'\s*\|\|\s*domain\.normalized_hostname/i,
+  ]) {
+    assert.match(forward, requiredBinding);
+  }
+  assert.match(forward, /TENANT_OPERATION_RESULT_GRAPH_MISMATCH/i);
 });

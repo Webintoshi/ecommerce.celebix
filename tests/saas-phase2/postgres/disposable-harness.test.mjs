@@ -3,16 +3,19 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
+import * as harness from "./disposable-harness.mjs";
+
+const {
   DISPOSABLE_IMAGE,
+  REQUIRED_NATIVE_TOOLS,
   REQUIRED_APPLY_ORDER,
   assertLocalEngineEndpoint,
   assertSafeEnvironment,
   createRunNames,
   normalizeSchemaDump,
-  selectContainerEngine,
+  selectExecutionBackend,
   validatePinnedImage,
-} from "./disposable-harness.mjs";
+} = harness;
 
 test("pins a PostgreSQL major while leaving production distribution open", () => {
   assert.equal(DISPOSABLE_IMAGE, "postgres:16-alpine");
@@ -22,10 +25,26 @@ test("pins a PostgreSQL major while leaving production distribution open", () =>
   }
 });
 
-test("selects only Docker or Podman and reports unavailable tooling", () => {
-  assert.equal(selectContainerEngine((name) => (name === "docker" ? "/bin/docker" : null)), "docker");
-  assert.equal(selectContainerEngine((name) => (name === "podman" ? "/bin/podman" : null)), "podman");
-  assert.equal(selectContainerEngine(() => null), null);
+test("selects Docker, Podman, or a complete isolated native PostgreSQL toolchain", () => {
+  assert.equal(typeof selectExecutionBackend, "function");
+  assert.ok(Array.isArray(REQUIRED_NATIVE_TOOLS));
+  assert.deepEqual(
+    selectExecutionBackend((name) => (name === "docker" ? "/bin/docker" : null)),
+    { kind: "container", engine: "docker", executable: "/bin/docker" },
+  );
+  assert.deepEqual(
+    selectExecutionBackend((name) => (name === "podman" ? "/bin/podman" : null)),
+    { kind: "container", engine: "podman", executable: "/bin/podman" },
+  );
+  assert.deepEqual(
+    selectExecutionBackend((name) => (REQUIRED_NATIVE_TOOLS.includes(name) ? `/native/bin/${name}` : null)),
+    {
+      kind: "native",
+      executables: Object.fromEntries(REQUIRED_NATIVE_TOOLS.map((name) => [name, `/native/bin/${name}`])),
+    },
+  );
+  assert.equal(selectExecutionBackend((name) => (name === "psql" ? "/bin/psql" : null)), null);
+  assert.equal(selectExecutionBackend(() => null), null);
 });
 
 test("refuses every ambient database or infrastructure credential", () => {
@@ -109,6 +128,17 @@ test("harness covers the complete disposable evidence lifecycle", () => {
     "manifest checksums",
     "forward migration",
     "constraint tests",
+    "application principal mutation denial",
+    "snapshot store drift",
+    "snapshot canonical domain drift",
+    "snapshot membership authority drift",
+    "snapshot membership timestamp drift",
+    "snapshot subscription status drift",
+    "snapshot subscription validity drift",
+    "snapshot plan identity drift",
+    "snapshot feature order drift",
+    "snapshot effective limits drift",
+    "snapshot storefront hostname drift",
     "role privilege tests",
     "RLS isolation tests",
     "exact-host resolver tests",
@@ -138,6 +168,9 @@ test("harness covers the complete disposable evidence lifecycle", () => {
   assert.doesNotMatch(source, /(?:-p|--publish)\s+\d/i);
   assert.match(source, /pg_isready/i);
   assert.match(source, /DISPOSABLE_DB_EXECUTION_BLOCKED/);
+  assert.match(source, /initdb/i);
+  assert.match(source, /pg_ctl/i);
+  assert.match(source, /native PostgreSQL/i);
   assert.match(source, /SET SESSION AUTHORIZATION celebix_saas_migrator/);
   assert.doesNotMatch(source, /SET ROLE celebix_saas_migrator/);
   assert.match(source, /process\.once\("SIGINT"/);

@@ -470,14 +470,76 @@ BEGIN
      AND NEW.status = 'committed'
      AND NOT EXISTS (
        SELECT 1
-       FROM saas.memberships AS membership
-       WHERE membership.id = NEW.result_membership_id
+       FROM saas.stores AS store
+       JOIN saas.domains AS domain
+         ON domain.id = NEW.result_domain_id
+        AND domain.store_id = store.id
+       JOIN saas.memberships AS membership
+         ON membership.id = NEW.result_membership_id
+        AND membership.store_id = store.id
+       JOIN saas.subscriptions AS subscription
+         ON subscription.id = NEW.result_subscription_id
+        AND subscription.store_id = store.id
+       JOIN saas.plans AS plan
+         ON plan.id = NEW.result_plan_id
+        AND plan.id = subscription.plan_id
+        AND plan.plan_code = subscription.plan_code
+        AND plan.version = subscription.plan_version
+       WHERE store.id = NEW.result_store_id
+         AND store.status = 'active'
+         AND store.slug = NEW.result_payload #>> '{store,slug}'
+         AND NEW.result_payload #>> '{store,status}' = store.status
+         AND domain.canonical
+         AND domain.status = 'active'
+         AND domain.normalized_hostname = NEW.result_payload #>> '{primaryDomain,hostname}'
+         AND domain.normalized_hostname = NEW.result_payload #>> '{primaryDomain,canonicalHostname}'
+         AND domain.domain_type = NEW.result_payload #>> '{primaryDomain,domainType}'
+         AND domain.status = NEW.result_payload #>> '{primaryDomain,status}'
+         AND domain.cache_version = (NEW.result_payload #>> '{primaryDomain,cacheVersion}')::bigint
+         AND store.id = (NEW.result_payload #>> '{primaryDomain,storeId}')::uuid
+         AND store.slug = NEW.result_payload #>> '{primaryDomain,storeSlug}'
+         AND NEW.result_payload ->> 'storefrontUrl' = 'https://' || domain.normalized_hostname
          AND membership.principal_id = NEW.result_principal_id
-         AND membership.store_id = NEW.result_store_id
          AND membership.role = 'store_owner'
          AND membership.status = 'active'
+         AND membership.role = NEW.result_payload #>> '{membership,role}'
+         AND membership.status = NEW.result_payload #>> '{membership,status}'
+         AND membership.created_at = (NEW.result_payload #>> '{membership,createdAt}')::timestamptz
+         AND membership.updated_at = (NEW.result_payload #>> '{membership,updatedAt}')::timestamptz
+         AND subscription.status = 'active'
+         AND subscription.valid_from <= NEW.committed_at
+         AND (subscription.valid_until IS NULL OR NEW.committed_at < subscription.valid_until)
+         AND subscription.valid_from = (NEW.result_payload #>> '{plan,validFrom}')::timestamptz
+         AND (
+           (
+             subscription.valid_until IS NULL
+             AND NOT (NEW.result_payload -> 'plan' ? 'validUntil')
+           )
+           OR (
+             subscription.valid_until IS NOT NULL
+             AND subscription.valid_until = (NEW.result_payload #>> '{plan,validUntil}')::timestamptz
+           )
+         )
+         AND plan.status = 'active'
+         AND plan.plan_code = NEW.result_payload #>> '{plan,planCode}'
+         AND plan.version = (NEW.result_payload #>> '{plan,version}')::integer
+         AND NEW.result_payload #>> '{plan,status}' = subscription.status
+         AND NEW.result_payload #> '{plan,features}' = (
+           SELECT pg_catalog.jsonb_agg(feature.feature_key ORDER BY feature.feature_ordinal)
+           FROM saas.plan_features AS feature
+           WHERE feature.plan_id = plan.id AND feature.enabled
+         )
+         AND NEW.result_payload #> '{plan,limits}' = (
+           SELECT pg_catalog.jsonb_object_agg(
+             limit_row.limit_key,
+             limit_row.effective_limit
+             ORDER BY limit_row.limit_ordinal
+           )
+           FROM saas.plan_limits AS limit_row
+           WHERE limit_row.plan_id = plan.id
+         )
      ) THEN
-    RAISE EXCEPTION 'TENANT_OPERATION_ACTIVE_OWNER_REQUIRED';
+    RAISE EXCEPTION 'TENANT_OPERATION_RESULT_GRAPH_MISMATCH';
   END IF;
 
   RETURN NEW;

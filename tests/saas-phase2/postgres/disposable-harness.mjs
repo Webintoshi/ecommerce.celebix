@@ -2,9 +2,11 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import {
   accessSync,
+  appendFileSync,
   constants as fsConstants,
   existsSync,
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -15,6 +17,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 export const DISPOSABLE_IMAGE = "postgres:16-alpine";
+export const REQUIRED_NATIVE_TOOLS = ["initdb", "pg_ctl", "psql", "pg_dump", "pg_restore", "pg_isready"];
 
 export const REQUIRED_APPLY_ORDER = [
   "202607110001_roles.up.sql",
@@ -76,6 +79,17 @@ export function selectContainerEngine(findExecutable = (name) => findExecutableO
   return null;
 }
 
+export function selectExecutionBackend(findExecutable = (name) => findExecutableOnPath(name)) {
+  const docker = findExecutable("docker");
+  if (docker) return { kind: "container", engine: "docker", executable: docker };
+  const podman = findExecutable("podman");
+  if (podman) return { kind: "container", engine: "podman", executable: podman };
+
+  const executables = Object.fromEntries(REQUIRED_NATIVE_TOOLS.map((name) => [name, findExecutable(name)]));
+  if (Object.values(executables).every(Boolean)) return { kind: "native", executables };
+  return null;
+}
+
 export function assertLocalEngineEndpoint(endpoint) {
   const value = String(endpoint ?? "").trim();
   if (/^(?:unix|npipe):\/\//i.test(value)) return value;
@@ -130,7 +144,7 @@ function runEngine(engine, args, options = {}) {
     cwd: repoRoot,
     encoding: options.encoding ?? "utf8",
     input: options.input,
-    env: { PATH: process.env.PATH },
+    env: { PATH: process.env.PATH, LC_ALL: "C", LANG: "C" },
     maxBuffer: 64 * 1024 * 1024,
   });
   if (result.error) throw result.error;
@@ -156,25 +170,20 @@ function resolveContainerEngineEndpoint(engine) {
   return selected.URI;
 }
 
-function psqlArgs(container, database) {
-  return [
-    "exec",
-    "-i",
-    container,
-    "psql",
-    "-X",
-    "-qAt",
-    "-v",
-    "ON_ERROR_STOP=1",
-    "-U",
-    "postgres",
-    "-d",
-    database,
-  ];
+function commandForPsql(backend, names, database) {
+  const common = ["-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database];
+  if (backend.kind === "container") {
+    return { executable: backend.executable, args: ["exec", "-i", names.container, "psql", ...common] };
+  }
+  return {
+    executable: backend.executables.psql,
+    args: ["-h", backend.socketDirectory, "-p", String(backend.port), ...common],
+  };
 }
 
-function runSql(engine, names, database, sql) {
-  return runEngine(engine, psqlArgs(names.container, database), { input: sql }).stdout.trim();
+function runSql(backend, names, database, sql) {
+  const command = commandForPsql(backend, names, database);
+  return runEngine(command.executable, command.args, { input: sql }).stdout.trim();
 }
 
 function runSqlFile(engine, names, database, file) {
@@ -193,7 +202,8 @@ function runSqlFileAsMigrator(engine, names, database, file) {
 }
 
 function expectSqlFailure(engine, names, database, sql, label) {
-  const result = runEngine(engine, psqlArgs(names.container, database), {
+  const command = commandForPsql(engine, names, database);
+  const result = runEngine(command.executable, command.args, {
     input: sql,
     allowFailure: true,
   });
@@ -203,9 +213,10 @@ function expectSqlFailure(engine, names, database, sql, label) {
 
 function runSqlAsync(engine, names, database, sql) {
   return new Promise((resolve) => {
-    const child = spawn(engine, psqlArgs(names.container, database), {
+    const command = commandForPsql(engine, names, database);
+    const child = spawn(command.executable, command.args, {
       cwd: repoRoot,
-      env: { PATH: process.env.PATH },
+      env: { PATH: process.env.PATH, LC_ALL: "C", LANG: "C" },
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";
@@ -459,6 +470,55 @@ function runConstraintTests(engine, names, database) {
   `);
 }
 
+function runSnapshotIntegrityTests(engine, names, database) {
+  const sourceId = tenantIds("1").operation;
+  const cases = [
+    ["01", "snapshot store drift", "", "pg_catalog.jsonb_set(payload, '{store,slug}', '\"drifted-store\"'::jsonb, false)"],
+    ["02", "snapshot canonical domain drift", `UPDATE saas.domains SET canonical = false WHERE id = '${tenantIds("1").domain}';`, "payload"],
+    ["03", "snapshot membership authority drift", `UPDATE saas.memberships SET role = 'admin' WHERE id = '${tenantIds("1").membership}';`, "payload"],
+    ["04", "snapshot membership timestamp drift", "", "pg_catalog.jsonb_set(payload, '{membership,updatedAt}', '\"2026-07-11T01:00:01.000Z\"'::jsonb, false)"],
+    ["05", "snapshot subscription status drift", `UPDATE saas.subscriptions SET status = 'inactive' WHERE id = '${tenantIds("1").subscription}';`, "payload"],
+    ["06", "snapshot subscription validity drift", `UPDATE saas.subscriptions SET valid_until = '2026-07-11T01:30:00.000Z' WHERE id = '${tenantIds("1").subscription}';`, "payload"],
+    ["07", "snapshot plan identity drift", "", "pg_catalog.jsonb_set(payload, '{plan,version}', '2'::jsonb, false)"],
+    ["08", "snapshot feature order drift", "", "pg_catalog.jsonb_set(payload, '{plan,features}', '[\"orders\",\"catalog\",\"customers\",\"content\",\"media\",\"analytics\",\"checkout\"]'::jsonb, false)"],
+    ["09", "snapshot effective limits drift", "", "pg_catalog.jsonb_set(payload, '{plan,limits,products}', '99'::jsonb, false)"],
+    ["10", "snapshot storefront hostname drift", "", "pg_catalog.jsonb_set(payload, '{storefrontUrl}', '\"https://other.example.test\"'::jsonb, false)"],
+  ];
+
+  for (const [suffix, label, persistedMutation, payloadExpression] of cases) {
+    const operationId = `88000000-0000-4000-8000-0000000000${suffix}`;
+    const fingerprint = suffix.padStart(2, "0").repeat(32);
+    expectSqlFailure(engine, names, database, `
+      BEGIN;
+      SET LOCAL ROLE celebix_saas_owner;
+      ${persistedMutation}
+      INSERT INTO saas.tenant_operations (
+        id, idempotency_key, payload_fingerprint, status, requested_at, created_at, updated_at
+      ) VALUES (
+        '${operationId}', 'snapshot-negative-${suffix}', '${fingerprint}', 'processing',
+        '2026-07-11T02:00:00.000Z', '2026-07-11T02:00:00.000Z', '2026-07-11T02:00:00.000Z'
+      );
+      UPDATE saas.tenant_operations AS target
+      SET status = 'committed',
+          result_store_id = source.result_store_id,
+          result_domain_id = source.result_domain_id,
+          result_membership_id = source.result_membership_id,
+          result_principal_id = source.result_principal_id,
+          result_subscription_id = source.result_subscription_id,
+          result_plan_id = source.result_plan_id,
+          result_payload = transformed.result_payload,
+          committed_at = '2026-07-11T02:00:00.000Z',
+          updated_at = '2026-07-11T02:00:00.000Z'
+      FROM saas.tenant_operations AS source
+      CROSS JOIN LATERAL (
+        SELECT ${payloadExpression.replaceAll("payload", `pg_catalog.jsonb_set(source.result_payload, '{operationId}', pg_catalog.to_jsonb('${operationId}'::text), false)`)} AS result_payload
+      ) AS transformed
+      WHERE target.id = '${operationId}' AND source.id = '${sourceId}';
+      COMMIT;
+    `, label);
+  }
+}
+
 function runRolePrivilegeTests(engine, names, database) {
   // role privilege tests
   assertQuery(
@@ -479,6 +539,19 @@ function runRolePrivilegeTests(engine, names, database) {
     UPDATE saas.principals SET issuer = 'https://attacker.example.test' WHERE id = '${tenantIds("1").principal}';
     COMMIT;
   `, "bootstrap authority-column denial");
+  for (const [column, value] of [
+    ["email", "'mutated@example.test'"],
+    ["email_verified", "false"],
+    ["updated_at", "updated_at + interval '1 second'"],
+  ]) {
+    expectSqlFailure(engine, names, database, `
+      BEGIN; SET LOCAL ROLE celebix_saas_app;
+      SELECT pg_catalog.set_config('app.principal_id', '${tenantIds("1").principal}', true);
+      SELECT pg_catalog.set_config('app.store_id', '${tenantIds("1").store}', true);
+      UPDATE saas.principals SET ${column} = ${value} WHERE id = '${tenantIds("1").principal}';
+      COMMIT;
+    `, `application principal mutation denial: ${column}`);
+  }
   expectSqlFailure(engine, names, database, `
     BEGIN; SET LOCAL ROLE celebix_saas_app;
     ALTER TABLE saas.stores DISABLE ROW LEVEL SECURITY;
@@ -537,7 +610,7 @@ function runRlsIsolationTests(engine, names, database) {
 
   runSql(engine, names, database, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.memberships SET status = 'revoked', updated_at = now() WHERE id = '${a.membership}'; COMMIT;`);
   assertQuery(engine, names, database, roleQuery(allRoles, "SELECT count(*) FROM saas.stores;", { principal: a.principal, store: a.store }), "0", "revoked membership denial");
-  runSql(engine, names, database, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.memberships SET status = 'active', updated_at = now() WHERE id = '${a.membership}'; COMMIT;`);
+  runSql(engine, names, database, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.memberships SET status = 'active', updated_at = '2026-07-11T01:00:00.000Z' WHERE id = '${a.membership}'; COMMIT;`);
 
   const resetOutput = runSql(engine, names, database, `
     BEGIN;
@@ -759,15 +832,11 @@ async function runConcurrencyTests(engine, names, database) {
 
 async function waitForPostgres(engine, names) {
   for (let attempt = 0; attempt < 90; attempt += 1) {
-    const result = runEngine(engine, [
-      "exec",
-      names.container,
-      "pg_isready",
-      "-U",
-      "postgres",
-      "-d",
-      names.primaryDatabase,
-    ], { allowFailure: true });
+    const executable = engine.kind === "container" ? engine.executable : engine.executables.pg_isready;
+    const args = engine.kind === "container"
+      ? ["exec", names.container, "pg_isready", "-U", "postgres", "-d", names.primaryDatabase]
+      : ["-h", engine.socketDirectory, "-p", String(engine.port), "-U", "postgres", "-d", "postgres"];
+    const result = runEngine(executable, args, { allowFailure: true });
     if (result.status === 0) return;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
@@ -775,16 +844,11 @@ async function waitForPostgres(engine, names) {
 }
 
 function schemaDump(engine, names, database) {
-  return runEngine(engine, [
-    "exec",
-    names.container,
-    "pg_dump",
-    "-U",
-    "postgres",
-    "-d",
-    database,
-    "--schema-only",
-  ]).stdout;
+  const executable = engine.kind === "container" ? engine.executable : engine.executables.pg_dump;
+  const args = engine.kind === "container"
+    ? ["exec", names.container, "pg_dump", "-U", "postgres", "-d", database, "--schema-only"]
+    : ["-h", engine.socketDirectory, "-p", String(engine.port), "-U", "postgres", "-d", database, "--schema-only"];
+  return runEngine(executable, args).stdout;
 }
 
 function runBackupRestore(engine, names, evidence) {
@@ -792,45 +856,36 @@ function runBackupRestore(engine, names, evidence) {
   evidence.schemaDumpBefore = sha256(normalizeSchemaDump(schemaDump(engine, names, names.primaryDatabase)));
 
   // backup
-  const backupPath = `/tmp/phase2a1-${names.container.slice(-16)}.dump`;
-  runEngine(engine, [
-    "exec",
-    names.container,
-    "pg_dump",
-    "-U",
-    "postgres",
-    "-d",
-    names.primaryDatabase,
-    "-Fc",
-    "-f",
-    backupPath,
-  ]);
-  evidence.backupSha256 = runEngine(engine, ["exec", names.container, "sha256sum", backupPath]).stdout.trim().split(/\s+/)[0];
+  const backupPath = engine.kind === "container"
+    ? `/tmp/phase2a1-${names.container.slice(-16)}.dump`
+    : path.join(engine.temporaryDirectory, "phase2a1.dump");
+  const dumpExecutable = engine.kind === "container" ? engine.executable : engine.executables.pg_dump;
+  const dumpArgs = engine.kind === "container"
+    ? ["exec", names.container, "pg_dump", "-U", "postgres", "-d", names.primaryDatabase, "-Fc", "-f", backupPath]
+    : ["-h", engine.socketDirectory, "-p", String(engine.port), "-U", "postgres", "-d", names.primaryDatabase, "-Fc", "-f", backupPath];
+  runEngine(dumpExecutable, dumpArgs);
+  evidence.backupSha256 = engine.kind === "container"
+    ? runEngine(engine.executable, ["exec", names.container, "sha256sum", backupPath]).stdout.trim().split(/\s+/)[0]
+    : sha256(readFileSync(backupPath));
   assert(/^[a-f0-9]{64}$/.test(evidence.backupSha256), "Backup checksum was not recorded.");
 
-  const expandedBackup = runEngine(engine, [
-    "exec",
-    names.container,
-    "pg_restore",
-    "-f",
-    "-",
-    backupPath,
-  ]).stdout;
+  const restoreExecutable = engine.kind === "container" ? engine.executable : engine.executables.pg_restore;
+  const expandedBackup = runEngine(
+    restoreExecutable,
+    engine.kind === "container"
+      ? ["exec", names.container, "pg_restore", "-f", "-", backupPath]
+      : ["-f", "-", backupPath],
+  ).stdout;
   assert(!/(?:postgres(?:ql)?:\/\/|OWNER_SUPABASE|SERVICE_ROLE|PRIVATE KEY|PASSWORD\s*=)/i.test(expandedBackup), "Backup contains a forbidden connection or secret marker.");
 
   // restore
   createDatabase(engine, names, names.restoreDatabase);
-  runEngine(engine, [
-    "exec",
-    names.container,
-    "pg_restore",
-    "-U",
-    "postgres",
-    "-d",
-    names.restoreDatabase,
-    "--exit-on-error",
-    backupPath,
-  ]);
+  runEngine(
+    restoreExecutable,
+    engine.kind === "container"
+      ? ["exec", names.container, "pg_restore", "-U", "postgres", "-d", names.restoreDatabase, "--exit-on-error", backupPath]
+      : ["-h", engine.socketDirectory, "-p", String(engine.port), "-U", "postgres", "-d", names.restoreDatabase, "--exit-on-error", backupPath],
+  );
   runSqlFileAsMigrator(engine, names, names.restoreDatabase, "202607110003_free_starter.seed.sql");
   runSqlFileAsMigrator(engine, names, names.restoreDatabase, "202607110005_catalog_assertions.sql");
   assertQuery(engine, names, names.restoreDatabase, "SELECT count(*) FROM saas.stores;", "2", "restored store count");
@@ -840,7 +895,8 @@ function runBackupRestore(engine, names, evidence) {
   // restored RLS and privileges
   runRlsIsolationTests(engine, names, names.restoreDatabase);
   runRolePrivilegeTests(engine, names, names.restoreDatabase);
-  runEngine(engine, ["exec", names.container, "rm", "-f", backupPath]);
+  if (engine.kind === "container") runEngine(engine.executable, ["exec", names.container, "rm", "-f", backupPath]);
+  else rmSync(backupPath, { force: true });
 }
 
 function runRollbackAndReapply(engine, names, evidence) {
@@ -877,18 +933,27 @@ function dropDisposableDatabasesAndRoles(engine, names) {
 }
 
 function cleanupResources(engine, names, temporaryDirectory, state) {
-  const cleanup = { containerRemoved: true, networkRemoved: true, temporaryFilesRemoved: true };
-  if (state.containerCreated) {
-    runEngine(engine, ["rm", "-f", names.container], { allowFailure: true });
-    cleanup.containerRemoved = runEngine(engine, ["inspect", names.container], { allowFailure: true }).status !== 0;
+  const cleanup = { containerRemoved: true, networkRemoved: true, nativeClusterStopped: true, temporaryFilesRemoved: true };
+  if (engine.kind === "container") {
+    if (state.containerCreated) {
+      runEngine(engine.executable, ["rm", "-f", names.container], { allowFailure: true });
+      cleanup.containerRemoved = runEngine(engine.executable, ["inspect", names.container], { allowFailure: true }).status !== 0;
+    }
+    if (state.networkCreated) {
+      runEngine(engine.executable, ["network", "rm", names.network], { allowFailure: true });
+      cleanup.networkRemoved = runEngine(engine.executable, ["network", "inspect", names.network], { allowFailure: true }).status !== 0;
+    }
+  } else if (state.nativeStarted) {
+    const stopped = runEngine(engine.executables.pg_ctl, ["-D", engine.dataDirectory, "-m", "fast", "stop"], { allowFailure: true });
+    cleanup.nativeClusterStopped = stopped.status === 0;
   }
-  if (state.networkCreated) {
-    runEngine(engine, ["network", "rm", names.network], { allowFailure: true });
-    cleanup.networkRemoved = runEngine(engine, ["network", "inspect", names.network], { allowFailure: true }).status !== 0;
+  if (engine.kind === "native" && engine.socketDirectory) {
+    rmSync(engine.socketDirectory, { recursive: true, force: true });
   }
   rmSync(temporaryDirectory, { recursive: true, force: true });
-  cleanup.temporaryFilesRemoved = !existsSync(temporaryDirectory);
-  cleanup.pass = cleanup.containerRemoved && cleanup.networkRemoved && cleanup.temporaryFilesRemoved;
+  cleanup.temporaryFilesRemoved = !existsSync(temporaryDirectory)
+    && (engine.kind !== "native" || !existsSync(engine.socketDirectory));
+  cleanup.pass = cleanup.containerRemoved && cleanup.networkRemoved && cleanup.nativeClusterStopped && cleanup.temporaryFilesRemoved;
   return cleanup;
 }
 
@@ -897,23 +962,49 @@ async function main() {
   validatePinnedImage(DISPOSABLE_IMAGE);
   // manifest checksums
   const manifest = validateManifestChecksums();
-  const engine = selectContainerEngine();
+  const engine = selectExecutionBackend();
   if (!engine) {
     console.error("DISPOSABLE_DB_EXECUTION_BLOCKED");
-    console.error("No Docker or Podman executable is available; no database connection was attempted.");
+    console.error("No Docker, Podman, or complete isolated native PostgreSQL toolchain is available; no database connection was attempted.");
     process.exitCode = 77;
     return;
   }
-  const engineEndpoint = assertLocalEngineEndpoint(resolveContainerEngineEndpoint(engine));
 
   const names = createRunNames();
   const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "celebix-phase2a1-"));
-  const state = { networkCreated: false, containerCreated: false };
+  const state = { networkCreated: false, containerCreated: false, nativeStarted: false };
+  let engineEndpoint = null;
+  if (engine.kind === "container") {
+    engineEndpoint = assertLocalEngineEndpoint(resolveContainerEngineEndpoint(engine.engine));
+  } else {
+    engine.temporaryDirectory = temporaryDirectory;
+    engine.dataDirectory = path.join(temporaryDirectory, "data");
+    engine.socketDirectory = path.join("/tmp", `celebix-pg-${names.container.slice(-16)}`);
+    engine.port = 40000 + (Number.parseInt(names.container.slice(-4), 16) % 20000);
+  }
+  const commands = engine.kind === "container"
+    ? [
+        `${engine.engine} pull ${DISPOSABLE_IMAGE}`,
+        `${engine.engine} network create ${names.network}`,
+        `${engine.engine} run --detach --rm --name ${names.container} --network ${names.network} --env POSTGRES_HOST_AUTH_METHOD=trust --env POSTGRES_DB=${names.primaryDatabase} ${DISPOSABLE_IMAGE}`,
+        `${engine.engine} exec -i ${names.container} psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d <disposable-db> < <reviewed-sql-artifact>`,
+        `${engine.engine} exec ${names.container} pg_dump -U postgres -d ${names.primaryDatabase} --schema-only`,
+        `${engine.engine} exec ${names.container} pg_dump -U postgres -d ${names.primaryDatabase} -Fc -f <container-temporary-dump>`,
+        `${engine.engine} exec ${names.container} pg_restore -U postgres -d ${names.restoreDatabase} --exit-on-error <container-temporary-dump>`,
+      ]
+    : [
+        "initdb -D <temporary-data-directory> --auth=trust --username=postgres --no-locale",
+        "pg_ctl -D <temporary-data-directory> -l <temporary-log> start",
+        "psql -h <temporary-unix-socket> -p <random-local-port> -X -qAt -v ON_ERROR_STOP=1 -U postgres -d <disposable-db>",
+        "pg_dump -h <temporary-unix-socket> -p <random-local-port> -U postgres -d <disposable-db>",
+        "pg_restore -h <temporary-unix-socket> -p <random-local-port> -U postgres -d <disposable-db>",
+      ];
   const evidence = {
     status: "RUNNING",
-    engine,
+    engine: engine.kind === "container" ? engine.engine : "native-postgresql",
+    backend: engine.kind,
     engineEndpoint,
-    image: DISPOSABLE_IMAGE,
+    image: engine.kind === "container" ? DISPOSABLE_IMAGE : null,
     imageDigest: null,
     postgresqlVersion: null,
     productionConnectionUsed: false,
@@ -921,15 +1012,7 @@ async function main() {
     productionDistributionCompatibility: manifest.productionDistributionCompatibility,
     migrationIds: manifest.artifacts.map((artifact) => artifact.id),
     migrationChecksums: Object.fromEntries(manifest.artifacts.map((artifact) => [artifact.file, artifact.sha256])),
-    commands: [
-      `${engine} pull ${DISPOSABLE_IMAGE}`,
-      `${engine} network create ${names.network}`,
-      `${engine} run --detach --rm --name ${names.container} --network ${names.network} --env POSTGRES_HOST_AUTH_METHOD=trust --env POSTGRES_DB=${names.primaryDatabase} ${DISPOSABLE_IMAGE}`,
-      `${engine} exec -i ${names.container} psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d <disposable-db> < <reviewed-sql-artifact>`,
-      `${engine} exec ${names.container} pg_dump -U postgres -d ${names.primaryDatabase} --schema-only`,
-      `${engine} exec ${names.container} pg_dump -U postgres -d ${names.primaryDatabase} -Fc -f <container-temporary-dump>`,
-      `${engine} exec ${names.container} pg_restore -U postgres -d ${names.restoreDatabase} --exit-on-error <container-temporary-dump>`,
-    ],
+    commands,
     steps: [],
   };
   let failure = null;
@@ -954,24 +1037,39 @@ async function main() {
   process.once("exit", onExit);
 
   try {
-    runEngine(engine, ["pull", DISPOSABLE_IMAGE]);
-    // image digest
-    const digest = runEngine(engine, ["image", "inspect", "--format={{index .RepoDigests 0}}", DISPOSABLE_IMAGE]).stdout.trim();
-    assert(/@sha256:[a-f0-9]{64}$/.test(digest), `Resolved image digest is missing or unsafe: ${digest}`);
-    evidence.imageDigest = digest;
-    evidence.steps.push("image digest: PASS");
-
-    // network create
-    runEngine(engine, ["network", "create", names.network]);
-    state.networkCreated = true;
-
-    // run --network uses container-only access and publishes no host port.
-    runEngine(engine, ["run", "--detach", "--rm", "--name", names.container, "--network", names.network, "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--env", `POSTGRES_DB=${names.primaryDatabase}`, DISPOSABLE_IMAGE]);
-    state.containerCreated = true;
+    if (engine.kind === "container") {
+      runEngine(engine.executable, ["pull", DISPOSABLE_IMAGE]);
+      const digest = runEngine(engine.executable, ["image", "inspect", "--format={{index .RepoDigests 0}}", DISPOSABLE_IMAGE]).stdout.trim();
+      assert(/@sha256:[a-f0-9]{64}$/.test(digest), `Resolved image digest is missing or unsafe: ${digest}`);
+      evidence.imageDigest = digest;
+      evidence.steps.push("image digest: PASS");
+      runEngine(engine.executable, ["network", "create", names.network]);
+      state.networkCreated = true;
+      runEngine(engine.executable, ["run", "--detach", "--rm", "--name", names.container, "--network", names.network, "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--env", `POSTGRES_DB=${names.primaryDatabase}`, DISPOSABLE_IMAGE]);
+      state.containerCreated = true;
+    } else {
+      mkdirSync(engine.socketDirectory, { mode: 0o700 });
+      runEngine(engine.executables.initdb, ["-D", engine.dataDirectory, "--auth=trust", "--username=postgres", "--no-locale"]);
+      appendFileSync(
+        path.join(engine.dataDirectory, "postgresql.conf"),
+        `\nlisten_addresses = ''\nunix_socket_directories = '${engine.socketDirectory.replaceAll("'", "''")}'\nport = ${engine.port}\n`,
+      );
+      state.nativeStarted = true;
+      runEngine(engine.executables.pg_ctl, ["-D", engine.dataDirectory, "-l", path.join(temporaryDirectory, "postgres.log"), "start"]);
+    }
     await waitForPostgres(engine, names);
 
+    if (engine.kind === "native") {
+      runSql(engine, names, "postgres", `CREATE DATABASE ${databaseIdentifier(names.primaryDatabase)};`);
+      evidence.steps.push("isolated native PostgreSQL readiness: PASS");
+    } else {
+      evidence.steps.push("disposable container readiness: PASS");
+    }
+
     evidence.postgresqlVersion = runSql(engine, names, names.primaryDatabase, "SELECT version();");
-    evidence.steps.push("disposable container readiness: PASS");
+    const serverVersionNumber = Number(runSql(engine, names, names.primaryDatabase, "SELECT current_setting('server_version_num');"));
+    assert(serverVersionNumber >= 160000 && serverVersionNumber < 170000, `PostgreSQL 16 is required, received server_version_num=${serverVersionNumber}`);
+    evidence.steps.push("PostgreSQL 16 major validation: PASS");
     evidence.steps.push("manifest checksums: PASS");
 
     // forward migration
@@ -984,6 +1082,8 @@ async function main() {
 
     runConstraintTests(engine, names, names.primaryDatabase);
     evidence.steps.push("constraint tests: PASS");
+    runSnapshotIntegrityTests(engine, names, names.primaryDatabase);
+    evidence.steps.push("negative snapshot-integrity tests: PASS");
     runRolePrivilegeTests(engine, names, names.primaryDatabase);
     evidence.steps.push("role privilege tests: PASS");
     runRlsIsolationTests(engine, names, names.primaryDatabase);
@@ -1019,6 +1119,10 @@ async function main() {
     failure = error;
     evidence.status = "FAIL";
     evidence.failure = error instanceof Error ? error.message : String(error);
+    const nativeLog = path.join(temporaryDirectory, "postgres.log");
+    if (engine.kind === "native" && existsSync(nativeLog)) {
+      evidence.nativePostgresLog = readFileSync(nativeLog, "utf8").trim();
+    }
   }
 
   writeFileSync(path.join(temporaryDirectory, "phase2a1-evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
