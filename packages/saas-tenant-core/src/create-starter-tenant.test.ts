@@ -9,6 +9,7 @@ import {
   type StoreMembership,
 } from "@celebix/saas-contracts";
 import {
+  SaaSDataUnknownCommitError,
   SaaSDataUniqueConflict,
   createCanonicalTenantFingerprint,
   type DomainRecord,
@@ -392,6 +393,40 @@ test("transaction acquisition failures map to a safe retryable error", async () 
     retryable: true,
   });
   assert.doesNotMatch(JSON.stringify(outcome), /private adapter detail/);
+});
+
+test("unknown COMMIT outcome is non-retryable and never triggers rollback", async () => {
+  const backing = createInMemorySaaSDataRepository();
+  let rollbackCalls = 0;
+  const repository = transformTransactions(backing, (transaction) => ({
+    ...transaction,
+    generateId: transaction.generateId.bind(transaction),
+    commit: async () => { throw new SaaSDataUnknownCommitError(); },
+    rollback: async () => { rollbackCalls += 1; await transaction.rollback(); },
+  }));
+
+  const error = requireError(await createStarterTenantService({ repository }).execute(baseInput));
+  assert.deepEqual(error, { schemaVersion: 1, code: "tenant_transaction_failed", retryable: false });
+  assert.equal(rollbackCalls, 0);
+});
+
+test("a failed explicit replay rollback is attempted once and never retried by rollbackSafely", async () => {
+  const backing = createInMemorySaaSDataRepository();
+  requireSuccess(await createStarterTenantService({ repository: backing }).execute(baseInput));
+  let rollbackCalls = 0;
+  const repository = transformTransactions(backing, (transaction) => ({
+    ...transaction,
+    generateId: transaction.generateId.bind(transaction),
+    commit: transaction.commit.bind(transaction),
+    rollback: async () => {
+      rollbackCalls += 1;
+      throw new Error("synthetic rollback failure");
+    },
+  }));
+
+  const error = requireError(await createStarterTenantService({ repository }).execute(baseInput));
+  assert.deepEqual(error, { schemaVersion: 1, code: "tenant_transaction_failed", retryable: true });
+  assert.equal(rollbackCalls, 1);
 });
 
 test("membership conflict maps to membership_conflict", async () => {

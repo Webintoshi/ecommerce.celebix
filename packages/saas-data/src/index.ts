@@ -6,6 +6,28 @@ export {
   createPrincipalIdentityKey,
 } from "./canonical.ts";
 export { SaaSDataUniqueConflict } from "./errors.ts";
+export {
+  SaaSDataCorruptionError,
+  SaaSDataLockTimeoutError,
+  SaaSDataPersistenceError,
+  SaaSDataPoolTimeoutError,
+  SaaSDataStatementTimeoutError,
+  SaaSDataTransactionStateError,
+  SaaSDataUnknownCommitError,
+} from "./postgres/errors.ts";
+export { PostgresSaaSDataRepository } from "./postgres/repository.ts";
+export type {
+  PostgresAuditEvent,
+  PostgresClientLike,
+  PostgresPoolLike,
+  PostgresRepositoryOptions,
+  PostgresTimeoutOptions,
+} from "./postgres/repository.ts";
+export { PostgresTenantOperationRecovery } from "./postgres/recovery.ts";
+export type {
+  PostgresTenantOperationRecoveryOptions,
+  PostgresTenantOperationRecoveryResult,
+} from "./postgres/recovery.ts";
 export type {
   DomainRepositoryPort,
   MembershipRepositoryPort,

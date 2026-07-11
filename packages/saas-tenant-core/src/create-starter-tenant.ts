@@ -7,6 +7,7 @@ import type {
   StoreMembership,
 } from "@celebix/saas-contracts";
 import {
+  SaaSDataUnknownCommitError,
   SaaSDataUniqueConflict,
   assertNormalizedExactHostname,
   assertNormalizedSlug,
@@ -216,8 +217,10 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
         updatedAt: timestamp,
       });
       if (claim.kind === "existing") {
-        await transaction.rollback();
+        // Mark the terminal attempt before awaiting it. A failed rollback makes
+        // the adapter transaction broken and must never trigger a second call.
         transactionClosed = true;
+        await transaction.rollback();
         const priorOperation = claim.operation;
         if (priorOperation.fingerprint !== fingerprint) {
           return { ok: false, error: safeError("idempotency_mismatch", "idempotencyKey") };
@@ -363,6 +366,10 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       transactionClosed = true;
       return { ok: true, value: structuredClone(result) };
     } catch (error) {
+      if (error instanceof SaaSDataUnknownCommitError) {
+        transactionClosed = true;
+        return { ok: false, error: safeError("tenant_transaction_failed", undefined, false) };
+      }
       if (!transactionClosed) {
         await rollbackSafely(transaction);
       }
