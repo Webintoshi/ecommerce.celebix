@@ -457,18 +457,44 @@ export async function recoverPanelRegistration(
   } catch {
     return denied("panel_completion_unavailable", 503, true);
   }
-  if (!attempt?.verifiedPrincipal || !attempt.tenantOperation || !attempt.tenantResult) {
+  if (!attempt?.verifiedPrincipal) {
     return denied("registration_recovery_denied", 403);
   }
 
   const authority = input.authority;
-  const matches = authority?.kind === "verified_identity"
-    ? authority.identity.emailVerified && identityMatches(attempt.verifiedPrincipal, authority.identity)
-    : authority?.kind === "authenticated_principal"
-      ? authority.principal.id === attempt.tenantOperation.principalId &&
-        identityMatches(attempt.verifiedPrincipal, authority.principal)
-      : false;
-  if (!matches) return denied("registration_recovery_denied", 403);
+  if (authority?.kind === "verified_identity") {
+    if (!verifiedIdentityMatches(attempt.verifiedPrincipal, authority.identity)) {
+      return denied("registration_recovery_denied", 403);
+    }
+    if (attempt.status === "identity_verified") {
+      if (!attempt.tenantInputSnapshot || !attempt.canonicalFingerprint) {
+        return denied("registration_recovery_denied", 403);
+      }
+      return completePanelRegistration({
+        ...input,
+        attemptId: attempt.id,
+        identity: authority.identity,
+      });
+    }
+  } else if (authority?.kind === "authenticated_principal") {
+    if (
+      !attempt.tenantOperation ||
+      authority.principal.id !== attempt.tenantOperation.principalId ||
+      !identityMatches(attempt.verifiedPrincipal, authority.principal)
+    ) {
+      return denied("registration_recovery_denied", 403);
+    }
+  } else {
+    return denied("registration_recovery_denied", 403);
+  }
+
+  if (
+    (attempt.status !== "tenant_created" && attempt.status !== "session_created") ||
+    !attempt.tenantOperation ||
+    !attempt.tenantResult
+  ) {
+    return denied("registration_recovery_denied", 403);
+  }
   return establishSession(attempt, input, now);
 }
 
@@ -494,8 +520,13 @@ export function createPanelOidcCallbackHandler(dependencies: CallbackDependencie
     if (url.origin !== callbackUrl.origin || url.pathname !== callbackUrl.pathname) {
       return callbackJson("invalid_callback_url", 400);
     }
-    const state = (url.searchParams.get("state") ?? "").trim();
-    const code = (url.searchParams.get("code") ?? "").trim();
+    const states = url.searchParams.getAll("state");
+    const codes = url.searchParams.getAll("code");
+    if (states.length !== 1 || codes.length !== 1) {
+      return callbackJson("invalid_callback_state", 400);
+    }
+    const state = states[0].trim();
+    const code = codes[0].trim();
     if (!state || !code) return callbackJson("invalid_callback_state", 400);
 
     let attempt: StoredRegistrationAttempt | null;
@@ -507,17 +538,14 @@ export function createPanelOidcCallbackHandler(dependencies: CallbackDependencie
     if (!attempt) {
       return callbackJson("invalid_callback_state", 400);
     }
+    if (attempt.status !== "awaiting_identity") {
+      return callbackJson("invalid_callback_state", 409);
+    }
 
     let identity: PanelVerifiedIdentity;
-    if (attempt.status === "awaiting_identity") {
-      try {
-        identity = await dependencies.oidc.complete({ state, code });
-      } catch {
-        return callbackJson("invalid_callback_state", 400);
-      }
-    } else if (attempt.verifiedPrincipal) {
-      identity = attempt.verifiedPrincipal;
-    } else {
+    try {
+      identity = await dependencies.oidc.complete({ state, code });
+    } catch {
       return callbackJson("invalid_callback_state", 400);
     }
     let completed: CompletionResult;

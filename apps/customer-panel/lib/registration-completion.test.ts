@@ -103,8 +103,11 @@ function tenantInput(key: string): CreateStarterTenantInput {
 class RecordingSessionStore {
   sessions = new Map<string, PanelSession>();
   failCreates = 0;
+  createCalls = 0;
+  readCalls = 0;
 
   async create(session: PanelSession) {
+    this.createCalls += 1;
     if (this.failCreates > 0) {
       this.failCreates -= 1;
       throw new Error("session unavailable");
@@ -112,9 +115,67 @@ class RecordingSessionStore {
     if (this.sessions.has(session.id)) throw new Error("panel_session_conflict");
     this.sessions.set(session.id, structuredClone(session));
   }
-  async read(id: string) { return structuredClone(this.sessions.get(id) ?? null); }
+  async read(id: string) {
+    this.readCalls += 1;
+    return structuredClone(this.sessions.get(id) ?? null);
+  }
   async rotate() { throw new Error("unused"); }
   async destroy(id: string) { this.sessions.delete(id); }
+}
+
+class RecordingCompletionStore implements RegistrationCompletionStore {
+  stateLookups = 0;
+
+  constructor(readonly delegate: RegistrationCompletionStore) {}
+
+  save(value: StoredRegistrationAttempt) { return this.delegate.save(value); }
+  update(value: StoredRegistrationAttempt) { return this.delegate.update(value); }
+  findById(id: string, now: Date) { return this.delegate.findById(id, now); }
+  findByState(state: string, now: Date) {
+    this.stateLookups += 1;
+    return this.delegate.findByState(state, now);
+  }
+}
+
+function completedAttempt(status: "identity_verified" | "tenant_created" | "session_created" | "failed") {
+  const input = tenantInput(attempt().idempotencyKey);
+  const completed = attempt({
+    status,
+    verifiedPrincipal: { ...identity, emailVerified: true },
+    tenantInputSnapshot: input,
+    canonicalFingerprint: createCanonicalTenantFingerprint(input),
+    ...(status === "tenant_created" || status === "session_created"
+      ? {
+          tenantResult: tenantResult(),
+          tenantOperation: {
+            operationId: "operation_1",
+            principalId: "principal_1",
+            storeId: "store_1",
+            provisioningStatus: "ready" as const,
+          },
+        }
+      : {}),
+    ...(status === "session_created"
+      ? {
+          pendingSession: {
+            id: "session_1234567890abcdefghijklmnop",
+            principal: {
+              id: "principal_1",
+              issuer: identity.issuer,
+              subject: identity.subject,
+            },
+            activeStoreId: "store_1",
+            createdAt: NOW.toISOString(),
+            rotatedAt: NOW.toISOString(),
+            expiresAt: new Date(NOW.getTime() + 60_000).toISOString(),
+          },
+        }
+      : {}),
+    ...(status === "failed"
+      ? { safeError: { schemaVersion: 1, code: "invalid_input", retryable: false } }
+      : {}),
+  });
+  return completed;
 }
 
 function dependencies(store: RegistrationCompletionStore, sessions = new RecordingSessionStore()) {
@@ -231,7 +292,56 @@ test("completion store freezes attempt details, requestedAt, canonical input, fi
   }
 });
 
-test("callback normalizes non-empty state/code and checks attempt before provider verification", async () => {
+test("callback requires exactly one non-empty state and code before store or provider access", async () => {
+  if (!completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler) return;
+  for (const url of [
+    "https://panel.celebix.site/auth/callback?code=code",
+    "https://panel.celebix.site/auth/callback?state=state",
+    "https://panel.celebix.site/auth/callback?state=%20&code=code",
+    "https://panel.celebix.site/auth/callback?state=state&code=%20",
+    `https://panel.celebix.site/auth/callback?state=${attempt().state}&state=duplicate&code=code`,
+    `https://panel.celebix.site/auth/callback?state=${attempt().state}&code=code&code=duplicate`,
+  ]) {
+    const innerStore = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+    const store = new RecordingCompletionStore(innerStore);
+    const deps = dependencies(store);
+    let providerCalls = 0;
+    const handler = completions.createPanelOidcCallbackHandler({
+      enabled: true,
+      ...deps.input,
+      oidc: { async complete() { providerCalls += 1; return identity; } },
+      cookiePolicy: { kind: "production" },
+    });
+    const response = await handler(new Request(url));
+    assert.equal(response.status, 400);
+    assert.equal(store.stateLookups, 0);
+    assert.equal(providerCalls, 0);
+    assert.equal(deps.tenantCalls, 0);
+    assert.equal(deps.sessions.readCalls, 0);
+    assert.equal(deps.sessions.createCalls, 0);
+  }
+
+  const missingStore = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+  const missingDeps = dependencies(missingStore);
+  let missingProviderCalls = 0;
+  const missingHandler = completions.createPanelOidcCallbackHandler({
+    enabled: true,
+    ...missingDeps.input,
+    oidc: { async complete() { missingProviderCalls += 1; return identity; } },
+    cookiePolicy: { kind: "production" },
+  });
+  const missing = await missingHandler(new Request(
+    "https://panel.celebix.site/auth/callback?state=missing_1234567890abcdefgh&code=code",
+  ));
+  assert.equal(missing.status, 400);
+  assert.deepEqual(await missing.json(), { code: "invalid_callback_state" });
+  assert.equal(missingProviderCalls, 0);
+  assert.equal(missingDeps.tenantCalls, 0);
+  assert.equal(missingDeps.sessions.readCalls, 0);
+  assert.equal(missingDeps.sessions.createCalls, 0);
+});
+
+test("panel callback completes tenant creation, persists session, and emits only the shared panel cookie", async () => {
   if (!completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler) return;
   const store = new completions.InMemoryRegistrationCompletionStore([attempt()]);
   const deps = dependencies(store);
@@ -239,29 +349,13 @@ test("callback normalizes non-empty state/code and checks attempt before provide
   const handler = completions.createPanelOidcCallbackHandler({
     enabled: true,
     ...deps.input,
-    oidc: { async complete() { providerCalls += 1; return identity; } },
-    cookiePolicy: { kind: "production" },
-  });
-
-  for (const url of [
-    "https://panel.celebix.site/auth/callback?state=%20&code=code",
-    "https://panel.celebix.site/auth/callback?state=state&code=%20",
-    "https://panel.celebix.site/auth/callback?state=missing_1234567890abcdefgh&code=code",
-  ]) {
-    const response = await handler(new Request(url));
-    assert.equal(response.status, 400);
-  }
-  assert.equal(providerCalls, 0);
-});
-
-test("panel callback completes tenant creation, persists session, and emits only the shared panel cookie", async () => {
-  if (!completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler) return;
-  const store = new completions.InMemoryRegistrationCompletionStore([attempt()]);
-  const deps = dependencies(store);
-  const handler = completions.createPanelOidcCallbackHandler({
-    enabled: true,
-    ...deps.input,
-    oidc: { async complete(callback: { state: string; code: string }) { assert.equal(callback.code, "valid-code"); return identity; } },
+    oidc: {
+      async complete(callback: { state: string; code: string }) {
+        providerCalls += 1;
+        assert.equal(callback.code, "valid-code");
+        return identity;
+      },
+    },
     cookiePolicy: { kind: "production" },
   });
   const response = await handler(new Request(
@@ -277,6 +371,191 @@ test("panel callback completes tenant creation, persists session, and emits only
   assert.equal(deps.tenantCalls, 1);
   assert.equal(deps.sessions.sessions.size, 1);
   assert.equal((await store.findById(attempt().id, NOW))?.status, "session_created");
+
+  const readsAfterSuccess = deps.sessions.readCalls;
+  const createsAfterSuccess = deps.sessions.createCalls;
+  const replay = await handler(new Request(
+    `https://panel.celebix.site/auth/callback?state=${attempt().state}&code=valid-code`,
+  ));
+  assert.equal(replay.status, 409);
+  assert.deepEqual(await replay.json(), { code: "invalid_callback_state" });
+  assert.equal(replay.headers.has("set-cookie"), false);
+  assert.equal(replay.headers.has("location"), false);
+  assert.equal(providerCalls, 1);
+  assert.equal(deps.tenantCalls, 1);
+  assert.equal(deps.sessions.readCalls, readsAfterSuccess);
+  assert.equal(deps.sessions.createCalls, createsAfterSuccess);
+  assert.equal(deps.sessions.sessions.size, 1);
+});
+
+test("public callback rejects every processed status without provider, Tenant Core, or session access", async () => {
+  if (!completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler) return;
+
+  for (const status of ["identity_verified", "tenant_created", "session_created", "failed"] as const) {
+    const stored = completedAttempt(status);
+    const store = new completions.InMemoryRegistrationCompletionStore([stored]);
+    const sessions = new RecordingSessionStore();
+    const deps = dependencies(store, sessions);
+    let providerCalls = 0;
+    const handler = completions.createPanelOidcCallbackHandler({
+      enabled: true,
+      ...deps.input,
+      oidc: { async complete() { providerCalls += 1; return identity; } },
+      cookiePolicy: { kind: "production" },
+    });
+
+    const response = await handler(new Request(
+      `https://panel.celebix.site/auth/callback?state=${stored.state}&code=used-code`,
+    ));
+    assert.equal(response.status, 409, status);
+    assert.deepEqual(await response.json(), { code: "invalid_callback_state" }, status);
+    assert.equal(response.headers.has("set-cookie"), false, status);
+    assert.equal(response.headers.has("location"), false, status);
+    assert.equal(providerCalls, 0, status);
+    assert.equal(deps.tenantCalls, 0, status);
+    assert.equal(sessions.readCalls, 0, status);
+    assert.equal(sessions.createCalls, 0, status);
+  }
+});
+
+test("cookie serialization failure consumes callback and only matching trusted authority recovers", async () => {
+  if (!completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler || !completions.recoverPanelRegistration) return;
+  const store = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+  const sessions = new RecordingSessionStore();
+  const deps = dependencies(store, sessions);
+  let providerCalls = 0;
+  let serializationCalls = 0;
+  const handler = completions.createPanelOidcCallbackHandler({
+    enabled: true,
+    ...deps.input,
+    oidc: { async complete() { providerCalls += 1; return identity; } },
+    cookiePolicy: { kind: "production" },
+    serializeSessionCookie() {
+      serializationCalls += 1;
+      if (serializationCalls === 1) throw new Error("private-cookie-failure");
+      return "must-not-be-used-by-replay";
+    },
+  });
+  const callbackUrl = `https://panel.celebix.site/auth/callback?state=${attempt().state}&code=valid-code`;
+
+  const first = await handler(new Request(callbackUrl));
+  assert.equal(first.status, 503);
+  assert.deepEqual(await first.json(), { code: "panel_session_retry_required" });
+  assert.equal(first.headers.has("set-cookie"), false);
+  assert.equal(first.headers.has("location"), false);
+  assert.equal((await store.findById(attempt().id, NOW))?.status, "session_created");
+  assert.equal(providerCalls, 1);
+  assert.equal(deps.tenantCalls, 1);
+  assert.equal(sessions.createCalls, 1);
+  assert.equal(sessions.sessions.size, 1);
+
+  const replay = await handler(new Request(callbackUrl));
+  assert.equal(replay.status, 409);
+  assert.equal(replay.headers.has("set-cookie"), false);
+  assert.equal(replay.headers.has("location"), false);
+  assert.equal(providerCalls, 1);
+  assert.equal(deps.tenantCalls, 1);
+  assert.equal(sessions.createCalls, 1);
+  assert.equal(sessions.sessions.size, 1);
+  assert.equal(serializationCalls, 1);
+
+  const denied = await completions.recoverPanelRegistration({
+    ...deps.input,
+    attemptId: attempt().id,
+    authority: {
+      kind: "authenticated_principal",
+      principal: { id: "principal_other", issuer: identity.issuer, subject: identity.subject },
+    },
+  });
+  assert.equal(denied.ok, false);
+  if (!denied.ok) assert.equal(denied.code, "registration_recovery_denied");
+
+  const recovered = await completions.recoverPanelRegistration({
+    ...deps.input,
+    attemptId: attempt().id,
+    authority: { kind: "verified_identity", identity },
+  });
+  assert.equal(recovered.ok, true);
+  assert.equal(deps.tenantCalls, 1);
+  assert.equal(sessions.createCalls, 1);
+  assert.equal(sessions.sessions.size, 1);
+});
+
+test("identity_verified retry requires newly verified matching identity and reuses its frozen snapshot", async () => {
+  if (!completions.InMemoryRegistrationCompletionStore || !completions.createPanelOidcCallbackHandler || !completions.recoverPanelRegistration) return;
+  const store = new completions.InMemoryRegistrationCompletionStore([attempt()]);
+  const sessions = new RecordingSessionStore();
+  let providerCalls = 0;
+  let tenantCalls = 0;
+  let buildCalls = 0;
+  const input = {
+    completionStore: store,
+    panelSessionStore: sessions,
+    now: () => NOW,
+    async buildTenantInput() {
+      buildCalls += 1;
+      const snapshot = tenantInput(attempt().idempotencyKey);
+      return {
+        ok: true as const,
+        input: snapshot,
+        canonicalFingerprint: createCanonicalTenantFingerprint(snapshot),
+      };
+    },
+    tenantCoreClient: {
+      async createStarterTenant(received: CreateStarterTenantInput) {
+        tenantCalls += 1;
+        assert.deepEqual(received, tenantInput(attempt().idempotencyKey));
+        if (tenantCalls === 1) {
+          return {
+            ok: false as const,
+            error: { schemaVersion: 1 as const, code: "tenant_transaction_failed" as const, retryable: true },
+          };
+        }
+        return { ok: true as const, value: tenantResult() };
+      },
+    },
+  };
+  const handler = completions.createPanelOidcCallbackHandler({
+    enabled: true,
+    ...input,
+    oidc: { async complete() { providerCalls += 1; return identity; } },
+    cookiePolicy: { kind: "production" },
+  });
+  const callbackUrl = `https://panel.celebix.site/auth/callback?state=${attempt().state}&code=valid-code`;
+
+  const first = await handler(new Request(callbackUrl));
+  assert.equal(first.status, 503);
+  assert.equal((await store.findById(attempt().id, NOW))?.status, "identity_verified");
+  assert.equal(providerCalls, 1);
+  assert.equal(tenantCalls, 1);
+  assert.equal(buildCalls, 1);
+
+  const callbackReplay = await handler(new Request(callbackUrl));
+  assert.equal(callbackReplay.status, 409);
+  assert.equal(callbackReplay.headers.has("set-cookie"), false);
+  assert.equal(callbackReplay.headers.has("location"), false);
+  assert.equal(providerCalls, 1);
+  assert.equal(tenantCalls, 1);
+  assert.equal(buildCalls, 1);
+
+  const wrongIdentity = await completions.recoverPanelRegistration({
+    ...input,
+    attemptId: attempt().id,
+    authority: { kind: "verified_identity", identity: { ...identity, subject: "different" } },
+  });
+  assert.equal(wrongIdentity.ok, false);
+  assert.equal(tenantCalls, 1);
+
+  const recovered = await completions.recoverPanelRegistration({
+    ...input,
+    attemptId: attempt().id,
+    authority: { kind: "verified_identity", identity: { ...identity } },
+  });
+  assert.equal(recovered.ok, true);
+  assert.equal(tenantCalls, 2);
+  assert.equal(buildCalls, 1);
+  assert.equal(sessions.createCalls, 1);
+  assert.equal(sessions.sessions.size, 1);
 });
 
 test("session failure preserves tenant_created and matching verified recovery never calls TenantCore twice", async () => {
@@ -322,7 +601,9 @@ test("recovery denies state-only, different identity, and different authenticate
   for (const authority of [
     undefined,
     { kind: "verified_identity", identity: { ...identity, subject: "different" } },
+    { kind: "verified_identity", identity: { ...identity, issuer: "https://different.example.test" } },
     { kind: "authenticated_principal", principal: { id: "principal_other", issuer: identity.issuer, subject: identity.subject } },
+    { kind: "authenticated_principal", principal: { id: "principal_1", issuer: "https://different.example.test", subject: identity.subject } },
   ]) {
     const result = await completions.recoverPanelRegistration({
       ...deps.input,

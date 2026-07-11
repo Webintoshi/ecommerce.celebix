@@ -1,6 +1,6 @@
 import { PANEL_OIDC_CALLBACK_URL } from "../../../packages/platform-config/src/saas.ts";
 
-export const PANEL_ORIGIN = "https://panel.celebix.site";
+export const PANEL_ORIGIN = new URL(PANEL_OIDC_CALLBACK_URL).origin;
 export const PANEL_LOGOUT_REDIRECT = `${PANEL_ORIGIN}/login`;
 
 export { PANEL_OIDC_CALLBACK_URL };

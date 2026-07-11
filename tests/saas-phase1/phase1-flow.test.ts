@@ -44,7 +44,7 @@ const NOW = new Date("2026-07-11T10:00:00.000Z");
 const ISSUER = "https://identity.example.test";
 const AUDIENCE = "celebix-customer-panel";
 
-function fakeProvider() {
+function fakeProvider(calls?: { verify: number }) {
   return {
     buildAuthorizationUrl(input: OidcAuthorizationRequest) {
       const url = new URL(`${ISSUER}/authorize`);
@@ -57,6 +57,7 @@ function fakeProvider() {
       return url;
     },
     async verifyCallback(input: OidcProviderCallbackInput) {
+      if (calls) calls.verify += 1;
       assert.equal(input.redirectUri, PANEL_OIDC_CALLBACK_URL);
       return {
         issuer: input.expectedIssuer,
@@ -87,7 +88,8 @@ function registration() {
 test("complete disposable Phase 1 flow is exact, idempotent, tenant-scoped, and fail-closed", async () => {
   const workflowStore = new SharedInMemoryRegistrationWorkflowStore();
   const oidcTransactions = new InMemoryOidcTransactionStore();
-  const provider = fakeProvider();
+  const providerCalls = { verify: 0 };
+  const provider = fakeProvider(providerCalls);
   const repository = createInMemorySaaSDataRepository();
   const tenantCore = createStarterTenantService({ repository });
   const sessions = new InMemoryPanelSessionStore();
@@ -186,6 +188,17 @@ test("complete disposable Phase 1 flow is exact, idempotent, tenant-scoped, and 
     completedAttempt?.canonicalFingerprint,
     createCanonicalTenantFingerprint(canonicalInput),
   );
+  assert.equal(tenantCoreCalls, 1);
+  assert.equal(providerCalls.verify, 1);
+
+  const callbackReplay = await callback(new Request(
+    `${PANEL_OIDC_CALLBACK_URL}?state=${encodeURIComponent(state)}&code=verified-code`,
+  ));
+  assert.equal(callbackReplay.status, 409);
+  assert.deepEqual(await callbackReplay.json(), { code: "invalid_callback_state" });
+  assert.equal(callbackReplay.headers.has("set-cookie"), false);
+  assert.equal(callbackReplay.headers.has("location"), false);
+  assert.equal(providerCalls.verify, 1);
   assert.equal(tenantCoreCalls, 1);
 
   const stateAfterCreate = repository.inspectState();

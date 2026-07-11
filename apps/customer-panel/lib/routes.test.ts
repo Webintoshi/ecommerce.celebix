@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function load(relativePath: string) {
@@ -8,6 +9,15 @@ async function load(relativePath: string) {
 test("exports the explicit public health route", async () => {
   const route = await load("../app/api/health/route.ts");
   assert.equal(typeof route.GET, "function");
+});
+
+test("panel origin and fixed redirects derive from the single callback authority", async () => {
+  const config = await load("./config.ts");
+  const source = await readFile(new URL("./config.ts", import.meta.url), "utf8");
+  assert.equal(config.PANEL_OIDC_CALLBACK_URL, "https://panel.celebix.site/auth/callback");
+  assert.equal(config.PANEL_ORIGIN, new URL(String(config.PANEL_OIDC_CALLBACK_URL)).origin);
+  assert.equal(config.PANEL_LOGOUT_REDIRECT, "https://panel.celebix.site/login");
+  assert.match(source, /new URL\(PANEL_OIDC_CALLBACK_URL\)\.origin/);
 });
 
 test("health output is minimal and contains no configuration or secrets", async () => {
