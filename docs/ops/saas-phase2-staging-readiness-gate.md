@@ -103,7 +103,7 @@ The staging gate authorizes deployment only to an isolated synthetic-data stagin
 | Health checks | each service owner | dependency failure tests | shallow/deep checks reveal safe readiness without secrets or bypass | false healthy on critical dependency/RLS failure | remove instance from traffic; disable dependent flag |
 | SLOs | Product + Ops | approved SLI definitions and dashboards | availability/latency/error/invalidation/revocation objectives owned | absent/untested SLO or no error budget response | staging only; no production activation |
 
-Required audit events are registration started, identity verified, tenant bootstrap started/committed/failed, session created/rotated/revoked, active store changed, domain verification changed, hostname resolution denied, membership denied, RLS authorization denied, idempotency mismatch, and worker job failed. Required redaction and correlation fields are defined in the target architecture.
+Required audit events are registration started, identity verified, tenant bootstrap started/committed/failed, session created/rotated/revoked, active store changed, domain verification changed, hostname resolution denied, membership denied, RLS authorization denied, idempotency mismatch, worker job failed, theme preview started/denied, theme assigned/published/rolled back/revoked, SEO health failed, canonical domain changed, sitemap generation failed, checkout started, inventory reservation created/released/denied, order created, payment initiated, payment webhook accepted/replayed/denied, refund state changed, outbox delivery failed, tenant circuit-breaker/read-only/checkout-protection state changed, and dedicated escalation recommended. Dashboards and test pages must cover theme publication/revocation, canonical/SEO indexability, checkout success/latency, inventory/order/payment correctness, webhook replay, outbox lag, Tenant X/Y degradation, and protection-mode transitions. Required redaction and correlation fields are defined in the target architecture.
 
 ## I. Operational readiness
 
@@ -115,6 +115,78 @@ Required audit events are registration started, identity verified, tenant bootst
 | Incident procedure | Security + Ops | tabletop and runbook links | tenant leak, secret, OIDC, domain, DB, cache/job scenarios assigned | missing escalation/evidence-preservation/customer process | do not activate affected subsystem |
 | Feature-flag kill switches | Integration Lead | live staging exercise | each flag defaults off, dependencies enforced, disable takes effect within objective | flag bypass, unsafe fallback, config drift | remove traffic/redeploy last disabled config |
 | On-call ownership | Engineering lead | schedule/escalation and test notification | every service/database/security alert has primary/secondary | unowned alert or unavailable responder | remain staging-only |
+
+## J. Hemenaku-derived shared admin
+
+| Item | Owner | Evidence | PASS criteria | FAIL condition | Rollback action |
+| --- | --- | --- | --- | --- | --- |
+| Donor inventory/classification | Phase 2F + Product/Security | file-level module matrix covering every required donor area and assumption | every module classified reusable unchanged / tenant-adapted / configurable / excluded / replace, with rationale and owner | missing module, vague “reuse,” or direct donor coupling undisclosed | stop copying; keep `apps/admin-shared` disabled |
+| Hemenaku feature parity | Phase 2F + Product | screen/workflow parity matrix and acceptance recording | launch-required products, variants, categories/collections, brands, inventory, orders, customers, promotions, media, content, settings, shipping/payment config, reports, staff, and themes preserve approved mature capability | mature capability silently lost or incompatible workflow | disable shared admin; continue dedicated Hemenaku admin only |
+| Target path and donor isolation | Integration Lead | repository/import/build/deploy evidence | shared derivative exists only at `apps/admin-shared`; `apps/admin`, live Hemenaku DB/env/domain/deploy unchanged; no runtime coupling | donor file/deployment/data/env mutated or imported at runtime | revert derivative change; revoke access/credentials if exposed |
+| Phase 1 security foundation integration | Phase 2F + Phase 2B | OIDC/session/TenantContext/membership/store-switch tests | shared admin uses persistent sessions, issuer+subject, active membership/store and request security | separate/minimal auth or donor Supabase profile becomes authority | disable shared admin/login; revoke sessions |
+| Tenant-aware admin APIs | Phase 2F + Security | two-store/role matrix for every launch API | authoritative store context and role/entitlement/quota enforced; paginated/bounded; no global client | any browser/env/default store authority or cross-store access | disable affected module/API; tenant read-only mode |
+
+## K. Theme onboarding, publication, and certification
+
+| Item | Owner | Evidence | PASS criteria | FAIL condition | Rollback action |
+| --- | --- | --- | --- | --- | --- |
+| Theme onboarding | Phase 2G + Product | end-to-end name->slug->industry->catalog->preview->select->branding->identity->tenant flow | exact certified theme version and branding survive workflow/recovery and assign once; frozen contract version gate documented | theme omitted/lost/mutated, unverified package, or tenant created with ambiguous theme | disable onboarding; expire attempt; no tenant creation |
+| Anonymous catalog demo | Phase 2G + Security | pre-identity cache/input/crawler and synthetic-data tests | only certified public immutable preview asset/version and fixed synthetic demo data render; no tenant/customer/draft/private/upload/secret input; always noindex | non-public data or package exposed, arbitrary input accepted, cache crosses demo version, or preview becomes indexable | disable anonymous preview; purge exact demo caches; keep onboarding theme selection unavailable |
+| Catalog/private/custom model | Phase 2G + Security | visibility/entitlement/artifact tests | public catalog, owner-bound private packages, custom-theme request, and custom frontend handoff are explicit and isolated | private package crosses tenant or custom frontend bypasses shared authority | revoke package/grant; disable mode |
+| Draft/preview | Phase 2G | preview/session/cache/crawler tests | draft validates; preview grant is short/store/principal/version-bound, noindex, non-public-cache | guessable/replayable/cross-store/indexable preview | revoke previews; purge preview caches |
+| Publish/rollback | Phase 2G | race/fault/outbox/history evidence | one atomic publication winner, immutable prior snapshot, rollback as new publication, exact cache version | partial publish, lost history, commerce mutation, stale public mix | retain/restore last certified snapshot; disable publish |
+| Theme certification | Phase 2G + Phase 2H + Security | SSR/SEO/structured-data/mobile/CWV/sandbox report | SSR critical content, canonical/robots, no accidental noindex, valid schema, semantic links/headings, sitemap status, mobile and budgets all PASS | any mandatory certification item fails or arbitrary code/network/data access exists | mark version uncertified/revoked; invalidate caches |
+
+## L. SEO and indexability
+
+| Item | Owner | Evidence | PASS criteria | FAIL condition | Rollback action |
+| --- | --- | --- | --- | --- | --- |
+| Eligible-page indexability | Phase 2H + Product | synthetic crawler over every content type and storefront mode | every published eligible page returns crawlable SSR critical HTML, 200/approved redirect, self/approved canonical and index policy | client-only critical content, noindex/block, wrong status/canonical | disable storefront/theme publish; restore prior certified render |
+| Private/noindex policy | Phase 2H + Security | crawl fixtures for cart/checkout/account/order/admin/preview/draft/search/facets | all required private types excluded/noindex and no sensitive sitemap URL | private URL indexable or uncontrolled facets explode | apply platform noindex for exact type; purge sitemap/cache |
+| Sitemap/robots | Phase 2H | tenant-segmented sitemap/robots crawl and two-store diff | exact canonical tenant URLs only, paginated/complete, expected statuses, bounded facets | global/cross-store/draft URL or accidental global disallow/noindex | disable generation; serve last known safe store-scoped snapshot |
+| Canonical/redirect ledger | Phase 2H + Phase 2D | domain/slug switch and loop tests | exact active canonical; same-store 301 or 410 policy; no loop/chain/open redirect | canonical poison, wrong store/domain, stale released-domain redirect | disable affected mapping; restore prior ledger/canonical version |
+| Structured data | Phase 2H | validator results for Product/Offer/BreadcrumbList/Organization/WebSite/Article/CollectionPage | required types valid and agree with visible authoritative data | invalid/mismatched/cross-store schema or theme override | remove invalid exact projection; block theme publication |
+| SEO health alerts | Phase 2H + Observability | canary failure/page test | alerts on global noindex/robots, canonical drift, sitemap status/count, structured-data failure | silent platform-wide indexability regression | disable rollout/theme; restore last safe release |
+
+## M. Custom domains and storefront composition
+
+| Item | Owner | Evidence | PASS criteria | FAIL condition | Rollback action |
+| --- | --- | --- | --- | --- | --- |
+| Domain claim/proof/TLS lifecycle | Phase 2D + Security/Ops | synthetic apex/www/token/TLS-ready lifecycle | unique pending claim, repeated ownership proof, TLS gate, active/disabled/release/cooldown/reclaim audit | unverified/TLS-unready activation or prior-owner takeover | disable custom mapping; fall back to platform subdomain if safe |
+| Platform/custom canonical behavior | Phase 2D/2H | exact-host and HTTP redirect crawl | platform subdomain 301s only to active same-store canonical; apex/www/aliases exact and non-chained | default/suffix/open/cross-store redirect or wrong status | disable alias/canonical switch; purge exact caches |
+| Three storefront modes | Phase 2G + Integration Lead | contract suite against catalog/private/custom frontend | identical commerce authority, shared admin, domain, SEO, tenant isolation and common checkout rules | mode forks authority or dedicated frontend implies data fork | disable nonconforming mode; keep approved shared mode |
+
+## N. Storefront performance and high traffic
+
+| Item | Owner | Evidence | PASS criteria | FAIL condition | Rollback action |
+| --- | --- | --- | --- | --- | --- |
+| Cache-first read path | Phase 2G/2I | CDN/ISR/Redis/PostgreSQL trace and query counts | most steady-state public reads avoid PostgreSQL; composite keys include store/domain/theme/locale/path; targeted invalidation converges | origin/DB per request, collision, unbounded stale/wildcard invalidation | bypass bad layer selectively; disable theme/storefront if unsafe |
+| Stampede/hot-product protection | Phase 2I | cold/hot/mass-invalidation load logs | single-flight/fencing/SWR/jitter keep DB/pool within budget | miss amplification saturates origin or checkout | circuit/load shed; serve bounded stale public data |
+| Pagination/query budgets | Phase 2I + DB | high-volume catalog/admin/report plans | bounded rows/time/cost and tenant indexes at target scale | unbounded scan, timeout, pool starvation | disable offending query/export; tenant bulk kill switch |
+| Core Web Vitals/mobile | Phase 2G/2H | certified mobile lab/field-like report | approved per-template LCP/INP/CLS and asset/JS budgets pass for all themes/modes | budget exceeded or critical content delayed client-only | block theme/release; restore prior certified version |
+| Horizontal scaling/autoscaling | Phase 2I + Ops | replica/add/remove and signal tests | stateless replicas, safe cache/session behavior, scale signals/circuit/load shedding meet SLO | process-local authority, unsafe scale event, no overload response | remove candidate; cap traffic; checkout protection mode |
+| Replica/search/image decision gates | Architecture + Ops | measured decision records | explicit accept/defer with lag/index/freshness/image security evidence | silent dependency/authority introduction | disable adapter; return to primary/basic search/image path |
+
+## O. Commerce correctness and resilience
+
+| Item | Owner | Evidence | PASS criteria | FAIL condition | Rollback action |
+| --- | --- | --- | --- | --- | --- |
+| Checkout/order idempotency | Phase 2I + Security | same/different key, timeout, unknown-commit races | one store-bound order/payment reference and immutable replay; mismatch denied; no blind retry | duplicate order/charge or ambiguous success exposed | disable new checkout/payment; reconcile durable/provider refs |
+| Stock reservation/oversell | Phase 2I | last-unit/multi-SKU concurrency and expiry/cancel tests | inventory never negative/overcommitted; reservations release correctly | any oversell/leak/stuck reservation beyond policy | disable affected SKU/store checkout; reconcile/release |
+| Payment webhook replay | Phase 2I + Security | signed/forged/duplicate/out-of-order/crash tests | one provider event claim, correct account/store/signature and monotonic transition | replay/forgery/duplicate transition/charge | disable provider initiation; continue safe reconciliation callback policy |
+| Cancellation/refund/shipping/tax | Phase 2I + Product/Ops | state-machine and reconciliation fixtures | only allowed idempotent audited transitions; required market hooks owned | illegal transition or money/stock/shipping divergence | stop affected transition; manual reconciliation runbook |
+| Outbox/notifications | Phase 2I | crash/duplicate/backlog/DLQ evidence | business mutation+outbox atomic; external effects/notifications idempotent outside request | lost/duplicate unsafe side effect or request transaction coupling | pause consumers; replay by durable event after repair |
+| Real-customer activation boundary | Atlas + Product/Security/Ops | signed commerce readiness report | all commerce rows PASS for launch market and kill/reconciliation/support runbooks exercised | any missing cart/checkout/inventory/order/payment requirement | no real customer activation; flags remain disabled |
+
+## P. Noisy-neighbor and dedicated escalation
+
+| Item | Owner | Evidence | PASS criteria | FAIL condition | Rollback action |
+| --- | --- | --- | --- | --- | --- |
+| Tenant degradation limit | Phase 2I + Ops | mandatory Tenant X/Y mixed load comparison | Y checkout success loss <=0.5pp, p95 checkout <=20%, browse p95 <=30%, zero correctness/isolation failure | any threshold exceeded or bulk work wins over checkout | enable checkout protection; stop X bulk work; tenant circuit/read-only mode |
+| Queue fairness/worker concurrency | Phase 2I | per-tenant partitions/scheduling and backlog logs | tenant quotas/fair share prevent X starving Y; checkout-class jobs prioritized | Y SLO/backlog miss caused by X | pause X partition; dedicated-worker review |
+| Pool/workload priority | Phase 2A/2I | reserved capacity/workload-class tests | checkout retains connections/short queries while reports/imports shed/time out | pool starvation or report blocks checkout | kill bulk queries; checkout protection/read-only mode |
+| Storage/media/analytics quotas | Phase 2D/2I | quota/concurrency/bandwidth tests | one tenant cannot exceed approved shared share or reveal another tenant | unbounded resource use/cross-tenant analytics | throttle/disable tenant subsystem; reconcile usage |
+| Dedicated escalation runbook | Architecture + Ops | synthetic threshold and decision rehearsal | exact storefront/worker/Redis/queue/DB thresholds produce review only; shared admin compatibility and rollback/data plan documented | automatic migration, vague threshold, or dedicated frontend implies dedicated data | cancel escalation; remain shared under protection; Atlas review |
 
 ## Dependency security review
 
@@ -143,19 +215,23 @@ All defaults remain disabled. Required enable order:
 2. Persistent registration store.
 3. Persistent session store.
 4. OIDC login with staging issuer only.
-5. Store creation for direct allowlisted synthetic internal calls, with strict quota and global kill switch.
-6. Self-serve registration for allowlisted synthetic principals after store creation passes.
-7. Exact-host resolver for allowlisted synthetic hosts.
-8. Custom domains for synthetic proof domains.
-9. Background jobs by one allowlisted job kind.
+5. Tenant-aware shared admin after the ownership amendment, donor parity, and authorization gates pass.
+6. Certified theme platform, including safe anonymous catalog demos and authenticated draft previews.
+7. Store creation for direct allowlisted synthetic internal calls, with strict quota and global kill switch.
+8. Self-serve registration for allowlisted synthetic principals after store creation passes.
+9. Exact-host resolver and published storefront read model for allowlisted synthetic hosts.
+10. Platform SEO/indexability core and theme certification.
+11. Custom domains for synthetic proof domains.
+12. Background jobs by one allowlisted job kind.
+13. Commerce writes for synthetic checkout/order/payment flows under checkout protection.
 
-Disable dependent producers first, then consumers, in reverse order. Emergency response always disables self-serve registration and store creation first. No persistent adapter may silently fall back to memory. Unknown commits are reconciled before re-enable; session revocation data remains durable; cache/queue state is discarded or quarantined, never promoted to authority.
+Disable dependent producers first, then consumers, in reverse order. Emergency response always disables self-serve registration and store creation first for onboarding incidents, new checkout/payment initiation first for commerce incidents, and public storefront modes when SEO/canonical authority is unsafe. No persistent adapter may silently fall back to memory. Unknown commits are reconciled before re-enable; session revocation data remains durable; cache/queue state is discarded or quarantined, never promoted to authority.
 
 ## Final decision record
 
 | Gate | Current result | Reason |
 | --- | --- | --- |
-| Staging | **NOT READY** | documents exist, but no adapters, migrations, rehearsal, provider config, staging deployment, tests, alerts, backup/restore, or approvals exist |
+| Staging | **NOT READY** | documents exist, but no adapters, migrations, Hemenaku shared-admin parity, theme/SEO/commerce implementation, rehearsal, provider config, staging deployment, tests, load/crawler evidence, alerts, backup/restore, or approvals exist |
 | Production | **NOT READY** | staging has not passed and Atlas has not issued a production authorization |
 
 The Integration Lead must publish a final readiness report listing every row as PASS or FAIL with evidence links. Any FAIL keeps the overall result NOT READY.

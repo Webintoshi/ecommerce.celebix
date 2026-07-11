@@ -165,6 +165,52 @@ Evidence: destroy command transcript with credentials redacted, UTC completion, 
 | membership revocation during request | no high-risk mutation after revocation wins | mutation conditioned/rolled back; denial audit |
 | alias/canonical-domain update race | resolver returns a fully consistent old/new binding or denies | never a cross-store/chained/stale redirect |
 
+## Product, theme, SEO, and commerce extension rehearsals
+
+These scenarios are added to the disposable evidence run after their separately approved Phase 2F–2I migrations/adapters exist. They use only synthetic stores, domains, themes, products, customers, orders, and provider events.
+
+### Hemenaku shared-admin parity and tenant adaptation
+
+Seed stores A/B with representative products, variants, categories/collections, brands, inventory, orders, customers, promotions, media metadata, pages/blog, settings, shipping/payment-safe metadata, reports, staff, and theme settings. Execute every launch-module admin screen/API as each role. Compare the approved Hemenaku donor feature inventory and workflows while proving no donor Supabase/env/domain/logo/service-role import or cross-store row appears. Capture parity matrix, denied operations, query budgets, and live donor tree/remote SHA unchanged proof.
+
+### Theme schema and version migration
+
+Apply migrations for immutable `themes` code/version/capabilities/compatibility/artifact digest and `store_themes` assignment/draft/published/rollback status. Upgrade synthetic v1 catalog/assignments to v2 compatibility rules; reject duplicate/mutable/revoked/incompatible versions; downgrade only through the declared safe path. Capture schema/checksums, theme/assignment/history row counts, private visibility, and frozen commerce row checksums before/after.
+
+### Draft, preview, publish, and rollback
+
+Create a certified catalog theme and a store-private package. Save concurrent draft versions, issue principal/store-bound preview grants, prove preview noindex/private cache, publish one winner with outbox/version increment, then roll back to an immutable reference as a new publication. Inject failure before assignment commit, outbox insert, cache invalidation, and render warmup; the prior published theme must remain active. Product/order/customer/inventory rows must be byte-equivalent.
+
+### SEO sitemap, canonical, robots, and structured data
+
+For products, categories, collections, brands, blogs, content, and campaigns, generate tenant-specific robots, sitemap index/segments, canonical metadata, SSR HTML, and required structured data. Verify cart/checkout/account/order/admin/preview/draft/search/uncontrolled facets are noindex/excluded. Seed more than one sitemap page and two stores to prove pagination and no cross-tenant URL leakage. Run crawler assertions for status, canonical, robots, headings/links, JSON-LD, image alt, 301/410, and no global noindex.
+
+### Custom-domain canonical switch
+
+Using reserved synthetic domains only, rehearse platform subdomain -> verified apex canonical, apex/www selection, aliases, exact second lookup, TLS-ready gate stub, 301 behavior, cache/outbox invalidation, proof loss, disable, release cooldown, and reclaim with a new token. Concurrent old/new resolution may return the complete old/new binding or deny, never cross-store/default/suffix resolution or stale previous-owner redirect.
+
+### High-volume catalog and read path
+
+Seed the approved scale profile (minimum starting target: 1 million products/variants across multiple stores, with one hot-product subset), then test paginated storefront/admin reads through CDN/ISR/Redis harnesses. Record cache hit/miss, origin/DB queries, p50/p95/p99 latency, pool wait, replica-lag decision data, memory, invalidation convergence, hot-key single-flight, negative cache, circuit/load shedding, image transformation, and stateless replica scaling. Most steady-state storefront reads must produce zero PostgreSQL queries.
+
+### Concurrent checkout, order, and stock reservation
+
+Run independent processes against last-unit and multi-SKU inventory with same/different checkout fingerprints. Inject connection loss before/during commit and payment initiation. Require no negative/overcommitted inventory, one replayable order/payment reference, correct reservation expiry/release/cancellation, and quarantined unknown outcomes. Replay duplicate/out-of-order/forged payment webhooks and prove one allowed transition/outbox event. Include refund/shipping/tax-hook state-machine fixtures without external providers.
+
+### Cache invalidation and outbox recovery
+
+For product, content, inventory, domain, theme, SEO, and entitlement changes, crash the poller before/after claim, publish, destination apply, and checkpoint. Deliver duplicates/out of order, build backlog, and replay DLQ. Prove authoritative mutation and outbox insert are atomic, newer cache versions cannot be overwritten, invalidation remains exact-store/path/tag, and all destinations converge within the approved SLO.
+
+### Noisy-neighbor isolation load test
+
+Tenant X simultaneously generates high storefront traffic, bulk product import, image processing, and report/export load. Tenant Y runs normal storefront browsing and active checkout/order traffic. Compare Y to an unsaturated baseline and capture per-tenant resource shares, browse/checkout p50/p95/p99, success/error/timeout, DB/pool/Redis/worker/queue/media utilization, queue lag/fairness, and order/inventory correctness. PASS requires Y checkout success degradation <=0.5 percentage points, checkout p95 <=20%, browsing p95 <=30%, zero isolation/correctness failure, and bulk work shedding before checkout capacity.
+
+Exercise per-IP/store limits, workload classes/reserved pool, query timeouts, import/export/media/worker quotas, fair queue partitions, bulk kill switch, tenant circuit breaker/read-only mode, and platform checkout-protection mode. Cleanup must prove no orphan import/media/reservation jobs.
+
+### Dedicated-escalation rehearsal boundaries
+
+Do not create real dedicated infrastructure. Feed synthetic metrics across each documented threshold and prove the capacity policy emits a review recommendation—not an automatic migration—for dedicated storefront, workers, Redis/queue, or database/schema. Rehearse an architecture/data-movement/rollback checklist using logical placeholders, confirm shared admin/API compatibility, and prove a dedicated frontend recommendation does not imply a data move. Evidence records which thresholds fired and the required separate Atlas approval.
+
 ## RLS verification plan
 
 For each table/action, maintain an explicit matrix of migration owner (setup only), bootstrap executor, tenant application with principal only, tenant application with principal+store A, same with store B, host resolver, workflow/session role, and anonymous/no settings. Record expected/actual row counts and SQLSTATE. At minimum prove:
@@ -202,6 +248,7 @@ The final signed index must contain:
 - role/grant/policy dumps and RLS proof matrix;
 - unknown-commit and rollback fault-injection proof;
 - backup and restore proof;
+- Hemenaku parity/tenant-adaptation matrix; theme migration/publish/rollback and immutable-commerce checksums; SEO crawl/sitemap/canonical evidence; custom-domain switch; high-volume read/cache query counts; checkout/reservation/webhook races; outbox convergence; noisy-neighbor degradation; and dedicated-threshold decision evidence;
 - cleanup commands and post-cleanup absence proof;
 - reviewer names/decisions and unresolved deviations.
 
@@ -209,4 +256,4 @@ Missing, edited-without-trace, secret-bearing, or non-reproducible evidence is a
 
 ## Exit criteria
 
-Rehearsal PASS requires all 15 stages, every concurrency/RLS case, rollback or documented forward-recovery path, backup/restore, and cleanup to pass from a clean run at one pinned commit. This planning task records no PASS evidence; current status is **NOT RUN / NOT READY**.
+Rehearsal PASS requires all 15 base stages, every concurrency/RLS case, all applicable Hemenaku/theme/SEO/domain/read/commerce/outbox/noisy-neighbor/dedicated-boundary extension scenarios, rollback or documented forward-recovery path, backup/restore, and cleanup to pass from a clean run at one pinned commit. This planning task records no PASS evidence; current status is **NOT RUN / NOT READY**.
