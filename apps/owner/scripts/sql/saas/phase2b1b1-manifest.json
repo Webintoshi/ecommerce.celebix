@@ -1,0 +1,35 @@
+{
+  "bundleId": "phase2b1b1-202607120012",
+  "postgresqlMajor": 16,
+  "productionDistributionCompatibility": "OPEN_INFRASTRUCTURE_GATE",
+  "artifacts": [
+    {
+      "id": "202607120012_verified_identity_snapshot_up",
+      "direction": "up",
+      "file": "202607120012_verified_identity_snapshot.up.sql",
+      "sha256": "43a5e8b70746d649298de35f6e1dacd2b6b2f151fcb5f9c393edf7e4cd6cfd6e",
+      "purpose": "Create the immutable encrypted verified-identity snapshot and atomic workflow-pair guards."
+    },
+    {
+      "id": "202607120012_verified_identity_snapshot_down",
+      "direction": "down",
+      "file": "202607120012_verified_identity_snapshot.down.sql",
+      "sha256": "a77aa0b0704ab10b5f595893a976057b500f4f748256bded9a427b3a1f0ea576",
+      "purpose": "Remove only Phase 2B1B1 snapshot and transition-guard objects."
+    },
+    {
+      "id": "202607120013_verified_identity_grants",
+      "direction": "up",
+      "file": "202607120013_verified_identity_grants.sql",
+      "sha256": "d8f874386fde3f9cae429aa04b93e1ae9434e52523c7b4ff28d8dead287522ea",
+      "purpose": "Grant the identity role SELECT and INSERT only, with no snapshot mutation or deletion authority."
+    },
+    {
+      "id": "202607120014_verified_identity_catalog_assertions",
+      "direction": "verify",
+      "file": "202607120014_verified_identity_catalog_assertions.sql",
+      "sha256": "031be026c880fd4797033db87728afb922575bf4988338286f1a3de30a10f890",
+      "purpose": "Fail on role, PUBLIC, plaintext-column, cascade, trigger, or paired-authority drift."
+    }
+  ]
+}

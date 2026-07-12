@@ -1,3 +1,5 @@
+import type { CreateStarterTenantInput } from "@celebix/saas-contracts";
+
 import type { RegistrationAttempt, RegistrationAttemptStore } from "../self-serve-registration-orchestrator.ts";
 import type { ValidatedRegistrationDetails } from "../self-serve-identity.ts";
 import type { EncryptedPayload } from "./identity-crypto.ts";
@@ -14,13 +16,20 @@ import {
   type IdentityPostgresClient,
   type IdentityStoreDependencies,
 } from "./postgres-identity-common.ts";
+import {
+  buildVerifiedTenantAuthority,
+  parseVerifiedIdentitySnapshot,
+  type VerifiedIdentitySnapshot,
+} from "./verified-identity.ts";
 
 const PURPOSE = "saas.registration_workflows";
 const SCHEMA_VERSION = 1;
+const VERIFIED_IDENTITY_PURPOSE = "saas.registration_verified_identities";
+const VERIFIED_IDENTITY_SCHEMA_VERSION = 1;
 const TERMINAL_STATUSES = new Set(["session_created", "failed", "expired", "cancelled"]);
 type WorkflowStatus = RegistrationAttempt["status"];
 
-interface StoredRegistrationPayload {
+export interface StoredRegistrationPayload {
   id: string;
   details: ValidatedRegistrationDetails;
   idempotencyKey: string;
@@ -37,7 +46,27 @@ export interface PersistentRegistrationWorkflow {
   consumedAt?: string;
   terminalAt?: string;
   failureCode?: string;
+  verifiedIdentity?: VerifiedIdentitySnapshot;
+  tenantInput?: CreateStarterTenantInput;
 }
+
+export interface VerifiedRegistrationAuthority extends PersistentRegistrationWorkflow {
+  canonicalFingerprint: string;
+  verifiedIdentity: VerifiedIdentitySnapshot;
+  tenantInput: CreateStarterTenantInput;
+}
+
+export interface RecordVerifiedIdentityInput {
+  attemptId: string;
+  expectedVersion: number;
+  identity: unknown;
+  now: Date;
+}
+
+export type RecordVerifiedIdentityOutcome = {
+  kind: "recorded" | "already_recorded";
+  authority: VerifiedRegistrationAuthority;
+};
 
 export interface RegistrationTransitionInput {
   attemptId: string;
@@ -148,6 +177,29 @@ function encrypted(row: Record<string, unknown>): EncryptedPayload {
   };
 }
 
+const WORKFLOW_WITH_IDENTITY_SELECT = `SELECT
+  workflow.attempt_id, workflow.state_digest, workflow.payload_ciphertext, workflow.payload_iv,
+  workflow.encryption_key_id, workflow.payload_schema_version, workflow.status, workflow.version,
+  workflow.canonical_fingerprint, workflow.requested_at, workflow.created_at, workflow.expires_at,
+  workflow.consumed_at, workflow.terminal_at, workflow.failure_code,
+  snapshot.attempt_id AS verified_attempt_id,
+  snapshot.canonical_fingerprint AS verified_canonical_fingerprint,
+  snapshot.payload_ciphertext AS verified_payload_ciphertext,
+  snapshot.payload_iv AS verified_payload_iv,
+  snapshot.encryption_key_id AS verified_encryption_key_id,
+  snapshot.payload_schema_version AS verified_payload_schema_version,
+  snapshot.recorded_at AS verified_recorded_at
+FROM saas.registration_workflows AS workflow
+LEFT JOIN saas.registration_verified_identities AS snapshot ON snapshot.attempt_id = workflow.attempt_id`;
+
+function sameVerifiedIdentity(left: VerifiedIdentitySnapshot, right: VerifiedIdentitySnapshot): boolean {
+  return left.issuer === right.issuer &&
+    left.subject === right.subject &&
+    left.email === right.email &&
+    left.emailVerified === right.emailVerified &&
+    left.displayName === right.displayName;
+}
+
 export class PostgresRegistrationAttemptStore implements RegistrationAttemptStore {
   private readonly options: IdentityStoreDependencies;
 
@@ -233,16 +285,101 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     const id = requiredString(attemptId, 160);
     return withIdentityTransaction(this.options, "registration", async (client) => {
       const result = await client.query(
-        "SELECT attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, version, canonical_fingerprint, requested_at, created_at, expires_at, consumed_at, terminal_at, failure_code FROM saas.registration_workflows WHERE attempt_id = $1",
+        `${WORKFLOW_WITH_IDENTITY_SELECT} WHERE workflow.attempt_id = $1`,
         [id],
       );
       if (!result.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
-      return this.parseWorkflow(result.rows[0]);
+      return this.parseLoadedWorkflow(result.rows[0]);
     });
   }
 
-  async markIdentityVerified(input: RegistrationTransitionInput & { canonicalFingerprint?: string }) {
-    return this.transition(input, "identity_verified", input.canonicalFingerprint);
+  async loadVerified(attemptId: string): Promise<VerifiedRegistrationAuthority> {
+    const workflow = await this.load(attemptId);
+    if (!workflow.canonicalFingerprint || !workflow.verifiedIdentity || !workflow.tenantInput) {
+      throw new RegistrationPersistenceError("registration_verified_identity_missing");
+    }
+    return workflow as VerifiedRegistrationAuthority;
+  }
+
+  async recordVerifiedIdentity(input: RecordVerifiedIdentityInput): Promise<RecordVerifiedIdentityOutcome> {
+    const attemptId = requiredString(input.attemptId, 160);
+    if (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1) throw new IdentityPersistenceError();
+    if (!(input.now instanceof Date) || !Number.isFinite(input.now.getTime())) throw new IdentityPersistenceError();
+    const verifiedIdentity = parseVerifiedIdentitySnapshot(input.identity);
+
+    return withIdentityTransaction(this.options, "registration", async (client) => {
+      const selected = await client.query(
+        `${WORKFLOW_WITH_IDENTITY_SELECT} WHERE workflow.attempt_id = $1 FOR UPDATE OF workflow`,
+        [attemptId],
+      );
+      if (!selected.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
+      let selectedRow = selected.rows[0];
+      const workflow = this.parseWorkflow(selectedRow);
+
+      if (workflow.status === "identity_verified") {
+        if (selectedRow.verified_attempt_id == null) {
+          const refreshed = await client.query(
+            `${WORKFLOW_WITH_IDENTITY_SELECT} WHERE workflow.attempt_id = $1`,
+            [attemptId],
+          );
+          if (!refreshed.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
+          selectedRow = refreshed.rows[0];
+        }
+        const existing = await this.parseVerifiedAuthority(selectedRow);
+        const candidate = await buildVerifiedTenantAuthority(verifiedIdentity, workflow.attempt);
+        if (
+          !sameVerifiedIdentity(existing.verifiedIdentity, verifiedIdentity) ||
+          existing.canonicalFingerprint !== candidate.canonicalFingerprint
+        ) {
+          throw new RegistrationPersistenceError("registration_verified_identity_conflict");
+        }
+        return { kind: "already_recorded", authority: existing };
+      }
+
+      if (workflow.status !== "awaiting_identity") {
+        throw new RegistrationPersistenceError("registration_workflow_invalid_transition");
+      }
+      if (!workflow.consumedAt) throw new RegistrationPersistenceError("registration_identity_not_consumed");
+      if (workflow.version !== input.expectedVersion) throw new RegistrationPersistenceError("registration_workflow_conflict");
+      if (workflow.canonicalFingerprint || selected.rows[0].verified_attempt_id != null) throw new IdentityPersistenceError();
+
+      const authority = await buildVerifiedTenantAuthority(verifiedIdentity, workflow.attempt);
+      const sealed = this.options.payloadCipher.encrypt({
+        binding: {
+          purpose: VERIFIED_IDENTITY_PURPOSE,
+          stateDigest: authority.canonicalFingerprint,
+          schemaVersion: VERIFIED_IDENTITY_SCHEMA_VERSION,
+          recordId: attemptId,
+        },
+        payload: verifiedIdentity,
+      });
+      try {
+        await client.query(
+          "INSERT INTO saas.registration_verified_identities (attempt_id, canonical_fingerprint, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, recorded_at) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz)",
+          [attemptId, authority.canonicalFingerprint, Buffer.from(sealed.ciphertext), Buffer.from(sealed.iv), sealed.keyId, VERIFIED_IDENTITY_SCHEMA_VERSION, input.now.toISOString()],
+        );
+      } catch (error) {
+        if ((error as { code?: unknown })?.code === "23505") {
+          throw new RegistrationPersistenceError("registration_verified_identity_conflict");
+        }
+        throw error;
+      }
+      const updated = await client.query(
+        "UPDATE saas.registration_workflows SET status = 'identity_verified', version = version + 1, canonical_fingerprint = $2, updated_at = $3::timestamptz WHERE attempt_id = $1 AND status = 'awaiting_identity' AND consumed_at IS NOT NULL AND version = $4 AND canonical_fingerprint IS NULL RETURNING attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, version, canonical_fingerprint, requested_at, created_at, expires_at, consumed_at, terminal_at, failure_code",
+        [attemptId, authority.canonicalFingerprint, input.now.toISOString(), input.expectedVersion],
+      );
+      if (!updated.rows[0]) throw new RegistrationPersistenceError("registration_workflow_conflict");
+      const transitioned = this.parseWorkflow(updated.rows[0]);
+      return {
+        kind: "recorded",
+        authority: {
+          ...transitioned,
+          canonicalFingerprint: authority.canonicalFingerprint,
+          verifiedIdentity,
+          tenantInput: authority.input,
+        },
+      };
+    });
   }
   async markTenantCreated(input: RegistrationTransitionInput) { return this.transition(input, "tenant_created"); }
   async markSessionCreated(input: RegistrationTransitionInput) { return this.transition(input, "session_created"); }
@@ -306,6 +443,53 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     if (terminalAt) workflow.terminalAt = terminalAt;
     if (row.failure_code !== null && row.failure_code !== undefined) workflow.failureCode = requiredString(row.failure_code, 64);
     return workflow;
+  }
+
+  private async parseLoadedWorkflow(row: Record<string, unknown>): Promise<PersistentRegistrationWorkflow> {
+    const workflow = this.parseWorkflow(row);
+    const hasSnapshot = row.verified_attempt_id !== null && row.verified_attempt_id !== undefined;
+    const requiresSnapshot = workflow.canonicalFingerprint !== undefined ||
+      ["identity_verified", "tenant_created", "session_created"].includes(workflow.status);
+    if (!requiresSnapshot) {
+      if (hasSnapshot) throw new IdentityPersistenceError();
+      return workflow;
+    }
+    return this.parseVerifiedAuthority(row);
+  }
+
+  private async parseVerifiedAuthority(row: Record<string, unknown>): Promise<VerifiedRegistrationAuthority> {
+    const workflow = this.parseWorkflow(row);
+    const attemptId = requiredString(row.verified_attempt_id, 160);
+    if (attemptId !== workflow.attempt.id || !workflow.canonicalFingerprint) throw new IdentityPersistenceError();
+    const snapshotFingerprint = requiredString(row.verified_canonical_fingerprint, 64);
+    if (!/^[a-f0-9]{64}$/.test(snapshotFingerprint) || snapshotFingerprint !== workflow.canonicalFingerprint) {
+      throw new IdentityPersistenceError();
+    }
+    persistedTimestamp(row.verified_recorded_at);
+    const schemaVersion = integer(row.verified_payload_schema_version);
+    if (schemaVersion !== VERIFIED_IDENTITY_SCHEMA_VERSION) throw new IdentityPersistenceError();
+    const decoded = this.options.payloadCipher.decrypt({
+      binding: {
+        purpose: VERIFIED_IDENTITY_PURPOSE,
+        stateDigest: snapshotFingerprint,
+        schemaVersion,
+        recordId: attemptId,
+      },
+      encrypted: {
+        keyId: requiredString(row.verified_encryption_key_id, 128),
+        iv: byteValue(row.verified_payload_iv),
+        ciphertext: byteValue(row.verified_payload_ciphertext),
+      },
+    });
+    const verifiedIdentity = parseVerifiedIdentitySnapshot(decoded);
+    const authority = await buildVerifiedTenantAuthority(verifiedIdentity, workflow.attempt);
+    if (authority.canonicalFingerprint !== snapshotFingerprint) throw new IdentityPersistenceError();
+    return {
+      ...workflow,
+      canonicalFingerprint: snapshotFingerprint,
+      verifiedIdentity,
+      tenantInput: authority.input,
+    };
   }
 
   private async transition(

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -9,11 +9,17 @@ import { fileURLToPath } from "node:url";
 
 import pg from "pg";
 
+import { createCanonicalTenantFingerprint, PostgresSaaSDataRepository, PostgresTenantOperationRecovery } from "@celebix/saas-data";
+import { createStarterTenantService } from "@celebix/saas-tenant-core";
+
 import { createAes256GcmPayloadCipher, createOpaqueStateDigester } from "../../../apps/owner/lib/saas-persistence/identity-crypto.ts";
 import { RegistrationPersistenceError } from "../../../apps/owner/lib/saas-persistence/postgres-identity-common.ts";
 import { PostgresOidcTransactionStore } from "../../../apps/owner/lib/saas-persistence/postgres-oidc-transaction-store.ts";
 import { PostgresRegistrationAttemptStore } from "../../../apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts";
+import { createOwnerTenantCoreAdapter } from "../../../apps/owner/lib/saas-tenant-core/adapter.ts";
+import { createPersistentRegistrationCompletionService } from "../../../apps/owner/lib/self-serve-registration-completion.ts";
 import { OidcFlowError } from "../../../apps/owner/lib/self-serve-oidc.ts";
+import { registerPostgresTestFailure } from "../../../packages/saas-data/src/postgres/repository.ts";
 import {
   DISPOSABLE_IMAGE,
   REQUIRED_APPLY_ORDER,
@@ -36,6 +42,12 @@ const phase2bFiles = [
   "202607110009_identity_grants.sql",
   "202607110010_identity_catalog_assertions.sql",
   "202607110011_identity_roles.down.sql",
+];
+const phase2b1b1Files = [
+  "202607120012_verified_identity_snapshot.up.sql",
+  "202607120012_verified_identity_snapshot.down.sql",
+  "202607120013_verified_identity_grants.sql",
+  "202607120014_verified_identity_catalog_assertions.sql",
 ];
 
 function command(executable, args, options = {}) {
@@ -88,6 +100,10 @@ function applyPhase2A(backend, database, includeRoles = false, includeAssertions
 function applyPhase2B(backend, database, includeRole = false) {
   if (includeRole) migration(backend, phase2bFiles[0], database, false);
   for (const file of [phase2bFiles[1], phase2bFiles[3], phase2bFiles[4]]) migration(backend, file, database);
+}
+
+function applyPhase2B1B1(backend, database) {
+  for (const file of [phase2b1b1Files[0], phase2b1b1Files[2], phase2b1b1Files[3]]) migration(backend, file, database);
 }
 
 function startPostgres() {
@@ -166,10 +182,50 @@ function dependencies(pool, material, context, keyring = material.keyring, curre
   };
 }
 
-function registration(id, state, createdAt = "2026-07-12T10:00:00.000Z", expiresAt = "2026-07-12T10:10:00.000Z") {
+function completionService(workflowStore, pool, failAt) {
+  const repositoryOptions = {
+    pool,
+    generateId: () => randomUUID(),
+    audit: () => undefined,
+    timeouts: { poolCheckoutMs: 1_000, statementMs: 3_000, lockMs: 1_000, idleTransactionMs: 4_000 },
+    bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.celebix.site",
+  };
+  if (failAt) registerPostgresTestFailure(repositoryOptions, failAt);
+  const tenantCore = createOwnerTenantCoreAdapter(createStarterTenantService({
+    repository: new PostgresSaaSDataRepository(repositoryOptions),
+    platformDomainSuffix: "celebix.site",
+    panelBaseUrl: "https://panel.celebix.site",
+  }));
+  const recovery = new PostgresTenantOperationRecovery({
+    pool,
+    timeouts: repositoryOptions.timeouts,
+    bootstrapRole: "celebix_saas_bootstrap",
+    panelOrigin: "https://panel.celebix.site",
+  });
+  return createPersistentRegistrationCompletionService({
+    workflowStore,
+    tenantCore,
+    recovery,
+    clock: () => new Date("2026-07-12T10:05:00.000Z"),
+    audit: (event) => {
+      assert.doesNotMatch(JSON.stringify(event), /@|subject|issuer|cipher|key|sql|postgres/i);
+    },
+  });
+}
+
+const verifiedIdentity = {
+  issuer: "https://identity.example.test",
+  subject: "verified-subject",
+  email: "owner@example.test",
+  emailVerified: true,
+  displayName: "Verified Owner",
+};
+
+function registration(id, state, createdAt = "2026-07-12T10:00:00.000Z", expiresAt = "2026-07-12T10:10:00.000Z", slug = "disposable-store") {
   return {
     id, state,
-    details: { storeName: "Disposable Store", storeSlug: "disposable-store", locale: "tr", currency: "TRY", themeKey: "starter", privacyAcceptedAt: createdAt },
+    details: { storeName: "Disposable Store", storeSlug: slug, locale: "tr", currency: "TRY", themeKey: "starter", privacyAcceptedAt: createdAt },
     idempotencyKey: `ssik_${id.slice(8)}`,
     requestedAt: createdAt,
     status: "awaiting_identity",
@@ -195,9 +251,11 @@ function oidc(state, createdAt = "2026-07-12T10:00:00.000Z", expiresAt = "2026-0
 function sha256(buffer) { return createHash("sha256").update(buffer).digest("hex"); }
 
 function validateManifest() {
-  const manifest = JSON.parse(sqlText("phase2b1-manifest.json"));
-  assert.equal(manifest.postgresqlMajor, 16);
-  for (const artifact of manifest.artifacts) assert.equal(sha256(readFileSync(path.join(sqlDirectory, artifact.file))), artifact.sha256);
+  for (const file of ["phase2b1-manifest.json", "phase2b1b1-manifest.json"]) {
+    const manifest = JSON.parse(sqlText(file));
+    assert.equal(manifest.postgresqlMajor, 16);
+    for (const artifact of manifest.artifacts) assert.equal(sha256(readFileSync(path.join(sqlDirectory, artifact.file))), artifact.sha256);
+  }
 }
 
 function createDatabase(backend, database) {
@@ -205,7 +263,7 @@ function createDatabase(backend, database) {
 }
 
 function dataDump(backend) {
-  const args = ["-U", "postgres", "-d", primaryDatabase, "--data-only", "--inserts", "--no-owner", "--no-privileges", "--table=saas.registration_workflows", "--table=saas.oidc_transactions"];
+  const args = ["-U", "postgres", "-d", primaryDatabase, "--data-only", "--inserts", "--disable-triggers", "--no-owner", "--no-privileges", "--table=saas.registration_workflows", "--table=saas.registration_verified_identities", "--table=saas.oidc_transactions"];
   return backend.kind === "container"
     ? command(backend.executable, ["exec", backend.container, "pg_dump", ...args]).stdout
     : command(backend.executables.pg_dump, ["-h", backend.socketDirectory, "-p", String(backend.port), ...args]).stdout;
@@ -222,13 +280,15 @@ async function main() {
     psql(backend, `CREATE DATABASE ${primaryDatabase};`, "postgres");
     applyPhase2A(backend, primaryDatabase, true);
     applyPhase2B(backend, primaryDatabase, true);
+    applyPhase2B1B1(backend, primaryDatabase);
     rolesCreated = true;
-    psql(backend, `CREATE ROLE ${workloadRole} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT celebix_saas_identity TO ${workloadRole};`, "postgres");
+    psql(backend, `CREATE ROLE ${workloadRole} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT celebix_saas_identity, celebix_saas_bootstrap TO ${workloadRole};`, "postgres");
 
     const attributes = psql(backend, "SELECT rolcanlogin::int || ':' || rolinherit::int || ':' || rolsuper::int || ':' || rolcreatedb::int || ':' || rolcreaterole::int || ':' || rolreplication::int || ':' || rolbypassrls::int FROM pg_roles WHERE rolname='celebix_saas_identity';", primaryDatabase).stdout.trim();
     assert.equal(attributes, "0:0:0:0:0:0:0");
     const unrelated = psql(backend, "SET ROLE celebix_saas_identity; SELECT count(*) FROM saas.stores;", primaryDatabase, { allowFailure: true });
     assert.notEqual(unrelated.status, 0);
+    assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity', 'saas.registration_verified_identities', 'SELECT,INSERT')::int || ':' || has_table_privilege('celebix_saas_identity', 'saas.registration_verified_identities', 'UPDATE,DELETE')::int || ':' || has_table_privilege('public', 'saas.registration_verified_identities', 'SELECT,INSERT,UPDATE,DELETE')::int;").stdout.trim(), "1:0:0");
 
     const material = { hmacKey: randomBytes(32), currentKeyId: "key-current", keyring: { "key-current": randomBytes(32), "key-old": randomBytes(32) } };
     const poolA = makePool(backend);
@@ -238,6 +298,18 @@ async function main() {
     const registrationsB = new PostgresRegistrationAttemptStore(dependencies(poolB, material, "registration-attempt-state"));
     const oidcA = new PostgresOidcTransactionStore(dependencies(poolA, material, "oidc-transaction-state"));
     const oidcB = new PostgresOidcTransactionStore(dependencies(poolB, material, "oidc-transaction-state"));
+    const prepareVerified = async (store, attempt) => {
+      await store.save(attempt);
+      await store.consume(attempt.state, new Date("2026-07-12T10:01:00.000Z"));
+      const recorded = await store.recordVerifiedIdentity({
+        attemptId: attempt.id,
+        expectedVersion: 1,
+        identity: verifiedIdentity,
+        now: new Date("2026-07-12T10:02:00.000Z"),
+      });
+      assert.equal(recorded.kind, "recorded");
+      return recorded.authority;
+    };
 
     const first = registration("attempt_1234567890abcdef", "registration-state-one");
     await registrationsA.save(first);
@@ -266,9 +338,12 @@ async function main() {
     const workflow = registration("attempt_4234567890abcdef", "registration-state-workflow");
     await registrationsA.save(workflow);
     await registrationsA.consume(workflow.state, new Date("2026-07-12T10:01:00.000Z"));
-    const fingerprint = "a".repeat(64);
-    const identity = await registrationsA.markIdentityVerified({ attemptId: workflow.id, expectedStatus: "awaiting_identity", expectedVersion: 1, canonicalFingerprint: fingerprint, now: new Date("2026-07-12T10:02:00.000Z") });
+    const identityRecord = await registrationsA.recordVerifiedIdentity({ attemptId: workflow.id, expectedVersion: 1, identity: verifiedIdentity, now: new Date("2026-07-12T10:02:00.000Z") });
+    assert.equal(identityRecord.kind, "recorded");
+    const identity = identityRecord.authority;
     assert.equal(identity.version, 2);
+    assert.equal(identity.tenantInput.principal.subject, verifiedIdentity.subject);
+    assert.equal(identity.canonicalFingerprint, createCanonicalTenantFingerprint(identity.tenantInput));
     const optimistic = await Promise.allSettled([
       registrationsA.markTenantCreated({ attemptId: workflow.id, expectedStatus: "identity_verified", expectedVersion: 2, now: new Date("2026-07-12T10:03:00.000Z") }),
       registrationsB.markTenantCreated({ attemptId: workflow.id, expectedStatus: "identity_verified", expectedVersion: 2, now: new Date("2026-07-12T10:03:00.000Z") }),
@@ -280,6 +355,72 @@ async function main() {
     assert.equal(session.status, "session_created");
     await assert.rejects(registrationsA.markFailed({ attemptId: workflow.id, expectedStatus: "session_created", expectedVersion: session.version, failureCode: "late", now: new Date("2026-07-12T10:05:00.000Z") }), (error) => error.code === "registration_workflow_invalid_transition");
     assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET terminal_at = terminal_at + interval '1 second', updated_at = updated_at + interval '1 second' WHERE attempt_id='${workflow.id}'`, "registration terminal timestamp rewrite");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_verified_identities SET recorded_at = recorded_at + interval '1 second' WHERE attempt_id='${workflow.id}'`, "verified identity mutation");
+    assertIdentityMutationDenied(backend, `DELETE FROM saas.registration_verified_identities WHERE attempt_id='${workflow.id}'`, "verified identity direct delete");
+    assertIdentityMutationDenied(backend, `INSERT INTO saas.registration_verified_identities SELECT * FROM saas.registration_verified_identities WHERE attempt_id='${workflow.id}'`, "verified identity duplicate");
+
+    const noSnapshot = registration("attempt_b1b1nosnapshot01", "registration-state-no-snapshot");
+    await registrationsA.save(noSnapshot);
+    await registrationsA.consume(noSnapshot.state, new Date("2026-07-12T10:01:00.000Z"));
+    assertIdentityMutationDenied(
+      backend,
+      `UPDATE saas.registration_workflows SET status='identity_verified', version=version+1, canonical_fingerprint='${"a".repeat(64)}', updated_at=updated_at+interval '1 second' WHERE attempt_id='${noSnapshot.id}'`,
+      "identity_verified without snapshot",
+    );
+
+    const mismatchedPair = registration("attempt_b1b1mismatch0010", "registration-state-mismatch-pair");
+    await registrationsA.save(mismatchedPair);
+    await registrationsA.consume(mismatchedPair.state, new Date("2026-07-12T10:01:00.000Z"));
+    const mismatchedResult = psql(backend, `BEGIN;
+      SET LOCAL ROLE celebix_saas_identity;
+      INSERT INTO saas.registration_verified_identities
+        (attempt_id, canonical_fingerprint, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, recorded_at)
+      SELECT '${mismatchedPair.id}', canonical_fingerprint, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, '2026-07-12T10:02:00.000Z'::timestamptz
+      FROM saas.registration_verified_identities WHERE attempt_id='${workflow.id}';
+      UPDATE saas.registration_workflows SET status='identity_verified', version=version+1,
+        canonical_fingerprint='${"b".repeat(64)}', updated_at='2026-07-12T10:02:00.000Z'::timestamptz
+      WHERE attempt_id='${mismatchedPair.id}';
+      COMMIT;`, primaryDatabase, { allowFailure: true });
+    assert.notEqual(mismatchedResult.status, 0);
+    assert.equal(psql(backend, `SELECT status || ':' || version || ':' || (canonical_fingerprint IS NULL)::int FROM saas.registration_workflows WHERE attempt_id='${mismatchedPair.id}';`).stdout.trim(), "awaiting_identity:1:1");
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${mismatchedPair.id}';`).stdout.trim(), "0");
+
+    const versionRace = registration("attempt_b1b1versionrace1", "registration-state-version-race");
+    await registrationsA.save(versionRace);
+    await registrationsA.consume(versionRace.state, new Date("2026-07-12T10:01:00.000Z"));
+    await assert.rejects(
+      registrationsA.recordVerifiedIdentity({ attemptId: versionRace.id, expectedVersion: 2, identity: verifiedIdentity, now: new Date("2026-07-12T10:02:00.000Z") }),
+      (error) => error.code === "registration_workflow_conflict",
+    );
+
+    const concurrentIdentity = registration("attempt_b1b1concurrent01", "registration-state-concurrent-identity");
+    await registrationsA.save(concurrentIdentity);
+    await registrationsA.consume(concurrentIdentity.state, new Date("2026-07-12T10:01:00.000Z"));
+    const concurrentRecords = await Promise.all([
+      registrationsA.recordVerifiedIdentity({ attemptId: concurrentIdentity.id, expectedVersion: 1, identity: verifiedIdentity, now: new Date("2026-07-12T10:02:00.000Z") }),
+      registrationsB.recordVerifiedIdentity({ attemptId: concurrentIdentity.id, expectedVersion: 1, identity: verifiedIdentity, now: new Date("2026-07-12T10:02:00.000Z") }),
+    ]);
+    assert.deepEqual(concurrentRecords.map((result) => result.kind).sort(), ["already_recorded", "recorded"]);
+    await assert.rejects(
+      registrationsA.recordVerifiedIdentity({ attemptId: concurrentIdentity.id, expectedVersion: 2, identity: { ...verifiedIdentity, subject: "different-subject" }, now: new Date("2026-07-12T10:02:01.000Z") }),
+      (error) => error.code === "registration_verified_identity_conflict",
+    );
+    const restartedAuthority = await new PostgresRegistrationAttemptStore(dependencies(poolB, material, "registration-attempt-state")).loadVerified(concurrentIdentity.id);
+    assert.equal(restartedAuthority.tenantInput.principal.subject, verifiedIdentity.subject);
+    assert.equal(restartedAuthority.canonicalFingerprint, createCanonicalTenantFingerprint(restartedAuthority.tenantInput));
+
+    const oldKeyIdentity = registration("attempt_b1b1oldkeyident1", "registration-state-old-key-identity", undefined, undefined, "b1b1-old-key");
+    const oldKeyRegistrationStore = new PostgresRegistrationAttemptStore(dependencies(
+      poolA,
+      material,
+      "registration-attempt-state",
+      material.keyring,
+      "key-old",
+    ));
+    await prepareVerified(oldKeyRegistrationStore, oldKeyIdentity);
+    assert.equal(psql(backend, `SELECT encryption_key_id FROM saas.registration_verified_identities WHERE attempt_id='${oldKeyIdentity.id}';`).stdout.trim(), "key-old");
+    assert.equal((await registrationsB.loadVerified(oldKeyIdentity.id)).tenantInput.store.slug, "b1b1-old-key");
+    assert.equal(psql(backend, `SELECT encryption_key_id FROM saas.registration_verified_identities WHERE attempt_id='${oldKeyIdentity.id}';`).stdout.trim(), "key-old");
 
     const failedWorkflow = registration("attempt_5234567890abcdef", "registration-state-failed");
     await registrationsA.save(failedWorkflow);
@@ -358,6 +499,51 @@ async function main() {
     psql(backend, `ALTER TABLE saas.oidc_transactions DISABLE TRIGGER oidc_transactions_guard; UPDATE saas.oidc_transactions SET expires_at = expires_at + interval '1 hour' WHERE state_digest='${oidcMismatchDigest}'; ALTER TABLE saas.oidc_transactions ENABLE TRIGGER oidc_transactions_guard;`);
     await assert.rejects(oidcB.consume(oidcMismatch.state, new Date("2026-07-12T10:20:00.000Z")), (error) => error.message === "identity_persistence_failed");
 
+    const firstCreation = registration("attempt_b1b1firstcreate0", "registration-state-first-create", undefined, undefined, "b1b1-first-store");
+    await prepareVerified(registrationsA, firstCreation);
+    const firstCompletion = completionService(registrationsA, poolA);
+    const firstCreationResult = await firstCompletion.resumeTenantCreation(firstCreation.id);
+    assert.equal(firstCreationResult.kind, "tenant_created");
+    assert.equal((await registrationsB.loadVerified(firstCreation.id)).status, "tenant_created");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-first-store';").stdout.trim(), "1");
+
+    const replayCrash = registration("attempt_b1b1crashreplay0", "registration-state-crash-replay", undefined, undefined, "b1b1-replay-store");
+    await prepareVerified(registrationsA, replayCrash);
+    const crashWindowStore = {
+      recordVerifiedIdentity: registrationsA.recordVerifiedIdentity.bind(registrationsA),
+      loadVerified: registrationsA.loadVerified.bind(registrationsA),
+      markTenantCreated: async () => { throw new Error("simulated process loss after tenant commit"); },
+    };
+    const crashedCompletion = completionService(crashWindowStore, poolA);
+    const crashedResult = await crashedCompletion.resumeTenantCreation(replayCrash.id);
+    assert.deepEqual(crashedResult, { kind: "rejected", error: { code: "durable_authority_invalid", retryable: false } });
+    assert.equal((await registrationsB.loadVerified(replayCrash.id)).status, "identity_verified");
+    const replayedResult = await completionService(registrationsB, poolB).resumeTenantCreation(replayCrash.id);
+    assert.equal(replayedResult.kind, "tenant_replayed");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-replay-store';").stdout.trim(), "1");
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.tenant_operations WHERE idempotency_key='${replayCrash.idempotencyKey}';`).stdout.trim(), "1");
+
+    const unknownCommitted = registration("attempt_b1b1unknownmatch", "registration-state-unknown-match", undefined, undefined, "b1b1-unknown-match");
+    await prepareVerified(registrationsA, unknownCommitted);
+    const uncertainCommitted = completionService(registrationsA, poolA, "commit_forwarded_then_connection_failure");
+    assert.deepEqual(await uncertainCommitted.resumeTenantCreation(unknownCommitted.id), { kind: "commit_unknown" });
+    assert.equal((await registrationsB.loadVerified(unknownCommitted.id)).status, "identity_verified");
+    const recoveredCommitted = await completionService(registrationsB, poolB).reconcileUnknownCommit(unknownCommitted.id);
+    assert.equal(recoveredCommitted.kind, "tenant_recovered");
+    assert.equal((await registrationsA.loadVerified(unknownCommitted.id)).status, "tenant_created");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-unknown-match';").stdout.trim(), "1");
+
+    const unknownAbsent = registration("attempt_b1b1unknownabsent", "registration-state-unknown-absent", undefined, undefined, "b1b1-unknown-absent");
+    await prepareVerified(registrationsA, unknownAbsent);
+    const uncertainAbsent = completionService(registrationsA, poolA, "commit_blocked_before_forwarding");
+    assert.deepEqual(await uncertainAbsent.resumeTenantCreation(unknownAbsent.id), { kind: "commit_unknown" });
+    assert.equal((await registrationsB.loadVerified(unknownAbsent.id)).status, "identity_verified");
+    assert.deepEqual(await completionService(registrationsB, poolB).reconcileUnknownCommit(unknownAbsent.id), { kind: "absent" });
+    assert.equal((await registrationsA.loadVerified(unknownAbsent.id)).status, "identity_verified");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-unknown-absent';").stdout.trim(), "0");
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.tenant_operations WHERE idempotency_key='${unknownAbsent.idempotencyKey}';`).stdout.trim(), "0");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.domains WHERE normalized_hostname='b1b1-unknown-absent.celebix.site';").stdout.trim(), "0");
+
     const explicitRegistrationExpiry = registration("attempt_7234567890abcdef", "registration-state-explicit-expiry", "2026-07-12T09:00:00.000Z", "2026-07-12T09:10:00.000Z");
     await registrationsA.save(explicitRegistrationExpiry);
     const explicitlyExpired = await registrationsA.markExpired({
@@ -402,43 +588,92 @@ async function main() {
     psql(backend, `ALTER TABLE saas.oidc_transactions DISABLE TRIGGER oidc_transactions_guard; UPDATE saas.oidc_transactions SET payload_ciphertext = set_byte(payload_ciphertext, 0, get_byte(payload_ciphertext, 0) # 1) WHERE state_digest='${corruptedDigest}'; ALTER TABLE saas.oidc_transactions ENABLE TRIGGER oidc_transactions_guard;`);
     await assert.rejects(oidcB.consume(corrupted.state, new Date("2026-07-12T10:01:00.000Z")), /identity_crypto_failed/);
 
-    const persistedText = psql(backend, "SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.oidc_transactions UNION ALL SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.registration_workflows;").stdout;
+    const wrongIdentityKey = registration("attempt_b1b1wrongkey0010", "registration-state-identity-wrong-key", undefined, undefined, "b1b1-wrong-key");
+    await prepareVerified(registrationsA, wrongIdentityKey);
+    psql(backend, `ALTER TABLE saas.registration_verified_identities DISABLE TRIGGER registration_verified_identities_immutable_guard; UPDATE saas.registration_verified_identities SET encryption_key_id='unknown-key' WHERE attempt_id='${wrongIdentityKey.id}'; ALTER TABLE saas.registration_verified_identities ENABLE TRIGGER registration_verified_identities_immutable_guard;`);
+    await assert.rejects(registrationsB.loadVerified(wrongIdentityKey.id), /identity_crypto_failed/);
+
+    const identityAadSource = registration("attempt_b1b1aadsource010", "registration-state-identity-aad-source", undefined, undefined, "b1b1-aad-source");
+    const identityAadTarget = registration("attempt_b1b1aadtarget010", "registration-state-identity-aad-target", undefined, undefined, "b1b1-aad-target");
+    await prepareVerified(registrationsA, identityAadSource);
+    await prepareVerified(registrationsA, identityAadTarget);
+    psql(backend, `ALTER TABLE saas.registration_verified_identities DISABLE TRIGGER registration_verified_identities_immutable_guard;
+      UPDATE saas.registration_verified_identities AS target SET
+        payload_ciphertext = source.payload_ciphertext,
+        payload_iv = source.payload_iv,
+        encryption_key_id = source.encryption_key_id,
+        payload_schema_version = source.payload_schema_version
+      FROM saas.registration_verified_identities AS source
+      WHERE target.attempt_id='${identityAadTarget.id}' AND source.attempt_id='${identityAadSource.id}';
+      ALTER TABLE saas.registration_verified_identities ENABLE TRIGGER registration_verified_identities_immutable_guard;`);
+    await assert.rejects(registrationsB.loadVerified(identityAadTarget.id), /identity_crypto_failed/);
+
+    const tamperedIdentity = registration("attempt_b1b1tampered0010", "registration-state-identity-tamper", undefined, undefined, "b1b1-tampered");
+    await prepareVerified(registrationsA, tamperedIdentity);
+    psql(backend, `ALTER TABLE saas.registration_verified_identities DISABLE TRIGGER registration_verified_identities_immutable_guard; UPDATE saas.registration_verified_identities SET payload_ciphertext = set_byte(payload_ciphertext, 0, get_byte(payload_ciphertext, 0) # 1) WHERE attempt_id='${tamperedIdentity.id}'; ALTER TABLE saas.registration_verified_identities ENABLE TRIGGER registration_verified_identities_immutable_guard;`);
+    await assert.rejects(registrationsB.loadVerified(tamperedIdentity.id), /identity_crypto_failed/);
+
+    const persistedText = psql(backend, "SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.oidc_transactions UNION ALL SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.registration_workflows UNION ALL SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.registration_verified_identities;").stdout;
     assert.doesNotMatch(persistedText, /registration-state|oidc-state|nonce|verifier|password/i);
     const rawScan = psql(backend, "SELECT coalesce(string_agg(row_to_json(row)::text, E'\\n'), '') FROM (SELECT * FROM saas.registration_workflows UNION ALL SELECT NULL::text AS attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, 1::bigint AS version, NULL::character(64) AS canonical_fingerprint, created_at AS requested_at, created_at, updated_at, expires_at, consumed_at, NULL::text AS failure_code, COALESCE(discarded_at, consumed_at) AS terminal_at FROM saas.oidc_transactions) AS row;").stdout;
     assert.doesNotMatch(rawScan, /registration-state|oidc-state|nonce-|vvvv|password/i);
+    const verifiedRawScan = psql(backend, "SELECT coalesce(string_agg(row_to_json(snapshot)::text, E'\\n'), '') FROM saas.registration_verified_identities AS snapshot;").stdout;
+    assert.doesNotMatch(verifiedRawScan, /identity\.example|verified-subject|owner@example|Verified Owner|nonce|audience|token|password/i);
 
     const backupReadable = oidc("oidc-state-backup-readable");
     const backupWrong = oidc("oidc-state-backup-wrong");
     await oidcA.save(backupReadable);
     await oidcA.save(backupWrong);
+    const backupRegistration = registration("attempt_b1b1backuprestore", "registration-state-backup-identity", undefined, undefined, "b1b1-backup-store");
+    await prepareVerified(registrationsA, backupRegistration);
     const dump = dataDump(backend);
     createDatabase(backend, restoreDatabase);
     applyPhase2A(backend, restoreDatabase, false, false);
     applyPhase2B(backend, restoreDatabase);
+    applyPhase2B1B1(backend, restoreDatabase);
     psql(backend, dump, restoreDatabase);
     const restorePool = makePool(backend, restoreDatabase);
     pools.push(restorePool);
     const restored = new PostgresOidcTransactionStore(dependencies(restorePool, material, "oidc-transaction-state"));
     assert.equal((await restored.consume(backupReadable.state, new Date("2026-07-12T10:01:00.000Z"))).nonce, backupReadable.nonce);
+    const restoredRegistration = new PostgresRegistrationAttemptStore(dependencies(restorePool, material, "registration-attempt-state"));
+    assert.equal((await restoredRegistration.loadVerified(backupRegistration.id)).tenantInput.store.slug, "b1b1-backup-store");
     const restoreWrong = new PostgresOidcTransactionStore(dependencies(restorePool, { ...material, keyring: { "key-current": randomBytes(32) } }, "oidc-transaction-state"));
     await assert.rejects(restoreWrong.consume(backupWrong.state, new Date("2026-07-12T10:01:00.000Z")), /identity_crypto_failed/);
 
+    const cascadeCleanup = registration("attempt_b1b1cleanupcascade", "registration-state-cleanup-cascade", undefined, undefined, "b1b1-cleanup-store");
+    const cascadeAuthority = await prepareVerified(registrationsA, cascadeCleanup);
+    await registrationsA.markCancelled({
+      attemptId: cascadeCleanup.id,
+      expectedStatus: "identity_verified",
+      expectedVersion: cascadeAuthority.version,
+      now: new Date("2026-07-12T10:04:00.000Z"),
+    });
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${cascadeCleanup.id}';`).stdout.trim(), "1");
     assert.ok(await registrationsA.cleanupTerminal(new Date("2026-07-12T10:06:00.000Z"), 100) >= 4);
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${cascadeCleanup.id}';`).stdout.trim(), "0");
     assert.ok(await oidcA.cleanupTerminal(new Date("2026-07-12T10:06:00.000Z"), 100) >= 3);
 
     createDatabase(backend, rollbackDatabase);
     applyPhase2A(backend, rollbackDatabase, false, false);
     applyPhase2B(backend, rollbackDatabase);
+    applyPhase2B1B1(backend, rollbackDatabase);
+    migration(backend, "202607120012_verified_identity_snapshot.down.sql", rollbackDatabase);
+    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NULL)::int || ':' || (to_regclass('saas.registration_workflows') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1");
+    applyPhase2B1B1(backend, rollbackDatabase);
+    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1");
+    migration(backend, "202607120012_verified_identity_snapshot.down.sql", rollbackDatabase);
     migration(backend, "202607110008_identity_persistence.down.sql", rollbackDatabase);
     assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_workflows') IS NULL)::int || ':' || (to_regclass('saas.stores') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1");
     applyPhase2B(backend, rollbackDatabase);
+    applyPhase2B1B1(backend, rollbackDatabase);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_workflows;", rollbackDatabase).stdout.trim(), "0");
 
     console.log(JSON.stringify({
       status: "PASS",
       backend: backend.kind === "native" ? "native-postgresql" : backend.engine,
       postgresqlVersion: version,
-      scenarios: 52,
+      scenarios: 83,
       forward: "PASS", rollback: "PASS", reapply: "PASS", backupRestore: "PASS",
       concurrency: "PASS", cleanup: "PASS", plaintextScan: "PASS", roleGrants: "PASS",
       productionConnectionUsed: false,
@@ -446,9 +681,12 @@ async function main() {
   } finally {
     await Promise.allSettled(pools.map((pool) => pool.end()));
     if (rolesCreated) {
-      psql(backend, `REVOKE celebix_saas_identity FROM ${workloadRole}; DROP ROLE IF EXISTS ${workloadRole};`, "postgres", { allowFailure: true });
+      psql(backend, `REVOKE celebix_saas_identity, celebix_saas_bootstrap FROM ${workloadRole}; DROP ROLE IF EXISTS ${workloadRole};`, "postgres", { allowFailure: true });
       for (const database of [restoreDatabase, rollbackDatabase, primaryDatabase]) {
         if (psql(backend, `SELECT count(*) FROM pg_database WHERE datname='${database}';`, "postgres").stdout.trim() !== "1") continue;
+        if (psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NOT NULL)::int;", database).stdout.trim() === "1") {
+          migration(backend, "202607120012_verified_identity_snapshot.down.sql", database, true);
+        }
         if (psql(backend, "SELECT (to_regclass('saas.registration_workflows') IS NOT NULL)::int;", database).stdout.trim() === "1") {
           migration(backend, "202607110008_identity_persistence.down.sql", database, true);
         }
