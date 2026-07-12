@@ -430,12 +430,77 @@ async function run() {
     assert.deepEqual(await countGraph(adminPool, unknownBInput.store.slug, unknownBInput.idempotencyKey), { stores: 0, domains: 0, operations: 0 });
     pass("unknown COMMIT not forwarded and absent recovery");
 
-    assert.equal((await recovery.recover("processing-proof", createCanonicalTenantFingerprint(input("processing", { idempotencyKey: "processing-proof" })))).kind, "processing");
-    assert.equal((await recovery.recover(unknownAInput.idempotencyKey, "f".repeat(64))).kind, "committed_mismatch");
-    pass("fresh recovery processing and mismatch classifications");
+    const auditFailureUnhandled = [];
+    const captureAuditFailure = (reason) => auditFailureUnhandled.push(reason);
+    process.on("unhandledRejection", captureAuditFailure);
+    try {
+      const syncAuditInput = input("unknown-sync-audit");
+      const syncAuditOptions = repositoryOptions(workloadPool);
+      syncAuditOptions.audit = () => { throw new Error("private synchronous audit sink detail"); };
+      const syncAuditRepository = createPostgresSaaSDataRepositoryForTesting(syncAuditOptions, { failAt: "commit_forwarded_then_connection_failure" });
+      const syncAuditError = requireError(await service(syncAuditRepository).execute(syncAuditInput), "tenant_transaction_failed", "unknown commit sync audit failure");
+      assert.equal(syncAuditError.retryable, false);
+      assert.equal((await recovery.recover(syncAuditInput.idempotencyKey, createCanonicalTenantFingerprint(syncAuditInput))).kind, "committed_match");
+      pass("unknown COMMIT survives synchronous audit failure");
 
+      const asyncAuditInput = input("unknown-async-audit");
+      const asyncAuditOptions = repositoryOptions(workloadPool);
+      asyncAuditOptions.audit = () => Promise.reject(new Error("private asynchronous audit sink detail"));
+      const asyncAuditRepository = createPostgresSaaSDataRepositoryForTesting(asyncAuditOptions, { failAt: "commit_blocked_before_forwarding" });
+      const asyncAuditError = requireError(await service(asyncAuditRepository).execute(asyncAuditInput), "tenant_transaction_failed", "unknown commit async audit failure");
+      assert.equal(asyncAuditError.retryable, false);
+      assert.equal((await recovery.recover(asyncAuditInput.idempotencyKey, createCanonicalTenantFingerprint(asyncAuditInput))).kind, "absent");
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.deepEqual(auditFailureUnhandled, []);
+      pass("unknown COMMIT survives rejected audit promise without unhandled rejection");
+    } finally {
+      process.off("unhandledRejection", captureAuditFailure);
+    }
+
+    assert.equal((await recovery.recover("processing-proof", "f".repeat(64))).kind, "processing");
+    assert.equal((await recovery.recover("failed-proof", "f".repeat(64))).kind, "failed");
+    assert.equal((await recovery.recover(unknownAInput.idempotencyKey, "f".repeat(64))).kind, "committed_mismatch");
+    pass("fresh recovery processing, failed, and mismatch classifications");
+
+    const durableA = (await adminPool.query(
+      "SELECT payload_fingerprint, result_payload FROM saas.tenant_operations WHERE id = $1",
+      [recoveredA.result.operationId],
+    )).rows[0];
+    assert.ok(durableA);
     await adminPool.query("ALTER TABLE saas.tenant_operations DROP CONSTRAINT tenant_operations_result_payload_shape_check");
+    await adminPool.query("ALTER TABLE saas.tenant_operations DROP CONSTRAINT tenant_operations_fingerprint_check");
+    await adminPool.query("ALTER TABLE saas.tenant_operations DROP CONSTRAINT tenant_operations_committed_result_check");
     await adminPool.query("ALTER TABLE saas.tenant_operations DISABLE TRIGGER tenant_operations_replay_immutable");
+
+    const restoreDurableA = async () => adminPool.query(
+      "UPDATE saas.tenant_operations SET payload_fingerprint = $2, result_payload = $3::jsonb WHERE id = $1",
+      [recoveredA.result.operationId, durableA.payload_fingerprint, JSON.stringify(durableA.result_payload)],
+    );
+    const assertCorruptWithDifferentCaller = async (label) => {
+      assert.equal((await recovery.recover(unknownAInput.idempotencyKey, "f".repeat(64))).kind, "corrupt");
+      pass(label);
+      await restoreDurableA();
+    };
+
+    await adminPool.query("UPDATE saas.tenant_operations SET payload_fingerprint = $2 WHERE id = $1", [recoveredA.result.operationId, "g".repeat(64)]);
+    await assertCorruptWithDifferentCaller("invalid stored fingerprint precedes mismatch");
+    await adminPool.query("UPDATE saas.tenant_operations SET result_payload = NULL WHERE id = $1", [recoveredA.result.operationId]);
+    await assertCorruptWithDifferentCaller("null committed result precedes mismatch");
+    await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{replayed}', 'true'::jsonb) WHERE id = $1", [recoveredA.result.operationId]);
+    await assertCorruptWithDifferentCaller("replayed true precedes mismatch");
+    await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{panelUrl}', to_jsonb($2::text)) WHERE id = $1", [recoveredA.result.operationId, "https://wrong.example.test/stores/unknown-a"]);
+    await assertCorruptWithDifferentCaller("wrong panel origin precedes mismatch");
+    await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{membership,id}', to_jsonb($2::text)) WHERE id = $1", [recoveredA.result.operationId, "not-a-uuid"]);
+    await assertCorruptWithDifferentCaller("malformed nested id precedes mismatch");
+
+    await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{plan,validUntil}', to_jsonb(result_payload #>> '{plan,validFrom}')) WHERE id = $1", [recoveredA.result.operationId]);
+    await assertCorruptWithDifferentCaller("equal validity instant corruption");
+    await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{plan,validUntil}', to_jsonb('2026-07-10T00:59:59.999Z'::text)) WHERE id = $1", [recoveredA.result.operationId]);
+    await assertCorruptWithDifferentCaller("earlier validity instant corruption");
+
+    assert.equal((await recovery.recover(unknownAInput.idempotencyKey, "f".repeat(64))).kind, "committed_mismatch");
+    pass("valid committed mismatch after corruption restoration");
+
     await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{store,slug}', '\"INVALID SLUG\"'::jsonb) WHERE id = $1", [first.operationId]);
     await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{replayed}', 'true'::jsonb) WHERE id = $1", [recoveredA.result.operationId]);
     await adminPool.query("ALTER TABLE saas.tenant_operations ENABLE TRIGGER tenant_operations_replay_immutable");

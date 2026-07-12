@@ -154,10 +154,16 @@ test("strict rows reject feature-order, validity-range, and idempotency-key corr
   outOfOrder.plan.features = ["orders", "catalog"];
   assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: outOfOrder }), panelOrigin), SaaSDataCorruptionError);
 
-  const invalidValidity = structuredClone(result);
-  invalidValidity.plan.validFrom = "2026-07-11T01:00:00.000Z";
-  Object.assign(invalidValidity.plan, { validUntil: "2026-07-10T01:00:00.000Z" });
-  assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: invalidValidity }), panelOrigin), SaaSDataCorruptionError);
+  const laterValidity = structuredClone(result);
+  Object.assign(laterValidity.plan, { validUntil: "2026-07-11T01:00:00.001Z" });
+  assert.doesNotThrow(() => parseTenantOperationRow(committedRow({ result_payload: laterValidity }), panelOrigin));
+
+  for (const validUntil of ["2026-07-11T01:00:00.000Z", "2026-07-10T01:00:00.000Z"]) {
+    const invalidValidity = structuredClone(result);
+    invalidValidity.plan.validFrom = "2026-07-11T01:00:00.000Z";
+    Object.assign(invalidValidity.plan, { validUntil });
+    assert.throws(() => parseTenantOperationRow(committedRow({ result_payload: invalidValidity }), panelOrigin), SaaSDataCorruptionError);
+  }
 
   for (const idempotencyKey of [" leading", "trailing ", "", "a".repeat(129)]) {
     assert.throws(() => parseTenantOperationRow(committedRow({ idempotency_key: idempotencyKey }), panelOrigin), SaaSDataCorruptionError);

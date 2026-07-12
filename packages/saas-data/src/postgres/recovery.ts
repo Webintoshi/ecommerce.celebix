@@ -72,14 +72,13 @@ export class PostgresTenantOperationRecovery {
 
 function classify(rowValue: unknown, idempotencyKey: string, fingerprint: CanonicalTenantFingerprint, panelOrigin: string): PostgresTenantOperationRecoveryResult {
   try {
-    const raw = parse.exact(rowValue, ["id", "idempotency_key", "payload_fingerprint", "status", "result_payload", "created_at", "updated_at"]);
-    const status = typeof raw.status === "string" ? raw.status : "";
-    if (raw.idempotency_key !== idempotencyKey || !["processing", "failed", "committed"].includes(status)) throw new SaaSDataCorruptionError();
-    if (status === "committed" && raw.payload_fingerprint !== fingerprint) return { kind: "committed_mismatch" };
-    const operation = parseTenantOperationRow(raw, panelOrigin);
+    parse.exact(rowValue, ["id", "idempotency_key", "payload_fingerprint", "status", "result_payload", "created_at", "updated_at"]);
+    const operation = parseTenantOperationRow(rowValue, panelOrigin);
+    if (operation.idempotencyKey !== idempotencyKey) throw new SaaSDataCorruptionError();
     if (operation.status === "processing") return { kind: "processing" };
     if (operation.status === "failed") return { kind: "failed" };
     if (!operation.result) return { kind: "corrupt" };
+    if (operation.fingerprint !== fingerprint) return { kind: "committed_mismatch" };
     return { kind: "committed_match", result: { ...structuredClone(operation.result), replayed: true } };
   } catch (error) {
     if (error instanceof SaaSDataCorruptionError) return { kind: "corrupt" };

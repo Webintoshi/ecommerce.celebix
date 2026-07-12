@@ -61,7 +61,7 @@ export function parseCreateStarterTenantResult(value: unknown, approvedPanelOrig
   const plan = exact(root.plan, planKeys);
   if (plan.schemaVersion !== 1 || plan.planCode !== "free_starter" || plan.version !== 1 || plan.status !== "active") corrupt();
   uuid(plan.planId); const validFrom = timestamp(plan.validFrom);
-  if (plan.validUntil !== undefined && timestamp(plan.validUntil) < validFrom) corrupt();
+  if (plan.validUntil !== undefined && Date.parse(timestamp(plan.validUntil)) <= Date.parse(validFrom)) corrupt();
   if (!Array.isArray(plan.features) || plan.features.length === 0) corrupt();
   const seen = new Set<string>();
   let priorOrdinal = -1;

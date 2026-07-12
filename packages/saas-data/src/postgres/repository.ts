@@ -23,7 +23,7 @@ export interface PostgresAuditEvent { type: "tenant_bootstrap_commit_unknown"; }
 export interface PostgresRepositoryOptions {
   pool: PostgresPoolLike;
   generateId(kind: SaaSGeneratedIdKind): string;
-  audit(event: PostgresAuditEvent): void;
+  audit(event: PostgresAuditEvent): void | Promise<void>;
   timeouts: PostgresTimeoutOptions;
   bootstrapRole: "celebix_saas_bootstrap";
   panelOrigin: string;
@@ -53,7 +53,7 @@ class PostgresTransaction implements SaaSDataTransaction {
   private state: State = "active";
   private readonly client: PostgresClientLike;
   private readonly idGenerator: (kind: SaaSGeneratedIdKind) => string;
-  private readonly audit: (event: PostgresAuditEvent) => void;
+  private readonly audit: (event: PostgresAuditEvent) => void | Promise<void>;
   private readonly failAt: PostgresFailurePoint | undefined;
   private readonly panelOrigin: string;
 
@@ -69,7 +69,7 @@ class PostgresTransaction implements SaaSDataTransaction {
   constructor(
     client: PostgresClientLike,
     idGenerator: (kind: SaaSGeneratedIdKind) => string,
-    audit: (event: PostgresAuditEvent) => void,
+    audit: (event: PostgresAuditEvent) => void | Promise<void>,
     panelOrigin: string,
     failAt?: PostgresFailurePoint,
   ) {
@@ -259,26 +259,34 @@ class PostgresTransaction implements SaaSDataTransaction {
     return this.idGenerator(kind);
   }
 
+  private emitUnknownCommitAuditBestEffort(): void {
+    try {
+      const pending = this.audit({ type: "tenant_bootstrap_commit_unknown" });
+      if (pending) void pending.catch(() => undefined);
+    } catch {
+      // Audit is deliberately bounded and cannot replace transaction authority.
+    }
+  }
+
+  private failUnknownCommit(): never {
+    this.state = "commit_unknown";
+    try { this.client.release(true); } catch { /* Client eviction is best effort after an unknown COMMIT. */ }
+    this.emitUnknownCommitAuditBestEffort();
+    throw new SaaSDataUnknownCommitError();
+  }
+
   async commit(): Promise<void> {
     this.ensureActive();
     this.checkpoint("before_commit");
     if (this.failAt === "commit_blocked_before_forwarding") {
-      this.state = "commit_unknown";
-      this.client.release(true);
-      this.audit({ type: "tenant_bootstrap_commit_unknown" });
-      throw new SaaSDataUnknownCommitError();
+      this.failUnknownCommit();
     }
     try {
       await this.client.query("COMMIT");
       if (this.failAt === "commit_forwarded_then_connection_failure") throw new SaaSDataUnknownCommitError();
       this.state = "committed";
       this.client.release();
-    } catch {
-      this.state = "commit_unknown";
-      this.client.release(true);
-      this.audit({ type: "tenant_bootstrap_commit_unknown" });
-      throw new SaaSDataUnknownCommitError();
-    }
+    } catch { this.failUnknownCommit(); }
   }
 
   async rollback(): Promise<void> {

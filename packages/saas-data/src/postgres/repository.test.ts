@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { Pool, QueryResult } from "pg";
 
-import { PostgresSaaSDataRepository, type PostgresPoolLike } from "./repository.ts";
+import { PostgresSaaSDataRepository, registerPostgresTestFailure, type PostgresAuditEvent, type PostgresPoolLike } from "./repository.ts";
 import { SaaSDataPersistenceError, SaaSDataPoolTimeoutError, SaaSDataTransactionStateError, SaaSDataUnknownCommitError } from "./errors.ts";
 
 function proveNativePoolCompatibility(nativePgPool: Pool): PostgresPoolLike {
@@ -16,6 +16,7 @@ class FakeClient {
   readonly releases: Array<boolean | Error | undefined> = [];
   failCommit = false;
   failRollback = false;
+  failRelease = false;
 
   async query(text: string, values: readonly unknown[] = []): Promise<QueryResult<Record<string, unknown>>> {
     this.calls.push({ text, values });
@@ -24,15 +25,22 @@ class FakeClient {
     return { command: "", rowCount: null, oid: 0, fields: [], rows: [] };
   }
 
-  release(destroy?: boolean | Error): void { this.releases.push(destroy); }
+  release(destroy?: boolean | Error): void {
+    this.releases.push(destroy);
+    if (this.failRelease) throw new Error("release private driver detail");
+  }
 }
 
-function repository(client: FakeClient, events: string[] = []) {
+function repository(
+  client: FakeClient,
+  events: string[] = [],
+  audit: (event: PostgresAuditEvent) => void | Promise<void> = (event) => { events.push(event.type); },
+) {
   let next = 0;
   return new PostgresSaaSDataRepository({
     pool: { connect: async () => client },
     generateId: () => `00000000-0000-4000-8000-${String(++next).padStart(12, "0")}`,
-    audit: (event) => events.push(event.type),
+    audit,
     timeouts: { poolCheckoutMs: 100, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
     bootstrapRole: "celebix_saas_bootstrap",
     panelOrigin: "https://panel.example.test",
@@ -178,6 +186,49 @@ test("COMMIT errors become unknown outcome, destroy client, emit safe audit, and
   assert.deepEqual(client.releases, [true]);
   assert.deepEqual(events, ["tenant_bootstrap_commit_unknown"]);
   await assert.rejects(transaction.rollback(), (error: unknown) => error instanceof SaaSDataTransactionStateError && error.code === "transaction_commit_unknown");
+});
+
+test("unknown COMMIT remains authoritative when audit or client destruction fails", async () => {
+  const auditCases = [
+    { name: "sync success", audit: (_event: PostgresAuditEvent) => undefined },
+    { name: "sync throw", audit: (_event: PostgresAuditEvent) => { throw new Error("audit private sink detail"); } },
+    { name: "async rejection", audit: (_event: PostgresAuditEvent) => Promise.reject(new Error("audit async private sink detail")) },
+  ];
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => { unhandled.push(reason); };
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    for (const failAt of ["commit_forwarded_then_connection_failure", "commit_blocked_before_forwarding"] as const) {
+      for (const auditCase of auditCases) {
+        for (const failRelease of [false, true]) {
+          const client = new FakeClient();
+          client.failRelease = failRelease;
+          const options = {
+            pool: { connect: async () => client },
+            generateId: () => "00000000-0000-4000-8000-000000000001",
+            audit: auditCase.audit,
+            timeouts: { poolCheckoutMs: 100, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 8_000 },
+            bootstrapRole: "celebix_saas_bootstrap" as const,
+            panelOrigin: "https://panel.example.test",
+          };
+          const adapter = new PostgresSaaSDataRepository(options);
+          registerPostgresTestFailure(options, failAt);
+          const transaction = await adapter.beginTransaction();
+
+          await assert.rejects(transaction.commit(), SaaSDataUnknownCommitError, `${failAt}: ${auditCase.name}: release=${failRelease}`);
+          assert.equal(client.calls.filter((call) => call.text === "COMMIT").length, failAt === "commit_blocked_before_forwarding" ? 0 : 1);
+          assert.equal(client.calls.filter((call) => call.text === "ROLLBACK").length, 0);
+          assert.deepEqual(client.releases, [true]);
+          await assert.rejects(transaction.commit(), (error: unknown) => error instanceof SaaSDataTransactionStateError && error.code === "transaction_commit_unknown");
+          await assert.rejects(transaction.rollback(), (error: unknown) => error instanceof SaaSDataTransactionStateError && error.code === "transaction_commit_unknown");
+        }
+      }
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
 });
 
 test("rollback failure marks transaction broken and destroys the client", async () => {

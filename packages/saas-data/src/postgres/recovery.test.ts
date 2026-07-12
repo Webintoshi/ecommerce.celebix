@@ -25,6 +25,31 @@ class RecoveryClient implements PostgresClientLike {
 }
 
 const time = new Date("2026-07-11T01:00:00.000Z");
+const validSnapshot = {
+  schemaVersion: 1,
+  operationId: "70000000-0000-4000-8000-000000000001",
+  replayed: false,
+  store: { id: "20000000-0000-4000-8000-000000000001", slug: "tenant-a", status: "active" },
+  primaryDomain: {
+    schemaVersion: 1, hostname: "tenant-a.example.test", domainId: "30000000-0000-4000-8000-000000000001",
+    domainType: "platform_subdomain", storeId: "20000000-0000-4000-8000-000000000001", storeSlug: "tenant-a",
+    canonicalHostname: "tenant-a.example.test", status: "active", cacheVersion: 1,
+  },
+  membership: {
+    schemaVersion: 1, id: "40000000-0000-4000-8000-000000000001", principalId: "10000000-0000-4000-8000-000000000001",
+    storeId: "20000000-0000-4000-8000-000000000001", role: "store_owner", status: "active",
+    createdAt: "2026-07-11T01:00:00.000Z", updatedAt: "2026-07-11T01:00:00.000Z",
+  },
+  plan: {
+    schemaVersion: 1, planId: "00000000-0000-4000-8000-000000000001", planCode: "free_starter", version: 1, status: "active",
+    features: ["catalog", "orders", "customers", "content", "media", "analytics", "checkout"],
+    limits: { products: 100, staff: 1, storageBytes: 1_000_000_000, monthlyOrders: 100, customDomains: 0 },
+    validFrom: "2026-07-11T01:00:00.000Z",
+  },
+  provisioningStatus: "ready",
+  panelUrl: "https://panel.example.test/stores/tenant-a",
+  storefrontUrl: "https://tenant-a.example.test",
+};
 function operation(status: "processing" | "failed" | "committed", fingerprint = "a".repeat(64), resultPayload: unknown = null) {
   return { id: "70000000-0000-4000-8000-000000000001", idempotency_key: "opaque-key", payload_fingerprint: fingerprint, status, result_payload: resultPayload, created_at: time, updated_at: time };
 }
@@ -39,7 +64,7 @@ function recovery(client: RecoveryClient) {
 }
 
 test("recovery uses a fresh read-only transaction and classifies absent, processing, and failed", async () => {
-  for (const [row, expected] of [[undefined, "absent"], [operation("processing"), "processing"], [operation("failed"), "failed"]] as const) {
+  for (const [row, expected] of [[undefined, "absent"], [operation("processing", "b".repeat(64)), "processing"], [operation("failed", "b".repeat(64)), "failed"]] as const) {
     const client = new RecoveryClient(); client.row = row;
     assert.equal((await recovery(client).recover("opaque-key", "a".repeat(64) as CanonicalTenantFingerprint)).kind, expected);
     assert.match(client.calls[0]!, /BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY/);
@@ -60,12 +85,26 @@ test("recovery construction rejects a non-origin panel authority before pool acc
   assert.equal(connects, 0);
 });
 
-test("recovery classifies malformed and fingerprint-mismatched durable rows without mutation", async () => {
-  const malformed = new RecoveryClient(); malformed.row = operation("committed", "a".repeat(64), null);
-  assert.equal((await recovery(malformed).recover("opaque-key", "a".repeat(64) as CanonicalTenantFingerprint)).kind, "corrupt");
-  const mismatch = new RecoveryClient(); mismatch.row = operation("committed", "b".repeat(64), null);
-  assert.equal((await recovery(mismatch).recover("opaque-key", "a".repeat(64) as CanonicalTenantFingerprint)).kind, "committed_mismatch");
-  assert.equal(mismatch.calls.filter((text) => /INSERT|UPDATE|DELETE/.test(text)).length, 0);
+test("recovery validates committed durability before fingerprint classification", async () => {
+  const callerFingerprint = "a".repeat(64) as CanonicalTenantFingerprint;
+  const classify = async (row: Record<string, unknown>) => {
+    const client = new RecoveryClient(); client.row = row;
+    const classification = await recovery(client).recover("opaque-key", callerFingerprint);
+    assert.equal(client.calls.filter((text) => /INSERT|UPDATE|DELETE/.test(text)).length, 0);
+    return classification;
+  };
+
+  assert.equal((await classify(operation("committed", "a".repeat(64), structuredClone(validSnapshot)))).kind, "committed_match");
+  assert.equal((await classify(operation("committed", "b".repeat(64), structuredClone(validSnapshot)))).kind, "committed_mismatch");
+  assert.equal((await classify(operation("committed", "g".repeat(64), structuredClone(validSnapshot)))).kind, "corrupt");
+  assert.equal((await classify(operation("committed", "b".repeat(64), null))).kind, "corrupt");
+
+  const replayed = structuredClone(validSnapshot); replayed.replayed = true;
+  assert.equal((await classify(operation("committed", "b".repeat(64), replayed))).kind, "corrupt");
+  const wrongPanel = structuredClone(validSnapshot); wrongPanel.panelUrl = "https://wrong.example.test/stores/tenant-a";
+  assert.equal((await classify(operation("committed", "b".repeat(64), wrongPanel))).kind, "corrupt");
+  const malformedNestedId = structuredClone(validSnapshot); malformedNestedId.membership.id = "not-a-uuid";
+  assert.equal((await classify(operation("committed", "b".repeat(64), malformedNestedId))).kind, "corrupt");
 });
 
 test("recovery destroys a client after a COMMIT response error and never sends rollback", async () => {
