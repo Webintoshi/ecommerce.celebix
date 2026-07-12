@@ -117,6 +117,15 @@ async function rows(client: FakeClient) {
     verified_encryption_key_id: null,
     verified_payload_schema_version: null,
     verified_recorded_at: null,
+    completion_attempt_id: null,
+    completion_canonical_fingerprint: null,
+    completion_state: null,
+    completion_version: null,
+    completion_started_at: null,
+    completion_updated_at: null,
+    completion_commit_unknown_at: null,
+    completion_completed_at: null,
+    completion_recovery_absent_at: null,
   };
   const verified = {
     ...base,
@@ -130,6 +139,15 @@ async function rows(client: FakeClient) {
     verified_encryption_key_id: snapshot.keyId,
     verified_payload_schema_version: 1,
     verified_recorded_at: now,
+    completion_attempt_id: attemptId,
+    completion_canonical_fingerprint: authority.canonicalFingerprint,
+    completion_state: "ready",
+    completion_version: 1,
+    completion_started_at: null,
+    completion_updated_at: now,
+    completion_commit_unknown_at: null,
+    completion_completed_at: null,
+    completion_recovery_absent_at: null,
   };
   return { ...material, base, verified, authority };
 }
@@ -138,7 +156,7 @@ test("verified identity recording uses one atomic transaction and never emits pl
   const client = new FakeClient();
   const fixture = await rows(client);
   queuePreamble(client);
-  client.queued.push([fixture.base], [], [{
+  client.queued.push([fixture.base], [], [], [{
     ...fixture.base,
     status: "identity_verified",
     version: 2,
@@ -211,7 +229,7 @@ test("loading identity_verified requires one consistent authenticated snapshot",
     client.queued.push([{ ...fixture.verified, ...corruption }]);
     await assert.rejects(
       new PostgresRegistrationAttemptStore(fixture.dependencies).load(attemptId),
-      (error: unknown) => error instanceof Error && /^identity_(?:crypto|persistence)_failed$/.test(error.message),
+      (error: unknown) => error instanceof Error && /^(?:identity_(?:crypto|persistence)_failed|registration_completion_corrupt)$/.test(error.message),
     );
   }
 });

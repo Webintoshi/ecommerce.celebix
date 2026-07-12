@@ -11,6 +11,7 @@ const runtimeFiles = [
   "apps/owner/lib/saas-persistence/identity-crypto.ts",
   "apps/owner/lib/saas-persistence/postgres-identity-common.ts",
   "apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts",
+  "apps/owner/lib/saas-persistence/tenant-completion-result.ts",
   "apps/owner/lib/saas-persistence/postgres-oidc-transaction-store.ts",
   "apps/owner/lib/saas-persistence/verified-identity.ts",
   "apps/owner/lib/self-serve-registration-completion.ts",
@@ -49,10 +50,38 @@ test("database schema exposes digests and ciphertext only, never plaintext ident
 
 test("verified identity authority has exact immutable least-privilege grants", () => {
   assert.match(verifiedIdentityGrants, /GRANT SELECT, INSERT ON saas\.registration_verified_identities TO celebix_saas_identity/);
-  assert.doesNotMatch(verifiedIdentityGrants, /GRANT[^;]*(?:UPDATE|DELETE|TRUNCATE)/i);
+  assert.doesNotMatch(verifiedIdentityGrants, /GRANT[^;]*(?:UPDATE|DELETE|TRUNCATE)[^;]*registration_verified_identities/i);
   assert.match(verifiedIdentitySchema, /PHASE2B1B1_IMMUTABLE_VERIFIED_IDENTITY/);
   assert.match(verifiedIdentitySchema, /registration_verified_identity_transition_guard/);
   assert.match(verifiedIdentitySchema, /DEFERRABLE INITIALLY DEFERRED/);
+});
+
+test("tenant completion authority is durable, versioned, transition guarded, and column restricted", () => {
+  assert.match(verifiedIdentitySchema, /CREATE TABLE saas\.registration_tenant_completions/);
+  assert.match(verifiedIdentitySchema, /state IN \('ready', 'creating', 'commit_unknown', 'completed'\)/);
+  assert.match(verifiedIdentitySchema, /OLD\.state = 'ready' AND NEW\.state = 'creating'/);
+  assert.match(verifiedIdentitySchema, /OLD\.state = 'commit_unknown' AND NEW\.state IN \('ready', 'completed'\)/);
+  assert.match(verifiedIdentitySchema, /NEW\.version <> OLD\.version \+ 1/);
+  assert.match(verifiedIdentitySchema, /PHASE2B1B1_ACTIVE_TENANT_COMPLETION_FENCED/);
+  assert.match(verifiedIdentitySchema, /completion_state <> 'completed'/);
+  assert.match(verifiedIdentityGrants, /GRANT SELECT, INSERT ON saas\.registration_tenant_completions TO celebix_saas_identity/);
+  assert.match(verifiedIdentityGrants, /GRANT UPDATE \(state, version, started_at, updated_at, commit_unknown_at, completed_at, recovery_absent_at\)/);
+  assert.match(verifiedIdentitySchema, /recovery_absent_at timestamptz/);
+  assert.match(verifiedIdentitySchema, /completion_recovery_absent_at IS NOT NULL/);
+  assert.doesNotMatch(verifiedIdentityGrants, /GRANT UPDATE \([^)]*(?:attempt_id|canonical_fingerprint)/i);
+  assert.doesNotMatch(verifiedIdentityGrants, /GRANT[^;]*(?:DELETE|TRUNCATE)[^;]*registration_tenant_completions/i);
+});
+
+test("completion service has no generic tenant-created mutator and expiry fences active work", () => {
+  const completionStore = read("apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts");
+  assert.doesNotMatch(completionStore, /markTenantCreated\s*\(/);
+  assert.match(completionStore, /claimTenantCompletion\s*\(/);
+  assert.match(completionStore, /finalizeTenantCompletion\s*\(/);
+  assert.match(completionStore, /assertFinalizationProof\s*\(/);
+  assert.match(completionStore, /completion\.state = 'ready'/);
+  assert.doesNotMatch(completionStore, /identity_verified:\s*\[\s*["']tenant_created/);
+  assert.match(completionStore, /pg_advisory_lock/);
+  assert.match(read("apps/owner/lib/self-serve-registration-completion.ts"), /isTenantCompletionActive/);
 });
 
 test("completion core has no environment activation, direct pg, route, session, or cookie authority", () => {

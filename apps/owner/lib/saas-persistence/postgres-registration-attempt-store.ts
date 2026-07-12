@@ -5,6 +5,8 @@ import type { ValidatedRegistrationDetails } from "../self-serve-identity.ts";
 import type { EncryptedPayload } from "./identity-crypto.ts";
 import {
   IdentityPersistenceError,
+  IDENTITY_COMPLETION_LEASE_SEED,
+  RegistrationCompletionCorruptionError,
   RegistrationPersistenceError,
   batchSize,
   byteValue,
@@ -12,8 +14,11 @@ import {
   exactObject,
   requiredString,
   validateDependencies,
+  isIdentityCompletionLeaseActive,
   withIdentityTransaction,
+  withIdentityTransactionLease,
   type IdentityPostgresClient,
+  type IdentitySessionLease,
   type IdentityStoreDependencies,
 } from "./postgres-identity-common.ts";
 import {
@@ -21,6 +26,11 @@ import {
   parseVerifiedIdentitySnapshot,
   type VerifiedIdentitySnapshot,
 } from "./verified-identity.ts";
+import {
+  normalizeTenantCompletionResultAuthorities,
+  validateTenantCompletionResult,
+  type TenantCompletionResultAuthorities,
+} from "./tenant-completion-result.ts";
 
 const PURPOSE = "saas.registration_workflows";
 const SCHEMA_VERSION = 1;
@@ -54,6 +64,19 @@ export interface VerifiedRegistrationAuthority extends PersistentRegistrationWor
   canonicalFingerprint: string;
   verifiedIdentity: VerifiedIdentitySnapshot;
   tenantInput: CreateStarterTenantInput;
+  completion: PersistentTenantCompletion;
+}
+
+export type TenantCompletionState = "ready" | "creating" | "commit_unknown" | "completed";
+
+export interface PersistentTenantCompletion {
+  state: TenantCompletionState;
+  version: number;
+  updatedAt: string;
+  startedAt?: string;
+  commitUnknownAt?: string;
+  completedAt?: string;
+  recoveryAbsentAt?: string;
 }
 
 export interface RecordVerifiedIdentityInput {
@@ -74,6 +97,29 @@ export interface RegistrationTransitionInput {
   expectedVersion: number;
   now: Date;
 }
+
+export interface ClaimTenantCompletionInput {
+  attemptId: string;
+  now: Date;
+}
+
+export interface CompletionTransitionInput {
+  attemptId: string;
+  expectedState: "creating" | "commit_unknown";
+  expectedCompletionVersion: number;
+  expectedWorkflowVersion: number;
+  now: Date;
+}
+
+export interface FinalizeTenantCompletionInput extends CompletionTransitionInput {
+  result: unknown;
+}
+
+export type CompletionClaimOutcome =
+  | { kind: "claimed"; authority: VerifiedRegistrationAuthority; lease: IdentitySessionLease }
+  | { kind: "in_progress"; authority: VerifiedRegistrationAuthority }
+  | { kind: "commit_unknown"; authority: VerifiedRegistrationAuthority }
+  | { kind: "completed"; authority: VerifiedRegistrationAuthority };
 
 function details(value: unknown): ValidatedRegistrationDetails {
   const row = exactObject(
@@ -188,9 +234,19 @@ const WORKFLOW_WITH_IDENTITY_SELECT = `SELECT
   snapshot.payload_iv AS verified_payload_iv,
   snapshot.encryption_key_id AS verified_encryption_key_id,
   snapshot.payload_schema_version AS verified_payload_schema_version,
-  snapshot.recorded_at AS verified_recorded_at
+  snapshot.recorded_at AS verified_recorded_at,
+  completion.attempt_id AS completion_attempt_id,
+  completion.canonical_fingerprint AS completion_canonical_fingerprint,
+  completion.state AS completion_state,
+  completion.version AS completion_version,
+  completion.started_at AS completion_started_at,
+  completion.updated_at AS completion_updated_at,
+  completion.commit_unknown_at AS completion_commit_unknown_at,
+  completion.completed_at AS completion_completed_at,
+  completion.recovery_absent_at AS completion_recovery_absent_at
 FROM saas.registration_workflows AS workflow
-LEFT JOIN saas.registration_verified_identities AS snapshot ON snapshot.attempt_id = workflow.attempt_id`;
+LEFT JOIN saas.registration_verified_identities AS snapshot ON snapshot.attempt_id = workflow.attempt_id
+LEFT JOIN saas.registration_tenant_completions AS completion ON completion.attempt_id = workflow.attempt_id`;
 
 function sameVerifiedIdentity(left: VerifiedIdentitySnapshot, right: VerifiedIdentitySnapshot): boolean {
   return left.issuer === right.issuer &&
@@ -202,9 +258,15 @@ function sameVerifiedIdentity(left: VerifiedIdentitySnapshot, right: VerifiedIde
 
 export class PostgresRegistrationAttemptStore implements RegistrationAttemptStore {
   private readonly options: IdentityStoreDependencies;
+  private readonly resultAuthorities?: TenantCompletionResultAuthorities;
 
-  constructor(options: IdentityStoreDependencies) {
+  constructor(options: IdentityStoreDependencies, resultAuthorities?: TenantCompletionResultAuthorities) {
     this.options = validateDependencies(options);
+    if (resultAuthorities) {
+      const normalized = normalizeTenantCompletionResultAuthorities(resultAuthorities);
+      if (!normalized) throw new IdentityPersistenceError();
+      this.resultAuthorities = normalized;
+    }
   }
 
   async save(input: RegistrationAttempt): Promise<void> {
@@ -358,6 +420,10 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
           "INSERT INTO saas.registration_verified_identities (attempt_id, canonical_fingerprint, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, recorded_at) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz)",
           [attemptId, authority.canonicalFingerprint, Buffer.from(sealed.ciphertext), Buffer.from(sealed.iv), sealed.keyId, VERIFIED_IDENTITY_SCHEMA_VERSION, input.now.toISOString()],
         );
+        await client.query(
+          "INSERT INTO saas.registration_tenant_completions (attempt_id, canonical_fingerprint, state, version, updated_at) VALUES ($1, $2, 'ready', 1, $3::timestamptz)",
+          [attemptId, authority.canonicalFingerprint, input.now.toISOString()],
+        );
       } catch (error) {
         if ((error as { code?: unknown })?.code === "23505") {
           throw new RegistrationPersistenceError("registration_verified_identity_conflict");
@@ -377,11 +443,111 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
           canonicalFingerprint: authority.canonicalFingerprint,
           verifiedIdentity,
           tenantInput: authority.input,
+          completion: {
+            state: "ready",
+            version: 1,
+            updatedAt: input.now.toISOString(),
+          },
         },
       };
     });
   }
-  async markTenantCreated(input: RegistrationTransitionInput) { return this.transition(input, "tenant_created"); }
+
+  async claimTenantCompletion(input: ClaimTenantCompletionInput): Promise<CompletionClaimOutcome> {
+    const attemptId = requiredString(input.attemptId, 160);
+    this.validateNow(input.now);
+    const leased = await withIdentityTransactionLease(this.options, "registration", async (client) => {
+      const locked = await client.query(
+        "SELECT attempt_id FROM saas.registration_workflows WHERE attempt_id = $1 FOR UPDATE",
+        [attemptId],
+      );
+      if (!locked.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
+      const selected = await client.query(
+        `${WORKFLOW_WITH_IDENTITY_SELECT} WHERE workflow.attempt_id = $1`,
+        [attemptId],
+      );
+      if (!selected.rows[0]) throw new RegistrationCompletionCorruptionError();
+      const authority = await this.parseVerifiedAuthority(selected.rows[0]);
+      if (authority.status === "tenant_created" && authority.completion.state === "completed") {
+        return { result: { kind: "completed", authority } as CompletionClaimOutcome };
+      }
+      if (authority.status !== "identity_verified") throw new RegistrationPersistenceError("registration_workflow_invalid_transition");
+      if (authority.completion.state === "creating") return { result: { kind: "in_progress", authority } as CompletionClaimOutcome };
+      if (authority.completion.state === "commit_unknown") return { result: { kind: "commit_unknown", authority } as CompletionClaimOutcome };
+      if (authority.completion.state !== "ready") throw new RegistrationCompletionCorruptionError();
+      const updated = await client.query(
+        "UPDATE saas.registration_tenant_completions SET state = 'creating', version = version + 1, started_at = $2::timestamptz, updated_at = $2::timestamptz, commit_unknown_at = NULL, completed_at = NULL WHERE attempt_id = $1 AND state = 'ready' AND version = $3 RETURNING state, version, started_at, updated_at, commit_unknown_at, completed_at, recovery_absent_at",
+        [attemptId, input.now.toISOString(), authority.completion.version],
+      );
+      if (!updated.rows[0]) throw new RegistrationPersistenceError("registration_completion_conflict");
+      await client.query(
+        "SELECT pg_catalog.pg_advisory_lock(pg_catalog.hashtextextended($1, $2))",
+        [attemptId, IDENTITY_COMPLETION_LEASE_SEED],
+      );
+      return {
+        result: {
+          kind: "claimed",
+          authority: { ...authority, completion: this.parseCompletion(updated.rows[0], attemptId, authority.canonicalFingerprint) },
+        } as CompletionClaimOutcome,
+        leaseKey: attemptId,
+      };
+    });
+    if (leased.result.kind !== "claimed") return leased.result;
+    if (!leased.lease) throw new IdentityPersistenceError();
+    return { ...leased.result, lease: leased.lease };
+  }
+
+  async isTenantCompletionActive(attemptId: string): Promise<boolean> {
+    return isIdentityCompletionLeaseActive(this.options, requiredString(attemptId, 160));
+  }
+
+  async markTenantCompletionCommitUnknown(input: CompletionTransitionInput): Promise<VerifiedRegistrationAuthority> {
+    return this.transitionCompletion(input, "commit_unknown");
+  }
+
+  async releaseTenantCompletion(input: CompletionTransitionInput): Promise<VerifiedRegistrationAuthority> {
+    if (input.expectedState !== "creating") throw new RegistrationPersistenceError("registration_workflow_invalid_transition");
+    return this.transitionCompletion(input, "ready", false);
+  }
+
+  async recoverAbsentTenantCompletion(input: CompletionTransitionInput): Promise<VerifiedRegistrationAuthority> {
+    return this.transitionCompletion(input, "ready", true);
+  }
+
+  async finalizeTenantCompletion(input: FinalizeTenantCompletionInput): Promise<VerifiedRegistrationAuthority> {
+    const validated = this.validateCompletionTransition(input);
+    return withIdentityTransaction(this.options, "registration", async (client) => {
+      const locked = await client.query(
+        "SELECT attempt_id FROM saas.registration_workflows WHERE attempt_id = $1 FOR UPDATE",
+        [validated.attemptId],
+      );
+      if (!locked.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
+      const selected = await client.query(
+        `${WORKFLOW_WITH_IDENTITY_SELECT} WHERE workflow.attempt_id = $1`,
+        [validated.attemptId],
+      );
+      if (!selected.rows[0]) throw new RegistrationCompletionCorruptionError();
+      const authority = await this.parseVerifiedAuthority(selected.rows[0]);
+      this.assertExpectedCompletion(authority, validated);
+      this.assertFinalizationProof(input.result, authority);
+      const completion = await client.query(
+        "UPDATE saas.registration_tenant_completions SET state = 'completed', version = version + 1, updated_at = $2::timestamptz, completed_at = $2::timestamptz, commit_unknown_at = NULL, recovery_absent_at = NULL WHERE attempt_id = $1 AND state = $3 AND version = $4 RETURNING state, version, started_at, updated_at, commit_unknown_at, completed_at, recovery_absent_at",
+        [validated.attemptId, validated.now.toISOString(), validated.expectedState, validated.expectedCompletionVersion],
+      );
+      if (!completion.rows[0]) throw new RegistrationPersistenceError("registration_completion_conflict");
+      const workflow = await client.query(
+        "UPDATE saas.registration_workflows SET status = 'tenant_created', version = version + 1, updated_at = $2::timestamptz WHERE attempt_id = $1 AND status = 'identity_verified' AND version = $3 AND canonical_fingerprint = $4 RETURNING attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, version, canonical_fingerprint, requested_at, created_at, expires_at, consumed_at, terminal_at, failure_code",
+        [validated.attemptId, validated.now.toISOString(), validated.expectedWorkflowVersion, authority.canonicalFingerprint],
+      );
+      if (!workflow.rows[0]) throw new RegistrationPersistenceError("registration_workflow_conflict");
+      return {
+        ...authority,
+        ...this.parseWorkflow(workflow.rows[0]),
+        completion: this.parseCompletion(completion.rows[0], validated.attemptId, authority.canonicalFingerprint),
+      };
+    });
+  }
+
   async markSessionCreated(input: RegistrationTransitionInput) { return this.transition(input, "session_created"); }
   async markFailed(input: RegistrationTransitionInput & { failureCode: string }) {
     return this.transition(input, "failed", undefined, requiredString(input.failureCode, 64));
@@ -394,7 +560,7 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     const limit = batchSize(maximumRows);
     return withIdentityTransaction(this.options, "cleanup", async (client) => {
       const result = await client.query(
-        "WITH candidates AS (SELECT attempt_id FROM saas.registration_workflows WHERE status IN ('awaiting_identity', 'identity_verified') AND expires_at <= $1::timestamptz ORDER BY expires_at, attempt_id FOR UPDATE SKIP LOCKED LIMIT $2), expired AS (UPDATE saas.registration_workflows AS workflow SET status = 'expired', version = version + 1, terminal_at = $1::timestamptz, updated_at = $1::timestamptz FROM candidates WHERE workflow.attempt_id = candidates.attempt_id AND workflow.status IN ('awaiting_identity', 'identity_verified') RETURNING workflow.attempt_id) SELECT count(*)::integer AS expired_count FROM expired",
+        "WITH candidates AS (SELECT workflow.attempt_id FROM saas.registration_workflows AS workflow LEFT JOIN saas.registration_tenant_completions AS completion ON completion.attempt_id = workflow.attempt_id WHERE (workflow.status = 'awaiting_identity' OR (workflow.status = 'identity_verified' AND completion.state = 'ready' AND completion.recovery_absent_at IS NULL)) AND workflow.expires_at <= $1::timestamptz ORDER BY workflow.expires_at, workflow.attempt_id FOR UPDATE OF workflow SKIP LOCKED LIMIT $2), expired AS (UPDATE saas.registration_workflows AS workflow SET status = 'expired', version = version + 1, terminal_at = $1::timestamptz, updated_at = $1::timestamptz FROM candidates WHERE workflow.attempt_id = candidates.attempt_id AND (workflow.status = 'awaiting_identity' OR (workflow.status = 'identity_verified' AND EXISTS (SELECT 1 FROM saas.registration_tenant_completions AS completion WHERE completion.attempt_id = workflow.attempt_id AND completion.state = 'ready' AND completion.recovery_absent_at IS NULL))) RETURNING workflow.attempt_id) SELECT count(*)::integer AS expired_count FROM expired",
         [cutoff.toISOString(), limit],
       );
       const count = result.rows[0]?.expired_count;
@@ -451,13 +617,14 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     const requiresSnapshot = workflow.canonicalFingerprint !== undefined ||
       ["identity_verified", "tenant_created", "session_created"].includes(workflow.status);
     if (!requiresSnapshot) {
-      if (hasSnapshot) throw new IdentityPersistenceError();
+      if (hasSnapshot || row.completion_attempt_id != null) throw new IdentityPersistenceError();
       return workflow;
     }
     return this.parseVerifiedAuthority(row);
   }
 
   private async parseVerifiedAuthority(row: Record<string, unknown>): Promise<VerifiedRegistrationAuthority> {
+    try {
     const workflow = this.parseWorkflow(row);
     const attemptId = requiredString(row.verified_attempt_id, 160);
     if (attemptId !== workflow.attempt.id || !workflow.canonicalFingerprint) throw new IdentityPersistenceError();
@@ -484,12 +651,120 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     const verifiedIdentity = parseVerifiedIdentitySnapshot(decoded);
     const authority = await buildVerifiedTenantAuthority(verifiedIdentity, workflow.attempt);
     if (authority.canonicalFingerprint !== snapshotFingerprint) throw new IdentityPersistenceError();
+    const completion = this.parseCompletion(row, attemptId, snapshotFingerprint, true);
+    if (
+      (completion.state === "completed") !== (workflow.status === "tenant_created" || workflow.status === "session_created") ||
+      (["creating", "commit_unknown"].includes(completion.state) && workflow.status !== "identity_verified")
+    ) throw new RegistrationCompletionCorruptionError();
     return {
       ...workflow,
       canonicalFingerprint: snapshotFingerprint,
       verifiedIdentity,
       tenantInput: authority.input,
+      completion,
     };
+    } catch (error) {
+      if (error instanceof RegistrationCompletionCorruptionError) throw error;
+      throw new RegistrationCompletionCorruptionError();
+    }
+  }
+
+  private parseCompletion(
+    row: Record<string, unknown>,
+    attemptId: string,
+    fingerprint: string,
+    joined = false,
+  ): PersistentTenantCompletion {
+    try {
+      if (joined) {
+        if (requiredString(row.completion_attempt_id, 160) !== attemptId) throw new Error();
+        if (requiredString(row.completion_canonical_fingerprint, 64) !== fingerprint) throw new Error();
+      }
+      const rawState = joined ? row.completion_state : row.state;
+      const state = requiredString(rawState) as TenantCompletionState;
+      if (!["ready", "creating", "commit_unknown", "completed"].includes(state)) throw new Error();
+      const value: PersistentTenantCompletion = {
+        state,
+        version: integer(joined ? row.completion_version : row.version),
+        updatedAt: persistedTimestamp(joined ? row.completion_updated_at : row.updated_at),
+      };
+      const startedAt = timestamp(joined ? row.completion_started_at : row.started_at);
+      const commitUnknownAt = timestamp(joined ? row.completion_commit_unknown_at : row.commit_unknown_at);
+      const completedAt = timestamp(joined ? row.completion_completed_at : row.completed_at);
+      const recoveryAbsentAt = timestamp(joined ? row.completion_recovery_absent_at : row.recovery_absent_at);
+      if (startedAt) value.startedAt = startedAt;
+      if (commitUnknownAt) value.commitUnknownAt = commitUnknownAt;
+      if (completedAt) value.completedAt = completedAt;
+      if (recoveryAbsentAt) value.recoveryAbsentAt = recoveryAbsentAt;
+      if (
+        (state === "ready" && (startedAt || commitUnknownAt || completedAt)) ||
+        (state === "creating" && (!startedAt || commitUnknownAt || completedAt)) ||
+        (state === "commit_unknown" && (!startedAt || !commitUnknownAt || completedAt)) ||
+        (state === "completed" && (!startedAt || commitUnknownAt || !completedAt || recoveryAbsentAt))
+      ) throw new Error();
+      return value;
+    } catch {
+      throw new RegistrationCompletionCorruptionError();
+    }
+  }
+
+  private validateNow(value: Date): void {
+    if (!(value instanceof Date) || !Number.isFinite(value.getTime())) throw new IdentityPersistenceError();
+  }
+
+  private validateCompletionTransition(input: CompletionTransitionInput): CompletionTransitionInput {
+    const attemptId = requiredString(input.attemptId, 160);
+    if (!["creating", "commit_unknown"].includes(input.expectedState)) throw new IdentityPersistenceError();
+    if (!Number.isSafeInteger(input.expectedCompletionVersion) || input.expectedCompletionVersion < 1) throw new IdentityPersistenceError();
+    if (!Number.isSafeInteger(input.expectedWorkflowVersion) || input.expectedWorkflowVersion < 1) throw new IdentityPersistenceError();
+    this.validateNow(input.now);
+    return { ...input, attemptId };
+  }
+
+  private assertExpectedCompletion(authority: VerifiedRegistrationAuthority, input: CompletionTransitionInput): void {
+    if (
+      authority.status !== "identity_verified" ||
+      authority.version !== input.expectedWorkflowVersion ||
+      authority.completion.state !== input.expectedState ||
+      authority.completion.version !== input.expectedCompletionVersion
+    ) throw new RegistrationPersistenceError("registration_completion_conflict");
+  }
+
+  private assertFinalizationProof(value: unknown, authority: VerifiedRegistrationAuthority): void {
+    if (!this.resultAuthorities || !validateTenantCompletionResult(value, authority.tenantInput, this.resultAuthorities)) {
+      throw new RegistrationCompletionCorruptionError();
+    }
+  }
+
+  private async transitionCompletion(
+    input: CompletionTransitionInput,
+    next: "ready" | "commit_unknown",
+    recoveredAbsent = false,
+  ): Promise<VerifiedRegistrationAuthority> {
+    const validated = this.validateCompletionTransition(input);
+    if (next === "commit_unknown" && validated.expectedState !== "creating") {
+      throw new RegistrationPersistenceError("registration_workflow_invalid_transition");
+    }
+    return withIdentityTransaction(this.options, "registration", async (client) => {
+      const locked = await client.query(
+        "SELECT attempt_id FROM saas.registration_workflows WHERE attempt_id = $1 FOR UPDATE",
+        [validated.attemptId],
+      );
+      if (!locked.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
+      const selected = await client.query(
+        `${WORKFLOW_WITH_IDENTITY_SELECT} WHERE workflow.attempt_id = $1`,
+        [validated.attemptId],
+      );
+      if (!selected.rows[0]) throw new RegistrationCompletionCorruptionError();
+      const authority = await this.parseVerifiedAuthority(selected.rows[0]);
+      this.assertExpectedCompletion(authority, validated);
+      const result = await client.query(
+        "UPDATE saas.registration_tenant_completions SET state = $2, version = version + 1, updated_at = $3::timestamptz, started_at = CASE WHEN $2 = 'ready' THEN NULL ELSE started_at END, commit_unknown_at = CASE WHEN $2 = 'commit_unknown' THEN $3::timestamptz ELSE NULL END, completed_at = NULL, recovery_absent_at = CASE WHEN $6::boolean THEN COALESCE(recovery_absent_at, $3::timestamptz) ELSE recovery_absent_at END WHERE attempt_id = $1 AND state = $4 AND version = $5 RETURNING state, version, started_at, updated_at, commit_unknown_at, completed_at, recovery_absent_at",
+        [validated.attemptId, next, validated.now.toISOString(), validated.expectedState, validated.expectedCompletionVersion, recoveredAbsent],
+      );
+      if (!result.rows[0]) throw new RegistrationPersistenceError("registration_completion_conflict");
+      return { ...authority, completion: this.parseCompletion(result.rows[0], validated.attemptId, authority.canonicalFingerprint) };
+    });
   }
 
   private async transition(
@@ -504,8 +779,8 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     if (!(input.now instanceof Date) || !Number.isFinite(input.now.getTime())) throw new IdentityPersistenceError();
     const allowed: Record<WorkflowStatus, readonly WorkflowStatus[]> = {
       awaiting_identity: ["identity_verified", "failed", "expired", "cancelled"],
-      identity_verified: ["tenant_created", "failed", "expired", "cancelled"],
-      tenant_created: ["session_created", "failed", "cancelled"],
+      identity_verified: ["failed", "expired", "cancelled"],
+      tenant_created: ["session_created"],
       session_created: [], failed: [], expired: [], cancelled: [],
     };
     if (!allowed[expected].includes(next) || TERMINAL_STATUSES.has(expected)) {

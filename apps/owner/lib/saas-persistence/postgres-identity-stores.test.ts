@@ -388,7 +388,7 @@ test("bounded expiry primitives use fenced fixed SQL and return counts only", as
   const registrationStore = new PostgresRegistrationAttemptStore(dependencies(registrationClient));
   assert.equal(await registrationStore.expireDue(now, 25), 2);
   const registrationExpiry = registrationClient.calls[5];
-  assert.match(registrationExpiry.text, /FOR UPDATE SKIP LOCKED/);
+  assert.match(registrationExpiry.text, /FOR UPDATE OF workflow SKIP LOCKED/);
   assert.deepEqual(registrationExpiry.values, [now.toISOString(), 25]);
 
   const oidcClient = new FakeClient();

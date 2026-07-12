@@ -12,10 +12,16 @@ export interface IdentityQueryResult<Row extends Record<string, unknown> = Recor
 export interface IdentityPostgresClient {
   query(text: string, values?: readonly unknown[]): Promise<IdentityQueryResult>;
   release(destroy?: boolean | Error): void;
+  on?(event: "error", listener: (error: Error) => void): this;
+  removeListener?(event: "error", listener: (error: Error) => void): this;
 }
 
 export interface IdentityPostgresPool {
   connect(): Promise<IdentityPostgresClient>;
+}
+
+export interface IdentitySessionLease {
+  release(): Promise<void>;
 }
 
 export interface IdentityTimeouts {
@@ -46,6 +52,13 @@ export class IdentityPersistenceError extends Error {
   constructor(message = "identity_persistence_failed") {
     super(message);
     this.name = "IdentityPersistenceError";
+  }
+}
+
+export class RegistrationCompletionCorruptionError extends IdentityPersistenceError {
+  constructor() {
+    super("registration_completion_corrupt");
+    this.name = "RegistrationCompletionCorruptionError";
   }
 }
 
@@ -108,6 +121,7 @@ async function acquire(input: IdentityStoreDependencies): Promise<IdentityPostgr
 
 function isSafeError(error: unknown): boolean {
   return error instanceof IdentityCryptoError ||
+    error instanceof RegistrationCompletionCorruptionError ||
     error instanceof RegistrationPersistenceError ||
     (error instanceof Error && error.name === "OidcFlowError");
 }
@@ -181,6 +195,120 @@ export async function withIdentityTransaction<T>(
     if (isSafeError(error) || error instanceof IdentityPersistenceError) throw error;
     throw new IdentityPersistenceError();
   }
+}
+
+export const IDENTITY_COMPLETION_LEASE_SEED = 2_607_120_012;
+
+export async function withIdentityTransactionLease<T>(
+  input: IdentityStoreDependencies,
+  category: IdentityAuditEvent["operation"],
+  work: (client: IdentityPostgresClient) => Promise<{ result: T; leaseKey?: string }>,
+): Promise<{ result: T; lease?: IdentitySessionLease }> {
+  const client = await acquire(input);
+  let connectionFailed = false;
+  const handleConnectionError = () => { connectionFailed = true; };
+  client.on?.("error", handleConnectionError);
+  const removeConnectionListener = () => client.removeListener?.("error", handleConnectionError);
+  let began = false;
+  let terminal = false;
+  try {
+    await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+    began = true;
+    await client.query("SELECT pg_catalog.set_config('statement_timeout', $1, true)", [`${input.timeouts.statementMs}ms`]);
+    await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [`${input.timeouts.lockMs}ms`]);
+    await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [`${input.timeouts.idleTransactionMs}ms`]);
+    await client.query("SET LOCAL ROLE celebix_saas_identity");
+    const outcome = await work(client);
+    try {
+      await client.query("COMMIT");
+    } catch {
+      terminal = true;
+      removeConnectionListener();
+      try { client.release(true); } catch { /* already uncertain */ }
+      auditSafely(input, { operation: category, classification: "commit_unknown", result: "failure" });
+      throw new IdentityPersistenceError("identity_commit_outcome_unknown");
+    }
+    terminal = true;
+    if (!outcome.leaseKey) {
+      try {
+        removeConnectionListener();
+        client.release();
+      } catch {
+        try { client.release(true); } catch { /* destruction is best effort */ }
+        throw new IdentityPersistenceError();
+      }
+      auditSafely(input, { operation: category, classification: "completed", result: "success" });
+      return { result: outcome.result };
+    }
+    let released = false;
+    const leaseKey = outcome.leaseKey;
+    const lease: IdentitySessionLease = {
+      release: async () => {
+        if (released) return;
+        released = true;
+        try {
+          if (connectionFailed) throw new IdentityPersistenceError();
+          const unlocked = await client.query(
+            "SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtextextended($1, $2)) AS unlocked",
+            [leaseKey, IDENTITY_COMPLETION_LEASE_SEED],
+          );
+          if (unlocked.rows[0]?.unlocked !== true) throw new IdentityPersistenceError();
+          removeConnectionListener();
+          client.release();
+        } catch {
+          removeConnectionListener();
+          try { client.release(true); } catch { /* session destruction releases the lock */ }
+          throw new IdentityPersistenceError();
+        }
+      },
+    };
+    auditSafely(input, { operation: category, classification: "completed", result: "success" });
+    return { result: outcome.result, lease };
+  } catch (error) {
+    if (!terminal) {
+      if (began) {
+        try {
+          await client.query("ROLLBACK");
+          terminal = true;
+          removeConnectionListener();
+          client.release();
+        } catch {
+          terminal = true;
+          removeConnectionListener();
+          try { client.release(true); } catch { /* destruction is best effort */ }
+        }
+      } else {
+        terminal = true;
+        removeConnectionListener();
+        try { client.release(true); } catch { /* destruction is best effort */ }
+      }
+    }
+    if (!(terminal && error instanceof IdentityPersistenceError && error.message === "identity_commit_outcome_unknown")) {
+      auditSafely(input, { operation: category, classification: isSafeError(error) ? "rejected" : "persistence_failure", result: "failure" });
+    }
+    if (isSafeError(error) || error instanceof IdentityPersistenceError) throw error;
+    throw new IdentityPersistenceError();
+  }
+}
+
+export async function isIdentityCompletionLeaseActive(
+  input: IdentityStoreDependencies,
+  attemptId: string,
+): Promise<boolean> {
+  return withIdentityTransaction(input, "registration", async (client) => {
+    const probe = await client.query(
+      "SELECT pg_catalog.pg_try_advisory_lock(pg_catalog.hashtextextended($1, $2)) AS acquired",
+      [attemptId, IDENTITY_COMPLETION_LEASE_SEED],
+    );
+    if (probe.rows[0]?.acquired === false) return true;
+    if (probe.rows[0]?.acquired !== true) throw new IdentityPersistenceError();
+    const unlocked = await client.query(
+      "SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtextextended($1, $2)) AS unlocked",
+      [attemptId, IDENTITY_COMPLETION_LEASE_SEED],
+    );
+    if (unlocked.rows[0]?.unlocked !== true) throw new IdentityPersistenceError();
+    return false;
+  });
 }
 
 export function canonicalTimestamp(value: unknown): string {

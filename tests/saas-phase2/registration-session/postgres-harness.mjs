@@ -35,6 +35,7 @@ const primaryDatabase = "phase2b1_identity";
 const restoreDatabase = "phase2b1_restore";
 const rollbackDatabase = "phase2b1_rollback";
 const workloadRole = "celebix_phase2b1_test";
+const completionResultAuthorities = { panelOrigin: "https://panel.celebix.site", platformDomainSuffix: "celebix.site" };
 const phase2bFiles = [
   "202607110007_identity_roles.up.sql",
   "202607110008_identity_persistence.up.sql",
@@ -182,7 +183,7 @@ function dependencies(pool, material, context, keyring = material.keyring, curre
   };
 }
 
-function completionService(workflowStore, pool, failAt) {
+function completionService(workflowStore, pool, failAt, controls = {}) {
   const repositoryOptions = {
     pool,
     generateId: () => randomUUID(),
@@ -192,11 +193,12 @@ function completionService(workflowStore, pool, failAt) {
     panelOrigin: "https://panel.celebix.site",
   };
   if (failAt) registerPostgresTestFailure(repositoryOptions, failAt);
-  const tenantCore = createOwnerTenantCoreAdapter(createStarterTenantService({
+  const baseTenantCore = createOwnerTenantCoreAdapter(createStarterTenantService({
     repository: new PostgresSaaSDataRepository(repositoryOptions),
     platformDomainSuffix: "celebix.site",
     panelBaseUrl: "https://panel.celebix.site",
   }));
+  const tenantCore = controls.wrapTenantCore?.(baseTenantCore) ?? baseTenantCore;
   const recovery = new PostgresTenantOperationRecovery({
     pool,
     timeouts: repositoryOptions.timeouts,
@@ -207,7 +209,9 @@ function completionService(workflowStore, pool, failAt) {
     workflowStore,
     tenantCore,
     recovery,
-    clock: () => new Date("2026-07-12T10:05:00.000Z"),
+    panelOrigin: "https://panel.celebix.site",
+    platformDomainSuffix: "celebix.site",
+    clock: controls.clock ?? (() => new Date("2026-07-12T10:05:00.000Z")),
     audit: (event) => {
       assert.doesNotMatch(JSON.stringify(event), /@|subject|issuer|cipher|key|sql|postgres/i);
     },
@@ -263,7 +267,7 @@ function createDatabase(backend, database) {
 }
 
 function dataDump(backend) {
-  const args = ["-U", "postgres", "-d", primaryDatabase, "--data-only", "--inserts", "--disable-triggers", "--no-owner", "--no-privileges", "--table=saas.registration_workflows", "--table=saas.registration_verified_identities", "--table=saas.oidc_transactions"];
+  const args = ["-U", "postgres", "-d", primaryDatabase, "--data-only", "--inserts", "--disable-triggers", "--no-owner", "--no-privileges", "--table=saas.registration_workflows", "--table=saas.registration_verified_identities", "--table=saas.registration_tenant_completions", "--table=saas.oidc_transactions"];
   return backend.kind === "container"
     ? command(backend.executable, ["exec", backend.container, "pg_dump", ...args]).stdout
     : command(backend.executables.pg_dump, ["-h", backend.socketDirectory, "-p", String(backend.port), ...args]).stdout;
@@ -289,13 +293,14 @@ async function main() {
     const unrelated = psql(backend, "SET ROLE celebix_saas_identity; SELECT count(*) FROM saas.stores;", primaryDatabase, { allowFailure: true });
     assert.notEqual(unrelated.status, 0);
     assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity', 'saas.registration_verified_identities', 'SELECT,INSERT')::int || ':' || has_table_privilege('celebix_saas_identity', 'saas.registration_verified_identities', 'UPDATE,DELETE')::int || ':' || has_table_privilege('public', 'saas.registration_verified_identities', 'SELECT,INSERT,UPDATE,DELETE')::int;").stdout.trim(), "1:0:0");
+    assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'SELECT,INSERT')::int || ':' || has_table_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'UPDATE,DELETE')::int || ':' || has_column_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'state', 'UPDATE')::int || ':' || has_column_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'canonical_fingerprint', 'UPDATE')::int;").stdout.trim(), "1:0:1:0");
 
     const material = { hmacKey: randomBytes(32), currentKeyId: "key-current", keyring: { "key-current": randomBytes(32), "key-old": randomBytes(32) } };
     const poolA = makePool(backend);
     const poolB = makePool(backend);
     pools.push(poolA, poolB);
-    const registrationsA = new PostgresRegistrationAttemptStore(dependencies(poolA, material, "registration-attempt-state"));
-    const registrationsB = new PostgresRegistrationAttemptStore(dependencies(poolB, material, "registration-attempt-state"));
+    const registrationsA = new PostgresRegistrationAttemptStore(dependencies(poolA, material, "registration-attempt-state"), completionResultAuthorities);
+    const registrationsB = new PostgresRegistrationAttemptStore(dependencies(poolB, material, "registration-attempt-state"), completionResultAuthorities);
     const oidcA = new PostgresOidcTransactionStore(dependencies(poolA, material, "oidc-transaction-state"));
     const oidcB = new PostgresOidcTransactionStore(dependencies(poolB, material, "oidc-transaction-state"));
     const prepareVerified = async (store, attempt) => {
@@ -344,20 +349,38 @@ async function main() {
     assert.equal(identity.version, 2);
     assert.equal(identity.tenantInput.principal.subject, verifiedIdentity.subject);
     assert.equal(identity.canonicalFingerprint, createCanonicalTenantFingerprint(identity.tenantInput));
-    const optimistic = await Promise.allSettled([
-      registrationsA.markTenantCreated({ attemptId: workflow.id, expectedStatus: "identity_verified", expectedVersion: 2, now: new Date("2026-07-12T10:03:00.000Z") }),
-      registrationsB.markTenantCreated({ attemptId: workflow.id, expectedStatus: "identity_verified", expectedVersion: 2, now: new Date("2026-07-12T10:03:00.000Z") }),
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET status='tenant_created', version=version+1, updated_at=updated_at+interval '1 second' WHERE attempt_id='${workflow.id}'`, "tenant_created without completed proof");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_tenant_completions SET state='completed', version=version+1, started_at=updated_at, completed_at=updated_at, updated_at=updated_at+interval '1 second' WHERE attempt_id='${workflow.id}'`, "completed without creating proof");
+    const optimistic = await Promise.all([
+      registrationsA.claimTenantCompletion({ attemptId: workflow.id, now: new Date("2026-07-12T10:03:00.000Z") }),
+      registrationsB.claimTenantCompletion({ attemptId: workflow.id, now: new Date("2026-07-12T10:03:00.000Z") }),
     ]);
-    assert.equal(optimistic.filter((result) => result.status === "fulfilled").length, 1);
-    assert.equal(optimistic.filter((result) => result.status === "rejected" && result.reason.code === "registration_workflow_conflict").length, 1);
-    const tenant = optimistic.find((result) => result.status === "fulfilled").value;
-    const session = await registrationsB.markSessionCreated({ attemptId: workflow.id, expectedStatus: "tenant_created", expectedVersion: tenant.version, now: new Date("2026-07-12T10:04:00.000Z") });
+    assert.deepEqual(optimistic.map((result) => result.kind).sort(), ["claimed", "in_progress"]);
+    const claimedOutcome = optimistic.find((result) => result.kind === "claimed");
+    const claimed = claimedOutcome.authority;
+    await assert.rejects(registrationsA.finalizeTenantCompletion({
+      attemptId: workflow.id, expectedState: "creating",
+      expectedCompletionVersion: claimed.completion.version, expectedWorkflowVersion: claimed.version,
+      now: new Date("2026-07-12T10:03:01.000Z"), result: {},
+    }), /registration_completion_corrupt/);
+    await registrationsA.releaseTenantCompletion({
+      attemptId: workflow.id, expectedState: "creating",
+      expectedCompletionVersion: claimed.completion.version, expectedWorkflowVersion: claimed.version,
+      now: new Date("2026-07-12T10:03:02.000Z"),
+    });
+    await claimedOutcome.lease.release();
+    assert.equal((await completionService(registrationsA, poolA).resumeTenantCreation(workflow.id)).kind, "tenant_created");
+    const tenant = await registrationsB.loadVerified(workflow.id);
+    const session = await registrationsB.markSessionCreated({ attemptId: workflow.id, expectedStatus: "tenant_created", expectedVersion: tenant.version, now: new Date("2026-07-12T10:05:01.000Z") });
     assert.equal(session.status, "session_created");
-    await assert.rejects(registrationsA.markFailed({ attemptId: workflow.id, expectedStatus: "session_created", expectedVersion: session.version, failureCode: "late", now: new Date("2026-07-12T10:05:00.000Z") }), (error) => error.code === "registration_workflow_invalid_transition");
+    await assert.rejects(registrationsA.markFailed({ attemptId: workflow.id, expectedStatus: "session_created", expectedVersion: session.version, failureCode: "late", now: new Date("2026-07-12T10:05:02.000Z") }), (error) => error.code === "registration_workflow_invalid_transition");
     assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET terminal_at = terminal_at + interval '1 second', updated_at = updated_at + interval '1 second' WHERE attempt_id='${workflow.id}'`, "registration terminal timestamp rewrite");
     assertIdentityMutationDenied(backend, `UPDATE saas.registration_verified_identities SET recorded_at = recorded_at + interval '1 second' WHERE attempt_id='${workflow.id}'`, "verified identity mutation");
     assertIdentityMutationDenied(backend, `DELETE FROM saas.registration_verified_identities WHERE attempt_id='${workflow.id}'`, "verified identity direct delete");
     assertIdentityMutationDenied(backend, `INSERT INTO saas.registration_verified_identities SELECT * FROM saas.registration_verified_identities WHERE attempt_id='${workflow.id}'`, "verified identity duplicate");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_tenant_completions SET canonical_fingerprint='${"f".repeat(64)}' WHERE attempt_id='${workflow.id}'`, "completion fingerprint mutation");
+    assertIdentityMutationDenied(backend, `DELETE FROM saas.registration_tenant_completions WHERE attempt_id='${workflow.id}'`, "completion direct delete");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_tenant_completions SET state='ready', version=version+1, started_at=NULL, completed_at=NULL, updated_at=updated_at+interval '1 second' WHERE attempt_id='${workflow.id}'`, "completed completion reopening");
 
     const noSnapshot = registration("attempt_b1b1nosnapshot01", "registration-state-no-snapshot");
     await registrationsA.save(noSnapshot);
@@ -501,25 +524,131 @@ async function main() {
 
     const firstCreation = registration("attempt_b1b1firstcreate0", "registration-state-first-create", undefined, undefined, "b1b1-first-store");
     await prepareVerified(registrationsA, firstCreation);
-    const firstCompletion = completionService(registrationsA, poolA);
-    const firstCreationResult = await firstCompletion.resumeTenantCreation(firstCreation.id);
+    let releaseCreation;
+    const creationGate = new Promise((resolve) => { releaseCreation = resolve; });
+    let tenantCoreCalls = 0;
+    const firstCompletion = completionService(registrationsA, poolA, undefined, {
+      wrapTenantCore: (base) => ({
+        createStarterTenant: async (input) => {
+          tenantCoreCalls += 1;
+          await creationGate;
+          return base.createStarterTenant(input);
+        },
+      }),
+    });
+    const firstWinner = firstCompletion.resumeTenantCreation(firstCreation.id);
+    while (tenantCoreCalls === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+    const expiryDuringCreation = await registrationsB.expireDue(new Date("2026-07-12T11:00:00.000Z"), 100);
+    assert.ok(expiryDuringCreation >= 0);
+    assert.equal((await registrationsB.loadVerified(firstCreation.id)).status, "identity_verified");
+    assert.equal((await registrationsB.loadVerified(firstCreation.id)).completion.state, "creating");
+    assert.deepEqual(await completionService(registrationsB, poolB).reconcileUnknownCommit(firstCreation.id), { kind: "pending" });
+    assert.equal((await registrationsB.loadVerified(firstCreation.id)).completion.state, "creating");
+    assert.deepEqual(await firstCompletion.resumeTenantCreation(firstCreation.id), { kind: "in_progress" });
+    assert.equal(tenantCoreCalls, 1);
+    releaseCreation();
+    const firstCreationResult = await firstWinner;
     assert.equal(firstCreationResult.kind, "tenant_created");
     assert.equal((await registrationsB.loadVerified(firstCreation.id)).status, "tenant_created");
+    assert.equal((await registrationsB.loadVerified(firstCreation.id)).completion.state, "completed");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-first-store';").stdout.trim(), "1");
+
+    const lostLease = registration("attempt_b1b1lostlease000", "registration-state-lost-lease", undefined, undefined, "b1b1-lost-lease");
+    await prepareVerified(registrationsA, lostLease);
+    let releaseLostLeaseCreation;
+    const lostLeaseGate = new Promise((resolve) => { releaseLostLeaseCreation = resolve; });
+    let lostLeaseCoreCalls = 0;
+    const lostLeaseCompletion = completionService(registrationsA, poolA, undefined, {
+      wrapTenantCore: (base) => ({
+        createStarterTenant: async (input) => {
+          lostLeaseCoreCalls += 1;
+          await lostLeaseGate;
+          return base.createStarterTenant(input);
+        },
+      }),
+    });
+    const lostLeaseWinner = lostLeaseCompletion.resumeTenantCreation(lostLease.id);
+    while (lostLeaseCoreCalls === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(psql(backend, "SELECT count(*) FROM pg_catalog.pg_locks WHERE locktype='advisory' AND granted AND database=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database());").stdout.trim(), "1");
+    assert.equal(psql(backend, "SELECT count(*) FROM (SELECT pg_catalog.pg_terminate_backend(pid) FROM pg_catalog.pg_locks WHERE locktype='advisory' AND granted AND database=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())) AS terminated;").stdout.trim(), "1");
+    assert.deepEqual(await completionService(registrationsB, poolB).reconcileUnknownCommit(lostLease.id), { kind: "recovery_absent", state: "ready" });
+    const recoveredAbsentAuthority = await registrationsB.loadVerified(lostLease.id);
+    assert.equal(recoveredAbsentAuthority.completion.state, "ready");
+    assert.equal(recoveredAbsentAuthority.completion.recoveryAbsentAt, "2026-07-12T10:05:00.000Z");
+    await registrationsB.expireDue(new Date("2026-07-12T11:00:00.000Z"), 100);
+    assert.equal((await registrationsB.loadVerified(lostLease.id)).status, "identity_verified");
+    await assert.rejects(registrationsB.markExpired({
+      attemptId: lostLease.id,
+      expectedStatus: "identity_verified",
+      expectedVersion: recoveredAbsentAuthority.version,
+      now: new Date("2026-07-12T11:00:01.000Z"),
+    }));
+    releaseLostLeaseCreation();
+    assert.deepEqual(await lostLeaseWinner, { kind: "reconciliation_required" });
+    const lostLeaseReplay = await completionService(registrationsB, poolB, undefined, {
+      clock: () => new Date("2026-07-12T11:00:02.000Z"),
+    }).resumeTenantCreation(lostLease.id);
+    assert.equal(lostLeaseReplay.kind, "tenant_replayed");
+    assert.equal((await registrationsA.loadVerified(lostLease.id)).completion.state, "completed");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-lost-lease';").stdout.trim(), "1");
+
+    const forgedProof = registration("attempt_b1b1forgedproof0", "registration-state-forged-proof", undefined, undefined, "b1b1-forged-proof");
+    await prepareVerified(registrationsA, forgedProof);
+    const forgedClaim = await registrationsA.claimTenantCompletion({ attemptId: forgedProof.id, now: new Date("2026-07-12T10:05:00.000Z") });
+    assert.equal(forgedClaim.kind, "claimed");
+    const forgedResult = structuredClone(firstCreationResult.result);
+    forgedResult.store.slug = "b1b1-forged-proof";
+    forgedResult.primaryDomain.storeSlug = "b1b1-forged-proof";
+    forgedResult.primaryDomain.hostname = "evil.test";
+    forgedResult.primaryDomain.canonicalHostname = "evil.test";
+    forgedResult.panelUrl = "https://evil.test/stores/b1b1-forged-proof";
+    forgedResult.storefrontUrl = "https://evil.test/";
+    await assert.rejects(registrationsA.finalizeTenantCompletion({
+      attemptId: forgedProof.id, expectedState: "creating",
+      expectedCompletionVersion: forgedClaim.authority.completion.version,
+      expectedWorkflowVersion: forgedClaim.authority.version,
+      now: new Date("2026-07-12T10:05:01.000Z"), result: forgedResult,
+    }), /registration_completion_corrupt/);
+    await forgedClaim.lease.release();
+    assert.equal((await registrationsB.loadVerified(forgedProof.id)).status, "identity_verified");
+
+    const malformedSuccess = registration("attempt_b1b1malformresult", "registration-state-malformed-result", undefined, undefined, "b1b1-malformed-result");
+    await prepareVerified(registrationsA, malformedSuccess);
+    const malformedCompletion = completionService(registrationsA, poolA, undefined, {
+      wrapTenantCore: () => ({
+        createStarterTenant: async () => ({
+          ok: true,
+          value: { ...structuredClone(firstCreationResult.result), store: { ...firstCreationResult.result.store, slug: "wrong-store" } },
+        }),
+      }),
+    });
+    assert.deepEqual(await malformedCompletion.resumeTenantCreation(malformedSuccess.id), {
+      kind: "rejected", error: { code: "durable_authority_invalid", retryable: false },
+    });
+    assert.equal((await registrationsB.loadVerified(malformedSuccess.id)).completion.state, "creating");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-malformed-result';").stdout.trim(), "0");
 
     const replayCrash = registration("attempt_b1b1crashreplay0", "registration-state-crash-replay", undefined, undefined, "b1b1-replay-store");
     await prepareVerified(registrationsA, replayCrash);
     const crashWindowStore = {
       recordVerifiedIdentity: registrationsA.recordVerifiedIdentity.bind(registrationsA),
       loadVerified: registrationsA.loadVerified.bind(registrationsA),
-      markTenantCreated: async () => { throw new Error("simulated process loss after tenant commit"); },
+      claimTenantCompletion: registrationsA.claimTenantCompletion.bind(registrationsA),
+      isTenantCompletionActive: registrationsA.isTenantCompletionActive.bind(registrationsA),
+      markTenantCompletionCommitUnknown: registrationsA.markTenantCompletionCommitUnknown.bind(registrationsA),
+      releaseTenantCompletion: registrationsA.releaseTenantCompletion.bind(registrationsA),
+      finalizeTenantCompletion: async () => { throw new Error("simulated process loss after tenant commit"); },
+      recoverAbsentTenantCompletion: registrationsA.recoverAbsentTenantCompletion.bind(registrationsA),
     };
     const crashedCompletion = completionService(crashWindowStore, poolA);
     const crashedResult = await crashedCompletion.resumeTenantCreation(replayCrash.id);
-    assert.deepEqual(crashedResult, { kind: "rejected", error: { code: "durable_authority_invalid", retryable: false } });
+    assert.deepEqual(crashedResult, { kind: "reconciliation_required" });
     assert.equal((await registrationsB.loadVerified(replayCrash.id)).status, "identity_verified");
-    const replayedResult = await completionService(registrationsB, poolB).resumeTenantCreation(replayCrash.id);
-    assert.equal(replayedResult.kind, "tenant_replayed");
+    assert.deepEqual(await completionService(registrationsB, poolB).resumeTenantCreation(replayCrash.id), { kind: "in_progress" });
+    const replayedResult = await completionService(registrationsB, poolB, undefined, {
+      clock: () => new Date("2026-07-12T10:06:01.000Z"),
+    }).reconcileUnknownCommit(replayCrash.id);
+    assert.equal(replayedResult.kind, "tenant_recovered");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-replay-store';").stdout.trim(), "1");
     assert.equal(psql(backend, `SELECT count(*) FROM saas.tenant_operations WHERE idempotency_key='${replayCrash.idempotencyKey}';`).stdout.trim(), "1");
 
@@ -528,21 +657,75 @@ async function main() {
     const uncertainCommitted = completionService(registrationsA, poolA, "commit_forwarded_then_connection_failure");
     assert.deepEqual(await uncertainCommitted.resumeTenantCreation(unknownCommitted.id), { kind: "commit_unknown" });
     assert.equal((await registrationsB.loadVerified(unknownCommitted.id)).status, "identity_verified");
+    assert.equal((await registrationsB.loadVerified(unknownCommitted.id)).completion.state, "commit_unknown");
     const recoveredCommitted = await completionService(registrationsB, poolB).reconcileUnknownCommit(unknownCommitted.id);
     assert.equal(recoveredCommitted.kind, "tenant_recovered");
     assert.equal((await registrationsA.loadVerified(unknownCommitted.id)).status, "tenant_created");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-unknown-match';").stdout.trim(), "1");
+
+    const recoveryFinalize = registration("attempt_b1b1recoveryfinal", "registration-state-recovery-finalize", undefined, undefined, "b1b1-recovery-finalize");
+    await prepareVerified(registrationsA, recoveryFinalize);
+    assert.deepEqual(await completionService(registrationsA, poolA, "commit_forwarded_then_connection_failure").resumeTenantCreation(recoveryFinalize.id), { kind: "commit_unknown" });
+    const recoveryFinalizeStore = {
+      recordVerifiedIdentity: registrationsA.recordVerifiedIdentity.bind(registrationsA),
+      loadVerified: registrationsA.loadVerified.bind(registrationsA),
+      claimTenantCompletion: registrationsA.claimTenantCompletion.bind(registrationsA),
+      isTenantCompletionActive: registrationsA.isTenantCompletionActive.bind(registrationsA),
+      markTenantCompletionCommitUnknown: registrationsA.markTenantCompletionCommitUnknown.bind(registrationsA),
+      releaseTenantCompletion: registrationsA.releaseTenantCompletion.bind(registrationsA),
+      finalizeTenantCompletion: async () => { throw new Error("simulated recovery finalization loss"); },
+      recoverAbsentTenantCompletion: registrationsA.recoverAbsentTenantCompletion.bind(registrationsA),
+    };
+    assert.deepEqual(await completionService(recoveryFinalizeStore, poolA).reconcileUnknownCommit(recoveryFinalize.id), { kind: "reconciliation_required" });
+    assert.equal((await registrationsB.loadVerified(recoveryFinalize.id)).completion.state, "commit_unknown");
+    assert.equal((await completionService(registrationsB, poolB).reconcileUnknownCommit(recoveryFinalize.id)).kind, "tenant_recovered");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-recovery-finalize';").stdout.trim(), "1");
 
     const unknownAbsent = registration("attempt_b1b1unknownabsent", "registration-state-unknown-absent", undefined, undefined, "b1b1-unknown-absent");
     await prepareVerified(registrationsA, unknownAbsent);
     const uncertainAbsent = completionService(registrationsA, poolA, "commit_blocked_before_forwarding");
     assert.deepEqual(await uncertainAbsent.resumeTenantCreation(unknownAbsent.id), { kind: "commit_unknown" });
     assert.equal((await registrationsB.loadVerified(unknownAbsent.id)).status, "identity_verified");
-    assert.deepEqual(await completionService(registrationsB, poolB).reconcileUnknownCommit(unknownAbsent.id), { kind: "absent" });
+    assert.deepEqual(await completionService(registrationsB, poolB).reconcileUnknownCommit(unknownAbsent.id), { kind: "recovery_absent", state: "ready" });
     assert.equal((await registrationsA.loadVerified(unknownAbsent.id)).status, "identity_verified");
+    assert.equal((await registrationsA.loadVerified(unknownAbsent.id)).completion.state, "ready");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-unknown-absent';").stdout.trim(), "0");
     assert.equal(psql(backend, `SELECT count(*) FROM saas.tenant_operations WHERE idempotency_key='${unknownAbsent.idempotencyKey}';`).stdout.trim(), "0");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.domains WHERE normalized_hostname='b1b1-unknown-absent.celebix.site';").stdout.trim(), "0");
+
+    const expiryReady = registration("attempt_b1b1expiryready0", "registration-state-expiry-ready", undefined, undefined, "b1b1-expiry-ready");
+    const expiryCreating = registration("attempt_b1b1expirycreate", "registration-state-expiry-creating", undefined, undefined, "b1b1-expiry-creating");
+    const expiryUnknown = registration("attempt_b1b1expiryunknown", "registration-state-expiry-unknown", undefined, undefined, "b1b1-expiry-unknown");
+    await prepareVerified(registrationsA, expiryReady);
+    await prepareVerified(registrationsA, expiryCreating);
+    await prepareVerified(registrationsA, expiryUnknown);
+    const creatingClaim = await registrationsA.claimTenantCompletion({ attemptId: expiryCreating.id, now: new Date("2026-07-12T10:03:00.000Z") });
+    const unknownClaim = await registrationsA.claimTenantCompletion({ attemptId: expiryUnknown.id, now: new Date("2026-07-12T10:03:00.000Z") });
+    assert.equal(creatingClaim.kind, "claimed");
+    assert.equal(unknownClaim.kind, "claimed");
+    const creatingAuthority = creatingClaim.authority;
+    const unknownCreating = unknownClaim.authority;
+    await registrationsA.markTenantCompletionCommitUnknown({
+      attemptId: expiryUnknown.id,
+      expectedState: "creating",
+      expectedCompletionVersion: unknownCreating.completion.version,
+      expectedWorkflowVersion: unknownCreating.version,
+      now: new Date("2026-07-12T10:04:00.000Z"),
+    });
+    await unknownClaim.lease.release();
+    await registrationsA.expireDue(new Date("2026-07-12T11:00:00.000Z"), 100);
+    assert.equal((await registrationsA.loadVerified(expiryReady.id)).status, "expired");
+    assert.equal((await registrationsA.loadVerified(expiryCreating.id)).status, "identity_verified");
+    assert.equal((await registrationsA.loadVerified(expiryCreating.id)).completion.state, "creating");
+    assert.equal((await registrationsA.loadVerified(expiryUnknown.id)).status, "identity_verified");
+    assert.equal((await registrationsA.loadVerified(expiryUnknown.id)).completion.state, "commit_unknown");
+    await assert.rejects(registrationsA.markExpired({
+      attemptId: expiryCreating.id,
+      expectedStatus: "identity_verified",
+      expectedVersion: creatingAuthority.version,
+      now: new Date("2026-07-12T11:00:01.000Z"),
+    }));
+    await creatingClaim.lease.release();
 
     const explicitRegistrationExpiry = registration("attempt_7234567890abcdef", "registration-state-explicit-expiry", "2026-07-12T09:00:00.000Z", "2026-07-12T09:10:00.000Z");
     await registrationsA.save(explicitRegistrationExpiry);
@@ -591,7 +774,7 @@ async function main() {
     const wrongIdentityKey = registration("attempt_b1b1wrongkey0010", "registration-state-identity-wrong-key", undefined, undefined, "b1b1-wrong-key");
     await prepareVerified(registrationsA, wrongIdentityKey);
     psql(backend, `ALTER TABLE saas.registration_verified_identities DISABLE TRIGGER registration_verified_identities_immutable_guard; UPDATE saas.registration_verified_identities SET encryption_key_id='unknown-key' WHERE attempt_id='${wrongIdentityKey.id}'; ALTER TABLE saas.registration_verified_identities ENABLE TRIGGER registration_verified_identities_immutable_guard;`);
-    await assert.rejects(registrationsB.loadVerified(wrongIdentityKey.id), /identity_crypto_failed/);
+    await assert.rejects(registrationsB.loadVerified(wrongIdentityKey.id), /registration_completion_corrupt/);
 
     const identityAadSource = registration("attempt_b1b1aadsource010", "registration-state-identity-aad-source", undefined, undefined, "b1b1-aad-source");
     const identityAadTarget = registration("attempt_b1b1aadtarget010", "registration-state-identity-aad-target", undefined, undefined, "b1b1-aad-target");
@@ -606,12 +789,12 @@ async function main() {
       FROM saas.registration_verified_identities AS source
       WHERE target.attempt_id='${identityAadTarget.id}' AND source.attempt_id='${identityAadSource.id}';
       ALTER TABLE saas.registration_verified_identities ENABLE TRIGGER registration_verified_identities_immutable_guard;`);
-    await assert.rejects(registrationsB.loadVerified(identityAadTarget.id), /identity_crypto_failed/);
+    await assert.rejects(registrationsB.loadVerified(identityAadTarget.id), /registration_completion_corrupt/);
 
     const tamperedIdentity = registration("attempt_b1b1tampered0010", "registration-state-identity-tamper", undefined, undefined, "b1b1-tampered");
     await prepareVerified(registrationsA, tamperedIdentity);
     psql(backend, `ALTER TABLE saas.registration_verified_identities DISABLE TRIGGER registration_verified_identities_immutable_guard; UPDATE saas.registration_verified_identities SET payload_ciphertext = set_byte(payload_ciphertext, 0, get_byte(payload_ciphertext, 0) # 1) WHERE attempt_id='${tamperedIdentity.id}'; ALTER TABLE saas.registration_verified_identities ENABLE TRIGGER registration_verified_identities_immutable_guard;`);
-    await assert.rejects(registrationsB.loadVerified(tamperedIdentity.id), /identity_crypto_failed/);
+    await assert.rejects(registrationsB.loadVerified(tamperedIdentity.id), /registration_completion_corrupt/);
 
     const persistedText = psql(backend, "SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.oidc_transactions UNION ALL SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.registration_workflows UNION ALL SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.registration_verified_identities;").stdout;
     assert.doesNotMatch(persistedText, /registration-state|oidc-state|nonce|verifier|password/i);
@@ -650,8 +833,12 @@ async function main() {
       now: new Date("2026-07-12T10:04:00.000Z"),
     });
     assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${cascadeCleanup.id}';`).stdout.trim(), "1");
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_tenant_completions WHERE attempt_id='${cascadeCleanup.id}';`).stdout.trim(), "1");
     assert.ok(await registrationsA.cleanupTerminal(new Date("2026-07-12T10:06:00.000Z"), 100) >= 4);
     assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${cascadeCleanup.id}';`).stdout.trim(), "0");
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_tenant_completions WHERE attempt_id='${cascadeCleanup.id}';`).stdout.trim(), "0");
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_tenant_completions WHERE attempt_id='${expiryCreating.id}' AND state='creating';`).stdout.trim(), "1");
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_tenant_completions WHERE attempt_id='${expiryUnknown.id}' AND state='commit_unknown';`).stdout.trim(), "1");
     assert.ok(await oidcA.cleanupTerminal(new Date("2026-07-12T10:06:00.000Z"), 100) >= 3);
 
     createDatabase(backend, rollbackDatabase);
@@ -659,9 +846,9 @@ async function main() {
     applyPhase2B(backend, rollbackDatabase);
     applyPhase2B1B1(backend, rollbackDatabase);
     migration(backend, "202607120012_verified_identity_snapshot.down.sql", rollbackDatabase);
-    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NULL)::int || ':' || (to_regclass('saas.registration_workflows') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1");
+    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NULL)::int || ':' || (to_regclass('saas.registration_tenant_completions') IS NULL)::int || ':' || (to_regclass('saas.registration_workflows') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1:1");
     applyPhase2B1B1(backend, rollbackDatabase);
-    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1");
+    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NOT NULL)::int || ':' || (to_regclass('saas.registration_tenant_completions') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1");
     migration(backend, "202607120012_verified_identity_snapshot.down.sql", rollbackDatabase);
     migration(backend, "202607110008_identity_persistence.down.sql", rollbackDatabase);
     assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_workflows') IS NULL)::int || ':' || (to_regclass('saas.stores') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1");
@@ -673,7 +860,7 @@ async function main() {
       status: "PASS",
       backend: backend.kind === "native" ? "native-postgresql" : backend.engine,
       postgresqlVersion: version,
-      scenarios: 83,
+      scenarios: 123,
       forward: "PASS", rollback: "PASS", reapply: "PASS", backupRestore: "PASS",
       concurrency: "PASS", cleanup: "PASS", plaintextScan: "PASS", roleGrants: "PASS",
       productionConnectionUsed: false,

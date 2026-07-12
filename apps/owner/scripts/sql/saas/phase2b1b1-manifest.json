@@ -7,29 +7,29 @@
       "id": "202607120012_verified_identity_snapshot_up",
       "direction": "up",
       "file": "202607120012_verified_identity_snapshot.up.sql",
-      "sha256": "43a5e8b70746d649298de35f6e1dacd2b6b2f151fcb5f9c393edf7e4cd6cfd6e",
-      "purpose": "Create the immutable encrypted verified-identity snapshot and atomic workflow-pair guards."
+      "sha256": "215ab99d70e26dce852d8f5f48f2ee7ab02b4c70c2cf51a28b07182d471949ce",
+      "purpose": "Create the immutable encrypted identity snapshot, durable tenant-completion authority, and atomic pair guards."
     },
     {
       "id": "202607120012_verified_identity_snapshot_down",
       "direction": "down",
       "file": "202607120012_verified_identity_snapshot.down.sql",
-      "sha256": "a77aa0b0704ab10b5f595893a976057b500f4f748256bded9a427b3a1f0ea576",
-      "purpose": "Remove only Phase 2B1B1 snapshot and transition-guard objects."
+      "sha256": "1fc18f6323afa8253576b074c3fef82d3e4a27417d89a005af9c3b1bd6083984",
+      "purpose": "Remove only Phase 2B1B1 snapshot, tenant-completion, and transition-guard objects."
     },
     {
       "id": "202607120013_verified_identity_grants",
       "direction": "up",
       "file": "202607120013_verified_identity_grants.sql",
-      "sha256": "d8f874386fde3f9cae429aa04b93e1ae9434e52523c7b4ff28d8dead287522ea",
-      "purpose": "Grant the identity role SELECT and INSERT only, with no snapshot mutation or deletion authority."
+      "sha256": "9d37a05249ca4267aeec6cb4df136a72b96c6f502db34a1a495c92c5ba0ed880",
+      "purpose": "Grant immutable snapshot access and exact column-scoped tenant-completion transition authority."
     },
     {
       "id": "202607120014_verified_identity_catalog_assertions",
       "direction": "verify",
       "file": "202607120014_verified_identity_catalog_assertions.sql",
-      "sha256": "031be026c880fd4797033db87728afb922575bf4988338286f1a3de30a10f890",
-      "purpose": "Fail on role, PUBLIC, plaintext-column, cascade, trigger, or paired-authority drift."
+      "sha256": "4b2f9a54695e04a4b8d2be626b4941649f0683179e8c7bd7c1c99ad3b17e554b",
+      "purpose": "Fail on role, PUBLIC, plaintext, completion-state, cascade, trigger, or paired-authority drift."
     }
   ]
 }
