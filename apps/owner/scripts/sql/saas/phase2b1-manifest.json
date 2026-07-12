@@ -1,0 +1,49 @@
+{
+  "bundleId": "phase2b1-202607110007",
+  "postgresqlMajor": 16,
+  "productionDistributionCompatibility": "OPEN_INFRASTRUCTURE_GATE",
+  "artifacts": [
+    {
+      "id": "202607110007_identity_roles_up",
+      "direction": "up",
+      "file": "202607110007_identity_roles.up.sql",
+      "sha256": "1622f1db007dce7d6cfd984cf084deb129999b94a9ffdd4b90041546a7fbe924",
+      "purpose": "Create the passwordless least-privilege Phase 2B1 identity authority role."
+    },
+    {
+      "id": "202607110008_identity_persistence_up",
+      "direction": "up",
+      "file": "202607110008_identity_persistence.up.sql",
+      "sha256": "12086e317bb494e696e5a22564c2455457552d90ac4dec999b387f96bf1b4967",
+      "purpose": "Create encrypted registration workflow and OIDC transaction authorities with guarded transitions."
+    },
+    {
+      "id": "202607110008_identity_persistence_down",
+      "direction": "down",
+      "file": "202607110008_identity_persistence.down.sql",
+      "sha256": "a164b3fb01492ec325a70156777ac2b29fd3b3bf48f522d23bc7ce2de137fcf9",
+      "purpose": "Remove only Phase 2B1 database objects in dependency-safe order."
+    },
+    {
+      "id": "202607110009_identity_grants",
+      "direction": "up",
+      "file": "202607110009_identity_grants.sql",
+      "sha256": "cf8dea1ed6463e3963bbf56130b6dd91eaca41e04bf157cd1505065c0ff457df",
+      "purpose": "Grant the identity role exact DML authority over only the two Phase 2B1 tables."
+    },
+    {
+      "id": "202607110010_identity_catalog_assertions",
+      "direction": "verify",
+      "file": "202607110010_identity_catalog_assertions.sql",
+      "sha256": "338a1e7259ca61eef651400bc63520c63c5b9b41728726dd0e04a8e731996018",
+      "purpose": "Fail on role, object, PUBLIC, unrelated-table, bootstrap, plaintext-column, or trigger drift."
+    },
+    {
+      "id": "202607110011_identity_roles_down",
+      "direction": "down",
+      "file": "202607110011_identity_roles.down.sql",
+      "sha256": "cb7d8e823df4f117a7849b79ff0829768c8588c88314e191c758391260ff62f5",
+      "purpose": "Remove the disposable Phase 2B1 identity role after object rollback."
+    }
+  ]
+}

@@ -12,7 +12,7 @@ export interface RegistrationAttempt {
   idempotencyKey: string;
   requestedAt: string;
   canonicalFingerprint?: string;
-  status: "awaiting_identity" | "identity_verified" | "tenant_created" | "session_created" | "failed";
+  status: "awaiting_identity" | "identity_verified" | "tenant_created" | "session_created" | "failed" | "expired" | "cancelled";
   createdAt: string;
   expiresAt: string;
 }
