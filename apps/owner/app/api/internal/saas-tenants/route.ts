@@ -1,15 +1,16 @@
-import type { CreateStarterTenantInput, SaaSErrorCode } from "@celebix/saas-contracts";
+import type { SaaSErrorCode } from "@celebix/saas-contracts";
 
 import {
-  createUnavailableOwnerTenantCoreAdapter,
-  type OwnerTenantCoreAdapter,
   type OwnerTenantCoreOutcome,
-} from "../../../../lib/saas-tenant-core/adapter";
+} from "../../../../lib/saas-tenant-core/adapter.ts";
+import {
+  createDisabledOwnerSaaSTenantRuntime,
+  type OwnerSaaSTenantRuntime,
+} from "../../../../lib/saas-tenant-core/runtime.ts";
 
 interface InternalSaaSTenantsRouteOptions {
-  enabled: boolean;
+  runtime: OwnerSaaSTenantRuntime;
   isTrustedRequest(request: Request): Promise<boolean>;
-  adapter: OwnerTenantCoreAdapter;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -25,7 +26,7 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function isCreateStarterTenantInput(value: unknown): value is CreateStarterTenantInput {
+function isCreateStarterTenantRequestShape(value: unknown): boolean {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, ["schemaVersion", "idempotencyKey", "principal", "store", "consents", "requestedAt"]) ||
@@ -46,7 +47,7 @@ function isCreateStarterTenantInput(value: unknown): value is CreateStarterTenan
     isNonEmptyString(principal.issuer) &&
     isNonEmptyString(principal.subject) &&
     isNonEmptyString(principal.email) &&
-    principal.emailVerified === true &&
+    typeof principal.emailVerified === "boolean" &&
     isRecord(store) &&
     hasExactKeys(store, ["name", "slug", "locale", "currency", "themeKey"]) &&
     isNonEmptyString(store.name) &&
@@ -77,7 +78,7 @@ function errorResponse(status: number, code: "service_unavailable" | SaaSErrorCo
 
 function statusForOutcome(outcome: OwnerTenantCoreOutcome): number {
   if (outcome.ok) {
-    return 201;
+    return outcome.value.replayed ? 200 : 201;
   }
   if (outcome.error.code === "service_unavailable") {
     return 503;
@@ -93,7 +94,7 @@ function statusForOutcome(outcome: OwnerTenantCoreOutcome): number {
 
 export function createInternalSaaSTenantsPostHandler(options: InternalSaaSTenantsRouteOptions) {
   return async function internalSaaSTenantsPost(request: Request): Promise<Response> {
-    if (!options.enabled) {
+    if (options.runtime.kind === "disabled") {
       return errorResponse(503, "service_unavailable", true);
     }
 
@@ -115,13 +116,13 @@ export function createInternalSaaSTenantsPostHandler(options: InternalSaaSTenant
       return errorResponse(400, "invalid_input");
     }
 
-    if (!isCreateStarterTenantInput(body)) {
+    if (!isCreateStarterTenantRequestShape(body)) {
       return errorResponse(400, "invalid_input");
     }
 
     let outcome: OwnerTenantCoreOutcome;
     try {
-      outcome = await options.adapter.createStarterTenant(body);
+      outcome = await options.runtime.tenantCore.createStarterTenant(body);
     } catch {
       return errorResponse(500, "tenant_transaction_failed", true);
     }
@@ -132,7 +133,6 @@ export function createInternalSaaSTenantsPostHandler(options: InternalSaaSTenant
 // A production trust verifier and data adapter require a separate security gate.
 // The exported route cannot be enabled by environment configuration in this phase.
 export const POST = createInternalSaaSTenantsPostHandler({
-  enabled: false,
+  runtime: createDisabledOwnerSaaSTenantRuntime(),
   isTrustedRequest: async () => false,
-  adapter: createUnavailableOwnerTenantCoreAdapter(),
 });

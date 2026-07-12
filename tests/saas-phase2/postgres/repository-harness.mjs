@@ -10,6 +10,14 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 
 import {
+  POST as defaultOwnerSaaSTenantsPost,
+  createInternalSaaSTenantsPostHandler,
+} from "../../../apps/owner/app/api/internal/saas-tenants/route.ts";
+import {
+  createOwnerPostgresActivationApproval,
+  createPostgresOwnerSaaSTenantRuntime,
+} from "../../../apps/owner/lib/saas-tenant-core/runtime.ts";
+import {
   PostgresSaaSDataRepository,
   PostgresTenantOperationRecovery,
   SaaSDataCorruptionError,
@@ -178,6 +186,72 @@ function service(repository, panelBaseUrl = "https://panel.example.test") {
   return createStarterTenantService({ repository, platformDomainSuffix: "example.test", panelBaseUrl });
 }
 
+function ownerRequest(value, trusted = true) {
+  return new Request("https://owner.example.test/api/internal/saas-tenants", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(trusted ? { "x-owner-internal-proof": "approved" } : {}),
+    },
+    body: JSON.stringify(value),
+  });
+}
+
+function trackedPool(pool) {
+  let connects = 0;
+  return {
+    pool: {
+      connect: async () => {
+        connects += 1;
+        return pool.connect();
+      },
+    },
+    connects: () => connects,
+  };
+}
+
+function commitFailurePool(pool, mode) {
+  return {
+    connect: async () => {
+      const client = await pool.connect();
+      return {
+        query: async (text, values = []) => {
+          if (text === "COMMIT") {
+            if (mode === "forwarded") await client.query(text, values);
+            throw new Error("private commit transport detail");
+          }
+          return client.query(text, values);
+        },
+        release: (destroy) => client.release(destroy),
+      };
+    },
+  };
+}
+
+function ownerRuntime(pool, overrides = {}) {
+  return createPostgresOwnerSaaSTenantRuntime({
+    pool,
+    generateId: () => randomUUID(),
+    panelOrigin: "https://panel.example.test",
+    platformDomainSuffix: "example.test",
+    timeouts: overrides.timeouts ?? { poolCheckoutMs: 500, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
+    audit: overrides.audit ?? (() => undefined),
+    activationApproval: createOwnerPostgresActivationApproval("disposable_test"),
+    isTrustedRecoveryRequest: async (request) => request.headers.get("x-owner-internal-proof") === "approved",
+  });
+}
+
+function ownerHandler(runtime) {
+  return createInternalSaaSTenantsPostHandler({
+    runtime,
+    isTrustedRequest: async (request) => request.headers.get("x-owner-internal-proof") === "approved",
+  });
+}
+
+async function responseBody(response) {
+  return { status: response.status, body: await response.json() };
+}
+
 async function scalar(pool, text, values = []) {
   const result = await pool.query(text, values);
   return result.rows[0]?.value;
@@ -238,6 +312,95 @@ async function run() {
     await adminPool.query(`GRANT celebix_saas_bootstrap TO ${workloadRole}`);
     workloadPool = new Pool({ host: backend.host, port: backend.port, user: workloadRole, database, max: 6 });
     workloadPool.on("error", () => undefined);
+
+    const ownerDefaultConnections = workloadPool.totalCount;
+    const defaultOwnerResponse = await responseBody(await defaultOwnerSaaSTenantsPost(ownerRequest(input("owner-default"))));
+    assert.equal(defaultOwnerResponse.status, 503);
+    assert.equal(defaultOwnerResponse.body.error.code, "service_unavailable");
+    assert.equal(workloadPool.totalCount, ownerDefaultConnections);
+    pass("Owner disabled default never connects");
+
+    const priorActivationEnvironment = new Map();
+    for (const name of ["SELF_SERVE_SAAS_REGISTRATION_ENABLED", "CUSTOMER_PANEL_AUTH_ENABLED", "SAAS_POSTGRES_ENABLED"]) {
+      priorActivationEnvironment.set(name, process.env[name]);
+      process.env[name] = "true";
+    }
+    try {
+      const environmentOnlyResponse = await responseBody(await defaultOwnerSaaSTenantsPost(ownerRequest(input("owner-env-only"))));
+      assert.equal(environmentOnlyResponse.status, 503);
+      assert.equal(environmentOnlyResponse.body.error.code, "service_unavailable");
+      assert.equal(workloadPool.totalCount, ownerDefaultConnections);
+    } finally {
+      for (const [name, value] of priorActivationEnvironment) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+    pass("Owner environment-only activation never connects");
+
+    const ownerTracked = trackedPool(workloadPool);
+    const approvedOwnerRuntime = ownerRuntime(ownerTracked.pool);
+    const approvedOwnerHandler = ownerHandler(approvedOwnerRuntime);
+    assert.equal(ownerTracked.connects(), 0);
+
+    const ownerFirstInput = input("owner-first");
+    const ownerFirst = await responseBody(await approvedOwnerHandler(ownerRequest(ownerFirstInput)));
+    assert.equal(ownerFirst.status, 201);
+    assert.equal(ownerFirst.body.ok, true);
+    assert.equal(ownerFirst.body.value.replayed, false);
+    assert.doesNotMatch(JSON.stringify(ownerFirst.body), /password|token|secret|sqlstate|constraint|celebix_saas_|database/i);
+    pass("Owner explicit injected PostgreSQL first creation");
+
+    const ownerReplay = await responseBody(await approvedOwnerHandler(ownerRequest(ownerFirstInput)));
+    assert.equal(ownerReplay.status, 200);
+    assert.equal(ownerReplay.body.ok, true);
+    assert.equal(ownerReplay.body.value.replayed, true);
+    assert.equal(await scalar(adminPool, "SELECT count(*)::int AS value FROM saas.stores WHERE slug = $1", [ownerFirstInput.store.slug]), 1);
+    pass("Owner matching replay and no duplicate store");
+
+    const ownerMismatch = await responseBody(await approvedOwnerHandler(ownerRequest({
+      ...ownerFirstInput,
+      store: { ...ownerFirstInput.store, name: "Different Owner Name" },
+    })));
+    assert.equal(ownerMismatch.status, 409);
+    assert.equal(ownerMismatch.body.error.code, "idempotency_mismatch");
+    pass("Owner idempotency mismatch mapping");
+
+    const ownerSlugConflictInput = input("owner-slug-conflict", { slug: ownerFirstInput.store.slug });
+    const ownerSlugConflict = await responseBody(await approvedOwnerHandler(ownerRequest(ownerSlugConflictInput)));
+    assert.equal(ownerSlugConflict.status, 409);
+    assert.equal(ownerSlugConflict.body.error.code, "slug_taken");
+    assert.deepEqual(await countGraph(adminPool, ownerFirstInput.store.slug, ownerSlugConflictInput.idempotencyKey), { stores: 1, domains: 1, operations: 0 });
+    pass("Owner safe slug conflict and zero partial operation");
+
+    const beforeRejectedOwnerRequests = ownerTracked.connects();
+    const ownerUnauthorized = await responseBody(await approvedOwnerHandler(ownerRequest(input("owner-unauthorized"), false)));
+    assert.equal(ownerUnauthorized.status, 401);
+    assert.equal(ownerUnauthorized.body.error.code, "unauthenticated");
+    assert.equal(ownerTracked.connects(), beforeRejectedOwnerRequests);
+    const ownerMalformed = await responseBody(await approvedOwnerHandler(ownerRequest({ ...input("owner-malformed"), adapter: "postgres" })));
+    assert.equal(ownerMalformed.status, 400);
+    assert.equal(ownerMalformed.body.error.code, "invalid_input");
+    assert.equal(ownerTracked.connects(), beforeRejectedOwnerRequests);
+    const ownerUnverified = await responseBody(await approvedOwnerHandler(ownerRequest({
+      ...input("owner-unverified"),
+      principal: { ...input("owner-unverified").principal, emailVerified: false },
+    })));
+    assert.equal(ownerUnverified.status, 400);
+    assert.equal(ownerUnverified.body.error.code, "identity_unverified");
+    assert.equal(ownerTracked.connects(), beforeRejectedOwnerRequests);
+    assert.equal(approvedOwnerRuntime.kind, "postgres");
+    if (approvedOwnerRuntime.kind !== "postgres") throw new Error("Owner runtime unexpectedly disabled");
+    const ownerUnauthorizedRecovery = await approvedOwnerRuntime.recovery.recover(ownerRequest({}, false), {
+      idempotencyKey: ownerFirstInput.idempotencyKey,
+      fingerprint: createCanonicalTenantFingerprint(ownerFirstInput),
+    });
+    assert.deepEqual(ownerUnauthorizedRecovery, {
+      ok: false,
+      error: { schemaVersion: 1, code: "unauthenticated", retryable: false },
+    });
+    assert.equal(ownerTracked.connects(), beforeRejectedOwnerRequests);
+    pass("Owner authorization, malformed input, and unverified identity reject before database access");
 
     const baseRepository = new PostgresSaaSDataRepository(repositoryOptions(workloadPool));
     const baseService = service(baseRepository);
@@ -377,6 +540,23 @@ async function run() {
     await checkoutPool.end();
     pass("actual pool checkout timeout and late client destruction");
 
+    const ownerCheckoutPool = new Pool({ host: backend.host, port: backend.port, user: workloadRole, database, max: 1 });
+    ownerCheckoutPool.on("error", () => undefined);
+    const ownerHeldClient = await ownerCheckoutPool.connect();
+    const ownerPoolTimeoutInput = input("owner-pool-timeout");
+    const ownerPoolTimeoutRuntime = ownerRuntime(ownerCheckoutPool, {
+      timeouts: { poolCheckoutMs: 20, statementMs: 2_000, lockMs: 500, idleTransactionMs: 3_000 },
+    });
+    const ownerPoolTimeout = await responseBody(await ownerHandler(ownerPoolTimeoutRuntime)(ownerRequest(ownerPoolTimeoutInput)));
+    assert.equal(ownerPoolTimeout.status, 500);
+    assert.deepEqual(ownerPoolTimeout.body.error, { schemaVersion: 1, code: "tenant_transaction_failed", retryable: true });
+    assert.equal(ownerCheckoutPool.waitingCount, 1);
+    ownerHeldClient.release();
+    await waitUntil(() => ownerCheckoutPool.waitingCount === 0 && ownerCheckoutPool.totalCount === 0, "Owner late checkout client destruction");
+    await ownerCheckoutPool.end();
+    assert.deepEqual(await countGraph(adminPool, ownerPoolTimeoutInput.store.slug, ownerPoolTimeoutInput.idempotencyKey), { stores: 0, domains: 0, operations: 0 });
+    pass("Owner pool timeout maps safely without fallback or partial graph");
+
     const statementOptions = repositoryOptions(workloadPool);
     statementOptions.timeouts = { poolCheckoutMs: 500, statementMs: 20, lockMs: 2_000, idleTransactionMs: 3_000 };
     const statementTransaction = await new PostgresSaaSDataRepository(statementOptions).beginTransaction();
@@ -393,6 +573,29 @@ async function run() {
     });
     await lockTransaction.rollback();
     pass("statement and lock timeouts");
+
+    const ownerStatementInput = input("owner-statement-timeout");
+    const ownerStatementRuntime = ownerRuntime(workloadPool, {
+      timeouts: { poolCheckoutMs: 500, statementMs: 20, lockMs: 2_000, idleTransactionMs: 3_000 },
+    });
+    await holdStoreLock(adminPool, async () => {
+      const outcome = await responseBody(await ownerHandler(ownerStatementRuntime)(ownerRequest(ownerStatementInput)));
+      assert.equal(outcome.status, 500);
+      assert.deepEqual(outcome.body.error, { schemaVersion: 1, code: "tenant_transaction_failed", retryable: true });
+    });
+    assert.deepEqual(await countGraph(adminPool, ownerStatementInput.store.slug, ownerStatementInput.idempotencyKey), { stores: 0, domains: 0, operations: 0 });
+
+    const ownerLockInput = input("owner-lock-timeout");
+    const ownerLockRuntime = ownerRuntime(workloadPool, {
+      timeouts: { poolCheckoutMs: 500, statementMs: 2_000, lockMs: 20, idleTransactionMs: 3_000 },
+    });
+    await holdStoreLock(adminPool, async () => {
+      const outcome = await responseBody(await ownerHandler(ownerLockRuntime)(ownerRequest(ownerLockInput)));
+      assert.equal(outcome.status, 500);
+      assert.deepEqual(outcome.body.error, { schemaVersion: 1, code: "tenant_transaction_failed", retryable: true });
+    });
+    assert.deepEqual(await countGraph(adminPool, ownerLockInput.store.slug, ownerLockInput.idempotencyKey), { stores: 0, domains: 0, operations: 0 });
+    pass("Owner statement and lock timeouts map safely with zero partial graph");
 
     for (let index = 0; index < 12; index += 1) {
       requireError(await baseService.execute(input(`repeat-${index}`, { slug: firstInput.store.slug })), "slug_taken", "repeated failure");
@@ -429,6 +632,50 @@ async function run() {
     assert.equal(recoveredB.kind, "absent");
     assert.deepEqual(await countGraph(adminPool, unknownBInput.store.slug, unknownBInput.idempotencyKey), { stores: 0, domains: 0, operations: 0 });
     pass("unknown COMMIT not forwarded and absent recovery");
+
+    assert.equal(approvedOwnerRuntime.kind, "postgres");
+    const ownerUnknownForwardedAudit = [];
+    const ownerUnknownForwardedInput = input("owner-unknown-forwarded");
+    const ownerUnknownForwardedRuntime = ownerRuntime(commitFailurePool(workloadPool, "forwarded"), {
+      audit: (event) => ownerUnknownForwardedAudit.push(event.type),
+    });
+    const ownerUnknownForwarded = await responseBody(await ownerHandler(ownerUnknownForwardedRuntime)(ownerRequest(ownerUnknownForwardedInput)));
+    assert.equal(ownerUnknownForwarded.status, 500);
+    assert.deepEqual(ownerUnknownForwarded.body.error, { schemaVersion: 1, code: "tenant_transaction_failed", retryable: false });
+    assert.deepEqual(ownerUnknownForwardedAudit, ["tenant_bootstrap_commit_unknown"]);
+    assert.equal(approvedOwnerRuntime.kind, "postgres");
+    if (approvedOwnerRuntime.kind !== "postgres") throw new Error("Owner runtime unexpectedly disabled");
+    const ownerRecoveredForwarded = await approvedOwnerRuntime.recovery.recover(
+      ownerRequest({}),
+      {
+        idempotencyKey: ownerUnknownForwardedInput.idempotencyKey,
+        fingerprint: createCanonicalTenantFingerprint(ownerUnknownForwardedInput),
+      },
+    );
+    assert.equal(ownerRecoveredForwarded.ok, true);
+    assert.equal(ownerRecoveredForwarded.value.kind, "committed_match");
+    assert.equal(await scalar(adminPool, "SELECT count(*)::int AS value FROM saas.stores WHERE slug = $1", [ownerUnknownForwardedInput.store.slug]), 1);
+    pass("Owner unknown COMMIT is non-retryable and authorized recovery finds committed operation");
+
+    const ownerUnknownBlockedAudit = [];
+    const ownerUnknownBlockedInput = input("owner-unknown-blocked");
+    const ownerUnknownBlockedRuntime = ownerRuntime(commitFailurePool(workloadPool, "blocked"), {
+      audit: (event) => ownerUnknownBlockedAudit.push(event.type),
+    });
+    const ownerUnknownBlocked = await responseBody(await ownerHandler(ownerUnknownBlockedRuntime)(ownerRequest(ownerUnknownBlockedInput)));
+    assert.equal(ownerUnknownBlocked.status, 500);
+    assert.deepEqual(ownerUnknownBlocked.body.error, { schemaVersion: 1, code: "tenant_transaction_failed", retryable: false });
+    assert.deepEqual(ownerUnknownBlockedAudit, ["tenant_bootstrap_commit_unknown"]);
+    const ownerRecoveredBlocked = await approvedOwnerRuntime.recovery.recover(
+      ownerRequest({}),
+      {
+        idempotencyKey: ownerUnknownBlockedInput.idempotencyKey,
+        fingerprint: createCanonicalTenantFingerprint(ownerUnknownBlockedInput),
+      },
+    );
+    assert.deepEqual(ownerRecoveredBlocked, { ok: true, value: { kind: "absent" } });
+    assert.deepEqual(await countGraph(adminPool, ownerUnknownBlockedInput.store.slug, ownerUnknownBlockedInput.idempotencyKey), { stores: 0, domains: 0, operations: 0 });
+    pass("Owner COMMIT not forwarded recovers absent with no fallback or partial graph");
 
     const auditFailureUnhandled = [];
     const captureAuditFailure = (reason) => auditFailureUnhandled.push(reason);
@@ -500,6 +747,17 @@ async function run() {
 
     assert.equal((await recovery.recover(unknownAInput.idempotencyKey, "f".repeat(64))).kind, "committed_mismatch");
     pass("valid committed mismatch after corruption restoration");
+
+    await adminPool.query(
+      "UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{replayed}', 'true'::jsonb) WHERE idempotency_key = $1",
+      [ownerUnknownForwardedInput.idempotencyKey],
+    );
+    const ownerCorruptRecovery = await approvedOwnerRuntime.recovery.recover(ownerRequest({}), {
+      idempotencyKey: ownerUnknownForwardedInput.idempotencyKey,
+      fingerprint: createCanonicalTenantFingerprint(ownerUnknownForwardedInput),
+    });
+    assert.deepEqual(ownerCorruptRecovery, { ok: true, value: { kind: "corrupt" } });
+    pass("Owner corrupt recovery fails closed without mutable-row reconstruction");
 
     await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{store,slug}', '\"INVALID SLUG\"'::jsonb) WHERE id = $1", [first.operationId]);
     await adminPool.query("UPDATE saas.tenant_operations SET result_payload = jsonb_set(result_payload, '{replayed}', 'true'::jsonb) WHERE id = $1", [recoveredA.result.operationId]);
