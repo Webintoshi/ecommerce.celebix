@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import test from "node:test";
 
-import type { QueryResult } from "pg";
-
 import type { RegistrationAttempt } from "../self-serve-registration-orchestrator.ts";
 import type { OidcAuthorizationTransaction } from "../self-serve-oidc.ts";
 import { OidcFlowError } from "../self-serve-oidc.ts";
@@ -23,11 +21,11 @@ class FakeClient implements IdentityPostgresClient {
   readonly queued: Array<Record<string, unknown>[]> = [];
   failAt: string | undefined;
 
-  async query(text: string, values: readonly unknown[] = []): Promise<QueryResult<Record<string, unknown>>> {
+  async query(text: string, values: readonly unknown[] = []) {
     this.calls.push({ text, values });
     if (this.failAt === text) throw new Error("private SQL driver host state nonce verifier");
     const rows = this.queued.shift() ?? [];
-    return { command: "", rowCount: rows.length, oid: 0, fields: [], rows };
+    return { rowCount: rows.length, rows };
   }
 
   release(destroy?: boolean | Error) { this.releases.push(destroy); }
@@ -112,6 +110,26 @@ test("OIDC save never sends raw state, nonce, or verifier as SQL values", async 
   assert.doesNotMatch(serialized, /oidc-secret-state|nonce-secret|vvvvvvvv/);
 });
 
+test("persistent OIDC callbacks accept only the exact panel callback authority", async () => {
+  for (const redirectUri of [
+    "http://localhost/auth/callback",
+    "https://localhost/auth/callback",
+    "https://panel.celebix.site/auth/other",
+    "https://panel.celebix.site/auth/callback?mode=test",
+    "https://panel.celebix.site/auth/callback#fragment",
+    "https://user:password@panel.celebix.site/auth/callback",
+    "https://alternate.celebix.site/auth/callback",
+  ]) {
+    const client = new FakeClient();
+    await assert.rejects(
+      new PostgresOidcTransactionStore(dependencies(client)).save({ ...oidcTransaction(), redirectUri }),
+      (error: unknown) => error instanceof OidcFlowError && error.code === "oidc_invalid_callback",
+      redirectUri,
+    );
+    assert.equal(client.calls.length, 0);
+  }
+});
+
 test("checkout timeout is controlled and a late client is destroyed without queries", async () => {
   let resolve!: (client: FakeClient) => void;
   const late = new FakeClient();
@@ -155,7 +173,7 @@ test("constructor rejects any role other than the exact identity authority", () 
 
 test("OIDC controlled classifications remain public-domain compatible", async () => {
   const client = new FakeClient();
-  client.queued.push([], [], [], [], [], [], [{ status: "consumed" }]);
+  client.queued.push([], [], [], [], [], [{ status: "consumed" }]);
   const store = new PostgresOidcTransactionStore(dependencies(client));
   await assert.rejects(store.consume(oidcState, now), (error: unknown) => {
     assert.ok(error instanceof OidcFlowError);
@@ -194,7 +212,91 @@ test("an uncertain commit destroys the client and never attempts rollback", asyn
   assert.deepEqual(client.releases, [true]);
 });
 
-test("malformed rows fail with a redacted persistence classification after the one-time transition commits", async () => {
+test("confirmed COMMIT is never delayed or replaced by any audit sink outcome", async () => {
+  for (const audit of [
+    () => undefined,
+    () => { throw new Error("audit private detail"); },
+    () => Promise.reject(new Error("audit rejected private detail")),
+    () => new Promise<void>(() => undefined),
+  ]) {
+    const client = new FakeClient();
+    const outcome = await Promise.race([
+      new PostgresOidcTransactionStore({ ...dependencies(client), audit }).save(oidcTransaction()).then(() => "completed"),
+      new Promise<string>((resolve) => setTimeout(() => resolve("blocked_by_audit"), 40)),
+    ]);
+    assert.equal(outcome, "completed");
+    assert.deepEqual(client.releases, [undefined]);
+  }
+});
+
+test("unknown COMMIT stays prompt and authoritative when audit never settles", async () => {
+  const client = new FakeClient();
+  client.failAt = "COMMIT";
+  const outcome = await Promise.race([
+    new PostgresOidcTransactionStore({
+      ...dependencies(client),
+      audit: () => new Promise<void>(() => undefined),
+    }).save(oidcTransaction()).catch((error: unknown) => error),
+    new Promise<Error>((resolve) => setTimeout(() => resolve(new Error("blocked_by_audit")), 40)),
+  ]);
+  assert.ok(outcome instanceof IdentityPersistenceError);
+  assert.equal(outcome.message, "identity_commit_outcome_unknown");
+  assert.equal(client.calls.some((call) => call.text === "ROLLBACK"), false);
+  assert.deepEqual(client.releases, [true]);
+});
+
+test("rejected audit promises are consumed without an unhandled rejection", async () => {
+  const client = new FakeClient();
+  const unhandled: unknown[] = [];
+  const listener = (reason: unknown) => { unhandled.push(reason); };
+  process.on("unhandledRejection", listener);
+  try {
+    await new PostgresRegistrationAttemptStore({
+      ...dependencies(client),
+      audit: () => Promise.reject(new Error("audit rejected private detail")),
+    }).save(registrationAttempt());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", listener);
+  }
+});
+
+test("controlled rejection and persistence failure are never replaced by a non-settling audit sink", async () => {
+  const conflictClient = new FakeClient();
+  const conflictQuery = conflictClient.query.bind(conflictClient);
+  conflictClient.query = async (text, values = []) => {
+    if (text.startsWith("INSERT INTO")) throw Object.assign(new Error("private constraint"), { code: "23505" });
+    return conflictQuery(text, values);
+  };
+  const conflict = await Promise.race([
+    new PostgresRegistrationAttemptStore({
+      ...dependencies(conflictClient),
+      audit: () => new Promise<void>(() => undefined),
+    }).save(registrationAttempt()).catch((error: unknown) => error),
+    new Promise<Error>((resolve) => setTimeout(() => resolve(new Error("blocked_by_audit")), 40)),
+  ]);
+  assert.ok(conflict instanceof RegistrationPersistenceError);
+  assert.equal(conflict.code, "registration_attempt_conflict");
+
+  const failedClient = new FakeClient();
+  const failedQuery = failedClient.query.bind(failedClient);
+  failedClient.query = async (text, values = []) => {
+    if (text.startsWith("INSERT INTO")) throw new Error("private driver detail");
+    return failedQuery(text, values);
+  };
+  const failed = await Promise.race([
+    new PostgresOidcTransactionStore({
+      ...dependencies(failedClient),
+      audit: () => new Promise<void>(() => undefined),
+    }).save(oidcTransaction()).catch((error: unknown) => error),
+    new Promise<Error>((resolve) => setTimeout(() => resolve(new Error("blocked_by_audit")), 40)),
+  ]);
+  assert.ok(failed instanceof IdentityPersistenceError);
+  assert.equal(failed.message, "identity_persistence_failed");
+});
+
+test("malformed rows fail with a redacted persistence classification before the one-time transition", async () => {
   const client = new FakeClient();
   client.queued.push([], [], [], [], [], [{
     status: "consumed",
@@ -208,6 +310,111 @@ test("malformed rows fail with a redacted persistence classification after the o
     assert.doesNotMatch(error.message, /sql|row|ciphertext|iv|key/i);
     return true;
   });
-  assert.equal(client.calls.at(-1)?.text, "COMMIT");
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
   assert.deepEqual(client.releases, [undefined]);
+});
+
+test("registration load rejects any persisted timestamp authority that differs from the authenticated payload", async () => {
+  const writer = new FakeClient();
+  const options = dependencies(writer);
+  await new PostgresRegistrationAttemptStore(options).save(registrationAttempt());
+  const inserted = writer.calls.find((call) => call.text.startsWith("INSERT INTO saas.registration_workflows"));
+  assert.ok(inserted);
+
+  const authorityRow = {
+    attempt_id: inserted.values[0],
+    state_digest: inserted.values[1],
+    payload_ciphertext: inserted.values[2],
+    payload_iv: inserted.values[3],
+    encryption_key_id: inserted.values[4],
+    payload_schema_version: inserted.values[5],
+    status: "awaiting_identity",
+    version: 1,
+    canonical_fingerprint: null,
+    requested_at: new Date(String(inserted.values[6])),
+    created_at: new Date(String(inserted.values[7])),
+    expires_at: new Date(String(inserted.values[8])),
+    consumed_at: null,
+    terminal_at: null,
+    failure_code: null,
+  };
+  for (const mismatch of [
+    { requested_at: new Date("2026-07-12T10:00:01.000Z") },
+    { created_at: new Date("2026-07-12T10:00:01.000Z") },
+    { expires_at: new Date("2026-07-12T11:00:00.000Z") },
+  ]) {
+    const reader = new FakeClient();
+    reader.queued.push([], [], [], [], [], [{ ...authorityRow, ...mismatch }]);
+    await assert.rejects(
+      new PostgresRegistrationAttemptStore({ ...options, pool: { connect: async () => reader } }).load(String(inserted.values[0])),
+      IdentityPersistenceError,
+    );
+  }
+});
+
+test("OIDC consume rejects DB expiry authority that differs from its encrypted transaction", async () => {
+  const writer = new FakeClient();
+  const options = dependencies(writer);
+  await new PostgresOidcTransactionStore(options).save(oidcTransaction());
+  const inserted = writer.calls.find((call) => call.text.startsWith("INSERT INTO saas.oidc_transactions"));
+  assert.ok(inserted);
+
+  const authorityRow = {
+    state_digest: inserted.values[0],
+    payload_ciphertext: inserted.values[1],
+    payload_iv: inserted.values[2],
+    encryption_key_id: inserted.values[3],
+    payload_schema_version: inserted.values[4],
+    status: "active",
+    created_at: new Date(String(inserted.values[5])),
+    expires_at: new Date(String(inserted.values[6])),
+  };
+  for (const mismatch of [
+    { created_at: new Date("2026-07-12T10:00:01.000Z") },
+    { expires_at: new Date("2026-07-12T11:00:00.000Z") },
+  ]) {
+    const reader = new FakeClient();
+    reader.queued.push([], [], [], [], [], [{ ...authorityRow, ...mismatch }]);
+    await assert.rejects(
+      new PostgresOidcTransactionStore({ ...options, pool: { connect: async () => reader } }).consume(oidcState, now),
+      IdentityPersistenceError,
+    );
+  }
+});
+
+test("bounded expiry primitives use fenced fixed SQL and return counts only", async () => {
+  const registrationClient = new FakeClient();
+  registrationClient.queued.push([], [], [], [], [], [{ expired_count: 2 }]);
+  const registrationStore = new PostgresRegistrationAttemptStore(dependencies(registrationClient));
+  assert.equal(await registrationStore.expireDue(now, 25), 2);
+  const registrationExpiry = registrationClient.calls[5];
+  assert.match(registrationExpiry.text, /FOR UPDATE SKIP LOCKED/);
+  assert.deepEqual(registrationExpiry.values, [now.toISOString(), 25]);
+
+  const oidcClient = new FakeClient();
+  oidcClient.queued.push([], [], [], [], [], [{ expired_count: 3 }]);
+  const oidcStore = new PostgresOidcTransactionStore(dependencies(oidcClient));
+  assert.equal(await oidcStore.expireDue(now, 25), 3);
+  const oidcExpiry = oidcClient.calls[5];
+  assert.match(oidcExpiry.text, /FOR UPDATE SKIP LOCKED/);
+  assert.deepEqual(oidcExpiry.values, [now.toISOString(), 25]);
+});
+
+test("strict registration and OIDC payload validation rejects non-frozen authority", async () => {
+  for (const attempt of [
+    { ...registrationAttempt(), details: { ...registrationAttempt().details, locale: "en" } },
+    { ...registrationAttempt(), details: { ...registrationAttempt().details, currency: "USD" } },
+    { ...registrationAttempt(), unexpected: true },
+  ]) {
+    const client = new FakeClient();
+    await assert.rejects(new PostgresRegistrationAttemptStore(dependencies(client)).save(attempt as RegistrationAttempt), IdentityPersistenceError);
+    assert.equal(client.calls.length, 0);
+  }
+
+  const oidcClient = new FakeClient();
+  await assert.rejects(
+    new PostgresOidcTransactionStore(dependencies(oidcClient)).save({ ...oidcTransaction(), codeVerifier: "!".repeat(64) }),
+    (error: unknown) => error instanceof OidcFlowError && error.code === "oidc_invalid_state",
+  );
+  assert.equal(oidcClient.calls.length, 0);
 });

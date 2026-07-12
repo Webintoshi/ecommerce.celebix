@@ -60,6 +60,7 @@ function details(value: unknown): ValidatedRegistrationDetails {
     themeKey: requiredString(row.themeKey, 64),
     privacyAcceptedAt: canonicalTimestamp(row.privacyAcceptedAt),
   };
+  if (parsed.locale !== "tr" || parsed.currency !== "TRY") throw new IdentityPersistenceError();
   if (row.marketingAcceptedAt !== undefined) parsed.marketingAcceptedAt = canonicalTimestamp(row.marketingAcceptedAt);
   return parsed;
 }
@@ -117,6 +118,12 @@ function timestamp(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
   if (value instanceof Date) return value.toISOString();
   return canonicalTimestamp(value);
+}
+
+function persistedTimestamp(value: unknown): string {
+  const parsed = timestamp(value);
+  if (!parsed) throw new IdentityPersistenceError();
+  return parsed;
 }
 
 function integer(value: unknown): number {
@@ -181,38 +188,52 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new IdentityPersistenceError();
     const digest = this.options.stateDigester.digest(rawState);
     const canonicalNow = now.toISOString();
-    const row = await withIdentityTransaction(this.options, "registration", async (client) => {
-      const result = await client.query(
-        "UPDATE saas.registration_workflows SET consumed_at = $2::timestamptz, status = CASE WHEN expires_at <= $2::timestamptz THEN 'expired' ELSE status END, terminal_at = CASE WHEN expires_at <= $2::timestamptz THEN $2::timestamptz ELSE terminal_at END, version = CASE WHEN expires_at <= $2::timestamptz THEN version + 1 ELSE version END, updated_at = $2::timestamptz WHERE state_digest = $1 AND status = 'awaiting_identity' AND consumed_at IS NULL RETURNING attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status",
-        [digest, canonicalNow],
+    const outcome = await withIdentityTransaction(this.options, "registration", async (client) => {
+      const selected = await client.query(
+        "SELECT attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, requested_at, created_at, expires_at, consumed_at FROM saas.registration_workflows WHERE state_digest = $1",
+        [digest],
       );
-      const updated = result.rows[0];
-      if (!updated) {
-        const classified = await client.query(
-          "SELECT status, consumed_at FROM saas.registration_workflows WHERE state_digest = $1",
-          [digest],
-        );
-        if (!classified.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
+      const row = selected.rows[0];
+      if (!row) throw new RegistrationPersistenceError("registration_attempt_missing");
+      const current = status(row.status);
+      if (current === "expired") throw new RegistrationPersistenceError("registration_attempt_expired");
+      if (current !== "awaiting_identity" || row.consumed_at !== null) {
         throw new RegistrationPersistenceError("registration_attempt_replayed");
       }
-      return updated;
+      const recordId = requiredString(row.attempt_id, 160);
+      const stored = payload(this.options.payloadCipher.decrypt({
+        binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion: integer(row.payload_schema_version), recordId },
+        encrypted: encrypted(row),
+      }));
+      if (
+        stored.id !== recordId ||
+        stored.requestedAt !== persistedTimestamp(row.requested_at) ||
+        stored.createdAt !== persistedTimestamp(row.created_at) ||
+        stored.expiresAt !== persistedTimestamp(row.expires_at)
+      ) throw new IdentityPersistenceError();
+      const expired = Date.parse(stored.expiresAt) <= now.getTime();
+      const updated = await client.query(
+        "UPDATE saas.registration_workflows SET consumed_at = $2::timestamptz, status = $3, terminal_at = CASE WHEN $3 = 'expired' THEN $2::timestamptz ELSE terminal_at END, version = CASE WHEN $3 = 'expired' THEN version + 1 ELSE version END, updated_at = $2::timestamptz WHERE state_digest = $1 AND status = 'awaiting_identity' AND consumed_at IS NULL AND requested_at = $4::timestamptz AND created_at = $5::timestamptz AND expires_at = $6::timestamptz RETURNING status",
+        [digest, canonicalNow, expired ? "expired" : "awaiting_identity", stored.requestedAt, stored.createdAt, stored.expiresAt],
+      );
+      if (!updated.rows[0]) {
+        const classified = await client.query("SELECT status, consumed_at FROM saas.registration_workflows WHERE state_digest = $1", [digest]);
+        const raced = classified.rows[0];
+        if (!raced) throw new RegistrationPersistenceError("registration_attempt_missing");
+        if (status(raced.status) === "expired") throw new RegistrationPersistenceError("registration_attempt_expired");
+        throw new RegistrationPersistenceError("registration_attempt_replayed");
+      }
+      return { stored, expired };
     });
-    if (status(row.status) === "expired") throw new RegistrationPersistenceError("registration_attempt_expired");
-    const recordId = requiredString(row.attempt_id, 160);
-    const decoded = this.options.payloadCipher.decrypt({
-      binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion: integer(row.payload_schema_version), recordId },
-      encrypted: encrypted(row),
-    });
-    const stored = payload(decoded);
-    if (stored.id !== recordId) throw new IdentityPersistenceError();
-    return { ...stored, state: rawState, status: status(row.status) };
+    if (outcome.expired) throw new RegistrationPersistenceError("registration_attempt_expired");
+    return { ...outcome.stored, state: rawState, status: "awaiting_identity" };
   }
 
   async load(attemptId: string): Promise<PersistentRegistrationWorkflow> {
     const id = requiredString(attemptId, 160);
     return withIdentityTransaction(this.options, "registration", async (client) => {
       const result = await client.query(
-        "SELECT attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, version, canonical_fingerprint, consumed_at, terminal_at, failure_code FROM saas.registration_workflows WHERE attempt_id = $1",
+        "SELECT attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, version, canonical_fingerprint, requested_at, created_at, expires_at, consumed_at, terminal_at, failure_code FROM saas.registration_workflows WHERE attempt_id = $1",
         [id],
       );
       if (!result.rows[0]) throw new RegistrationPersistenceError("registration_attempt_missing");
@@ -230,6 +251,20 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
   }
   async markExpired(input: RegistrationTransitionInput) { return this.transition(input, "expired"); }
   async markCancelled(input: RegistrationTransitionInput) { return this.transition(input, "cancelled"); }
+
+  async expireDue(cutoff: Date, maximumRows: number): Promise<number> {
+    if (!(cutoff instanceof Date) || !Number.isFinite(cutoff.getTime())) throw new IdentityPersistenceError();
+    const limit = batchSize(maximumRows);
+    return withIdentityTransaction(this.options, "cleanup", async (client) => {
+      const result = await client.query(
+        "WITH candidates AS (SELECT attempt_id FROM saas.registration_workflows WHERE status IN ('awaiting_identity', 'identity_verified') AND expires_at <= $1::timestamptz ORDER BY expires_at, attempt_id FOR UPDATE SKIP LOCKED LIMIT $2), expired AS (UPDATE saas.registration_workflows AS workflow SET status = 'expired', version = version + 1, terminal_at = $1::timestamptz, updated_at = $1::timestamptz FROM candidates WHERE workflow.attempt_id = candidates.attempt_id AND workflow.status IN ('awaiting_identity', 'identity_verified') RETURNING workflow.attempt_id) SELECT count(*)::integer AS expired_count FROM expired",
+        [cutoff.toISOString(), limit],
+      );
+      const count = result.rows[0]?.expired_count;
+      if (!Number.isInteger(count) || (count as number) < 0 || (count as number) > limit) throw new IdentityPersistenceError();
+      return count as number;
+    });
+  }
 
   async cleanupTerminal(cutoff: Date, maximumRows: number): Promise<number> {
     if (!(cutoff instanceof Date) || !Number.isFinite(cutoff.getTime())) throw new IdentityPersistenceError();
@@ -253,7 +288,12 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
       encrypted: encrypted(row),
     });
     const stored = payload(decoded);
-    if (stored.id !== id) throw new IdentityPersistenceError();
+    if (
+      stored.id !== id ||
+      stored.requestedAt !== persistedTimestamp(row.requested_at) ||
+      stored.createdAt !== persistedTimestamp(row.created_at) ||
+      stored.expiresAt !== persistedTimestamp(row.expires_at)
+    ) throw new IdentityPersistenceError();
     const workflow: PersistentRegistrationWorkflow = { attempt: stored, status: status(row.status), version: integer(row.version) };
     if (row.canonical_fingerprint !== null && row.canonical_fingerprint !== undefined) {
       const fingerprint = requiredString(row.canonical_fingerprint, 64);
@@ -291,7 +331,7 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     if (canonicalFingerprint !== undefined && !/^[a-f0-9]{64}$/.test(canonicalFingerprint)) throw new IdentityPersistenceError();
     return withIdentityTransaction(this.options, "registration", async (client: IdentityPostgresClient) => {
       const result = await client.query(
-        "UPDATE saas.registration_workflows SET status = $4, version = version + 1, canonical_fingerprint = CASE WHEN $4 = 'identity_verified' AND $5::text IS NOT NULL THEN $5 ELSE canonical_fingerprint END, failure_code = CASE WHEN $4 = 'failed' THEN $6 ELSE NULL END, terminal_at = CASE WHEN $4 IN ('session_created', 'failed', 'expired', 'cancelled') THEN $3::timestamptz ELSE NULL END, updated_at = $3::timestamptz WHERE attempt_id = $1 AND status = $2 AND version = $7 AND ($4 <> 'tenant_created' OR canonical_fingerprint IS NOT NULL) RETURNING attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, version, canonical_fingerprint, consumed_at, terminal_at, failure_code",
+        "UPDATE saas.registration_workflows SET status = $4, version = version + 1, canonical_fingerprint = CASE WHEN $4 = 'identity_verified' AND $5::text IS NOT NULL THEN $5 ELSE canonical_fingerprint END, failure_code = CASE WHEN $4 = 'failed' THEN $6 ELSE NULL END, terminal_at = CASE WHEN $4 IN ('session_created', 'failed', 'expired', 'cancelled') THEN $3::timestamptz ELSE NULL END, updated_at = $3::timestamptz WHERE attempt_id = $1 AND status = $2 AND version = $7 AND ($4 <> 'tenant_created' OR canonical_fingerprint IS NOT NULL) RETURNING attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, version, canonical_fingerprint, requested_at, created_at, expires_at, consumed_at, terminal_at, failure_code",
         [attemptId, expected, input.now.toISOString(), next, canonicalFingerprint ?? null, failureCode ?? null, input.expectedVersion],
       );
       if (!result.rows[0]) {

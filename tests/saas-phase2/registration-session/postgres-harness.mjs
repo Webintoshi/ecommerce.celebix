@@ -62,6 +62,16 @@ function psql(backend, sql, database = primaryDatabase, options = {}) {
     : command(backend.executables.psql, ["-h", backend.socketDirectory, "-p", String(backend.port), ...common], { input: sql, ...options });
 }
 
+function assertIdentityMutationDenied(backend, sql, label) {
+  const result = psql(
+    backend,
+    `BEGIN; SET LOCAL ROLE celebix_saas_identity; ${sql}; COMMIT;`,
+    primaryDatabase,
+    { allowFailure: true },
+  );
+  assert.notEqual(result.status, 0, `${label} unexpectedly succeeded`);
+}
+
 function migration(backend, file, database = primaryDatabase, asMigrator = true) {
   const sql = sqlText(file);
   psql(backend, asMigrator ? `SET SESSION AUTHORIZATION celebix_saas_migrator;\n${sql}\nRESET SESSION AUTHORIZATION;` : sql, database);
@@ -231,6 +241,9 @@ async function main() {
 
     const first = registration("attempt_1234567890abcdef", "registration-state-one");
     await registrationsA.save(first);
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET expires_at = expires_at + interval '1 hour' WHERE attempt_id='${first.id}'`, "identity registration expiry extension");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET requested_at = requested_at + interval '1 second' WHERE attempt_id='${first.id}'`, "identity requested_at rewrite");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET updated_at = updated_at - interval '1 second' WHERE attempt_id='${first.id}'`, "identity registration updated_at rollback");
     await assert.rejects(registrationsB.save(first), (error) => error instanceof RegistrationPersistenceError && error.code === "registration_attempt_conflict");
     const consumed = await registrationsB.consume(first.state, new Date("2026-07-12T10:01:00.000Z"));
     assert.equal(consumed.id, first.id);
@@ -248,7 +261,7 @@ async function main() {
     const expired = registration("attempt_3234567890abcdef", "registration-state-expired", "2026-07-12T09:00:00.000Z", "2026-07-12T09:10:00.000Z");
     await registrationsA.save(expired);
     await assert.rejects(registrationsB.consume(expired.state, new Date("2026-07-12T10:00:00.000Z")), (error) => error.code === "registration_attempt_expired");
-    await assert.rejects(registrationsA.consume(expired.state, new Date("2026-07-12T10:00:01.000Z")), (error) => error.code === "registration_attempt_replayed");
+    await assert.rejects(registrationsA.consume(expired.state, new Date("2026-07-12T10:00:01.000Z")), (error) => error.code === "registration_attempt_expired");
 
     const workflow = registration("attempt_4234567890abcdef", "registration-state-workflow");
     await registrationsA.save(workflow);
@@ -266,9 +279,18 @@ async function main() {
     const session = await registrationsB.markSessionCreated({ attemptId: workflow.id, expectedStatus: "tenant_created", expectedVersion: tenant.version, now: new Date("2026-07-12T10:04:00.000Z") });
     assert.equal(session.status, "session_created");
     await assert.rejects(registrationsA.markFailed({ attemptId: workflow.id, expectedStatus: "session_created", expectedVersion: session.version, failureCode: "late", now: new Date("2026-07-12T10:05:00.000Z") }), (error) => error.code === "registration_workflow_invalid_transition");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET terminal_at = terminal_at + interval '1 second', updated_at = updated_at + interval '1 second' WHERE attempt_id='${workflow.id}'`, "registration terminal timestamp rewrite");
+
+    const failedWorkflow = registration("attempt_5234567890abcdef", "registration-state-failed");
+    await registrationsA.save(failedWorkflow);
+    await registrationsA.markFailed({ attemptId: failedWorkflow.id, expectedStatus: "awaiting_identity", expectedVersion: 1, failureCode: "safe_failure", now: new Date("2026-07-12T10:02:00.000Z") });
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET failure_code = 'rewritten_failure', updated_at = updated_at + interval '1 second' WHERE attempt_id='${failedWorkflow.id}'`, "registration failure code rewrite");
 
     const oidcOne = oidc("oidc-state-one-secure");
     await oidcA.save(oidcOne);
+    const oidcOneDigest = createOpaqueStateDigester({ key: material.hmacKey, context: "oidc-transaction-state" }).digest(oidcOne.state);
+    assertIdentityMutationDenied(backend, `UPDATE saas.oidc_transactions SET expires_at = expires_at + interval '1 hour' WHERE state_digest='${oidcOneDigest}'`, "identity OIDC expiry extension");
+    assertIdentityMutationDenied(backend, `UPDATE saas.oidc_transactions SET updated_at = updated_at - interval '1 second' WHERE state_digest='${oidcOneDigest}'`, "identity OIDC updated_at rollback");
     assert.equal((await oidcB.consume(oidcOne.state, new Date("2026-07-12T10:01:00.000Z"))).nonce, oidcOne.nonce);
     await assert.rejects(oidcA.consume(oidcOne.state, new Date("2026-07-12T10:01:01.000Z")), (error) => error instanceof OidcFlowError && error.code === "oidc_state_replayed");
 
@@ -325,6 +347,55 @@ async function main() {
     await assert.rejects(oidcA.save({ ...oidc("oidc-invalid-return"), returnTo: "https://evil.example.test" }), (error) => error.code === "oidc_invalid_state");
     await assert.rejects(oidcA.save({ ...oidc("oidc-invalid-callback"), redirectUri: "https://evil.example.test/callback" }), (error) => error.code === "oidc_invalid_callback");
 
+    const registrationMismatch = registration("attempt_6234567890abcdef", "registration-state-db-mismatch");
+    await registrationsA.save(registrationMismatch);
+    psql(backend, `ALTER TABLE saas.registration_workflows DISABLE TRIGGER registration_workflows_guard; UPDATE saas.registration_workflows SET expires_at = expires_at + interval '1 hour' WHERE attempt_id='${registrationMismatch.id}'; ALTER TABLE saas.registration_workflows ENABLE TRIGGER registration_workflows_guard;`);
+    await assert.rejects(registrationsB.load(registrationMismatch.id), (error) => error.message === "identity_persistence_failed");
+
+    const oidcMismatch = oidc("oidc-state-db-mismatch");
+    await oidcA.save(oidcMismatch);
+    const oidcMismatchDigest = oidcDigester.digest(oidcMismatch.state);
+    psql(backend, `ALTER TABLE saas.oidc_transactions DISABLE TRIGGER oidc_transactions_guard; UPDATE saas.oidc_transactions SET expires_at = expires_at + interval '1 hour' WHERE state_digest='${oidcMismatchDigest}'; ALTER TABLE saas.oidc_transactions ENABLE TRIGGER oidc_transactions_guard;`);
+    await assert.rejects(oidcB.consume(oidcMismatch.state, new Date("2026-07-12T10:20:00.000Z")), (error) => error.message === "identity_persistence_failed");
+
+    const explicitRegistrationExpiry = registration("attempt_7234567890abcdef", "registration-state-explicit-expiry", "2026-07-12T09:00:00.000Z", "2026-07-12T09:10:00.000Z");
+    await registrationsA.save(explicitRegistrationExpiry);
+    const explicitlyExpired = await registrationsA.markExpired({
+      attemptId: explicitRegistrationExpiry.id,
+      expectedStatus: "awaiting_identity",
+      expectedVersion: 1,
+      now: new Date("2026-07-12T10:00:00.000Z"),
+    });
+    assert.equal(explicitlyExpired.status, "expired");
+    assert.equal(explicitlyExpired.consumedAt, undefined);
+    await assert.rejects(registrationsB.consume(explicitRegistrationExpiry.state, new Date("2026-07-12T10:00:01.000Z")), (error) => error.code === "registration_attempt_expired");
+
+    for (const [index, store] of [registrationsA, registrationsB, registrationsA].entries()) {
+      await store.save(registration(`attempt_8${index}34567890abcdef`, `registration-due-worker-${index}`, "2026-07-12T09:00:00.000Z", "2026-07-12T09:10:00.000Z"));
+    }
+    const activeRegistration = registration("attempt_9034567890abcdef", "registration-active-not-due");
+    await registrationsA.save(activeRegistration);
+    const registrationExpiryRace = await Promise.all([
+      registrationsA.expireDue(new Date("2026-07-12T10:00:00.000Z"), 2),
+      registrationsB.expireDue(new Date("2026-07-12T10:00:00.000Z"), 2),
+    ]);
+    assert.equal(registrationExpiryRace.reduce((sum, count) => sum + count, 0), 3);
+    assert.equal((await registrationsA.load(activeRegistration.id)).status, "awaiting_identity");
+
+    for (const index of [0, 1, 2]) {
+      await oidcA.save(oidc(`oidc-due-worker-${index}`, "2026-07-12T09:00:00.000Z", "2026-07-12T09:10:00.000Z"));
+    }
+    const activeOidc = oidc("oidc-active-not-due");
+    await oidcA.save(activeOidc);
+    const oidcExpiryRace = await Promise.all([
+      oidcA.expireDue(new Date("2026-07-12T10:00:00.000Z"), 2),
+      oidcB.expireDue(new Date("2026-07-12T10:00:00.000Z"), 2),
+    ]);
+    assert.equal(oidcExpiryRace.reduce((sum, count) => sum + count, 0), 3);
+    assert.equal((await oidcB.consume(activeOidc.state, new Date("2026-07-12T10:01:00.000Z"))).state, activeOidc.state);
+    const expiredOidcRows = psql(backend, "SELECT count(*) FROM saas.oidc_transactions WHERE status='expired' AND consumed_at IS NOT NULL;").stdout.trim();
+    assert.ok(Number(expiredOidcRows) >= 3);
+
     const corrupted = oidc("oidc-state-corrupted");
     await oidcA.save(corrupted);
     const corruptedDigest = createOpaqueStateDigester({ key: material.hmacKey, context: "oidc-transaction-state" }).digest(corrupted.state);
@@ -352,8 +423,8 @@ async function main() {
     const restoreWrong = new PostgresOidcTransactionStore(dependencies(restorePool, { ...material, keyring: { "key-current": randomBytes(32) } }, "oidc-transaction-state"));
     await assert.rejects(restoreWrong.consume(backupWrong.state, new Date("2026-07-12T10:01:00.000Z")), /identity_crypto_failed/);
 
-    assert.ok(await registrationsA.cleanupTerminal(new Date("2026-07-12T10:06:00.000Z"), 100) >= 1);
-    assert.ok(await oidcA.cleanupTerminal(new Date("2026-07-12T10:06:00.000Z"), 100) >= 1);
+    assert.ok(await registrationsA.cleanupTerminal(new Date("2026-07-12T10:06:00.000Z"), 100) >= 4);
+    assert.ok(await oidcA.cleanupTerminal(new Date("2026-07-12T10:06:00.000Z"), 100) >= 3);
 
     createDatabase(backend, rollbackDatabase);
     applyPhase2A(backend, rollbackDatabase, false, false);
@@ -367,7 +438,7 @@ async function main() {
       status: "PASS",
       backend: backend.kind === "native" ? "native-postgresql" : backend.engine,
       postgresqlVersion: version,
-      scenarios: 38,
+      scenarios: 52,
       forward: "PASS", rollback: "PASS", reapply: "PASS", backupRestore: "PASS",
       concurrency: "PASS", cleanup: "PASS", plaintextScan: "PASS", roleGrants: "PASS",
       productionConnectionUsed: false,

@@ -7,6 +7,14 @@ DECLARE
   identity_role record;
   checked_table_name text;
   forbidden_column_name text;
+  checked_column_name text;
+  registration_update_columns constant text[] := ARRAY[
+    'status', 'version', 'canonical_fingerprint', 'updated_at',
+    'consumed_at', 'failure_code', 'terminal_at'
+  ];
+  oidc_update_columns constant text[] := ARRAY[
+    'status', 'updated_at', 'consumed_at', 'discarded_at'
+  ];
 BEGIN
   SELECT * INTO identity_role FROM pg_catalog.pg_roles WHERE rolname = 'celebix_saas_identity';
   IF identity_role IS NULL
@@ -21,11 +29,32 @@ BEGIN
   END IF;
 
   FOREACH checked_table_name IN ARRAY ARRAY['registration_workflows', 'oidc_transactions'] LOOP
-    IF NOT pg_catalog.has_table_privilege('celebix_saas_identity', 'saas.' || checked_table_name, 'SELECT,INSERT,UPDATE,DELETE') THEN
+    IF NOT pg_catalog.has_table_privilege('celebix_saas_identity', 'saas.' || checked_table_name, 'SELECT,INSERT,DELETE')
+       OR pg_catalog.has_table_privilege('celebix_saas_identity', 'saas.' || checked_table_name, 'UPDATE') THEN
       RAISE EXCEPTION 'PHASE2B1_CATALOG_ASSERTION_FAILED: exact identity table grants missing';
     END IF;
     IF pg_catalog.has_table_privilege('public', 'saas.' || checked_table_name, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') THEN
       RAISE EXCEPTION 'PHASE2B1_CATALOG_ASSERTION_FAILED: PUBLIC identity table privilege';
+    END IF;
+  END LOOP;
+
+  FOR checked_table_name, checked_column_name IN
+    SELECT columns.table_name, columns.column_name
+    FROM information_schema.columns AS columns
+    WHERE columns.table_schema = 'saas'
+      AND columns.table_name IN ('registration_workflows', 'oidc_transactions')
+  LOOP
+    IF pg_catalog.has_column_privilege(
+         'celebix_saas_identity',
+         'saas.' || checked_table_name,
+         checked_column_name,
+         'UPDATE'
+       ) IS DISTINCT FROM (
+         (checked_table_name = 'registration_workflows' AND checked_column_name = ANY (registration_update_columns))
+         OR
+         (checked_table_name = 'oidc_transactions' AND checked_column_name = ANY (oidc_update_columns))
+       ) THEN
+      RAISE EXCEPTION 'PHASE2B1_CATALOG_ASSERTION_FAILED: identity column UPDATE drift';
     END IF;
   END LOOP;
 
@@ -61,6 +90,24 @@ BEGIN
 
   IF (SELECT count(*) FROM pg_catalog.pg_trigger WHERE tgrelid IN ('saas.registration_workflows'::regclass, 'saas.oidc_transactions'::regclass) AND NOT tgisinternal) <> 2 THEN
     RAISE EXCEPTION 'PHASE2B1_CATALOG_ASSERTION_FAILED: mutation guard drift';
+  END IF;
+
+  IF pg_catalog.pg_get_functiondef('saas.guard_registration_workflow_mutation()'::regprocedure) !~* 'NEW\.requested_at IS DISTINCT FROM OLD\.requested_at'
+     OR pg_catalog.pg_get_functiondef('saas.guard_registration_workflow_mutation()'::regprocedure) !~* 'NEW\.expires_at IS DISTINCT FROM OLD\.expires_at'
+     OR pg_catalog.pg_get_functiondef('saas.guard_registration_workflow_mutation()'::regprocedure) !~* 'NEW\.updated_at < OLD\.updated_at'
+     OR pg_catalog.pg_get_functiondef('saas.guard_registration_workflow_mutation()'::regprocedure) !~* 'OLD\.terminal_at IS NOT NULL'
+     OR pg_catalog.pg_get_functiondef('saas.guard_registration_workflow_mutation()'::regprocedure) !~* 'OLD\.status = ''failed'''
+     OR pg_catalog.pg_get_functiondef('saas.guard_oidc_transaction_mutation()'::regprocedure) !~* 'NEW\.expires_at IS DISTINCT FROM OLD\.expires_at'
+     OR pg_catalog.pg_get_functiondef('saas.guard_oidc_transaction_mutation()'::regprocedure) !~* 'NEW\.updated_at < OLD\.updated_at' THEN
+    RAISE EXCEPTION 'PHASE2B1_CATALOG_ASSERTION_FAILED: lifecycle guard authority drift';
+  END IF;
+
+  IF pg_catalog.pg_get_constraintdef(
+       (SELECT constraint_record.oid FROM pg_catalog.pg_constraint AS constraint_record
+        WHERE constraint_record.conname = 'registration_workflows_consumed_state'
+          AND constraint_record.conrelid = 'saas.registration_workflows'::regclass)
+     ) ~* 'expired' THEN
+    RAISE EXCEPTION 'PHASE2B1_CATALOG_ASSERTION_FAILED: explicit expiry incorrectly requires consumption';
   END IF;
 END
 $phase2b1_catalog_assertions$;

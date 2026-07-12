@@ -25,14 +25,6 @@ interface StoredOidcPayload extends Omit<OidcAuthorizationTransaction, "state"> 
 function callback(value: unknown): string {
   const parsed = requiredString(value, 2048);
   if (parsed === PANEL_OIDC_CALLBACK_URL) return parsed;
-  try {
-    const url = new URL(parsed);
-    if (
-      url.protocol === "http:" &&
-      (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]") &&
-      url.pathname === "/auth/callback" && !url.search && !url.hash && !url.username && !url.password
-    ) return parsed;
-  } catch { /* controlled below */ }
   throw new OidcFlowError("oidc_invalid_callback", "OIDC callback URL is invalid.");
 }
 
@@ -46,7 +38,10 @@ function payload(value: unknown): StoredOidcPayload {
   if (row.returnTo !== "/kayit") throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
   const nonce = requiredString(row.nonce, 512);
   const codeVerifier = requiredString(row.codeVerifier, 512);
-  if (nonce.length < 16 || codeVerifier.length < 43 || codeVerifier.length > 128) {
+  if (
+    !/^[A-Za-z0-9_-]{16,512}$/.test(nonce) ||
+    !/^[A-Za-z0-9._~-]{43,128}$/.test(codeVerifier)
+  ) {
     throw new OidcFlowError("oidc_invalid_state", "OIDC transaction is invalid.");
   }
   return {
@@ -101,6 +96,14 @@ function status(value: unknown): "active" | "consumed" | "expired" | "discarded"
   return parsed;
 }
 
+function persistedTimestamp(value: unknown): string {
+  if (value instanceof Date) {
+    if (!Number.isFinite(value.getTime())) throw new IdentityPersistenceError();
+    return value.toISOString();
+  }
+  return canonicalTimestamp(value);
+}
+
 export class PostgresOidcTransactionStore implements OidcTransactionStore {
   private readonly options: IdentityStoreDependencies;
 
@@ -135,31 +138,43 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
     if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new IdentityPersistenceError();
     const digest = this.options.stateDigester.digest(rawState);
     const canonicalNow = now.toISOString();
-    const row = await withIdentityTransaction(this.options, "oidc", async (client) => {
-      const result = await client.query(
-        "UPDATE saas.oidc_transactions SET status = CASE WHEN expires_at <= $2::timestamptz THEN 'expired' ELSE 'consumed' END, consumed_at = $2::timestamptz, updated_at = $2::timestamptz WHERE state_digest = $1 AND status = 'active' RETURNING state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status",
-        [digest, canonicalNow],
+    const outcome = await withIdentityTransaction(this.options, "oidc", async (client) => {
+      const selected = await client.query(
+        "SELECT state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, created_at, expires_at FROM saas.oidc_transactions WHERE state_digest = $1",
+        [digest],
       );
-      const updated = result.rows[0];
-      if (!updated) {
+      const row = selected.rows[0];
+      if (!row) throw new OidcFlowError("oidc_invalid_state", "OIDC state is invalid.");
+      const current = status(row.status);
+      if (current === "expired") throw new OidcFlowError("oidc_state_expired", "OIDC state has expired.");
+      if (current === "consumed") throw new OidcFlowError("oidc_state_replayed", "OIDC state was already consumed.");
+      if (current !== "active") throw new OidcFlowError("oidc_invalid_state", "OIDC state is invalid.");
+
+      const stored = payload(this.options.payloadCipher.decrypt({
+        binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion: integer(row.payload_schema_version) },
+        encrypted: encrypted(row),
+      }));
+      const dbCreatedAt = persistedTimestamp(row.created_at);
+      const dbExpiresAt = persistedTimestamp(row.expires_at);
+      if (stored.createdAt !== dbCreatedAt || stored.expiresAt !== dbExpiresAt) throw new IdentityPersistenceError();
+      const expired = Date.parse(stored.expiresAt) <= now.getTime();
+      const updated = await client.query(
+        "UPDATE saas.oidc_transactions SET status = $3, consumed_at = $2::timestamptz, updated_at = $2::timestamptz WHERE state_digest = $1 AND status = 'active' AND created_at = $4::timestamptz AND expires_at = $5::timestamptz RETURNING status",
+        [digest, canonicalNow, expired ? "expired" : "consumed", stored.createdAt, stored.expiresAt],
+      );
+      if (!updated.rows[0]) {
         const classified = await client.query("SELECT status FROM saas.oidc_transactions WHERE state_digest = $1", [digest]);
-        const existing = classified.rows[0];
-        if (!existing) throw new OidcFlowError("oidc_invalid_state", "OIDC state is invalid.");
-        const current = status(existing.status);
-        if (current === "consumed" || current === "expired") {
-          if (current === "expired") throw new OidcFlowError("oidc_state_expired", "OIDC state has expired.");
-          throw new OidcFlowError("oidc_state_replayed", "OIDC state was already consumed.");
-        }
+        const raced = classified.rows[0];
+        if (!raced) throw new OidcFlowError("oidc_invalid_state", "OIDC state is invalid.");
+        const racedStatus = status(raced.status);
+        if (racedStatus === "expired") throw new OidcFlowError("oidc_state_expired", "OIDC state has expired.");
+        if (racedStatus === "consumed") throw new OidcFlowError("oidc_state_replayed", "OIDC state was already consumed.");
         throw new OidcFlowError("oidc_invalid_state", "OIDC state is invalid.");
       }
-      return updated;
+      return { stored, expired };
     });
-    if (status(row.status) === "expired") throw new OidcFlowError("oidc_state_expired", "OIDC state has expired.");
-    const decoded = this.options.payloadCipher.decrypt({
-      binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion: integer(row.payload_schema_version) },
-      encrypted: encrypted(row),
-    });
-    return { state: rawState, ...payload(decoded) };
+    if (outcome.expired) throw new OidcFlowError("oidc_state_expired", "OIDC state has expired.");
+    return { state: rawState, ...outcome.stored };
   }
 
   async discard(rawState: string): Promise<void> {
@@ -170,6 +185,20 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
         "UPDATE saas.oidc_transactions SET status = 'discarded', discarded_at = $2::timestamptz, updated_at = $2::timestamptz WHERE state_digest = $1 AND status = 'active'",
         [digest, now],
       );
+    });
+  }
+
+  async expireDue(cutoff: Date, maximumRows: number): Promise<number> {
+    if (!(cutoff instanceof Date) || !Number.isFinite(cutoff.getTime())) throw new IdentityPersistenceError();
+    const limit = batchSize(maximumRows);
+    return withIdentityTransaction(this.options, "cleanup", async (client) => {
+      const result = await client.query(
+        "WITH candidates AS (SELECT state_digest FROM saas.oidc_transactions WHERE status = 'active' AND expires_at <= $1::timestamptz ORDER BY expires_at, state_digest FOR UPDATE SKIP LOCKED LIMIT $2), expired AS (UPDATE saas.oidc_transactions AS transaction SET status = 'expired', consumed_at = $1::timestamptz, updated_at = $1::timestamptz FROM candidates WHERE transaction.state_digest = candidates.state_digest AND transaction.status = 'active' RETURNING transaction.state_digest) SELECT count(*)::integer AS expired_count FROM expired",
+        [cutoff.toISOString(), limit],
+      );
+      const count = result.rows[0]?.expired_count;
+      if (!Number.isInteger(count) || (count as number) < 0 || (count as number) > limit) throw new IdentityPersistenceError();
+      return count as number;
     });
   }
 

@@ -14,6 +14,7 @@ const runtimeFiles = [
   "apps/owner/lib/saas-persistence/postgres-oidc-transaction-store.ts",
 ];
 const runtime = runtimeFiles.map(read).join("\n");
+const ownerPhase2b1Source = `${runtime}\n${read("apps/owner/lib/saas-persistence/postgres-identity-stores.test.ts")}`;
 const schema = read("apps/owner/scripts/sql/saas/202607110008_identity_persistence.up.sql");
 
 test("new identity persistence has no environment-selected adapter, database URL, production key, or memory fallback", () => {
@@ -21,6 +22,10 @@ test("new identity persistence has no environment-selected adapter, database URL
   assert.doesNotMatch(runtime, /fallback.{0,40}(?:memory|in-memory)|(?:memory|in-memory).{0,40}fallback/is);
   assert.doesNotMatch(runtime, /(?:hmac|encryption)(?:Key)?\s*[:=]\s*["'][A-Za-z0-9+/=_-]{24,}["']/i);
   assert.doesNotMatch(runtime, /export\s+(?:async\s+)?function\s+query|public\s+query\s*\(/);
+});
+
+test("Owner Phase 2B1 source never imports the undeclared pg package directly", () => {
+  assert.doesNotMatch(ownerPhase2b1Source, /from\s+["']pg["']|require\s*\(\s*["']pg["']\s*\)/);
 });
 
 test("database schema exposes digests and ciphertext only, never plaintext identity secrets", () => {

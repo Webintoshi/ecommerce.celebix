@@ -14,7 +14,7 @@
       "id": "202607110008_identity_persistence_up",
       "direction": "up",
       "file": "202607110008_identity_persistence.up.sql",
-      "sha256": "12086e317bb494e696e5a22564c2455457552d90ac4dec999b387f96bf1b4967",
+      "sha256": "34b084df11992ee4816ff85b39eb08f76019a1030104e5783ef3cf8f086ebafe",
       "purpose": "Create encrypted registration workflow and OIDC transaction authorities with guarded transitions."
     },
     {
@@ -28,14 +28,14 @@
       "id": "202607110009_identity_grants",
       "direction": "up",
       "file": "202607110009_identity_grants.sql",
-      "sha256": "cf8dea1ed6463e3963bbf56130b6dd91eaca41e04bf157cd1505065c0ff457df",
+      "sha256": "e2a1530ec6cc57003523ba0dc34a44e50a60a8104d7fe9037785b9be53d95a16",
       "purpose": "Grant the identity role exact DML authority over only the two Phase 2B1 tables."
     },
     {
       "id": "202607110010_identity_catalog_assertions",
       "direction": "verify",
       "file": "202607110010_identity_catalog_assertions.sql",
-      "sha256": "338a1e7259ca61eef651400bc63520c63c5b9b41728726dd0e04a8e731996018",
+      "sha256": "095ba16dd69a316c308fd3f1d3cc54ed10176a1246a688d5cf74f2716f0830dc",
       "purpose": "Fail on role, object, PUBLIC, unrelated-table, bootstrap, plaintext-column, or trigger drift."
     },
     {

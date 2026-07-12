@@ -1,9 +1,16 @@
-import type { QueryResult } from "pg";
+import {
+  IdentityCryptoError,
+  type AuthenticatedPayloadCipher,
+  type OpaqueStateDigester,
+} from "./identity-crypto.ts";
 
-import type { AuthenticatedPayloadCipher, OpaqueStateDigester } from "./identity-crypto.ts";
+export interface IdentityQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
+  rows: Row[];
+  rowCount: number | null;
+}
 
 export interface IdentityPostgresClient {
-  query(text: string, values?: readonly unknown[]): Promise<QueryResult<Record<string, unknown>>>;
+  query(text: string, values?: readonly unknown[]): Promise<IdentityQueryResult>;
   release(destroy?: boolean | Error): void;
 }
 
@@ -100,12 +107,18 @@ async function acquire(input: IdentityStoreDependencies): Promise<IdentityPostgr
 }
 
 function isSafeError(error: unknown): boolean {
-  return error instanceof RegistrationPersistenceError ||
+  return error instanceof IdentityCryptoError ||
+    error instanceof RegistrationPersistenceError ||
     (error instanceof Error && error.name === "OidcFlowError");
 }
 
-async function auditSafely(input: IdentityStoreDependencies, event: IdentityAuditEvent) {
-  try { await input.audit(event); } catch { /* Audit failures never reveal or replace persistence outcomes. */ }
+function auditSafely(input: IdentityStoreDependencies, event: IdentityAuditEvent): void {
+  try {
+    const pending = input.audit(event);
+    if (pending) void pending.catch(() => undefined);
+  } catch {
+    // Audit is deliberately isolated from the authoritative persistence result.
+  }
 }
 
 export async function withIdentityTransaction<T>(
@@ -129,7 +142,7 @@ export async function withIdentityTransaction<T>(
     } catch {
       terminal = true;
       try { client.release(true); } catch { /* already uncertain */ }
-      await auditSafely(input, { operation: category, classification: "commit_unknown", result: "failure" });
+      auditSafely(input, { operation: category, classification: "commit_unknown", result: "failure" });
       throw new IdentityPersistenceError("identity_commit_outcome_unknown");
     }
     terminal = true;
@@ -137,10 +150,10 @@ export async function withIdentityTransaction<T>(
       client.release();
     } catch {
       try { client.release(true); } catch { /* destruction is best effort */ }
-      await auditSafely(input, { operation: category, classification: "persistence_failure", result: "failure" });
+      auditSafely(input, { operation: category, classification: "persistence_failure", result: "failure" });
       throw new IdentityPersistenceError();
     }
-    await auditSafely(input, { operation: category, classification: "completed", result: "success" });
+    auditSafely(input, { operation: category, classification: "completed", result: "success" });
     return result;
   } catch (error) {
     if (!terminal) {
@@ -159,7 +172,7 @@ export async function withIdentityTransaction<T>(
       }
     }
     if (!(terminal && error instanceof IdentityPersistenceError && error.message === "identity_commit_outcome_unknown")) {
-      await auditSafely(input, {
+      auditSafely(input, {
         operation: category,
         classification: isSafeError(error) ? "rejected" : "persistence_failure",
         result: "failure",

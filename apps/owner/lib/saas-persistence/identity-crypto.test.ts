@@ -8,13 +8,17 @@ import {
   createOpaqueStateDigester,
 } from "./identity-crypto.ts";
 
-test("opaque state digests are domain separated, fixed lowercase hex, and require a 32-byte key", () => {
-  const key = randomBytes(32);
-  const registration = createOpaqueStateDigester({ key, context: "registration-attempt-state" });
-  const oidc = createOpaqueStateDigester({ key, context: "oidc-transaction-state" });
+test("opaque state digests accept 32-byte and 64-byte HMAC keys while rejecting short keys", () => {
+  const key32 = randomBytes(32);
+  const key64 = randomBytes(64);
+  const registration = createOpaqueStateDigester({ key: key32, context: "registration-attempt-state" });
+  const oidc = createOpaqueStateDigester({ key: key32, context: "oidc-transaction-state" });
+  const longKey = createOpaqueStateDigester({ key: key64, context: "registration-attempt-state" });
   const raw = "opaque-state-that-must-never-be-stored";
 
   assert.match(registration.digest(raw), /^[a-f0-9]{64}$/);
+  assert.match(longKey.digest(raw), /^[a-f0-9]{64}$/);
+  assert.notEqual(registration.digest(raw), longKey.digest(raw));
   assert.notEqual(registration.digest(raw), oidc.digest(raw));
   assert.throws(() => createOpaqueStateDigester({ key: randomBytes(31), context: "too-short" }), IdentityCryptoError);
   assert.throws(() => registration.digest(""), IdentityCryptoError);

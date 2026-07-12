@@ -11,8 +11,13 @@ export class IdentityCryptoError extends Error {
   }
 }
 
-function copyKey(value: Uint8Array | undefined): Buffer {
+function copyAesKey(value: Uint8Array | undefined): Buffer {
   if (!value || value.byteLength !== AES_KEY_BYTES) throw new IdentityCryptoError();
+  return Buffer.from(value);
+}
+
+function copyHmacKey(value: Uint8Array | undefined): Buffer {
+  if (!value || value.byteLength < 32) throw new IdentityCryptoError();
   return Buffer.from(value);
 }
 
@@ -29,7 +34,7 @@ export function createOpaqueStateDigester(input: {
   key: Uint8Array;
   context: string;
 }): OpaqueStateDigester {
-  const key = copyKey(input.key);
+  const key = copyHmacKey(input.key);
   const context = requiredText(input.context);
   return Object.freeze({
     digest(rawState: string) {
@@ -87,7 +92,7 @@ export function createAes256GcmPayloadCipher(input: {
   return Object.freeze({
     encrypt({ binding, payload }: { binding: PayloadBinding; payload: unknown }): EncryptedPayload {
       try {
-        const key = copyKey(input.resolveKey(currentKeyId));
+        const key = copyAesKey(input.resolveKey(currentKeyId));
         const iv = randomBytes(GCM_IV_BYTES);
         const engine = createCipheriv("aes-256-gcm", key, iv, { authTagLength: GCM_TAG_BYTES });
         engine.setAAD(aad(binding));
@@ -101,7 +106,7 @@ export function createAes256GcmPayloadCipher(input: {
     decrypt({ binding, encrypted }: { binding: PayloadBinding; encrypted: EncryptedPayload }): unknown {
       try {
         const keyId = requiredText(encrypted.keyId);
-        const key = copyKey(input.resolveKey(keyId));
+        const key = copyAesKey(input.resolveKey(keyId));
         const iv = Buffer.from(encrypted.iv);
         const combined = Buffer.from(encrypted.ciphertext);
         if (iv.length !== GCM_IV_BYTES || combined.length <= GCM_TAG_BYTES) throw new IdentityCryptoError();

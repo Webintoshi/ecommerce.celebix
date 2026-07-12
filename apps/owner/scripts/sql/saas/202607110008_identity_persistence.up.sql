@@ -30,7 +30,7 @@ CREATE TABLE saas.registration_workflows (
   CONSTRAINT registration_workflows_fingerprint CHECK (canonical_fingerprint IS NULL OR canonical_fingerprint ~ '^[a-f0-9]{64}$'),
   CONSTRAINT registration_workflows_expiry CHECK (expires_at > created_at),
   CONSTRAINT registration_workflows_timestamp_order CHECK (updated_at >= created_at AND (consumed_at IS NULL OR consumed_at >= created_at)),
-  CONSTRAINT registration_workflows_consumed_state CHECK (status NOT IN ('identity_verified', 'tenant_created', 'session_created', 'expired') OR consumed_at IS NOT NULL),
+  CONSTRAINT registration_workflows_consumed_state CHECK (status NOT IN ('identity_verified', 'tenant_created', 'session_created') OR consumed_at IS NOT NULL),
   CONSTRAINT registration_workflows_tenant_fingerprint CHECK (status NOT IN ('tenant_created', 'session_created') OR canonical_fingerprint IS NOT NULL),
   CONSTRAINT registration_workflows_failure_code CHECK ((status = 'failed') = (failure_code IS NOT NULL)),
   CONSTRAINT registration_workflows_terminal_timestamp CHECK ((status IN ('session_created', 'failed', 'expired', 'cancelled')) = (terminal_at IS NOT NULL))
@@ -69,12 +69,18 @@ AS $phase2b1_registration_guard$
 BEGIN
   IF NEW.attempt_id IS DISTINCT FROM OLD.attempt_id
      OR NEW.state_digest IS DISTINCT FROM OLD.state_digest
+     OR NEW.requested_at IS DISTINCT FROM OLD.requested_at
      OR NEW.created_at IS DISTINCT FROM OLD.created_at
+     OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
      OR NEW.payload_ciphertext IS DISTINCT FROM OLD.payload_ciphertext
      OR NEW.payload_iv IS DISTINCT FROM OLD.payload_iv
      OR NEW.encryption_key_id IS DISTINCT FROM OLD.encryption_key_id
      OR NEW.payload_schema_version IS DISTINCT FROM OLD.payload_schema_version THEN
     RAISE EXCEPTION 'PHASE2B1_IMMUTABLE_REGISTRATION_AUTHORITY';
+  END IF;
+
+  IF NEW.updated_at < OLD.updated_at THEN
+    RAISE EXCEPTION 'PHASE2B1_REGISTRATION_TIME_REVERSED';
   END IF;
 
   IF NEW.status IS DISTINCT FROM OLD.status THEN
@@ -91,6 +97,12 @@ BEGIN
 
   IF OLD.consumed_at IS NOT NULL AND NEW.consumed_at IS DISTINCT FROM OLD.consumed_at THEN
     RAISE EXCEPTION 'PHASE2B1_IMMUTABLE_REGISTRATION_CONSUMPTION';
+  END IF;
+  IF OLD.terminal_at IS NOT NULL AND NEW.terminal_at IS DISTINCT FROM OLD.terminal_at THEN
+    RAISE EXCEPTION 'PHASE2B1_IMMUTABLE_REGISTRATION_TERMINAL_TIME';
+  END IF;
+  IF OLD.status = 'failed' AND NEW.failure_code IS DISTINCT FROM OLD.failure_code THEN
+    RAISE EXCEPTION 'PHASE2B1_IMMUTABLE_REGISTRATION_FAILURE';
   END IF;
   IF NEW.canonical_fingerprint IS DISTINCT FROM OLD.canonical_fingerprint
      AND NOT (OLD.status = 'awaiting_identity' AND NEW.status = 'identity_verified') THEN
@@ -112,11 +124,15 @@ AS $phase2b1_oidc_guard$
 BEGIN
   IF NEW.state_digest IS DISTINCT FROM OLD.state_digest
      OR NEW.created_at IS DISTINCT FROM OLD.created_at
+     OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
      OR NEW.payload_ciphertext IS DISTINCT FROM OLD.payload_ciphertext
      OR NEW.payload_iv IS DISTINCT FROM OLD.payload_iv
      OR NEW.encryption_key_id IS DISTINCT FROM OLD.encryption_key_id
      OR NEW.payload_schema_version IS DISTINCT FROM OLD.payload_schema_version THEN
     RAISE EXCEPTION 'PHASE2B1_IMMUTABLE_OIDC_AUTHORITY';
+  END IF;
+  IF NEW.updated_at < OLD.updated_at THEN
+    RAISE EXCEPTION 'PHASE2B1_OIDC_TIME_REVERSED';
   END IF;
   IF NEW.status IS DISTINCT FROM OLD.status AND NOT (
     OLD.status = 'active' AND NEW.status IN ('consumed', 'expired', 'discarded')
