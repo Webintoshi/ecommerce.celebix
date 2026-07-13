@@ -2,7 +2,7 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
-DROP FUNCTION saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text);
+DROP FUNCTION saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text,uuid);
 DROP FUNCTION saas.expire_due_panel_sessions(timestamptz,integer);
 DROP FUNCTION saas.revoke_panel_session_family(text,text,text,timestamptz);
 DROP FUNCTION saas.revoke_panel_session(text,text,text,timestamptz);

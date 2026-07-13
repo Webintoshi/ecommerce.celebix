@@ -38,6 +38,10 @@ CREATE TABLE saas.panel_sessions (
   CONSTRAINT panel_sessions_previous_fk FOREIGN KEY (previous_session_id) REFERENCES saas.panel_sessions(session_id) ON DELETE RESTRICT,
   CONSTRAINT panel_sessions_replaced_by_fk FOREIGN KEY (replaced_by_session_id) REFERENCES saas.panel_sessions(session_id) ON DELETE RESTRICT,
   CONSTRAINT panel_sessions_operation_kind_check CHECK (operation_kind IN ('issue', 'rotate')),
+  CONSTRAINT panel_sessions_operation_shape_check CHECK (
+    (operation_kind = 'issue' AND previous_session_id IS NULL)
+    OR (operation_kind = 'rotate' AND previous_session_id IS NOT NULL)
+  ),
   CONSTRAINT panel_sessions_token_key_id_check CHECK (
     token_key_id ~ '^[A-Za-z0-9._-]{1,64}$'
     AND token_key_id !~ '^\.'
@@ -72,6 +76,9 @@ CREATE TABLE saas.panel_sessions (
 CREATE UNIQUE INDEX panel_sessions_previous_unique_idx
   ON saas.panel_sessions (previous_session_id)
   WHERE previous_session_id IS NOT NULL;
+CREATE UNIQUE INDEX panel_sessions_family_root_unique_idx
+  ON saas.panel_sessions (family_id)
+  WHERE operation_kind = 'issue' AND previous_session_id IS NULL;
 CREATE INDEX panel_sessions_token_lookup_idx ON saas.panel_sessions (token_key_id, token_digest);
 CREATE INDEX panel_sessions_principal_idx ON saas.panel_sessions (principal_id, revoked_at, expires_at);
 CREATE INDEX panel_sessions_family_active_idx ON saas.panel_sessions (family_id, revoked_at, expires_at);
@@ -111,6 +118,10 @@ BEGIN
     RETURN QUERY SELECT 'durable_authority_invalid'::text, NULL::jsonb;
     RETURN;
   END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_operation_id::text, 6618472391047293)
+  );
 
   SELECT session.* INTO existing
   FROM saas.panel_sessions AS session
@@ -352,6 +363,10 @@ BEGIN
     RETURN;
   END IF;
 
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_operation_id::text, 6618472391047293)
+  );
+
   SELECT session.* INTO existing
   FROM saas.panel_sessions AS session
   WHERE session.operation_id = p_operation_id;
@@ -385,6 +400,18 @@ BEGIN
     );
     RETURN;
   END IF;
+
+  SELECT session.* INTO current_session
+  FROM saas.panel_sessions AS session
+  WHERE session.token_key_id = p_current_token_key_id AND session.token_digest = p_current_token_digest;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(current_session.family_id::text, -7329146802501471)
+  );
 
   SELECT session.* INTO current_session
   FROM saas.panel_sessions AS session
@@ -486,22 +513,6 @@ BEGIN
     RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
     RETURN;
   END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM saas.principals AS principal
-    WHERE principal.id = current_session.principal_id AND principal.email_verified
-  ) OR (
-    current_session.active_store_id IS NOT NULL AND NOT EXISTS (
-      SELECT 1 FROM saas.stores AS store
-      JOIN saas.memberships AS membership
-        ON membership.store_id = store.id
-       AND membership.principal_id = current_session.principal_id
-       AND membership.status = 'active'
-      WHERE store.id = current_session.active_store_id AND store.status = 'active'
-    )
-  ) THEN
-    RETURN QUERY SELECT 'membership_denied'::text, NULL::jsonb;
-    RETURN;
-  END IF;
   UPDATE saas.panel_sessions AS session
   SET revoked_at = p_now, revocation_reason = p_reason,
       version = session.version + 1, updated_at = p_now
@@ -535,40 +546,25 @@ BEGIN
   END IF;
   SELECT session.* INTO current_session
   FROM saas.panel_sessions AS session
+  WHERE session.token_key_id = p_token_key_id AND session.token_digest = p_token_digest;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(current_session.family_id::text, -7329146802501471)
+  );
+
+  SELECT session.* INTO current_session
+  FROM saas.panel_sessions AS session
   WHERE session.token_key_id = p_token_key_id AND session.token_digest = p_token_digest
   FOR UPDATE;
   IF NOT FOUND THEN
     RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
     RETURN;
   END IF;
-  IF current_session.revoked_at IS NOT NULL THEN
-    IF EXISTS (SELECT 1 FROM saas.panel_sessions AS family WHERE family.family_id = current_session.family_id AND family.revoked_at IS NULL) THEN
-      RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
-    ELSE
-      RETURN QUERY SELECT 'family_revoked'::text, NULL::jsonb;
-    END IF;
-    RETURN;
-  END IF;
-  IF current_session.expires_at <= p_now THEN
-    RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
-    RETURN;
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM saas.principals AS principal
-    WHERE principal.id = current_session.principal_id AND principal.email_verified
-  ) OR (
-    current_session.active_store_id IS NOT NULL AND NOT EXISTS (
-      SELECT 1 FROM saas.stores AS store
-      JOIN saas.memberships AS membership
-        ON membership.store_id = store.id
-       AND membership.principal_id = current_session.principal_id
-       AND membership.status = 'active'
-      WHERE store.id = current_session.active_store_id AND store.status = 'active'
-    )
-  ) THEN
-    RETURN QUERY SELECT 'membership_denied'::text, NULL::jsonb;
-    RETURN;
-  END IF;
+
   UPDATE saas.panel_sessions AS session
   SET revoked_at = p_now, revocation_reason = p_reason,
       version = session.version + 1, updated_at = p_now
@@ -621,7 +617,8 @@ CREATE FUNCTION saas.recover_panel_session_operation(
   p_principal_id uuid,
   p_active_store_id uuid,
   p_current_token_key_id text,
-  p_current_token_digest text
+  p_current_token_digest text,
+  p_requested_store_id uuid
 )
 RETURNS TABLE(outcome text, authority jsonb)
 LANGUAGE plpgsql
@@ -656,7 +653,8 @@ BEGIN
        OR recovered.principal_id <> p_principal_id
        OR recovered.active_store_id IS DISTINCT FROM p_active_store_id
        OR recovered.previous_session_id IS NOT NULL
-       OR p_current_token_key_id IS NOT NULL OR p_current_token_digest IS NOT NULL THEN
+       OR p_current_token_key_id IS NOT NULL OR p_current_token_digest IS NOT NULL
+       OR p_requested_store_id IS NOT NULL THEN
       RETURN QUERY SELECT 'operation_mismatch'::text, NULL::jsonb;
       RETURN;
     END IF;
@@ -678,7 +676,8 @@ BEGIN
        OR previous.family_id <> recovered.family_id
        OR previous.principal_id <> recovered.principal_id
        OR previous.issued_at <> recovered.issued_at
-       OR previous.expires_at <> recovered.expires_at THEN
+       OR previous.expires_at <> recovered.expires_at
+       OR recovered.active_store_id IS DISTINCT FROM COALESCE(p_requested_store_id, previous.active_store_id) THEN
       RETURN QUERY SELECT 'operation_mismatch'::text, NULL::jsonb;
       RETURN;
     END IF;
@@ -704,6 +703,24 @@ AS $phase2b2a_session_guard$
 DECLARE
   replacement saas.panel_sessions%ROWTYPE;
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.operation_kind = 'rotate' THEN
+      SELECT session.* INTO replacement
+      FROM saas.panel_sessions AS session
+      WHERE session.session_id = NEW.previous_session_id;
+      IF NOT FOUND
+         OR replacement.replaced_by_session_id IS NOT NULL
+         OR replacement.revoked_at IS NOT NULL
+         OR replacement.family_id <> NEW.family_id
+         OR replacement.principal_id <> NEW.principal_id
+         OR replacement.issued_at <> NEW.issued_at
+         OR replacement.expires_at <> NEW.expires_at THEN
+        RAISE EXCEPTION 'PHASE2B2A_INVALID_SESSION_TRANSITION';
+      END IF;
+    END IF;
+    RETURN NEW;
+  END IF;
+
   IF NEW.session_id IS DISTINCT FROM OLD.session_id
      OR NEW.family_id IS DISTINCT FROM OLD.family_id
      OR NEW.operation_id IS DISTINCT FROM OLD.operation_id
@@ -749,7 +766,7 @@ END
 $phase2b2a_session_guard$;
 
 CREATE TRIGGER panel_sessions_mutation_guard
-BEFORE UPDATE ON saas.panel_sessions
+BEFORE INSERT OR UPDATE ON saas.panel_sessions
 FOR EACH ROW EXECUTE FUNCTION saas.guard_panel_session_mutation();
 
 ALTER FUNCTION saas.issue_panel_session(uuid,uuid,uuid,text,text,uuid,uuid,timestamptz,timestamptz) OWNER TO celebix_saas_owner;
@@ -758,7 +775,7 @@ ALTER FUNCTION saas.rotate_panel_session(text,text,uuid,uuid,text,text,uuid,time
 ALTER FUNCTION saas.revoke_panel_session(text,text,text,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.revoke_panel_session_family(text,text,text,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.expire_due_panel_sessions(timestamptz,integer) OWNER TO celebix_saas_owner;
-ALTER FUNCTION saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text,uuid) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.guard_panel_session_mutation() OWNER TO celebix_saas_owner;
 
 REVOKE ALL ON saas.panel_sessions FROM PUBLIC;
@@ -769,7 +786,7 @@ REVOKE ALL ON FUNCTION saas.rotate_panel_session(text,text,uuid,uuid,text,text,u
 REVOKE ALL ON FUNCTION saas.revoke_panel_session(text,text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.revoke_panel_session_family(text,text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.expire_due_panel_sessions(timestamptz,integer) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.guard_panel_session_mutation() FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION saas.issue_panel_session(uuid,uuid,uuid,text,text,uuid,uuid,timestamptz,timestamptz) TO celebix_saas_identity;
@@ -778,7 +795,7 @@ GRANT EXECUTE ON FUNCTION saas.rotate_panel_session(text,text,uuid,uuid,text,tex
 GRANT EXECUTE ON FUNCTION saas.revoke_panel_session(text,text,text,timestamptz) TO celebix_saas_identity;
 GRANT EXECUTE ON FUNCTION saas.revoke_panel_session_family(text,text,text,timestamptz) TO celebix_saas_identity;
 GRANT EXECUTE ON FUNCTION saas.expire_due_panel_sessions(timestamptz,integer) TO celebix_saas_identity;
-GRANT EXECUTE ON FUNCTION saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text) TO celebix_saas_identity;
+GRANT EXECUTE ON FUNCTION saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text,uuid) TO celebix_saas_identity;
 
 DO $phase2b2a_catalog_assertions$
 DECLARE
@@ -799,7 +816,7 @@ BEGIN
     'saas.revoke_panel_session(text,text,text,timestamp with time zone)',
     'saas.revoke_panel_session_family(text,text,text,timestamp with time zone)',
     'saas.expire_due_panel_sessions(timestamp with time zone,integer)',
-    'saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text)'
+    'saas.recover_panel_session_operation(uuid,text,text,text,uuid,uuid,text,text,uuid)'
   ] LOOP
     IF NOT pg_catalog.has_function_privilege('celebix_saas_identity', function_name, 'EXECUTE')
        OR pg_catalog.has_function_privilege('public', function_name, 'EXECUTE') THEN

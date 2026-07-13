@@ -61,6 +61,12 @@ function resolvedAuthority() {
   };
 }
 
+function assertAuthorityMutationBlocked(value: unknown, mutate: () => void) {
+  const before = JSON.stringify(value);
+  try { mutate(); } catch (error) { assert.ok(error instanceof TypeError); }
+  assert.equal(JSON.stringify(value), before);
+}
+
 function harness(responder: QueryResponder, options: { commitFailure?: boolean; audit?: (event: unknown) => void | Promise<void> } = {}) {
   const calls: Array<{ text: string; values: readonly unknown[] }> = [];
   const releases: unknown[] = [];
@@ -191,6 +197,47 @@ test("returns one controlled selection candidate but never fabricates TenantCont
   }
 });
 
+test("deep-freezes successful session, TenantContext, features, limits, and result projections", async () => {
+  const h = harness((text, values) => text.includes("issue_panel_session")
+    ? { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }
+    : { rows: [{ outcome: "resolved", authority: resolvedAuthority() }], rowCount: 1 });
+  const issued = await h.repository.issueSession({ operationId: OPERATION_ID, principalId: PRINCIPAL_ID, activeStoreId: STORE_ID, now: NOW });
+  assert.equal(issued.kind, "issued");
+  if (issued.kind !== "issued") return;
+  const resolved = await h.repository.resolveSession({ credential: issued.credential, requestId: "request_frozen", now: NOW });
+  assert.equal(resolved.kind, "resolved");
+  if (resolved.kind !== "resolved" || !resolved.tenantContext) return;
+
+  assertAuthorityMutationBlocked(issued, () => { (issued.session as { activeStoreId?: string }).activeStoreId = PRINCIPAL_ID; });
+  assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.store as { id: string }).id = PRINCIPAL_ID; });
+  assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.membership as { role: string }).role = "admin"; });
+  assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.entitlements.features as string[]).push("promotions"); });
+  assertAuthorityMutationBlocked(resolved, () => { (resolved.tenantContext!.entitlements.limits as { products: number }).products = 999999; });
+  assert.equal(Object.isFrozen(issued.session), true);
+  assert.equal(Object.isFrozen(resolved), true);
+  assert.equal(Object.isFrozen(resolved.tenantContext), true);
+  assert.equal(Object.isFrozen(resolved.tenantContext.entitlements.features), true);
+  assert.equal(Object.isFrozen(resolved.tenantContext.entitlements.limits), true);
+});
+
+test("deep-freezes a controlled selection candidate and its containing result", async () => {
+  const authority = {
+    ...sessionAuthority([], PRINCIPAL_ID, null),
+    principal: { issuer: "https://identity.example.test/oidc", subject: "subject_123" },
+    selectionCandidate: { storeId: STORE_ID },
+  };
+  const h = harness((text, values) => text.includes("issue_panel_session")
+    ? { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }
+    : { rows: [{ outcome: "resolved", authority }], rowCount: 1 });
+  const credential = await codecCredential(h);
+  const resolved = await h.repository.resolveSession({ credential, requestId: "request_candidate_frozen", now: NOW });
+  assert.equal(resolved.kind, "resolved");
+  if (resolved.kind !== "resolved" || !resolved.selectionCandidate) return;
+  assertAuthorityMutationBlocked(resolved, () => { (resolved.selectionCandidate as { storeId: string }).storeId = PRINCIPAL_ID; });
+  assert.equal(Object.isFrozen(resolved.selectionCandidate), true);
+  assert.equal(Object.isFrozen(resolved), true);
+});
+
 test("rotates with a new credential and preserves database-returned absolute expiry", async () => {
   const h = harness((text, values) => {
     if (text.includes("issue_panel_session")) return { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 };
@@ -242,6 +289,36 @@ test("read-only recovery proves the supplied credential but never returns it", a
   assert.equal(result.kind, "operation_replayed");
   assert.equal(JSON.stringify(result).includes(credential), false);
   assert.equal(h.calls.some((call) => call.text.startsWith("BEGIN READ ONLY")), true);
+});
+
+test("rotation recovery binds requested store and preserves omitted-store inheritance", async () => {
+  const recoveryValues: Array<readonly unknown[]> = [];
+  const h = harness((text, values) => {
+    if (text.includes("issue_panel_session")) return { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 };
+    assert.match(text, /^SELECT outcome, authority FROM saas\.recover_panel_session_operation\(/);
+    recoveryValues.push(values);
+    return { rows: [{ outcome: "operation_replayed", authority: sessionAuthority([], PRINCIPAL_ID, STORE_ID) }], rowCount: 1 };
+  });
+  const currentCredential = await codecCredential(h);
+  const candidateCredential = await codecCredential(h);
+  const bound = await h.repository.recoverOperation({
+    operationId: OPERATION_ID,
+    operationKind: "rotate",
+    credential: candidateCredential,
+    currentCredential,
+    requestedStoreId: STORE_ID,
+  });
+  const inherited = await h.repository.recoverOperation({
+    operationId: OPERATION_ID,
+    operationKind: "rotate",
+    credential: candidateCredential,
+    currentCredential,
+  });
+  assert.equal(bound.kind, "operation_replayed");
+  assert.equal(inherited.kind, "operation_replayed");
+  assert.equal(recoveryValues[0]?.length, 9);
+  assert.equal(recoveryValues[0]?.[8], STORE_ID);
+  assert.equal(recoveryValues[1]?.[8], null);
 });
 
 test("audit throw, rejection, and pending Promise cannot alter authoritative results", async () => {

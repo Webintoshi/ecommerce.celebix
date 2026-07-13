@@ -114,8 +114,14 @@ export interface PostgresPanelSessionRepository {
   expireDueSessions(input: { now: Date }): Promise<{ kind: PanelSessionSafeKind; count?: number }>;
   recoverOperation(input:
     | { operationId: string; operationKind: "issue"; credential: string; principalId: string; activeStoreId?: string }
-    | { operationId: string; operationKind: "rotate"; credential: string; currentCredential: string }
+    | { operationId: string; operationKind: "rotate"; credential: string; currentCredential: string; requestedStoreId?: string }
   ): Promise<AuthorityResult>;
+}
+
+function deepFreezeProjection<T>(value: T): T {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) return value;
+  for (const nested of Object.values(value)) deepFreezeProjection(nested);
+  return Object.freeze(value);
 }
 
 function object(value: unknown): Record<string, unknown> {
@@ -163,7 +169,7 @@ function sessionAuthority(value: unknown): PersistedPanelSession {
   const rotated = Date.parse(rotatedAt);
   const expires = Date.parse(expiresAt);
   if (issued > rotated || rotated >= expires || expires > issued + MAXIMUM_SESSION_MS) throw new Error("invalid");
-  return {
+  return deepFreezeProjection({
     sessionId: uuid(row.sessionId),
     familyId: uuid(row.familyId),
     principalId: uuid(row.principalId),
@@ -172,7 +178,7 @@ function sessionAuthority(value: unknown): PersistedPanelSession {
     issuedAt,
     rotatedAt,
     expiresAt,
-  };
+  });
 }
 
 function entitlements(value: unknown): PlanEntitlements {
@@ -197,12 +203,12 @@ function entitlements(value: unknown): PlanEntitlements {
     planCode: string(row.planCode, 80),
     version: integer(row.version),
     status: "active",
-    features,
-    limits: limits as unknown as PlanEntitlements["limits"],
+    features: deepFreezeProjection([...features]),
+    limits: deepFreezeProjection({ ...limits }) as unknown as PlanEntitlements["limits"],
     validFrom: timestamp(row.validFrom),
   };
   if (row.validUntil !== undefined) parsed.validUntil = timestamp(row.validUntil);
-  return parsed;
+  return deepFreezeProjection(parsed);
 }
 
 function resolvedAuthority(value: unknown, requestId: string): Extract<PanelSessionResolveResult, { kind: "resolved" }> {
@@ -219,7 +225,7 @@ function resolvedAuthority(value: unknown, requestId: string): Extract<PanelSess
     if (store.status !== "active" || storeId !== session.activeStoreId || membership.status !== "active") throw new Error("invalid");
     const role = string(membership.role, 32) as StoreMembershipRole;
     if (!MEMBERSHIP_ROLES.has(role)) throw new Error("invalid");
-    return {
+    return deepFreezeProjection({
       kind: "resolved",
       session,
       tenantContext: {
@@ -231,11 +237,11 @@ function resolvedAuthority(value: unknown, requestId: string): Extract<PanelSess
         entitlements: entitlements(tenant.entitlements),
         locale: string(tenant.locale, 16),
       },
-    };
+    });
   }
   if (!authority.selectionCandidate || session.activeStoreId) throw new Error("invalid");
   const candidate = exact(authority.selectionCandidate, ["storeId"]);
-  return { kind: "resolved", session, selectionCandidate: { storeId: uuid(candidate.storeId) } };
+  return deepFreezeProjection({ kind: "resolved", session, selectionCandidate: { storeId: uuid(candidate.storeId) } });
 }
 
 function safeInteger(value: number, maximum: number): number {
@@ -369,7 +375,7 @@ export function createPostgresPanelSessionRepository(
 
   const finish = <T extends { kind: PanelSessionSafeKind }>(operation: PanelSessionAuditEvent["operation"], result: T): T => {
     auditSafely(dependencies, { operation, result: result.kind });
-    return result;
+    return deepFreezeProjection({ ...result }) as T;
   };
 
   const repository: PostgresPanelSessionRepository = {
@@ -493,17 +499,19 @@ export function createPostgresPanelSessionRepository(
           if (input.activeStoreId !== undefined) uuid(input.activeStoreId);
         } else {
           current = codec.digestCredential(input.currentCredential);
+          if (input.requestedStoreId !== undefined) uuid(input.requestedStoreId);
         }
       } catch (error) {
         return finish("recover", nonAuthority(error instanceof PanelSessionCredentialError ? "unauthenticated" : "durable_authority_invalid"));
       }
       const executed = await transaction(dependencies, "read", async (client) => oneRow(await client.query(
-        "SELECT outcome, authority FROM saas.recover_panel_session_operation($1,$2,$3,$4,$5,$6,$7,$8)",
+        "SELECT outcome, authority FROM saas.recover_panel_session_operation($1,$2,$3,$4,$5,$6,$7,$8,$9)",
         [
           input.operationId, input.operationKind, candidate.tokenKeyId, candidate.tokenDigest,
           input.operationKind === "issue" ? input.principalId : null,
           input.operationKind === "issue" ? input.activeStoreId ?? null : null,
           current?.tokenKeyId ?? null, current?.tokenDigest ?? null,
+          input.operationKind === "rotate" ? input.requestedStoreId ?? null : null,
         ],
       )));
       if (executed.status !== "ok") return finish("recover", nonAuthority("unavailable"));

@@ -7,14 +7,14 @@
       "id": "202607140015_panel_sessions_up",
       "direction": "up",
       "file": "202607140015_panel_sessions.up.sql",
-      "sha256": "59570aaf5475095db691049a7a1a90c63cfee3e87a2035fcc650fa99cea45ab3",
+      "sha256": "6f250c8b117c2d778b9566316f3c4d32fb9b8316516e7b2dfadcb7764dfd96a5",
       "purpose": "Create the disabled panel-session table, immutable replacement graph, narrow SECURITY DEFINER operations, and exact identity-role grants."
     },
     {
       "id": "202607140015_panel_sessions_down",
       "direction": "down",
       "file": "202607140015_panel_sessions.down.sql",
-      "sha256": "892961acd68a33bbf80016b04906c5b388d893aa770128c1bfa4fd436d464606",
+      "sha256": "aa3653fc65a1709800ae4d6eb7215131525141069bd6152599f93e5610ab6b94",
       "purpose": "Remove only Phase 2B2A panel-session functions, guard, table, and indexes."
     }
   ]

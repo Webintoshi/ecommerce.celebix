@@ -62,6 +62,56 @@ test("timestamp, lifetime, revocation, version, and replacement invariants are d
   assert.match(migration, /OLD\.replaced_by_session_id IS NOT NULL/);
   assert.match(migration, /PHASE2B2A_IMMUTABLE_SESSION_AUTHORITY/);
   assert.match(migration, /PHASE2B2A_INVALID_SESSION_TRANSITION/);
+  assert.match(migration, /panel_sessions_family_root_unique_idx/);
+  assert.match(migration, /operation_kind = 'issue' AND previous_session_id IS NULL/);
+  assert.match(migration, /operation_kind = 'rotate' AND previous_session_id IS NOT NULL/);
+  assert.match(migration, /TG_OP = 'INSERT'/);
+});
+
+test("operation and family serialization use distinct transaction-scoped advisory locks", () => {
+  const migration = sql(upName);
+  assert.doesNotMatch(migration, /pg_advisory_lock|pg_advisory_unlock/);
+  const issue = migration.slice(migration.indexOf("CREATE FUNCTION saas.issue_panel_session("), migration.indexOf("CREATE FUNCTION saas.resolve_panel_session("));
+  const rotate = migration.slice(migration.indexOf("CREATE FUNCTION saas.rotate_panel_session("), migration.indexOf("CREATE FUNCTION saas.revoke_panel_session("));
+  const family = migration.slice(migration.indexOf("CREATE FUNCTION saas.revoke_panel_session_family("), migration.indexOf("CREATE FUNCTION saas.expire_due_panel_sessions("));
+  const operationLock = /pg_catalog\.pg_advisory_xact_lock\(\s*pg_catalog\.hashtextextended\(p_operation_id::text,\s*(-?\d+)\)\s*\)/;
+  const issueSeed = issue.match(operationLock)?.[1];
+  const rotateSeed = rotate.match(operationLock)?.[1];
+  assert.ok(issueSeed);
+  assert.equal(rotateSeed, issueSeed);
+  assert.ok(issue.indexOf("pg_advisory_xact_lock") < issue.indexOf("WHERE session.operation_id = p_operation_id"));
+  assert.ok(rotate.indexOf("pg_advisory_xact_lock") < rotate.indexOf("WHERE session.operation_id = p_operation_id"));
+  const familySeed = family.match(/hashtextextended\(current_session\.family_id::text,\s*(-?\d+)\)/)?.[1];
+  assert.ok(familySeed);
+  assert.notEqual(familySeed, issueSeed);
+  assert.match(rotate, new RegExp(`hashtextextended\\(current_session\\.family_id::text,\\s*${familySeed}\\)`));
+});
+
+test("destructive revocation is independent of current tenant authorization", () => {
+  const migration = sql(upName);
+  const single = migration.slice(migration.indexOf("CREATE FUNCTION saas.revoke_panel_session("), migration.indexOf("CREATE FUNCTION saas.revoke_panel_session_family("));
+  const family = migration.slice(migration.indexOf("CREATE FUNCTION saas.revoke_panel_session_family("), migration.indexOf("CREATE FUNCTION saas.expire_due_panel_sessions("));
+  for (const definition of [single, family]) {
+    assert.doesNotMatch(definition, /saas\.memberships|saas\.stores|saas\.subscriptions|saas\.plans/);
+  }
+  assert.match(family, /WHERE session\.family_id = current_session\.family_id AND session\.revoked_at IS NULL/);
+});
+
+test("rotation recovery is bound to the exact requested or inherited store", () => {
+  const migration = sql(upName);
+  const recovery = migration.slice(migration.indexOf("CREATE FUNCTION saas.recover_panel_session_operation("), migration.indexOf("CREATE FUNCTION saas.guard_panel_session_mutation("));
+  assert.match(recovery, /p_requested_store_id uuid/);
+  assert.match(recovery, /recovered\.active_store_id IS DISTINCT FROM COALESCE\(p_requested_store_id, previous\.active_store_id\)/);
+  assert.match(migration, /recover_panel_session_operation\(uuid,text,text,text,uuid,uuid,text,text,uuid\)/);
+  assert.match(sql(downName), /DROP FUNCTION saas\.recover_panel_session_operation\(uuid,text,text,text,uuid,uuid,text,text,uuid\)/);
+});
+
+test("runtime authority projections are recursively frozen before escape", () => {
+  const repository = read("apps/customer-panel/lib/panel-session-persistence/postgres-panel-session-repository.ts");
+  assert.match(repository, /deepFreezeProjection/);
+  assert.match(repository, /Object\.freeze/);
+  assert.match(repository, /features:\s*deepFreezeProjection/);
+  assert.match(repository, /limits:\s*deepFreezeProjection/);
 });
 
 test("all seven narrow functions are fixed SECURITY DEFINER owner functions", () => {
@@ -131,7 +181,7 @@ test("the stacked diff remains inside the Phase 2B2A allowlist and frozen surfac
   const diffPaths = execFileSync("git", ["diff", "--name-only", "30850e2e8c54202f919c6bcaca880f7132187a45"], { cwd: root, encoding: "utf8" })
     .trim().split("\n").filter(Boolean);
   const statusPaths = execFileSync("git", ["status", "--porcelain=v1"], { cwd: root, encoding: "utf8" })
-    .trim().split("\n").filter(Boolean).map((line) => line.slice(3));
+    .split("\n").filter(Boolean).map((line) => line.slice(3));
   const changed = [...new Set([...diffPaths, ...statusPaths])].sort();
   for (const file of changed) {
     assert.equal(
@@ -151,4 +201,20 @@ test("the stacked diff remains inside the Phase 2B2A allowlist and frozen surfac
     "apps/customer-panel/lib/self-serve-callback-edge/", "apps/customer-panel/lib/self-serve-internal-callback-transport/",
     "apps/owner/lib/self-serve-http/", "apps/customer-panel/app/",
   ]) assert.equal(changed.some((file) => file === forbidden || file.startsWith(forbidden)), false, forbidden);
+});
+
+test("the correction diff is confined to the Atlas-approved seven files", () => {
+  const changed = execFileSync("git", ["diff", "--name-only", "81c66dd695dc8f64e2b54ed3615d174682c220da"], { cwd: root, encoding: "utf8" })
+    .trim().split("\n").filter(Boolean);
+  const allowed = new Set([
+    "apps/customer-panel/lib/panel-session-persistence/postgres-panel-session-repository.ts",
+    "apps/customer-panel/lib/panel-session-persistence/postgres-panel-session-repository.test.ts",
+    "apps/owner/scripts/sql/saas/202607140015_panel_sessions.up.sql",
+    "apps/owner/scripts/sql/saas/202607140015_panel_sessions.down.sql",
+    "apps/owner/scripts/sql/saas/phase2b2a-manifest.json",
+    "tests/saas-phase2/panel-sessions/postgres-harness.mjs",
+    "tests/saas-phase2/panel-sessions/static-security.test.mjs",
+  ]);
+  assert.equal(changed.every((file) => allowed.has(file)), true, changed.join("\n"));
+  assert.equal(readdirSync(sqlDirectory).some((name) => /016.*panel/i.test(name)), false);
 });

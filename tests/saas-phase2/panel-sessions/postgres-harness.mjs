@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { accessSync, appendFileSync, constants, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -36,6 +36,8 @@ const membershipB = "30000000-0000-4000-8000-000000000002";
 const planId = "00000000-0000-4000-8000-000000000001";
 const keyId = "panel.active.v1";
 const key = new Uint8Array(32).fill(0x5a);
+const operationLockSeed = "6618472391047293";
+const familyLockSeed = "-7329146802501471";
 let lastDatabaseError;
 const phase2bFiles = [
   "202607110007_identity_roles.up.sql",
@@ -228,9 +230,30 @@ function changedCredential(value) {
   return `${value.slice(0, -1)}${last === "A" ? "B" : "A"}`;
 }
 
+function credentialProof(credential) {
+  const separator = credential.length - 44;
+  return {
+    tokenKeyId: credential.slice(3, separator),
+    tokenDigest: createHmac("sha256", key).update(`celebix-panel-session-v1\n${credential}`, "utf8").digest("hex"),
+  };
+}
+
+function deterministicCredential(byte) {
+  return `v1.${keyId}.${Buffer.alloc(32, byte).toString("base64url")}`;
+}
+
+async function assertPending(promise) {
+  let settled = false;
+  void promise.finally(() => { settled = true; });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(settled, false);
+}
+
 async function run() {
   let backend;
   let workloadPool;
+  let concurrencyPoolA;
+  let concurrencyPoolB;
   let restorePool;
   let scenarios = 0;
   const evidence = [];
@@ -253,6 +276,13 @@ async function run() {
     for (const file of phase2b1b1Files) migration(backend, file);
     migration(backend, "202607140015_panel_sessions.up.sql");
     await scenario("migrations 001 through 015", async () => assert.equal(psql(backend, "SELECT to_regclass('saas.panel_sessions') IS NOT NULL;"), "t"));
+    await scenario("transaction-scoped operation and family lock catalog", async () => {
+      const definitions = psql(backend, "SELECT string_agg(pg_get_functiondef(p.oid), E'\\n') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND p.proname IN ('issue_panel_session','rotate_panel_session','revoke_panel_session_family');");
+      assert.equal(definitions.includes("pg_advisory_xact_lock"), true);
+      assert.equal(definitions.includes(operationLockSeed), true);
+      assert.equal(definitions.includes(familyLockSeed), true);
+      assert.equal(definitions.includes("pg_advisory_unlock"), false);
+    });
     await scenario("manifest checksums", async () => {
       const manifest = JSON.parse(readFileSync(path.join(sqlDirectory, "phase2b2a-manifest.json"), "utf8"));
       for (const artifact of manifest.artifacts) {
@@ -298,11 +328,73 @@ async function run() {
     });
 
     workloadPool = pool(backend);
+    concurrencyPoolA = pool(backend);
+    concurrencyPoolB = pool(backend);
     const live = repository(workloadPool);
+
+    const exactIssueNow = new Date();
+    const exactIssueOperation = randomUUID();
+    const exactIssueA = repository(concurrencyPoolA, { seed: 101 });
+    const exactIssueB = repository(concurrencyPoolB, { seed: 101 });
+    const exactIssueResults = await Promise.all([
+      exactIssueA.at(exactIssueNow, (repo) => repo.issueSession({ operationId: exactIssueOperation, principalId: principalA, activeStoreId: storeA, now: exactIssueNow })),
+      exactIssueB.at(exactIssueNow, (repo) => repo.issueSession({ operationId: exactIssueOperation, principalId: principalA, activeStoreId: storeA, now: exactIssueNow })),
+    ]);
+    await scenario("concurrent exact issue replay", async () => {
+      assert.deepEqual(exactIssueResults.map((entry) => entry.kind).sort(), ["issued", "operation_replayed"]);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE operation_id='${exactIssueOperation}';`), "1");
+    });
+
+    const mismatchedIssueNow = new Date();
+    const mismatchedIssueOperation = randomUUID();
+    const mismatchedIssueA = repository(concurrencyPoolA, { seed: 102 });
+    const mismatchedIssueB = repository(concurrencyPoolB, { seed: 103 });
+    const mismatchedIssueResults = await Promise.all([
+      mismatchedIssueA.at(mismatchedIssueNow, (repo) => repo.issueSession({ operationId: mismatchedIssueOperation, principalId: principalA, activeStoreId: storeA, now: mismatchedIssueNow })),
+      mismatchedIssueB.at(mismatchedIssueNow, (repo) => repo.issueSession({ operationId: mismatchedIssueOperation, principalId: principalA, activeStoreId: storeA, now: mismatchedIssueNow })),
+    ]);
+    await scenario("concurrent mismatched issue replay", async () => {
+      assert.deepEqual(mismatchedIssueResults.map((entry) => entry.kind).sort(), ["issued", "operation_mismatch"]);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE operation_id='${mismatchedIssueOperation}';`), "1");
+    });
+
     const issueNow = new Date();
     const issue = await live.at(issueNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: issueNow }));
     await scenario("issue session", async () => assert.equal(issue.kind, "issued"));
     assert.equal(issue.kind, "issued");
+    await scenario("root row-shape and replacement continuity invariants", async () => {
+      const invariantNow = new Date();
+      const values = (operationKind, familyId, previousSessionId, digestSeed) => `(
+        '${randomUUID()}','${familyId}','${randomUUID()}','${operationKind}','invariant.v1',
+        '${createHash("sha256").update(digestSeed).digest("hex")}','${principalA}','${storeA}',
+        ${previousSessionId ? `'${previousSessionId}'` : "NULL"},NULL,1,
+        '${invariantNow.toISOString()}','${invariantNow.toISOString()}','${new Date(invariantNow.getTime() + 60 * 60_000).toISOString()}',
+        NULL,NULL,'${invariantNow.toISOString()}','${invariantNow.toISOString()}'
+      )`;
+      psql(backend, `SET ROLE celebix_saas_owner;
+        DO $invariants$
+        BEGIN
+          BEGIN
+            INSERT INTO saas.panel_sessions VALUES ${values("issue", issue.session.familyId, null, "duplicate-root")};
+            RAISE EXCEPTION 'PHASE2B2A_EXPECTED_ROOT_REJECTION';
+          EXCEPTION WHEN unique_violation THEN NULL;
+          END;
+          BEGIN
+            INSERT INTO saas.panel_sessions VALUES ${values("issue", randomUUID(), issue.session.sessionId, "issue-with-previous")};
+            RAISE EXCEPTION 'PHASE2B2A_EXPECTED_SHAPE_REJECTION';
+          EXCEPTION WHEN check_violation THEN NULL;
+          END;
+          BEGIN
+            INSERT INTO saas.panel_sessions VALUES ${values("rotate", randomUUID(), issue.session.sessionId, "broken-continuity")};
+            RAISE EXCEPTION 'PHASE2B2A_EXPECTED_CONTINUITY_REJECTION';
+          EXCEPTION WHEN raise_exception THEN
+            IF SQLERRM <> 'PHASE2B2A_INVALID_SESSION_TRANSITION' THEN RAISE; END IF;
+          END;
+        END
+        $invariants$;
+        RESET ROLE;`);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE family_id='${issue.session.familyId}' AND operation_kind='issue';`), "1");
+    });
     const originalCredential = issue.credential;
     await scenario("raw credential absent", async () => {
       const scan = psql(backend, "SELECT coalesce(string_agg(row_to_json(session)::text,''),'') FROM saas.panel_sessions AS session;");
@@ -316,6 +408,13 @@ async function run() {
       assert.equal(resolved.tenantContext?.store.id, storeA);
       assert.equal(resolved.tenantContext?.membership.id, membershipA);
       assert.deepEqual(resolved.tenantContext?.entitlements.features, ["catalog", "orders", "customers", "content", "media", "analytics", "checkout"]);
+    });
+    await scenario("deep-frozen runtime authority", async () => {
+      assert.equal(Object.isFrozen(resolved), true);
+      assert.equal(Object.isFrozen(resolved.kind === "resolved" ? resolved.session : null), true);
+      assert.equal(Object.isFrozen(resolved.kind === "resolved" ? resolved.tenantContext : null), true);
+      assert.equal(Object.isFrozen(resolved.kind === "resolved" ? resolved.tenantContext?.entitlements.features : null), true);
+      assert.equal(Object.isFrozen(resolved.kind === "resolved" ? resolved.tenantContext?.entitlements.limits : null), true);
     });
     const wrong = await live.at(new Date(), (repo) => repo.resolveSession({ credential: changedCredential(originalCredential), requestId: "request-wrong", now: liveTime(live) }));
     await scenario("wrong credential", async () => assert.equal(wrong.kind, "unauthenticated"));
@@ -376,6 +475,38 @@ async function run() {
     const newAfterRotation = await live.at(new Date(), (repo) => repo.resolveSession({ credential: rotation.credential, requestId: "request-new", now: liveTime(live) }));
     await scenario("new credential accepted", async () => assert.equal(newAfterRotation.kind, "resolved"));
     await scenario("absolute expiry preserved", async () => assert.equal(rotation.session.expiresAt, issue.session.expiresAt));
+
+    const exactRotationBaseNow = new Date();
+    const exactRotationBase = await live.at(exactRotationBaseNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: exactRotationBaseNow }));
+    assert.equal(exactRotationBase.kind, "issued");
+    const exactRotationNow = new Date();
+    const exactRotationOperation = randomUUID();
+    const exactRotationA = repository(concurrencyPoolA, { seed: 111 });
+    const exactRotationB = repository(concurrencyPoolB, { seed: 111 });
+    const exactRotationResults = await Promise.all([
+      exactRotationA.at(exactRotationNow, (repo) => repo.rotateSession({ currentCredential: exactRotationBase.credential, operationId: exactRotationOperation, requestedStoreId: storeA, now: exactRotationNow })),
+      exactRotationB.at(exactRotationNow, (repo) => repo.rotateSession({ currentCredential: exactRotationBase.credential, operationId: exactRotationOperation, requestedStoreId: storeA, now: exactRotationNow })),
+    ]);
+    await scenario("concurrent exact rotation replay", async () => {
+      assert.deepEqual(exactRotationResults.map((entry) => entry.kind).sort(), ["operation_replayed", "rotated"]);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE previous_session_id='${exactRotationBase.session.sessionId}';`), "1");
+    });
+
+    const mismatchedRotationBaseNow = new Date();
+    const mismatchedRotationBase = await live.at(mismatchedRotationBaseNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: mismatchedRotationBaseNow }));
+    assert.equal(mismatchedRotationBase.kind, "issued");
+    const mismatchedRotationNow = new Date();
+    const mismatchedRotationOperation = randomUUID();
+    const mismatchedRotationA = repository(concurrencyPoolA, { seed: 112 });
+    const mismatchedRotationB = repository(concurrencyPoolB, { seed: 113 });
+    const mismatchedRotationResults = await Promise.all([
+      mismatchedRotationA.at(mismatchedRotationNow, (repo) => repo.rotateSession({ currentCredential: mismatchedRotationBase.credential, operationId: mismatchedRotationOperation, requestedStoreId: storeA, now: mismatchedRotationNow })),
+      mismatchedRotationB.at(mismatchedRotationNow, (repo) => repo.rotateSession({ currentCredential: mismatchedRotationBase.credential, operationId: mismatchedRotationOperation, requestedStoreId: storeA, now: mismatchedRotationNow })),
+    ]);
+    await scenario("concurrent mismatched rotation replay", async () => {
+      assert.deepEqual(mismatchedRotationResults.map((entry) => entry.kind).sort(), ["operation_mismatch", "rotated"]);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE previous_session_id='${mismatchedRotationBase.session.sessionId}';`), "1");
+    });
 
     const concurrentNow = new Date();
     const opOne = randomUUID();
@@ -441,6 +572,109 @@ async function run() {
     const familyAgain = await live.at(new Date(), (repo) => repo.revokeSessionFamily({ credential: familyRotateTwo.credential, reason: "security", now: liveTime(live) }));
     await scenario("family revocation idempotency", async () => assert.equal(familyAgain.kind, "family_revoked"));
 
+    const membershipRevokeIssueNow = new Date();
+    const membershipRevokeIssue = await live.at(membershipRevokeIssueNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: membershipRevokeIssueNow }));
+    assert.equal(membershipRevokeIssue.kind, "issued");
+    psql(backend, `SET ROLE celebix_saas_owner; UPDATE saas.memberships SET status='revoked',updated_at=clock_timestamp() WHERE id='${membershipA}'; RESET ROLE;`);
+    const membershipRevokeNow = new Date();
+    const revokedWithoutMembership = await live.at(membershipRevokeNow, (repo) => repo.revokeSession({ credential: membershipRevokeIssue.credential, reason: "security", now: membershipRevokeNow }));
+    await scenario("revocation after membership becomes inactive", async () => assert.equal(revokedWithoutMembership.kind, "revoked"));
+    psql(backend, `SET ROLE celebix_saas_owner; UPDATE saas.memberships SET status='active',updated_at=clock_timestamp() WHERE id='${membershipA}'; RESET ROLE;`);
+    const membershipRestoredResolve = await live.at(new Date(), (repo) => repo.resolveSession({ credential: membershipRevokeIssue.credential, requestId: "request-membership-restored", now: liveTime(live) }));
+    await scenario("membership restoration cannot reactivate", async () => assert.equal(membershipRestoredResolve.kind, "unauthenticated"));
+
+    const storeRevokeIssueNow = new Date();
+    const storeRevokeIssue = await live.at(storeRevokeIssueNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: storeRevokeIssueNow }));
+    assert.equal(storeRevokeIssue.kind, "issued");
+    psql(backend, `SET ROLE celebix_saas_owner; UPDATE saas.stores SET status='suspended',updated_at=clock_timestamp() WHERE id='${storeA}'; RESET ROLE;`);
+    const storeRevokeNow = new Date();
+    const revokedWithoutStore = await live.at(storeRevokeNow, (repo) => repo.revokeSession({ credential: storeRevokeIssue.credential, reason: "administrative", now: storeRevokeNow }));
+    await scenario("revocation after store becomes inactive", async () => assert.equal(revokedWithoutStore.kind, "revoked"));
+    psql(backend, `SET ROLE celebix_saas_owner; UPDATE saas.stores SET status='active',updated_at=clock_timestamp() WHERE id='${storeA}'; RESET ROLE;`);
+    const storeRestoredResolve = await live.at(new Date(), (repo) => repo.resolveSession({ credential: storeRevokeIssue.credential, requestId: "request-store-restored", now: liveTime(live) }));
+    await scenario("store restoration cannot reactivate", async () => assert.equal(storeRestoredResolve.kind, "unauthenticated"));
+
+    const predecessorIssueNow = new Date();
+    const predecessorIssue = await live.at(predecessorIssueNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: predecessorIssueNow }));
+    assert.equal(predecessorIssue.kind, "issued");
+    const predecessorRotateNow = new Date();
+    const predecessorRotation = await live.at(predecessorRotateNow, (repo) => repo.rotateSession({ currentCredential: predecessorIssue.credential, operationId: randomUUID(), now: predecessorRotateNow }));
+    assert.equal(predecessorRotation.kind, "rotated");
+    const predecessorFamilyNow = new Date();
+    const predecessorFamilyRevoked = await live.at(predecessorFamilyNow, (repo) => repo.revokeSessionFamily({ credential: predecessorIssue.credential, reason: "security", now: predecessorFamilyNow }));
+    await scenario("rotation-revoked predecessor revokes active family", async () => {
+      assert.equal(predecessorFamilyRevoked.kind, "family_revoked");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE family_id='${predecessorIssue.session.familyId}' AND revoked_at IS NULL;`), "0");
+    });
+
+    const familyWinsIssueNow = new Date();
+    const familyWinsIssue = await live.at(familyWinsIssueNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: familyWinsIssueNow }));
+    assert.equal(familyWinsIssue.kind, "issued");
+    const familyWinsClient = await concurrencyPoolA.connect();
+    let familyWinsCommitted = false;
+    try {
+      const proof = credentialProof(familyWinsIssue.credential);
+      const revokeNow = new Date();
+      await familyWinsClient.query("BEGIN");
+      await familyWinsClient.query("SET LOCAL ROLE celebix_saas_identity");
+      await familyWinsClient.query(
+        "SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1::text,$2::bigint))",
+        [familyWinsIssue.session.familyId, familyLockSeed],
+      );
+      const revokeResult = await familyWinsClient.query(
+        "SELECT outcome FROM saas.revoke_panel_session_family($1,$2,$3,$4)",
+        [proof.tokenKeyId, proof.tokenDigest, "security", revokeNow],
+      );
+      assert.equal(revokeResult.rows[0]?.outcome, "family_revoked");
+      const familyWinsRotationEnv = repository(concurrencyPoolB, { seed: 121 });
+      const familyWinsRotation = familyWinsRotationEnv.at(revokeNow, (repo) => repo.rotateSession({ currentCredential: familyWinsIssue.credential, operationId: randomUUID(), now: revokeNow }));
+      await assertPending(familyWinsRotation);
+      await familyWinsClient.query("COMMIT");
+      familyWinsCommitted = true;
+      const rotationResult = await familyWinsRotation;
+      await scenario("family revocation wins rotation race", async () => assert.equal(rotationResult.kind, "unauthenticated"));
+    } finally {
+      if (!familyWinsCommitted) await familyWinsClient.query("ROLLBACK").catch(() => undefined);
+      familyWinsClient.release();
+    }
+    await scenario("family-revocation winner leaves zero active family rows", async () => {
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE family_id='${familyWinsIssue.session.familyId}' AND revoked_at IS NULL;`), "0");
+    });
+
+    const rotationWinsIssueNow = new Date();
+    const rotationWinsIssue = await live.at(rotationWinsIssueNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: rotationWinsIssueNow }));
+    assert.equal(rotationWinsIssue.kind, "issued");
+    const rotationWinsClient = await concurrencyPoolA.connect();
+    let rotationWinsCommitted = false;
+    const rotationWinsCredential = deterministicCredential(0x73);
+    try {
+      const previousProof = credentialProof(rotationWinsIssue.credential);
+      const replacementProof = credentialProof(rotationWinsCredential);
+      const rotationNow = new Date();
+      await rotationWinsClient.query("BEGIN");
+      await rotationWinsClient.query("SET LOCAL ROLE celebix_saas_identity");
+      const directRotation = await rotationWinsClient.query(
+        "SELECT outcome FROM saas.rotate_panel_session($1,$2,$3,$4,$5,$6,$7,$8)",
+        [previousProof.tokenKeyId, previousProof.tokenDigest, randomUUID(), randomUUID(), replacementProof.tokenKeyId, replacementProof.tokenDigest, null, rotationNow],
+      );
+      assert.equal(directRotation.rows[0]?.outcome, "rotated");
+      const rotationWinsFamilyEnv = repository(concurrencyPoolB, { seed: 122 });
+      const familyRevocation = rotationWinsFamilyEnv.at(rotationNow, (repo) => repo.revokeSessionFamily({ credential: rotationWinsIssue.credential, reason: "security", now: rotationNow }));
+      await assertPending(familyRevocation);
+      await rotationWinsClient.query("COMMIT");
+      rotationWinsCommitted = true;
+      const familyResult = await familyRevocation;
+      await scenario("rotation wins then family revocation discovers replacement", async () => assert.equal(familyResult.kind, "family_revoked"));
+    } finally {
+      if (!rotationWinsCommitted) await rotationWinsClient.query("ROLLBACK").catch(() => undefined);
+      rotationWinsClient.release();
+    }
+    await scenario("rotation winner is removed by family revocation", async () => {
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE family_id='${rotationWinsIssue.session.familyId}' AND revoked_at IS NULL;`), "0");
+      const resolvedReplacement = await live.at(new Date(), (repo) => repo.resolveSession({ credential: rotationWinsCredential, requestId: "request-race-replacement", now: liveTime(live) }));
+      assert.equal(resolvedReplacement.kind, "unauthenticated");
+    });
+
     const cleanupNow = new Date();
     for (let index = 0; index < 3; index += 1) {
       const digest = createHash("sha256").update(`cleanup-${index}`).digest("hex");
@@ -481,11 +715,25 @@ async function run() {
     const unknownRotationNow = new Date();
     const unknownRotationOperation = randomUUID();
     const unknownRotationEnv = repository(workloadPool, { seed: 81, commitUnknown: true });
-    const unknownRotation = await unknownRotationEnv.at(unknownRotationNow, (repo) => repo.rotateSession({ currentCredential: unknownRotationBase.credential, operationId: unknownRotationOperation, now: unknownRotationNow }));
+    const unknownRotation = await unknownRotationEnv.at(unknownRotationNow, (repo) => repo.rotateSession({ currentCredential: unknownRotationBase.credential, operationId: unknownRotationOperation, requestedStoreId: storeA, now: unknownRotationNow }));
     await scenario("rotation unknown COMMIT", async () => assert.equal(unknownRotation.kind, "commit_unknown"));
     assert.equal(unknownRotation.kind, "commit_unknown");
-    const rotationRecovery = await live.instance.recoverOperation({ operationId: unknownRotationOperation, operationKind: "rotate", credential: unknownRotation.credential, currentCredential: unknownRotationBase.credential });
-    await scenario("rotation read-only recovery", async () => assert.equal(rotationRecovery.kind, "operation_replayed"));
+    const rotationRecovery = await live.instance.recoverOperation({ operationId: unknownRotationOperation, operationKind: "rotate", credential: unknownRotation.credential, currentCredential: unknownRotationBase.credential, requestedStoreId: storeA });
+    await scenario("rotation read-only recovery with requested store", async () => assert.equal(rotationRecovery.kind, "operation_replayed"));
+    const wrongStoreRecovery = await live.instance.recoverOperation({ operationId: unknownRotationOperation, operationKind: "rotate", credential: unknownRotation.credential, currentCredential: unknownRotationBase.credential, requestedStoreId: storeB });
+    await scenario("rotation recovery rejects wrong requested store", async () => assert.equal(wrongStoreRecovery.kind, "operation_mismatch"));
+
+    const inheritedRotationBaseNow = new Date();
+    const inheritedRotationBaseEnv = repository(workloadPool, { seed: 82 });
+    const inheritedRotationBase = await inheritedRotationBaseEnv.at(inheritedRotationBaseNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: inheritedRotationBaseNow }));
+    assert.equal(inheritedRotationBase.kind, "issued");
+    const inheritedRotationNow = new Date();
+    const inheritedRotationOperation = randomUUID();
+    const inheritedRotationEnv = repository(workloadPool, { seed: 83, commitUnknown: true });
+    const inheritedRotation = await inheritedRotationEnv.at(inheritedRotationNow, (repo) => repo.rotateSession({ currentCredential: inheritedRotationBase.credential, operationId: inheritedRotationOperation, now: inheritedRotationNow }));
+    assert.equal(inheritedRotation.kind, "commit_unknown");
+    const inheritedRecovery = await live.instance.recoverOperation({ operationId: inheritedRotationOperation, operationKind: "rotate", credential: inheritedRotation.credential, currentCredential: inheritedRotationBase.credential });
+    await scenario("rotation recovery inherits previous active store", async () => assert.equal(inheritedRecovery.kind, "operation_replayed"));
 
     const restoreIssueNow = new Date();
     const restoreIssue = await live.at(restoreIssueNow, (repo) => repo.issueSession({ operationId: randomUUID(), principalId: principalA, activeStoreId: storeA, now: restoreIssueNow }));
@@ -517,6 +765,8 @@ async function run() {
     });
   } finally {
     await restorePool?.end().catch(() => undefined);
+    await concurrencyPoolB?.end().catch(() => undefined);
+    await concurrencyPoolA?.end().catch(() => undefined);
     await workloadPool?.end().catch(() => undefined);
     if (backend) {
       try {
@@ -528,7 +778,7 @@ async function run() {
       }
     }
   }
-  assert.equal(scenarios, 55, evidence.join("\n"));
+  assert.equal(scenarios, 73, evidence.join("\n"));
   return { status: "PASS", backend: backend.kind === "native" ? "native-postgresql" : backend.engine, postgresqlVersion: 16, scenarios, externalNetworkAttempts: 0, productionConnectionUsed: false, rollback: "PASS", reapply: "PASS", backupRestore: "PASS", concurrency: "PASS", cleanup: "PASS", rawCredentialScan: "PASS", roleGrants: "PASS" };
 }
 
