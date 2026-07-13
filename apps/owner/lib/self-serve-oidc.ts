@@ -254,7 +254,7 @@ function assertAuthorizationUrl(input: {
   }
   if (
     !hasExactly(url, "response_type", "code") ||
-    url.searchParams.getAll("response_mode").includes("fragment") ||
+    !hasExactly(url, "response_mode", "query") ||
     url.searchParams.has("code_verifier")
   ) {
     throw new OidcFlowError("oidc_provider_rejected", "OIDC authorization response type is invalid.");

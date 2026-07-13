@@ -98,10 +98,10 @@ test("post-consume and provider failures have explicit non-retryable restart sem
   assert.doesNotMatch(oidc, /catch \(error\)[\s\S]{0,180}oidc_provider_rejected", "OIDC provider (?:rejected|is unavailable)/);
 });
 
-test("authorization URL requires exact code flow and rejects hybrid or fragment response mode", () => {
+test("authorization URL requires exact code flow and exact query response mode", () => {
   const oidc = read("apps/owner/lib/self-serve-oidc.ts");
   assert.match(oidc, /hasExactly\(url, "response_type", "code"\)/);
-  assert.match(oidc, /getAll\("response_mode"\)\.includes\("fragment"\)/);
+  assert.match(oidc, /hasExactly\(url, "response_mode", "query"\)/);
   assert.doesNotMatch(oidc, /responseTypes\[0\][^\n]*includes\("code"\)/);
 });
 

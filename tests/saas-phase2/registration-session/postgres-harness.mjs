@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -17,14 +17,24 @@ import { RegistrationPersistenceError } from "../../../apps/owner/lib/saas-persi
 import { PostgresOidcTransactionStore } from "../../../apps/owner/lib/saas-persistence/postgres-oidc-transaction-store.ts";
 import { PostgresRegistrationAttemptStore } from "../../../apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts";
 import { createOwnerTenantCoreAdapter } from "../../../apps/owner/lib/saas-tenant-core/adapter.ts";
+import {
+  createOwnerInternalCallbackGatewayApproval,
+  createOwnerInternalSelfServeCallbackGateway,
+} from "../../../apps/owner/lib/self-serve-http/internal-callback-gateway.ts";
 import { createSelfServeOidcCallbackCompletionHandler } from "../../../apps/owner/lib/self-serve-http/oidc-callback-completion.ts";
 import { createSelfServeRegistrationStartHandler } from "../../../apps/owner/lib/self-serve-http/registration-start.ts";
 import {
   createPersistentSelfServeRuntime,
   createSelfServeHttpActivationApproval,
 } from "../../../apps/owner/lib/self-serve-http/runtime.ts";
+import { createVerifiedEdgeTrustBoundary } from "../../../apps/owner/lib/self-serve-http/verified-edge-trust.ts";
 import { createPersistentRegistrationCompletionService } from "../../../apps/owner/lib/self-serve-registration-completion.ts";
 import { OidcFlowError } from "../../../apps/owner/lib/self-serve-oidc.ts";
+import {
+  createCustomerPanelCallbackEdgeApproval,
+  createCustomerPanelSelfServeCallbackEdge,
+} from "../../../apps/customer-panel/lib/self-serve-callback-edge/edge.ts";
+import { createAuthenticatedOwnerCallbackTransport } from "../../../apps/customer-panel/lib/self-serve-internal-callback-transport/transport.ts";
 import { registerPostgresTestFailure } from "../../../packages/saas-data/src/postgres/repository.ts";
 import {
   DISPOSABLE_IMAGE,
@@ -44,8 +54,14 @@ const workloadRole = "celebix_phase2b1_test";
 const completionResultAuthorities = { panelOrigin: "https://panel.celebix.site", platformDomainSuffix: "celebix.site" };
 const httpCallbackAuthority = "https://panel.celebix.site/auth/callback";
 const httpOwnerOrigin = "https://ecommerce.celebix.co";
+const httpInternalOwnerOrigin = "https://owner-internal.example.test";
+const httpInternalEndpoint = `${httpInternalOwnerOrigin}/api/internal/self-serve/oidc-callback`;
 const httpIssuer = "https://identity.example.test";
 const httpAudience = "customer-panel";
+const httpInternalKeyId = "disposable.callback.v1";
+const httpInternalSecret = randomBytes(32);
+const httpRuntimeTrustBoundaries = new WeakMap();
+const crossAppMetrics = { internalRequests: 0, authenticatedRequests: 0, transportLosses: 0 };
 const phase2bFiles = [
   "202607110007_identity_roles.up.sql",
   "202607110008_identity_persistence.up.sql",
@@ -238,6 +254,7 @@ class DeterministicHttpOidcProvider {
     this.authorizationCalls += 1;
     const url = new URL(`${httpIssuer}/authorize`);
     url.searchParams.set("response_type", "code");
+    url.searchParams.set("response_mode", "query");
     url.searchParams.set("state", input.state);
     url.searchParams.set("nonce", input.nonce);
     url.searchParams.set("code_challenge", input.codeChallenge);
@@ -291,14 +308,15 @@ function persistentHttpRuntime({
   requestGate = { async verify() { return "allowed"; } },
   callbackRecovery = registrationStore,
 }) {
-  return createPersistentSelfServeRuntime({
+  const edgeTrustBoundary = createVerifiedEdgeTrustBoundary(requestGate);
+  const runtime = createPersistentSelfServeRuntime({
     activationApproval: createSelfServeHttpActivationApproval("disposable_test"),
     registrationAttemptStore: registrationStore,
     oidcTransactionStore: oidcStore,
     registrationCompletion: completion,
     consumedCallbackRecovery: callbackRecovery,
     oidcProvider: provider,
-    requestGate,
+    requestGate: edgeTrustBoundary.requestGate,
     clock,
     audit,
     bodyPolicy: { maximumBytes: 4_096, maximumCallbackQueryBytes: 2_048 },
@@ -308,6 +326,8 @@ function persistentHttpRuntime({
     platformDomainSuffix: "celebix.site",
     providerAuthority: { issuer: httpIssuer, audience: httpAudience, authorizationOrigin: httpIssuer },
   });
+  httpRuntimeTrustBoundaries.set(runtime, edgeTrustBoundary);
+  return runtime;
 }
 
 async function beginHttpRegistration(runtime, slug) {
@@ -330,10 +350,82 @@ async function beginHttpRegistration(runtime, slug) {
   return { body, state };
 }
 
-async function completeHttpCallback(runtime, state, code = "valid-code") {
-  return createSelfServeOidcCallbackCompletionHandler(runtime)(new Request(
-    `${httpCallbackAuthority}?state=${encodeURIComponent(state)}&code=${encodeURIComponent(code)}`,
-  ), Object.freeze({ kind: "disposable_edge_trust" }));
+async function completeHttpCallback(runtime, state, code = "valid-code", controls = {}) {
+  const edgeTrustBoundary = httpRuntimeTrustBoundaries.get(runtime);
+  assert.ok(edgeTrustBoundary, "persistent HTTP runtime must own a private edge-trust boundary");
+  const callbackHandler = createSelfServeOidcCallbackCompletionHandler(runtime);
+  const gateway = createOwnerInternalSelfServeCallbackGateway({
+    activationApproval: createOwnerInternalCallbackGatewayApproval("disposable_test"),
+    ownerInternalOrigin: httpInternalOwnerOrigin,
+    keys: new Map([[httpInternalKeyId, httpInternalSecret]]),
+    clock: () => new Date("2026-07-12T10:01:00.000Z"),
+    maximumBodyBytes: 8_192,
+    maximumResponseBytes: 8_192,
+    edgeTrustBoundary,
+    callbackHandler,
+    audit: (event) => assert.doesNotMatch(JSON.stringify(event), /state|code|url|secret|signature|timestamp/i),
+  });
+  const customerApproval = createCustomerPanelCallbackEdgeApproval("disposable_test");
+  let fetchCalls = 0;
+  const transport = createAuthenticatedOwnerCallbackTransport({
+    activationApproval: customerApproval,
+    ownerInternalOrigin: httpInternalOwnerOrigin,
+    activeKeyId: httpInternalKeyId,
+    activeSecret: httpInternalSecret,
+    fetch: async (internalRequest) => {
+      fetchCalls += 1;
+      crossAppMetrics.internalRequests += 1;
+      assert.equal(internalRequest.url, httpInternalEndpoint);
+      assert.equal(internalRequest.method, "POST");
+      assert.equal(internalRequest.redirect, "manual");
+      assert.equal(internalRequest.credentials, "omit");
+      assert.deepEqual([...internalRequest.headers.keys()].sort(), [
+        "content-type",
+        "x-celebix-callback-key-id",
+        "x-celebix-callback-signature",
+        "x-celebix-callback-timestamp",
+      ]);
+      const signedBody = new Uint8Array(await internalRequest.clone().arrayBuffer());
+      const timestamp = internalRequest.headers.get("x-celebix-callback-timestamp");
+      const digest = createHash("sha256").update(signedBody).digest("hex");
+      const expectedSignature = createHmac("sha256", httpInternalSecret)
+        .update(`celebix-callback-v1\n${timestamp}\n${digest}`)
+        .digest("base64url");
+      assert.equal(internalRequest.headers.get("x-celebix-callback-signature"), expectedSignature);
+      crossAppMetrics.authenticatedRequests += 1;
+      const internalResponse = await gateway(internalRequest);
+      if (controls.loseInternalResponse === true) {
+        crossAppMetrics.transportLosses += 1;
+        throw new Error("simulated internal transport response loss");
+      }
+      Object.defineProperty(internalResponse, "url", { configurable: true, value: httpInternalEndpoint });
+      return internalResponse;
+    },
+    clock: () => new Date("2026-07-12T10:01:00.000Z"),
+    deadlineMs: 1_000,
+    maximumResponseBytes: 8_192,
+    audit: (event) => assert.doesNotMatch(JSON.stringify(event), /state|code|url|secret|signature|timestamp/i),
+  });
+  const edge = createCustomerPanelSelfServeCallbackEdge({
+    activationApproval: customerApproval,
+    publicCallbackAuthority: httpCallbackAuthority,
+    maximumQueryBytes: 2_048,
+    maximumResponseBytes: 8_192,
+    transport,
+    audit: (event) => assert.doesNotMatch(JSON.stringify(event), /state|code|url|secret|signature|timestamp/i),
+  });
+  const query = controls.providerError
+    ? `state=${encodeURIComponent(state)}&error=${encodeURIComponent(controls.providerError)}&error_description=private-provider-detail`
+    : `state=${encodeURIComponent(state)}&code=${encodeURIComponent(code)}`;
+  const publicResponse = await edge(new Request(`${httpCallbackAuthority}?${query}`, {
+    headers: {
+      host: "attacker.example",
+      "x-forwarded-host": "attacker.example",
+      "x-forwarded-proto": "http",
+    },
+  }));
+  assert.equal(fetchCalls, 1);
+  return publicResponse;
 }
 
 const verifiedIdentity = {
@@ -1426,9 +1518,12 @@ async function main() {
       completion: completionService(registrationsB, poolB), provider: new DeterministicHttpOidcProvider(),
       clock: () => new Date("2026-07-12T10:01:00.000Z"), audit: httpAudit,
     });
-    const providerErrorResponse = await createSelfServeOidcCallbackCompletionHandler(providerErrorRuntime)(new Request(
-      `${httpCallbackAuthority}?state=${encodeURIComponent(providerErrorStart.state)}&error=access_denied&error_description=private-provider-detail`,
-    ), {});
+    const providerErrorResponse = await completeHttpCallback(
+      providerErrorRuntime,
+      providerErrorStart.state,
+      "valid-code",
+      { providerError: "access_denied" },
+    );
     assert.equal(providerErrorResponse.status, 400);
     assert.doesNotMatch(JSON.stringify(await providerErrorResponse.json()), /private-provider-detail/);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-provider-error';").stdout.trim(), "0");
@@ -1659,6 +1754,120 @@ async function main() {
     assert.equal(unknownRecovery.kind, "tenant_recovered");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-unknown-commit';").stdout.trim(), "1");
 
+    const transportLossCapture = capturingRegistrationStore(registrationsA);
+    const transportLossStart = await beginHttpRegistration(persistentHttpRuntime({
+      registrationStore: transportLossCapture.store,
+      oidcStore: oidcA,
+      completion: completionService(registrationsA, poolA),
+      provider: new DeterministicHttpOidcProvider(),
+      clock: () => new Date("2026-07-12T10:00:00.000Z"),
+      audit: httpAudit,
+    }), "http-transport-loss");
+    let transportLossTenantCoreCalls = 0;
+    const transportLossProvider = new DeterministicHttpOidcProvider();
+    const transportLossRuntime = persistentHttpRuntime({
+      registrationStore: registrationsB,
+      oidcStore: oidcB,
+      completion: completionService(registrationsB, poolB, undefined, {
+        wrapTenantCore: (base) => ({
+          async createStarterTenant(input) {
+            transportLossTenantCoreCalls += 1;
+            return base.createStarterTenant(input);
+          },
+        }),
+      }),
+      provider: transportLossProvider,
+      clock: () => new Date("2026-07-12T10:01:00.000Z"),
+      audit: httpAudit,
+    });
+    const transportLost = await completeHttpCallback(
+      transportLossRuntime,
+      transportLossStart.state,
+      "valid-code",
+      { loseInternalResponse: true },
+    );
+    assert.equal(transportLost.status, 503);
+    assert.deepEqual(await transportLost.json(), {
+      code: "panel_callback_transport_unknown",
+      state: "transport_unknown",
+      retryable: true,
+    });
+    assert.equal(transportLossProvider.verificationCalls, 1);
+    assert.equal(transportLossTenantCoreCalls, 1);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-transport-loss';").stdout.trim(), "1");
+    const transportLossRecovered = await completeHttpCallback(transportLossRuntime, transportLossStart.state);
+    assert.equal(transportLossRecovered.status, 200);
+    assert.equal((await transportLossRecovered.json()).state, "tenant_already_created_session_pending");
+    assert.equal(transportLossProvider.verificationCalls, 1);
+    assert.equal(transportLossTenantCoreCalls, 1);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-transport-loss';").stdout.trim(), "1");
+
+    const authProbeProvider = new DeterministicHttpOidcProvider();
+    const authProbeRuntime = persistentHttpRuntime({
+      registrationStore: registrationsA,
+      oidcStore: oidcA,
+      completion: completionService(registrationsA, poolA),
+      provider: authProbeProvider,
+      clock: () => new Date("2026-07-12T10:01:00.000Z"),
+      audit: httpAudit,
+    });
+    const authProbeBoundary = httpRuntimeTrustBoundaries.get(authProbeRuntime);
+    let authProbeCallbackCalls = 0;
+    const authProbeHandler = createSelfServeOidcCallbackCompletionHandler(authProbeRuntime);
+    const authProbeGateway = createOwnerInternalSelfServeCallbackGateway({
+      activationApproval: createOwnerInternalCallbackGatewayApproval("disposable_test"),
+      ownerInternalOrigin: httpInternalOwnerOrigin,
+      keys: new Map([[httpInternalKeyId, httpInternalSecret]]),
+      clock: () => new Date("2026-07-12T10:01:00.000Z"),
+      maximumBodyBytes: 8_192,
+      maximumResponseBytes: 8_192,
+      edgeTrustBoundary: authProbeBoundary,
+      callbackHandler: async (callbackRequest, context) => {
+        authProbeCallbackCalls += 1;
+        return authProbeHandler(callbackRequest, context);
+      },
+      audit: httpAudit,
+    });
+    const authCallbackUrl = `${httpCallbackAuthority}?state=${encodeURIComponent(transportLossStart.state)}&code=valid-code`;
+    const canonicalAuthBody = JSON.stringify({ schemaVersion: 1, callbackUrl: authCallbackUrl });
+    const signedAuthRequest = ({
+      body = canonicalAuthBody,
+      signedBody = body,
+      keyId = httpInternalKeyId,
+      secret = httpInternalSecret,
+      timestamp = String(new Date("2026-07-12T10:01:00.000Z").getTime()),
+    } = {}) => {
+      const digest = createHash("sha256").update(signedBody).digest("hex");
+      const signed = createHmac("sha256", secret)
+        .update(`celebix-callback-v1\n${timestamp}\n${digest}`)
+        .digest("base64url");
+      return new Request(httpInternalEndpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "x-celebix-callback-key-id": keyId,
+          "x-celebix-callback-timestamp": timestamp,
+          "x-celebix-callback-signature": signed,
+        },
+        body,
+      });
+    };
+    const databaseCountBeforeAuthFailures = psql(backend, "SELECT count(*) FROM saas.registration_workflows;").stdout.trim();
+    const authenticationFailures = [
+      signedAuthRequest({ body: canonicalAuthBody.replace("valid-code", "tampered-code"), signedBody: canonicalAuthBody }),
+      signedAuthRequest({ secret: randomBytes(32) }),
+      signedAuthRequest({ keyId: "unknown" }),
+      signedAuthRequest({ timestamp: String(new Date("2026-07-12T09:59:59.999Z").getTime()) }),
+      signedAuthRequest({ timestamp: String(new Date("2026-07-12T10:01:05.001Z").getTime()) }),
+    ];
+    for (const failedRequest of authenticationFailures) {
+      const failedResponse = await authProbeGateway(failedRequest);
+      assert.equal(failedResponse.status, 401);
+    }
+    assert.equal(authProbeCallbackCalls, 0);
+    assert.equal(authProbeProvider.verificationCalls, 0);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_workflows;").stdout.trim(), databaseCountBeforeAuthFailures);
+
     globalThis.fetch = originalFetch;
     assert.equal(externalNetworkAttempts, 0);
 
@@ -1764,12 +1973,19 @@ async function main() {
     applyPhase2B1B1(backend, rollbackDatabase);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_workflows;", rollbackDatabase).stdout.trim(), "0");
 
+    assert.equal(crossAppMetrics.internalRequests, crossAppMetrics.authenticatedRequests);
+    assert.equal(crossAppMetrics.transportLosses, 1);
+    assert.ok(crossAppMetrics.internalRequests >= 20);
+
     console.log(JSON.stringify({
       status: "PASS",
       backend: backend.kind === "native" ? "native-postgresql" : backend.engine,
       postgresqlVersion: version,
-      scenarios: 196,
-      httpScenarios: 40,
+      scenarios: 203,
+      httpScenarios: 47,
+      crossAppChecklistScenarios: 64,
+      crossAppInternalRequests: crossAppMetrics.internalRequests,
+      internalAuthenticationFailures: 5,
       forward: "PASS", rollback: "PASS", reapply: "PASS", backupRestore: "PASS",
       concurrency: "PASS", cleanup: "PASS", plaintextScan: "PASS", roleGrants: "PASS",
       handlerRestart: "PASS", callbackReplay: "PASS", providerValidation: "PASS",

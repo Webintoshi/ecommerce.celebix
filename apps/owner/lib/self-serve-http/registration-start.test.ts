@@ -67,6 +67,7 @@ class DeterministicProvider {
     if (this.failAuthorization) throw new Error("provider client_secret token response");
     const url = new URL("https://identity.example.test/authorize");
     url.searchParams.set("response_type", "code");
+    url.searchParams.set("response_mode", "query");
     url.searchParams.set("state", input.state);
     url.searchParams.set("nonce", input.nonce);
     url.searchParams.set("code_challenge", input.codeChallenge);

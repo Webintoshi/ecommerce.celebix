@@ -54,6 +54,7 @@ function fakeProvider(calls?: { verify: number }) {
       url.searchParams.set("code_challenge_method", input.codeChallengeMethod);
       url.searchParams.set("redirect_uri", input.redirectUri);
       url.searchParams.set("response_type", "code");
+      url.searchParams.set("response_mode", "query");
       return url;
     },
     async verifyCallback(input: OidcProviderCallbackInput) {
