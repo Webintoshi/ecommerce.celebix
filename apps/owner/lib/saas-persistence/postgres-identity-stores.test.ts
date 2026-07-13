@@ -337,6 +337,7 @@ test("registration load rejects any persisted timestamp authority that differs f
     consumed_at: null,
     terminal_at: null,
     failure_code: null,
+    tenant_idempotency_digest: inserted.values[9],
   };
   for (const mismatch of [
     { requested_at: new Date("2026-07-12T10:00:01.000Z") },

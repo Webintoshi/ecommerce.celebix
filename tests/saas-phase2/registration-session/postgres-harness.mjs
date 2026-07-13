@@ -199,7 +199,7 @@ function completionService(workflowStore, pool, failAt, controls = {}) {
     panelBaseUrl: "https://panel.celebix.site",
   }));
   const tenantCore = controls.wrapTenantCore?.(baseTenantCore) ?? baseTenantCore;
-  const recovery = new PostgresTenantOperationRecovery({
+  const recovery = controls.recovery ?? new PostgresTenantOperationRecovery({
     pool,
     timeouts: repositoryOptions.timeouts,
     bootstrapRole: "celebix_saas_bootstrap",
@@ -267,7 +267,12 @@ function createDatabase(backend, database) {
 }
 
 function dataDump(backend) {
-  const args = ["-U", "postgres", "-d", primaryDatabase, "--data-only", "--inserts", "--disable-triggers", "--no-owner", "--no-privileges", "--table=saas.registration_workflows", "--table=saas.registration_verified_identities", "--table=saas.registration_tenant_completions", "--table=saas.oidc_transactions"];
+  const args = [
+    "-U", "postgres", "-d", primaryDatabase, "--data-only", "--inserts", "--disable-triggers", "--no-owner", "--no-privileges",
+    "--table=saas.principals", "--table=saas.stores", "--table=saas.domains", "--table=saas.memberships",
+    "--table=saas.subscriptions", "--table=saas.tenant_operations", "--table=saas.registration_workflows",
+    "--table=saas.registration_verified_identities", "--table=saas.registration_tenant_completions", "--table=saas.oidc_transactions",
+  ];
   return backend.kind === "container"
     ? command(backend.executable, ["exec", backend.container, "pg_dump", ...args]).stdout
     : command(backend.executables.pg_dump, ["-h", backend.socketDirectory, "-p", String(backend.port), ...args]).stdout;
@@ -294,6 +299,8 @@ async function main() {
     assert.notEqual(unrelated.status, 0);
     assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity', 'saas.registration_verified_identities', 'SELECT,INSERT')::int || ':' || has_table_privilege('celebix_saas_identity', 'saas.registration_verified_identities', 'UPDATE,DELETE')::int || ':' || has_table_privilege('public', 'saas.registration_verified_identities', 'SELECT,INSERT,UPDATE,DELETE')::int;").stdout.trim(), "1:0:0");
     assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'SELECT,INSERT')::int || ':' || has_table_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'UPDATE,DELETE')::int || ':' || has_column_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'state', 'UPDATE')::int || ':' || has_column_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'canonical_fingerprint', 'UPDATE')::int;").stdout.trim(), "1:0:1:0");
+    assert.equal(psql(backend, "SELECT has_column_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'tenant_operation_id', 'UPDATE')::int || ':' || has_column_privilege('celebix_saas_identity', 'saas.registration_tenant_completions', 'completed_at', 'UPDATE')::int || ':' || has_function_privilege('celebix_saas_identity', 'saas.finalize_registration_tenant_completion(text,bigint,bigint,text,uuid,timestamp with time zone)', 'EXECUTE')::int || ':' || has_function_privilege('public', 'saas.finalize_registration_tenant_completion(text,bigint,bigint,text,uuid,timestamp with time zone)', 'EXECUTE')::int;").stdout.trim(), "0:0:1:0");
+    assert.equal(psql(backend, "SELECT owner.rolname || ':' || procedure.prosecdef::int || ':' || array_to_string(procedure.proconfig, ',') FROM pg_proc AS procedure JOIN pg_roles AS owner ON owner.oid=procedure.proowner WHERE procedure.oid='saas.finalize_registration_tenant_completion(text,bigint,bigint,text,uuid,timestamp with time zone)'::regprocedure;").stdout.trim(), "celebix_saas_owner:1:search_path=pg_catalog, saas");
 
     const material = { hmacKey: randomBytes(32), currentKeyId: "key-current", keyring: { "key-current": randomBytes(32), "key-old": randomBytes(32) } };
     const poolA = makePool(backend);
@@ -321,6 +328,8 @@ async function main() {
     assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET expires_at = expires_at + interval '1 hour' WHERE attempt_id='${first.id}'`, "identity registration expiry extension");
     assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET requested_at = requested_at + interval '1 second' WHERE attempt_id='${first.id}'`, "identity requested_at rewrite");
     assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET updated_at = updated_at - interval '1 second' WHERE attempt_id='${first.id}'`, "identity registration updated_at rollback");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_workflows SET tenant_idempotency_digest = '${"f".repeat(64)}' WHERE attempt_id='${first.id}'`, "tenant idempotency authority rewrite");
+    assert.equal(psql(backend, `SELECT tenant_idempotency_digest = encode(sha256(convert_to('${first.idempotencyKey}', 'UTF8')), 'hex') FROM saas.registration_workflows WHERE attempt_id='${first.id}';`).stdout.trim(), "t");
     await assert.rejects(registrationsB.save(first), (error) => error instanceof RegistrationPersistenceError && error.code === "registration_attempt_conflict");
     const consumed = await registrationsB.consume(first.state, new Date("2026-07-12T10:01:00.000Z"));
     assert.equal(consumed.id, first.id);
@@ -552,6 +561,284 @@ async function main() {
     assert.equal((await registrationsB.loadVerified(firstCreation.id)).status, "tenant_created");
     assert.equal((await registrationsB.loadVerified(firstCreation.id)).completion.state, "completed");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-first-store';").stdout.trim(), "1");
+    const firstCompletedAuthority = await registrationsB.loadVerified(firstCreation.id);
+    assert.equal(firstCompletedAuthority.completion.tenantOperationId, firstCreationResult.result.operationId);
+    assert.equal(psql(backend, `SELECT tenant_operation_id::text FROM saas.registration_tenant_completions WHERE attempt_id='${firstCreation.id}';`).stdout.trim(), firstCreationResult.result.operationId);
+    assert.equal(await registrationsB.isTenantCompletionActive(firstCreation.id), false);
+
+    let completedRecoveryCoreCalls = 0;
+    const postLossRegistrationStore = new PostgresRegistrationAttemptStore(
+      dependencies(poolB, material, "registration-attempt-state"),
+      completionResultAuthorities,
+    );
+    const completedRecoveryService = completionService(postLossRegistrationStore, poolB, undefined, {
+      wrapTenantCore: (base) => ({
+        createStarterTenant: async (input) => {
+          completedRecoveryCoreCalls += 1;
+          return base.createStarterTenant(input);
+        },
+      }),
+    });
+    const completedVersion = firstCompletedAuthority.completion.version;
+    const completedResume = await completedRecoveryService.resumeTenantCreation(firstCreation.id);
+    assert.equal(completedResume.kind, "tenant_already_created");
+    assert.equal(completedResume.result.operationId, firstCreationResult.result.operationId);
+    const completedReconcile = await completedRecoveryService.reconcileUnknownCommit(firstCreation.id);
+    assert.equal(completedReconcile.kind, "tenant_recovered");
+    assert.equal(completedReconcile.result.operationId, firstCreationResult.result.operationId);
+    assert.equal(completedRecoveryCoreCalls, 0);
+    assert.equal((await registrationsA.loadVerified(firstCreation.id)).completion.version, completedVersion);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-first-store';").stdout.trim(), "1");
+
+    for (const recoveryResult of [
+      { kind: "committed_mismatch" },
+      { kind: "corrupt" },
+      { kind: "absent" },
+      { kind: "processing" },
+      { kind: "failed" },
+      { kind: "committed_match", result: { ...structuredClone(firstCreationResult.result), operationId: randomUUID(), replayed: true } },
+    ]) {
+      let forbiddenCoreCalls = 0;
+      const denied = await completionService(postLossRegistrationStore, poolB, undefined, {
+        recovery: { recover: async () => recoveryResult },
+        wrapTenantCore: (base) => ({
+          createStarterTenant: async (input) => {
+            forbiddenCoreCalls += 1;
+            return base.createStarterTenant(input);
+          },
+        }),
+      }).resumeTenantCreation(firstCreation.id);
+      assert.deepEqual(denied, { kind: "rejected", error: { code: "durable_authority_invalid", retryable: false } });
+      assert.equal(forbiddenCoreCalls, 0);
+    }
+    assert.deepEqual(await completionService(postLossRegistrationStore, poolB, undefined, {
+      recovery: { recover: async () => { throw new Error("private pool failure"); } },
+    }).resumeTenantCreation(firstCreation.id), {
+      kind: "rejected", error: { code: "tenant_transaction_failed", retryable: true },
+    });
+
+    const fabricateResult = (authority, operationId = randomUUID()) => {
+      const storeId = randomUUID();
+      const hostname = `${authority.tenantInput.store.slug}.celebix.site`;
+      return {
+        ...structuredClone(firstCreationResult.result),
+        operationId,
+        replayed: false,
+        store: { id: storeId, slug: authority.tenantInput.store.slug, status: "active" },
+        primaryDomain: {
+          ...structuredClone(firstCreationResult.result.primaryDomain),
+          domainId: randomUUID(), storeId, storeSlug: authority.tenantInput.store.slug,
+          hostname, canonicalHostname: hostname,
+        },
+        membership: {
+          ...structuredClone(firstCreationResult.result.membership),
+          id: randomUUID(), principalId: randomUUID(), storeId,
+          createdAt: authority.tenantInput.requestedAt,
+          updatedAt: authority.tenantInput.requestedAt,
+        },
+        plan: {
+          ...structuredClone(firstCreationResult.result.plan),
+          planId: randomUUID(), validFrom: authority.tenantInput.requestedAt,
+        },
+        panelUrl: `https://panel.celebix.site/stores/${authority.tenantInput.store.slug}`,
+        storefrontUrl: `https://${hostname}`,
+      };
+    };
+
+    const missingOperation = registration("attempt_b1b1missingop001", "registration-state-missing-operation", undefined, undefined, "b1b1-missing-op");
+    await prepareVerified(registrationsA, missingOperation);
+    const missingClaim = await registrationsA.claimTenantCompletion({ attemptId: missingOperation.id, now: new Date("2026-07-12T10:03:00.000Z") });
+    assert.equal(missingClaim.kind, "claimed");
+    missingClaim.lease.release();
+    const missingResult = fabricateResult(missingClaim.authority);
+    await assert.rejects(registrationsA.finalizeTenantCompletion({
+      attemptId: missingOperation.id, expectedState: "creating",
+      expectedCompletionVersion: missingClaim.authority.completion.version,
+      expectedWorkflowVersion: missingClaim.authority.version,
+      now: new Date("2026-07-12T10:05:00.000Z"), result: missingResult,
+    }), /registration_completion_corrupt/);
+    assert.equal((await registrationsB.loadVerified(missingOperation.id)).status, "identity_verified");
+    assert.equal((await registrationsB.loadVerified(missingOperation.id)).completion.state, "creating");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-missing-op';").stdout.trim(), "0");
+    assertIdentityMutationDenied(backend, `UPDATE saas.registration_tenant_completions SET tenant_operation_id='${missingResult.operationId}', state='completed', version=version+1, completed_at='2026-07-12T10:05:00.000Z', updated_at='2026-07-12T10:05:00.000Z' WHERE attempt_id='${missingOperation.id}'; UPDATE saas.registration_workflows SET status='tenant_created', version=version+1, updated_at='2026-07-12T10:05:00.000Z' WHERE attempt_id='${missingOperation.id}'`, "direct paired completion/workflow bypass");
+
+    for (const [operationStatus, suffix] of [["processing", "process"], ["failed", "failed"]]) {
+      const candidate = registration(`attempt_b1b1${suffix}op0001`, `registration-state-${suffix}-operation`, undefined, undefined, `b1b1-${suffix}-op`);
+      await prepareVerified(registrationsA, candidate);
+      const candidateClaim = await registrationsA.claimTenantCompletion({ attemptId: candidate.id, now: new Date("2026-07-12T10:03:00.000Z") });
+      assert.equal(candidateClaim.kind, "claimed");
+      candidateClaim.lease.release();
+      const operationId = randomUUID();
+      const candidateResult = fabricateResult(candidateClaim.authority, operationId);
+      psql(backend, `INSERT INTO saas.tenant_operations (id, idempotency_key, payload_fingerprint, status, requested_at, created_at, updated_at) VALUES ('${operationId}', 'negative_${operationId}', '${candidateClaim.authority.canonicalFingerprint}', '${operationStatus}', '${candidateClaim.authority.tenantInput.requestedAt}', '${candidateClaim.authority.tenantInput.requestedAt}', '${candidateClaim.authority.tenantInput.requestedAt}');`);
+      await assert.rejects(registrationsA.finalizeTenantCompletion({
+        attemptId: candidate.id, expectedState: "creating",
+        expectedCompletionVersion: candidateClaim.authority.completion.version,
+        expectedWorkflowVersion: candidateClaim.authority.version,
+        now: new Date("2026-07-12T10:05:00.000Z"), result: candidateResult,
+      }), /registration_completion_corrupt/);
+      assert.equal((await registrationsB.loadVerified(candidate.id)).completion.state, "creating");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.stores WHERE slug='b1b1-${suffix}-op';`).stdout.trim(), "0");
+    }
+
+    const anotherAttempt = registration("attempt_b1b1anotherop001", "registration-state-another-operation", undefined, undefined, "b1b1-another-op");
+    await prepareVerified(registrationsA, anotherAttempt);
+    const anotherClaim = await registrationsA.claimTenantCompletion({ attemptId: anotherAttempt.id, now: new Date("2026-07-12T10:03:00.000Z") });
+    assert.equal(anotherClaim.kind, "claimed");
+    anotherClaim.lease.release();
+    await assert.rejects(registrationsA.finalizeTenantCompletion({
+      attemptId: anotherAttempt.id, expectedState: "creating",
+      expectedCompletionVersion: anotherClaim.authority.completion.version,
+      expectedWorkflowVersion: anotherClaim.authority.version,
+      now: new Date("2026-07-12T10:05:00.000Z"),
+      result: fabricateResult(anotherClaim.authority, firstCreationResult.result.operationId),
+    }), /registration_completion_corrupt/);
+    assert.equal((await registrationsB.loadVerified(anotherAttempt.id)).completion.state, "creating");
+
+    const reusedOperation = registration("attempt_b1b1reuseop00001", "registration-state-reused-operation", undefined, undefined, "b1b1-first-store");
+    const reusedAuthority = await prepareVerified(registrationsA, reusedOperation);
+    assert.equal(reusedAuthority.canonicalFingerprint, firstCompletedAuthority.canonicalFingerprint);
+    const reusedClaim = await registrationsA.claimTenantCompletion({ attemptId: reusedOperation.id, now: new Date("2026-07-12T10:03:00.000Z") });
+    assert.equal(reusedClaim.kind, "claimed");
+    reusedClaim.lease.release();
+    await assert.rejects(registrationsA.finalizeTenantCompletion({
+      attemptId: reusedOperation.id, expectedState: "creating",
+      expectedCompletionVersion: reusedClaim.authority.completion.version,
+      expectedWorkflowVersion: reusedClaim.authority.version,
+      now: new Date("2026-07-12T10:05:00.000Z"), result: firstCreationResult.result,
+    }), /registration_completion_corrupt/);
+    assert.equal((await registrationsB.loadVerified(reusedOperation.id)).completion.state, "creating");
+
+    const finalizationLossStore = {
+      recordVerifiedIdentity: registrationsA.recordVerifiedIdentity.bind(registrationsA),
+      loadVerified: registrationsA.loadVerified.bind(registrationsA),
+      claimTenantCompletion: registrationsA.claimTenantCompletion.bind(registrationsA),
+      isTenantCompletionActive: registrationsA.isTenantCompletionActive.bind(registrationsA),
+      markTenantCompletionCommitUnknown: registrationsA.markTenantCompletionCommitUnknown.bind(registrationsA),
+      releaseTenantCompletion: registrationsA.releaseTenantCompletion.bind(registrationsA),
+      finalizeTenantCompletion: async () => { throw new Error("simulated response loss before finalization"); },
+      recoverAbsentTenantCompletion: registrationsA.recoverAbsentTenantCompletion.bind(registrationsA),
+    };
+    const recoveryReader = new PostgresTenantOperationRecovery({
+      pool: poolB,
+      timeouts: { poolCheckoutMs: 1_000, statementMs: 3_000, lockMs: 1_000, idleTransactionMs: 4_000 },
+      bootstrapRole: "celebix_saas_bootstrap",
+      panelOrigin: "https://panel.celebix.site",
+    });
+
+    const crossAttemptSource = registration(
+      "attempt_b1b1crosssource1",
+      "registration-state-cross-source",
+      undefined,
+      undefined,
+      "b1b1-cross-attempt",
+    );
+    crossAttemptSource.idempotencyKey = "ssik_cross_attempt_source_123456";
+    const crossAttemptTarget = registration(
+      "attempt_b1b1crosstarget1",
+      "registration-state-cross-target",
+      undefined,
+      undefined,
+      "b1b1-cross-attempt",
+    );
+    crossAttemptTarget.idempotencyKey = "ssik_cross_attempt_target_123456";
+    const crossSourceAuthority = await prepareVerified(registrationsA, crossAttemptSource);
+    const crossTargetAuthority = await prepareVerified(registrationsB, crossAttemptTarget);
+    assert.equal(crossSourceAuthority.canonicalFingerprint, crossTargetAuthority.canonicalFingerprint);
+    assert.deepEqual(
+      await completionService(finalizationLossStore, poolA).resumeTenantCreation(crossAttemptSource.id),
+      { kind: "reconciliation_required" },
+    );
+    const crossSourceRecovery = await recoveryReader.recover(
+      crossAttemptSource.idempotencyKey,
+      crossSourceAuthority.canonicalFingerprint,
+    );
+    assert.equal(crossSourceRecovery.kind, "committed_match");
+    const crossTargetClaim = await registrationsB.claimTenantCompletion({
+      attemptId: crossAttemptTarget.id,
+      now: new Date("2026-07-12T10:03:00.000Z"),
+    });
+    assert.equal(crossTargetClaim.kind, "claimed");
+    crossTargetClaim.lease.release();
+    await assert.rejects(registrationsB.finalizeTenantCompletion({
+      attemptId: crossAttemptTarget.id,
+      expectedState: "creating",
+      expectedCompletionVersion: crossTargetClaim.authority.completion.version,
+      expectedWorkflowVersion: crossTargetClaim.authority.version,
+      now: new Date("2026-07-12T10:06:00.000Z"),
+      result: crossSourceRecovery.result,
+    }), /registration_completion_corrupt/);
+    assert.equal((await registrationsA.loadVerified(crossAttemptTarget.id)).completion.state, "creating");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-cross-attempt';").stdout.trim(), "1");
+
+    const fingerprintMismatch = registration("attempt_b1b1fingerprint01", "registration-state-fingerprint-mismatch", undefined, undefined, "b1b1-fingerprint");
+    const fingerprintAuthority = await prepareVerified(registrationsA, fingerprintMismatch);
+    assert.deepEqual(await completionService(finalizationLossStore, poolA).resumeTenantCreation(fingerprintMismatch.id), { kind: "reconciliation_required" });
+    const fingerprintRecovery = await recoveryReader.recover(fingerprintMismatch.idempotencyKey, fingerprintAuthority.canonicalFingerprint);
+    assert.equal(fingerprintRecovery.kind, "committed_match");
+    psql(backend, `ALTER TABLE saas.tenant_operations DISABLE TRIGGER tenant_operations_replay_immutable; UPDATE saas.tenant_operations SET payload_fingerprint='${"f".repeat(64)}' WHERE id='${fingerprintRecovery.result.operationId}'; ALTER TABLE saas.tenant_operations ENABLE TRIGGER tenant_operations_replay_immutable;`);
+    const fingerprintCreating = await registrationsB.loadVerified(fingerprintMismatch.id);
+    await assert.rejects(registrationsA.finalizeTenantCompletion({
+      attemptId: fingerprintMismatch.id, expectedState: "creating",
+      expectedCompletionVersion: fingerprintCreating.completion.version,
+      expectedWorkflowVersion: fingerprintCreating.version,
+      now: new Date("2026-07-12T10:06:00.000Z"), result: fingerprintRecovery.result,
+    }), /registration_completion_corrupt/);
+    psql(backend, `ALTER TABLE saas.tenant_operations DISABLE TRIGGER tenant_operations_replay_immutable; UPDATE saas.tenant_operations SET payload_fingerprint='${fingerprintAuthority.canonicalFingerprint}' WHERE id='${fingerprintRecovery.result.operationId}'; ALTER TABLE saas.tenant_operations ENABLE TRIGGER tenant_operations_replay_immutable;`);
+    assert.equal((await registrationsB.loadVerified(fingerprintMismatch.id)).completion.state, "creating");
+
+    const graphMismatch = registration("attempt_b1b1graphmismatch1", "registration-state-graph-mismatch", undefined, undefined, "b1b1-graph-mismatch");
+    const graphAuthority = await prepareVerified(registrationsA, graphMismatch);
+    assert.deepEqual(await completionService(finalizationLossStore, poolA).resumeTenantCreation(graphMismatch.id), { kind: "reconciliation_required" });
+    const graphRecovery = await recoveryReader.recover(graphMismatch.idempotencyKey, graphAuthority.canonicalFingerprint);
+    assert.equal(graphRecovery.kind, "committed_match");
+    psql(backend, `UPDATE saas.stores SET status='suspended' WHERE id='${graphRecovery.result.store.id}';`);
+    const graphCreating = await registrationsB.loadVerified(graphMismatch.id);
+    await assert.rejects(registrationsA.finalizeTenantCompletion({
+      attemptId: graphMismatch.id, expectedState: "creating",
+      expectedCompletionVersion: graphCreating.completion.version,
+      expectedWorkflowVersion: graphCreating.version,
+      now: new Date("2026-07-12T10:06:00.000Z"), result: graphRecovery.result,
+    }), /registration_completion_corrupt/);
+    psql(backend, `UPDATE saas.stores SET status='active' WHERE id='${graphRecovery.result.store.id}';`);
+    assert.equal((await registrationsB.loadVerified(graphMismatch.id)).completion.state, "creating");
+
+    const persistedResponse = registration(
+      "attempt_b1b1persistedres",
+      "registration-state-persisted-response",
+      undefined,
+      undefined,
+      "b1b1-persisted-response",
+    );
+    const persistedResponseAuthority = await prepareVerified(registrationsA, persistedResponse);
+    const precommitOptions = {
+      pool: poolA,
+      generateId: () => randomUUID(),
+      audit: () => undefined,
+      timeouts: { poolCheckoutMs: 1_000, statementMs: 3_000, lockMs: 1_000, idleTransactionMs: 4_000 },
+      bootstrapRole: "celebix_saas_bootstrap",
+      panelOrigin: "https://panel.celebix.site",
+    };
+    const precommitCore = createOwnerTenantCoreAdapter(createStarterTenantService({
+      repository: new PostgresSaaSDataRepository(precommitOptions),
+      platformDomainSuffix: "celebix.site",
+      panelBaseUrl: "https://panel.celebix.site",
+    }));
+    const persistedOperation = await precommitCore.createStarterTenant(persistedResponseAuthority.tenantInput);
+    assert.equal(persistedOperation.ok, true);
+    const fabricatedPersistedResponse = fabricateResult(
+      persistedResponseAuthority,
+      persistedOperation.value.operationId,
+    );
+    const authoritativeResponse = await completionService(registrationsA, poolA, undefined, {
+      wrapTenantCore: () => ({
+        createStarterTenant: async () => ({ ok: true, value: fabricatedPersistedResponse }),
+      }),
+    }).resumeTenantCreation(persistedResponse.id);
+    assert.equal(authoritativeResponse.kind, "tenant_created");
+    assert.deepEqual(authoritativeResponse.result, persistedOperation.value);
+    assert.notEqual(authoritativeResponse.result.store.id, fabricatedPersistedResponse.store.id);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-persisted-response';").stdout.trim(), "1");
 
     const lostLease = registration("attempt_b1b1lostlease000", "registration-state-lost-lease", undefined, undefined, "b1b1-lost-lease");
     await prepareVerified(registrationsA, lostLease);
@@ -571,7 +858,9 @@ async function main() {
     while (lostLeaseCoreCalls === 0) await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(psql(backend, "SELECT count(*) FROM pg_catalog.pg_locks WHERE locktype='advisory' AND granted AND database=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database());").stdout.trim(), "1");
     assert.equal(psql(backend, "SELECT count(*) FROM (SELECT pg_catalog.pg_terminate_backend(pid) FROM pg_catalog.pg_locks WHERE locktype='advisory' AND granted AND database=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())) AS terminated;").stdout.trim(), "1");
+    assert.equal(await registrationsB.isTenantCompletionActive(lostLease.id), false);
     assert.deepEqual(await completionService(registrationsB, poolB).reconcileUnknownCommit(lostLease.id), { kind: "recovery_absent", state: "ready" });
+    assert.equal(lostLeaseCoreCalls, 1);
     const recoveredAbsentAuthority = await registrationsB.loadVerified(lostLease.id);
     assert.equal(recoveredAbsentAuthority.completion.state, "ready");
     assert.equal(recoveredAbsentAuthority.completion.recoveryAbsentAt, "2026-07-12T10:05:00.000Z");
@@ -585,12 +874,68 @@ async function main() {
     }));
     releaseLostLeaseCreation();
     assert.deepEqual(await lostLeaseWinner, { kind: "reconciliation_required" });
-    const lostLeaseReplay = await completionService(registrationsB, poolB, undefined, {
+    const lostLeaseRecovery = completionService(registrationsB, poolB, undefined, {
       clock: () => new Date("2026-07-12T11:00:02.000Z"),
-    }).resumeTenantCreation(lostLease.id);
-    assert.equal(lostLeaseReplay.kind, "tenant_replayed");
+      wrapTenantCore: (base) => ({
+        createStarterTenant: async (input) => {
+          lostLeaseCoreCalls += 1;
+          return base.createStarterTenant(input);
+        },
+      }),
+    });
+    assert.deepEqual(await lostLeaseRecovery.resumeTenantCreation(lostLease.id), { kind: "reconciliation_required" });
+    assert.equal(lostLeaseCoreCalls, 1);
+    const lostLeaseReconciled = await lostLeaseRecovery.reconcileUnknownCommit(lostLease.id);
+    assert.equal(lostLeaseReconciled.kind, "tenant_recovered");
+    assert.equal(lostLeaseCoreCalls, 1);
     assert.equal((await registrationsA.loadVerified(lostLease.id)).completion.state, "completed");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-lost-lease';").stdout.trim(), "1");
+
+    const finalizationGap = registration(
+      "attempt_b1b1finalizegap0",
+      "registration-state-finalization-gap",
+      undefined,
+      undefined,
+      "b1b1-finalization-gap",
+    );
+    await prepareVerified(registrationsA, finalizationGap);
+    let enterFinalizationGap;
+    let releaseFinalizationGap;
+    const finalizationGapEntered = new Promise((resolve) => { enterFinalizationGap = resolve; });
+    const finalizationGapGate = new Promise((resolve) => { releaseFinalizationGap = resolve; });
+    const finalizationGapStore = {
+      recordVerifiedIdentity: registrationsA.recordVerifiedIdentity.bind(registrationsA),
+      loadVerified: registrationsA.loadVerified.bind(registrationsA),
+      claimTenantCompletion: registrationsA.claimTenantCompletion.bind(registrationsA),
+      isTenantCompletionActive: registrationsA.isTenantCompletionActive.bind(registrationsA),
+      markTenantCompletionCommitUnknown: registrationsA.markTenantCompletionCommitUnknown.bind(registrationsA),
+      releaseTenantCompletion: registrationsA.releaseTenantCompletion.bind(registrationsA),
+      finalizeTenantCompletion: async (input) => {
+        enterFinalizationGap();
+        await finalizationGapGate;
+        return registrationsA.finalizeTenantCompletion(input);
+      },
+      recoverAbsentTenantCompletion: registrationsA.recoverAbsentTenantCompletion.bind(registrationsA),
+    };
+    let finalizationGapCoreCalls = 0;
+    const finalizationGapWinner = completionService(finalizationGapStore, poolA, undefined, {
+      wrapTenantCore: (base) => ({
+        createStarterTenant: async (input) => {
+          finalizationGapCoreCalls += 1;
+          return base.createStarterTenant(input);
+        },
+      }),
+    }).resumeTenantCreation(finalizationGap.id);
+    await finalizationGapEntered;
+    assert.equal(await registrationsB.isTenantCompletionActive(finalizationGap.id), false);
+    const finalizationGapRecovery = await completionService(registrationsB, poolB).reconcileUnknownCommit(finalizationGap.id);
+    assert.equal(finalizationGapRecovery.kind, "tenant_recovered");
+    releaseFinalizationGap();
+    const finalizationGapResult = await finalizationGapWinner;
+    assert.equal(finalizationGapResult.kind, "tenant_created");
+    assert.equal(finalizationGapResult.result.operationId, finalizationGapRecovery.result.operationId);
+    assert.equal(finalizationGapCoreCalls, 1);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='b1b1-finalization-gap';").stdout.trim(), "1");
 
     const forgedProof = registration("attempt_b1b1forgedproof0", "registration-state-forged-proof", undefined, undefined, "b1b1-forged-proof");
     await prepareVerified(registrationsA, forgedProof);
@@ -798,7 +1143,7 @@ async function main() {
 
     const persistedText = psql(backend, "SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.oidc_transactions UNION ALL SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.registration_workflows UNION ALL SELECT encode(payload_ciphertext, 'hex') || ':' || encode(payload_iv, 'hex') FROM saas.registration_verified_identities;").stdout;
     assert.doesNotMatch(persistedText, /registration-state|oidc-state|nonce|verifier|password/i);
-    const rawScan = psql(backend, "SELECT coalesce(string_agg(row_to_json(row)::text, E'\\n'), '') FROM (SELECT * FROM saas.registration_workflows UNION ALL SELECT NULL::text AS attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, 1::bigint AS version, NULL::character(64) AS canonical_fingerprint, created_at AS requested_at, created_at, updated_at, expires_at, consumed_at, NULL::text AS failure_code, COALESCE(discarded_at, consumed_at) AS terminal_at FROM saas.oidc_transactions) AS row;").stdout;
+    const rawScan = psql(backend, "SELECT coalesce(string_agg(row_to_json(row)::text, E'\\n'), '') FROM (SELECT * FROM saas.registration_workflows UNION ALL SELECT NULL::text AS attempt_id, state_digest, payload_ciphertext, payload_iv, encryption_key_id, payload_schema_version, status, 1::bigint AS version, NULL::character(64) AS canonical_fingerprint, created_at AS requested_at, created_at, updated_at, expires_at, consumed_at, NULL::text AS failure_code, COALESCE(discarded_at, consumed_at) AS terminal_at, NULL::character(64) AS tenant_idempotency_digest FROM saas.oidc_transactions) AS row;").stdout;
     assert.doesNotMatch(rawScan, /registration-state|oidc-state|nonce-|vvvv|password/i);
     const verifiedRawScan = psql(backend, "SELECT coalesce(string_agg(row_to_json(snapshot)::text, E'\\n'), '') FROM saas.registration_verified_identities AS snapshot;").stdout;
     assert.doesNotMatch(verifiedRawScan, /identity\.example|verified-subject|owner@example|Verified Owner|nonce|audience|token|password/i);
@@ -821,6 +1166,23 @@ async function main() {
     assert.equal((await restored.consume(backupReadable.state, new Date("2026-07-12T10:01:00.000Z"))).nonce, backupReadable.nonce);
     const restoredRegistration = new PostgresRegistrationAttemptStore(dependencies(restorePool, material, "registration-attempt-state"));
     assert.equal((await restoredRegistration.loadVerified(backupRegistration.id)).tenantInput.store.slug, "b1b1-backup-store");
+    const restoredCompletionStore = new PostgresRegistrationAttemptStore(
+      dependencies(restorePool, material, "registration-attempt-state"),
+      completionResultAuthorities,
+    );
+    let restoredTenantCoreCalls = 0;
+    const restoredCompleted = await completionService(restoredCompletionStore, restorePool, undefined, {
+      wrapTenantCore: (base) => ({
+        createStarterTenant: async (input) => {
+          restoredTenantCoreCalls += 1;
+          return base.createStarterTenant(input);
+        },
+      }),
+    }).resumeTenantCreation(firstCreation.id);
+    assert.equal(restoredCompleted.kind, "tenant_already_created");
+    assert.equal(restoredCompleted.result.operationId, firstCreationResult.result.operationId);
+    assert.equal(restoredTenantCoreCalls, 0);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_tenant_completions AS completion LEFT JOIN saas.tenant_operations AS operation ON operation.id=completion.tenant_operation_id WHERE completion.state='completed' AND operation.id IS NULL;", restoreDatabase).stdout.trim(), "0");
     const restoreWrong = new PostgresOidcTransactionStore(dependencies(restorePool, { ...material, keyring: { "key-current": randomBytes(32) } }, "oidc-transaction-state"));
     await assert.rejects(restoreWrong.consume(backupWrong.state, new Date("2026-07-12T10:01:00.000Z")), /identity_crypto_failed/);
 
@@ -846,9 +1208,9 @@ async function main() {
     applyPhase2B(backend, rollbackDatabase);
     applyPhase2B1B1(backend, rollbackDatabase);
     migration(backend, "202607120012_verified_identity_snapshot.down.sql", rollbackDatabase);
-    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NULL)::int || ':' || (to_regclass('saas.registration_tenant_completions') IS NULL)::int || ':' || (to_regclass('saas.registration_workflows') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1:1");
+    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NULL)::int || ':' || (to_regclass('saas.registration_tenant_completions') IS NULL)::int || ':' || (to_regclass('saas.registration_tenant_operation_proofs') IS NULL)::int || ':' || (to_regprocedure('saas.finalize_registration_tenant_completion(text,bigint,bigint,text,uuid,timestamp with time zone)') IS NULL)::int || ':' || (to_regclass('saas.registration_workflows') IS NOT NULL)::int || ':' || (SELECT count(*) FROM information_schema.columns WHERE table_schema='saas' AND table_name='registration_workflows' AND column_name='tenant_idempotency_digest');", rollbackDatabase).stdout.trim(), "1:1:1:1:1:0");
     applyPhase2B1B1(backend, rollbackDatabase);
-    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NOT NULL)::int || ':' || (to_regclass('saas.registration_tenant_completions') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1");
+    assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_verified_identities') IS NOT NULL)::int || ':' || (to_regclass('saas.registration_tenant_completions') IS NOT NULL)::int || ':' || (to_regclass('saas.registration_tenant_operation_proofs') IS NOT NULL)::int || ':' || (to_regprocedure('saas.finalize_registration_tenant_completion(text,bigint,bigint,text,uuid,timestamp with time zone)') IS NOT NULL)::int || ':' || (SELECT count(*) FROM information_schema.columns WHERE table_schema='saas' AND table_name='registration_workflows' AND column_name='tenant_idempotency_digest');", rollbackDatabase).stdout.trim(), "1:1:1:1:1");
     migration(backend, "202607120012_verified_identity_snapshot.down.sql", rollbackDatabase);
     migration(backend, "202607110008_identity_persistence.down.sql", rollbackDatabase);
     assert.equal(psql(backend, "SELECT (to_regclass('saas.registration_workflows') IS NULL)::int || ':' || (to_regclass('saas.stores') IS NOT NULL)::int;", rollbackDatabase).stdout.trim(), "1:1");
@@ -860,7 +1222,7 @@ async function main() {
       status: "PASS",
       backend: backend.kind === "native" ? "native-postgresql" : backend.engine,
       postgresqlVersion: version,
-      scenarios: 123,
+      scenarios: 156,
       forward: "PASS", rollback: "PASS", reapply: "PASS", backupRestore: "PASS",
       concurrency: "PASS", cleanup: "PASS", plaintextScan: "PASS", roleGrants: "PASS",
       productionConnectionUsed: false,

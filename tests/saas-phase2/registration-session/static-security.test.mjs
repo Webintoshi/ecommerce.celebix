@@ -21,6 +21,7 @@ const ownerPhase2b1Source = `${runtime}\n${read("apps/owner/lib/saas-persistence
 const schema = read("apps/owner/scripts/sql/saas/202607110008_identity_persistence.up.sql");
 const verifiedIdentitySchema = read("apps/owner/scripts/sql/saas/202607120012_verified_identity_snapshot.up.sql");
 const verifiedIdentityGrants = read("apps/owner/scripts/sql/saas/202607120013_verified_identity_grants.sql");
+const verifiedIdentityAssertions = read("apps/owner/scripts/sql/saas/202607120014_verified_identity_catalog_assertions.sql");
 
 test("new identity persistence has no environment-selected adapter, database URL, production key, or memory fallback", () => {
   assert.doesNotMatch(runtime, /process\.env|DATABASE_URL|POSTGRES_URL|createPool\s*\(|new Pool\s*\(/);
@@ -65,11 +66,27 @@ test("tenant completion authority is durable, versioned, transition guarded, and
   assert.match(verifiedIdentitySchema, /PHASE2B1B1_ACTIVE_TENANT_COMPLETION_FENCED/);
   assert.match(verifiedIdentitySchema, /completion_state <> 'completed'/);
   assert.match(verifiedIdentityGrants, /GRANT SELECT, INSERT ON saas\.registration_tenant_completions TO celebix_saas_identity/);
-  assert.match(verifiedIdentityGrants, /GRANT UPDATE \(state, version, started_at, updated_at, commit_unknown_at, completed_at, recovery_absent_at\)/);
+  assert.match(verifiedIdentityGrants, /GRANT UPDATE \(state, version, started_at, updated_at, commit_unknown_at, recovery_absent_at\)/);
   assert.match(verifiedIdentitySchema, /recovery_absent_at timestamptz/);
+  assert.match(verifiedIdentitySchema, /tenant_operation_id uuid/);
+  assert.match(verifiedIdentitySchema, /UNIQUE \(tenant_operation_id\)/);
+  assert.match(verifiedIdentitySchema, /FOREIGN KEY \(tenant_operation_id\) REFERENCES saas\.tenant_operations\(id\) ON DELETE RESTRICT/);
+  assert.match(verifiedIdentitySchema, /state = 'completed'.*tenant_operation_id IS NOT NULL/);
   assert.match(verifiedIdentitySchema, /completion_recovery_absent_at IS NOT NULL/);
-  assert.doesNotMatch(verifiedIdentityGrants, /GRANT UPDATE \([^)]*(?:attempt_id|canonical_fingerprint)/i);
+  assert.doesNotMatch(verifiedIdentityGrants, /GRANT UPDATE \([^)]*(?:attempt_id|canonical_fingerprint|completed_at|tenant_operation_id)/i);
   assert.doesNotMatch(verifiedIdentityGrants, /GRANT[^;]*(?:DELETE|TRUNCATE)[^;]*registration_tenant_completions/i);
+  assert.match(verifiedIdentityGrants, /GRANT EXECUTE ON FUNCTION saas\.finalize_registration_tenant_completion\(text, bigint, bigint, text, uuid, timestamptz\)/);
+  assert.match(verifiedIdentitySchema, /CREATE FUNCTION saas\.finalize_registration_tenant_completion/);
+  assert.match(verifiedIdentitySchema, /SECURITY DEFINER[\s\S]*SET search_path = pg_catalog, saas/);
+  assert.match(verifiedIdentitySchema, /registration_tenant_operation_proofs/);
+  assert.match(verifiedIdentitySchema, /tenant_idempotency_digest character\(64\) NOT NULL/);
+  assert.match(verifiedIdentitySchema, /sha256\(pg_catalog\.convert_to\(operation\.idempotency_key/);
+  assert.match(verifiedIdentitySchema, /proof\.tenant_idempotency_digest = current_workflow_tenant_idempotency_digest/);
+  assert.match(verifiedIdentitySchema, /PHASE2B1B1_IMMUTABLE_TENANT_IDEMPOTENCY_AUTHORITY/);
+  assert.match(verifiedIdentitySchema, /OLD\.state = 'ready' AND OLD\.recovery_absent_at IS NOT NULL AND NEW\.state = 'commit_unknown'/);
+  assert.match(verifiedIdentitySchema, /pg_advisory_xact_lock/);
+  assert.match(verifiedIdentityAssertions, /finalizer EXECUTE grant drift/);
+  assert.match(verifiedIdentityAssertions, /committed graph proof drift/);
 });
 
 test("completion service has no generic tenant-created mutator and expiry fences active work", () => {
@@ -77,11 +94,27 @@ test("completion service has no generic tenant-created mutator and expiry fences
   assert.doesNotMatch(completionStore, /markTenantCreated\s*\(/);
   assert.match(completionStore, /claimTenantCompletion\s*\(/);
   assert.match(completionStore, /finalizeTenantCompletion\s*\(/);
-  assert.match(completionStore, /assertFinalizationProof\s*\(/);
+  assert.match(completionStore, /finalizationOperationId\s*\(/);
+  assert.match(completionStore, /saas\.finalize_registration_tenant_completion/);
+  assert.doesNotMatch(completionStore, /UPDATE saas\.registration_tenant_completions SET state = 'completed'/);
+  assert.doesNotMatch(completionStore, /UPDATE saas\.registration_workflows SET status = 'tenant_created'/);
   assert.match(completionStore, /completion\.state = 'ready'/);
+  assert.match(completionStore, /kind: "recovery_required"/);
+  assert.match(completionStore, /tenantIdempotencyDigest\(stored\.idempotencyKey\)/);
   assert.doesNotMatch(completionStore, /identity_verified:\s*\[\s*["']tenant_created/);
   assert.match(completionStore, /pg_advisory_lock/);
-  assert.match(read("apps/owner/lib/self-serve-registration-completion.ts"), /isTenantCompletionActive/);
+  const completionService = read("apps/owner/lib/self-serve-registration-completion.ts");
+  assert.match(completionService, /isTenantCompletionActive/);
+  assert.match(completionService, /tenant_already_created/);
+  assert.match(completionService, /recoverCompletedAuthority/);
+  assert.doesNotMatch(completionService, /await claim\.lease\.release/);
+  const identityCommon = read("apps/owner/lib/saas-persistence/postgres-identity-common.ts");
+  const leaseCleanup = identityCommon.slice(
+    identityCommon.indexOf("export async function withIdentityTransactionLease"),
+    identityCommon.indexOf("export async function isIdentityCompletionLeaseActive"),
+  );
+  assert.doesNotMatch(leaseCleanup, /pg_advisory_unlock/);
+  assert.match(leaseCleanup, /client\.release\(true\)/);
 });
 
 test("completion core has no environment activation, direct pg, route, session, or cookie authority", () => {

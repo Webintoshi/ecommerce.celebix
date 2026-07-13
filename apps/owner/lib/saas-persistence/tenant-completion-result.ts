@@ -52,10 +52,10 @@ export function validateTenantCompletionResult(
   if (domain.schemaVersion !== 1 || !UUID.test(String(domain.domainId)) || domain.domainType !== "platform_subdomain" || domain.storeId !== store.id || domain.storeSlug !== store.slug || domain.hostname !== hostname || domain.canonicalHostname !== hostname || domain.status !== "active" || !Number.isSafeInteger(domain.cacheVersion) || Number(domain.cacheVersion) < 1) return false;
   const membership = value.membership;
   if (!exactKeys(membership, ["schemaVersion", "id", "principalId", "storeId", "role", "status", "createdAt", "updatedAt"])) return false;
-  if (membership.schemaVersion !== 1 || !UUID.test(String(membership.id)) || !UUID.test(String(membership.principalId)) || membership.storeId !== store.id || membership.role !== "store_owner" || membership.status !== "active" || !validTimestamp(membership.createdAt) || !validTimestamp(membership.updatedAt) || Date.parse(membership.updatedAt) < Date.parse(membership.createdAt)) return false;
+  if (membership.schemaVersion !== 1 || !UUID.test(String(membership.id)) || !UUID.test(String(membership.principalId)) || membership.storeId !== store.id || membership.role !== "store_owner" || membership.status !== "active" || !validTimestamp(membership.createdAt) || !validTimestamp(membership.updatedAt) || membership.createdAt !== tenantInput.requestedAt || membership.updatedAt !== tenantInput.requestedAt) return false;
   const plan = value.plan;
   if (!exactKeys(plan, ["schemaVersion", "planId", "planCode", "version", "status", "features", "limits", "validFrom"], ["validUntil"])) return false;
-  if (plan.schemaVersion !== 1 || !UUID.test(String(plan.planId)) || plan.planCode !== "free_starter" || plan.version !== 1 || plan.status !== "active" || !validTimestamp(plan.validFrom)) return false;
+  if (plan.schemaVersion !== 1 || !UUID.test(String(plan.planId)) || plan.planCode !== "free_starter" || plan.version !== 1 || plan.status !== "active" || !validTimestamp(plan.validFrom) || plan.validFrom !== tenantInput.requestedAt) return false;
   if (plan.validUntil !== undefined && (!validTimestamp(plan.validUntil) || Date.parse(plan.validUntil) <= Date.parse(plan.validFrom))) return false;
   if (!Array.isArray(plan.features) || plan.features.length === 0) return false;
   let prior = -1;

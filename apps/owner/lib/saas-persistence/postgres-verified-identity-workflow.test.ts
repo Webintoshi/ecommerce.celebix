@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import test from "node:test";
 
 import { createCanonicalTenantFingerprint } from "@celebix/saas-data";
@@ -8,6 +8,7 @@ import { createAes256GcmPayloadCipher, createOpaqueStateDigester } from "./ident
 import {
   IdentityPersistenceError,
   RegistrationPersistenceError,
+  withIdentityTransactionLease,
   type IdentityPostgresClient,
 } from "./postgres-identity-common.ts";
 import { PostgresRegistrationAttemptStore } from "./postgres-registration-attempt-store.ts";
@@ -17,14 +18,39 @@ class FakeClient implements IdentityPostgresClient {
   readonly calls: Array<{ text: string; values: readonly unknown[] }> = [];
   readonly releases: Array<boolean | Error | undefined> = [];
   readonly queued: Array<Record<string, unknown>[]> = [];
+  readonly errorListeners = new Set<(error: Error) => void>();
+  throwOnRelease = false;
+  hangOnAdvisoryUnlock = false;
 
-  async query(text: string, values: readonly unknown[] = []) {
+  async query(text: string, values: readonly unknown[] = []): Promise<{ rowCount: number; rows: Record<string, unknown>[] }> {
     this.calls.push({ text, values });
+    if (this.hangOnAdvisoryUnlock && text.includes("pg_advisory_unlock")) {
+      return new Promise(() => undefined);
+    }
     const rows = this.queued.shift() ?? [];
     return { rowCount: rows.length, rows };
   }
 
-  release(destroy?: boolean | Error) { this.releases.push(destroy); }
+  release(destroy?: boolean | Error) {
+    this.releases.push(destroy);
+    if (this.throwOnRelease) throw new Error("private release failure");
+  }
+
+  on(event: "error", listener: (error: Error) => void) {
+    assert.equal(event, "error");
+    this.errorListeners.add(listener);
+    return this;
+  }
+
+  removeListener(event: "error", listener: (error: Error) => void) {
+    assert.equal(event, "error");
+    this.errorListeners.delete(listener);
+    return this;
+  }
+
+  emitConnectionError() {
+    for (const listener of this.errorListeners) listener(new Error("private connection failure"));
+  }
 }
 
 const now = new Date("2026-07-12T10:02:00.000Z");
@@ -77,6 +103,73 @@ function queuePreamble(client: FakeClient) {
   for (let index = 0; index < 5; index += 1) client.queued.push([]);
 }
 
+async function lease(client: FakeClient) {
+  const fixture = setup(client);
+  queuePreamble(client);
+  client.queued.push([]);
+  const outcome = await withIdentityTransactionLease(fixture.dependencies, "registration", async () => ({
+    result: "claimed",
+    leaseKey: attemptId,
+  }));
+  assert.equal(outcome.result, "claimed");
+  assert.ok(outcome.lease);
+  return outcome.lease;
+}
+
+test("tenant-completion lease cleanup is synchronous, queryless, and destroys the client exactly once", async () => {
+  const client = new FakeClient();
+  const claimed = await lease(client);
+  const callCount = client.calls.length;
+  assert.equal(claimed.release(), undefined);
+  assert.equal(claimed.release(), undefined);
+  assert.equal(client.calls.length, callCount);
+  assert.equal(client.calls.some((call) => call.text.includes("pg_advisory_unlock")), false);
+  assert.deepEqual(client.releases, [true]);
+  assert.equal(client.errorListeners.size, 0);
+});
+
+test("tenant-completion lease cleanup swallows destruction failures and connection errors", async () => {
+  for (const connectionFailed of [false, true]) {
+    const client = new FakeClient();
+    const claimed = await lease(client);
+    client.throwOnRelease = true;
+    if (connectionFailed) client.emitConnectionError();
+    assert.doesNotThrow(() => claimed.release());
+    assert.doesNotThrow(() => claimed.release());
+    assert.deepEqual(client.releases, [true]);
+    assert.equal(client.errorListeners.size, 0);
+  }
+});
+
+test("a simulated never-settling advisory unlock cannot delay lease cleanup", async () => {
+  const client = new FakeClient();
+  client.hangOnAdvisoryUnlock = true;
+  const claimed = await lease(client);
+  const outcome = await Promise.race([
+    Promise.resolve(claimed.release()).then(() => "released"),
+    new Promise<string>((resolve) => setTimeout(() => resolve("blocked"), 40)),
+  ]);
+  assert.equal(outcome, "released");
+  assert.deepEqual(client.releases, [true]);
+});
+
+test("lease destruction failures cannot create an unhandled rejection", async () => {
+  const client = new FakeClient();
+  const claimed = await lease(client);
+  client.throwOnRelease = true;
+  const unhandled: unknown[] = [];
+  const listener = (reason: unknown) => { unhandled.push(reason); };
+  process.on("unhandledRejection", listener);
+  try {
+    claimed.release();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.deepEqual(unhandled, []);
+    assert.deepEqual(client.releases, [true]);
+  } finally {
+    process.off("unhandledRejection", listener);
+  }
+});
+
 async function rows(client: FakeClient) {
   const material = setup(client);
   const digest = material.stateDigester.digest(registrationState);
@@ -110,6 +203,7 @@ async function rows(client: FakeClient) {
     consumed_at: new Date("2026-07-12T10:01:00.000Z"),
     terminal_at: null,
     failure_code: null,
+    tenant_idempotency_digest: createHash("sha256").update(registrationPayload.idempotencyKey, "utf8").digest("hex"),
     verified_attempt_id: null,
     verified_canonical_fingerprint: null,
     verified_payload_ciphertext: null,

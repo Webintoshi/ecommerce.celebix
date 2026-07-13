@@ -7,29 +7,29 @@
       "id": "202607120012_verified_identity_snapshot_up",
       "direction": "up",
       "file": "202607120012_verified_identity_snapshot.up.sql",
-      "sha256": "215ab99d70e26dce852d8f5f48f2ee7ab02b4c70c2cf51a28b07182d471949ce",
-      "purpose": "Create the immutable encrypted identity snapshot, durable tenant-completion authority, and atomic pair guards."
+      "sha256": "c79cf3d42b685a6a60ea3bcb174a2edc2947508749b0fce59cf904fc0e0a85e6",
+      "purpose": "Create encrypted identity authority, committed-operation proof binding, narrow atomic finalization, and pair guards."
     },
     {
       "id": "202607120012_verified_identity_snapshot_down",
       "direction": "down",
       "file": "202607120012_verified_identity_snapshot.down.sql",
-      "sha256": "1fc18f6323afa8253576b074c3fef82d3e4a27417d89a005af9c3b1bd6083984",
-      "purpose": "Remove only Phase 2B1B1 snapshot, tenant-completion, and transition-guard objects."
+      "sha256": "5498cd1103732526826cc90c89e01e00ace21dded39937bb383b3caf4a69f1ce",
+      "purpose": "Remove only Phase 2B1B1 snapshot, committed-proof, tenant-completion, finalizer, and guard objects."
     },
     {
       "id": "202607120013_verified_identity_grants",
       "direction": "up",
       "file": "202607120013_verified_identity_grants.sql",
-      "sha256": "9d37a05249ca4267aeec6cb4df136a72b96c6f502db34a1a495c92c5ba0ed880",
-      "purpose": "Grant immutable snapshot access and exact column-scoped tenant-completion transition authority."
+      "sha256": "54be660ce25e1b329b931bd7a852ad7f16b4b458d4b8ebc634d0c473e13db9d1",
+      "purpose": "Grant immutable snapshot access, non-proof transition columns, and only the narrow tenant finalizer."
     },
     {
       "id": "202607120014_verified_identity_catalog_assertions",
       "direction": "verify",
       "file": "202607120014_verified_identity_catalog_assertions.sql",
-      "sha256": "4b2f9a54695e04a4b8d2be626b4941649f0683179e8c7bd7c1c99ad3b17e554b",
-      "purpose": "Fail on role, PUBLIC, plaintext, completion-state, cascade, trigger, or paired-authority drift."
+      "sha256": "9feff8001a652932bc0d131f3a3a25652f7281812a9cdc25ed771653d92d84c9",
+      "purpose": "Fail on committed proof, function ownership, grants, graph equality, state, cascade, trigger, or authority drift."
     }
   ]
 }

@@ -125,7 +125,7 @@ function authority(
         ? { startedAt: now.toISOString() }
         : {}),
       ...(completionState === "commit_unknown" ? { commitUnknownAt: now.toISOString() } : {}),
-      ...(completionState === "completed" ? { completedAt: now.toISOString() } : {}),
+      ...(completionState === "completed" ? { completedAt: now.toISOString(), tenantOperationId: tenantResult.operationId } : {}),
     },
   };
 }
@@ -149,6 +149,8 @@ class WorkflowStore implements PersistentRegistrationCompletionStore {
   failClaim: Error | undefined;
   failCommitUnknown: Error | undefined;
   failFinalize: Error | undefined;
+  leaseRelease: () => unknown = () => { this.activeLease = false; };
+  leaseReleaseCalls = 0;
 
   async recordVerifiedIdentity(input: RecordVerifiedIdentityInput): Promise<RecordVerifiedIdentityOutcome> {
     this.recordCalls += 1;
@@ -164,12 +166,15 @@ class WorkflowStore implements PersistentRegistrationCompletionStore {
     this.claimCalls += 1;
     if (this.failClaim) throw this.failClaim;
     if (this.current.completion.state === "ready") {
+      if (this.current.completion.recoveryAbsentAt) {
+        return { kind: "recovery_required", authority: structuredClone(this.current) };
+      }
       this.current = authority("creating", "identity_verified", this.current.version, this.current.completion.version + 1);
       this.activeLease = true;
       return {
         kind: "claimed",
         authority: structuredClone(this.current),
-        lease: { release: async () => { this.activeLease = false; } },
+        lease: { release: (() => { this.leaseReleaseCalls += 1; return this.leaseRelease(); }) as () => void },
       };
     }
     if (this.current.completion.state === "creating") return { kind: "in_progress", authority: structuredClone(this.current) };
@@ -230,7 +235,10 @@ function service(options: {
         recoveryCalls += 1;
         assert.equal(idempotencyKey, tenantInput.idempotencyKey);
         assert.equal(receivedFingerprint, fingerprint);
-        return options.recover?.() ?? { kind: "absent" };
+        return options.recover?.() ?? {
+          kind: "committed_match",
+          result: { ...structuredClone(tenantResult), replayed: true },
+        };
       },
     },
     panelOrigin: "https://panel.celebix.site",
@@ -274,6 +282,47 @@ test("two concurrent resumes fence Tenant Core to exactly one invocation", async
   assert.equal((await winner).kind, "tenant_created");
 });
 
+test("post-finalization responses use the persisted result graph, never caller-supplied nested authorities", async () => {
+  const fabricated: CreateStarterTenantResult = {
+    ...structuredClone(tenantResult),
+    store: { ...tenantResult.store, id: "10000000-0000-4000-8000-000000000099" },
+    primaryDomain: {
+      ...tenantResult.primaryDomain,
+      domainId: "20000000-0000-4000-8000-000000000099",
+      storeId: "10000000-0000-4000-8000-000000000099",
+    },
+    membership: {
+      ...tenantResult.membership,
+      id: "30000000-0000-4000-8000-000000000099",
+      principalId: "40000000-0000-4000-8000-000000000099",
+      storeId: "10000000-0000-4000-8000-000000000099",
+    },
+    plan: { ...tenantResult.plan, planId: "50000000-0000-4000-8000-000000000099" },
+  };
+  const probe = service({ create: async () => ({ ok: true, value: fabricated }) });
+  assert.deepEqual(await probe.completion.resumeTenantCreation(attemptId), {
+    kind: "tenant_created",
+    result: tenantResult,
+  });
+  assert.equal(probe.recoveryCalls(), 1);
+});
+
+test("a reconciler winning the destroyed-lease finalization gap still yields authoritative success", async () => {
+  const store = new WorkflowStore();
+  store.failFinalize = new IdentityPersistenceError();
+  store.leaseRelease = () => {
+    store.activeLease = false;
+    store.current = authority("completed", "tenant_created", 3, 3);
+  };
+  const probe = service({ store });
+  assert.deepEqual(await probe.completion.resumeTenantCreation(attemptId), {
+    kind: "tenant_created",
+    result: tenantResult,
+  });
+  assert.equal(probe.creationCalls(), 1);
+  assert.equal(probe.recoveryCalls(), 1);
+});
+
 test("creating and commit_unknown never invoke Tenant Core and require recovery", async () => {
   for (const [state, expected] of [["creating", "in_progress"], ["commit_unknown", "reconciliation_required"]] as const) {
     const store = new WorkflowStore();
@@ -282,6 +331,65 @@ test("creating and commit_unknown never invoke Tenant Core and require recovery"
     assert.deepEqual(await probe.completion.resumeTenantCreation(attemptId), { kind: expected });
     assert.equal(probe.creationCalls(), 0);
   }
+});
+
+test("completed response-loss resume is read-only and returns the exact committed operation", async () => {
+  const store = new WorkflowStore();
+  store.current = authority("completed");
+  const probe = service({ store, recover: async () => ({ kind: "committed_match", result: { ...structuredClone(tenantResult), replayed: true } }) });
+  assert.deepEqual(await probe.completion.resumeTenantCreation(attemptId), {
+    kind: "tenant_already_created",
+    result: { ...structuredClone(tenantResult), replayed: true },
+  });
+  assert.equal(probe.creationCalls(), 0);
+  assert.equal(probe.recoveryCalls(), 1);
+  assert.equal(store.finalizeCalls, 0);
+  assert.equal(store.current.completion.version, 2);
+});
+
+test("completed response-loss reconciliation is read-only and never reopens durable state", async () => {
+  const store = new WorkflowStore();
+  store.current = authority("completed");
+  const probe = service({ store, recover: async () => ({ kind: "committed_match", result: { ...structuredClone(tenantResult), replayed: true } }) });
+  assert.deepEqual(await probe.completion.reconcileUnknownCommit(attemptId), {
+    kind: "tenant_recovered",
+    result: { ...structuredClone(tenantResult), replayed: true },
+  });
+  assert.equal(probe.creationCalls(), 0);
+  assert.equal(store.finalizeCalls, 0);
+  assert.equal(store.current.status, "tenant_created");
+  assert.equal(store.current.completion.version, 2);
+});
+
+test("completed recovery fails closed for mismatched operation and every non-committed classification", async () => {
+  const cases = [
+    { kind: "committed_match", result: { ...structuredClone(tenantResult), operationId: "70000000-0000-4000-8000-000000000002", replayed: true } },
+    { kind: "committed_mismatch" },
+    { kind: "corrupt" },
+    { kind: "absent" },
+    { kind: "processing" },
+    { kind: "failed" },
+  ];
+  for (const recovery of cases) {
+    const store = new WorkflowStore();
+    store.current = authority("completed");
+    const probe = service({ store, recover: async () => recovery });
+    assert.deepEqual(await probe.completion.resumeTenantCreation(attemptId), {
+      kind: "rejected", error: { code: "durable_authority_invalid", retryable: false },
+    });
+    assert.equal(probe.creationCalls(), 0);
+    assert.equal(store.finalizeCalls, 0);
+  }
+});
+
+test("completed recovery transport failure is retryable without tenant creation", async () => {
+  const store = new WorkflowStore();
+  store.current = authority("completed");
+  const probe = service({ store, recover: async () => { throw new Error("private pool state"); } });
+  assert.deepEqual(await probe.completion.resumeTenantCreation(attemptId), {
+    kind: "rejected", error: { code: "tenant_transaction_failed", retryable: true },
+  });
+  assert.equal(probe.creationCalls(), 0);
 });
 
 test("a creating restart performs read-only recovery before any Tenant Core call", async () => {
@@ -388,6 +496,29 @@ test("absent recovery atomically returns completion to ready without tenant crea
   }
 });
 
+test("recovery-fenced ready is read-only until reconciliation proves a committed operation", async () => {
+  const store = new WorkflowStore();
+  store.current = authority("ready", "identity_verified", 2, 3);
+  store.current.completion.recoveryAbsentAt = now.toISOString();
+  let recovery: any = { kind: "absent" };
+  const probe = service({ store, recover: async () => recovery });
+
+  assert.deepEqual(await probe.completion.resumeTenantCreation(attemptId), { kind: "reconciliation_required" });
+  assert.equal(probe.creationCalls(), 0);
+  assert.deepEqual(await probe.completion.reconcileUnknownCommit(attemptId), { kind: "recovery_absent", state: "ready" });
+  assert.equal(store.current.completion.version, 3);
+  assert.equal(store.absentCalls, 0);
+
+  recovery = { kind: "committed_match", result: { ...structuredClone(tenantResult), replayed: true } };
+  assert.deepEqual(await probe.completion.reconcileUnknownCommit(attemptId), {
+    kind: "tenant_recovered",
+    result: { ...structuredClone(tenantResult), replayed: true },
+  });
+  assert.equal(probe.creationCalls(), 0);
+  assert.equal(store.commitUnknownCalls, 1);
+  assert.equal(store.current.completion.state, "completed");
+});
+
 test("processing, failed, mismatch, and corruption recovery never invoke Tenant Core", async () => {
   for (const [kind, expected] of [
     ["processing", { kind: "pending" }],
@@ -405,15 +536,29 @@ test("processing, failed, mismatch, and corruption recovery never invoke Tenant 
 
 test("malformed or authority-inconsistent Tenant Core success cannot finalize", async () => {
   for (const result of [
+    { ...structuredClone(tenantResult), operationId: "not-a-uuid" },
+    { ...structuredClone(tenantResult), unexpectedAuthority: true },
     { ...structuredClone(tenantResult), store: { ...tenantResult.store, slug: "wrong-store" } },
+    { ...structuredClone(tenantResult), store: { ...tenantResult.store, unexpectedAuthority: true } },
     { ...structuredClone(tenantResult), primaryDomain: { ...tenantResult.primaryDomain, storeId: "wrong-store-id" } },
+    { ...structuredClone(tenantResult), primaryDomain: { ...tenantResult.primaryDomain, domainId: "wrong-domain-id" } },
     { ...structuredClone(tenantResult), membership: { ...tenantResult.membership, storeId: "wrong-store-id" } },
+    { ...structuredClone(tenantResult), membership: { ...tenantResult.membership, principalId: "wrong-principal-id" } },
     { ...structuredClone(tenantResult), store: { ...tenantResult.store, status: "suspended" } },
     { ...structuredClone(tenantResult), primaryDomain: { ...tenantResult.primaryDomain, status: "pending" } },
     { ...structuredClone(tenantResult), membership: { ...tenantResult.membership, updatedAt: "not-a-timestamp" } },
+    { ...structuredClone(tenantResult), membership: { ...tenantResult.membership, createdAt: "2026-07-12T10:00:01.000Z" } },
+    { ...structuredClone(tenantResult), membership: { ...tenantResult.membership, updatedAt: "2026-07-12T10:00:01.000Z" } },
     { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, version: 2 } },
+    { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, planId: "wrong-plan-id" } },
+    { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, validFrom: "2026-07-12T10:00:01.000Z" } },
     { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, features: ["orders", "catalog"] } },
+    { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, features: ["catalog", "catalog"] } },
+    { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, features: ["catalog", "unsupported"] } },
     { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, limits: { products: 100 } } },
+    { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, limits: { ...tenantResult.plan.limits, products: -1 } } },
+    { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, limits: { ...tenantResult.plan.limits, staff: 1.5 } } },
+    { ...structuredClone(tenantResult), plan: { ...tenantResult.plan, limits: { ...tenantResult.plan.limits, hidden: 1 } } },
     { ...structuredClone(tenantResult), provisioningStatus: "processing" },
     { ...structuredClone(tenantResult), panelUrl: "https://evil.example.test/stores/safe-store" },
     { ...structuredClone(tenantResult), storefrontUrl: "https://evil.example.test" },
@@ -424,6 +569,23 @@ test("malformed or authority-inconsistent Tenant Core success cannot finalize", 
     });
     assert.equal(probe.store.finalizeCalls, 0);
     assert.equal(probe.store.current.completion.state, "creating");
+  }
+});
+
+test("authoritative results never wait for a non-settling lease cleanup", async () => {
+  for (const create of [
+    async () => ({ ok: true, value: structuredClone(tenantResult) }),
+    async () => ({ ok: false, error: { schemaVersion: 1, code: "tenant_transaction_failed", retryable: false } }),
+    async () => ({ ok: false, error: { schemaVersion: 1, code: "slug_taken", retryable: false } }),
+  ]) {
+    const store = new WorkflowStore();
+    store.leaseRelease = () => new Promise<void>(() => undefined);
+    const probe = service({ store, create });
+    const result = await Promise.race([
+      probe.completion.resumeTenantCreation(attemptId),
+      new Promise<{ kind: "blocked" }>((resolve) => setTimeout(() => resolve({ kind: "blocked" }), 40)),
+    ]);
+    assert.notEqual(result.kind, "blocked");
   }
 });
 

@@ -21,7 +21,7 @@ export interface IdentityPostgresPool {
 }
 
 export interface IdentitySessionLease {
-  release(): Promise<void>;
+  release(): void;
 }
 
 export interface IdentityTimeouts {
@@ -205,8 +205,7 @@ export async function withIdentityTransactionLease<T>(
   work: (client: IdentityPostgresClient) => Promise<{ result: T; leaseKey?: string }>,
 ): Promise<{ result: T; lease?: IdentitySessionLease }> {
   const client = await acquire(input);
-  let connectionFailed = false;
-  const handleConnectionError = () => { connectionFailed = true; };
+  const handleConnectionError = () => undefined;
   client.on?.("error", handleConnectionError);
   const removeConnectionListener = () => client.removeListener?.("error", handleConnectionError);
   let began = false;
@@ -241,25 +240,12 @@ export async function withIdentityTransactionLease<T>(
       return { result: outcome.result };
     }
     let released = false;
-    const leaseKey = outcome.leaseKey;
     const lease: IdentitySessionLease = {
-      release: async () => {
+      release: () => {
         if (released) return;
         released = true;
-        try {
-          if (connectionFailed) throw new IdentityPersistenceError();
-          const unlocked = await client.query(
-            "SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtextextended($1, $2)) AS unlocked",
-            [leaseKey, IDENTITY_COMPLETION_LEASE_SEED],
-          );
-          if (unlocked.rows[0]?.unlocked !== true) throw new IdentityPersistenceError();
-          removeConnectionListener();
-          client.release();
-        } catch {
-          removeConnectionListener();
-          try { client.release(true); } catch { /* session destruction releases the lock */ }
-          throw new IdentityPersistenceError();
-        }
+        try { removeConnectionListener(); } catch { /* listener cleanup is best effort */ }
+        try { client.release(true); } catch { /* session destruction was attempted exactly once */ }
       },
     };
     auditSafely(input, { operation: category, classification: "completed", result: "success" });

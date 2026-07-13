@@ -68,7 +68,7 @@ export type RecordIdentityResult =
   | { kind: "rejected"; error: SafeCompletionError };
 
 export type ResumeTenantResult =
-  | { kind: "tenant_created" | "tenant_replayed"; result: CreateStarterTenantResult }
+  | { kind: "tenant_created" | "tenant_replayed" | "tenant_already_created"; result: CreateStarterTenantResult }
   | { kind: "in_progress" | "commit_unknown" | "reconciliation_required" | "completion_state_unknown" }
   | { kind: "rejected"; error: SafeCompletionError };
 
@@ -226,7 +226,13 @@ class DefaultPersistentRegistrationCompletionService implements PersistentRegist
       return { kind: "rejected", error: safeError(error) };
     }
     if (claim.kind === "in_progress") return { kind: "in_progress" };
-    if (claim.kind === "commit_unknown" || claim.kind === "completed") return { kind: "reconciliation_required" };
+    if (claim.kind === "commit_unknown") return { kind: "reconciliation_required" };
+    if (claim.kind === "recovery_required") return { kind: "reconciliation_required" };
+    if (claim.kind === "completed") {
+      const recovered = await this.recoverCompletedAuthority(claim.authority);
+      if (!recovered.ok) return { kind: "rejected", error: recovered.error };
+      return { kind: "tenant_already_created", result: recovered.result };
+    }
 
     const authority = claim.authority;
     try {
@@ -256,15 +262,13 @@ class DefaultPersistentRegistrationCompletionService implements PersistentRegist
       auditSafely(this.dependencies, { operation: "resume_tenant_creation", outcome: "rejected" });
       return { kind: "rejected", error: { code: "durable_authority_invalid", retryable: false } };
     }
-    try {
-      await this.dependencies.workflowStore.finalizeTenantCompletion({ ...transitionInput(authority, "creating", now(this.dependencies)), result: structuredClone(outcome.value) });
-    } catch (error) {
-      return finalizationFailure(error);
-    }
+    claim.lease.release();
+    const finalized = await this.finalizeAndRecover(authority, "creating", outcome.value);
+    if (!finalized.ok) return finalized.failure;
     auditSafely(this.dependencies, { operation: "resume_tenant_creation", outcome: "completed" });
-    return { kind: outcome.value.replayed ? "tenant_replayed" : "tenant_created", result: structuredClone(outcome.value) };
+    return { kind: outcome.value.replayed ? "tenant_replayed" : "tenant_created", result: finalized.result };
     } finally {
-      try { await claim.lease.release(); } catch { /* client destruction releases the session fence */ }
+      claim.lease.release();
     }
   }
 
@@ -272,13 +276,26 @@ class DefaultPersistentRegistrationCompletionService implements PersistentRegist
     let authority: VerifiedRegistrationAuthority;
     try {
       authority = await this.dependencies.workflowStore.loadVerified(attemptId(rawAttemptId));
-      if (authority.status !== "identity_verified" || !["creating", "commit_unknown"].includes(authority.completion.state)) {
+      if (
+        !(authority.status === "tenant_created" && authority.completion.state === "completed") &&
+        !(authority.status === "identity_verified" && ["creating", "commit_unknown"].includes(authority.completion.state)) &&
+        !(
+          authority.status === "identity_verified" &&
+          authority.completion.state === "ready" &&
+          authority.completion.recoveryAbsentAt !== undefined
+        )
+      ) {
         throw new RegistrationCompletionCorruptionError();
       }
     } catch (error) {
       return { kind: "rejected", error: safeError(error) };
     }
-    const recoveryState = authority.completion.state as "creating" | "commit_unknown";
+    if (authority.status === "tenant_created" && authority.completion.state === "completed") {
+      const recovered = await this.recoverCompletedAuthority(authority);
+      if (!recovered.ok) return { kind: "rejected", error: recovered.error };
+      return { kind: "tenant_recovered", result: recovered.result };
+    }
+    let recoveryState = authority.completion.state as "ready" | "creating" | "commit_unknown";
     if (recoveryState === "creating") {
       try {
         if (await this.dependencies.workflowStore.isTenantCompletionActive(authority.attempt.id)) return { kind: "pending" };
@@ -298,6 +315,7 @@ class DefaultPersistentRegistrationCompletionService implements PersistentRegist
       return { kind: "rejected", error: { code: "durable_authority_invalid", retryable: false } };
     }
     if (recovery.kind === "absent") {
+      if (recoveryState === "ready") return { kind: "recovery_absent", state: "ready" };
       try {
         await this.dependencies.workflowStore.recoverAbsentTenantCompletion(transitionInput(authority, recoveryState, now(this.dependencies)));
       } catch (error) {
@@ -308,12 +326,96 @@ class DefaultPersistentRegistrationCompletionService implements PersistentRegist
     if (!validateTenantCompletionResult(recovery.result, authority.tenantInput, this.dependencies)) {
       return { kind: "rejected", error: { code: "durable_authority_invalid", retryable: false } };
     }
-    try {
-      await this.dependencies.workflowStore.finalizeTenantCompletion({ ...transitionInput(authority, recoveryState, now(this.dependencies)), result: structuredClone(recovery.result) });
-    } catch (error) {
-      return finalizationFailure(error);
+    if (recoveryState === "ready") {
+      try {
+        authority = await this.dependencies.workflowStore.markTenantCompletionCommitUnknown({
+          attemptId: authority.attempt.id,
+          expectedState: "ready",
+          expectedCompletionVersion: authority.completion.version,
+          expectedWorkflowVersion: authority.version,
+          now: now(this.dependencies),
+        });
+        recoveryState = "commit_unknown";
+      } catch (error) {
+        return finalizationFailure(error);
+      }
     }
-    return { kind: "tenant_recovered", result: structuredClone(recovery.result) };
+    const finalized = await this.finalizeAndRecover(authority, recoveryState, recovery.result, true);
+    if (!finalized.ok) return finalized.failure;
+    return { kind: "tenant_recovered", result: finalized.result };
+  }
+
+  private async finalizeAndRecover(
+    authority: VerifiedRegistrationAuthority,
+    state: "creating" | "commit_unknown",
+    candidate: CreateStarterTenantResult,
+    candidateIsPersisted = false,
+  ): Promise<
+    | { ok: true; result: CreateStarterTenantResult }
+    | { ok: false; failure: FinalizationFailureResult }
+  > {
+    let completed: VerifiedRegistrationAuthority;
+    try {
+      completed = await this.dependencies.workflowStore.finalizeTenantCompletion({
+        ...transitionInput(authority, state, now(this.dependencies)),
+        result: structuredClone(candidate),
+      });
+    } catch (error) {
+      if (error instanceof RegistrationCompletionCorruptionError) {
+        return { ok: false, failure: finalizationFailure(error) };
+      }
+      try {
+        completed = await this.dependencies.workflowStore.loadVerified(authority.attempt.id);
+      } catch {
+        return { ok: false, failure: { kind: "reconciliation_required" } };
+      }
+      if (completed.status !== "tenant_created" || completed.completion.state !== "completed") {
+        return { ok: false, failure: { kind: "reconciliation_required" } };
+      }
+    }
+    if (candidateIsPersisted) {
+      if (completed.completion.tenantOperationId !== candidate.operationId) {
+        return {
+          ok: false,
+          failure: { kind: "rejected", error: { code: "durable_authority_invalid", retryable: false } },
+        };
+      }
+      return { ok: true, result: structuredClone(candidate) };
+    }
+    const recovered = await this.recoverCompletedAuthority(completed);
+    if (!recovered.ok) {
+      return recovered.error.code === "durable_authority_invalid"
+        ? { ok: false, failure: { kind: "rejected", error: { code: "durable_authority_invalid", retryable: false } } }
+        : { ok: false, failure: { kind: "reconciliation_required" } };
+    }
+    return { ok: true, result: { ...recovered.result, replayed: candidate.replayed } };
+  }
+
+  private async recoverCompletedAuthority(authority: VerifiedRegistrationAuthority): Promise<
+    | { ok: true; result: CreateStarterTenantResult }
+    | { ok: false; error: SafeCompletionError }
+  > {
+    const operationId = authority.completion.tenantOperationId;
+    if (authority.status !== "tenant_created" || authority.completion.state !== "completed" || !operationId) {
+      return { ok: false, error: { code: "durable_authority_invalid", retryable: false } };
+    }
+    let recovery: PostgresTenantOperationRecoveryResult;
+    try {
+      recovery = await this.dependencies.recovery.recover(
+        authority.attempt.idempotencyKey,
+        authority.canonicalFingerprint as CanonicalTenantFingerprint,
+      );
+    } catch {
+      return { ok: false, error: { code: "tenant_transaction_failed", retryable: true } };
+    }
+    if (
+      recovery.kind !== "committed_match" ||
+      recovery.result.operationId !== operationId ||
+      !validateTenantCompletionResult(recovery.result, authority.tenantInput, this.dependencies)
+    ) {
+      return { ok: false, error: { code: "durable_authority_invalid", retryable: false } };
+    }
+    return { ok: true, result: structuredClone(recovery.result) };
   }
 }
 
