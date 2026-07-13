@@ -50,15 +50,15 @@ function audit(
   runtime.audit({ operation: "registration_start", ...event });
 }
 
-function exactSameOrigin(request: Request): boolean {
+function exactSameOrigin(request: Request, registrationOrigin: string): boolean {
   const raw = request.headers.get("origin");
-  if (!raw) return false;
+  if (!raw || raw !== registrationOrigin) return false;
   try {
     const origin = new URL(raw);
     const target = new URL(request.url);
     return raw === origin.origin && !origin.username && !origin.password &&
       origin.pathname === "/" && !origin.search && !origin.hash &&
-      origin.origin === target.origin;
+      origin.origin === registrationOrigin && target.origin === registrationOrigin;
   } catch {
     return false;
   }
@@ -256,7 +256,7 @@ export function createSelfServeRegistrationStartHandler(runtime: SelfServeRuntim
     if (request.method !== "POST") {
       return json({ code: "self_serve_register_read_disabled", message: message("self_serve_register_read_disabled") }, 405);
     }
-    if (!exactSameOrigin(request)) {
+    if (!exactSameOrigin(request, runtime.registrationOrigin)) {
       return json({ code: "self_serve_origin_required", message: message("self_serve_origin_required") }, 403);
     }
     if (runtime.kind === "disabled") {

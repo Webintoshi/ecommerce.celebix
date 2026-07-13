@@ -30,6 +30,9 @@ function dependencyOptions(activationApproval: unknown) {
         return { kind: "pending" } as const;
       },
     },
+    consumedCallbackRecovery: {
+      async classifyConsumedCallback() { return { kind: "missing" } as const; },
+    },
     oidcProvider: {
       buildAuthorizationUrl() { throw new Error("not used"); },
       async verifyCallback() { throw new Error("not used"); },
@@ -40,6 +43,7 @@ function dependencyOptions(activationApproval: unknown) {
     clock: () => new Date("2026-07-13T12:00:00.000Z"),
     audit() {},
     bodyPolicy: { maximumBytes: 4_096, maximumCallbackQueryBytes: 2_048 },
+    registrationOrigin: "https://ecommerce.celebix.co",
     callbackAuthority: "https://panel.celebix.site/auth/callback",
     panelOrigin: "https://panel.celebix.site",
     platformDomainSuffix: "celebix.site",
@@ -64,7 +68,10 @@ test("default runtime is disabled and environment values cannot activate depende
   process.env.SELF_SERVE_SAAS_REGISTRATION_ENABLED = "true";
   try {
     const runtime = runtimeModule.createDisabledSelfServeRuntime();
-    assert.deepEqual(runtime, { kind: "disabled" });
+    assert.deepEqual(runtime, {
+      kind: "disabled",
+      registrationOrigin: "https://ecommerce.celebix.co",
+    });
     assert.equal(Object.isFrozen(runtime), true);
   } finally {
     if (prior === undefined) delete process.env.SELF_SERVE_SAAS_REGISTRATION_ENABLED;
@@ -119,12 +126,14 @@ test("persistent runtime exposes narrow operations without raw database, query, 
   for (const required of [
     "kind",
     "bodyPolicy",
+    "registrationOrigin",
     "callbackAuthority",
     "panelOrigin",
     "platformDomainSuffix",
     "verifyRequest",
     "beginRegistration",
     "completeCallback",
+    "recoverConsumedCallback",
     "rejectProviderCallback",
     "audit",
   ]) assert.equal(keys.includes(required), true, `missing narrow runtime operation ${required}`);
@@ -139,6 +148,7 @@ test("persistent runtime exposes narrow operations without raw database, query, 
     "registrationAttemptStore",
     "oidcTransactionStore",
     "registrationCompletion",
+    "consumedCallbackRecovery",
     "oidcProvider",
   ]) assert.equal(keys.includes(prohibited), false, `runtime exposed ${prohibited}`);
   assert.equal(Object.isFrozen(runtime), true);
@@ -157,10 +167,16 @@ test("runtime rejects browser-sized authority expansion and invalid server autho
     { bodyPolicy: { maximumBytes: 0, maximumCallbackQueryBytes: 2_048 } },
     { bodyPolicy: { maximumBytes: 16_385, maximumCallbackQueryBytes: 2_048 } },
     { bodyPolicy: { maximumBytes: 4_096, maximumCallbackQueryBytes: 0 } },
+    { registrationOrigin: "http://ecommerce.celebix.co" },
+    { registrationOrigin: "https://ecommerce.celebix.co/path" },
+    { registrationOrigin: "https://ecommerce.celebix.co?query=1" },
+    { registrationOrigin: "https://user:secret@ecommerce.celebix.co" },
+    { registrationOrigin: "https://*.celebix.co" },
     { callbackAuthority: "http://panel.celebix.site/auth/callback" },
     { callbackAuthority: "https://attacker.example/auth/callback" },
     { panelOrigin: "https://panel.celebix.site/path" },
     { platformDomainSuffix: "CELEBIX.SITE" },
+    { consumedCallbackRecovery: {} },
     { providerAuthority: { issuer: "", audience: "customer-panel", authorizationOrigin: "https://identity.example.test" } },
   ]) {
     assert.throws(

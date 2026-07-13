@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const base = "9ecdee03c3a87e07671001a30d79c4e9ca844735";
+const correctionBase = "4b54a65276f7d26c3860d174abe53d746cbbd34b";
 const read = (file) => readFileSync(path.join(root, file), "utf8");
 const sourceFiles = [
   "apps/owner/lib/self-serve-http/runtime.ts",
@@ -20,6 +21,11 @@ const changed = () => {
   const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
   return [...new Set(`${tracked}\n${untracked}`.trim().split("\n").filter(Boolean))].sort();
 };
+const correctionChanged = () => execFileSync(
+  "git",
+  ["diff", "--name-only", correctionBase, "--"],
+  { cwd: root, encoding: "utf8" },
+).trim().split("\n").filter(Boolean).sort();
 
 test("production registration and customer authentication flags remain false", () => {
   assert.match(read("apps/owner/lib/self-serve-registration-orchestrator.ts"), /SELF_SERVE_SAAS_REGISTRATION_ENABLED = false/);
@@ -45,6 +51,58 @@ test("handler composition has no environment activation, direct pg, pool, generi
   assert.doesNotMatch(source, /process\.env|DATABASE_URL|POSTGRES_URL|from\s+["']pg["']|require\s*\(\s*["']pg["']|new\s+Pool\s*\(|globalThis\.fetch|\bfetch\s*\(/);
   assert.doesNotMatch(source, /fallback.{0,40}(?:memory|in-memory)|(?:memory|in-memory).{0,40}fallback/is);
   assert.doesNotMatch(source, /export\s+(?:async\s+)?function\s+query|public\s+query\s*\(/);
+});
+
+test("registration authority is exact server-owned HTTPS origin and never request or proxy derived", () => {
+  const runtime = read("apps/owner/lib/self-serve-http/runtime.ts");
+  const registration = read("apps/owner/lib/self-serve-http/registration-start.ts");
+  assert.match(runtime, /registrationOrigin:\s*string/);
+  assert.match(runtime, /APPROVED_OWNER_REGISTRATION_ORIGIN\s*=\s*"https:\/\/ecommerce\.celebix\.co"/);
+  assert.match(runtime, /normalizeExactHttpsOrigin\(options\.registrationOrigin\)/);
+  assert.match(registration, /raw\s*!==\s*registrationOrigin/);
+  assert.match(registration, /target\.origin\s*===\s*registrationOrigin/);
+  assert.doesNotMatch(registration, /headers\.get\(["'](?:host|x-forwarded-host|forwarded)["']\)/i);
+  assert.doesNotMatch(runtime, /process\.env[^\n]*registration/i);
+  assert.doesNotMatch(registration, /origin\.origin\s*===\s*target\.origin/);
+});
+
+test("callback replay performs durable recovery inspection before any provider or tenant resume", () => {
+  const callback = read("apps/owner/lib/self-serve-http/oidc-callback-completion.ts");
+  const runtime = read("apps/owner/lib/self-serve-http/runtime.ts");
+  const persistence = read("apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts");
+  assert.match(callback, /oidc_state_replayed[\s\S]*runtime\.recoverConsumedCallback\(callback\.state\)/);
+  assert.match(runtime, /consumedCallbackRecovery\.classifyConsumedCallback/);
+  assert.match(runtime, /classification\.kind === "identity_verified" \|\| classification\.kind === "tenant_created"/);
+  assert.match(persistence, /stateDigester\.digest\(rawState\)/);
+  assert.match(persistence, /SELECT status AS oidc_status FROM saas\.oidc_transactions WHERE state_digest = \$1/);
+  assert.match(persistence, /WHERE workflow\.state_digest = \$1/);
+  const recoveryMethod = persistence.slice(
+    persistence.indexOf("async classifyConsumedCallback"),
+    persistence.indexOf("async load(", persistence.indexOf("async classifyConsumedCallback")),
+  );
+  assert.doesNotMatch(recoveryMethod, /\b(?:INSERT|UPDATE|DELETE)\b/);
+  assert.doesNotMatch(callback, /oidc_state_replayed[^\n]*return\s+oidcError/);
+});
+
+test("post-consume and provider failures have explicit non-retryable restart semantics", () => {
+  const callback = read("apps/owner/lib/self-serve-http/oidc-callback-completion.ts");
+  const runtime = read("apps/owner/lib/self-serve-http/runtime.ts");
+  const oidc = read("apps/owner/lib/self-serve-oidc.ts");
+  assert.match(oidc, /oidc_provider_unavailable/);
+  assert.match(oidc, /throw new OidcFlowError\("oidc_provider_unavailable"/);
+  assert.match(callback, /self_serve_callback_restart_required/);
+  assert.match(callback, /restartRegistration:\s*true/);
+  assert.doesNotMatch(callback, /state:\s*"failed",\s*retryable:\s*true/);
+  assert.doesNotMatch(callback, /completion_state_unknown"[^\n]*retryable:\s*true/);
+  assert.doesNotMatch(runtime, /completion_state_unknown",\s*retryable:\s*true/);
+  assert.doesNotMatch(oidc, /catch \(error\)[\s\S]{0,180}oidc_provider_rejected", "OIDC provider (?:rejected|is unavailable)/);
+});
+
+test("authorization URL requires exact code flow and rejects hybrid or fragment response mode", () => {
+  const oidc = read("apps/owner/lib/self-serve-oidc.ts");
+  assert.match(oidc, /hasExactly\(url, "response_type", "code"\)/);
+  assert.match(oidc, /getAll\("response_mode"\)\.includes\("fragment"\)/);
+  assert.doesNotMatch(oidc, /responseTypes\[0\][^\n]*includes\("code"\)/);
 });
 
 test("sealed activation authority has no production value and default route cannot mint it", () => {
@@ -78,6 +136,13 @@ test("accepted SQL, manifests, packages, lockfiles, and frozen contracts are byt
   assert.equal(files.some((file) => file === "package.json" || file === "package-lock.json" || file.endsWith("/package.json") || file.includes("packages/saas-contracts/")), false, files.join("\n"));
 });
 
+test("the correction changes no SQL, manifest, package, lockfile, customer panel, or infrastructure path", () => {
+  const files = correctionChanged();
+  assert.equal(files.some((file) => file.endsWith(".sql") || file.endsWith("manifest.json")), false, files.join("\n"));
+  assert.equal(files.some((file) => /(?:^|\/)package(?:-lock)?\.json$/.test(file)), false, files.join("\n"));
+  assert.equal(files.some((file) => /^(?:apps\/customer-panel|apps\/admin|apps\/admin-shared|deploy|\.github\/workflows|packages)\//.test(file)), false, files.join("\n"));
+});
+
 test("the Phase 2B1B2A diff is confined to approved Owner and test paths", () => {
   const files = changed();
   for (const file of files) {
@@ -86,6 +151,9 @@ test("the Phase 2B1B2A diff is confined to approved Owner and test paths", () =>
       file === "apps/owner/app/api/self-serve/register/route.test.ts" ||
       file === "apps/owner/lib/self-serve-registration-orchestrator.ts" ||
       file === "apps/owner/lib/self-serve-oidc.ts" ||
+      file === "apps/owner/lib/self-serve-oidc.test.ts" ||
+      file === "apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts" ||
+      file === "apps/owner/lib/saas-persistence/postgres-verified-identity-workflow.test.ts" ||
       file.startsWith("apps/owner/lib/self-serve-http/") ||
       file.startsWith("tests/saas-phase2/registration-session/") ||
       file.startsWith("tests/saas-phase2/http-wiring/"),

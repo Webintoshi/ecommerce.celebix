@@ -31,6 +31,9 @@ function message(code: string): string {
     self_serve_callback_invalid: "Kimlik doğrulama dönüşü geçerli değil.",
     self_serve_callback_query_too_large: "Kimlik doğrulama dönüşü izin verilen boyutu aşıyor.",
     self_serve_oidc_provider_rejected: "Kimlik sağlayıcı kayıt isteğini reddetti.",
+    self_serve_oidc_provider_unavailable: "Kimlik sağlayıcı şu anda kullanılamıyor; kayıt yeniden başlatılmalı.",
+    self_serve_callback_restart_required: "Kayıt işlemi güvenli şekilde yeniden başlatılmalı.",
+    self_serve_callback_recovery_failed: "Kimlik doğrulama dönüşü güvenli şekilde kurtarılamadı.",
     self_serve_oidc_invalid_state: "Kimlik doğrulama durumu geçerli değil.",
     self_serve_oidc_state_replayed: "Kimlik doğrulama durumu daha önce kullanıldı.",
     self_serve_oidc_state_expired: "Kimlik doğrulama durumunun süresi doldu.",
@@ -56,6 +59,15 @@ function audit(
   event: Omit<SelfServeHttpAuditEvent, "operation">,
 ): void {
   runtime.audit({ operation: "callback_completion", ...event });
+}
+
+function auditCompletionResponse(runtime: PersistentSelfServeRuntime, response: Response): void {
+  audit(runtime, {
+    stage: "tenant_completion",
+    outcome: response.status < 300 ? (response.status === 202 ? "pending" : "completed") : "failed",
+    retryable: response.status === 202,
+    statusCategory: response.status < 300 ? "2xx" : response.status < 500 ? "4xx" : "5xx",
+  });
 }
 
 function gateResponse(decision: Exclude<SelfServeRequestGateDecision, "allowed">): Response {
@@ -134,6 +146,15 @@ function parseCallback(url: URL): ParsedCallback {
 }
 
 function oidcError(error: OidcFlowError): Response {
+  if (error.code === "oidc_provider_unavailable") {
+    return json({
+      code: "self_serve_oidc_provider_unavailable",
+      state: "restart_required",
+      retryable: false,
+      restartRegistration: true,
+      message: message("self_serve_oidc_provider_unavailable"),
+    }, 503);
+  }
   const mapped: Partial<Record<string, { status: number; retryable: boolean }>> = {
     oidc_invalid_state: { status: 400, retryable: false },
     oidc_state_replayed: { status: 409, retryable: false },
@@ -168,6 +189,23 @@ function completionResponse(result: SelfServeCallbackServiceResult): Response {
   if (result.kind === "in_progress") {
     return json({ code: "self_serve_completion_pending", state: result.kind, retryable: true, message: message("self_serve_completion_pending") }, 202);
   }
+  if (result.kind === "restart_required") {
+    return json({
+      code: "self_serve_callback_restart_required",
+      state: result.kind,
+      retryable: false,
+      restartRegistration: true,
+      message: message("self_serve_callback_restart_required"),
+    }, 409);
+  }
+  if (result.kind === "recovery_failed") {
+    return json({
+      code: "self_serve_callback_recovery_failed",
+      state: result.kind,
+      retryable: false,
+      message: message("self_serve_callback_recovery_failed"),
+    }, result.unavailable ? 503 : 409);
+  }
   if (result.kind === "commit_unknown" || result.kind === "reconciliation_required" || result.kind === "recovery_absent") {
     return json({
       code: "self_serve_completion_reconciliation_required",
@@ -177,7 +215,7 @@ function completionResponse(result: SelfServeCallbackServiceResult): Response {
     }, 409);
   }
   if (result.kind === "completion_state_unknown") {
-    return json({ code: "self_serve_completion_state_unknown", state: result.kind, retryable: true, message: message("self_serve_completion_state_unknown") }, 503);
+    return json({ code: "self_serve_completion_state_unknown", state: result.kind, retryable: false, message: message("self_serve_completion_state_unknown") }, 503);
   }
   if (result.kind === "completion_failed") {
     return json({ code: "self_serve_completion_rejected", state: result.kind, retryable: false, message: message("self_serve_completion_rejected") }, 409);
@@ -187,14 +225,14 @@ function completionResponse(result: SelfServeCallbackServiceResult): Response {
     return json({
       code: result.error.retryable ? "self_serve_callback_unavailable" : "self_serve_completion_rejected",
       state: "completion_rejected",
-      retryable: result.error.retryable,
+      retryable: false,
       message: message(result.error.retryable ? "self_serve_callback_unavailable" : "self_serve_completion_rejected"),
     }, status);
   }
   return json({
     code: "self_serve_completion_state_unknown",
     state: "completion_state_unknown",
-    retryable: true,
+    retryable: false,
     message: message("self_serve_completion_state_unknown"),
   }, 503);
 }
@@ -238,18 +276,20 @@ export function createSelfServeOidcCallbackCompletionHandler(runtime: SelfServeR
       }
       const result = await runtime.completeCallback({ state: callback.state, code: callback.code });
       const response = completionResponse(result);
-      audit(runtime, {
-        stage: "tenant_completion",
-        outcome: response.status < 300 ? (response.status === 202 ? "pending" : "completed") : "failed",
-        retryable: response.status === 202 || response.status >= 500,
-        statusCategory: response.status < 300 ? "2xx" : response.status < 500 ? "4xx" : "5xx",
-      });
+      auditCompletionResponse(runtime, response);
       return response;
     } catch (error) {
-      const response = error instanceof OidcFlowError
-        ? oidcError(error)
-        : json({ code: "self_serve_callback_unavailable", state: "failed", retryable: true, message: message("self_serve_callback_unavailable") }, 503);
-      audit(runtime, { stage: error instanceof OidcFlowError ? "provider" : "persistence", outcome: "failed", retryable: response.status >= 500, statusCategory: response.status >= 500 ? "5xx" : "4xx" });
+      let response: Response;
+      if (error instanceof OidcFlowError && error.code === "oidc_state_replayed") {
+        response = completionResponse(await runtime.recoverConsumedCallback(callback.state));
+        auditCompletionResponse(runtime, response);
+        return response;
+      } else {
+        response = error instanceof OidcFlowError
+          ? oidcError(error)
+          : json({ code: "self_serve_callback_unavailable", state: "failed", retryable: false, message: message("self_serve_callback_unavailable") }, 503);
+      }
+      audit(runtime, { stage: error instanceof OidcFlowError ? "provider" : "persistence", outcome: "failed", retryable: response.status === 202, statusCategory: response.status >= 500 ? "5xx" : "4xx" });
       return response;
     }
   };

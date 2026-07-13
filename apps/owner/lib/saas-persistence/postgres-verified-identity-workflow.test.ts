@@ -82,7 +82,8 @@ const registrationPayload = {
 function setup(client: FakeClient) {
   const hmacKey = randomBytes(32);
   const keyring = { old: randomBytes(32), current: randomBytes(32) };
-  const stateDigester = createOpaqueStateDigester({ key: hmacKey, context: "test" });
+  const stateDigester = createOpaqueStateDigester({ key: hmacKey, context: "registration-attempt-state" });
+  const oidcStateDigester = createOpaqueStateDigester({ key: hmacKey, context: "oidc-transaction-state" });
   const payloadCipher = createAes256GcmPayloadCipher({
     currentKeyId: "current",
     resolveKey: (keyId) => keyring[keyId as keyof typeof keyring],
@@ -96,7 +97,7 @@ function setup(client: FakeClient) {
     audit: () => undefined,
     identityRole: "celebix_saas_identity" as const,
   };
-  return { dependencies, stateDigester, payloadCipher, keyring };
+  return { dependencies, stateDigester, oidcStateDigester, payloadCipher, keyring };
 }
 
 function queuePreamble(client: FakeClient) {
@@ -326,6 +327,110 @@ test("loading identity_verified requires one consistent authenticated snapshot",
       (error: unknown) => error instanceof Error && /^(?:identity_(?:crypto|persistence)_failed|registration_completion_corrupt)$/.test(error.message),
     );
   }
+});
+
+test("consumed callback recovery classifies durable workflow authority with digest-only read queries", async () => {
+  const cases = [
+    {
+      label: "awaiting identity after OIDC consume",
+      oidc: [{ oidc_status: "consumed" }],
+      row: (fixture: Awaited<ReturnType<typeof rows>>) => ({ ...fixture.base, consumed_at: null }),
+      expected: { kind: "awaiting_identity_consumed" },
+    },
+    {
+      label: "verified identity",
+      oidc: [{ oidc_status: "consumed" }],
+      row: (fixture: Awaited<ReturnType<typeof rows>>) => fixture.verified,
+      expected: { kind: "identity_verified", attemptId },
+    },
+    {
+      label: "completed tenant",
+      oidc: [{ oidc_status: "consumed" }],
+      row: (fixture: Awaited<ReturnType<typeof rows>>) => ({
+        ...fixture.verified,
+        status: "tenant_created",
+        version: 3,
+        completion_state: "completed",
+        completion_version: 3,
+        completion_started_at: new Date("2026-07-12T10:03:00.000Z"),
+        completion_updated_at: new Date("2026-07-12T10:04:00.000Z"),
+        completion_completed_at: new Date("2026-07-12T10:04:00.000Z"),
+        completion_tenant_operation_id: "00000000-0000-4000-8000-000000000001",
+      }),
+      expected: { kind: "tenant_created", attemptId },
+    },
+    {
+      label: "terminal workflow",
+      oidc: [{ oidc_status: "consumed" }],
+      row: (fixture: Awaited<ReturnType<typeof rows>>) => ({
+        ...fixture.base,
+        status: "failed",
+        version: 2,
+        terminal_at: now,
+        failure_code: "controlled_failure",
+      }),
+      expected: { kind: "terminal" },
+    },
+  ];
+
+  for (const scenario of cases) {
+    const client = new FakeClient();
+    const fixture = await rows(client);
+    queuePreamble(client);
+    client.queued.push(scenario.oidc, [scenario.row(fixture)]);
+    const result = await new PostgresRegistrationAttemptStore(
+      fixture.dependencies,
+      undefined,
+      { oidcStateDigester: fixture.oidcStateDigester },
+    )
+      .classifyConsumedCallback(registrationState, now);
+    assert.deepEqual(result, scenario.expected, scenario.label);
+    const authorityQueries = client.calls.filter((call) => /saas\.(?:oidc_transactions|registration_workflows)/.test(call.text));
+    assert.equal(authorityQueries.length, 2, scenario.label);
+    assert.equal(authorityQueries.every((call) => /^SELECT\b/.test(call.text.trim())), true, scenario.label);
+    assert.equal(authorityQueries.some((call) => JSON.stringify(call.values).includes(registrationState)), false, scenario.label);
+    assert.notEqual(authorityQueries[0].values[0], authorityQueries[1].values[0], scenario.label);
+    assert.equal(client.calls.some((call) => /\b(?:INSERT|UPDATE|DELETE)\b/.test(call.text)), false, scenario.label);
+  }
+});
+
+test("consumed callback recovery fails closed for missing, non-consumed, and corrupt authority", async () => {
+  const cases = [
+    { label: "missing OIDC", oidc: [], workflow: [], expected: { kind: "missing" } },
+    { label: "active OIDC", oidc: [{ oidc_status: "active" }], workflow: [], expected: { kind: "corrupt" } },
+    { label: "discarded OIDC", oidc: [{ oidc_status: "discarded" }], workflow: [], expected: { kind: "terminal" } },
+    { label: "missing workflow", oidc: [{ oidc_status: "consumed" }], workflow: [], expected: { kind: "corrupt" } },
+  ];
+  for (const scenario of cases) {
+    const client = new FakeClient();
+    const fixture = await rows(client);
+    queuePreamble(client);
+    client.queued.push(scenario.oidc, scenario.workflow);
+    const result = await new PostgresRegistrationAttemptStore(
+      fixture.dependencies,
+      undefined,
+      { oidcStateDigester: fixture.oidcStateDigester },
+    )
+      .classifyConsumedCallback(registrationState, now);
+    assert.deepEqual(result, scenario.expected, scenario.label);
+  }
+
+  const corruptClient = new FakeClient();
+  const corruptFixture = await rows(corruptClient);
+  queuePreamble(corruptClient);
+  corruptClient.queued.push(
+    [{ oidc_status: "consumed" }],
+    [{ ...corruptFixture.verified, verified_payload_ciphertext: Buffer.alloc(32, 9) }],
+  );
+  assert.deepEqual(
+    await new PostgresRegistrationAttemptStore(
+      corruptFixture.dependencies,
+      undefined,
+      { oidcStateDigester: corruptFixture.oidcStateDigester },
+    )
+      .classifyConsumedCallback(registrationState, now),
+    { kind: "corrupt" },
+  );
 });
 
 test("unknown verified-identity fields and emailVerified false are rejected before pool acquisition", async () => {

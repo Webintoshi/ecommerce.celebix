@@ -122,6 +122,7 @@ class RecordingAttemptStore {
   active = new Map<string, RegistrationAttempt>();
   consumed = new Set<string>();
   consumeCalls = 0;
+  failConsume = false;
   order: string[];
 
   constructor(order: string[]) { this.order = order; }
@@ -129,6 +130,7 @@ class RecordingAttemptStore {
   async consume(state: string, now = NOW) {
     this.order.push("attempt_consume");
     this.consumeCalls += 1;
+    if (this.failConsume) throw new Error("registration persistence SQLSTATE secret");
     if (this.consumed.has(state)) throw new Error("registration_attempt_replayed SQLSTATE secret");
     const value = this.active.get(state);
     if (!value) throw new Error("registration_attempt_missing schema secret");
@@ -144,6 +146,7 @@ class DeterministicProvider {
   input: OidcProviderCallbackInput | null = null;
   output = identity();
   errorCode: OidcFlowErrorCode | null = null;
+  unexpectedError = false;
   order: string[];
 
   constructor(order: string[]) { this.order = order; }
@@ -157,6 +160,7 @@ class DeterministicProvider {
       input.redirectUri !== CALLBACK_URL || input.expectedNonce !== NONCE ||
       input.expectedIssuer !== ISSUER || input.expectedAudience !== AUDIENCE
     ) throw new OidcFlowError("oidc_provider_rejected", "provider token client_secret detail");
+    if (this.unexpectedError) throw new Error("provider endpoint token client_secret transport detail");
     if (this.errorCode) throw new OidcFlowError(this.errorCode, "provider token client_secret detail");
     return structuredClone(this.output);
   }
@@ -166,6 +170,7 @@ class RecordingCompletion {
   recordCalls = 0;
   resumeCalls = 0;
   reconcileCalls = 0;
+  tenantCoreCalls = 0;
   identityInput: unknown = null;
   recordResult: RecordIdentityResult = { kind: "identity_recorded", status: "identity_verified", version: 2 };
   resumeResult: ResumeTenantResult = { kind: "tenant_created", result: tenantResult };
@@ -190,9 +195,33 @@ class RecordingCompletion {
   }
 }
 
+type RecoveryResult =
+  | { kind: "identity_verified" | "tenant_created"; attemptId: string }
+  | { kind: "awaiting_identity_consumed" | "terminal" | "missing" | "corrupt" | "unavailable" };
+
+class RecordingRecovery {
+  calls = 0;
+  result: RecoveryResult;
+  order: string[];
+
+  constructor(order: string[], result: RecoveryResult) {
+    this.order = order;
+    this.result = result;
+  }
+
+  async classifyConsumedCallback(state: string, now: Date): Promise<RecoveryResult> {
+    this.order.push("callback_recovery_inspect");
+    this.calls += 1;
+    assert.equal(state, STATE);
+    assert.equal(now.toISOString(), NOW.toISOString());
+    return structuredClone(this.result);
+  }
+}
+
 function createFixture(options: {
   gate?: "allowed" | "unauthorized" | "forbidden" | "rate_limited" | "unavailable";
   state?: "active" | "expired" | "replayed" | "discarded" | "unknown";
+  recovery?: RecoveryResult;
   audit?: (event: unknown) => void | Promise<void>;
 } = {}) {
   const order: string[] = [];
@@ -200,6 +229,7 @@ function createFixture(options: {
   const attempts = new RecordingAttemptStore(order);
   const provider = new DeterministicProvider(order);
   const completion = new RecordingCompletion(order);
+  const recovery = new RecordingRecovery(order, options.recovery ?? { kind: "awaiting_identity_consumed" });
   const auditEvents: unknown[] = [];
   const state = options.state ?? "active";
   if (state === "active" || state === "expired") {
@@ -213,6 +243,7 @@ function createFixture(options: {
     registrationAttemptStore: attempts,
     oidcTransactionStore: oidc,
     registrationCompletion: completion,
+    consumedCallbackRecovery: recovery,
     oidcProvider: provider,
     requestGate: {
       async verify() {
@@ -223,12 +254,13 @@ function createFixture(options: {
     clock: () => new Date(NOW),
     audit: options.audit ?? ((event) => { auditEvents.push(structuredClone(event)); }),
     bodyPolicy: { maximumBytes: 4_096, maximumCallbackQueryBytes: 2_048 },
+    registrationOrigin: "https://ecommerce.celebix.co",
     callbackAuthority: CALLBACK_URL,
     panelOrigin: "https://panel.celebix.site",
     platformDomainSuffix: "celebix.site",
     providerAuthority: { issuer: ISSUER, audience: AUDIENCE, authorizationOrigin: "https://identity.example.test" },
   });
-  return { runtime, oidc, attempts, provider, completion, order, auditEvents };
+  return { runtime, oidc, attempts, provider, completion, recovery, order, auditEvents };
 }
 
 function callbackRequest(query = `state=${encodeURIComponent(STATE)}&code=${CODE}`, url = CALLBACK_URL, method = "GET") {
@@ -359,14 +391,14 @@ test("provider-error callbacks terminally consume state without provider or tena
   assert.equal(fixture.completion.recordCalls, 0);
   const replay = await handler(callbackRequest(`state=${STATE}&error=access_denied`), {});
   assert.equal(replay.status, 409);
-  assert.equal((await responseBody(replay)).code, "self_serve_oidc_state_replayed");
+  assert.equal((await responseBody(replay)).code, "self_serve_callback_restart_required");
 });
 
 test("maps expired, replayed, discarded, and unknown state without provider or tenant work", async () => {
   assert.ok(handlerModule.createSelfServeOidcCallbackCompletionHandler);
   for (const [state, expectedStatus, expectedCode] of [
     ["expired", 410, "self_serve_oidc_state_expired"],
-    ["replayed", 409, "self_serve_oidc_state_replayed"],
+    ["replayed", 409, "self_serve_callback_restart_required"],
     ["discarded", 400, "self_serve_oidc_invalid_state"],
     ["unknown", 400, "self_serve_oidc_invalid_state"],
   ] as const) {
@@ -376,6 +408,143 @@ test("maps expired, replayed, discarded, and unknown state without provider or t
     assert.equal((await responseBody(response)).code, expectedCode, state);
     assert.equal(fixture.provider.verifyCalls, 0, state);
     assert.equal(fixture.completion.recordCalls, 0, state);
+  }
+});
+
+test("replayed consumed callback with no verified identity requires a fresh registration without provider or tenant work", async () => {
+  assert.ok(handlerModule.createSelfServeOidcCallbackCompletionHandler);
+  const fixture = createFixture({ state: "replayed", recovery: { kind: "awaiting_identity_consumed" } });
+  const response = await handlerModule.createSelfServeOidcCallbackCompletionHandler(fixture.runtime)(callbackRequest(), {});
+  assert.equal(response.status, 409);
+  assert.deepEqual(await responseBody(response), {
+    code: "self_serve_callback_restart_required",
+    state: "restart_required",
+    retryable: false,
+    restartRegistration: true,
+    message: "Kayıt işlemi güvenli şekilde yeniden başlatılmalı.",
+  });
+  assert.equal(fixture.recovery.calls, 1);
+  assert.equal(fixture.provider.verifyCalls, 0);
+  assert.equal(fixture.completion.recordCalls, 0);
+  assert.equal(fixture.completion.resumeCalls, 0);
+  assert.equal(fixture.completion.tenantCoreCalls, 0);
+});
+
+test("replayed callback resumes durable identity_verified completion at most once without provider verification", async () => {
+  assert.ok(handlerModule.createSelfServeOidcCallbackCompletionHandler);
+  const fixture = createFixture({
+    state: "replayed",
+    recovery: { kind: "identity_verified", attemptId: "attempt_0123456789abcdefghijklmnop" },
+  });
+  const response = await handlerModule.createSelfServeOidcCallbackCompletionHandler(fixture.runtime)(callbackRequest(), {});
+  assert.equal(response.status, 200);
+  assert.equal((await responseBody(response)).state, "tenant_created_session_pending");
+  assert.equal(fixture.recovery.calls, 1);
+  assert.equal(fixture.provider.verifyCalls, 0);
+  assert.equal(fixture.completion.recordCalls, 0);
+  assert.equal(fixture.completion.resumeCalls, 1);
+  assert.equal(fixture.completion.tenantCoreCalls, 0);
+  assert.equal(fixture.completion.reconcileCalls, 0);
+  assert.deepEqual(fixture.auditEvents.at(-1), {
+    operation: "callback_completion",
+    stage: "tenant_completion",
+    outcome: "completed",
+    retryable: false,
+    statusCategory: "2xx",
+  });
+});
+
+test("replayed callback recovers tenant_created authority read-only without provider or Tenant Core", async () => {
+  assert.ok(handlerModule.createSelfServeOidcCallbackCompletionHandler);
+  const fixture = createFixture({
+    state: "replayed",
+    recovery: { kind: "tenant_created", attemptId: "attempt_0123456789abcdefghijklmnop" },
+  });
+  fixture.completion.resumeResult = { kind: "tenant_already_created", result: tenantResult };
+  const response = await handlerModule.createSelfServeOidcCallbackCompletionHandler(fixture.runtime)(callbackRequest(), {});
+  assert.equal(response.status, 200);
+  assert.equal((await responseBody(response)).state, "tenant_already_created_session_pending");
+  assert.equal(fixture.provider.verifyCalls, 0);
+  assert.equal(fixture.completion.recordCalls, 0);
+  assert.equal(fixture.completion.resumeCalls, 1);
+  assert.equal(fixture.completion.tenantCoreCalls, 0);
+  assert.equal(fixture.completion.reconcileCalls, 0);
+  assert.deepEqual(fixture.auditEvents.at(-1), {
+    operation: "callback_completion",
+    stage: "tenant_completion",
+    outcome: "completed",
+    retryable: false,
+    statusCategory: "2xx",
+  });
+});
+
+test("post-consume persistence failure is inspected and maps to non-retryable restart_required", async () => {
+  assert.ok(handlerModule.createSelfServeOidcCallbackCompletionHandler);
+  const fixture = createFixture({ recovery: { kind: "awaiting_identity_consumed" } });
+  fixture.attempts.failConsume = true;
+  const response = await handlerModule.createSelfServeOidcCallbackCompletionHandler(fixture.runtime)(callbackRequest(), {});
+  const safeBody = await responseBody(response);
+  assert.equal(response.status, 409);
+  assert.equal(safeBody.state, "restart_required");
+  assert.equal(safeBody.retryable, false);
+  assert.equal(safeBody.restartRegistration, true);
+  assert.equal(fixture.oidc.consumeCalls, 1);
+  assert.equal(fixture.provider.verifyCalls, 1);
+  assert.equal(fixture.recovery.calls, 1);
+  assert.equal(fixture.completion.recordCalls, 0);
+  assert.doesNotMatch(JSON.stringify(safeBody), /SQLSTATE|state_|expected-code|nonce|verifier|owner@example/i);
+});
+
+test("unexpected provider failure is classified unavailable after consume without same-callback retry advice", async () => {
+  assert.ok(handlerModule.createSelfServeOidcCallbackCompletionHandler);
+  const fixture = createFixture();
+  fixture.provider.unexpectedError = true;
+  const response = await handlerModule.createSelfServeOidcCallbackCompletionHandler(fixture.runtime)(callbackRequest(), {});
+  assert.equal(response.status, 503);
+  assert.deepEqual(await responseBody(response), {
+    code: "self_serve_oidc_provider_unavailable",
+    state: "restart_required",
+    retryable: false,
+    restartRegistration: true,
+    message: "Kimlik sağlayıcı şu anda kullanılamıyor; kayıt yeniden başlatılmalı.",
+  });
+  assert.equal(fixture.oidc.consumeCalls, 1);
+  assert.equal(fixture.provider.verifyCalls, 1);
+  assert.equal(fixture.attempts.consumeCalls, 0);
+  assert.equal(fixture.completion.recordCalls, 0);
+});
+
+test("provider-supplied transport, timeout, and temporary-unavailable classification stays restart-only", async () => {
+  assert.ok(handlerModule.createSelfServeOidcCallbackCompletionHandler);
+  const fixture = createFixture();
+  fixture.provider.errorCode = "oidc_provider_unavailable";
+  const response = await handlerModule.createSelfServeOidcCallbackCompletionHandler(fixture.runtime)(callbackRequest(), {});
+  assert.equal(response.status, 503);
+  assert.deepEqual(await responseBody(response), {
+    code: "self_serve_oidc_provider_unavailable",
+    state: "restart_required",
+    retryable: false,
+    restartRegistration: true,
+    message: "Kimlik sağlayıcı şu anda kullanılamıyor; kayıt yeniden başlatılmalı.",
+  });
+  assert.equal(fixture.oidc.consumeCalls, 1);
+  assert.equal(fixture.provider.verifyCalls, 1);
+  assert.equal(fixture.attempts.consumeCalls, 0);
+  assert.equal(fixture.completion.recordCalls, 0);
+});
+
+test("missing, corrupt, unavailable, and terminal replay authority fail closed without provider or tenant creation", async () => {
+  assert.ok(handlerModule.createSelfServeOidcCallbackCompletionHandler);
+  for (const kind of ["missing", "corrupt", "unavailable", "terminal"] as const) {
+    const fixture = createFixture({ state: "replayed", recovery: { kind } });
+    const response = await handlerModule.createSelfServeOidcCallbackCompletionHandler(fixture.runtime)(callbackRequest(), {});
+    const safeBody = await responseBody(response);
+    assert.equal(response.status, kind === "unavailable" ? 503 : 409, kind);
+    assert.equal(safeBody.state, "recovery_failed", kind);
+    assert.equal(safeBody.retryable, false, kind);
+    assert.equal(fixture.provider.verifyCalls, 0, kind);
+    assert.equal(fixture.completion.resumeCalls, 0, kind);
+    assert.doesNotMatch(JSON.stringify(safeBody), /attempt_|state_|SQL|nonce|verifier/i, kind);
   }
 });
 
@@ -451,7 +620,16 @@ test("identity-record rejection stops before tenant completion and safely maps r
     const fixture = createFixture();
     fixture.completion.recordResult = { kind: "rejected", error };
     const response = await handlerModule.createSelfServeOidcCallbackCompletionHandler(fixture.runtime)(callbackRequest(), {});
-    assert.equal(response.status, error.retryable ? 503 : 409);
+    assert.equal(response.status, 409);
+    const safeBody = await responseBody(response);
+    if (error.retryable) {
+      assert.equal(safeBody.state, "restart_required");
+      assert.equal(safeBody.retryable, false);
+      assert.equal(safeBody.restartRegistration, true);
+    } else {
+      assert.equal(safeBody.state, "completion_rejected");
+      assert.equal(safeBody.retryable, false);
+    }
     assert.equal(fixture.completion.recordCalls, 1);
     assert.equal(fixture.completion.resumeCalls, 0);
     assert.equal(fixture.completion.reconcileCalls, 0);

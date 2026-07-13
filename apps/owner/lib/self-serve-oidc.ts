@@ -12,6 +12,7 @@ export type OidcFlowErrorCode =
   | "oidc_issuer_mismatch"
   | "oidc_audience_mismatch"
   | "oidc_invalid_callback"
+  | "oidc_provider_unavailable"
   | "oidc_provider_rejected";
 
 export class OidcFlowError extends Error {
@@ -251,10 +252,9 @@ function assertAuthorizationUrl(input: {
       throw new OidcFlowError("oidc_provider_rejected", `OIDC authorization URL has invalid ${name}.`);
     }
   }
-  const responseTypes = url.searchParams.getAll("response_type");
   if (
-    responseTypes.length !== 1 ||
-    !responseTypes[0].split(/\s+/).filter(Boolean).includes("code") ||
+    !hasExactly(url, "response_type", "code") ||
+    url.searchParams.getAll("response_mode").includes("fragment") ||
     url.searchParams.has("code_verifier")
   ) {
     throw new OidcFlowError("oidc_provider_rejected", "OIDC authorization response type is invalid.");
@@ -301,7 +301,7 @@ export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput)
   } catch (error) {
     await input.transactionStore.discard(state).catch(() => undefined);
     if (error instanceof OidcFlowError) throw error;
-    throw new OidcFlowError("oidc_provider_rejected", "OIDC provider rejected authorization.");
+    throw new OidcFlowError("oidc_provider_unavailable", "OIDC provider is unavailable.");
   }
 
   return {
@@ -364,7 +364,7 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
     });
   } catch (error) {
     if (error instanceof OidcFlowError) throw error;
-    throw new OidcFlowError("oidc_provider_rejected", "OIDC provider rejected the callback.");
+    throw new OidcFlowError("oidc_provider_unavailable", "OIDC provider is unavailable.");
   }
 
   assertVerifiedIdentity(identity, transaction);

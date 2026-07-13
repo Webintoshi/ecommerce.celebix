@@ -54,8 +54,11 @@ async function withSelfServeEnv<T>(env: Record<string, string | undefined>, call
   }
 }
 
-function makeRequest(input: SelfServeRegistrationInput, headers: Record<string, string> = {}) {
-  const url = "https://ecommerce.celebix.co/api/self-serve/register";
+function makeRequest(
+  input: SelfServeRegistrationInput,
+  headers: Record<string, string> = {},
+  url = "https://ecommerce.celebix.co/api/self-serve/register",
+) {
   const request = new Request(url, {
     method: "POST",
     headers: {
@@ -127,6 +130,18 @@ test("disabled production route enforces the exact raw same-origin authority bef
     assert.equal(response.status, 403, origin);
     assert.equal(request.bodyUsed, false, origin);
   }
+});
+
+test("disabled production route rejects an attacker URL plus matching attacker Origin", async () => {
+  const request = makeRequest(
+    validRegistration,
+    { origin: "https://attacker.example" },
+    "https://attacker.example/api/self-serve/register",
+  );
+  const response = await POST(request);
+  assert.equal(response.status, 403);
+  assert.equal((await readJson(response)).code, "self_serve_origin_required");
+  assert.equal(request.bodyUsed, false);
 });
 
 test("self-serve register returns no false processing, ready, store, admin, or handoff result", async () => {

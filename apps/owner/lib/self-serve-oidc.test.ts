@@ -320,7 +320,12 @@ for (const [name, mutate] of [
   ["wrong redirect URI", (url: URL) => { url.searchParams.set("redirect_uri", "https://attacker.example/callback"); return url; }],
   ["duplicate redirect URI", (url: URL) => { url.searchParams.append("redirect_uri", REDIRECT_URI); return url; }],
   ["response type without code", (url: URL) => { url.searchParams.set("response_type", "token"); return url; }],
+  ["hybrid code and id token response type", (url: URL) => { url.searchParams.set("response_type", "code id_token"); return url; }],
+  ["hybrid code and token response type", (url: URL) => { url.searchParams.set("response_type", "code token"); return url; }],
+  ["implicit id token response type", (url: URL) => { url.searchParams.set("response_type", "id_token"); return url; }],
+  ["empty response type", (url: URL) => { url.searchParams.set("response_type", ""); return url; }],
   ["duplicate response type", (url: URL) => { url.searchParams.append("response_type", "code"); return url; }],
+  ["fragment response mode", (url: URL) => { url.searchParams.set("response_mode", "fragment"); return url; }],
   ["PKCE verifier", (url: URL) => { url.searchParams.set("code_verifier", "private"); return url; }],
 ] as const) {
   test(`rejects provider authorization output with ${name}`, async () => {

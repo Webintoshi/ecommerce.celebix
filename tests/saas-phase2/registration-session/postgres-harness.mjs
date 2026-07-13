@@ -253,6 +253,7 @@ class DeterministicHttpOidcProvider {
     assert.equal(input.expectedIssuer, httpIssuer);
     assert.equal(input.expectedAudience, httpAudience);
     if (input.code === "provider-rejected") throw new OidcFlowError("oidc_provider_rejected", "provider secret response");
+    if (input.code === "provider-unavailable") throw new Error("provider endpoint token client_secret transport detail");
     return {
       issuer: input.expectedIssuer,
       subject: `subject-${createHash("sha256").update(input.state).digest("hex").slice(0, 20)}`,
@@ -275,21 +276,33 @@ function capturingRegistrationStore(store) {
         await store.save(attempt);
       },
       consume: store.consume.bind(store),
+      classifyConsumedCallback: store.classifyConsumedCallback.bind(store),
     },
   };
 }
 
-function persistentHttpRuntime({ registrationStore, oidcStore, completion, provider, clock, audit = () => undefined }) {
+function persistentHttpRuntime({
+  registrationStore,
+  oidcStore,
+  completion,
+  provider,
+  clock,
+  audit = () => undefined,
+  requestGate = { async verify() { return "allowed"; } },
+  callbackRecovery = registrationStore,
+}) {
   return createPersistentSelfServeRuntime({
     activationApproval: createSelfServeHttpActivationApproval("disposable_test"),
     registrationAttemptStore: registrationStore,
     oidcTransactionStore: oidcStore,
     registrationCompletion: completion,
+    consumedCallbackRecovery: callbackRecovery,
     oidcProvider: provider,
-    requestGate: { async verify() { return "allowed"; } },
+    requestGate,
     clock,
     audit,
     bodyPolicy: { maximumBytes: 4_096, maximumCallbackQueryBytes: 2_048 },
+    registrationOrigin: httpOwnerOrigin,
     callbackAuthority: httpCallbackAuthority,
     panelOrigin: "https://panel.celebix.site",
     platformDomainSuffix: "celebix.site",
@@ -411,8 +424,19 @@ async function main() {
     const poolA = makePool(backend);
     const poolB = makePool(backend);
     pools.push(poolA, poolB);
-    const registrationsA = new PostgresRegistrationAttemptStore(dependencies(poolA, material, "registration-attempt-state"), completionResultAuthorities);
-    const registrationsB = new PostgresRegistrationAttemptStore(dependencies(poolB, material, "registration-attempt-state"), completionResultAuthorities);
+    const callbackRecoveryAuthorities = {
+      oidcStateDigester: createOpaqueStateDigester({ key: material.hmacKey, context: "oidc-transaction-state" }),
+    };
+    const registrationsA = new PostgresRegistrationAttemptStore(
+      dependencies(poolA, material, "registration-attempt-state"),
+      completionResultAuthorities,
+      callbackRecoveryAuthorities,
+    );
+    const registrationsB = new PostgresRegistrationAttemptStore(
+      dependencies(poolB, material, "registration-attempt-state"),
+      completionResultAuthorities,
+      callbackRecoveryAuthorities,
+    );
     const oidcA = new PostgresOidcTransactionStore(dependencies(poolA, material, "oidc-transaction-state"));
     const oidcB = new PostgresOidcTransactionStore(dependencies(poolB, material, "oidc-transaction-state"));
     const prepareVerified = async (store, attempt) => {
@@ -1257,6 +1281,30 @@ async function main() {
       assert.doesNotMatch(JSON.stringify(event), /@|state|code|nonce|verifier|slug|url|sql|postgres/i);
     };
 
+    let attackerGateCalls = 0;
+    const attackerProvider = new DeterministicHttpOidcProvider();
+    const workflowCountBeforeAttacker = psql(backend, "SELECT count(*) FROM saas.registration_workflows;").stdout.trim();
+    const attackerRequest = new Request("https://attacker.example/api/self-serve/register", {
+      method: "POST",
+      headers: { origin: "https://attacker.example", "content-type": "application/json" },
+      body: JSON.stringify({ storeName: "Attacker", storeSlug: "attacker-store", privacyConsent: true, marketingConsent: false }),
+    });
+    const attackerResponse = await createSelfServeRegistrationStartHandler(persistentHttpRuntime({
+      registrationStore: registrationsA,
+      oidcStore: oidcA,
+      completion: completionService(registrationsA, poolA),
+      provider: attackerProvider,
+      clock: () => new Date(httpClock.value),
+      audit: httpAudit,
+      requestGate: { async verify() { attackerGateCalls += 1; return "allowed"; } },
+    }))(attackerRequest);
+    assert.equal(attackerResponse.status, 403);
+    assert.equal((await attackerResponse.json()).code, "self_serve_origin_required");
+    assert.equal(attackerRequest.bodyUsed, false);
+    assert.equal(attackerGateCalls, 0);
+    assert.equal(attackerProvider.authorizationCalls, 0);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_workflows;").stdout.trim(), workflowCountBeforeAttacker);
+
     const httpProviderStart = new DeterministicHttpOidcProvider();
     const httpStartCapture = capturingRegistrationStore(registrationsA);
     const httpStartRuntime = persistentHttpRuntime({
@@ -1301,9 +1349,37 @@ async function main() {
     assert.equal(psql(backend, "SELECT (to_regclass('saas.sessions') IS NULL)::int;").stdout.trim(), "1");
     const httpIdentityRaw = psql(backend, `SELECT row_to_json(snapshot)::text FROM saas.registration_verified_identities AS snapshot WHERE attempt_id='${httpStartCapture.capture.saved.id}';`).stdout;
     assert.doesNotMatch(httpIdentityRaw, /owner-|example\.test|Disposable Owner|subject-/i);
-    const httpReplay = await completeHttpCallback(httpRestartRuntime, httpFirst.state);
-    assert.equal(httpReplay.status, 409);
-    assert.equal((await httpReplay.json()).code, "self_serve_oidc_state_replayed");
+    let httpReplayTenantCoreCalls = 0;
+    const httpReplayProvider = new DeterministicHttpOidcProvider();
+    const httpReplayClassification = await registrationsB.classifyConsumedCallback(
+      httpFirst.state,
+      new Date("2026-07-12T10:01:01.000Z"),
+    );
+    assert.deepEqual(
+      httpReplayClassification,
+      { kind: "tenant_created", attemptId: httpStartCapture.capture.saved.id },
+      JSON.stringify(httpReplayClassification),
+    );
+    const httpReplay = await completeHttpCallback(persistentHttpRuntime({
+      registrationStore: registrationsB,
+      oidcStore: oidcB,
+      completion: completionService(registrationsB, poolB, undefined, {
+        wrapTenantCore: (base) => ({
+          async createStarterTenant(input) {
+            httpReplayTenantCoreCalls += 1;
+            return base.createStarterTenant(input);
+          },
+        }),
+      }),
+      provider: httpReplayProvider,
+      clock: () => new Date("2026-07-12T10:01:01.000Z"),
+      audit: httpAudit,
+    }), httpFirst.state);
+    const httpReplayBody = await httpReplay.json();
+    assert.equal(httpReplay.status, 200, JSON.stringify(httpReplayBody));
+    assert.equal(httpReplayBody.state, "tenant_already_created_session_pending");
+    assert.equal(httpReplayProvider.verificationCalls, 0);
+    assert.equal(httpReplayTenantCoreCalls, 0);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-first-store';").stdout.trim(), "1");
 
     const raceProvider = new DeterministicHttpOidcProvider();
@@ -1316,21 +1392,26 @@ async function main() {
       clock: () => new Date("2026-07-12T10:00:00.000Z"),
       audit: httpAudit,
     }), "http-race-store");
+    const raceCallbackProviderA = new DeterministicHttpOidcProvider();
+    const raceCallbackProviderB = new DeterministicHttpOidcProvider();
     const raceRuntimeA = persistentHttpRuntime({
       registrationStore: registrationsA, oidcStore: oidcA,
-      completion: completionService(registrationsA, poolA), provider: new DeterministicHttpOidcProvider(),
+      completion: completionService(registrationsA, poolA), provider: raceCallbackProviderA,
       clock: () => new Date("2026-07-12T10:01:00.000Z"), audit: httpAudit,
     });
     const raceRuntimeB = persistentHttpRuntime({
       registrationStore: registrationsB, oidcStore: oidcB,
-      completion: completionService(registrationsB, poolB), provider: new DeterministicHttpOidcProvider(),
+      completion: completionService(registrationsB, poolB), provider: raceCallbackProviderB,
       clock: () => new Date("2026-07-12T10:01:00.000Z"), audit: httpAudit,
     });
     const raceResponses = await Promise.all([
       completeHttpCallback(raceRuntimeA, raceStart.state),
       completeHttpCallback(raceRuntimeB, raceStart.state),
     ]);
-    assert.deepEqual(raceResponses.map((response) => response.status).sort(), [200, 409]);
+    const raceStatuses = raceResponses.map((response) => response.status).sort();
+    assert.equal(raceStatuses.every((status) => status === 200 || status === 409), true);
+    assert.equal(raceStatuses.includes(200), true);
+    assert.equal(raceCallbackProviderA.verificationCalls + raceCallbackProviderB.verificationCalls, 1);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-race-store';").stdout.trim(), "1");
     assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${raceCapture.capture.saved.id}';`).stdout.trim(), "1");
 
@@ -1351,12 +1432,15 @@ async function main() {
     assert.equal(providerErrorResponse.status, 400);
     assert.doesNotMatch(JSON.stringify(await providerErrorResponse.json()), /private-provider-detail/);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-provider-error';").stdout.trim(), "0");
-    assert.equal((await completeHttpCallback(providerErrorRuntime, providerErrorStart.state)).status, 409);
+    const providerErrorReplay = await completeHttpCallback(providerErrorRuntime, providerErrorStart.state);
+    assert.equal(providerErrorReplay.status, 409);
+    assert.equal((await providerErrorReplay.json()).state, "restart_required");
 
-    for (const [slug, code, expectedCode] of [
-      ["http-invalid-nonce", "invalid-nonce", "self_serve_oidc_nonce_mismatch"],
-      ["http-invalid-audience", "invalid-audience", "self_serve_oidc_audience_mismatch"],
-      ["http-provider-reject", "provider-rejected", "self_serve_oidc_provider_rejected"],
+    for (const [slug, code, expectedStatus, expectedCode] of [
+      ["http-invalid-nonce", "invalid-nonce", 400, "self_serve_oidc_nonce_mismatch"],
+      ["http-invalid-audience", "invalid-audience", 400, "self_serve_oidc_audience_mismatch"],
+      ["http-provider-reject", "provider-rejected", 400, "self_serve_oidc_provider_rejected"],
+      ["http-provider-unavailable", "provider-unavailable", 503, "self_serve_oidc_provider_unavailable"],
     ]) {
       const capture = capturingRegistrationStore(registrationsA);
       const started = await beginHttpRegistration(persistentHttpRuntime({
@@ -1364,13 +1448,22 @@ async function main() {
         completion: completionService(registrationsA, poolA), provider: new DeterministicHttpOidcProvider(),
         clock: () => new Date("2026-07-12T10:00:00.000Z"), audit: httpAudit,
       }), slug);
+      const callbackProvider = new DeterministicHttpOidcProvider();
       const response = await completeHttpCallback(persistentHttpRuntime({
         registrationStore: registrationsB, oidcStore: oidcB,
-        completion: completionService(registrationsB, poolB), provider: new DeterministicHttpOidcProvider(),
+        completion: completionService(registrationsB, poolB), provider: callbackProvider,
         clock: () => new Date("2026-07-12T10:01:00.000Z"), audit: httpAudit,
       }), started.state, code);
-      assert.equal(response.status, 400, slug);
-      assert.equal((await response.json()).code, expectedCode, slug);
+      assert.equal(response.status, expectedStatus, slug);
+      const safeBody = await response.json();
+      assert.equal(safeBody.code, expectedCode, slug);
+      assert.equal(safeBody.retryable, false, slug);
+      if (code === "provider-unavailable") {
+        assert.equal(safeBody.state, "restart_required");
+        assert.equal(safeBody.restartRegistration, true);
+      }
+      assert.doesNotMatch(JSON.stringify(safeBody), /client_secret|transport|endpoint|token response/i, slug);
+      assert.equal(callbackProvider.verificationCalls, 1, slug);
       assert.equal(psql(backend, `SELECT count(*) FROM saas.stores WHERE slug='${slug}';`).stdout.trim(), "0", slug);
       assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${capture.capture.saved.id}';`).stdout.trim(), "0", slug);
     }
@@ -1390,6 +1483,59 @@ async function main() {
     assert.equal((await expiredResponse.json()).code, "self_serve_oidc_state_expired");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-expired-store';").stdout.trim(), "0");
 
+    const consumeLossCapture = capturingRegistrationStore(registrationsA);
+    const consumeLossStart = await beginHttpRegistration(persistentHttpRuntime({
+      registrationStore: consumeLossCapture.store,
+      oidcStore: oidcA,
+      completion: completionService(registrationsA, poolA),
+      provider: new DeterministicHttpOidcProvider(),
+      clock: () => new Date("2026-07-12T10:00:00.000Z"),
+      audit: httpAudit,
+    }), "http-consume-loss");
+    const consumeLossProvider = new DeterministicHttpOidcProvider();
+    const consumeThenLoseProcessStore = {
+      save: oidcB.save.bind(oidcB),
+      discard: oidcB.discard.bind(oidcB),
+      async consume(state, at) {
+        await oidcB.consume(state, at);
+        throw new Error("simulated process loss immediately after OIDC consume");
+      },
+    };
+    const consumeLossInterrupted = await completeHttpCallback(persistentHttpRuntime({
+      registrationStore: registrationsB,
+      oidcStore: consumeThenLoseProcessStore,
+      completion: completionService(registrationsB, poolB),
+      provider: consumeLossProvider,
+      clock: () => new Date("2026-07-12T10:01:00.000Z"),
+      audit: httpAudit,
+      callbackRecovery: registrationsB,
+    }), consumeLossStart.state);
+    assert.equal(consumeLossInterrupted.status, 503);
+    assert.equal((await consumeLossInterrupted.json()).retryable, false);
+    assert.equal(consumeLossProvider.verificationCalls, 0);
+    assert.equal(psql(backend, `SELECT status || ':' || (consumed_at IS NOT NULL)::int FROM saas.registration_workflows WHERE attempt_id='${consumeLossCapture.capture.saved.id}';`).stdout.trim(), "awaiting_identity:0");
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${consumeLossCapture.capture.saved.id}';`).stdout.trim(), "0");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-consume-loss';").stdout.trim(), "0");
+
+    const consumeLossRecoveryProvider = new DeterministicHttpOidcProvider();
+    const consumeLossRecovered = await completeHttpCallback(persistentHttpRuntime({
+      registrationStore: registrationsA,
+      oidcStore: oidcA,
+      completion: completionService(registrationsA, poolA),
+      provider: consumeLossRecoveryProvider,
+      clock: () => new Date("2026-07-12T10:01:01.000Z"),
+      audit: httpAudit,
+    }), consumeLossStart.state);
+    assert.equal(consumeLossRecovered.status, 409);
+    const consumeLossBody = await consumeLossRecovered.json();
+    assert.equal(consumeLossBody.state, "restart_required");
+    assert.equal(consumeLossBody.retryable, false);
+    assert.equal(consumeLossBody.restartRegistration, true);
+    assert.equal(consumeLossRecoveryProvider.verificationCalls, 0);
+    assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${consumeLossCapture.capture.saved.id}';`).stdout.trim(), "0");
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-consume-loss';").stdout.trim(), "0");
+    assert.equal(consumeLossRecovered.headers.has("set-cookie"), false);
+
     const identityRestartCapture = capturingRegistrationStore(registrationsA);
     const identityRestart = await beginHttpRegistration(persistentHttpRuntime({
       registrationStore: identityRestartCapture.store, oidcStore: oidcA,
@@ -1402,15 +1548,37 @@ async function main() {
       async resumeTenantCreation() { throw new Error("simulated process loss after identity snapshot"); },
       reconcileUnknownCommit: identityBaseCompletion.reconcileUnknownCommit.bind(identityBaseCompletion),
     };
+    const identityInterruptedProvider = new DeterministicHttpOidcProvider();
     const identityInterrupted = await completeHttpCallback(persistentHttpRuntime({
       registrationStore: registrationsB, oidcStore: oidcB, completion: identityInterruptedCompletion,
-      provider: new DeterministicHttpOidcProvider(), clock: () => new Date("2026-07-12T10:01:00.000Z"), audit: httpAudit,
+      provider: identityInterruptedProvider, clock: () => new Date("2026-07-12T10:01:00.000Z"), audit: httpAudit,
     }), identityRestart.state);
-    assert.equal(identityInterrupted.status, 503);
+    assert.equal(identityInterrupted.status, 202);
+    assert.equal((await identityInterrupted.json()).state, "in_progress");
+    assert.equal(identityInterruptedProvider.verificationCalls, 1);
     assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_verified_identities WHERE attempt_id='${identityRestartCapture.capture.saved.id}';`).stdout.trim(), "1");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-identity-restart';").stdout.trim(), "0");
-    const identityRestarted = await completionService(registrationsA, poolA).resumeTenantCreation(identityRestartCapture.capture.saved.id);
-    assert.equal(identityRestarted.kind, "tenant_created");
+    let identityRestartTenantCoreCalls = 0;
+    const identityRestartProvider = new DeterministicHttpOidcProvider();
+    const identityRestarted = await completeHttpCallback(persistentHttpRuntime({
+      registrationStore: registrationsA,
+      oidcStore: oidcA,
+      completion: completionService(registrationsA, poolA, undefined, {
+        wrapTenantCore: (base) => ({
+          async createStarterTenant(input) {
+            identityRestartTenantCoreCalls += 1;
+            return base.createStarterTenant(input);
+          },
+        }),
+      }),
+      provider: identityRestartProvider,
+      clock: () => new Date("2026-07-12T10:01:01.000Z"),
+      audit: httpAudit,
+    }), identityRestart.state);
+    assert.equal(identityRestarted.status, 200);
+    assert.equal((await identityRestarted.json()).state, "tenant_created_session_pending");
+    assert.equal(identityRestartProvider.verificationCalls, 0);
+    assert.equal(identityRestartTenantCoreCalls, 1);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-identity-restart';").stdout.trim(), "1");
 
     const committedLossCapture = capturingRegistrationStore(registrationsA);
@@ -1429,11 +1597,14 @@ async function main() {
       },
       reconcileUnknownCommit: committedLossBase.reconcileUnknownCommit.bind(committedLossBase),
     };
+    const committedLossProvider = new DeterministicHttpOidcProvider();
     const committedLossResponse = await completeHttpCallback(persistentHttpRuntime({
       registrationStore: registrationsB, oidcStore: oidcB, completion: committedLossCompletion,
-      provider: new DeterministicHttpOidcProvider(), clock: () => new Date("2026-07-12T10:01:00.000Z"), audit: httpAudit,
+      provider: committedLossProvider, clock: () => new Date("2026-07-12T10:01:00.000Z"), audit: httpAudit,
     }), committedLossStart.state);
-    assert.equal(committedLossResponse.status, 503);
+    assert.equal(committedLossResponse.status, 202);
+    assert.equal((await committedLossResponse.json()).state, "in_progress");
+    assert.equal(committedLossProvider.verificationCalls, 1);
     assert.equal(committedLossResult.kind, "tenant_created");
     const httpCommittedLossAttemptId = committedLossCapture.capture.saved.id;
     const httpCommittedLossOperationId = committedLossResult.result.operationId;
@@ -1446,14 +1617,19 @@ async function main() {
         },
       }),
     });
-    const completedAfterLoss = await committedLossRecovery.resumeTenantCreation(httpCommittedLossAttemptId);
-    assert.equal(completedAfterLoss.kind, "tenant_already_created");
-    assert.equal(completedAfterLoss.result.operationId, httpCommittedLossOperationId);
-    const reconciledAfterLoss = await committedLossRecovery.reconcileUnknownCommit(httpCommittedLossAttemptId);
-    assert.equal(reconciledAfterLoss.kind, "tenant_recovered");
-    assert.equal(reconciledAfterLoss.result.operationId, httpCommittedLossOperationId);
+    const committedLossRecoveryProvider = new DeterministicHttpOidcProvider();
+    const completedAfterLoss = await completeHttpCallback(persistentHttpRuntime({
+      registrationStore: registrationsA,
+      oidcStore: oidcA,
+      completion: committedLossRecovery,
+      provider: committedLossRecoveryProvider,
+      clock: () => new Date("2026-07-12T10:01:01.000Z"),
+      audit: httpAudit,
+    }), committedLossStart.state);
+    assert.equal(completedAfterLoss.status, 200);
+    assert.equal((await completedAfterLoss.json()).state, "tenant_already_created_session_pending");
+    assert.equal(committedLossRecoveryProvider.verificationCalls, 0);
     assert.equal(committedLossRetryCalls, 0);
-    assert.equal((await completeHttpCallback(httpRestartRuntime, committedLossStart.state)).status, 409);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-committed-loss';").stdout.trim(), "1");
 
     const unknownCapture = capturingRegistrationStore(registrationsA);
@@ -1514,6 +1690,7 @@ async function main() {
     const restoredCompletionStore = new PostgresRegistrationAttemptStore(
       dependencies(restorePool, material, "registration-attempt-state"),
       completionResultAuthorities,
+      callbackRecoveryAuthorities,
     );
     let restoredTenantCoreCalls = 0;
     const restoredCompleted = await completionService(restoredCompletionStore, restorePool, undefined, {
@@ -1528,17 +1705,28 @@ async function main() {
     assert.equal(restoredCompleted.result.operationId, firstCreationResult.result.operationId);
     assert.equal(restoredTenantCoreCalls, 0);
     let restoredHttpTenantCoreCalls = 0;
-    const restoredHttpRecovery = await completionService(restoredCompletionStore, restorePool, undefined, {
+    const restoredHttpCompletion = completionService(restoredCompletionStore, restorePool, undefined, {
       wrapTenantCore: (base) => ({
         async createStarterTenant(input) {
           restoredHttpTenantCoreCalls += 1;
           return base.createStarterTenant(input);
         },
       }),
-    }).reconcileUnknownCommit(httpCommittedLossAttemptId);
-    assert.equal(restoredHttpRecovery.kind, "tenant_recovered");
-    assert.equal(restoredHttpRecovery.result.operationId, httpCommittedLossOperationId);
+    });
+    const restoredHttpProvider = new DeterministicHttpOidcProvider();
+    const restoredHttpRecovery = await completeHttpCallback(persistentHttpRuntime({
+      registrationStore: restoredCompletionStore,
+      oidcStore: restored,
+      completion: restoredHttpCompletion,
+      provider: restoredHttpProvider,
+      clock: () => new Date("2026-07-12T10:05:00.000Z"),
+      audit: httpAudit,
+    }), committedLossStart.state);
+    assert.equal(restoredHttpRecovery.status, 200);
+    assert.equal((await restoredHttpRecovery.json()).state, "tenant_already_created_session_pending");
+    assert.equal(restoredHttpProvider.verificationCalls, 0);
     assert.equal(restoredHttpTenantCoreCalls, 0);
+    assert.equal((await restoredCompletionStore.loadVerified(httpCommittedLossAttemptId)).completion.tenantOperationId, httpCommittedLossOperationId);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.stores WHERE slug='http-committed-loss';", restoreDatabase).stdout.trim(), "1");
     assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_tenant_completions AS completion LEFT JOIN saas.tenant_operations AS operation ON operation.id=completion.tenant_operation_id WHERE completion.state='completed' AND operation.id IS NULL;", restoreDatabase).stdout.trim(), "0");
     const restoreWrong = new PostgresOidcTransactionStore(dependencies(restorePool, { ...material, keyring: { "key-current": randomBytes(32) } }, "oidc-transaction-state"));

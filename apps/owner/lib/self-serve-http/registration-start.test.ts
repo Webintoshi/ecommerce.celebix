@@ -97,6 +97,9 @@ function createFixture(options: {
       async resumeTenantCreation() { calls.completion += 1; return { kind: "in_progress" }; },
       async reconcileUnknownCommit() { calls.reconcile += 1; return { kind: "pending" }; },
     },
+    consumedCallbackRecovery: {
+      async classifyConsumedCallback() { return { kind: "missing" } as const; },
+    },
     oidcProvider: provider,
     requestGate: {
       async verify(input) {
@@ -108,6 +111,7 @@ function createFixture(options: {
     clock: () => new Date(NOW),
     audit: options.audit ?? (() => undefined),
     bodyPolicy: { maximumBytes: options.maximumBytes ?? 4_096, maximumCallbackQueryBytes: 2_048 },
+    registrationOrigin: "https://ecommerce.celebix.co",
     callbackAuthority: CALLBACK_URL,
     panelOrigin: "https://panel.celebix.site",
     platformDomainSuffix: "celebix.site",
@@ -119,11 +123,12 @@ function createFixture(options: {
 function jsonRequest(body: string | Record<string, unknown>, options: {
   method?: string;
   origin?: string | null;
+  url?: string;
   headers?: Record<string, string>;
 } = {}) {
   const headers = new Headers({ "content-type": "application/json", ...options.headers });
   if (options.origin !== null) headers.set("origin", options.origin ?? "https://ecommerce.celebix.co");
-  return new Request(REGISTER_URL, {
+  return new Request(options.url ?? REGISTER_URL, {
     method: options.method ?? "POST",
     headers,
     body: typeof body === "string" ? body : JSON.stringify(body),
@@ -177,12 +182,32 @@ test("disabled runtime still rejects missing origin before the disabled response
   assert.equal((await body(response)).code, "self_serve_origin_required");
 });
 
+test("server-owned registration origin rejects an attacker URL plus matching attacker Origin before gate or body access", async () => {
+  assert.ok(handlerModule.createSelfServeRegistrationStartHandler);
+  const fixture = createFixture();
+  const request = jsonRequest(validInput, {
+    url: "https://attacker.example/api/self-serve/register",
+    origin: "https://attacker.example",
+  });
+  const response = await handlerModule.createSelfServeRegistrationStartHandler(fixture.runtime)(request);
+  assert.equal(response.status, 403);
+  assert.equal((await body(response)).code, "self_serve_origin_required");
+  assert.equal(request.bodyUsed, false);
+  assert.equal(fixture.calls.gate, 0);
+  assert.equal(fixture.attempts.saveCalls, 0);
+  assert.equal(fixture.oidc.saveCalls, 0);
+  assert.equal(fixture.provider.authorizationCalls, 0);
+});
+
 test("method and exact same-origin validation run before gate and body parsing", async () => {
   assert.ok(handlerModule.createSelfServeRegistrationStartHandler);
   for (const scenario of [
     { method: "PUT", origin: "https://ecommerce.celebix.co", status: 405, code: "self_serve_register_read_disabled" },
     { method: "POST", origin: null, status: 403, code: "self_serve_origin_required" },
     { method: "POST", origin: "https://attacker.example", status: 403, code: "self_serve_origin_required" },
+    { method: "POST", origin: "https://ecommerce.celebix.co:444", status: 403, code: "self_serve_origin_required" },
+    { method: "POST", origin: "https://sub.ecommerce.celebix.co", status: 403, code: "self_serve_origin_required" },
+    { method: "POST", origin: "https://ecommerce.celebix.co.attacker.example", status: 403, code: "self_serve_origin_required" },
     { method: "POST", origin: "https://ecommerce.celebix.co/path", status: 403, code: "self_serve_origin_required" },
     { method: "POST", origin: "not an origin", status: 403, code: "self_serve_origin_required" },
   ] as const) {

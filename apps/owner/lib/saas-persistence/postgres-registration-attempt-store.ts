@@ -4,7 +4,8 @@ import type { CreateStarterTenantInput } from "@celebix/saas-contracts";
 
 import type { RegistrationAttempt, RegistrationAttemptStore } from "../self-serve-registration-orchestrator.ts";
 import type { ValidatedRegistrationDetails } from "../self-serve-identity.ts";
-import type { EncryptedPayload } from "./identity-crypto.ts";
+import type { ConsumedCallbackRecoveryResult } from "../self-serve-http/runtime.ts";
+import type { EncryptedPayload, OpaqueStateDigester } from "./identity-crypto.ts";
 import {
   IdentityPersistenceError,
   IDENTITY_COMPLETION_LEASE_SEED,
@@ -117,6 +118,10 @@ export interface CompletionTransitionInput {
 
 export interface FinalizeTenantCompletionInput extends CompletionTransitionInput {
   result: unknown;
+}
+
+export interface ConsumedCallbackRecoveryAuthorities {
+  oidcStateDigester: OpaqueStateDigester;
 }
 
 export type CompletionClaimOutcome =
@@ -269,13 +274,26 @@ function sameVerifiedIdentity(left: VerifiedIdentitySnapshot, right: VerifiedIde
 export class PostgresRegistrationAttemptStore implements RegistrationAttemptStore {
   private readonly options: IdentityStoreDependencies;
   private readonly resultAuthorities?: TenantCompletionResultAuthorities;
+  private readonly callbackRecoveryAuthorities?: ConsumedCallbackRecoveryAuthorities;
 
-  constructor(options: IdentityStoreDependencies, resultAuthorities?: TenantCompletionResultAuthorities) {
+  constructor(
+    options: IdentityStoreDependencies,
+    resultAuthorities?: TenantCompletionResultAuthorities,
+    callbackRecoveryAuthorities?: ConsumedCallbackRecoveryAuthorities,
+  ) {
     this.options = validateDependencies(options);
     if (resultAuthorities) {
       const normalized = normalizeTenantCompletionResultAuthorities(resultAuthorities);
       if (!normalized) throw new IdentityPersistenceError();
       this.resultAuthorities = normalized;
+    }
+    if (callbackRecoveryAuthorities) {
+      if (typeof callbackRecoveryAuthorities.oidcStateDigester?.digest !== "function") {
+        throw new IdentityPersistenceError();
+      }
+      this.callbackRecoveryAuthorities = Object.freeze({
+        oidcStateDigester: callbackRecoveryAuthorities.oidcStateDigester,
+      });
     }
   }
 
@@ -352,6 +370,49 @@ export class PostgresRegistrationAttemptStore implements RegistrationAttemptStor
     });
     if (outcome.expired) throw new RegistrationPersistenceError("registration_attempt_expired");
     return { ...outcome.stored, state: rawState, status: "awaiting_identity" };
+  }
+
+  async classifyConsumedCallback(rawState: string, now: Date): Promise<ConsumedCallbackRecoveryResult> {
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime())) return { kind: "corrupt" };
+    if (!this.callbackRecoveryAuthorities) return { kind: "unavailable" };
+    let registrationDigest: string;
+    let oidcDigest: string;
+    try {
+      registrationDigest = this.options.stateDigester.digest(rawState);
+      oidcDigest = this.callbackRecoveryAuthorities.oidcStateDigester.digest(rawState);
+    } catch {
+      return { kind: "corrupt" };
+    }
+    return withIdentityTransaction(this.options, "registration", async (client) => {
+      const oidc = await client.query(
+        "SELECT status AS oidc_status FROM saas.oidc_transactions WHERE state_digest = $1",
+        [oidcDigest],
+      );
+      const oidcRow = oidc.rows[0];
+      if (!oidcRow) return { kind: "missing" };
+      const oidcStatus = oidcRow.oidc_status;
+      if (oidcStatus === "expired" || oidcStatus === "discarded") return { kind: "terminal" };
+      if (oidcStatus !== "consumed") return { kind: "corrupt" };
+
+      const selected = await client.query(
+        `${WORKFLOW_WITH_IDENTITY_SELECT} WHERE workflow.state_digest = $1`,
+        [registrationDigest],
+      );
+      if (!selected.rows[0] || selected.rows.length !== 1) return { kind: "corrupt" };
+      try {
+        const workflow = await this.parseLoadedWorkflow(selected.rows[0]);
+        if (workflow.status === "awaiting_identity") return { kind: "awaiting_identity_consumed" };
+        if (workflow.status === "identity_verified") {
+          return { kind: "identity_verified", attemptId: workflow.attempt.id };
+        }
+        if (workflow.status === "tenant_created") {
+          return { kind: "tenant_created", attemptId: workflow.attempt.id };
+        }
+        return { kind: "terminal" };
+      } catch {
+        return { kind: "corrupt" };
+      }
+    });
   }
 
   async load(attemptId: string): Promise<PersistentRegistrationWorkflow> {

@@ -25,6 +25,7 @@ const ACTIVATION_CAPABILITY = Symbol("phase2b1b2a_self_serve_http_activation");
 const RUNTIME_CAPABILITY = Symbol("phase2b1b2a_self_serve_http_runtime");
 const MAXIMUM_BODY_BYTES = 16_384;
 const MAXIMUM_CALLBACK_QUERY_BYTES = 8_192;
+const APPROVED_OWNER_REGISTRATION_ORIGIN = "https://ecommerce.celebix.co";
 const HOST = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 export type SelfServeHttpActivationEnvironment = "disposable_test" | "approved_staging";
@@ -82,6 +83,8 @@ export interface SafeTenantProjection {
 export type SelfServeCallbackServiceResult =
   | ({ kind: "tenant_created_session_pending" | "tenant_recovered_session_pending" | "tenant_already_created_session_pending" } & SafeTenantProjection)
   | { kind: "in_progress" | "commit_unknown" | "reconciliation_required" | "completion_state_unknown"; retryable: boolean }
+  | { kind: "restart_required"; retryable: false; restartRegistration: true }
+  | { kind: "recovery_failed"; retryable: false; unavailable: boolean }
   | { kind: "recovery_absent"; retryable: false }
   | { kind: "completion_failed"; retryable: false }
   | { kind: "rejected"; error: SafeCompletionError };
@@ -91,28 +94,43 @@ export interface PersistentSelfServeRuntimeOptions {
   registrationAttemptStore: RegistrationAttemptStore;
   oidcTransactionStore: OidcTransactionStore;
   registrationCompletion: PersistentRegistrationCompletionService;
+  consumedCallbackRecovery: ConsumedCallbackRecoveryPort;
   oidcProvider: OidcProviderPort;
   requestGate: SelfServeRequestGate;
   clock(): Date;
   audit(event: SelfServeHttpAuditEvent): void | Promise<void>;
   bodyPolicy: SelfServeBodyPolicy;
+  registrationOrigin: string;
   callbackAuthority: string;
   panelOrigin: string;
   platformDomainSuffix: string;
   providerAuthority: SelfServeProviderAuthority;
 }
 
-export type DisabledSelfServeRuntime = Readonly<{ kind: "disabled" }>;
+export type ConsumedCallbackRecoveryResult =
+  | { kind: "identity_verified" | "tenant_created"; attemptId: string }
+  | { kind: "awaiting_identity_consumed" | "terminal" | "missing" | "corrupt" | "unavailable" };
+
+export interface ConsumedCallbackRecoveryPort {
+  classifyConsumedCallback(state: string, now: Date): Promise<ConsumedCallbackRecoveryResult>;
+}
+
+export type DisabledSelfServeRuntime = Readonly<{
+  kind: "disabled";
+  registrationOrigin: typeof APPROVED_OWNER_REGISTRATION_ORIGIN;
+}>;
 
 export interface PersistentSelfServeRuntime {
   readonly kind: "persistent";
   readonly bodyPolicy: SelfServeBodyPolicy;
+  readonly registrationOrigin: string;
   readonly callbackAuthority: string;
   readonly panelOrigin: string;
   readonly platformDomainSuffix: string;
   verifyRequest(input: SelfServeRequestGateInput): Promise<SelfServeRequestGateDecision>;
   beginRegistration(registration: SelfServeRegistrationStartInput): ReturnType<typeof beginSelfServeRegistration>;
   completeCallback(callback: OidcCallbackInput): Promise<SelfServeCallbackServiceResult>;
+  recoverConsumedCallback(state: string): Promise<SelfServeCallbackServiceResult>;
   rejectProviderCallback(state: string): Promise<void>;
   audit(event: SelfServeHttpAuditEvent): void;
   readonly [RUNTIME_CAPABILITY]: true;
@@ -179,15 +197,21 @@ function validateOptions(options: PersistentSelfServeRuntimeOptions) {
     body.maximumCallbackQueryBytes > MAXIMUM_CALLBACK_QUERY_BYTES
   ) throw new Error("self_serve_http_runtime_invalid");
   let panelOrigin: string;
-  try { panelOrigin = normalizeExactHttpsOrigin(options.panelOrigin); }
+  let registrationOrigin: string;
+  try {
+    panelOrigin = normalizeExactHttpsOrigin(options.panelOrigin);
+    registrationOrigin = normalizeExactHttpsOrigin(options.registrationOrigin);
+  }
   catch { throw new Error("self_serve_http_runtime_invalid"); }
   if (
     options.callbackAuthority !== PANEL_OIDC_CALLBACK_URL ||
+    !HOST.test(new URL(registrationOrigin).hostname) ||
     !HOST.test(options.platformDomainSuffix) ||
     options.platformDomainSuffix !== options.platformDomainSuffix.toLowerCase() ||
     !options.registrationAttemptStore || typeof options.registrationAttemptStore.save !== "function" || typeof options.registrationAttemptStore.consume !== "function" ||
     !options.oidcTransactionStore || typeof options.oidcTransactionStore.save !== "function" || typeof options.oidcTransactionStore.consume !== "function" || typeof options.oidcTransactionStore.discard !== "function" ||
     !options.registrationCompletion || typeof options.registrationCompletion.recordVerifiedIdentity !== "function" || typeof options.registrationCompletion.resumeTenantCreation !== "function" || typeof options.registrationCompletion.reconcileUnknownCommit !== "function" ||
+    !options.consumedCallbackRecovery || typeof options.consumedCallbackRecovery.classifyConsumedCallback !== "function" ||
     !options.oidcProvider || typeof options.oidcProvider.buildAuthorizationUrl !== "function" || typeof options.oidcProvider.verifyCallback !== "function" ||
     !options.requestGate || typeof options.requestGate.verify !== "function" ||
     typeof options.clock !== "function" || typeof options.audit !== "function"
@@ -195,6 +219,7 @@ function validateOptions(options: PersistentSelfServeRuntimeOptions) {
   canonicalClock(options.clock);
   return {
     bodyPolicy: Object.freeze({ maximumBytes: body.maximumBytes, maximumCallbackQueryBytes: body.maximumCallbackQueryBytes }),
+    registrationOrigin,
     panelOrigin,
     providerAuthority: exactHttpsProviderAuthority(options.providerAuthority),
   };
@@ -250,7 +275,7 @@ export function projectSelfServeCompletionOutcome(
     case "reconciliation_required":
       return { kind: "reconciliation_required", retryable: false };
     case "completion_state_unknown":
-      return { kind: "completion_state_unknown", retryable: true };
+      return { kind: "completion_state_unknown", retryable: false };
     case "recovery_absent":
       return { kind: "recovery_absent", retryable: false };
     case "failed":
@@ -279,7 +304,10 @@ export function createSelfServeHttpActivationApproval(
 }
 
 export function createDisabledSelfServeRuntime(): DisabledSelfServeRuntime {
-  return Object.freeze({ kind: "disabled" });
+  return Object.freeze({
+    kind: "disabled",
+    registrationOrigin: APPROVED_OWNER_REGISTRATION_ORIGIN,
+  });
 }
 
 export function assertPersistentSelfServeRuntime(runtime: SelfServeRuntime): asserts runtime is PersistentSelfServeRuntime {
@@ -306,9 +334,48 @@ export function createPersistentSelfServeRuntime(
     }
   };
 
+  const classifyConsumedCallback = async (state: string): Promise<ConsumedCallbackRecoveryResult> => {
+    if (typeof state !== "string" || state.length < 16 || state.length > 1_024 || state !== state.trim()) {
+      return { kind: "corrupt" };
+    }
+    let classification: ConsumedCallbackRecoveryResult;
+    try {
+      classification = await options.consumedCallbackRecovery.classifyConsumedCallback(
+        state,
+        canonicalClock(options.clock),
+      );
+    } catch {
+      return { kind: "unavailable" };
+    }
+    if (!classification || typeof classification !== "object") return { kind: "corrupt" };
+    if (classification.kind === "identity_verified" || classification.kind === "tenant_created") {
+      if (
+        typeof classification.attemptId !== "string" ||
+        !/^attempt_[A-Za-z0-9_-]{16,128}$/.test(classification.attemptId)
+      ) return { kind: "corrupt" };
+      return { kind: classification.kind, attemptId: classification.attemptId };
+    }
+    if (["awaiting_identity_consumed", "terminal", "missing", "corrupt", "unavailable"].includes(classification.kind)) {
+      return { kind: classification.kind } as ConsumedCallbackRecoveryResult;
+    }
+    return { kind: "corrupt" };
+  };
+
+  const postConsumeFailure = async (state: string): Promise<SelfServeCallbackServiceResult> => {
+    const classification = await classifyConsumedCallback(state);
+    if (classification.kind === "awaiting_identity_consumed") {
+      return { kind: "restart_required", retryable: false, restartRegistration: true };
+    }
+    if (classification.kind === "identity_verified" || classification.kind === "tenant_created") {
+      return { kind: "in_progress", retryable: true };
+    }
+    return { kind: "recovery_failed", retryable: false, unavailable: classification.kind === "unavailable" };
+  };
+
   const runtime = {
     kind: "persistent" as const,
     bodyPolicy: validated.bodyPolicy,
+    registrationOrigin: validated.registrationOrigin,
     callbackAuthority: options.callbackAuthority,
     panelOrigin: validated.panelOrigin,
     platformDomainSuffix: options.platformDomainSuffix,
@@ -347,22 +414,46 @@ export function createPersistentSelfServeRuntime(
         callback,
         now: () => canonicalClock(options.clock),
       });
-      const attempt = await options.registrationAttemptStore.consume(callback.state, canonicalClock(options.clock));
-      const recorded = await options.registrationCompletion.recordVerifiedIdentity({
-        attemptId: attempt.id,
-        expectedVersion: 1,
-        identity: {
-          issuer: completed.identity.issuer,
-          subject: completed.identity.subject,
-          email: completed.identity.email,
-          emailVerified: completed.identity.emailVerified,
-          ...(completed.identity.displayName ? { displayName: completed.identity.displayName } : {}),
-        },
-      });
-      if (recorded.kind === "rejected") return { kind: "rejected", error: safeCompletionError(recorded.error) };
-      return projectSelfServeCompletionOutcome(
-        await options.registrationCompletion.resumeTenantCreation(attempt.id),
-      );
+      try {
+        const attempt = await options.registrationAttemptStore.consume(callback.state, canonicalClock(options.clock));
+        const recorded = await options.registrationCompletion.recordVerifiedIdentity({
+          attemptId: attempt.id,
+          expectedVersion: 1,
+          identity: {
+            issuer: completed.identity.issuer,
+            subject: completed.identity.subject,
+            email: completed.identity.email,
+            emailVerified: completed.identity.emailVerified,
+            ...(completed.identity.displayName ? { displayName: completed.identity.displayName } : {}),
+          },
+        });
+        if (recorded.kind === "rejected") {
+          return recorded.error.retryable
+            ? postConsumeFailure(callback.state)
+            : { kind: "rejected", error: safeCompletionError(recorded.error) };
+        }
+        return projectSelfServeCompletionOutcome(
+          await options.registrationCompletion.resumeTenantCreation(attempt.id),
+        );
+      } catch {
+        return postConsumeFailure(callback.state);
+      }
+    },
+    async recoverConsumedCallback(state: string): Promise<SelfServeCallbackServiceResult> {
+      const classification = await classifyConsumedCallback(state);
+      if (classification.kind === "awaiting_identity_consumed") {
+        return { kind: "restart_required", retryable: false, restartRegistration: true };
+      }
+      if (classification.kind === "identity_verified" || classification.kind === "tenant_created") {
+        try {
+          return projectSelfServeCompletionOutcome(
+            await options.registrationCompletion.resumeTenantCreation(classification.attemptId),
+          );
+        } catch {
+          return { kind: "recovery_failed", retryable: false, unavailable: true };
+        }
+      }
+      return { kind: "recovery_failed", retryable: false, unavailable: classification.kind === "unavailable" };
     },
     async rejectProviderCallback(state: string) {
       if (typeof state !== "string" || state.length < 16 || state.length > 1_024 || state !== state.trim()) {
