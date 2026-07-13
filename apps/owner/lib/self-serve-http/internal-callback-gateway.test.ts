@@ -219,6 +219,12 @@ test("malformed, expanded, or oversized callback responses are redacted and audi
   for (const response of [
     new Response("not-json", { status: 200 }),
     Response.json({ state: "tenant_created_session_pending", storeSlug: "ornek-magaza", storefrontUrl: "https://ornek-magaza.celebix.site", panelUrl: "https://panel.celebix.site", provisioningStatus: "ready", session: "pending", operationId: "secret" }),
+    Response.json({
+      code: "self_serve_callback_untrusted",
+      state: "rejected",
+      retryable: false,
+      message: "owner@example.com state=secret authorization_code=secret",
+    }, { status: 401, headers: { "set-cookie": "private=session", location: "https://owner-internal.example/private" } }),
     new Response("x".repeat(5_000), { status: 503 }),
   ]) {
     const value = fixture({ handler: async () => response });
@@ -241,7 +247,7 @@ test("safe request-gate classifications preserve exact status without forwarding
     code: "self_serve_callback_rate_limited",
     state: "rejected",
     retryable: true,
-    message: "safe",
+    message: "Kimlik doğrulama dönüşü şu anda sınırlandırıldı.",
   }, { status: 429, headers: { "set-cookie": "secret", location: "/private" } }) });
   const response = await value.gateway(request());
   assert.equal(response.status, 429);

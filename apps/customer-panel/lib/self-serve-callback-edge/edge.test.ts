@@ -166,6 +166,12 @@ test("edge independently rejects malformed, oversized, or expanded transport res
     new Response("not-json", { status: 200 }),
     Response.json({ state: "tenant_created_session_pending", storeSlug: "x", storefrontUrl: "https://x.celebix.site", panelUrl: "https://panel.celebix.site/stores/x", provisioningStatus: "ready", session: "pending", operationId: "secret" }),
     Response.json({ code: "self_serve_oidc_provider_unavailable", state: "failed", retryable: false, message: "safe" }, { status: 503 }),
+    Response.json({
+      code: "self_serve_callback_untrusted",
+      state: "rejected",
+      retryable: false,
+      message: "owner@example.com state=secret authorization_code=secret",
+    }, { status: 401, headers: { "set-cookie": "private=session", location: "https://owner-internal.example/private" } }),
     new Response("x".repeat(5_000), { status: 503 }),
   ]) {
     const fixture = createFixture({ response });
@@ -185,7 +191,7 @@ test("edge independently rejects malformed, oversized, or expanded transport res
     state: "restart_required",
     retryable: false,
     restartRegistration: true,
-    message: "safe",
+    message: "Kayıt işlemi güvenli şekilde yeniden başlatılmalı.",
   }, { status: 409, headers: { "set-cookie": "secret", location: "/private" } });
   const fixture = createFixture({ response: restart });
   const projected = await fixture.edge(new Request(`${CALLBACK}?state=${STATE}&code=code`));
@@ -199,7 +205,7 @@ test("edge independently rejects malformed, oversized, or expanded transport res
     state: "restart_required",
     retryable: false,
     restartRegistration: true,
-    message: "safe",
+    message: "Kimlik sağlayıcı şu anda kullanılamıyor; kayıt yeniden başlatılmalı.",
   }, { status: 503 }) });
   assert.equal((await (await providerUnavailable.edge(new Request(`${CALLBACK}?state=${STATE}&code=code`))).json()).state, "restart_required");
 });

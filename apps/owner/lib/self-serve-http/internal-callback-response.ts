@@ -1,37 +1,56 @@
-const SUCCESS_STATES = new Set([
-  "tenant_created_session_pending",
-  "tenant_recovered_session_pending",
-  "tenant_already_created_session_pending",
-]);
+type ResponseMatrixEntry = Readonly<{
+  state: string;
+  code: string | null;
+  statuses: readonly number[];
+  retryable: boolean | null;
+  restartRegistration: true | null;
+  keys: readonly string[];
+  message: string | null;
+}>;
 
-const ERROR_CODE_BY_STATE: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
-  rejected: new Set([
-    "self_serve_callback_untrusted",
-    "self_serve_callback_forbidden",
-    "self_serve_callback_rate_limited",
-    "self_serve_callback_gate_unavailable",
-    "self_serve_callback_invalid",
-    "self_serve_callback_query_too_large",
-    "self_serve_oidc_provider_rejected",
-    "self_serve_oidc_invalid_state",
-    "self_serve_oidc_state_replayed",
-    "self_serve_oidc_state_expired",
-    "self_serve_oidc_nonce_mismatch",
-    "self_serve_oidc_issuer_mismatch",
-    "self_serve_oidc_audience_mismatch",
-    "self_serve_oidc_invalid_callback",
-  ]),
-  failed: new Set(["self_serve_callback_unavailable"]),
-  in_progress: new Set(["self_serve_completion_pending"]),
-  restart_required: new Set(["self_serve_oidc_provider_unavailable", "self_serve_callback_restart_required"]),
-  recovery_failed: new Set(["self_serve_callback_recovery_failed"]),
-  commit_unknown: new Set(["self_serve_completion_reconciliation_required"]),
-  reconciliation_required: new Set(["self_serve_completion_reconciliation_required"]),
-  recovery_absent: new Set(["self_serve_completion_reconciliation_required"]),
-  completion_state_unknown: new Set(["self_serve_completion_state_unknown"]),
-  completion_failed: new Set(["self_serve_completion_rejected"]),
-  completion_rejected: new Set(["self_serve_callback_unavailable", "self_serve_completion_rejected"]),
-});
+const SUCCESS_KEYS = Object.freeze([
+  "state",
+  "storeSlug",
+  "storefrontUrl",
+  "panelUrl",
+  "provisioningStatus",
+  "session",
+]);
+const ERROR_KEYS = Object.freeze(["code", "state", "retryable", "message"]);
+const RESTART_KEYS = Object.freeze(["code", "state", "retryable", "restartRegistration", "message"]);
+
+const RESPONSE_MATRIX: readonly ResponseMatrixEntry[] = Object.freeze([
+  Object.freeze({ state: "tenant_created_session_pending", code: null, statuses: Object.freeze([200]), retryable: null, restartRegistration: null, keys: SUCCESS_KEYS, message: null }),
+  Object.freeze({ state: "tenant_recovered_session_pending", code: null, statuses: Object.freeze([200]), retryable: null, restartRegistration: null, keys: SUCCESS_KEYS, message: null }),
+  Object.freeze({ state: "tenant_already_created_session_pending", code: null, statuses: Object.freeze([200]), retryable: null, restartRegistration: null, keys: SUCCESS_KEYS, message: null }),
+  Object.freeze({ state: "rejected", code: "self_serve_callback_method_not_allowed", statuses: Object.freeze([405]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama dönüşü yalnızca GET kabul eder." }),
+  Object.freeze({ state: "rejected", code: "self_serve_callback_untrusted", statuses: Object.freeze([401]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama dönüşü doğrulanamadı." }),
+  Object.freeze({ state: "rejected", code: "self_serve_callback_forbidden", statuses: Object.freeze([403]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama dönüşüne izin verilmedi." }),
+  Object.freeze({ state: "rejected", code: "self_serve_callback_rate_limited", statuses: Object.freeze([429]), retryable: true, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama dönüşü şu anda sınırlandırıldı." }),
+  Object.freeze({ state: "rejected", code: "self_serve_callback_gate_unavailable", statuses: Object.freeze([503]), retryable: true, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama güvenlik kontrolü şu anda kullanılamıyor." }),
+  Object.freeze({ state: "rejected", code: "self_serve_callback_invalid", statuses: Object.freeze([400]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama dönüşü geçerli değil." }),
+  Object.freeze({ state: "rejected", code: "self_serve_callback_query_too_large", statuses: Object.freeze([413]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama dönüşü izin verilen boyutu aşıyor." }),
+  Object.freeze({ state: "rejected", code: "self_serve_oidc_provider_rejected", statuses: Object.freeze([400]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik sağlayıcı kayıt isteğini reddetti." }),
+  Object.freeze({ state: "rejected", code: "self_serve_oidc_invalid_state", statuses: Object.freeze([400]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama durumu geçerli değil." }),
+  Object.freeze({ state: "rejected", code: "self_serve_oidc_state_expired", statuses: Object.freeze([410]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama durumunun süresi doldu." }),
+  Object.freeze({ state: "rejected", code: "self_serve_oidc_nonce_mismatch", statuses: Object.freeze([400]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama yanıtı doğrulanamadı." }),
+  Object.freeze({ state: "rejected", code: "self_serve_oidc_issuer_mismatch", statuses: Object.freeze([400]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama yanıtı doğrulanamadı." }),
+  Object.freeze({ state: "rejected", code: "self_serve_oidc_audience_mismatch", statuses: Object.freeze([400]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama yanıtı doğrulanamadı." }),
+  Object.freeze({ state: "rejected", code: "self_serve_oidc_invalid_callback", statuses: Object.freeze([400]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama dönüşü geçerli değil." }),
+  Object.freeze({ state: "rejected", code: "self_serve_callback_unavailable", statuses: Object.freeze([503]), retryable: true, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama işlemi güvenli şekilde tamamlanamadı." }),
+  Object.freeze({ state: "failed", code: "self_serve_callback_unavailable", statuses: Object.freeze([503]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama işlemi güvenli şekilde tamamlanamadı." }),
+  Object.freeze({ state: "in_progress", code: "self_serve_completion_pending", statuses: Object.freeze([202]), retryable: true, restartRegistration: null, keys: ERROR_KEYS, message: "Mağaza hazırlama işlemi sürüyor." }),
+  Object.freeze({ state: "restart_required", code: "self_serve_callback_restart_required", statuses: Object.freeze([409]), retryable: false, restartRegistration: true, keys: RESTART_KEYS, message: "Kayıt işlemi güvenli şekilde yeniden başlatılmalı." }),
+  Object.freeze({ state: "restart_required", code: "self_serve_oidc_provider_unavailable", statuses: Object.freeze([503]), retryable: false, restartRegistration: true, keys: RESTART_KEYS, message: "Kimlik sağlayıcı şu anda kullanılamıyor; kayıt yeniden başlatılmalı." }),
+  Object.freeze({ state: "recovery_failed", code: "self_serve_callback_recovery_failed", statuses: Object.freeze([409, 503]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama dönüşü güvenli şekilde kurtarılamadı." }),
+  Object.freeze({ state: "commit_unknown", code: "self_serve_completion_reconciliation_required", statuses: Object.freeze([409]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Mağaza sonucu doğrulama bekliyor." }),
+  Object.freeze({ state: "reconciliation_required", code: "self_serve_completion_reconciliation_required", statuses: Object.freeze([409]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Mağaza sonucu doğrulama bekliyor." }),
+  Object.freeze({ state: "recovery_absent", code: "self_serve_completion_reconciliation_required", statuses: Object.freeze([409]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Mağaza sonucu doğrulama bekliyor." }),
+  Object.freeze({ state: "completion_state_unknown", code: "self_serve_completion_state_unknown", statuses: Object.freeze([503]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Mağaza hazırlama durumu şu anda doğrulanamıyor." }),
+  Object.freeze({ state: "completion_failed", code: "self_serve_completion_rejected", statuses: Object.freeze([409]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Mağaza hazırlama işlemi tamamlanamadı." }),
+  Object.freeze({ state: "completion_rejected", code: "self_serve_completion_rejected", statuses: Object.freeze([409]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Mağaza hazırlama işlemi tamamlanamadı." }),
+  Object.freeze({ state: "completion_rejected", code: "self_serve_callback_unavailable", statuses: Object.freeze([503]), retryable: false, restartRegistration: null, keys: ERROR_KEYS, message: "Kimlik doğrulama işlemi güvenli şekilde tamamlanamadı." }),
+]);
 
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
   const actual = Object.keys(value).sort();
@@ -55,30 +74,41 @@ function exactHttps(value: unknown, hostname: string): value is string {
   }
 }
 
-function validate(value: unknown): Record<string, unknown> {
+function validate(value: unknown, status: number): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("internal_callback_response_invalid");
   const body = value as Record<string, unknown>;
-  const state = String(body.state);
-  if (SUCCESS_STATES.has(state)) {
+  const state = typeof body.state === "string" ? body.state : "";
+  const code = typeof body.code === "string" ? body.code : null;
+  const semantic = RESPONSE_MATRIX.find((entry) => entry.state === state && entry.code === code);
+  if (!semantic || !semantic.statuses.includes(status) || !exactKeys(body, semantic.keys)) {
+    throw new Error("internal_callback_response_invalid");
+  }
+  if (semantic.code === null) {
     if (
-      !exactKeys(body, ["state", "storeSlug", "storefrontUrl", "panelUrl", "provisioningStatus", "session"]) ||
       !safeText(body.storeSlug, 63) || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(body.storeSlug) ||
       !exactHttps(body.storefrontUrl, `${body.storeSlug}.celebix.site`) || !exactHttps(body.panelUrl, "panel.celebix.site") ||
       body.provisioningStatus !== "ready" || body.session !== "pending"
     ) throw new Error("internal_callback_response_invalid");
-    return body;
+    return {
+      state: semantic.state,
+      storeSlug: body.storeSlug,
+      storefrontUrl: body.storefrontUrl,
+      panelUrl: body.panelUrl,
+      provisioningStatus: "ready",
+      session: "pending",
+    };
   }
-  const allowedCodes = ERROR_CODE_BY_STATE[state];
-  const restart = state === "restart_required";
   if (
-    !allowedCodes || !allowedCodes.has(String(body.code)) ||
-    !exactKeys(body, restart
-      ? ["code", "state", "retryable", "restartRegistration", "message"]
-      : ["code", "state", "retryable", "message"]) ||
-    typeof body.retryable !== "boolean" || !safeText(body.message, 512) ||
-    (restart && (body.restartRegistration !== true || body.retryable !== false))
+    body.retryable !== semantic.retryable || body.message !== semantic.message ||
+    (semantic.restartRegistration === true && body.restartRegistration !== true)
   ) throw new Error("internal_callback_response_invalid");
-  return body;
+  return {
+    code: semantic.code,
+    state: semantic.state,
+    retryable: semantic.retryable,
+    ...(semantic.restartRegistration === true ? { restartRegistration: true } : {}),
+    message: semantic.message,
+  };
 }
 
 async function boundedBytes(response: Response, maximumBytes: number): Promise<Uint8Array> {
@@ -126,10 +156,6 @@ export async function projectOwnerInternalCallbackResponse(response: Response, m
   } catch {
     throw new Error("internal_callback_response_invalid");
   }
-  const body = validate(parsed);
-  const success = SUCCESS_STATES.has(String(body.state));
-  if ((success && response.status !== 200) || (!success && response.status < 400 && response.status !== 202)) {
-    throw new Error("internal_callback_response_invalid");
-  }
+  const body = validate(parsed, response.status);
   return ownerInternalCallbackJson(body, response.status);
 }

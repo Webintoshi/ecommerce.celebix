@@ -353,7 +353,9 @@ async function beginHttpRegistration(runtime, slug) {
 async function completeHttpCallback(runtime, state, code = "valid-code", controls = {}) {
   const edgeTrustBoundary = httpRuntimeTrustBoundaries.get(runtime);
   assert.ok(edgeTrustBoundary, "persistent HTTP runtime must own a private edge-trust boundary");
-  const callbackHandler = createSelfServeOidcCallbackCompletionHandler(runtime);
+  const callbackHandler = controls.injectedOwnerCallbackResponse instanceof Response
+    ? async () => controls.injectedOwnerCallbackResponse.clone()
+    : createSelfServeOidcCallbackCompletionHandler(runtime);
   const gateway = createOwnerInternalSelfServeCallbackGateway({
     activationApproval: createOwnerInternalCallbackGatewayApproval("disposable_test"),
     ownerInternalOrigin: httpInternalOwnerOrigin,
@@ -1397,6 +1399,54 @@ async function main() {
     assert.equal(attackerProvider.authorizationCalls, 0);
     assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_workflows;").stdout.trim(), workflowCountBeforeAttacker);
 
+    const sensitiveProjectionProvider = new DeterministicHttpOidcProvider();
+    let sensitiveProjectionTenantCoreCalls = 0;
+    const sensitiveProjectionRuntime = persistentHttpRuntime({
+      registrationStore: registrationsA,
+      oidcStore: oidcA,
+      completion: completionService(registrationsA, poolA, undefined, {
+        wrapTenantCore: (base) => ({
+          async createStarterTenant(input) {
+            sensitiveProjectionTenantCoreCalls += 1;
+            return base.createStarterTenant(input);
+          },
+        }),
+      }),
+      provider: sensitiveProjectionProvider,
+      clock: () => new Date(httpClock.value),
+      audit: httpAudit,
+    });
+    const sensitiveProjectionWorkflowCount = psql(backend, "SELECT count(*) FROM saas.registration_workflows;").stdout.trim();
+    const sensitiveProjectionSessionAuthority = psql(backend, "SELECT to_regclass('saas.sessions') IS NULL;").stdout.trim();
+    const sensitiveProjectionResponse = await completeHttpCallback(
+      sensitiveProjectionRuntime,
+      "state-sensitive-projection-0123456789",
+      "sensitive-code",
+      {
+        injectedOwnerCallbackResponse: Response.json({
+          code: "self_serve_callback_untrusted",
+          state: "rejected",
+          retryable: false,
+          message: "owner@example.com state=secret authorization_code=secret SQLSTATE 23505",
+        }, { status: 401, headers: { "set-cookie": "private=session", location: "https://owner-internal.example/private" } }),
+      },
+    );
+    assert.equal(sensitiveProjectionResponse.status, 503);
+    const sensitiveProjectionBody = await sensitiveProjectionResponse.json();
+    assert.deepEqual(sensitiveProjectionBody, {
+      code: "panel_callback_transport_unknown",
+      state: "transport_unknown",
+      retryable: true,
+    });
+    assert.doesNotMatch(JSON.stringify(sensitiveProjectionBody), /owner@example|secret|authorization_code|SQLSTATE|23505/i);
+    assert.equal(sensitiveProjectionResponse.headers.has("set-cookie"), false);
+    assert.equal(sensitiveProjectionResponse.headers.has("location"), false);
+    assert.equal(sensitiveProjectionProvider.authorizationCalls, 0);
+    assert.equal(sensitiveProjectionProvider.verificationCalls, 0);
+    assert.equal(sensitiveProjectionTenantCoreCalls, 0);
+    assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_workflows;").stdout.trim(), sensitiveProjectionWorkflowCount);
+    assert.equal(psql(backend, "SELECT to_regclass('saas.sessions') IS NULL;").stdout.trim(), sensitiveProjectionSessionAuthority);
+
     const httpProviderStart = new DeterministicHttpOidcProvider();
     const httpStartCapture = capturingRegistrationStore(registrationsA);
     const httpStartRuntime = persistentHttpRuntime({
@@ -1981,15 +2031,15 @@ async function main() {
       status: "PASS",
       backend: backend.kind === "native" ? "native-postgresql" : backend.engine,
       postgresqlVersion: version,
-      scenarios: 203,
-      httpScenarios: 47,
-      crossAppChecklistScenarios: 64,
+      scenarios: 204,
+      httpScenarios: 48,
+      crossAppChecklistScenarios: 65,
       crossAppInternalRequests: crossAppMetrics.internalRequests,
       internalAuthenticationFailures: 5,
       forward: "PASS", rollback: "PASS", reapply: "PASS", backupRestore: "PASS",
       concurrency: "PASS", cleanup: "PASS", plaintextScan: "PASS", roleGrants: "PASS",
       handlerRestart: "PASS", callbackReplay: "PASS", providerValidation: "PASS",
-      responseLossRecovery: "PASS", unknownCommitRecovery: "PASS", sessionCookieAbsence: "PASS",
+      responseLossRecovery: "PASS", unknownCommitRecovery: "PASS", sensitiveProjectionDenial: "PASS", sessionCookieAbsence: "PASS",
       externalNetworkAttempts,
       productionConnectionUsed: false,
     }, null, 2));

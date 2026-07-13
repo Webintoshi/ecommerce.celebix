@@ -5,8 +5,12 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { projectSafeCallbackResponse } from "../../../apps/customer-panel/lib/self-serve-callback-edge/safe-response.ts";
+import { projectOwnerInternalCallbackResponse } from "../../../apps/owner/lib/self-serve-http/internal-callback-response.ts";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const base = "840a4c4b5793223fefdad980cbfcf2b967a4df0d";
+const correctionBase = "cab850e5157e1e59565440cd8b0037b800d0f26f";
 const read = (file) => readFileSync(path.join(root, file), "utf8");
 const customerRoute = read("apps/customer-panel/app/auth/callback/route.ts");
 const ownerRoute = read("apps/owner/app/api/internal/self-serve/oidc-callback/route.ts");
@@ -14,15 +18,117 @@ const edge = read("apps/customer-panel/lib/self-serve-callback-edge/edge.ts");
 const transport = read("apps/customer-panel/lib/self-serve-internal-callback-transport/transport.ts");
 const gateway = read("apps/owner/lib/self-serve-http/internal-callback-gateway.ts");
 const trust = read("apps/owner/lib/self-serve-http/verified-edge-trust.ts");
-const responseSources = [
-  read("apps/customer-panel/lib/self-serve-callback-edge/safe-response.ts"),
-  read("apps/owner/lib/self-serve-http/internal-callback-response.ts"),
-].join("\n");
+const customerResponseSource = read("apps/customer-panel/lib/self-serve-callback-edge/safe-response.ts");
+const ownerResponseSource = read("apps/owner/lib/self-serve-http/internal-callback-response.ts");
+const responseSources = `${customerResponseSource}\n${ownerResponseSource}`;
+
+const canonicalMessages = Object.freeze({
+  self_serve_callback_method_not_allowed: "Kimlik doğrulama dönüşü yalnızca GET kabul eder.",
+  self_serve_callback_untrusted: "Kimlik doğrulama dönüşü doğrulanamadı.",
+  self_serve_callback_forbidden: "Kimlik doğrulama dönüşüne izin verilmedi.",
+  self_serve_callback_rate_limited: "Kimlik doğrulama dönüşü şu anda sınırlandırıldı.",
+  self_serve_callback_gate_unavailable: "Kimlik doğrulama güvenlik kontrolü şu anda kullanılamıyor.",
+  self_serve_callback_invalid: "Kimlik doğrulama dönüşü geçerli değil.",
+  self_serve_callback_query_too_large: "Kimlik doğrulama dönüşü izin verilen boyutu aşıyor.",
+  self_serve_oidc_provider_rejected: "Kimlik sağlayıcı kayıt isteğini reddetti.",
+  self_serve_oidc_provider_unavailable: "Kimlik sağlayıcı şu anda kullanılamıyor; kayıt yeniden başlatılmalı.",
+  self_serve_callback_restart_required: "Kayıt işlemi güvenli şekilde yeniden başlatılmalı.",
+  self_serve_callback_recovery_failed: "Kimlik doğrulama dönüşü güvenli şekilde kurtarılamadı.",
+  self_serve_oidc_invalid_state: "Kimlik doğrulama durumu geçerli değil.",
+  self_serve_oidc_state_expired: "Kimlik doğrulama durumunun süresi doldu.",
+  self_serve_oidc_nonce_mismatch: "Kimlik doğrulama yanıtı doğrulanamadı.",
+  self_serve_oidc_issuer_mismatch: "Kimlik doğrulama yanıtı doğrulanamadı.",
+  self_serve_oidc_audience_mismatch: "Kimlik doğrulama yanıtı doğrulanamadı.",
+  self_serve_oidc_invalid_callback: "Kimlik doğrulama dönüşü geçerli değil.",
+  self_serve_callback_unavailable: "Kimlik doğrulama işlemi güvenli şekilde tamamlanamadı.",
+  self_serve_completion_pending: "Mağaza hazırlama işlemi sürüyor.",
+  self_serve_completion_reconciliation_required: "Mağaza sonucu doğrulama bekliyor.",
+  self_serve_completion_state_unknown: "Mağaza hazırlama durumu şu anda doğrulanamıyor.",
+  self_serve_completion_rejected: "Mağaza hazırlama işlemi tamamlanamadı.",
+});
+
+const sharedSuccessStates = [
+  "tenant_created_session_pending",
+  "tenant_recovered_session_pending",
+  "tenant_already_created_session_pending",
+];
+
+const sharedErrors = [
+  ["rejected", "self_serve_callback_method_not_allowed", [405], false],
+  ["rejected", "self_serve_callback_untrusted", [401], false],
+  ["rejected", "self_serve_callback_forbidden", [403], false],
+  ["rejected", "self_serve_callback_rate_limited", [429], true],
+  ["rejected", "self_serve_callback_gate_unavailable", [503], true],
+  ["rejected", "self_serve_callback_invalid", [400], false],
+  ["rejected", "self_serve_callback_query_too_large", [413], false],
+  ["rejected", "self_serve_oidc_provider_rejected", [400], false],
+  ["rejected", "self_serve_oidc_invalid_state", [400], false],
+  ["rejected", "self_serve_oidc_state_expired", [410], false],
+  ["rejected", "self_serve_oidc_nonce_mismatch", [400], false],
+  ["rejected", "self_serve_oidc_issuer_mismatch", [400], false],
+  ["rejected", "self_serve_oidc_audience_mismatch", [400], false],
+  ["rejected", "self_serve_oidc_invalid_callback", [400], false],
+  ["rejected", "self_serve_callback_unavailable", [503], true],
+  ["failed", "self_serve_callback_unavailable", [503], false],
+  ["in_progress", "self_serve_completion_pending", [202], true],
+  ["restart_required", "self_serve_callback_restart_required", [409], false, true],
+  ["restart_required", "self_serve_oidc_provider_unavailable", [503], false, true],
+  ["recovery_failed", "self_serve_callback_recovery_failed", [409, 503], false],
+  ["commit_unknown", "self_serve_completion_reconciliation_required", [409], false],
+  ["reconciliation_required", "self_serve_completion_reconciliation_required", [409], false],
+  ["recovery_absent", "self_serve_completion_reconciliation_required", [409], false],
+  ["completion_state_unknown", "self_serve_completion_state_unknown", [503], false],
+  ["completion_failed", "self_serve_completion_rejected", [409], false],
+  ["completion_rejected", "self_serve_completion_rejected", [409], false],
+  ["completion_rejected", "self_serve_callback_unavailable", [503], false],
+];
+
+function sharedSuccessBody(state) {
+  return {
+    state,
+    storeSlug: "ornek-magaza",
+    storefrontUrl: "https://ornek-magaza.celebix.site",
+    panelUrl: "https://panel.celebix.site",
+    provisioningStatus: "ready",
+    session: "pending",
+  };
+}
+
+function sharedErrorBody([state, code, _statuses, retryable, restartRegistration]) {
+  return {
+    code,
+    state,
+    retryable,
+    ...(restartRegistration ? { restartRegistration: true } : {}),
+    message: canonicalMessages[code],
+  };
+}
+
+function upstreamResponse(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "set-cookie": "private=session", location: "https://owner-internal.example/private" },
+  });
+}
 
 function changed() {
   const tracked = execFileSync("git", ["diff", "--name-only", base, "--"], { cwd: root, encoding: "utf8" });
   const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
   return [...new Set(`${tracked}\n${untracked}`.trim().split("\n").filter(Boolean))].sort();
+}
+
+function correctionChanged() {
+  const tracked = execFileSync("git", ["diff", "--name-only", correctionBase, "--"], { cwd: root, encoding: "utf8" });
+  const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
+  return [...new Set(`${tracked}\n${untracked}`.trim().split("\n").filter(Boolean))].sort();
+}
+
+function matrixSource(source) {
+  const declaration = source.indexOf("const RESPONSE_MATRIX");
+  const start = source.indexOf("Object.freeze([", declaration);
+  const end = source.indexOf("\n]);", start);
+  assert.ok(declaration >= 0 && start >= 0 && end > start);
+  return source.slice(start, end + 4);
 }
 
 test("both production routes remain disabled and cannot construct activation or dependencies", () => {
@@ -100,6 +206,68 @@ test("safe response projectors are independently bounded and exact", () => {
   assert.doesNotMatch(responseSources, /headers\.set\(["'](?:set-cookie|location)["']/i);
 });
 
+test("response projectors own immutable, semantically identical, exact response matrices", () => {
+  const customerMatrix = matrixSource(customerResponseSource);
+  const ownerMatrix = matrixSource(ownerResponseSource);
+  assert.equal(customerMatrix, ownerMatrix);
+  assert.equal([...customerMatrix.matchAll(/Object\.freeze\(\{ state:/g)].length, 30);
+  assert.match(customerMatrix, /state: "rejected", code: "self_serve_callback_unavailable", statuses: Object\.freeze\(\[503\]\), retryable: true/);
+  assert.match(customerMatrix, /state: "completion_rejected", code: "self_serve_callback_unavailable", statuses: Object\.freeze\(\[503\]\), retryable: false/);
+  assert.doesNotMatch(customerMatrix, /self_serve_oidc_state_replayed/);
+});
+
+test("response validation cannot accept generic message, retryable, status, or parsed-body authority", () => {
+  assert.match(responseSources, /body\.message !== semantic\.message/);
+  assert.match(responseSources, /message: semantic\.message/);
+  assert.doesNotMatch(responseSources, /safeText\(body\.message|typeof body\.retryable\s*!==?\s*["']boolean["']/);
+  assert.doesNotMatch(responseSources, /response\.status\s*[<>]=?\s*(?:200|300|400|500|599)/);
+  assert.doesNotMatch(responseSources, /return\s+body\s*;/);
+  assert.doesNotMatch(responseSources, /message:\s*body\.message/);
+});
+
+test("the complete valid B1B2A corpus has exact Owner to customer projection parity", async () => {
+  const corpus = [
+    ...sharedSuccessStates.map((state) => ({ status: 200, body: sharedSuccessBody(state) })),
+    ...sharedErrors.flatMap((fixture) => fixture[2].map((status) => ({ status, body: sharedErrorBody(fixture) }))),
+  ];
+  for (const fixture of corpus) {
+    const owner = await projectOwnerInternalCallbackResponse(upstreamResponse(fixture.body, fixture.status), 4_096);
+    const ownerForCustomer = owner.clone();
+    const ownerBody = await owner.json();
+    const customer = await projectSafeCallbackResponse(ownerForCustomer, 4_096);
+    assert.equal(owner.status, fixture.status);
+    assert.equal(customer.status, fixture.status);
+    assert.deepEqual(await customer.json(), ownerBody);
+    for (const response of [owner, customer]) {
+      assert.equal(response.headers.has("set-cookie"), false);
+      assert.equal(response.headers.has("location"), false);
+    }
+  }
+});
+
+test("the same invalid corpus is rejected by both projectors without exposing raw messages", async () => {
+  const untrusted = sharedErrors.find((entry) => entry[1] === "self_serve_callback_untrusted");
+  const pending = sharedErrors.find((entry) => entry[0] === "in_progress");
+  const restart = sharedErrors.find((entry) => entry[1] === "self_serve_callback_restart_required");
+  const reconciliation = sharedErrors.find((entry) => entry[0] === "commit_unknown");
+  const invalid = [
+    { status: 401, body: { ...sharedErrorBody(untrusted), message: "owner@example.com state=secret authorization_code=secret" } },
+    { status: 503, body: sharedErrorBody(untrusted) },
+    { status: 202, body: { ...sharedErrorBody(pending), retryable: false } },
+    { status: 503, body: { ...sharedErrorBody(reconciliation), retryable: true } },
+    { status: 409, body: (() => { const body = sharedErrorBody(restart); delete body.restartRegistration; return body; })() },
+    { status: 202, body: { ...sharedErrorBody(pending), restartRegistration: true } },
+    { status: 202, body: { ...sharedErrorBody(pending), state: "commit_unknown" } },
+    { status: 202, body: { ...sharedErrorBody(pending), code: "self_serve_completion_rejected" } },
+    { status: 202, body: { ...sharedErrorBody(pending), internal: "secret" } },
+  ];
+  for (const fixture of invalid) {
+    for (const projector of [projectOwnerInternalCallbackResponse, projectSafeCallbackResponse]) {
+      await assert.rejects(projector(upstreamResponse(fixture.body, fixture.status), 4_096));
+    }
+  }
+});
+
 test("Atlas-approved fixture exceptions are each exactly one response_mode query line", () => {
   for (const [file, expected] of [
     ["apps/owner/lib/self-serve-http/registration-start.test.ts", '+    url.searchParams.set("response_mode", "query");'],
@@ -142,4 +310,45 @@ test("SQL, manifests, packages, lockfile, flags, legacy sessions, admin, storefr
   assert.equal(files.includes("apps/customer-panel/lib/session.ts"), false);
   assert.match(read("apps/customer-panel/lib/config.ts"), /CUSTOMER_PANEL_AUTH_ENABLED\s*=\s*false/);
   assert.match(read("apps/owner/lib/self-serve-registration-orchestrator.ts"), /SELF_SERVE_SAAS_REGISTRATION_ENABLED\s*=\s*false/);
+});
+
+test("the correction is confined to the Atlas-approved projection files", () => {
+  const allowed = new Set([
+    "apps/customer-panel/lib/self-serve-callback-edge/safe-response.ts",
+    "apps/customer-panel/lib/self-serve-callback-edge/edge.test.ts",
+    "apps/customer-panel/lib/self-serve-callback-edge/safe-response.test.ts",
+    "apps/customer-panel/lib/self-serve-internal-callback-transport/transport.test.ts",
+    "apps/owner/lib/self-serve-http/internal-callback-response.ts",
+    "apps/owner/lib/self-serve-http/internal-callback-gateway.test.ts",
+    "apps/owner/lib/self-serve-http/internal-callback-response.test.ts",
+    "tests/saas-phase2/http-wiring/callback-edge-security.test.mjs",
+    "tests/saas-phase2/http-wiring/static-security.test.mjs",
+    "tests/saas-phase2/registration-session/postgres-harness.mjs",
+  ]);
+  for (const file of correctionChanged()) assert.equal(allowed.has(file), true, file);
+});
+
+test("the correction leaves fixtures, transport, trust, B1B2A runtime, routes, SQL, packages, and infrastructure byte-unchanged", () => {
+  const protectedPaths = [
+    "apps/owner/lib/self-serve-http/registration-start.test.ts",
+    "tests/saas-phase1/phase1-flow.test.ts",
+    "apps/owner/lib/self-serve-http/oidc-callback-completion.ts",
+    "apps/owner/lib/self-serve-http/runtime.ts",
+    "apps/customer-panel/lib/self-serve-callback-edge/edge.ts",
+    "apps/customer-panel/lib/self-serve-internal-callback-transport/transport.ts",
+    "apps/owner/lib/self-serve-http/internal-callback-gateway.ts",
+    "apps/owner/lib/self-serve-http/verified-edge-trust.ts",
+    "apps/customer-panel/app/auth/callback/route.ts",
+    "apps/owner/app/api/internal/self-serve/oidc-callback/route.ts",
+    "apps/owner/scripts/sql/saas",
+    "packages/saas-contracts",
+    "packages/saas-data",
+    "packages/saas-tenant-core",
+    "package.json",
+    "package-lock.json",
+    "deploy",
+    ".github/workflows",
+  ];
+  const output = execFileSync("git", ["diff", "--name-only", correctionBase, "--", ...protectedPaths], { cwd: root, encoding: "utf8" });
+  assert.equal(output.trim(), "");
 });

@@ -153,6 +153,12 @@ test("timeout, connection failure, redirects, URL mismatch, malformed and oversi
     async () => withUrl(new Response(null, { status: 302, headers: { location: "https://attacker.example" } })),
     async () => withUrl(Response.json({ code: "safe" }), "https://attacker.example/internal"),
     async () => withUrl(new Response("not-json", { status: 200 })),
+    async () => withUrl(Response.json({
+      code: "self_serve_callback_untrusted",
+      state: "rejected",
+      retryable: false,
+      message: "owner@example.com state=secret authorization_code=secret",
+    }, { status: 401, headers: { "set-cookie": "private=session", location: "https://owner-internal.example/private" } })),
     async () => withUrl(new Response("x".repeat(5_000), { status: 503 })),
   ];
   for (const fetch of cases) {
