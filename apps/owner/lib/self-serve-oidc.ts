@@ -316,18 +316,30 @@ function assertVerifiedIdentity(
   identity: OidcVerifiedIdentity,
   transaction: OidcAuthorizationTransaction,
 ) {
-  if (identity.nonce !== transaction.nonce) {
+  if (!identity || typeof identity !== "object") {
+    throw new OidcFlowError("oidc_provider_rejected", "OIDC identity is invalid.");
+  }
+  if (typeof identity.nonce !== "string" || identity.nonce !== transaction.nonce) {
     throw new OidcFlowError("oidc_nonce_mismatch", "OIDC nonce validation failed.");
   }
-  if (identity.issuer !== transaction.expectedIssuer) {
+  if (typeof identity.issuer !== "string" || identity.issuer !== transaction.expectedIssuer) {
     throw new OidcFlowError("oidc_issuer_mismatch", "OIDC issuer validation failed.");
   }
-  if (!identity.audience.includes(transaction.expectedAudience)) {
+  if (!Array.isArray(identity.audience) || !identity.audience.every((value) => typeof value === "string") || !identity.audience.includes(transaction.expectedAudience)) {
     throw new OidcFlowError("oidc_audience_mismatch", "OIDC audience validation failed.");
   }
-  if (!identity.subject.trim()) {
+  if (typeof identity.subject !== "string" || !identity.subject.trim() || identity.subject.length > 512) {
     throw new OidcFlowError("oidc_provider_rejected", "OIDC subject is missing.");
   }
+  if (
+    identity.emailVerified !== true || typeof identity.email !== "string" ||
+    identity.email !== identity.email.trim() || identity.email.length > 320 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity.email)
+  ) throw new OidcFlowError("oidc_provider_rejected", "OIDC verified email is invalid.");
+  if (
+    identity.displayName !== undefined &&
+    (typeof identity.displayName !== "string" || identity.displayName !== identity.displayName.trim() || identity.displayName.length > 256)
+  ) throw new OidcFlowError("oidc_provider_rejected", "OIDC display name is invalid.");
 }
 
 export async function completeOidcCallback(input: CompleteOidcCallbackInput) {

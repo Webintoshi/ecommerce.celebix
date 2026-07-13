@@ -1,9 +1,14 @@
 import type { ValidatedRegistrationDetails } from "./self-serve-identity";
-import type { SelfServeRegistrationInput } from "./self-serve-registration";
-
 const ATTEMPT_LIFETIME_MS = 10 * 60_000;
 
 export const SELF_SERVE_SAAS_REGISTRATION_ENABLED = false;
+
+export interface SelfServeRegistrationStartInput {
+  storeName: string;
+  storeSlug: string;
+  marketingConsent: boolean;
+  privacyConsent: boolean;
+}
 
 export interface RegistrationAttempt {
   id: string;
@@ -66,7 +71,7 @@ function normalizeSlug(value: string) {
 }
 
 function validateAndSanitizeRegistration(
-  input: SelfServeRegistrationInput,
+  input: SelfServeRegistrationStartInput,
   now: Date,
 ): { ok: true; details: ValidatedRegistrationDetails } | { ok: false; errors: string[] } {
   const errors: string[] = [];
@@ -130,7 +135,7 @@ export class DisabledRegistrationAttemptStore implements RegistrationAttemptStor
 
 export async function beginSelfServeRegistration(input: {
   enabled: boolean;
-  registration: SelfServeRegistrationInput;
+  registration: SelfServeRegistrationStartInput;
   oidc: RegistrationOidcPort;
   attemptStore: RegistrationAttemptStore;
   now?: () => Date;

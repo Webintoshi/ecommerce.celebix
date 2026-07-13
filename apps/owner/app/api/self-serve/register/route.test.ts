@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { NextRequest } from "next/server";
 import type { SelfServeRegistrationInput } from "@/lib/self-serve-registration";
 
 type RouteModule = typeof import("./route");
-const { POST } = (await import(new URL("./route.ts", import.meta.url).href)) as RouteModule;
+const { GET, POST } = (await import(new URL("./route.ts", import.meta.url).href)) as RouteModule;
+const routeSource = readFileSync(new URL("./route.ts", import.meta.url), "utf8");
 
 const validRegistration: SelfServeRegistrationInput = {
   firstName: "Ada",
@@ -74,6 +76,16 @@ async function readJson(response: Response) {
   return (await response.json()) as Record<string, unknown>;
 }
 
+test("production route composes only the explicit disabled runtime and exposes controlled GET", async () => {
+  assert.match(routeSource, /createSelfServeRegistrationStartHandler/);
+  assert.match(routeSource, /createDisabledSelfServeRuntime/);
+  assert.doesNotMatch(routeSource, /createPersistentSelfServeRuntime|createSelfServeHttpActivationApproval|process\.env|\bpg\b|Pool/);
+  const response = await GET(new Request("https://ecommerce.celebix.co/api/self-serve/register"));
+  assert.equal(response.status, 405);
+  assert.equal((await readJson(response)).code, "self_serve_register_read_disabled");
+  assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
 test("self-serve register rejects POST without Origin before reading creation flow", async () => {
   const response = await POST(makeRequest(validRegistration));
   const body = await readJson(response);
@@ -83,21 +95,38 @@ test("self-serve register rejects POST without Origin before reading creation fl
 });
 
 test("self-serve register remains explicitly disabled before reading registration credentials", async () => {
-  const response = await POST(
-    makeRequest(
+  const request = makeRequest(
       {
         ...validRegistration,
         privacyConsent: false,
       },
       { origin: "https://ecommerce.celebix.co" },
-    ),
-  );
+    );
+  const response = await POST(request);
   const body = await readJson(response);
 
   assert.equal(response.status, 503);
   assert.equal(body.code, "self_serve_saas_registration_disabled");
   assert.equal(body.state, "disabled");
   assert.equal(JSON.stringify(body).includes(validRegistration.password), false);
+  assert.equal(request.bodyUsed, false);
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(response.headers.has("location"), false);
+});
+
+test("disabled production route enforces the exact raw same-origin authority before body access", async () => {
+  for (const origin of [
+    "https://ecommerce.celebix.co/path",
+    "https://ecommerce.celebix.co?query=1",
+    "https://ecommerce.celebix.co#fragment",
+    "https://ecommerce.celebix.co.attacker.example",
+    "not-a-url",
+  ]) {
+    const request = makeRequest(validRegistration, { origin });
+    const response = await POST(request);
+    assert.equal(response.status, 403, origin);
+    assert.equal(request.bodyUsed, false, origin);
+  }
 });
 
 test("self-serve register returns no false processing, ready, store, admin, or handoff result", async () => {
