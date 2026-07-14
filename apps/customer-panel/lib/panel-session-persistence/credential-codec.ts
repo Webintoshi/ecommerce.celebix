@@ -4,6 +4,7 @@ const KEY_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 const PREIMAGE_PREFIX = "celebix-panel-session-v1\n";
+const HANDOFF_PREIMAGE_PREFIX = "celebix-panel-session-from-handoff-v1\n";
 const TOKEN_BYTES = 32;
 const MINIMUM_KEY_BYTES = 32;
 const MAXIMUM_KEY_BYTES = 64;
@@ -80,6 +81,26 @@ function parseCanonicalCredential(credential: string): { keyId: string; token: s
   return { keyId, token };
 }
 
+function parseCanonicalHandoffCredential(credential: string): void {
+  if (typeof credential !== "string" || credential.trim() !== credential || !credential.startsWith("h1.")) {
+    throw new PanelSessionCredentialError();
+  }
+  const tokenSeparator = credential.length - 44;
+  if (tokenSeparator <= 3 || credential[tokenSeparator] !== ".") throw new PanelSessionCredentialError();
+  const keyId = credential.slice(3, tokenSeparator);
+  const token = credential.slice(tokenSeparator + 1);
+  if (!validKeyId(keyId) || !TOKEN_PATTERN.test(token)) throw new PanelSessionCredentialError();
+  let decoded: Buffer;
+  try {
+    decoded = Buffer.from(token, "base64url");
+  } catch {
+    throw new PanelSessionCredentialError();
+  }
+  if (decoded.byteLength !== TOKEN_BYTES || decoded.toString("base64url") !== token) {
+    throw new PanelSessionCredentialError();
+  }
+}
+
 function digest(key: Uint8Array, credential: string): string {
   const value = createHmac("sha256", key)
     .update(`${PREIMAGE_PREFIX}${credential}`, "utf8")
@@ -126,6 +147,26 @@ export function createPanelSessionCredentialCodec(input: CredentialCodecInput) {
       if (!key) throw new PanelSessionCredentialError();
       return Object.freeze({
         tokenKeyId: parsed.keyId,
+        tokenDigest: digest(key, credential),
+      });
+    },
+
+    deriveCredentialFromHandoff(
+      handoffCredential: string,
+      tokenKeyId: string,
+    ): IssuedPanelSessionCredential {
+      parseCanonicalHandoffCredential(handoffCredential);
+      if (!validKeyId(tokenKeyId)) throw new PanelSessionCredentialError();
+      const key = keys.get(tokenKeyId);
+      if (!key) throw new PanelSessionCredentialError();
+      const token = createHmac("sha256", key)
+        .update(`${HANDOFF_PREIMAGE_PREFIX}${handoffCredential}`, "utf8")
+        .digest("base64url");
+      if (!TOKEN_PATTERN.test(token)) throw new PanelSessionCredentialError();
+      const credential = `v1.${tokenKeyId}.${token}`;
+      return Object.freeze({
+        credential,
+        tokenKeyId,
         tokenDigest: digest(key, credential),
       });
     },

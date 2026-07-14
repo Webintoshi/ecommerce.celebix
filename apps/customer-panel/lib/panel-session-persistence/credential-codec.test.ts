@@ -11,6 +11,7 @@ const ACTIVE_KEY_ID = "panel.active.v1";
 const ACTIVE_KEY = new Uint8Array(32).fill(0x11);
 const OLD_KEY = new Uint8Array(48).fill(0x22);
 const TOKEN = new Uint8Array(32).map((_, index) => index);
+const HANDOFF = `h1.handoff.active.v1.${Buffer.from(new Uint8Array(32).fill(0x33)).toString("base64url")}`;
 
 function codec(overrides: Record<string, unknown> = {}) {
   return createPanelSessionCredentialCodec({
@@ -113,6 +114,42 @@ test("new credentials use only the active key while an injected old key remains 
     () => codec({ keys: new Map([[ACTIVE_KEY_ID, ACTIVE_KEY]]) }).digestCredential(oldCredential),
     PanelSessionCredentialError,
   );
+});
+
+test("derives one deterministic panel credential from a complete handoff with a separate HMAC domain", () => {
+  const authority = codec();
+  const derived = authority.deriveCredentialFromHandoff(HANDOFF, ACTIVE_KEY_ID);
+  const expectedToken = createHmac("sha256", ACTIVE_KEY)
+    .update(`celebix-panel-session-from-handoff-v1\n${HANDOFF}`, "utf8")
+    .digest("base64url");
+  assert.deepEqual(derived, {
+    credential: `v1.${ACTIVE_KEY_ID}.${expectedToken}`,
+    tokenKeyId: ACTIVE_KEY_ID,
+    tokenDigest: createHmac("sha256", ACTIVE_KEY)
+      .update(`celebix-panel-session-v1\nv1.${ACTIVE_KEY_ID}.${expectedToken}`, "utf8")
+      .digest("hex"),
+  });
+  assert.deepEqual(authority.deriveCredentialFromHandoff(HANDOFF, ACTIVE_KEY_ID), derived);
+  assert.notEqual(
+    authority.deriveCredentialFromHandoff(`${HANDOFF.slice(0, -1)}A`, ACTIVE_KEY_ID).credential,
+    derived.credential,
+  );
+});
+
+test("retained session keys rederive an existing handoff and removed or malformed authorities fail closed", () => {
+  const retained = codec().deriveCredentialFromHandoff(HANDOFF, "panel.old.v1");
+  assert.equal(retained.tokenKeyId, "panel.old.v1");
+  assert.throws(
+    () => codec({ keys: new Map([[ACTIVE_KEY_ID, ACTIVE_KEY]]) })
+      .deriveCredentialFromHandoff(HANDOFF, "panel.old.v1"),
+    PanelSessionCredentialError,
+  );
+  for (const candidate of ["", "h1.bad", `${HANDOFF}=`, `v1.${HANDOFF}`]) {
+    assert.throws(
+      () => codec().deriveCredentialFromHandoff(candidate, ACTIVE_KEY_ID),
+      PanelSessionCredentialError,
+    );
+  }
 });
 
 test("copies the key map, key bytes, and issued random bytes at construction and use", () => {
