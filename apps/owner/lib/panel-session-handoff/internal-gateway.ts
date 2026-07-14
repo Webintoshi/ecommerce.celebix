@@ -1,7 +1,10 @@
 import {
-  createOwnerInternalCallbackRequestAuthenticator,
+  classifyReconstructedOwnerCallbackRequest,
+  copyAuthenticatedOwnerInternalCallbackRawBody,
+  createOwnerInternalCallbackRawRequestAuthenticator,
   OwnerInternalCallbackAuthenticationError,
 } from "../self-serve-http/internal-callback-gateway.ts";
+import { PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION } from "../../../../packages/platform-config/src/saas.ts";
 import {
   assertVerifiedEdgeTrustBoundary,
   type VerifiedEdgeTrustBoundary,
@@ -63,6 +66,45 @@ function gatewayInvalid(): never {
   throw new Error("owner_panel_session_handoff_gateway_invalid");
 }
 
+function canonicalBrowserBindingCredential(value: unknown): string {
+  if (typeof value !== "string" || !/^pb1\.[A-Za-z0-9_-]{43}$/.test(value)) gatewayInvalid();
+  const token = value.slice(4);
+  const bytes = Buffer.from(token, "base64url");
+  if (bytes.byteLength !== 32 || bytes.toString("base64url") !== token) gatewayInvalid();
+  return value;
+}
+
+export function parseCanonicalPanelSessionCompletionEnvelope(bytes: Uint8Array): Readonly<{
+  callbackUrl: string;
+  browserBindingCredential: string;
+}> {
+  try {
+    if (!(bytes instanceof Uint8Array)) gatewayInvalid();
+    const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) gatewayInvalid();
+    const object = parsed as Record<string, unknown>;
+    const keys = Object.keys(object);
+    if (
+      keys.length !== 3 || keys[0] !== "schemaVersion" || keys[1] !== "callbackUrl" ||
+      keys[2] !== "browserBindingCredential" ||
+      object.schemaVersion !== PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION ||
+      typeof object.callbackUrl !== "string"
+    ) gatewayInvalid();
+    const callback = classifyReconstructedOwnerCallbackRequest(new Request(object.callbackUrl, { method: "GET" }));
+    const browserBindingCredential = canonicalBrowserBindingCredential(object.browserBindingCredential);
+    const canonical = JSON.stringify({
+      schemaVersion: PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION,
+      callbackUrl: callback.callbackUrl,
+      browserBindingCredential,
+    });
+    if (canonical !== raw) gatewayInvalid();
+    return Object.freeze({ callbackUrl: callback.callbackUrl, browserBindingCredential });
+  } catch {
+    return gatewayInvalid();
+  }
+}
+
 function auditSafely(audit: GatewayAudit, event: Parameters<GatewayAudit>[0]): void {
   try { void Promise.resolve(audit(Object.freeze({ ...event }))).catch(() => undefined); }
   catch { /* Audit is observational only. */ }
@@ -89,7 +131,7 @@ export function createOwnerPanelSessionHandoffInternalGateway(options: {
   assertVerifiedEdgeTrustBoundary(options.edgeTrustBoundary);
   if (!isOwnerPanelSessionInitialCallbackHandlerForBoundary(options.callbackHandler, options.edgeTrustBoundary)) gatewayInvalid();
   if (typeof options.audit !== "function") gatewayInvalid();
-  const authenticator = createOwnerInternalCallbackRequestAuthenticator({
+  const authenticator = createOwnerInternalCallbackRawRequestAuthenticator({
     ownerInternalOrigin: options.ownerInternalOrigin,
     keys: options.keys,
     clock: options.clock,
@@ -110,9 +152,13 @@ export function createOwnerPanelSessionHandoffInternalGateway(options: {
 
     let result;
     try {
+      const envelope = parseCanonicalPanelSessionCompletionEnvelope(
+        copyAuthenticatedOwnerInternalCallbackRawBody(authenticated),
+      );
       result = await boundary.invokeWithVerifiedContext((context) => handler.handle(
-        new Request(authenticated.callbackUrl, { method: "GET" }),
+        new Request(envelope.callbackUrl, { method: "GET" }),
         context,
+        envelope.browserBindingCredential,
       ));
       auditSafely(audit, { stage: "callback", outcome: "completed" });
     } catch {
@@ -120,7 +166,7 @@ export function createOwnerPanelSessionHandoffInternalGateway(options: {
       result = createFreshLoginRequiredResult("callback_unavailable");
     }
     try {
-      const response = createSignedOwnerPanelSessionHandoffResponse(result, authenticated);
+      const response = createSignedOwnerPanelSessionHandoffResponse(result, authenticated as never);
       auditSafely(audit, { stage: "response", outcome: "completed" });
       return response;
     } catch {

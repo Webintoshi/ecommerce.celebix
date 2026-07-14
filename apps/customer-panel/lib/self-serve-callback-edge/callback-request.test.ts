@@ -3,12 +3,14 @@ import test from "node:test";
 
 import {
   CallbackRequestValidationError,
+  validateBrowserBoundPanelCompletionRequest,
   validateCustomerPanelCallbackRequest,
   validateCustomerPanelCallbackUrl,
 } from "./callback-request.ts";
 
 const CALLBACK = "https://panel.celebix.site/auth/callback";
 const STATE = "state_0123456789abcdefghijklmnop";
+const BINDING = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 
 test("classifies exact success and provider-error callbacks into frozen authority-free projections", () => {
   const successUrl = `${CALLBACK}?state=${STATE}&code=provider-code`;
@@ -67,4 +69,43 @@ test("enforces raw query bounds without reading a browser body", () => {
     (error: unknown) => error instanceof CallbackRequestValidationError && error.status === 413,
   );
   assert.equal(bodyReads, 0);
+});
+
+test("browser-bound completion accepts exactly one canonical pre-auth cookie", () => {
+  const callbackUrl = `${CALLBACK}?state=${STATE}&code=provider-code`;
+  const result = validateBrowserBoundPanelCompletionRequest(new Request(callbackUrl, {
+    headers: { cookie: `__Host-celebix_panel_pre_auth=${BINDING}` },
+  }), CALLBACK, 2_048);
+  assert.deepEqual(result, {
+    kind: "success",
+    callbackUrl,
+    state: STATE,
+    code: "provider-code",
+    browserBindingCredential: BINDING,
+  });
+  assert.equal(Object.isFrozen(result), true);
+});
+
+test("browser-bound completion rejects missing, duplicate, additional, persistent, and malformed cookies", () => {
+  const callbackUrl = `${CALLBACK}?state=${STATE}&code=provider-code`;
+  for (const cookie of [
+    undefined,
+    "",
+    `__Host-celebix_panel_pre_auth=${BINDING}; other=1`,
+    `__Host-celebix_panel=${BINDING}`,
+    `__Host-celebix_panel_pre_auth=${BINDING}; __Host-celebix_panel_pre_auth=${BINDING}`,
+    `__Host-celebix_panel_pre_auth=${BINDING}%3D`,
+  ]) {
+    const headers = cookie === undefined ? undefined : { cookie };
+    assert.throws(
+      () => validateBrowserBoundPanelCompletionRequest(new Request(callbackUrl, { headers }), CALLBACK, 2_048),
+      CallbackRequestValidationError,
+    );
+  }
+  assert.throws(
+    () => validateCustomerPanelCallbackRequest(new Request(callbackUrl, {
+      headers: { cookie: `__Host-celebix_panel_pre_auth=${BINDING}` },
+    }), CALLBACK, 2_048),
+    CallbackRequestValidationError,
+  );
 });

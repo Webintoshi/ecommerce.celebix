@@ -22,13 +22,16 @@ const UUIDS = [
   "10000000-0000-4000-8000-000000000003",
   "10000000-0000-4000-8000-000000000004",
 ];
+const BINDING = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 
 function fixture(options: {
   completion?: "tenant_created" | "in_progress";
   commitUnknown?: boolean;
   handlerNow?: Date;
   audit?: (event: unknown) => void | Promise<void>;
+  claimKind?: "browser_callback_claimed" | "callback_replayed" | "operation_mismatch" | "expired" | "unauthenticated" | "durable_authority_invalid" | "commit_unknown" | "unavailable";
 } = {}) {
+  const order: string[] = [];
   const edgeBoundary = createVerifiedEdgeTrustBoundary();
   let oidcConsumed = false;
   let providerCalls = 0;
@@ -70,6 +73,7 @@ function fixture(options: {
     oidcProvider: {
       buildAuthorizationUrl() { throw new Error("not used"); },
       async verifyCallback() {
+        order.push("provider");
         providerCalls += 1;
         return { issuer: ISSUER, subject: "subject", audience: [AUDIENCE], nonce: "nonce_0123456789abcdefghijklmnop", email: "owner@example.test", emailVerified: true };
       },
@@ -99,6 +103,7 @@ function fixture(options: {
   let createValues: readonly unknown[] | undefined;
   let issueCalls = 0;
   let recoveryCalls = 0;
+  let claimCalls = 0;
   const authority = (values: readonly unknown[]) => ({
     handoffId: String((createValues ?? values)[4] ?? UUIDS[0]), attemptId: "attempt_0123456789abcdef",
     tenantOperationId: "20000000-0000-4000-8000-000000000001", principalId: "30000000-0000-4000-8000-000000000001",
@@ -117,6 +122,7 @@ function fixture(options: {
           if (text === "COMMIT" && write && failCommit) { failCommit = false; throw new Error("lost commit response"); }
           if (/^BEGIN|^COMMIT$|^ROLLBACK$|set_config|SET LOCAL ROLE/.test(text)) return { rows: [], rowCount: 0 };
           if (text.includes("create_panel_session_handoff")) {
+            order.push("issuer");
             issueCalls += 1; createValues = values;
             return { rows: [{ outcome: "handoff_created", authority: authority(values) }], rowCount: 1 };
           }
@@ -134,23 +140,34 @@ function fixture(options: {
     timeouts: { poolCheckoutMs: 1_000, statementMs: 1_000, lockMs: 1_000, idleTransactionMs: 1_000 },
     audit() {}, initialCallbackGrantBoundary: grantBoundary,
   });
+  const browserBindingRepository = {
+    async claimCallback() {
+      order.push("claim");
+      claimCalls += 1;
+      if (options.claimKind) return { kind: options.claimKind };
+      return { kind: claimCalls === 1 ? "browser_callback_claimed" as const : "callback_replayed" as const };
+    },
+  };
   const handler = createOwnerPanelSessionInitialCallbackHandler({
     runtime, edgeTrustBoundary: edgeBoundary, initialCallbackGrantBoundary: grantBoundary, issuer,
+    browserBindingRepository,
     clock: () => new Date(options.handlerNow ?? NOW), audit: options.audit ?? (() => undefined),
   });
   return {
-    handler, edgeBoundary,
+    handler, edgeBoundary, browserBindingRepository,
     get providerCalls() { return providerCalls; },
     get providerRejectCalls() { return providerRejectCalls; },
     get recoverConsumedCalls() { return recoverConsumedCalls; },
     get issueCalls() { return issueCalls; },
     get recoveryCalls() { return recoveryCalls; },
+    get claimCalls() { return claimCalls; },
+    order,
   };
 }
 
-async function invoke(current: ReturnType<typeof fixture>, query = `state=${STATE}&code=verified-code`) {
+async function invoke(current: ReturnType<typeof fixture>, query = `state=${STATE}&code=verified-code`, binding = BINDING) {
   return current.edgeBoundary.invokeWithVerifiedContext((context) => current.handler.handle(
-    new Request(`${CALLBACK}?${query}`), context,
+    new Request(`${CALLBACK}?${query}`), context, binding,
   ));
 }
 
@@ -167,6 +184,17 @@ test("exact active edge context executes one genuine initial callback and return
   assert.equal(current.issueCalls, 1);
   assert.equal(current.recoveryCalls, 0);
   assert.equal(current.recoverConsumedCalls, 0);
+  assert.equal(current.claimCalls, 1);
+  assert.deepEqual(current.order.slice(0, 3), ["claim", "provider", "issuer"]);
+});
+
+test("callback handler snapshots the atomic browser claim dependency at composition", async () => {
+  const current = fixture();
+  current.browserBindingRepository.claimCallback = async () => { throw new Error("mutated"); };
+  const result = await invoke(current);
+  assert.equal(result.status, 200);
+  assert.equal(current.claimCalls, 1);
+  assert.deepEqual(current.order.slice(0, 3), ["claim", "provider", "issuer"]);
 });
 
 test("unknown handoff COMMIT performs the one B2B1 recovery and still returns the retained credential", async () => {
@@ -185,6 +213,7 @@ test("consumed replay, no-grant completion, and expired handoff never return aut
   assert.equal(replay.issueCalls, 1);
   assert.equal(replay.recoveryCalls, 0);
   assert.equal(replay.recoverConsumedCalls, 0);
+  assert.equal(replay.claimCalls, 2);
 
   const pending = fixture({ completion: "in_progress" });
   assert.deepEqual((await invoke(pending)).body, { schemaVersion: 1, kind: "fresh_login_required", code: "callback_not_granted", retryable: false });
@@ -203,21 +232,42 @@ test("provider error consumes only provider state and creates no grant or handof
   assert.equal(current.issueCalls, 0);
   assert.equal(current.recoveryCalls, 0);
   assert.equal(current.recoverConsumedCalls, 0);
+  assert.equal(current.claimCalls, 1);
+});
+
+test("wrong, expired, replayed, and commit-unknown browser authority stop before provider and issuer", async () => {
+  for (const claimKind of [
+    "callback_replayed", "operation_mismatch", "expired", "unauthenticated",
+    "durable_authority_invalid", "commit_unknown", "unavailable",
+  ] as const) {
+    const current = fixture({ claimKind });
+    const result = await invoke(current);
+    assert.equal(result.body.kind, "fresh_login_required");
+    assert.equal(current.claimCalls, 1);
+    assert.equal(current.providerCalls, 0);
+    assert.equal(current.providerRejectCalls, 0);
+    assert.equal(current.issueCalls, 0);
+    assert.deepEqual(current.order, ["claim"]);
+  }
+  const missing = fixture();
+  assert.equal((await invoke(missing, `state=${STATE}&code=verified-code`, "")).body.kind, "fresh_login_required");
+  assert.equal(missing.providerCalls, 0);
+  assert.equal(missing.issueCalls, 0);
 });
 
 test("fake, expired, copied, and cross-boundary contexts fail before provider or issuer", async () => {
   const current = fixture();
   const request = new Request(`${CALLBACK}?state=${STATE}&code=verified-code`);
   for (const context of [{}, Object.freeze({}), { edge: "copied" }]) {
-    const result = await current.handler.handle(request.clone(), context);
+    const result = await current.handler.handle(request.clone(), context, BINDING);
     assert.notEqual(result.status, 200);
   }
   let expiredContext: unknown;
   await current.edgeBoundary.invokeWithVerifiedContext(async (context) => { expiredContext = context; return undefined; });
-  assert.notEqual((await current.handler.handle(request.clone(), expiredContext)).status, 200);
+  assert.notEqual((await current.handler.handle(request.clone(), expiredContext, BINDING)).status, 200);
   const other = createVerifiedEdgeTrustBoundary();
   await other.invokeWithVerifiedContext(async (context) => {
-    assert.notEqual((await current.handler.handle(request.clone(), context)).status, 200);
+    assert.notEqual((await current.handler.handle(request.clone(), context, BINDING)).status, 200);
   });
   assert.equal(current.providerCalls, 0);
   assert.equal(current.issueCalls, 0);

@@ -3,6 +3,8 @@ import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
 import {
+  copyAuthenticatedOwnerInternalCallbackRawBody,
+  createOwnerInternalCallbackRawRequestAuthenticator,
   createOwnerInternalCallbackRequestAuthenticator,
   createOwnerInternalCallbackGatewayApproval,
   createOwnerInternalSelfServeCallbackGateway,
@@ -121,6 +123,35 @@ test("shared authenticator returns one sealed request authority and signs only t
       /owner_internal_callback_authenticated_request_invalid/,
     );
   }
+});
+
+test("raw authenticator verifies exact HMAC bytes before schema parsing while legacy schema-v1 remains strict", async () => {
+  const rawAuthenticator = createOwnerInternalCallbackRawRequestAuthenticator({
+    ownerInternalOrigin: ORIGIN,
+    keys: new Map([["active", SECRET]]),
+    clock: () => new Date(NOW),
+    maximumBodyBytes: 8_192,
+  });
+  const schema2 = JSON.stringify({
+    schemaVersion: 2,
+    callbackUrl: CALLBACK,
+    browserBindingCredential: `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`,
+  });
+  const authenticated = await rawAuthenticator.authenticate(request({ body: schema2 }));
+  assert.equal(new TextDecoder().decode(copyAuthenticatedOwnerInternalCallbackRawBody(authenticated)), schema2);
+  const copied = copyAuthenticatedOwnerInternalCallbackRawBody(authenticated);
+  copied.fill(0);
+  assert.equal(new TextDecoder().decode(copyAuthenticatedOwnerInternalCallbackRawBody(authenticated)), schema2);
+  const legacy = createOwnerInternalCallbackRequestAuthenticator({
+    ownerInternalOrigin: ORIGIN,
+    keys: new Map([["active", SECRET]]),
+    clock: () => new Date(NOW),
+    maximumBodyBytes: 8_192,
+  });
+  await assert.rejects(
+    () => legacy.authenticate(request({ body: schema2 })),
+    (error: unknown) => error instanceof Error && "stage" in error && error.stage === "envelope_validation",
+  );
 });
 
 test("sealed Owner approval accepts disposable or staging only and loses authority when copied", () => {

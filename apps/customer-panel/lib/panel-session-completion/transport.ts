@@ -2,13 +2,15 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import {
   PANEL_OIDC_CALLBACK_URL,
+  PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION,
   PANEL_SESSION_COMPLETION_RESPONSE_MAXIMUM_BYTES,
   PANEL_SESSION_HANDOFF_RESPONSE_SIGNATURE_DOMAIN,
   SELF_SERVE_INTERNAL_CALLBACK_PATH,
 } from "../../../../packages/platform-config/src/saas.ts";
 import { validateCustomerPanelCallbackUrl } from "../self-serve-callback-edge/callback-request.ts";
+import { canonicalPanelBrowserBindingCredential } from "../panel-browser-binding/credential-codec.ts";
 import {
-  createAuthenticatedInternalCallbackRequest,
+  internalCallbackSignaturePreimage,
   validateOwnerInternalCallbackOrigin,
 } from "../self-serve-internal-callback-transport/transport.ts";
 import { assertPanelSessionCompletionApproval } from "./activation.ts";
@@ -214,19 +216,42 @@ export function createAuthenticatedPanelSessionCompletionTransport(options: {
   const audit = options.audit;
 
   return Object.freeze({
-    async complete(callbackUrl: string): Promise<PanelSessionCompletionInternalResult> {
+    async complete(callbackUrl: string, browserBindingCredential: string): Promise<PanelSessionCompletionInternalResult> {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const controller = new AbortController();
       try {
         const callback = validateCustomerPanelCallbackUrl(callbackUrl, PANEL_OIDC_CALLBACK_URL, 16_384);
-        const signed = await createAuthenticatedInternalCallbackRequest({
-          endpoint,
+        const body = JSON.stringify({
+          schemaVersion: PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION,
           callbackUrl: callback.callbackUrl,
-          activeKeyId: keyId,
-          activeSecret: secret,
-          clock,
+          browserBindingCredential: canonicalPanelBrowserBindingCredential(browserBindingCredential),
         });
-        const request = new Request(signed.request, { signal: controller.signal });
+        const requestBodyDigest = createHash("sha256").update(body, "utf8").digest("hex");
+        const current = clock();
+        if (!(current instanceof Date) || !Number.isFinite(current.getTime())) invalid();
+        const requestTimestamp = String(current.getTime());
+        if (!/^\d{13}$/.test(requestTimestamp)) invalid();
+        const requestSignature = createHmac("sha256", secret)
+          .update(internalCallbackSignaturePreimage(requestTimestamp, requestBodyDigest), "utf8")
+          .digest("base64url");
+        const request = new Request(endpoint, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "x-celebix-callback-key-id": keyId,
+            "x-celebix-callback-timestamp": requestTimestamp,
+            "x-celebix-callback-signature": requestSignature,
+          },
+          body,
+          redirect: "manual",
+          credentials: "omit",
+          signal: controller.signal,
+        });
+        const signed = Object.freeze({
+          keyId,
+          timestamp: requestTimestamp,
+          requestBodyDigest,
+        });
         const deadline = new Promise<never>((_resolve, reject) => {
           timer = setTimeout(() => { controller.abort(); reject(new Error("deadline")); }, deadlineMs);
         });
@@ -239,7 +264,7 @@ export function createAuthenticatedPanelSessionCompletionTransport(options: {
         const responseKeyId = response.headers.get("x-celebix-session-response-key-id");
         const responseTimestamp = response.headers.get("x-celebix-session-response-timestamp");
         if (responseKeyId !== signed.keyId || responseTimestamp !== signed.timestamp) invalid();
-        const signature = canonicalSignature(response.headers.get("x-celebix-session-response-signature"));
+        const responseSignature = canonicalSignature(response.headers.get("x-celebix-session-response-signature"));
         const rawBytes = await boundedBytes(response, maximumResponseBytes, controller.signal);
         const responseBodyDigest = createHash("sha256").update(rawBytes).digest("hex");
         const preimage = panelSessionHandoffResponseSignaturePreimage({
@@ -249,7 +274,7 @@ export function createAuthenticatedPanelSessionCompletionTransport(options: {
           responseBodyDigest,
         });
         const expected = createHmac("sha256", secret).update(preimage, "utf8").digest();
-        if (signature.byteLength !== expected.byteLength || !timingSafeEqual(signature, expected)) invalid();
+        if (responseSignature.byteLength !== expected.byteLength || !timingSafeEqual(responseSignature, expected)) invalid();
         auditSafely(audit, { stage: "response_authentication", outcome: "completed" });
         const raw = new TextDecoder("utf-8", { fatal: true }).decode(rawBytes);
         const result = parseCanonicalResult(raw, response.status);

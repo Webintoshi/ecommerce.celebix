@@ -9,6 +9,9 @@ const STATE = "state_0123456789abcdefghijklmnop";
 const NOW = new Date("2026-07-14T12:00:00.000Z");
 const HANDOFF = `h1.handoff.active.${Buffer.alloc(32, 0x44).toString("base64url")}`;
 const CREDENTIAL = `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`;
+const BINDING = `pb1.${Buffer.alloc(32, 0x66).toString("base64url")}`;
+const PRE_AUTH_COOKIE = `__Host-celebix_panel_pre_auth=${BINDING}`;
+const PRE_AUTH_DELETION = "__Host-celebix_panel_pre_auth=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0";
 const UUIDS = {
   sessionId: "10000000-0000-4000-8000-000000000001",
   familyId: "10000000-0000-4000-8000-000000000002",
@@ -48,13 +51,15 @@ function fixture(options: {
   let redeemCalls = 0;
   let recoverCalls = 0;
   const handoffs: string[] = [];
+  const completions: Array<readonly [string, string]> = [];
   const handler = createPanelSessionCompletionHandler({
     activationApproval: createPanelSessionCompletionApproval("disposable_test"),
     publicCallbackAuthority: CALLBACK,
     maximumQueryBytes: 2_048,
     transport: {
-      async complete() {
+      async complete(callbackUrl: string, browserBindingCredential: string) {
         transportCalls += 1;
+        completions.push([callbackUrl, browserBindingCredential]);
         if (options.transportError) throw new Error(`private ${HANDOFF}`);
         return options.transportResult ?? ready();
       },
@@ -78,23 +83,32 @@ function fixture(options: {
     get redeemCalls() { return redeemCalls; },
     get recoverCalls() { return recoverCalls; },
     handoffs,
+    completions,
   };
+}
+
+function callback(query = `state=${STATE}&code=verified-code`, cookie = PRE_AUTH_COOKIE): Request {
+  return new Request(`${CALLBACK}?${query}`, { headers: cookie ? { cookie } : undefined });
 }
 
 test("first issuance and redemption replay return only the exact secure cookie and fixed empty 303", async () => {
   for (const kind of ["session_issued", "session_replayed"] as const) {
     const current = fixture({ redeemResult: Object.freeze({ kind, credential: CREDENTIAL, session: session() }) });
-    const response = await current.handler(new Request(`${CALLBACK}?state=${STATE}&code=verified-code`));
+    const response = await current.handler(callback());
     assert.equal(response.status, 303);
     assert.equal(response.headers.get("location"), "https://panel.celebix.site/");
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.equal(response.headers.get("referrer-policy"), "no-referrer");
     assert.equal(response.headers.get("x-content-type-options"), "nosniff");
-    assert.equal(response.headers.get("set-cookie"), `__Host-celebix_panel=${CREDENTIAL}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=28800`);
+    assert.deepEqual(response.headers.getSetCookie(), [
+      `__Host-celebix_panel=${CREDENTIAL}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=28800`,
+      PRE_AUTH_DELETION,
+    ]);
     assert.equal(await response.text(), "");
     assert.doesNotMatch(response.headers.get("location") ?? "", /state|code|h1\.|v1\./);
     assert.equal(current.redeemCalls, 1);
     assert.equal(current.recoverCalls, 0);
+    assert.deepEqual(current.completions, [[`${CALLBACK}?state=${STATE}&code=verified-code`, BINDING]]);
   }
 });
 
@@ -103,7 +117,7 @@ test("redemption unknown COMMIT performs exactly one read-only recovery with the
     redeemResult: Object.freeze({ kind: "commit_unknown", credential: CREDENTIAL }),
     recoverResult: Object.freeze({ kind: "session_replayed", credential: CREDENTIAL, session: session() }),
   });
-  assert.equal((await current.handler(new Request(`${CALLBACK}?state=${STATE}&code=verified-code`))).status, 303);
+  assert.equal((await current.handler(callback())).status, 303);
   assert.equal(current.redeemCalls, 1);
   assert.equal(current.recoverCalls, 1);
   assert.deepEqual(current.handoffs, [HANDOFF, HANDOFF]);
@@ -111,21 +125,23 @@ test("redemption unknown COMMIT performs exactly one read-only recovery with the
 
 test("invalid callback, provider rejection, fresh-login, and transport failure emit controlled JSON without cookie or redirect", async () => {
   const cases = [
-    [fixture(), new Request(`${CALLBACK}?state=short&code=code`), "panel_session_callback_invalid", 400],
-    [fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "provider_rejected", retryable: false }) }), new Request(`${CALLBACK}?state=${STATE}&error=access_denied`), "panel_session_provider_rejected", 400],
-    [fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "callback_replayed", retryable: false }) }), new Request(`${CALLBACK}?state=${STATE}&code=code`), "panel_session_fresh_login_required", 409],
-    [fixture({ transportError: true }), new Request(`${CALLBACK}?state=${STATE}&code=code`), "panel_session_transport_unavailable", 503],
+    [fixture(), callback("state=short&code=code"), "panel_session_callback_invalid", 400],
+    [fixture(), callback(`state=${STATE}&code=code`, ""), "panel_session_callback_invalid", 400],
+    [fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "provider_rejected", retryable: false }) }), callback(`state=${STATE}&error=access_denied`), "panel_session_provider_rejected", 400],
+    [fixture({ transportResult: Object.freeze({ schemaVersion: 1, kind: "fresh_login_required", code: "callback_replayed", retryable: false }) }), callback(`state=${STATE}&code=code`), "panel_session_fresh_login_required", 409],
+    [fixture({ transportError: true }), callback(`state=${STATE}&code=code`), "panel_session_transport_unavailable", 503],
   ] as const;
   for (const [current, request, code, status] of cases) {
     const response = await current.handler(request);
     assert.equal(response.status, status);
     assert.deepEqual(await response.json(), { code, retryable: false, freshLoginRequired: true });
-    assert.equal(response.headers.has("set-cookie"), false);
+    assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
     assert.equal(response.headers.has("location"), false);
     assert.equal(current.redeemCalls, 0);
     assert.equal(current.recoverCalls, 0);
   }
   assert.equal(cases[0][0].transportCalls, 0);
+  assert.equal(cases[1][0].transportCalls, 0);
 });
 
 test("every redemption denial or malformed success projection fails closed without retry, cookie, or Location", async () => {
@@ -141,10 +157,10 @@ test("every redemption denial or malformed success projection fails closed witho
   ];
   for (const redeemResult of results) {
     const current = fixture({ redeemResult });
-    const response = await current.handler(new Request(`${CALLBACK}?state=${STATE}&code=code`));
+    const response = await current.handler(callback(`state=${STATE}&code=code`));
     assert.equal(response.status, 409);
     assert.equal((await response.json()).code, "panel_session_redemption_failed");
-    assert.equal(response.headers.has("set-cookie"), false);
+    assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
     assert.equal(response.headers.has("location"), false);
     assert.equal(current.redeemCalls, 1);
     assert.equal(current.recoverCalls, 0);
@@ -160,10 +176,10 @@ test("malformed or stale handoff projections fail before redemption", async () =
   ];
   for (const transportResult of results) {
     const current = fixture({ transportResult });
-    const response = await current.handler(new Request(`${CALLBACK}?state=${STATE}&code=code`));
+    const response = await current.handler(callback(`state=${STATE}&code=code`));
     assert.equal(response.status, 503);
     assert.equal((await response.json()).code, "panel_session_transport_unavailable");
-    assert.equal(response.headers.has("set-cookie"), false);
+    assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
     assert.equal(response.headers.has("location"), false);
     assert.equal(current.redeemCalls, 0);
     assert.equal(current.recoverCalls, 0);
@@ -175,5 +191,5 @@ test("audit throw, rejection, or non-settlement never changes session authority 
     () => { throw new Error(`private ${HANDOFF} ${CREDENTIAL}`); },
     async () => { throw new Error(`private ${HANDOFF} ${CREDENTIAL}`); },
     () => new Promise<never>(() => undefined),
-  ]) assert.equal((await fixture({ audit }).handler(new Request(`${CALLBACK}?state=${STATE}&code=code`))).status, 303);
+  ]) assert.equal((await fixture({ audit }).handler(callback(`state=${STATE}&code=code`))).status, 303);
 });

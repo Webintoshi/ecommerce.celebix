@@ -11,6 +11,7 @@ import {
 const OWNER_ORIGIN = "https://owner-internal.example.test";
 const ENDPOINT = `${OWNER_ORIGIN}/api/internal/self-serve/oidc-callback`;
 const CALLBACK = "https://panel.celebix.site/auth/callback?state=state_0123456789abcdefghijklmnop&code=code";
+const BINDING = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 const NOW = new Date("2026-07-14T12:00:00.000Z");
 const SECRET = new Uint8Array(32).fill(0x35);
 const HANDOFF = `h1.handoff.active.${Buffer.alloc(32, 0x44).toString("base64url")}`;
@@ -83,7 +84,7 @@ test("verifies the exact signed success before returning one frozen internal pro
   let calls = 0;
   let captured: Request | undefined;
   const transport = fixture(async (request) => { calls += 1; captured = request; return signedResponse(request); });
-  const result = await transport.complete(CALLBACK);
+  const result = await transport.complete(CALLBACK, BINDING);
   assert.deepEqual(result, {
     schemaVersion: 1,
     kind: "session_handoff_ready",
@@ -101,6 +102,11 @@ test("verifies the exact signed success before returning one frozen internal pro
   assert.deepEqual([...captured.headers.keys()].sort(), [
     "content-type", "x-celebix-callback-key-id", "x-celebix-callback-signature", "x-celebix-callback-timestamp",
   ]);
+  assert.equal(await captured.clone().text(), JSON.stringify({
+    schemaVersion: 2,
+    callbackUrl: CALLBACK,
+    browserBindingCredential: BINDING,
+  }));
 });
 
 test("accepts only the canonical signed fresh-login result matrix", async () => {
@@ -109,7 +115,7 @@ test("accepts only the canonical signed fresh-login result matrix", async () => 
     ["handoff_rejected", 409], ["callback_unavailable", 503], ["handoff_unavailable", 503],
   ] as const) {
     const body = `{"schemaVersion":1,"kind":"fresh_login_required","code":"${code}","retryable":false}`;
-    const result = await fixture((request) => signedResponse(request, { body, status })).complete(CALLBACK);
+    const result = await fixture((request) => signedResponse(request, { body, status })).complete(CALLBACK, BINDING);
     assert.deepEqual(result, { schemaVersion: 1, kind: "fresh_login_required", code, retryable: false });
   }
 });
@@ -148,7 +154,7 @@ test("body, status, key, timestamp, request binding, signature, URL, redirect, s
   for (const fetch of cases) {
     let calls = 0;
     const transport = fixture(async (request) => { calls += 1; return fetch(request); }, { maximumResponseBytes: 4_096 });
-    await assert.rejects(() => transport.complete(CALLBACK), /^Error: panel_session_completion_transport_unavailable$/);
+    await assert.rejects(() => transport.complete(CALLBACK, BINDING), /^Error: panel_session_completion_transport_unavailable$/);
     assert.equal(calls, 1);
   }
 });
@@ -180,7 +186,7 @@ test("connection failure and deadline are never retried; audit failures never ex
     let calls = 0;
     const startedAt = Date.now();
     await assert.rejects(
-      () => fixture(async (request) => { calls += 1; return fetch(request); }, { deadlineMs: 10 }).complete(CALLBACK),
+      () => fixture(async (request) => { calls += 1; return fetch(request); }, { deadlineMs: 10 }).complete(CALLBACK, BINDING),
       /^Error: panel_session_completion_transport_unavailable$/,
     );
     assert.ok(Date.now() - startedAt < 150);
@@ -190,5 +196,16 @@ test("connection failure and deadline are never retried; audit failures never ex
     () => { throw new Error(`private ${HANDOFF}`); },
     async () => { throw new Error(`private ${HANDOFF}`); },
     () => new Promise<never>(() => undefined),
-  ]) assert.equal((await fixture((request) => signedResponse(request), { audit }).complete(CALLBACK)).kind, "session_handoff_ready");
+  ]) assert.equal((await fixture((request) => signedResponse(request), { audit }).complete(CALLBACK, BINDING)).kind, "session_handoff_ready");
+});
+
+test("schema-v2 completion refuses missing, malformed, whitespace, or percent-encoded binding authority before fetch", async () => {
+  for (const binding of ["", "pb1.bad", `${BINDING} `, `%70b1.${BINDING.slice(4)}`]) {
+    let calls = 0;
+    await assert.rejects(
+      () => fixture(async (request) => { calls += 1; return signedResponse(request); }).complete(CALLBACK, binding),
+      /panel_session_completion_transport_unavailable/,
+    );
+    assert.equal(calls, 0);
+  }
 });

@@ -1,8 +1,9 @@
 import { PANEL_HOME_URL } from "../../../../packages/platform-config/src/saas.ts";
 import {
+  validateBrowserBoundPanelCompletionRequest,
   validateCustomerPanelCallbackAuthority,
-  validateCustomerPanelCallbackRequest,
 } from "../self-serve-callback-edge/callback-request.ts";
+import { PANEL_BROWSER_BINDING_DELETION_COOKIE } from "../panel-browser-binding/cookie.ts";
 import { assertPanelSessionCompletionApproval } from "./activation.ts";
 import { serializePersistentPanelSessionCookie } from "./cookie.ts";
 
@@ -47,6 +48,7 @@ function failure(code: PublicFailureCode, status: 400 | 409 | 503): Response {
       "cache-control": "no-store",
       "referrer-policy": "no-referrer",
       "x-content-type-options": "nosniff",
+      "set-cookie": PANEL_BROWSER_BINDING_DELETION_COOKIE,
     },
   });
 }
@@ -135,7 +137,7 @@ export function createPanelSessionCompletionHandler(options: {
   activationApproval: unknown;
   publicCallbackAuthority: string;
   maximumQueryBytes: number;
-  transport: { complete(callbackUrl: string): Promise<unknown> };
+  transport: { complete(callbackUrl: string, browserBindingCredential: string): Promise<unknown> };
   redeemer: {
     redeemHandoff(input: { credential: string }): Promise<unknown>;
     recoverRedemption(input: { credential: string }): Promise<unknown>;
@@ -162,14 +164,19 @@ export function createPanelSessionCompletionHandler(options: {
 
   return async function panelSessionCompletionHandler(request: Request): Promise<Response> {
     let callback;
-    try { callback = validateCustomerPanelCallbackRequest(request, authority, maximumQueryBytes); }
+    try { callback = validateBrowserBoundPanelCompletionRequest(request, authority, maximumQueryBytes); }
     catch {
       auditSafely(audit, { stage: "callback", outcome: "rejected" });
       return failure("panel_session_callback_invalid", 400);
     }
 
     let result: Record<string, unknown>;
-    try { result = internalResult(await transport.complete(callback.callbackUrl), clock); }
+    try {
+      result = internalResult(await transport.complete(
+        callback.callbackUrl,
+        callback.browserBindingCredential,
+      ), clock);
+    }
     catch {
       auditSafely(audit, { stage: "transport", outcome: "unavailable" });
       return failure("panel_session_transport_unavailable", 503);
@@ -201,15 +208,17 @@ export function createPanelSessionCompletionHandler(options: {
         now: trustedNow,
       });
       auditSafely(audit, { stage: "redemption", outcome: "completed" });
+      const headers = new Headers({
+        location: PANEL_HOME_URL,
+        "cache-control": "no-store",
+        "referrer-policy": "no-referrer",
+        "x-content-type-options": "nosniff",
+      });
+      headers.append("set-cookie", cookie);
+      headers.append("set-cookie", PANEL_BROWSER_BINDING_DELETION_COOKIE);
       const response = new Response(null, {
         status: 303,
-        headers: {
-          location: PANEL_HOME_URL,
-          "set-cookie": cookie,
-          "cache-control": "no-store",
-          "referrer-policy": "no-referrer",
-          "x-content-type-options": "nosniff",
-        },
+        headers,
       });
       auditSafely(audit, { stage: "browser_response", outcome: "completed" });
       return response;

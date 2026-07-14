@@ -1,4 +1,5 @@
 import { PANEL_OIDC_CALLBACK_URL } from "../../../../packages/platform-config/src/saas.ts";
+import { parsePanelBrowserBindingCookie } from "../panel-browser-binding/cookie.ts";
 
 const SUCCESS_PARAMETERS = new Set(["state", "code"]);
 const ERROR_PARAMETERS = new Set(["state", "error", "error_description", "error_uri"]);
@@ -22,6 +23,11 @@ const PRIVATE_HEADERS = [
 export type CustomerPanelCallbackRequest = Readonly<
   | { kind: "success"; callbackUrl: string; state: string; code: string }
   | { kind: "provider_error"; callbackUrl: string; state: string; error: string }
+>;
+
+export type BrowserBoundPanelCompletionRequest = Readonly<
+  | { kind: "success"; callbackUrl: string; state: string; code: string; browserBindingCredential: string }
+  | { kind: "provider_error"; callbackUrl: string; state: string; error: string; browserBindingCredential: string }
 >;
 
 export class CallbackRequestValidationError extends Error {
@@ -131,4 +137,22 @@ export function validateCustomerPanelCallbackRequest(
   for (const name of request.headers.keys()) if (name.startsWith("x-celebix-")) reject();
   for (const name of PRIVATE_HEADERS) if (request.headers.has(name)) reject();
   return validateCustomerPanelCallbackUrl(request.url, publicCallbackAuthority, maximumQueryBytes);
+}
+
+export function validateBrowserBoundPanelCompletionRequest(
+  request: Request,
+  publicCallbackAuthority: string,
+  maximumQueryBytes: number,
+): BrowserBoundPanelCompletionRequest {
+  if (!request || request.method !== "GET") reject(405);
+  if (request.body != null || request.headers.has("content-length") || request.headers.has("transfer-encoding")) reject();
+  for (const name of request.headers.keys()) if (name.startsWith("x-celebix-")) reject();
+  for (const name of PRIVATE_HEADERS) {
+    if (name !== "cookie" && request.headers.has(name)) reject();
+  }
+  let browserBindingCredential: string;
+  try { browserBindingCredential = parsePanelBrowserBindingCookie(request.headers.get("cookie")); }
+  catch { return reject(); }
+  const callback = validateCustomerPanelCallbackUrl(request.url, publicCallbackAuthority, maximumQueryBytes);
+  return Object.freeze({ ...callback, browserBindingCredential }) as BrowserBoundPanelCompletionRequest;
 }

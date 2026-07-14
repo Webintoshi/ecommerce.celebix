@@ -5,6 +5,7 @@ import {
 import {
   classifyReconstructedOwnerCallbackRequest,
 } from "../self-serve-http/internal-callback-gateway.ts";
+import type { PostgresPanelBrowserBindingRepository } from "../panel-browser-binding/postgres-repository.ts";
 import {
   assertVerifiedEdgeTrustBoundary,
   type VerifiedEdgeTrustBoundary,
@@ -28,12 +29,16 @@ const MAXIMUM_HANDOFF_MS = 10 * 60_000;
 const handlerAuthorities = new WeakMap<object, VerifiedEdgeTrustBoundary>();
 
 type HandlerAudit = (event: Readonly<{
-  stage: "request_gate" | "callback" | "provider_rejection" | "handoff";
+  stage: "request_gate" | "callback" | "browser_claim" | "provider_rejection" | "handoff";
   outcome: "accepted" | "rejected" | "unavailable";
 }>) => void | Promise<void>;
 
 export interface OwnerPanelSessionInitialCallbackHandler {
-  handle(request: Request, edgeTrustContext: unknown): Promise<OwnerPanelSessionHandoffInternalResult>;
+  handle(
+    request: Request,
+    edgeTrustContext: unknown,
+    browserBindingCredential: string,
+  ): Promise<OwnerPanelSessionHandoffInternalResult>;
 }
 
 export function isOwnerPanelSessionInitialCallbackHandlerForBoundary(
@@ -65,11 +70,20 @@ function canonicalExpiry(value: unknown): number {
   return milliseconds;
 }
 
+function canonicalBrowserBindingCredential(value: unknown): string {
+  if (typeof value !== "string" || !/^pb1\.[A-Za-z0-9_-]{43}$/.test(value)) invalid();
+  const token = value.slice(4);
+  const bytes = Buffer.from(token, "base64url");
+  if (bytes.byteLength !== 32 || bytes.toString("base64url") !== token) invalid();
+  return value;
+}
+
 export function createOwnerPanelSessionInitialCallbackHandler(input: {
   runtime: PersistentSelfServeRuntime;
   edgeTrustBoundary: VerifiedEdgeTrustBoundary;
   initialCallbackGrantBoundary: InitialVerifiedCallbackGrantBoundary;
   issuer: PostgresPanelSessionHandoffIssuer;
+  browserBindingRepository: Pick<PostgresPanelBrowserBindingRepository, "claimCallback">;
   clock(): Date;
   audit: HandlerAudit;
 }): OwnerPanelSessionInitialCallbackHandler {
@@ -78,12 +92,14 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
   assertVerifiedEdgeTrustBoundary(input.edgeTrustBoundary);
   if (!isInitialVerifiedCallbackGrantBoundaryForRuntime(input.initialCallbackGrantBoundary, input.runtime)) invalid();
   if (!isPostgresPanelSessionHandoffIssuerForBoundary(input.issuer, input.initialCallbackGrantBoundary)) invalid();
+  if (!input.browserBindingRepository || typeof input.browserBindingRepository.claimCallback !== "function") invalid();
   if (typeof input.clock !== "function" || typeof input.audit !== "function") invalid();
   trustedNow(input.clock);
   const runtime = input.runtime;
   const boundary = input.edgeTrustBoundary;
   const clock = input.clock;
   const audit = input.audit;
+  const claimBrowserCallback = input.browserBindingRepository.claimCallback.bind(input.browserBindingRepository);
   const executor = createInitialCallbackPanelSessionHandoffExecutor({
     runtime,
     boundary: input.initialCallbackGrantBoundary,
@@ -91,7 +107,11 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
   });
 
   const handler: OwnerPanelSessionInitialCallbackHandler = Object.freeze({
-    async handle(request: Request, edgeTrustContext: unknown): Promise<OwnerPanelSessionHandoffInternalResult> {
+    async handle(
+      request: Request,
+      edgeTrustContext: unknown,
+      browserBindingCredential: string,
+    ): Promise<OwnerPanelSessionHandoffInternalResult> {
       const gateInput = { kind: "callback_completion" as const, request, edgeTrustContext };
       try {
         const runtimeDecision = await runtime.verifyRequest(gateInput);
@@ -115,6 +135,29 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
         auditSafely(audit, { stage: "callback", outcome: "rejected" });
         return createFreshLoginRequiredResult("callback_not_granted");
       }
+
+      let claimed: Awaited<ReturnType<typeof claimBrowserCallback>>;
+      try {
+        const credential = canonicalBrowserBindingCredential(browserBindingCredential);
+        claimed = await claimBrowserCallback({
+          rawState: callback.state,
+          browserBindingCredential: credential,
+          now: trustedNow(clock),
+        });
+      } catch {
+        auditSafely(audit, { stage: "browser_claim", outcome: "unavailable" });
+        return createFreshLoginRequiredResult("callback_unavailable");
+      }
+      if (claimed.kind !== "browser_callback_claimed") {
+        const unavailable = claimed.kind === "commit_unknown" || claimed.kind === "unavailable";
+        auditSafely(audit, { stage: "browser_claim", outcome: unavailable ? "unavailable" : "rejected" });
+        return createFreshLoginRequiredResult(
+          claimed.kind === "callback_replayed"
+            ? "callback_replayed"
+            : unavailable ? "callback_unavailable" : "callback_not_granted",
+        );
+      }
+      auditSafely(audit, { stage: "browser_claim", outcome: "accepted" });
 
       if (callback.kind === "provider_error") {
         try {

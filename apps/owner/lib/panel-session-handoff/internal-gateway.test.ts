@@ -5,11 +5,14 @@ import {
   assertOwnerPanelSessionHandoffGatewayApproval,
   createOwnerPanelSessionHandoffInternalGateway,
   createOwnerPanelSessionHandoffGatewayApproval,
+  parseCanonicalPanelSessionCompletionEnvelope,
 } from "./internal-gateway.ts";
 import { createVerifiedEdgeTrustBoundary } from "../self-serve-http/verified-edge-trust.ts";
 
 const ORIGIN = "https://owner-internal.example.test";
 const SECRET = new Uint8Array(32).fill(0x35);
+const CALLBACK = "https://panel.celebix.site/auth/callback?state=state_0123456789abcdefghijklmnop&code=verified-code";
+const BINDING = `pb1.${Buffer.alloc(32, 0x36).toString("base64url")}`;
 
 test("Owner handoff gateway approval is sealed, private, disabled, and never production", () => {
   const approval = createOwnerPanelSessionHandoffGatewayApproval("approved_staging");
@@ -44,6 +47,24 @@ test("gateway rejects copied or plain handlers before accepting request authorit
   };
   assert.throws(
     () => createOwnerPanelSessionHandoffInternalGateway(base as never),
+    /owner_panel_session_handoff_gateway_invalid/,
+  );
+});
+
+test("schema-v2 envelope is byte-canonical and binds the exact callback to one pb1 credential", () => {
+  const canonical = JSON.stringify({ schemaVersion: 2, callbackUrl: CALLBACK, browserBindingCredential: BINDING });
+  assert.deepEqual(parseCanonicalPanelSessionCompletionEnvelope(new TextEncoder().encode(canonical)), {
+    callbackUrl: CALLBACK,
+    browserBindingCredential: BINDING,
+  });
+  for (const invalid of [
+    JSON.stringify({ schemaVersion: 1, callbackUrl: CALLBACK }),
+    JSON.stringify({ schemaVersion: 2, browserBindingCredential: BINDING, callbackUrl: CALLBACK }),
+    JSON.stringify({ schemaVersion: 2, callbackUrl: CALLBACK, browserBindingCredential: BINDING, extra: true }),
+    JSON.stringify({ schemaVersion: 2, callbackUrl: CALLBACK, browserBindingCredential: "pb1.bad" }),
+    ` ${canonical}`,
+  ]) assert.throws(
+    () => parseCanonicalPanelSessionCompletionEnvelope(new TextEncoder().encode(invalid)),
     /owner_panel_session_handoff_gateway_invalid/,
   );
 });

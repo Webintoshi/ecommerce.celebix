@@ -6,7 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const base = "0c92bfbc3a8165cff914dc7f14b7e7dff47caf81";
+const base = "2746e76b56e0199d110692f54068cbc5f1d25ba7";
 
 function git(args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -14,6 +14,13 @@ function git(args) {
 
 function read(file) {
   return readFileSync(path.join(root, file), "utf8");
+}
+
+function changedFiles() {
+  return [...new Set([
+    ...git(["diff", "--name-only", base]).split("\n"),
+    ...git(["ls-files", "--others", "--exclude-standard"]).split("\n"),
+  ].filter(Boolean))];
 }
 
 function sourceFiles(directory) {
@@ -28,7 +35,7 @@ function sourceFiles(directory) {
 }
 
 test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
-  const changed = git(["diff", "--name-only", base]).split("\n").filter(Boolean);
+  const changed = changedFiles();
   const exact = new Set([
     "apps/customer-panel/lib/self-serve-callback-edge/callback-request.ts",
     "apps/customer-panel/lib/self-serve-callback-edge/callback-request.test.ts",
@@ -50,6 +57,13 @@ test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
   for (const file of changed) {
     assert.equal(
       exact.has(file) || file.startsWith("apps/customer-panel/lib/panel-session-completion/") ||
+      file.startsWith("apps/customer-panel/lib/panel-browser-binding/") ||
+      file.startsWith("apps/customer-panel/lib/panel-browser-binding-bootstrap/") ||
+      file.startsWith("apps/owner/lib/panel-browser-binding/") ||
+      file === "apps/owner/scripts/sql/saas/202607140017_panel_browser_bindings.up.sql" ||
+      file === "apps/owner/scripts/sql/saas/202607140017_panel_browser_bindings.down.sql" ||
+      file === "apps/owner/scripts/sql/saas/phase2b2b2a1-manifest.json" ||
+      file.startsWith("tests/saas-phase2/panel-browser-binding/") ||
       file.startsWith("tests/saas-phase2/panel-session-completion/") ||
       file.startsWith("tests/saas-phase2/panel-session-handoffs/") ||
       file.startsWith("tests/saas-phase2/http-wiring/") || file === "tests/saas-phase2/registration-session/postgres-harness.mjs",
@@ -60,9 +74,10 @@ test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
 });
 
 test("migrations, manifests, frozen authorities, legacy completion, packages, and infrastructure are unchanged", () => {
-  const changed = git(["diff", "--name-only", base]).split("\n").filter(Boolean);
+  const changed = changedFiles();
   const forbidden = [
-    /^apps\/owner\/scripts\/sql\/saas\//,
+    /^apps\/owner\/scripts\/sql\/saas\/2026071400(?:0[1-9]|1[0-6])_/,
+    /^apps\/owner\/scripts\/sql\/saas\/(?!phase2b2b2a1-manifest).*manifest\.json$/,
     /^packages\/(?!platform-config\/src\/saas(?:\.test)?\.ts$)/,
     /^package(?:-lock)?\.json$/,
     /^apps\/(?:admin|storefront|dedicated|hemenaku|derycraft)\//i,
@@ -104,7 +119,7 @@ test("new application source contains no activation, env, provider networking, l
 test("response verification occurs before UTF-8 decode and JSON projection, with no retry loop", () => {
   const source = read("apps/customer-panel/lib/panel-session-completion/transport.ts");
   const flow = source.slice(source.indexOf("async complete(callbackUrl"));
-  const verified = flow.indexOf("timingSafeEqual(signature, expected)");
+  const verified = flow.indexOf("timingSafeEqual(responseSignature, expected)");
   const decoded = flow.indexOf('new TextDecoder("utf-8", { fatal: true }).decode(rawBytes)');
   const parsed = flow.indexOf("parseCanonicalResult(raw, response.status)");
   assert.ok(verified >= 0 && decoded > verified && parsed > decoded);
@@ -116,10 +131,13 @@ test("response verification occurs before UTF-8 decode and JSON projection, with
 
 test("request authentication verifies HMAC before canonical envelope parsing and callback processing", () => {
   const source = read("apps/owner/lib/self-serve-http/internal-callback-gateway.ts");
-  const authenticate = source.slice(source.indexOf("async authenticate(request"), source.indexOf("export function signWithAuthenticated"));
-  assert.ok(authenticate.indexOf("timingSafeEqual(signatureBytes, expected)") < authenticate.indexOf("parseCanonicalEnvelope(rawBytes)"));
+  const authenticate = source.slice(source.indexOf("export function createOwnerInternalCallbackRawRequestAuthenticator"), source.indexOf("export function copyAuthenticatedOwnerInternalCallbackRawBody"));
+  assert.match(authenticate, /timingSafeEqual\(signatureBytes, expected\)/);
   const gateway = read("apps/owner/lib/panel-session-handoff/internal-gateway.ts");
-  assert.ok(gateway.indexOf("authenticator.authenticate(request)") < gateway.indexOf("handler.handle("));
+  const authenticated = gateway.indexOf("authenticator.authenticate(request)");
+  const parsed = gateway.indexOf("parseCanonicalPanelSessionCompletionEnvelope(", authenticated);
+  const handled = gateway.indexOf("handler.handle(", parsed);
+  assert.ok(authenticated >= 0 && parsed > authenticated && handled > parsed);
 });
 
 test("signed Owner response binds request timestamp, request digest, status, and raw response digest", () => {
@@ -147,10 +165,10 @@ test("persistent cookie and browser response are fixed, secure, host-only, and c
   assert.doesNotMatch(completion, /handoffCredential.*location|credential.*location/i);
 });
 
-test("the disposable PostgreSQL 16 harness declares exactly 49 scenarios and full cleanup evidence", () => {
+test("the disposable PostgreSQL 16 harness declares exactly 58 scenarios and full cleanup evidence", () => {
   const harness = read("tests/saas-phase2/panel-session-completion/postgres-harness.mjs");
-  assert.equal((harness.match(/await scenario\(/g) ?? []).length, 49);
-  assert.match(harness, /assert\.equal\(scenarios, 49\)/);
+  assert.equal((harness.match(/await scenario\(/g) ?? []).length, 58);
+  assert.match(harness, /assert\.equal\(scenarios, 58\)/);
   assert.match(harness, /SHOW server_version_num/);
   assert.match(harness, /sessionCompletionPipeline: "PASS"/);
   assert.match(harness, /signedOwnerResponse: "PASS"/);

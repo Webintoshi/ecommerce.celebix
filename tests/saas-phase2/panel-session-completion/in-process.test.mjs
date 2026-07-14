@@ -22,6 +22,9 @@ const PROVIDER_ISSUER = "https://identity.example.test/oidc";
 const AUDIENCE = "customer-panel";
 const SECRET = new Uint8Array(32).fill(0x35);
 const SESSION_CREDENTIAL = `v1.panel.active.${Buffer.alloc(32, 0x55).toString("base64url")}`;
+const BINDING = `pb1.${Buffer.alloc(32, 0x66).toString("base64url")}`;
+const WRONG_BINDING = `pb1.${Buffer.alloc(32, 0x67).toString("base64url")}`;
+const PRE_AUTH_DELETION = "__Host-celebix_panel_pre_auth=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0";
 const UUIDS = [
   "10000000-0000-4000-8000-000000000001",
   "10000000-0000-4000-8000-000000000002",
@@ -47,6 +50,8 @@ function compose(options = {}) {
   let providerCalls = 0;
   let providerRejections = 0;
   let consumedRecoveryCalls = 0;
+  let browserClaimed = false;
+  let browserClaimCalls = 0;
   const runtime = createPersistentSelfServeRuntime({
     activationApproval: createSelfServeHttpActivationApproval("disposable_test"),
     oidcTransactionStore: {
@@ -129,6 +134,17 @@ function compose(options = {}) {
   });
   const ownerHandler = createOwnerPanelSessionInitialCallbackHandler({
     runtime, edgeTrustBoundary: edgeBoundary, initialCallbackGrantBoundary: grantBoundary, issuer,
+    browserBindingRepository: {
+      async claimCallback(input) {
+        browserClaimCalls += 1;
+        if (options.claimKind) return Object.freeze({ kind: options.claimKind });
+        if (input.rawState !== STATE) return Object.freeze({ kind: "operation_mismatch" });
+        if (input.browserBindingCredential !== BINDING) return Object.freeze({ kind: "unauthenticated" });
+        if (browserClaimed) return Object.freeze({ kind: "callback_replayed" });
+        browserClaimed = true;
+        return Object.freeze({ kind: "browser_callback_claimed" });
+      },
+    },
     clock: () => new Date(NOW), audit() {},
   });
   const ownerGateway = createOwnerPanelSessionHandoffInternalGateway({
@@ -178,24 +194,33 @@ function compose(options = {}) {
     completion, ownerGateway,
     get providerCalls() { return providerCalls; }, get providerRejections() { return providerRejections; },
     get consumedRecoveryCalls() { return consumedRecoveryCalls; }, get issuerCalls() { return issuerCalls; },
+    get browserClaimCalls() { return browserClaimCalls; },
     get fetchCalls() { return fetchCalls; }, get redeemCalls() { return redeemCalls; }, get recoveryCalls() { return recoveryCalls; },
   };
 }
 
-function callback(query = `state=${STATE}&code=verified-code`) {
-  return new Request(`${CALLBACK}?${query}`);
+function callback(query = `state=${STATE}&code=verified-code`, binding = BINDING) {
+  return new Request(`${CALLBACK}?${query}`, {
+    headers: binding ? { cookie: `__Host-celebix_panel_pre_auth=${binding}` } : undefined,
+  });
 }
 
-test("full in-process initial callback returns one cookie and replay reaches neither issuer nor redeemer", async () => {
+function persistentCookies(response) {
+  return response.headers.getSetCookie().filter((cookie) => cookie.startsWith("__Host-celebix_panel="));
+}
+
+test("full in-process initial callback returns a session cookie plus deletion and replay reaches neither provider nor issuer", async () => {
   const current = compose();
   const first = await current.completion(callback());
   assert.equal(first.status, 303);
-  assert.match(first.headers.get("set-cookie") ?? "", /^__Host-celebix_panel=v1\./);
+  assert.equal(persistentCookies(first).length, 1);
+  assert.equal(first.headers.getSetCookie().includes(PRE_AUTH_DELETION), true);
   assert.equal(current.issuerCalls, 1);
   assert.equal(current.redeemCalls, 1);
   const replay = await current.completion(callback());
   assert.equal(replay.status, 409);
-  assert.equal(replay.headers.has("set-cookie"), false);
+  assert.deepEqual(replay.headers.getSetCookie(), [PRE_AUTH_DELETION]);
+  assert.equal(current.providerCalls, 1);
   assert.equal(current.issuerCalls, 1);
   assert.equal(current.redeemCalls, 1);
   assert.equal(current.consumedRecoveryCalls, 0);
@@ -204,17 +229,21 @@ test("full in-process initial callback returns one cookie and replay reaches nei
 test("concurrent duplicate delivery creates exactly one session-bearing browser response", async () => {
   const current = compose();
   const responses = await Promise.all([current.completion(callback()), current.completion(callback())]);
-  assert.equal(responses.filter((response) => response.headers.has("set-cookie")).length, 1);
+  assert.equal(responses.filter((response) => persistentCookies(response).length === 1).length, 1);
+  assert.equal(responses.filter((response) => response.headers.has("location")).length, 1);
+  assert.equal(current.browserClaimCalls, 2);
+  assert.equal(current.providerCalls, 1);
   assert.equal(current.issuerCalls, 1);
   assert.equal(current.redeemCalls, 1);
 });
 
-test("signed response body/status tamper and Owner response loss never redeem or set a cookie", async () => {
+test("signed response body/status tamper and Owner response loss never redeem or issue a persistent cookie", async () => {
   for (const tamper of ["body", "status"]) {
     const current = compose({ tamper });
     const response = await current.completion(callback());
     assert.equal(response.status, 503);
-    assert.equal(response.headers.has("set-cookie"), false);
+    assert.equal(persistentCookies(response).length, 0);
+    assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
     assert.equal(current.redeemCalls, 0);
   }
   const lost = compose({ loseOwnerResponse: true });
@@ -228,6 +257,7 @@ test("signed response body/status tamper and Owner response loss never redeem or
   assert.equal(lost.fetchCalls, 1);
   assert.equal(lost.issuerCalls, 1);
   assert.equal(lost.redeemCalls, 0);
+  assert.equal(persistentCookies(response).length, 0);
 });
 
 test("redemption response loss performs one recovery; denied replay never re-cookies", async () => {
@@ -238,19 +268,38 @@ test("redemption response loss performs one recovery; denied replay never re-coo
   const denied = compose({ redemptionDenied: true });
   const response = await denied.completion(callback());
   assert.equal(response.status, 409);
-  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(persistentCookies(response).length, 0);
+  assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
 });
 
 test("provider error is signed but creates no grant, handoff, redemption, cookie, or redirect", async () => {
   const current = compose();
   const response = await current.completion(callback(`state=${STATE}&error=access_denied&error_description=private`));
   assert.equal(response.status, 400);
-  assert.equal(response.headers.has("set-cookie"), false);
+  assert.equal(persistentCookies(response).length, 0);
+  assert.deepEqual(response.headers.getSetCookie(), [PRE_AUTH_DELETION]);
   assert.equal(response.headers.has("location"), false);
   assert.equal(current.providerCalls, 0);
   assert.equal(current.providerRejections, 1);
   assert.equal(current.issuerCalls, 0);
   assert.equal(current.redeemCalls, 0);
+});
+
+test("callback URL theft, wrong cookie, and cross-state binding stop before provider, issuer, and redeemer", async () => {
+  for (const request of [
+    callback(undefined, ""),
+    callback(undefined, WRONG_BINDING),
+    callback("state=state_abcdefghijklmnopqrstuvwxyz012345&code=verified-code"),
+  ]) {
+    const current = compose();
+    const response = await current.completion(request);
+    assert.notEqual(response.status, 303);
+    assert.equal(persistentCookies(response).length, 0);
+    assert.equal(response.headers.has("location"), false);
+    assert.equal(current.providerCalls, 0);
+    assert.equal(current.issuerCalls, 0);
+    assert.equal(current.redeemCalls, 0);
+  }
 });
 
 test("pre-authenticated Owner errors are unsigned and execute no callback authority", async () => {

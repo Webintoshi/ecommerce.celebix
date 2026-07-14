@@ -17,7 +17,7 @@ const MAXIMUM_TIMESTAMP_AGE_MS = 60_000;
 const MAXIMUM_FUTURE_SKEW_MS = 5_000;
 const SUCCESS_PARAMETERS = new Set(["state", "code"]);
 const ERROR_PARAMETERS = new Set(["state", "error", "error_description", "error_uri"]);
-const authenticatedRequests = new WeakMap<object, Uint8Array>();
+const authenticatedRequests = new WeakMap<object, Readonly<{ secret: Uint8Array; rawBody: Uint8Array }>>();
 
 export type OwnerInternalCallbackGatewayApproval = Readonly<{
   purpose: "phase2b1b2b_owner_internal_callback_gateway";
@@ -242,6 +242,12 @@ export type AuthenticatedOwnerInternalCallbackRequest = Readonly<{
   requestBodyDigest: string;
 }>;
 
+export type AuthenticatedOwnerInternalCallbackRawRequest = Readonly<{
+  keyId: string;
+  timestamp: string;
+  requestBodyDigest: string;
+}>;
+
 function authenticationFailure(
   stage: OwnerInternalCallbackAuthenticationStage,
   status: number,
@@ -259,7 +265,7 @@ function copyAuthenticationKeys(input: ReadonlyMap<string, Uint8Array>): Readonl
   return keys;
 }
 
-export function createOwnerInternalCallbackRequestAuthenticator(options: {
+export function createOwnerInternalCallbackRawRequestAuthenticator(options: {
   ownerInternalOrigin: string;
   keys: ReadonlyMap<string, Uint8Array>;
   clock(): Date;
@@ -274,7 +280,7 @@ export function createOwnerInternalCallbackRequestAuthenticator(options: {
 
   return Object.freeze({
     endpoint,
-    async authenticate(request: Request): Promise<AuthenticatedOwnerInternalCallbackRequest> {
+    async authenticate(request: Request): Promise<AuthenticatedOwnerInternalCallbackRawRequest> {
       let keyId: string;
       let timestamp: string;
       let signatureBytes: Uint8Array;
@@ -317,25 +323,64 @@ export function createOwnerInternalCallbackRequestAuthenticator(options: {
       if (signatureBytes.byteLength !== expected.byteLength || !timingSafeEqual(signatureBytes, expected)) {
         authenticationFailure("authentication", 401);
       }
+      const authenticated = Object.freeze({ keyId, timestamp, requestBodyDigest });
+      authenticatedRequests.set(authenticated, Object.freeze({
+        secret: new Uint8Array(secret),
+        rawBody: new Uint8Array(rawBytes),
+      }));
+      return authenticated;
+    },
+  });
+}
+
+export function copyAuthenticatedOwnerInternalCallbackRawBody(
+  authenticated: AuthenticatedOwnerInternalCallbackRawRequest,
+): Uint8Array {
+  const authority = authenticated && typeof authenticated === "object" ? authenticatedRequests.get(authenticated) : undefined;
+  if (!authority) throw new Error("owner_internal_callback_authenticated_request_invalid");
+  return new Uint8Array(authority.rawBody);
+}
+
+export function createOwnerInternalCallbackRequestAuthenticator(options: {
+  ownerInternalOrigin: string;
+  keys: ReadonlyMap<string, Uint8Array>;
+  clock(): Date;
+  maximumBodyBytes: number;
+}) {
+  const rawAuthenticator = createOwnerInternalCallbackRawRequestAuthenticator(options);
+  return Object.freeze({
+    endpoint: rawAuthenticator.endpoint,
+    async authenticate(request: Request): Promise<AuthenticatedOwnerInternalCallbackRequest> {
+      const raw = await rawAuthenticator.authenticate(request);
       let callbackUrl: string;
-      try { callbackUrl = parseCanonicalEnvelope(rawBytes); }
+      try { callbackUrl = parseCanonicalEnvelope(copyAuthenticatedOwnerInternalCallbackRawBody(raw)); }
       catch { authenticationFailure("envelope_validation", 400); }
-      const authenticated = Object.freeze({ callbackUrl, keyId, timestamp, requestBodyDigest });
-      authenticatedRequests.set(authenticated, new Uint8Array(secret));
+      const authenticated = Object.freeze({
+        callbackUrl,
+        keyId: raw.keyId,
+        timestamp: raw.timestamp,
+        requestBodyDigest: raw.requestBodyDigest,
+      });
+      const authority = authenticatedRequests.get(raw);
+      if (!authority) authenticationFailure("authentication", 401);
+      authenticatedRequests.set(authenticated, Object.freeze({
+        secret: new Uint8Array(authority.secret),
+        rawBody: new Uint8Array(authority.rawBody),
+      }));
       return authenticated;
     },
   });
 }
 
 export function signWithAuthenticatedInternalCallbackRequest(
-  authenticated: AuthenticatedOwnerInternalCallbackRequest,
+  authenticated: AuthenticatedOwnerInternalCallbackRequest | AuthenticatedOwnerInternalCallbackRawRequest,
   domainSeparatedPreimage: string,
 ): string {
-  const secret = authenticated && typeof authenticated === "object" ? authenticatedRequests.get(authenticated) : undefined;
-  if (!secret || typeof domainSeparatedPreimage !== "string" || domainSeparatedPreimage.length < 1 || domainSeparatedPreimage.length > 8_192) {
+  const authority = authenticated && typeof authenticated === "object" ? authenticatedRequests.get(authenticated) : undefined;
+  if (!authority || typeof domainSeparatedPreimage !== "string" || domainSeparatedPreimage.length < 1 || domainSeparatedPreimage.length > 8_192) {
     throw new Error("owner_internal_callback_authenticated_request_invalid");
   }
-  return createHmac("sha256", secret).update(domainSeparatedPreimage, "utf8").digest("base64url");
+  return createHmac("sha256", authority.secret).update(domainSeparatedPreimage, "utf8").digest("base64url");
 }
 
 export function createDisabledOwnerInternalSelfServeCallbackGateway() {

@@ -17,6 +17,10 @@ import { createPostgresPanelSessionHandoffRedeemer } from "../../../apps/custome
 import { createPanelSessionCompletionApproval } from "../../../apps/customer-panel/lib/panel-session-completion/activation.ts";
 import { createPanelSessionCompletionHandler } from "../../../apps/customer-panel/lib/panel-session-completion/completion.ts";
 import { createAuthenticatedPanelSessionCompletionTransport } from "../../../apps/customer-panel/lib/panel-session-completion/transport.ts";
+import { createPanelBrowserBindingCredentialGenerator } from "../../../apps/customer-panel/lib/panel-browser-binding/credential-codec.ts";
+import { createPanelBrowserBindingBootstrapApproval } from "../../../apps/customer-panel/lib/panel-browser-binding-bootstrap/activation.ts";
+import { createPanelBrowserBindingBootstrapHandler } from "../../../apps/customer-panel/lib/panel-browser-binding-bootstrap/handler.ts";
+import { createAuthenticatedPanelBrowserBindingTransport } from "../../../apps/customer-panel/lib/panel-browser-binding-bootstrap/transport.ts";
 import { createPanelSessionPersistenceApproval } from "../../../apps/customer-panel/lib/panel-session-persistence/activation.ts";
 import { createPanelSessionCredentialCodec } from "../../../apps/customer-panel/lib/panel-session-persistence/credential-codec.ts";
 import { createPostgresPanelSessionRepository } from "../../../apps/customer-panel/lib/panel-session-persistence/postgres-panel-session-repository.ts";
@@ -27,6 +31,10 @@ import { createPanelSessionHandoffCredentialCodec } from "../../../apps/owner/li
 import { createInitialCallbackPanelSessionHandoffExecutor } from "../../../apps/owner/lib/panel-session-handoff/initial-callback-executor.ts";
 import { createInitialVerifiedCallbackGrantBoundary, isActiveInitialVerifiedCallbackGrantForState } from "../../../apps/owner/lib/panel-session-handoff/initial-callback-grant.ts";
 import { createPostgresPanelSessionHandoffIssuer } from "../../../apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts";
+import { createPanelBrowserBindingAuthorityCodec } from "../../../apps/owner/lib/panel-browser-binding/credential-codec.ts";
+import { createOwnerPanelBrowserBindingInternalGateway, createPanelBrowserBindingInternalGatewayApproval } from "../../../apps/owner/lib/panel-browser-binding/internal-gateway.ts";
+import { createPostgresPanelBrowserBindingRepository } from "../../../apps/owner/lib/panel-browser-binding/postgres-repository.ts";
+import { createPanelBrowserBindingRegistrationStartExecutor } from "../../../apps/owner/lib/panel-browser-binding/start-executor.ts";
 import { createAes256GcmPayloadCipher, createOpaqueStateDigester } from "../../../apps/owner/lib/saas-persistence/identity-crypto.ts";
 import { PostgresOidcTransactionStore } from "../../../apps/owner/lib/saas-persistence/postgres-oidc-transaction-store.ts";
 import { PostgresRegistrationAttemptStore } from "../../../apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts";
@@ -60,6 +68,12 @@ const sessionKeyId = "panel.active.v1";
 const oldSessionKeyId = "panel.old.v1";
 const internalCallbackKeyId = "callback.active.v1";
 const internalCallbackSecret = new Uint8Array(32).fill(0x63);
+const browserBootstrapKeyId = "browser.bootstrap.v1";
+const browserBindingKeyId = "browser.binding.v1";
+const browserInternalKeyId = "browser.internal.v1";
+const browserInternalSecret = new Uint8Array(32).fill(0x64);
+const browserInternalEndpoint = `${ownerOrigin}/api/internal/self-serve/browser-binding`;
+const preAuthDeletionCookie = "__Host-celebix_panel_pre_auth=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0";
 const connectionEvidence = { externalNetworkAttempts: 0, productionConnectionAttempts: 0 };
 const handoffKeys = new Map([
   [handoffKeyId, new Uint8Array(32).fill(0x31)],
@@ -87,6 +101,7 @@ const manifests = [
   "phase2b1b1-manifest.json",
   "phase2b2a-manifest.json",
   "phase2b2b1-manifest.json",
+  "phase2b2b2a1-manifest.json",
 ];
 
 function executable(name) {
@@ -196,6 +211,7 @@ function applyAll(backend, database, includeRoles) {
   for (const file of phase2b1b1Files) migration(backend, file, database);
   migration(backend, "202607140015_panel_sessions.up.sql", database);
   migration(backend, "202607140016_panel_session_handoffs.up.sql", database);
+  migration(backend, "202607140017_panel_browser_bindings.up.sql", database);
 }
 
 function dumpDatabase(backend, database) {
@@ -376,25 +392,114 @@ function createRegistrationHarness(pool) {
   };
   const clock = { value: new Date() };
   const now = () => new Date(clock.value);
+  const registrationStateDigester = createOpaqueStateDigester({ key: material.hmacKey, context: "registration-attempt-state" });
+  const oidcStateDigester = createOpaqueStateDigester({ key: material.hmacKey, context: "oidc-transaction-state" });
   const registrationStore = new PostgresRegistrationAttemptStore(
     identityDependencies(pool, material, "registration-attempt-state", now),
     { panelOrigin: "https://panel.celebix.site", platformDomainSuffix: "celebix.site" },
-    { oidcStateDigester: createOpaqueStateDigester({ key: material.hmacKey, context: "oidc-transaction-state" }) },
+    { oidcStateDigester },
   );
   const oidcStore = new PostgresOidcTransactionStore(identityDependencies(pool, material, "oidc-transaction-state", now));
+  const browserCredentialCodec = createPanelBrowserBindingAuthorityCodec({
+    bootstrapKeys: new Map([[browserBootstrapKeyId, randomBytes(32)]]),
+    activeBootstrapKeyId: browserBootstrapKeyId,
+    browserBindingKeys: new Map([[browserBindingKeyId, randomBytes(32)]]),
+    activeBrowserBindingKeyId: browserBindingKeyId,
+    randomBytes: (size) => new Uint8Array(randomBytes(size)),
+  });
+  const browserBindingRepository = createPostgresPanelBrowserBindingRepository({
+    pool,
+    stateDigester: registrationStateDigester,
+    oidcStateDigester,
+    credentialCodec: browserCredentialCodec,
+    clock: now,
+    timeouts,
+    audit: () => undefined,
+  });
   return {
-    stateDigester: createOpaqueStateDigester({ key: material.hmacKey, context: "registration-attempt-state" }),
+    stateDigester: registrationStateDigester,
+    oidcStateDigester,
+    browserBindingRepository,
     async start(slug) {
       clock.value = new Date(Date.now() - 2_000);
       const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
       return startRegistration(setup.runtime, slug);
     },
     async complete(slug, options = {}) {
-      const state = await this.start(slug);
+      clock.value = new Date(Date.now() - 2_000);
+      const startSetup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
+      const started = await createPanelBrowserBindingRegistrationStartExecutor({
+        runtime: startSetup.runtime,
+        stateDigester: registrationStateDigester,
+        credentialCodec: browserCredentialCodec,
+        repository: browserBindingRepository,
+        panelBootstrapAuthority: "https://panel.celebix.site/auth/bootstrap",
+        clock: now,
+        randomUuid: () => randomUUID(),
+        audit: () => undefined,
+      }).execute({
+        storeName: `Disposable ${slug}`,
+        storeSlug: slug,
+        privacyConsent: true,
+        marketingConsent: false,
+      });
+      const state = new URL(started.providerAuthorizationUrl).searchParams.get("state");
+      assert.ok(state);
       clock.value = new Date(Date.now() - 1_000);
+      const ownerBrowserGateway = createOwnerPanelBrowserBindingInternalGateway({
+        activationApproval: createPanelBrowserBindingInternalGatewayApproval("disposable_test"),
+        ownerInternalOrigin: ownerOrigin,
+        keys: new Map([[browserInternalKeyId, browserInternalSecret]]),
+        clock: now,
+        maximumBodyBytes: 16_384,
+        repository: browserBindingRepository,
+        audit: () => undefined,
+      });
+      const browserTransport = createAuthenticatedPanelBrowserBindingTransport({
+        activationApproval: createPanelBrowserBindingBootstrapApproval("disposable_test"),
+        ownerInternalOrigin: ownerOrigin,
+        activeKeyId: browserInternalKeyId,
+        activeSecret: browserInternalSecret,
+        fetch: async (request) => withResponseUrl(await ownerBrowserGateway(request), browserInternalEndpoint),
+        clock: now,
+        deadlineMs: 2_000,
+        maximumResponseBytes: 16_384,
+        audit: () => undefined,
+      });
+      const browserBootstrap = createPanelBrowserBindingBootstrapHandler({
+        activationApproval: createPanelBrowserBindingBootstrapApproval("disposable_test"),
+        publicBootstrapAuthority: "https://panel.celebix.site/auth/bootstrap",
+        maximumBodyBytes: 16_384,
+        credentialGenerator: createPanelBrowserBindingCredentialGenerator(
+          (size) => new Uint8Array(randomBytes(size)),
+        ),
+        transport: browserTransport,
+        clock: now,
+        audit: () => undefined,
+      });
+      const bootstrapResponse = await browserBootstrap(new Request("https://panel.celebix.site/auth/bootstrap", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          bootstrapCredential: started.bootstrapCredential,
+          providerAuthorizationUrl: started.providerAuthorizationUrl,
+        }),
+      }));
+      assert.equal(bootstrapResponse.status, 303);
+      assert.equal(bootstrapResponse.headers.get("location"), started.providerAuthorizationUrl);
+      const preAuthCookie = bootstrapResponse.headers.getSetCookie()[0];
+      const bindingMatch = preAuthCookie?.match(/^__Host-celebix_panel_pre_auth=(pb1\.[A-Za-z0-9_-]{43});/);
+      assert.ok(bindingMatch);
+      const browserBindingCredential = bindingMatch[1];
       const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now, options.provider);
       const grantBoundary = createInitialVerifiedCallbackGrantBoundary(setup.runtime);
-      return { state, slug, runtime: setup.runtime, edgeBoundary: setup.boundary, grantBoundary };
+      return {
+        state, slug, runtime: setup.runtime, edgeBoundary: setup.boundary, grantBoundary,
+        bootstrapCredential: started.bootstrapCredential,
+        providerAuthorizationUrl: started.providerAuthorizationUrl,
+        browserBindingCredential,
+        bootstrapResponse,
+      };
     },
   };
 }
@@ -459,6 +564,7 @@ function sessionCompletionPipeline(pool, registrations, registration, options = 
     edgeTrustBoundary: registration.edgeBoundary,
     initialCallbackGrantBoundary: registration.grantBoundary,
     issuer: ownerIssuer,
+    browserBindingRepository: registrations.browserBindingRepository,
     clock: () => new Date(),
     audit(event) { audit.push(Object.freeze({ component: "owner_handler", ...event })); },
   });
@@ -530,14 +636,21 @@ function sessionCompletionPipeline(pool, registrations, registration, options = 
   };
 }
 
-function browserCallback(state, query = `state=${encodeURIComponent(state)}&code=valid-code`) {
-  return new Request(`${callbackAuthority}?${query}`);
+function browserCallback(registration, query = `state=${encodeURIComponent(registration.state)}&code=valid-code`, credential = registration.browserBindingCredential) {
+  return new Request(`${callbackAuthority}?${query}`, {
+    headers: credential ? { cookie: `__Host-celebix_panel_pre_auth=${credential}` } : undefined,
+  });
 }
 
 function cookieCredential(response) {
-  const match = response.headers.get("set-cookie")?.match(/^__Host-celebix_panel=([^;]+);/);
+  const persistent = response.headers.getSetCookie().find((cookie) => cookie.startsWith("__Host-celebix_panel="));
+  const match = persistent?.match(/^__Host-celebix_panel=([^;]+);/);
   assert.ok(match);
   return match[1];
+}
+
+function persistentCookieCount(response) {
+  return response.headers.getSetCookie().filter((cookie) => cookie.startsWith("__Host-celebix_panel=")).length;
 }
 
 async function directHandoff(pool, stateDigester, rawState, options = {}) {
@@ -635,10 +748,35 @@ async function run() {
     let completionResponse;
     let completionSessionCredential;
     let completionResolution;
+    await scenario("browser binding 1 migration 017 and manifest are applied", async () => {
+      assert.equal(psql(backend, "SELECT to_regclass('saas.panel_browser_bindings') IS NOT NULL;"), "t");
+      const manifest = JSON.parse(readFileSync(path.join(sqlDirectory, "phase2b2b2a1-manifest.json"), "utf8"));
+      assert.equal(manifest.postgresqlMajor, 16);
+      assert.equal(manifest.artifacts.length, 2);
+    });
+    await scenario("browser binding 2 genuine start persists one version-2 bound bootstrap row", async () => {
+      const digest = registrations.stateDigester.digest(completionRegistration.state);
+      const oidcDigest = registrations.oidcStateDigester.digest(completionRegistration.state);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_browser_bindings WHERE state_digest='${digest}' AND oidc_state_digest='${oidcDigest}' AND version=2;`), "1");
+    });
+    await scenario("browser binding 3 raw bootstrap and pb1 credentials are absent from PostgreSQL", async () => {
+      const dump = dataDump(backend);
+      assert.equal(dump.includes(completionRegistration.bootstrapCredential), false);
+      assert.equal(dump.includes(completionRegistration.browserBindingCredential), false);
+    });
+    await scenario("browser binding 4 exact provider URL digest is retained without the raw URL", async () => {
+      const expected = createHash("sha256").update(completionRegistration.providerAuthorizationUrl, "utf8").digest("hex");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_browser_bindings WHERE authorization_url_digest='${expected}';`), "1");
+      assert.equal(dataDump(backend).includes(completionRegistration.providerAuthorizationUrl), false);
+    });
     await scenario("completion 1 full callback pipeline returns HTTP 303", async () => {
-      completionResponse = await completion.handler(browserCallback(completionRegistration.state));
+      completionResponse = await completion.handler(browserCallback(completionRegistration));
       assert.equal(completionResponse.status, 303);
       assert.equal(await completionResponse.text(), "");
+    });
+    await scenario("browser binding 5 the successful callback advances exactly one row to claimed version 3", async () => {
+      const digest = registrations.stateDigester.digest(completionRegistration.state);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_browser_bindings WHERE state_digest='${digest}' AND version=3 AND callback_claimed_at IS NOT NULL;`), "1");
     });
     await scenario("completion 2 browser success uses the exact fixed Location", async () => {
       assert.equal(completionResponse.headers.get("location"), "https://panel.celebix.site/");
@@ -646,9 +784,10 @@ async function run() {
       assert.equal(completionResponse.headers.get("x-content-type-options"), "nosniff");
     });
     await scenario("completion 3 browser success emits one secure host-only persistent cookie", async () => {
-      const cookie = completionResponse.headers.get("set-cookie");
+      const cookie = completionResponse.headers.getSetCookie().find((value) => value.startsWith("__Host-celebix_panel="));
       assert.match(cookie, /^__Host-celebix_panel=v1\.[A-Za-z0-9._-]+\.[A-Za-z0-9_-]{43}; HttpOnly; Secure; SameSite=Lax; Path=\/; Max-Age=\d+$/);
       assert.equal(/Domain|SameSite=None/.test(cookie), false);
+      assert.equal(completionResponse.headers.getSetCookie().includes(preAuthDeletionCookie), true);
       completionSessionCredential = cookieCredential(completionResponse);
     });
     await scenario("completion 4 issued credential resolves the exact TenantContext", async () => {
@@ -670,9 +809,10 @@ async function run() {
       assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE token_key_id='${proof.tokenKeyId}' AND token_digest='${proof.tokenDigest}';`), "1");
     });
     await scenario("completion 7 consumed callback replay reaches neither issuer nor redeemer and emits no cookie", async () => {
-      const replay = await completion.handler(browserCallback(completionRegistration.state));
+      const replay = await completion.handler(browserCallback(completionRegistration));
       assert.equal(replay.status, 409);
-      assert.equal(replay.headers.has("set-cookie"), false);
+      assert.equal(persistentCookieCount(replay), 0);
+      assert.deepEqual(replay.headers.getSetCookie(), [preAuthDeletionCookie]);
       assert.equal(replay.headers.has("location"), false);
       assert.equal(completion.issuerCalls, 1);
       assert.equal(completion.redemptionCalls, 1);
@@ -682,42 +822,84 @@ async function run() {
       const registration = await registrations.complete("session-completion-concurrent");
       const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration);
       const responses = await Promise.all([
-        pipeline.handler(browserCallback(registration.state)),
-        pipeline.handler(browserCallback(registration.state)),
+        pipeline.handler(browserCallback(registration)),
+        pipeline.handler(browserCallback(registration)),
       ]);
-      assert.equal(responses.filter((response) => response.headers.has("set-cookie")).length, 1);
+      assert.equal(responses.filter((response) => persistentCookieCount(response) === 1).length, 1);
       assert.equal(pipeline.issuerCalls, 1);
       assert.equal(pipeline.redemptionCalls, 1);
+    });
+    let theftResponse;
+    await scenario("browser binding 6 stolen callback URL without pre-auth cookie reaches no Owner authority", async () => {
+      const registration = await registrations.complete("session-completion-stolen-url");
+      const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration);
+      theftResponse = await pipeline.handler(browserCallback(registration, undefined, ""));
+      assert.equal(theftResponse.status, 400);
+      assert.equal(pipeline.fetchCalls, 0);
+      assert.equal(pipeline.issuerCalls, 0);
+      assert.equal(pipeline.redemptionCalls, 0);
+      assert.equal(persistentCookieCount(theftResponse), 0);
+      assert.equal(theftResponse.headers.has("location"), false);
+    });
+    await scenario("browser binding 7 wrong pb1 cookie reaches no provider issuer or redeemer", async () => {
+      const registration = await registrations.complete("session-completion-wrong-cookie");
+      const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration);
+      const wrong = `pb1.${randomBytes(32).toString("base64url")}`;
+      const response = await pipeline.handler(browserCallback(registration, undefined, wrong));
+      assert.equal(response.status, 409);
+      assert.equal(pipeline.fetchCalls, 1);
+      assert.equal(pipeline.issuerCalls, 0);
+      assert.equal(pipeline.redemptionCalls, 0);
+      assert.equal(persistentCookieCount(response), 0);
+      assert.equal(response.headers.has("location"), false);
+    });
+    await scenario("browser binding 8 state A with binding B is atomically rejected before callback execution", async () => {
+      const registrationA = await registrations.complete("session-completion-cross-a");
+      const registrationB = await registrations.complete("session-completion-cross-b");
+      const pipeline = sessionCompletionPipeline(primaryPool, registrations, registrationA);
+      const response = await pipeline.handler(browserCallback(
+        registrationA,
+        undefined,
+        registrationB.browserBindingCredential,
+      ));
+      assert.equal(response.status, 409);
+      assert.equal(pipeline.issuerCalls, 0);
+      assert.equal(pipeline.redemptionCalls, 0);
+      assert.equal(persistentCookieCount(response), 0);
+    });
+    await scenario("browser binding 9 every terminal failure clears only pre-auth authority", async () => {
+      assert.deepEqual(theftResponse.headers.getSetCookie(), [preAuthDeletionCookie]);
+      assert.equal(theftResponse.headers.has("location"), false);
     });
     await scenario("completion 9 Owner response body tamper fails signature before redemption", async () => {
       const registration = await registrations.complete("session-completion-body-tamper");
       const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration, { tamper: "body" });
-      const response = await pipeline.handler(browserCallback(registration.state));
+      const response = await pipeline.handler(browserCallback(registration));
       assert.equal(response.status, 503);
-      assert.equal(response.headers.has("set-cookie"), false);
+      assert.equal(persistentCookieCount(response), 0);
       assert.equal(pipeline.redemptionCalls, 0);
     });
     await scenario("completion 10 Owner status and signature-header tamper fail before redemption", async () => {
       for (const tamper of ["status", "headers"]) {
         const registration = await registrations.complete(`session-completion-${tamper}-tamper`);
         const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration, { tamper });
-        const response = await pipeline.handler(browserCallback(registration.state));
+        const response = await pipeline.handler(browserCallback(registration));
         assert.equal(response.status, 503);
-        assert.equal(response.headers.has("set-cookie"), false);
+        assert.equal(persistentCookieCount(response), 0);
         assert.equal(pipeline.redemptionCalls, 0);
       }
     });
     await scenario("completion 11 Owner response loss performs no automatic callback retry", async () => {
       const registration = await registrations.complete("session-completion-response-loss");
       const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration, { loseOwnerResponse: true });
-      const lost = await pipeline.handler(browserCallback(registration.state));
+      const lost = await pipeline.handler(browserCallback(registration));
       assert.equal(lost.status, 503);
       assert.deepEqual(await lost.json(), {
         code: "panel_session_transport_unavailable",
         retryable: false,
         freshLoginRequired: true,
       });
-      assert.equal(lost.headers.has("set-cookie"), false);
+      assert.equal(persistentCookieCount(lost), 0);
       assert.equal(pipeline.fetchCalls, 1);
       assert.equal(pipeline.issuerCalls, 1);
       assert.equal(pipeline.redemptionCalls, 0);
@@ -725,7 +907,7 @@ async function run() {
     await scenario("completion 12 redemption COMMIT response loss performs exactly one read-only recovery", async () => {
       const registration = await registrations.complete("session-completion-redemption-loss");
       const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration, { redemptionCommitUnknown: true });
-      const response = await pipeline.handler(browserCallback(registration.state));
+      const response = await pipeline.handler(browserCallback(registration));
       assert.equal(response.status, 303);
       assert.equal(pipeline.redemptionCalls, 1);
       assert.equal(pipeline.recoveryCalls, 1);
@@ -735,7 +917,7 @@ async function run() {
     await scenario("completion 13 a revoked persistent session is never written to a cookie again", async () => {
       const registration = await registrations.complete("session-completion-revoked");
       const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration);
-      const issued = await pipeline.handler(browserCallback(registration.state));
+      const issued = await pipeline.handler(browserCallback(registration));
       assert.equal(issued.status, 303);
       const issuedCredential = cookieCredential(issued);
       const proof = sessionProof(issuedCredential);
@@ -750,19 +932,22 @@ async function run() {
         clock: () => new Date(),
         audit: () => undefined,
       });
-      const response = await replayOnly(browserCallback("state_revoked_replay_0123456789"));
+      const response = await replayOnly(browserCallback({
+        state: "state_revoked_replay_0123456789",
+        browserBindingCredential: registration.browserBindingCredential,
+      }));
       assert.equal(response.status, 409);
-      assert.equal(response.headers.has("set-cookie"), false);
+      assert.equal(persistentCookieCount(response), 0);
     });
     await scenario("completion 14 provider-error callback creates no handoff session cookie or redirect", async () => {
       const registration = await registrations.complete("session-completion-provider-error");
       const pipeline = sessionCompletionPipeline(primaryPool, registrations, registration);
       const response = await pipeline.handler(browserCallback(
-        registration.state,
+        registration,
         `state=${encodeURIComponent(registration.state)}&error=access_denied&error_description=private`,
       ));
       assert.equal(response.status, 400);
-      assert.equal(response.headers.has("set-cookie"), false);
+      assert.equal(persistentCookieCount(response), 0);
       assert.equal(response.headers.has("location"), false);
       assert.equal(pipeline.issuerCalls, 0);
       assert.equal(pipeline.redemptionCalls, 0);
@@ -1056,26 +1241,27 @@ async function run() {
       psql(backend, `CREATE DATABASE ${restoreDatabase};`, "postgres");
       restoreDatabaseDump(backend, restoreDatabase, backup);
       assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;", restoreDatabase), psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;", primaryDatabase));
+      assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_browser_bindings;", restoreDatabase), psql(backend, "SELECT count(*) FROM saas.panel_browser_bindings;", primaryDatabase));
       const restorePool = databasePool(backend, restoreDatabase);
       pools.push(restorePool);
       const restored = await sessionRepository(restorePool).resolveSession({ credential: firstRedemption.credential, requestId: "restored", now: new Date() });
       assert.equal(restored.kind, "resolved");
     });
 
-    migration(backend, "202607140016_panel_session_handoffs.down.sql");
-    await scenario("22 migration 016 rolls back cleanly", async () => assert.equal(psql(backend, "SELECT to_regclass('saas.panel_session_handoffs') IS NULL;"), "t"));
-    await scenario("23 migrations 001-015 remain intact", async () => {
-      assert.equal(psql(backend, "SELECT to_regclass('saas.panel_sessions') IS NOT NULL AND to_regclass('saas.registration_tenant_completions') IS NOT NULL AND to_regclass('saas.tenant_operations') IS NOT NULL;"), "t");
+    migration(backend, "202607140017_panel_browser_bindings.down.sql");
+    await scenario("22 migration 017 rolls back cleanly", async () => assert.equal(psql(backend, "SELECT to_regclass('saas.panel_browser_bindings') IS NULL;"), "t"));
+    await scenario("23 migrations 001-016 remain intact", async () => {
+      assert.equal(psql(backend, "SELECT to_regclass('saas.panel_session_handoffs') IS NOT NULL AND to_regclass('saas.panel_sessions') IS NOT NULL AND to_regclass('saas.registration_tenant_completions') IS NOT NULL AND to_regclass('saas.tenant_operations') IS NOT NULL;"), "t");
       assert.ok(Number(psql(backend, "SELECT count(*) FROM saas.panel_sessions;")) >= 1);
     });
-    migration(backend, "202607140016_panel_session_handoffs.up.sql");
-    await scenario("24 migration 016 reapplies with exact checksums, grants, owner, and search_path", async () => {
+    migration(backend, "202607140017_panel_browser_bindings.up.sql");
+    await scenario("24 migration 017 reapplies with exact checksums, grants, owner, and search_path", async () => {
       for (const file of manifests) {
         const manifest = JSON.parse(readFileSync(path.join(sqlDirectory, file), "utf8"));
         for (const artifact of manifest.artifacts) assert.equal(createHash("sha256").update(readFileSync(path.join(sqlDirectory, artifact.file))).digest("hex"), artifact.sha256);
       }
-      assert.equal(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_roles r ON r.oid=p.proowner WHERE n.nspname='saas' AND p.proname IN ('create_panel_session_handoff','recover_panel_session_handoff','redeem_panel_session_handoff','recover_panel_session_handoff_redemption') AND r.rolname='celebix_saas_owner' AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, saas']::text[];"), "4");
-      assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity','saas.panel_session_handoffs','SELECT,INSERT,UPDATE,DELETE')::int || ':' || has_table_privilege('public','saas.panel_session_handoffs','SELECT,INSERT,UPDATE,DELETE')::int;"), "0:0");
+      assert.equal(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_roles r ON r.oid=p.proowner WHERE n.nspname='saas' AND p.proname IN ('create_panel_browser_bootstrap','bind_panel_browser_credential','claim_panel_browser_callback','cleanup_panel_browser_bindings') AND r.rolname='celebix_saas_owner' AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, saas']::text[];"), "4");
+      assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity','saas.panel_browser_bindings','SELECT,INSERT,UPDATE,DELETE')::int || ':' || has_table_privilege('public','saas.panel_browser_bindings','SELECT,INSERT,UPDATE,DELETE')::int;"), "0:0");
     });
   } catch (error) {
     runError = error;
@@ -1087,7 +1273,7 @@ async function run() {
   await scenario("complete cleanup", async () => assert.equal(existsSync(temporaryDirectory), false));
   await scenario("external network count zero", async () => assert.equal(connectionEvidence.externalNetworkAttempts, 0));
   await scenario("production connection count zero", async () => assert.equal(connectionEvidence.productionConnectionAttempts, 0));
-  assert.equal(scenarios, 49);
+  assert.equal(scenarios, 58);
   process.stdout.write(`${JSON.stringify({
     status: "PASS",
     backend: backend.kind === "native" ? "native-postgresql" : backend.engine,
@@ -1099,6 +1285,7 @@ async function run() {
     sessionCompletionPipeline: "PASS",
     signedOwnerResponse: "PASS",
     secureHostCookie: "PASS",
+    durableBrowserBinding: "PASS",
     registrationCallback: "PASS",
     concurrency: "PASS",
     commitRecovery: "PASS",
