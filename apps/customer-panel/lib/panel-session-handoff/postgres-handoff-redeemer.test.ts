@@ -60,33 +60,37 @@ function harness(
   const releases: unknown[] = [];
   let connects = 0;
   let writeTransaction = false;
+  const handoffKeys = new Map(options.handoffKeys ?? [[HANDOFF_KEY_ID, new Uint8Array(HANDOFF_KEY)]]);
+  const sessionKeys = new Map(options.sessionKeys ?? [[SESSION_KEY_ID, new Uint8Array(SESSION_KEY)]]);
+  const pool = {
+    async connect() {
+      connects += 1;
+      return {
+        async query(text: string, values: readonly unknown[] = []) {
+          calls.push({ text, values });
+          if (text === "BEGIN ISOLATION LEVEL READ COMMITTED") writeTransaction = true;
+          if (text === "BEGIN READ ONLY") writeTransaction = false;
+          if (text === "COMMIT" && writeTransaction && options.writeCommitFailure) throw new Error("driver private");
+          if (/^BEGIN|^COMMIT$|^ROLLBACK$|set_config|SET LOCAL ROLE/.test(text)) return { rows: [], rowCount: 0 };
+          return responder(text, values);
+        },
+        release(destroy?: unknown) { releases.push(destroy); },
+      };
+    },
+  };
+  const dependencies = {
+    pool,
+    handoffKeys,
+    sessionKeys,
+    clock: () => new Date(NOW),
+    timeouts: { poolCheckoutMs: 1000, statementMs: 1000, lockMs: 1000, idleTransactionMs: 1000 },
+    audit: options.audit ?? (() => undefined),
+  };
   const redeemer = createPostgresPanelSessionHandoffRedeemer(
     createPanelSessionHandoffApproval("disposable_test"),
-    {
-      pool: {
-        async connect() {
-          connects += 1;
-          return {
-            async query(text: string, values: readonly unknown[] = []) {
-              calls.push({ text, values });
-              if (text === "BEGIN ISOLATION LEVEL READ COMMITTED") writeTransaction = true;
-              if (text === "BEGIN READ ONLY") writeTransaction = false;
-              if (text === "COMMIT" && writeTransaction && options.writeCommitFailure) throw new Error("driver private");
-              if (/^BEGIN|^COMMIT$|^ROLLBACK$|set_config|SET LOCAL ROLE/.test(text)) return { rows: [], rowCount: 0 };
-              return responder(text, values);
-            },
-            release(destroy?: unknown) { releases.push(destroy); },
-          };
-        },
-      },
-      handoffKeys: options.handoffKeys ?? new Map([[HANDOFF_KEY_ID, HANDOFF_KEY]]),
-      sessionKeys: options.sessionKeys ?? new Map([[SESSION_KEY_ID, SESSION_KEY]]),
-      clock: () => new Date(NOW),
-      timeouts: { poolCheckoutMs: 1000, statementMs: 1000, lockMs: 1000, idleTransactionMs: 1000 },
-      audit: options.audit ?? (() => undefined),
-    },
+    dependencies,
   );
-  return { redeemer, calls, releases, get connects() { return connects; } };
+  return { redeemer, calls, releases, dependencies, pool, handoffKeys, sessionKeys, get connects() { return connects; } };
 }
 
 test("first redemption derives the deterministic session credential and sends only fixed digests to SQL", async () => {
@@ -161,6 +165,36 @@ test("wrong handoff, expired authority, and removed handoff or session keys fail
   const removedSession = harness(() => preflight(), { sessionKeys: new Map([["other.v1", SESSION_KEY]]) });
   assert.deepEqual(await removedSession.redeemer.redeemHandoff({ credential: HANDOFF }), { kind: "unauthenticated" });
   assert.equal(removedSession.connects, 1);
+});
+
+test("revoked, replaced, expired-session, membership, and store replay denials return no credential", async () => {
+  for (const denied of ["unauthenticated", "membership_denied"] as const) {
+    const h = harness((text) => text.includes("recover_panel_session_handoff_redemption")
+      ? preflight()
+      : { rows: [{ outcome: denied, authority: null }], rowCount: 1 });
+    const result = await h.redeemer.redeemHandoff({ credential: HANDOFF });
+    assert.deepEqual(result, { kind: denied });
+    assert.equal("credential" in result, false);
+  }
+});
+
+test("redeemer snapshots pool, clocks, timeouts, key maps, key bytes, and audit at construction", async () => {
+  const h = harness((text) => text.includes("recover_panel_session_handoff_redemption")
+    ? preflight()
+    : { rows: [{ outcome: "session_issued", authority: sessionAuthority() }], rowCount: 1 });
+  const handoffBytes = h.handoffKeys.get(HANDOFF_KEY_ID)!;
+  const sessionBytes = h.sessionKeys.get(SESSION_KEY_ID)!;
+  h.dependencies.pool = { async connect() { throw new Error("mutated pool"); } };
+  h.dependencies.clock = () => new Date("2030-01-01T00:00:00.000Z");
+  h.dependencies.timeouts.poolCheckoutMs = 0;
+  h.dependencies.audit = () => { throw new Error("mutated audit"); };
+  h.handoffKeys.clear();
+  h.sessionKeys.clear();
+  handoffBytes.fill(0xff);
+  sessionBytes.fill(0xff);
+  const result = await h.redeemer.redeemHandoff({ credential: HANDOFF });
+  assert.equal(result.kind, "session_issued");
+  assert.equal(h.connects, 2);
 });
 
 test("audit throw, rejection, and pending promises cannot alter session authority", async () => {

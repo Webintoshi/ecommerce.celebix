@@ -42,6 +42,15 @@ interface RedeemerDependencies {
   audit(event: PanelSessionHandoffRedeemerAuditEvent): void | Promise<void>;
 }
 
+interface RedeemerSnapshot {
+  pool: PostgresPool;
+  handoffKeys: ReadonlyMap<string, Uint8Array>;
+  sessionKeys: ReadonlyMap<string, Uint8Array>;
+  clock: () => Date;
+  timeouts: Readonly<RedeemerDependencies["timeouts"]>;
+  audit: RedeemerDependencies["audit"];
+}
+
 export type PanelSessionHandoffRedeemerKind =
   | "session_issued"
   | "session_replayed"
@@ -167,24 +176,42 @@ function bounded(value: number): number {
   return value;
 }
 
-function validate(input: RedeemerDependencies): RedeemerDependencies {
+function copyKeys(keys: ReadonlyMap<string, Uint8Array>): ReadonlyMap<string, Uint8Array> {
+  if (!(keys instanceof Map) || keys.size < 1 || keys.size > 16) throw new Error("panel_session_handoff_redeemer_invalid");
+  const copied = new Map<string, Uint8Array>();
+  for (const [id, bytes] of keys) {
+    if (typeof id !== "string" || !(bytes instanceof Uint8Array)) throw new Error("panel_session_handoff_redeemer_invalid");
+    copied.set(id, new Uint8Array(bytes));
+  }
+  return copied;
+}
+
+function validate(input: RedeemerDependencies): RedeemerSnapshot {
   if (!input || !input.pool || typeof input.pool.connect !== "function" || typeof input.clock !== "function" || typeof input.audit !== "function") {
     throw new Error("panel_session_handoff_redeemer_invalid");
   }
-  bounded(input.timeouts.poolCheckoutMs);
-  bounded(input.timeouts.statementMs);
-  bounded(input.timeouts.lockMs);
-  bounded(input.timeouts.idleTransactionMs);
-  return input;
+  return Object.freeze({
+    pool: input.pool,
+    handoffKeys: copyKeys(input.handoffKeys),
+    sessionKeys: copyKeys(input.sessionKeys),
+    clock: input.clock,
+    timeouts: Object.freeze({
+      poolCheckoutMs: bounded(input.timeouts.poolCheckoutMs),
+      statementMs: bounded(input.timeouts.statementMs),
+      lockMs: bounded(input.timeouts.lockMs),
+      idleTransactionMs: bounded(input.timeouts.idleTransactionMs),
+    }),
+    audit: input.audit,
+  });
 }
 
-function now(input: RedeemerDependencies): Date {
+function now(input: RedeemerSnapshot): Date {
   const value = input.clock();
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) throw new Error("invalid");
   return new Date(value);
 }
 
-async function acquire(input: RedeemerDependencies): Promise<PostgresClient> {
+async function acquire(input: RedeemerSnapshot): Promise<PostgresClient> {
   const pending = Promise.resolve().then(() => input.pool.connect());
   let timer: ReturnType<typeof setTimeout> | undefined;
   let timedOut = false;
@@ -204,7 +231,7 @@ async function acquire(input: RedeemerDependencies): Promise<PostgresClient> {
 type TransactionResult<T> = { status: "ok"; value: T } | { status: "commit_unknown" | "unavailable" };
 
 async function transaction<T>(
-  input: RedeemerDependencies,
+  input: RedeemerSnapshot,
   mode: "read" | "write",
   work: (client: PostgresClient) => Promise<T>,
 ): Promise<TransactionResult<T>> {
@@ -237,7 +264,7 @@ async function transaction<T>(
   }
 }
 
-function auditSafely(input: RedeemerDependencies, event: PanelSessionHandoffRedeemerAuditEvent): void {
+function auditSafely(input: RedeemerSnapshot, event: PanelSessionHandoffRedeemerAuditEvent): void {
   try {
     const pending = input.audit(Object.freeze({ ...event }));
     if (pending) void Promise.resolve(pending).catch(() => undefined);

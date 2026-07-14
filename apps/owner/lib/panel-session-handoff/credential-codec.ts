@@ -4,7 +4,6 @@ const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const TOKEN_BYTES = 32;
 const MAXIMUM_KEYS = 16;
-const TOKEN_DOMAIN = "celebix-panel-handoff-v1\n";
 const DIGEST_DOMAIN = "celebix-panel-handoff-digest-v1\n";
 
 export class PanelSessionHandoffCredentialError extends Error {
@@ -45,13 +44,6 @@ function copyKeys(keys: ReadonlyMap<string, Uint8Array>): ReadonlyMap<string, Ui
   return copied;
 }
 
-function rawState(value: unknown): string {
-  if (typeof value !== "string" || value.trim() !== value || value.length < 16 || value.length > 1024) {
-    throw new PanelSessionHandoffCredentialError();
-  }
-  return value;
-}
-
 function parse(credential: unknown): { keyId: string; token: string } {
   if (typeof credential !== "string" || credential.trim() !== credential || !credential.startsWith("h1.")) {
     throw new PanelSessionHandoffCredentialError();
@@ -78,22 +70,29 @@ function proof(key: Uint8Array, credential: string, tokenKeyId: string): PanelSe
 export function createPanelSessionHandoffCredentialCodec(input: {
   keys: ReadonlyMap<string, Uint8Array>;
   activeKeyId: string;
+  randomBytes(size: number): Uint8Array;
 }) {
-  if (!input || !validKeyId(input.activeKeyId)) throw new PanelSessionHandoffCredentialError();
+  if (!input || !validKeyId(input.activeKeyId) || typeof input.randomBytes !== "function") {
+    throw new PanelSessionHandoffCredentialError();
+  }
   const keys = copyKeys(input.keys);
   const activeKeyId = input.activeKeyId;
+  const randomBytes = input.randomBytes;
   if (!keys.has(activeKeyId)) throw new PanelSessionHandoffCredentialError();
 
   return Object.freeze({
-    deriveCredential(state: string, selectedKeyId = activeKeyId): DerivedPanelSessionHandoffCredential {
-      const canonicalState = rawState(state);
-      if (!validKeyId(selectedKeyId)) throw new PanelSessionHandoffCredentialError();
-      const key = keys.get(selectedKeyId);
+    generateCredential(): DerivedPanelSessionHandoffCredential {
+      const key = keys.get(activeKeyId);
       if (!key) throw new PanelSessionHandoffCredentialError();
-      const token = createHmac("sha256", key).update(`${TOKEN_DOMAIN}${canonicalState}`, "utf8").digest("base64url");
+      const generated = randomBytes(TOKEN_BYTES);
+      if (!(generated instanceof Uint8Array) || generated.byteLength !== TOKEN_BYTES) {
+        throw new PanelSessionHandoffCredentialError();
+      }
+      const copied = new Uint8Array(generated);
+      const token = Buffer.from(copied).toString("base64url");
       if (!TOKEN.test(token)) throw new PanelSessionHandoffCredentialError();
-      const credential = `h1.${selectedKeyId}.${token}`;
-      return Object.freeze({ credential, ...proof(key, credential, selectedKeyId) });
+      const credential = `h1.${activeKeyId}.${token}`;
+      return Object.freeze({ credential, ...proof(key, credential, activeKeyId) });
     },
 
     digestCredential(credential: string): PanelSessionHandoffCredentialProof {

@@ -74,6 +74,23 @@ test("handoff creation is anchored to completed verified identity and the accept
   assert.match(create, /membership\.role = 'store_owner'/);
   assert.match(create, /membership\.status = 'active'/);
   assert.doesNotMatch(create, /p_principal_id|p_active_store_id|p_attempt_id|p_tenant_operation_id/);
+  assert.match(create, /existing\.token_key_id <> p_token_key_id/);
+  assert.match(create, /existing\.token_digest <> p_token_digest/);
+  assert.match(create, /existing\.session_token_key_id <> p_session_token_key_id/);
+  assert.match(create, /existing\.redeemed_at IS NOT NULL/);
+});
+
+test("Owner recovery requires exact candidate proof and rejects redeemed handoffs", () => {
+  const migration = sql(upName);
+  const recover = migration.slice(migration.indexOf("CREATE FUNCTION saas.recover_panel_session_handoff("), migration.indexOf("CREATE FUNCTION saas.redeem_panel_session_handoff("));
+  assert.match(recover, /p_token_key_id text/);
+  assert.match(recover, /p_token_digest text/);
+  assert.match(recover, /p_session_token_key_id text/);
+  assert.match(recover, /existing\.token_key_id <> p_token_key_id/);
+  assert.match(recover, /existing\.token_digest <> p_token_digest/);
+  assert.match(recover, /existing\.session_token_key_id <> p_session_token_key_id/);
+  assert.match(recover, /existing\.redeemed_at IS NOT NULL/);
+  assert.doesNotMatch(read("apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts"), /recoverHandoff\(input:\s*\{\s*rawState:\s*string\s*\}\)/);
 });
 
 test("redemption atomically reuses issue_panel_session and replay verifies the exact persisted session", () => {
@@ -91,6 +108,24 @@ test("redemption atomically reuses issue_panel_session and replay verifies the e
   assert.match(redeem, /redeemed_at = p_now/);
   assert.match(redeem, /session\.token_key_id <> p_session_token_key_id/);
   assert.match(redeem, /session\.token_digest <> p_session_token_digest/);
+  assert.match(redeem, /session\.revoked_at IS NOT NULL/);
+  assert.match(redeem, /session\.replaced_by_session_id IS NOT NULL/);
+  assert.match(redeem, /session\.expires_at <= p_now/);
+  assert.match(redeem, /membership\.role = 'store_owner'/);
+  assert.match(redeem, /membership\.status = 'active'/);
+  assert.match(redeem, /store\.status = 'active'/);
+});
+
+test("handoff credentials are random, grant-bound, and consumed-state recovery cannot reach issuer", () => {
+  const codec = read("apps/owner/lib/panel-session-handoff/credential-codec.ts");
+  const issuer = read("apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts");
+  const executor = read("apps/owner/lib/panel-session-handoff/initial-callback-executor.ts");
+  assert.doesNotMatch(codec, /celebix-panel-handoff-v1|deriveCredential\s*\(|rawState|canonicalState/);
+  assert.match(codec, /randomBytes\(TOKEN_BYTES\)/);
+  assert.match(issuer, /initialCallbackGrant/);
+  assert.match(issuer, /candidateCredential/);
+  assert.match(issuer, /isActiveInitialVerifiedCallbackGrant/);
+  assert.doesNotMatch(executor, /recoverConsumedCallback/);
 });
 
 test("handoff mutation permits only first redemption and makes every authority field immutable", () => {

@@ -2,9 +2,15 @@ import type { OpaqueStateDigester } from "../saas-persistence/identity-crypto.ts
 
 import { assertPanelSessionHandoffApproval } from "./activation.ts";
 import {
-  PanelSessionHandoffCredentialError,
   createPanelSessionHandoffCredentialCodec,
+  type DerivedPanelSessionHandoffCredential,
 } from "./credential-codec.ts";
+import {
+  isActiveInitialVerifiedCallbackGrant,
+  isInitialVerifiedCallbackGrantBoundary,
+  type InitialVerifiedCallbackGrant,
+  type InitialVerifiedCallbackGrantBoundary,
+} from "./initial-callback-grant.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -35,6 +41,7 @@ interface IssuerDependencies {
   activeHandoffKeyId: string;
   sessionTokenKeyId: string;
   clock(): Date;
+  randomBytes(size: number): Uint8Array;
   randomUuid(): string;
   timeouts: {
     poolCheckoutMs: number;
@@ -43,6 +50,19 @@ interface IssuerDependencies {
     idleTransactionMs: number;
   };
   audit(event: PanelSessionHandoffIssuerAuditEvent): void | Promise<void>;
+  initialCallbackGrantBoundary: InitialVerifiedCallbackGrantBoundary;
+}
+
+interface IssuerSnapshot {
+  pool: PostgresPool;
+  stateDigester: OpaqueStateDigester;
+  activeHandoffKeyId: string;
+  sessionTokenKeyId: string;
+  clock: () => Date;
+  randomUuid: () => string;
+  timeouts: Readonly<IssuerDependencies["timeouts"]>;
+  audit: IssuerDependencies["audit"];
+  initialCallbackGrantBoundary: InitialVerifiedCallbackGrantBoundary;
 }
 
 export type PanelSessionHandoffIssuerKind =
@@ -66,8 +86,12 @@ export type PanelSessionHandoffIssuerResult =
   | { kind: "expired" | "membership_denied" | "operation_mismatch" | "unavailable" | "durable_authority_invalid" };
 
 export interface PostgresPanelSessionHandoffIssuer {
-  issueHandoff(input: { rawState: string }): Promise<PanelSessionHandoffIssuerResult>;
-  recoverHandoff(input: { rawState: string }): Promise<PanelSessionHandoffIssuerResult>;
+  issueHandoff(input: { rawState: string; initialCallbackGrant: InitialVerifiedCallbackGrant }): Promise<PanelSessionHandoffIssuerResult>;
+  recoverHandoff(input: {
+    rawState: string;
+    candidateCredential: string;
+    initialCallbackGrant: InitialVerifiedCallbackGrant;
+  }): Promise<PanelSessionHandoffIssuerResult>;
 }
 
 interface HandoffAuthority {
@@ -97,6 +121,12 @@ function exact(value: unknown, keys: readonly string[]): Record<string, unknown>
 function string(value: unknown, maximum = 2048): string {
   if (typeof value !== "string" || value.length < 1 || value.length > maximum || value.trim() !== value) throw new Error("invalid");
   return value;
+}
+
+function rawState(value: unknown): string {
+  const parsed = string(value, 1024);
+  if (parsed.length < 16) throw new Error("invalid");
+  return parsed;
 }
 
 function uuid(value: unknown): string {
@@ -133,38 +163,23 @@ function authority(value: unknown): HandoffAuthority {
   const sessionExpires = Date.parse(sessionExpiresAt);
   const attemptId = string(row.attemptId, 136);
   const tokenDigest = string(row.tokenDigest, 64);
-  if (
-    !ATTEMPT_ID.test(attemptId)
-    || !DIGEST.test(tokenDigest)
-    || expires <= issued
-    || expires > issued + MAXIMUM_HANDOFF_MS
-    || sessionExpires <= issued
-    || sessionExpires > issued + MAXIMUM_SESSION_MS
-  ) throw new Error("invalid");
+  if (!ATTEMPT_ID.test(attemptId) || !DIGEST.test(tokenDigest)
+    || expires <= issued || expires > issued + MAXIMUM_HANDOFF_MS
+    || sessionExpires <= issued || sessionExpires > issued + MAXIMUM_SESSION_MS) throw new Error("invalid");
   return Object.freeze({
-    handoffId: uuid(row.handoffId),
-    attemptId,
-    tenantOperationId: uuid(row.tenantOperationId),
-    principalId: uuid(row.principalId),
-    activeStoreId: uuid(row.activeStoreId),
-    sessionOperationId: uuid(row.sessionOperationId),
-    sessionId: uuid(row.sessionId),
-    familyId: uuid(row.familyId),
-    tokenKeyId: keyId(row.tokenKeyId),
-    tokenDigest,
-    sessionTokenKeyId: keyId(row.sessionTokenKeyId),
-    issuedAt,
-    expiresAt,
-    sessionExpiresAt,
+    handoffId: uuid(row.handoffId), attemptId, tenantOperationId: uuid(row.tenantOperationId),
+    principalId: uuid(row.principalId), activeStoreId: uuid(row.activeStoreId),
+    sessionOperationId: uuid(row.sessionOperationId), sessionId: uuid(row.sessionId), familyId: uuid(row.familyId),
+    tokenKeyId: keyId(row.tokenKeyId), tokenDigest, sessionTokenKeyId: keyId(row.sessionTokenKeyId),
+    issuedAt, expiresAt, sessionExpiresAt,
   });
 }
 
 function outcome(value: unknown): PanelSessionHandoffIssuerKind {
   const parsed = string(value, 64) as PanelSessionHandoffIssuerKind;
-  if (![
-    "handoff_created", "handoff_replayed", "expired", "membership_denied",
-    "operation_mismatch", "durable_authority_invalid",
-  ].includes(parsed)) throw new Error("invalid");
+  if (!["handoff_created", "handoff_replayed", "expired", "membership_denied", "operation_mismatch", "durable_authority_invalid"].includes(parsed)) {
+    throw new Error("invalid");
+  }
   return parsed;
 }
 
@@ -179,55 +194,62 @@ function bounded(value: number): number {
   return value;
 }
 
-function validate(input: IssuerDependencies): IssuerDependencies {
-  if (
-    !input
-    || !input.pool
-    || typeof input.pool.connect !== "function"
-    || !input.stateDigester
-    || typeof input.stateDigester.digest !== "function"
-    || typeof input.clock !== "function"
-    || typeof input.randomUuid !== "function"
-    || typeof input.audit !== "function"
-  ) throw new Error("panel_session_handoff_issuer_invalid");
-  keyId(input.sessionTokenKeyId);
-  bounded(input.timeouts.poolCheckoutMs);
-  bounded(input.timeouts.statementMs);
-  bounded(input.timeouts.lockMs);
-  bounded(input.timeouts.idleTransactionMs);
-  return input;
+function snapshot(input: IssuerDependencies): { dependencies: IssuerSnapshot; codec: ReturnType<typeof createPanelSessionHandoffCredentialCodec> } {
+  if (!input || !input.pool || typeof input.pool.connect !== "function"
+    || !input.stateDigester || typeof input.stateDigester.digest !== "function"
+    || typeof input.clock !== "function" || typeof input.randomBytes !== "function"
+    || typeof input.randomUuid !== "function" || typeof input.audit !== "function"
+    || !isInitialVerifiedCallbackGrantBoundary(input.initialCallbackGrantBoundary)) {
+    throw new Error("panel_session_handoff_issuer_invalid");
+  }
+  const activeHandoffKeyId = keyId(input.activeHandoffKeyId);
+  const sessionTokenKeyId = keyId(input.sessionTokenKeyId);
+  const randomBytes = input.randomBytes;
+  const codec = createPanelSessionHandoffCredentialCodec({ keys: input.handoffKeys, activeKeyId: activeHandoffKeyId, randomBytes });
+  return {
+    dependencies: Object.freeze({
+      pool: input.pool,
+      stateDigester: input.stateDigester,
+      activeHandoffKeyId,
+      sessionTokenKeyId,
+      clock: input.clock,
+      randomUuid: input.randomUuid,
+      timeouts: Object.freeze({
+        poolCheckoutMs: bounded(input.timeouts.poolCheckoutMs),
+        statementMs: bounded(input.timeouts.statementMs),
+        lockMs: bounded(input.timeouts.lockMs),
+        idleTransactionMs: bounded(input.timeouts.idleTransactionMs),
+      }),
+      audit: input.audit,
+      initialCallbackGrantBoundary: input.initialCallbackGrantBoundary,
+    }),
+    codec,
+  };
 }
 
-function now(input: IssuerDependencies): Date {
+function now(input: IssuerSnapshot): Date {
   const value = input.clock();
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) throw new Error("invalid");
   return new Date(value);
 }
 
-async function acquire(input: IssuerDependencies): Promise<PostgresClient> {
+async function acquire(input: IssuerSnapshot): Promise<PostgresClient> {
   const pending = Promise.resolve().then(() => input.pool.connect());
   let timer: ReturnType<typeof setTimeout> | undefined;
   let timedOut = false;
   const deadline = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => { timedOut = true; reject(new Error("timeout")); }, input.timeouts.poolCheckoutMs);
   });
-  try {
-    return await Promise.race([pending, deadline]);
-  } catch {
+  try { return await Promise.race([pending, deadline]); }
+  catch {
     if (timedOut) void pending.then((client) => client.release(true)).catch(() => undefined);
     throw new Error("unavailable");
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+  } finally { if (timer) clearTimeout(timer); }
 }
 
 type TransactionResult<T> = { status: "ok"; value: T } | { status: "commit_unknown" | "unavailable" };
 
-async function transaction<T>(
-  input: IssuerDependencies,
-  mode: "read" | "write",
-  work: (client: PostgresClient) => Promise<T>,
-): Promise<TransactionResult<T>> {
+async function transaction<T>(input: IssuerSnapshot, mode: "read" | "write", work: (client: PostgresClient) => Promise<T>): Promise<TransactionResult<T>> {
   let client: PostgresClient;
   try { client = await acquire(input); } catch { return { status: "unavailable" }; }
   let began = false;
@@ -249,114 +271,96 @@ async function transaction<T>(
       try { client.release(true); } catch { /* best effort */ }
       return { status: mode === "write" ? "commit_unknown" : "unavailable" };
     }
-    if (began) {
-      try { await client.query("ROLLBACK"); } catch { /* destroy below */ }
-    }
+    if (began) try { await client.query("ROLLBACK"); } catch { /* destroy below */ }
     try { client.release(true); } catch { /* best effort */ }
     return { status: "unavailable" };
   }
 }
 
-function auditSafely(input: IssuerDependencies, event: PanelSessionHandoffIssuerAuditEvent): void {
+function auditSafely(input: IssuerSnapshot, event: PanelSessionHandoffIssuerAuditEvent): void {
   try {
     const pending = input.audit(Object.freeze({ ...event }));
     if (pending) void Promise.resolve(pending).catch(() => undefined);
-  } catch {
-    // Observability is never durable handoff authority.
-  }
+  } catch { /* observability is never handoff authority */ }
 }
 
-export function createPostgresPanelSessionHandoffIssuer(
-  approval: unknown,
-  rawDependencies: IssuerDependencies,
-): PostgresPanelSessionHandoffIssuer {
+export function createPostgresPanelSessionHandoffIssuer(approval: unknown, rawDependencies: IssuerDependencies): PostgresPanelSessionHandoffIssuer {
   assertPanelSessionHandoffApproval(approval);
-  const dependencies = validate(rawDependencies);
-  const codec = createPanelSessionHandoffCredentialCodec({
-    keys: dependencies.handoffKeys,
-    activeKeyId: dependencies.activeHandoffKeyId,
-  });
-
+  const { dependencies, codec } = snapshot(rawDependencies);
   const finish = (operation: PanelSessionHandoffIssuerAuditEvent["operation"], result: PanelSessionHandoffIssuerResult) => {
     auditSafely(dependencies, { operation, result: result.kind });
     return Object.freeze({ ...result }) as PanelSessionHandoffIssuerResult;
   };
 
-  function stateDigest(rawState: string): string {
-    codec.deriveCredential(rawState);
-    const value = dependencies.stateDigester.digest(rawState);
+  function validGrant(grant: unknown): grant is InitialVerifiedCallbackGrant {
+    return isActiveInitialVerifiedCallbackGrant(dependencies.initialCallbackGrantBoundary, grant);
+  }
+
+  function stateDigest(state: string): string {
+    const canonical = rawState(state);
+    const value = dependencies.stateDigester.digest(canonical);
     if (typeof value !== "string" || !DIGEST.test(value)) throw new Error("invalid");
     return value;
   }
 
-  function project(
-    operation: PanelSessionHandoffIssuerAuditEvent["operation"],
-    kind: PanelSessionHandoffIssuerKind,
-    rawState: string,
-    value: unknown,
-  ): PanelSessionHandoffIssuerResult {
+  function project(operation: "create" | "recover", kind: PanelSessionHandoffIssuerKind, candidate: DerivedPanelSessionHandoffCredential, value: unknown): PanelSessionHandoffIssuerResult {
     if (kind !== "handoff_created" && kind !== "handoff_replayed") {
       return finish(operation, { kind: kind as "expired" | "membership_denied" | "operation_mismatch" | "durable_authority_invalid" });
     }
     try {
       const persisted = authority(value);
-      if (kind === "handoff_created" && (
-        persisted.tokenKeyId !== dependencies.activeHandoffKeyId
-        || persisted.sessionTokenKeyId !== dependencies.sessionTokenKeyId
-      )) throw new Error("invalid");
-      const derived = codec.deriveCredential(rawState, persisted.tokenKeyId);
-      if (derived.tokenDigest !== persisted.tokenDigest) throw new Error("invalid");
-      return finish(operation, { kind, credential: derived.credential, expiresAt: persisted.expiresAt });
-    } catch {
-      return finish(operation, { kind: "durable_authority_invalid" });
-    }
+      if (persisted.tokenKeyId !== candidate.tokenKeyId
+        || persisted.tokenDigest !== candidate.tokenDigest
+        || persisted.sessionTokenKeyId !== dependencies.sessionTokenKeyId) throw new Error("invalid");
+      return finish(operation, { kind, credential: candidate.credential, expiresAt: persisted.expiresAt });
+    } catch { return finish(operation, { kind: "durable_authority_invalid" }); }
   }
 
   return Object.freeze({
-    async issueHandoff({ rawState }: { rawState: string }): Promise<PanelSessionHandoffIssuerResult> {
+    async issueHandoff({ rawState: state, initialCallbackGrant }: { rawState: string; initialCallbackGrant: InitialVerifiedCallbackGrant }) {
+      if (!validGrant(initialCallbackGrant)) return finish("create", { kind: "durable_authority_invalid" });
       let digest: string;
-      let candidate;
-      let handoffId: string;
-      let sessionOperationId: string;
-      let sessionId: string;
-      let familyId: string;
+      let candidate: DerivedPanelSessionHandoffCredential;
+      let identifiers: string[];
       let issuedAt: Date;
       try {
-        digest = stateDigest(rawState);
-        candidate = codec.deriveCredential(rawState);
-        handoffId = uuid(dependencies.randomUuid());
-        sessionOperationId = uuid(dependencies.randomUuid());
-        sessionId = uuid(dependencies.randomUuid());
-        familyId = uuid(dependencies.randomUuid());
+        digest = stateDigest(state);
+        candidate = codec.generateCredential();
+        identifiers = Array.from({ length: 4 }, () => uuid(dependencies.randomUuid()));
         issuedAt = now(dependencies);
-      } catch {
-        return finish("create", { kind: "durable_authority_invalid" });
-      }
+      } catch { return finish("create", { kind: "durable_authority_invalid" }); }
       const expiresAt = new Date(issuedAt.getTime() + MAXIMUM_HANDOFF_MS);
       const sessionExpiresAt = new Date(issuedAt.getTime() + MAXIMUM_SESSION_MS);
       const executed = await transaction(dependencies, "write", async (client) => oneRow(await client.query(
         "SELECT outcome, authority FROM saas.create_panel_session_handoff($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
-        [
-          digest, candidate.tokenKeyId, candidate.tokenDigest, dependencies.sessionTokenKeyId,
-          handoffId, sessionOperationId, sessionId, familyId, issuedAt, expiresAt, sessionExpiresAt,
-        ],
+        [digest, candidate.tokenKeyId, candidate.tokenDigest, dependencies.sessionTokenKeyId, ...identifiers, issuedAt, expiresAt, sessionExpiresAt],
       )));
       if (executed.status === "commit_unknown") return finish("create", { kind: "commit_unknown", credential: candidate.credential });
       if (executed.status !== "ok") return finish("create", { kind: "unavailable" });
-      return project("create", executed.value.outcome, rawState, executed.value.authority);
+      return project("create", executed.value.outcome, candidate, executed.value.authority);
     },
 
-    async recoverHandoff({ rawState }: { rawState: string }): Promise<PanelSessionHandoffIssuerResult> {
+    async recoverHandoff({ rawState: state, candidateCredential, initialCallbackGrant }: {
+      rawState: string; candidateCredential: string; initialCallbackGrant: InitialVerifiedCallbackGrant;
+    }) {
+      if (!validGrant(initialCallbackGrant)) return finish("recover", { kind: "durable_authority_invalid" });
       let digest: string;
+      let proof;
       let recoveredAt: Date;
-      try { digest = stateDigest(rawState); recoveredAt = now(dependencies); }
-      catch { return finish("recover", { kind: "durable_authority_invalid" }); }
+      try {
+        digest = stateDigest(state);
+        proof = codec.digestCredential(candidateCredential);
+        recoveredAt = now(dependencies);
+      } catch {
+        return finish("recover", { kind: "durable_authority_invalid" });
+      }
+      const candidate = Object.freeze({ credential: candidateCredential, ...proof });
       const executed = await transaction(dependencies, "read", async (client) => oneRow(await client.query(
-        "SELECT outcome, authority FROM saas.recover_panel_session_handoff($1,$2)",
-        [digest, recoveredAt],
+        "SELECT outcome, authority FROM saas.recover_panel_session_handoff($1,$2,$3,$4,$5)",
+        [digest, proof.tokenKeyId, proof.tokenDigest, dependencies.sessionTokenKeyId, recoveredAt],
       )));
       if (executed.status !== "ok") return finish("recover", { kind: "unavailable" });
-      return project("recover", executed.value.outcome, rawState, executed.value.authority);
+      return project("recover", executed.value.outcome, candidate, executed.value.authority);
     },
   });
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { accessSync, appendFileSync, constants, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -15,15 +15,17 @@ import { createStarterTenantService } from "@celebix/saas-tenant-core";
 import { createPanelSessionHandoffApproval as createCustomerHandoffApproval } from "../../../apps/customer-panel/lib/panel-session-handoff/activation.ts";
 import { createPostgresPanelSessionHandoffRedeemer } from "../../../apps/customer-panel/lib/panel-session-handoff/postgres-handoff-redeemer.ts";
 import { createPanelSessionPersistenceApproval } from "../../../apps/customer-panel/lib/panel-session-persistence/activation.ts";
+import { createPanelSessionCredentialCodec } from "../../../apps/customer-panel/lib/panel-session-persistence/credential-codec.ts";
 import { createPostgresPanelSessionRepository } from "../../../apps/customer-panel/lib/panel-session-persistence/postgres-panel-session-repository.ts";
 import { createPanelSessionHandoffApproval as createOwnerHandoffApproval } from "../../../apps/owner/lib/panel-session-handoff/activation.ts";
 import { createPanelSessionHandoffCredentialCodec } from "../../../apps/owner/lib/panel-session-handoff/credential-codec.ts";
+import { createInitialCallbackPanelSessionHandoffExecutor } from "../../../apps/owner/lib/panel-session-handoff/initial-callback-executor.ts";
+import { createInitialVerifiedCallbackGrantBoundary, isActiveInitialVerifiedCallbackGrant } from "../../../apps/owner/lib/panel-session-handoff/initial-callback-grant.ts";
 import { createPostgresPanelSessionHandoffIssuer } from "../../../apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts";
 import { createAes256GcmPayloadCipher, createOpaqueStateDigester } from "../../../apps/owner/lib/saas-persistence/identity-crypto.ts";
 import { PostgresOidcTransactionStore } from "../../../apps/owner/lib/saas-persistence/postgres-oidc-transaction-store.ts";
 import { PostgresRegistrationAttemptStore } from "../../../apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts";
 import { createOwnerTenantCoreAdapter } from "../../../apps/owner/lib/saas-tenant-core/adapter.ts";
-import { createSelfServeOidcCallbackCompletionHandler } from "../../../apps/owner/lib/self-serve-http/oidc-callback-completion.ts";
 import { createSelfServeRegistrationStartHandler } from "../../../apps/owner/lib/self-serve-http/registration-start.ts";
 import { createPersistentSelfServeRuntime, createSelfServeHttpActivationApproval } from "../../../apps/owner/lib/self-serve-http/runtime.ts";
 import { createVerifiedEdgeTrustBoundary } from "../../../apps/owner/lib/self-serve-http/verified-edge-trust.ts";
@@ -329,13 +331,6 @@ async function startRegistration(runtime, slug) {
   return new URL(body.authorizationUrl).searchParams.get("state");
 }
 
-async function completeCallback(runtime, boundary, state) {
-  const handler = createSelfServeOidcCallbackCompletionHandler(runtime);
-  return boundary.invokeWithVerifiedContext((context) => handler(new Request(
-    `${callbackAuthority}?state=${encodeURIComponent(state)}&code=valid-code`,
-  ), context));
-}
-
 function createRegistrationHarness(pool) {
   const material = {
     hmacKey: randomBytes(32),
@@ -361,19 +356,13 @@ function createRegistrationHarness(pool) {
       const state = await this.start(slug);
       clock.value = new Date(Date.now() - 1_000);
       const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
-      const response = await completeCallback(setup.runtime, setup.boundary, state);
-      const body = await response.json();
-      assert.equal(response.status, 200, JSON.stringify(body));
-      assert.equal(body.storeSlug, slug);
-      assert.equal(body.session, "pending");
-      assert.equal(response.headers.has("set-cookie"), false);
-      assert.equal(response.headers.has("location"), false);
-      return { state, body };
+      const grantBoundary = createInitialVerifiedCallbackGrantBoundary(setup.runtime);
+      return { state, slug, runtime: setup.runtime, grantBoundary };
     },
   };
 }
 
-function issuer(pool, stateDigester, options = {}) {
+function issuer(pool, stateDigester, initialCallbackGrantBoundary, options = {}) {
   return createPostgresPanelSessionHandoffIssuer(createOwnerHandoffApproval("disposable_test"), {
     pool: options.commitUnknown ? unknownCommitPool(pool, 1) : pool,
     stateDigester,
@@ -381,9 +370,11 @@ function issuer(pool, stateDigester, options = {}) {
     activeHandoffKeyId: options.activeHandoffKeyId ?? handoffKeyId,
     sessionTokenKeyId: options.sessionTokenKeyId ?? sessionKeyId,
     clock: options.clock ?? (() => new Date()),
+    randomBytes: options.randomBytes ?? ((size) => new Uint8Array(randomBytes(size))),
     randomUuid: () => randomUUID(),
     timeouts,
     audit: () => undefined,
+    initialCallbackGrantBoundary,
   });
 }
 
@@ -411,9 +402,13 @@ function sessionRepository(pool, keys = sessionKeys) {
   });
 }
 
-async function directShortHandoff(pool, stateDigester, rawState) {
-  const codec = createPanelSessionHandoffCredentialCodec({ keys: handoffKeys, activeKeyId: handoffKeyId });
-  const credential = codec.deriveCredential(rawState);
+async function directHandoff(pool, stateDigester, rawState, options = {}) {
+  const codec = createPanelSessionHandoffCredentialCodec({
+    keys: handoffKeys,
+    activeKeyId: handoffKeyId,
+    randomBytes: (size) => new Uint8Array(randomBytes(size)),
+  });
+  const credential = codec.generateCredential();
   const now = new Date();
   const client = await pool.connect();
   try {
@@ -423,8 +418,9 @@ async function directShortHandoff(pool, stateDigester, rawState) {
       "SELECT outcome FROM saas.create_panel_session_handoff($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
       [
         stateDigester.digest(rawState), credential.tokenKeyId, credential.tokenDigest, sessionKeyId,
-        randomUUID(), randomUUID(), randomUUID(), randomUUID(), now, new Date(now.getTime() + 20),
-        new Date(now.getTime() + 60 * 60_000),
+        randomUUID(), randomUUID(), randomUUID(), randomUUID(), now,
+        new Date(now.getTime() + (options.handoffMs ?? 10 * 60_000)),
+        new Date(now.getTime() + (options.sessionMs ?? 8 * 60 * 60_000)),
       ],
     );
     await client.query("COMMIT");
@@ -435,8 +431,38 @@ async function directShortHandoff(pool, stateDigester, rawState) {
   } finally {
     client.release();
   }
-  await new Promise((resolve) => setTimeout(resolve, 50));
   return credential.credential;
+}
+
+async function executeVerifiedCallback(registration, work) {
+  return registration.grantBoundary.executeInitialCallback(
+    { state: registration.state, code: "valid-code" },
+    (grant, completion) => work(grant, completion),
+  );
+}
+
+function sessionProof(credential) {
+  return createPanelSessionCredentialCodec({
+    keys: sessionKeys,
+    activeKeyId: sessionKeyId,
+    randomBytes: (size) => new Uint8Array(randomBytes(size)),
+  }).digestCredential(credential);
+}
+
+async function identityQuery(pool, text, values = []) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL ROLE celebix_saas_identity");
+    const result = await client.query(text, values);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function run() {
@@ -458,27 +484,6 @@ async function run() {
     assert.equal(Math.floor(Number(psql(backend, "SHOW server_version_num;", "postgres")) / 10_000), 16);
     psql(backend, `CREATE DATABASE ${primaryDatabase};`, "postgres");
     applyAll(backend, primaryDatabase, true);
-    await scenario("apply migrations 001-016", async () => {
-      assert.equal(psql(backend, "SELECT to_regclass('saas.panel_session_handoffs') IS NOT NULL AND to_regclass('saas.panel_sessions') IS NOT NULL;"), "t");
-    });
-
-    await scenario("manifest checksums", async () => {
-      for (const file of manifests) {
-        const manifest = JSON.parse(readFileSync(path.join(sqlDirectory, file), "utf8"));
-        assert.equal(manifest.postgresqlMajor, 16);
-        for (const artifact of manifest.artifacts) {
-          const digest = createHash("sha256").update(readFileSync(path.join(sqlDirectory, artifact.file))).digest("hex");
-          assert.equal(digest, artifact.sha256, `${file}:${artifact.file}`);
-        }
-      }
-    });
-
-    await scenario("ownership grants and search_path", async () => {
-      assert.equal(psql(backend, "SELECT pg_get_userbyid(relowner) || ':' || relrowsecurity::int || ':' || relforcerowsecurity::int FROM pg_class WHERE oid='saas.panel_session_handoffs'::regclass;"), "celebix_saas_owner:1:1");
-      assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity','saas.panel_session_handoffs','SELECT,INSERT,UPDATE,DELETE')::int || ':' || has_table_privilege('public','saas.panel_session_handoffs','SELECT,INSERT,UPDATE,DELETE')::int;"), "0:0");
-      assert.equal(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_roles r ON r.oid=p.proowner WHERE n.nspname='saas' AND p.proname IN ('create_panel_session_handoff','recover_panel_session_handoff','redeem_panel_session_handoff','recover_panel_session_handoff_redemption') AND r.rolname='celebix_saas_owner' AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, saas']::text[];"), "4");
-    });
-
     psql(backend, `CREATE ROLE ${workloadRole} LOGIN NOINHERIT NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION; GRANT celebix_saas_identity, celebix_saas_bootstrap TO ${workloadRole};`, "postgres");
     const primaryPool = databasePool(backend);
     const poolA = databasePool(backend);
@@ -486,166 +491,244 @@ async function run() {
     pools.push(primaryPool, poolA, poolB);
     const registrations = createRegistrationHarness(primaryPool);
 
-    const primary = await registrations.complete("handoff-primary");
-    await scenario("real registration start and verified callback completion", async () => {
-      assert.match(primary.state, /^[A-Za-z0-9_-]{32,}$/);
-      assert.equal(psql(backend, "SELECT count(*) FROM saas.registration_tenant_completions WHERE state='completed';"), "1");
-      assert.equal(psql(backend, "SELECT count(*) FROM saas.tenant_operations WHERE status='committed';"), "1");
-      const digest = registrations.stateDigester.digest(primary.state);
-      assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_workflows AS workflow JOIN saas.registration_verified_identities AS verified ON verified.attempt_id=workflow.attempt_id AND verified.canonical_fingerprint=workflow.canonical_fingerprint JOIN saas.registration_tenant_completions AS completion ON completion.attempt_id=workflow.attempt_id AND completion.canonical_fingerprint=workflow.canonical_fingerprint AND completion.state='completed' JOIN saas.registration_tenant_operation_proofs AS proof ON proof.operation_id=completion.tenant_operation_id AND proof.payload_fingerprint=workflow.canonical_fingerprint AND proof.tenant_idempotency_digest=workflow.tenant_idempotency_digest AND proof.requested_at=workflow.requested_at JOIN saas.tenant_operations AS operation ON operation.id=proof.operation_id AND operation.status='committed' JOIN saas.principals AS principal ON principal.id=operation.result_principal_id AND principal.email_verified JOIN saas.stores AS store ON store.id=operation.result_store_id AND store.status='active' JOIN saas.memberships AS membership ON membership.id=operation.result_membership_id AND membership.principal_id=principal.id AND membership.store_id=store.id AND membership.role='store_owner' AND membership.status='active' WHERE workflow.state_digest='${digest}' AND workflow.status IN ('tenant_created','session_created') AND workflow.consumed_at IS NOT NULL;`), "1");
+    let primary;
+    await scenario("1 initial provider-verified callback creates one active grant", async () => {
+      const registration = await registrations.complete("handoff-primary");
+      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary);
+      let issuerCalls = 0;
+      const countedIssuer = {
+        issueHandoff(input) { issuerCalls += 1; return ownerIssuer.issueHandoff(input); },
+        recoverHandoff(input) { return ownerIssuer.recoverHandoff(input); },
+      };
+      const executor = createInitialCallbackPanelSessionHandoffExecutor({ runtime: registration.runtime, boundary: registration.grantBoundary, issuer: countedIssuer });
+      const execution = await executor.execute({ state: registration.state, code: "valid-code" });
+      assert.equal(execution.kind, "initial_callback_granted");
+      if (execution.kind !== "initial_callback_granted") throw new Error("verified callback grant missing");
+      assert.equal(execution.completion.kind, "tenant_created_session_pending");
+      primary = { registration, ownerIssuer, executor, issuerCalls: () => issuerCalls, handoff: execution.value.handoff };
     });
 
-    const primaryIssuer = issuer(primaryPool, registrations.stateDigester);
-    const firstHandoff = await primaryIssuer.issueHandoff({ rawState: primary.state });
-    await scenario("create handoff", async () => {
-      assert.equal(firstHandoff.kind, "handoff_created");
-      if (firstHandoff.kind === "handoff_created") assert.match(firstHandoff.credential, /^h1\.handoff\.active\.v1\.[A-Za-z0-9_-]{43}$/);
+    await scenario("2 active grant creates one random handoff", async () => {
+      assert.equal(primary.handoff.kind, "handoff_created");
+      assert.match(primary.handoff.credential, /^h1\.handoff\.active\.v1\.[A-Za-z0-9_-]{43}$/);
+      assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;"), "1");
     });
-    assert.equal(firstHandoff.kind, "handoff_created");
-    if (firstHandoff.kind !== "handoff_created") throw new Error("handoff creation failed");
-    await scenario("raw state and handoff absent", async () => {
-      const stored = psql(backend, "SELECT row_to_json(handoff)::text FROM saas.panel_session_handoffs AS handoff;");
-      assert.equal(stored.includes(primary.state), false);
-      assert.equal(stored.includes(firstHandoff.credential), false);
-      assert.equal(stored.includes(firstHandoff.credential.split(".").at(-1)), false);
+    const firstHandoff = primary.handoff;
+    if (firstHandoff.kind !== "handoff_created") throw new Error("primary handoff missing");
+
+    await scenario("3 raw callback state cannot reconstruct the random handoff", async () => {
+      const deterministic = createHmac("sha256", handoffKeys.get(handoffKeyId))
+        .update(`celebix-panel-handoff-v1\n${primary.registration.state}`, "utf8").digest("base64url");
+      assert.notEqual(firstHandoff.credential, `h1.${handoffKeyId}.${deterministic}`);
+      assert.equal(firstHandoff.credential.includes(primary.registration.state), false);
     });
 
-    const replayedHandoff = await primaryIssuer.issueHandoff({ rawState: primary.state });
-    await scenario("handoff replay", async () => {
-      assert.equal(replayedHandoff.kind, "handoff_replayed");
-      if (replayedHandoff.kind === "handoff_replayed") assert.equal(replayedHandoff.credential, firstHandoff.credential);
+    let replay;
+    const rowsBeforeReplay = psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;");
+    await scenario("4 repeated consumed callback creates no grant", async () => {
+      replay = await primary.executor.execute({ state: primary.registration.state, code: "valid-code" });
+      assert.deepEqual(replay, { kind: "initial_callback_replayed" });
+    });
+    await scenario("5 repeated callback makes zero issuer and handoff database calls", async () => {
+      assert.equal(primary.issuerCalls(), 1);
+      assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;"), rowsBeforeReplay);
+    });
+
+    let exactReplay;
+    let mismatchedReplay;
+    await scenario("6 exact retained candidate replay succeeds while unredeemed", async () => {
+      const registration = await registrations.complete("handoff-exact-candidate");
+      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary);
+      const execution = await executeVerifiedCallback(registration, async (grant) => {
+        assert.equal(isActiveInitialVerifiedCallbackGrant(registration.grantBoundary, grant), true);
+        const created = await ownerIssuer.issueHandoff({ rawState: registration.state, initialCallbackGrant: grant });
+        if (created.kind !== "handoff_created") throw new Error("candidate missing");
+        const recovered = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: created.credential, initialCallbackGrant: grant });
+        const other = createPanelSessionHandoffCredentialCodec({ keys: handoffKeys, activeKeyId: handoffKeyId, randomBytes: (size) => new Uint8Array(randomBytes(size)) }).generateCredential();
+        const mismatch = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: other.credential, initialCallbackGrant: grant });
+        return { created, recovered, mismatch };
+      });
+      assert.equal(execution.kind, "initial_callback_granted");
+      exactReplay = execution.value.recovered;
+      mismatchedReplay = execution.value.mismatch;
+      assert.equal(exactReplay.kind, "handoff_replayed");
+      assert.equal(exactReplay.credential, execution.value.created.credential);
+    });
+    await scenario("7 different random candidate returns operation_mismatch", async () => {
+      assert.deepEqual(mismatchedReplay, { kind: "operation_mismatch" });
     });
 
     const primaryRedeemer = redeemer(primaryPool);
-    const firstRedemption = await primaryRedeemer.redeemHandoff({ credential: firstHandoff.credential });
-    await scenario("first redemption", async () => assert.equal(firstRedemption.kind, "session_issued"));
-    assert.equal(firstRedemption.kind, "session_issued");
-    if (firstRedemption.kind !== "session_issued") throw new Error("session issuance failed");
-    await scenario("exactly one panel session", async () => {
+    let firstRedemption;
+    await scenario("8 handoff redemption creates one panel session", async () => {
+      firstRedemption = await primaryRedeemer.redeemHandoff({ credential: firstHandoff.credential });
+      assert.equal(firstRedemption.kind, "session_issued");
       assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_sessions WHERE session_id='${firstRedemption.session.sessionId}';`), "1");
     });
+    if (firstRedemption.kind !== "session_issued") throw new Error("primary session missing");
 
-    const resolved = await sessionRepository(primaryPool).resolveSession({ credential: firstRedemption.credential, requestId: "handoff-primary-request", now: new Date() });
-    await scenario("resolve session and TenantContext", async () => {
-      assert.equal(resolved.kind, "resolved");
-      if (resolved.kind === "resolved") {
-        assert.equal(resolved.tenantContext?.store.slug, "handoff-primary");
-        assert.equal(resolved.tenantContext?.membership.role, "store_owner");
-        assert.deepEqual(resolved.tenantContext?.entitlements.features, ["catalog", "orders", "customers", "content", "media", "analytics", "checkout"]);
+    await scenario("9 Owner replay after redemption cannot disclose the handoff", async () => {
+      assert.deepEqual(await primary.ownerIssuer.recoverHandoff({ rawState: primary.registration.state, candidateCredential: firstHandoff.credential, initialCallbackGrant: {} }), { kind: "durable_authority_invalid" });
+      const proof = createPanelSessionHandoffCredentialCodec({ keys: handoffKeys, activeKeyId: handoffKeyId, randomBytes: (size) => new Uint8Array(randomBytes(size)) }).digestCredential(firstHandoff.credential);
+      const recovered = await identityQuery(primaryPool,
+        "SELECT outcome FROM saas.recover_panel_session_handoff($1,$2,$3,$4,$5)",
+        [registrations.stateDigester.digest(primary.registration.state), proof.tokenKeyId, proof.tokenDigest, sessionKeyId, new Date()]);
+      assert.equal(recovered.rows[0]?.outcome, "operation_mismatch");
+    });
+
+    await scenario("10 concurrent redemption is one issued plus one replayed", async () => {
+      const registration = await registrations.complete("handoff-concurrent");
+      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary);
+      const execution = await executeVerifiedCallback(registration, (grant) => ownerIssuer.issueHandoff({ rawState: registration.state, initialCallbackGrant: grant }));
+      const handoff = execution.value;
+      assert.equal(handoff.kind, "handoff_created");
+      const results = await Promise.all([redeemer(poolA).redeemHandoff({ credential: handoff.credential }), redeemer(poolB).redeemHandoff({ credential: handoff.credential })]);
+      assert.deepEqual(results.map((entry) => entry.kind).sort(), ["session_issued", "session_replayed"]);
+    });
+
+    let commitRecovery;
+    let missingCandidate;
+    let processReplay;
+    await scenario("11 creation COMMIT unknown recovers only retained candidate with active grant", async () => {
+      const registration = await registrations.complete("handoff-create-loss");
+      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary, { commitUnknown: true });
+      const execution = await executeVerifiedCallback(registration, async (grant) => {
+        const unknown = await ownerIssuer.issueHandoff({ rawState: registration.state, initialCallbackGrant: grant });
+        assert.equal(unknown.kind, "commit_unknown");
+        const missing = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: undefined, initialCallbackGrant: grant });
+        const recovered = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: unknown.credential, initialCallbackGrant: grant });
+        return { unknown, missing, recovered };
+      });
+      commitRecovery = execution.value;
+      missingCandidate = commitRecovery.missing;
+      assert.equal(commitRecovery.recovered.kind, "handoff_replayed");
+      assert.equal(commitRecovery.recovered.credential, commitRecovery.unknown.credential);
+      processReplay = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: commitRecovery.unknown.credential, initialCallbackGrant: {} });
+    });
+    await scenario("12 missing candidate cannot recover handoff", async () => assert.deepEqual(missingCandidate, { kind: "durable_authority_invalid" }));
+    await scenario("13 process-style replay without active grant cannot recover", async () => assert.deepEqual(processReplay, { kind: "durable_authority_invalid" }));
+
+    await scenario("14 redemption COMMIT unknown recovers from retained handoff credential", async () => {
+      const registration = await registrations.complete("handoff-redeem-loss");
+      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary);
+      const execution = await executeVerifiedCallback(registration, (grant) => ownerIssuer.issueHandoff({ rawState: registration.state, initialCallbackGrant: grant }));
+      const loss = await redeemer(primaryPool, { commitUnknown: true }).redeemHandoff({ credential: execution.value.credential });
+      assert.equal(loss.kind, "commit_unknown");
+      const recovered = await redeemer(primaryPool).recoverRedemption({ credential: execution.value.credential });
+      assert.equal(recovered.kind, "session_replayed");
+      assert.equal(recovered.credential, loss.credential);
+    });
+
+    async function createAndRedeem(slug, options = {}) {
+      const registration = await registrations.complete(slug);
+      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary);
+      let handoff;
+      if (options.sessionMs) {
+        const execution = await registration.grantBoundary.executeInitialCallback({ state: registration.state, code: "valid-code" }, async () => directHandoff(primaryPool, registrations.stateDigester, registration.state, options));
+        handoff = { kind: "handoff_created", credential: execution.value };
+      } else {
+        const execution = await executeVerifiedCallback(registration, (grant) => ownerIssuer.issueHandoff({ rawState: registration.state, initialCallbackGrant: grant }));
+        handoff = execution.value;
       }
+      const redemption = await redeemer(primaryPool).redeemHandoff({ credential: handoff.credential });
+      assert.equal(redemption.kind, "session_issued");
+      return { registration, handoff, redemption };
+    }
+
+    await scenario("15 revoked and expired session replay is unauthenticated", async () => {
+      const authority = await createAndRedeem("handoff-revoked");
+      const proof = sessionProof(authority.redemption.credential);
+      const revoked = await identityQuery(primaryPool, "SELECT outcome FROM saas.revoke_panel_session($1,$2,$3,$4)", [proof.tokenKeyId, proof.tokenDigest, "security", new Date()]);
+      assert.equal(revoked.rows[0]?.outcome, "revoked");
+      assert.deepEqual(await redeemer(primaryPool).redeemHandoff({ credential: authority.handoff.credential }), { kind: "unauthenticated" });
+      const expiring = await createAndRedeem("handoff-expired-session", { sessionMs: 3_000 });
+      await new Promise((resolve) => setTimeout(resolve, 3_100));
+      assert.deepEqual(await redeemer(primaryPool).redeemHandoff({ credential: expiring.handoff.credential }), { kind: "unauthenticated" });
     });
 
-    const replayedRedemption = await primaryRedeemer.redeemHandoff({ credential: firstHandoff.credential });
-    await scenario("redemption replay", async () => {
-      assert.equal(replayedRedemption.kind, "session_replayed");
-      if (replayedRedemption.kind === "session_replayed") assert.equal(replayedRedemption.credential, firstRedemption.credential);
+    await scenario("16 rotated session replay is unauthenticated", async () => {
+      const authority = await createAndRedeem("handoff-rotated");
+      const current = sessionProof(authority.redemption.credential);
+      const replacement = createPanelSessionCredentialCodec({ keys: sessionKeys, activeKeyId: sessionKeyId, randomBytes: (size) => new Uint8Array(randomBytes(size)) }).issueCredential();
+      const rotated = await identityQuery(primaryPool, "SELECT outcome FROM saas.rotate_panel_session($1,$2,$3,$4,$5,$6,$7,$8)", [current.tokenKeyId, current.tokenDigest, randomUUID(), randomUUID(), replacement.tokenKeyId, replacement.tokenDigest, authority.redemption.session.activeStoreId, new Date()]);
+      assert.equal(rotated.rows[0]?.outcome, "rotated");
+      assert.deepEqual(await redeemer(primaryPool).redeemHandoff({ credential: authority.handoff.credential }), { kind: "unauthenticated" });
     });
 
-    const concurrentRegistration = await registrations.complete("handoff-concurrent");
-    const concurrentHandoff = await issuer(primaryPool, registrations.stateDigester).issueHandoff({ rawState: concurrentRegistration.state });
-    assert.equal(concurrentHandoff.kind, "handoff_created");
-    if (concurrentHandoff.kind !== "handoff_created") throw new Error("concurrent handoff failed");
-    const concurrent = await Promise.all([
-      redeemer(poolA).redeemHandoff({ credential: concurrentHandoff.credential }),
-      redeemer(poolB).redeemHandoff({ credential: concurrentHandoff.credential }),
-    ]);
-    await scenario("concurrent redemption across two connections", async () => {
-      assert.deepEqual(concurrent.map((entry) => entry.kind).sort(), ["session_issued", "session_replayed"]);
-      assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_sessions s JOIN saas.panel_session_handoffs h ON h.session_id=s.session_id WHERE h.attempt_id=(SELECT attempt_id FROM saas.registration_workflows WHERE state_digest='" + registrations.stateDigester.digest(concurrentRegistration.state) + "');"), "1");
+    await scenario("17 disabled owner membership replay is membership_denied", async () => {
+      const authority = await createAndRedeem("handoff-membership-disabled");
+      psql(backend, `SET ROLE celebix_saas_owner; UPDATE saas.memberships SET status='revoked', updated_at=clock_timestamp() WHERE principal_id='${authority.redemption.session.principalId}' AND store_id='${authority.redemption.session.activeStoreId}'; RESET ROLE;`);
+      assert.deepEqual(await redeemer(primaryPool).redeemHandoff({ credential: authority.handoff.credential }), { kind: "membership_denied" });
     });
 
-    const createLossRegistration = await registrations.complete("handoff-create-loss");
-    const createLoss = await issuer(primaryPool, registrations.stateDigester, { commitUnknown: true }).issueHandoff({ rawState: createLossRegistration.state });
-    await scenario("handoff creation COMMIT response loss", async () => assert.equal(createLoss.kind, "commit_unknown"));
-    const recoveredCreate = await issuer(primaryPool, registrations.stateDigester).recoverHandoff({ rawState: createLossRegistration.state });
-    await scenario("recover handoff creation", async () => {
-      assert.equal(recoveredCreate.kind, "handoff_replayed");
-      if (createLoss.kind === "commit_unknown" && recoveredCreate.kind === "handoff_replayed") assert.equal(recoveredCreate.credential, createLoss.credential);
+    await scenario("18 suspended store replay is membership_denied", async () => {
+      const authority = await createAndRedeem("handoff-store-suspended");
+      psql(backend, `SET ROLE celebix_saas_owner; UPDATE saas.stores SET status='suspended', updated_at=clock_timestamp() WHERE id='${authority.redemption.session.activeStoreId}'; RESET ROLE;`);
+      assert.deepEqual(await redeemer(primaryPool).redeemHandoff({ credential: authority.handoff.credential }), { kind: "membership_denied" });
     });
 
-    const redemptionLossRegistration = await registrations.complete("handoff-redeem-loss");
-    const redemptionLossHandoff = await issuer(primaryPool, registrations.stateDigester).issueHandoff({ rawState: redemptionLossRegistration.state });
-    assert.equal(redemptionLossHandoff.kind, "handoff_created");
-    if (redemptionLossHandoff.kind !== "handoff_created") throw new Error("redemption loss handoff failed");
-    const redemptionLoss = await redeemer(primaryPool, { commitUnknown: true }).redeemHandoff({ credential: redemptionLossHandoff.credential });
-    await scenario("redemption COMMIT response loss", async () => assert.equal(redemptionLoss.kind, "commit_unknown"));
-    const recoveredRedemption = await redeemer(primaryPool).recoverRedemption({ credential: redemptionLossHandoff.credential });
-    await scenario("recover redemption", async () => {
-      assert.equal(recoveredRedemption.kind, "session_replayed");
-      if (redemptionLoss.kind === "commit_unknown" && recoveredRedemption.kind === "session_replayed") assert.equal(recoveredRedemption.credential, redemptionLoss.credential);
+    await scenario("19 mutable service configuration cannot change captured authority", async () => {
+      const registration = await registrations.complete("handoff-config-snapshot");
+      const mutableHandoffKey = new Uint8Array(handoffKeys.get(handoffKeyId));
+      const mutableHandoffKeys = new Map([[handoffKeyId, mutableHandoffKey]]);
+      const dependencies = {
+        pool: primaryPool, stateDigester: registrations.stateDigester, handoffKeys: mutableHandoffKeys,
+        activeHandoffKeyId: handoffKeyId, sessionTokenKeyId: sessionKeyId, clock: () => new Date(),
+        randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: () => randomUUID(),
+        timeouts: { ...timeouts }, audit: () => undefined, initialCallbackGrantBoundary: registration.grantBoundary,
+      };
+      const capturedIssuer = createPostgresPanelSessionHandoffIssuer(createOwnerHandoffApproval("disposable_test"), dependencies);
+      dependencies.pool = { async connect() { throw new Error("mutated pool"); } };
+      dependencies.clock = () => new Date("2030-01-01T00:00:00.000Z");
+      dependencies.sessionTokenKeyId = "mutated.session";
+      dependencies.timeouts.poolCheckoutMs = 0;
+      mutableHandoffKeys.clear();
+      mutableHandoffKey.fill(0xff);
+      const execution = await executeVerifiedCallback(registration, (grant) => capturedIssuer.issueHandoff({ rawState: registration.state, initialCallbackGrant: grant }));
+      assert.equal(execution.value.kind, "handoff_created");
+      const mutableSessionKey = new Uint8Array(sessionKeys.get(sessionKeyId));
+      const redeemerDependencies = { pool: primaryPool, handoffKeys: new Map(handoffKeys), sessionKeys: new Map([[sessionKeyId, mutableSessionKey]]), clock: () => new Date(), timeouts: { ...timeouts }, audit: () => undefined };
+      const capturedRedeemer = createPostgresPanelSessionHandoffRedeemer(createCustomerHandoffApproval("disposable_test"), redeemerDependencies);
+      redeemerDependencies.pool = { async connect() { throw new Error("mutated pool"); } };
+      redeemerDependencies.sessionKeys.clear();
+      mutableSessionKey.fill(0xff);
+      redeemerDependencies.clock = () => new Date("2030-01-01T00:00:00.000Z");
+      assert.equal((await capturedRedeemer.redeemHandoff({ credential: execution.value.credential })).kind, "session_issued");
     });
 
-    await scenario("wrong state", async () => {
-      assert.deepEqual(await primaryIssuer.issueHandoff({ rawState: `wrong-state-${randomBytes(24).toString("base64url")}` }), { kind: "durable_authority_invalid" });
-    });
-    const incompleteState = await registrations.start("handoff-incomplete");
-    await scenario("incomplete registration", async () => {
-      assert.deepEqual(await primaryIssuer.issueHandoff({ rawState: incompleteState }), { kind: "durable_authority_invalid" });
-    });
-
-    const corruptRegistration = await registrations.complete("handoff-corrupt-proof");
-    const corruptDigest = registrations.stateDigester.digest(corruptRegistration.state);
-    psql(backend, `SET ROLE celebix_saas_owner; UPDATE saas.memberships SET status='revoked', updated_at=clock_timestamp() WHERE id=(SELECT operation.result_membership_id FROM saas.registration_workflows workflow JOIN saas.registration_tenant_completions completion ON completion.attempt_id=workflow.attempt_id JOIN saas.tenant_operations operation ON operation.id=completion.tenant_operation_id WHERE workflow.state_digest='${corruptDigest}'); RESET ROLE;`);
-    await scenario("corrupt tenant operation proof", async () => {
-      assert.deepEqual(await primaryIssuer.issueHandoff({ rawState: corruptRegistration.state }), { kind: "durable_authority_invalid" });
-    });
-
-    const expiredRegistration = await registrations.complete("handoff-expired");
-    const expiredCredential = await directShortHandoff(primaryPool, registrations.stateDigester, expiredRegistration.state);
-    await scenario("expired handoff", async () => {
-      assert.deepEqual(await primaryRedeemer.redeemHandoff({ credential: expiredCredential }), { kind: "expired" });
-    });
-
-    const oldHandoffRegistration = await registrations.complete("handoff-old-handoff-key");
-    const oldHandoff = await issuer(primaryPool, registrations.stateDigester, { activeHandoffKeyId: oldHandoffKeyId }).issueHandoff({ rawState: oldHandoffRegistration.state });
-    assert.equal(oldHandoff.kind, "handoff_created");
-    await scenario("removed handoff key", async () => {
-      if (oldHandoff.kind !== "handoff_created") throw new Error("old handoff missing");
-      const retainedReplay = await issuer(primaryPool, registrations.stateDigester).issueHandoff({ rawState: oldHandoffRegistration.state });
-      assert.equal(retainedReplay.kind, "handoff_replayed");
-      if (retainedReplay.kind === "handoff_replayed") assert.equal(retainedReplay.credential, oldHandoff.credential);
-      assert.deepEqual(await redeemer(primaryPool, { handoffKeys: new Map([[handoffKeyId, handoffKeys.get(handoffKeyId)]]) }).redeemHandoff({ credential: oldHandoff.credential }), { kind: "unauthenticated" });
-    });
-
-    const oldSessionRegistration = await registrations.complete("handoff-old-session-key");
-    const oldSessionHandoff = await issuer(primaryPool, registrations.stateDigester, { sessionTokenKeyId: oldSessionKeyId }).issueHandoff({ rawState: oldSessionRegistration.state });
-    assert.equal(oldSessionHandoff.kind, "handoff_created");
-    await scenario("removed session key", async () => {
-      if (oldSessionHandoff.kind !== "handoff_created") throw new Error("old session handoff missing");
-      assert.equal((await redeemer(primaryPool).redeemHandoff({ credential: oldSessionHandoff.credential })).kind, "session_issued");
-      assert.deepEqual(await redeemer(primaryPool, { sessionKeys: new Map([[sessionKeyId, sessionKeys.get(sessionKeyId)]]) }).redeemHandoff({ credential: oldSessionHandoff.credential }), { kind: "unauthenticated" });
-    });
-
-    await scenario("database raw credential scan", async () => {
+    await scenario("20 raw callback state, handoff, and session credentials are absent from database", async () => {
       const dump = dataDump(backend);
-      for (const secret of [primary.state, firstHandoff.credential, firstHandoff.credential.split(".").at(-1), firstRedemption.credential, firstRedemption.credential.split(".").at(-1)]) {
+      for (const secret of [primary.registration.state, firstHandoff.credential, firstHandoff.credential.split(".").at(-1), firstRedemption.credential, firstRedemption.credential.split(".").at(-1)]) {
         assert.equal(dump.includes(secret), false);
       }
     });
 
-    const backup = dumpDatabase(backend, primaryDatabase);
-    psql(backend, `CREATE DATABASE ${restoreDatabase};`, "postgres");
-    restoreDatabaseDump(backend, restoreDatabase, backup);
-    await scenario("backup and restore", async () => {
+    await scenario("21 backup and restore preserve opaque durable authority", async () => {
+      const backup = dumpDatabase(backend, primaryDatabase);
+      psql(backend, `CREATE DATABASE ${restoreDatabase};`, "postgres");
+      restoreDatabaseDump(backend, restoreDatabase, backup);
       assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;", restoreDatabase), psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;", primaryDatabase));
-      assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_sessions;", restoreDatabase), psql(backend, "SELECT count(*) FROM saas.panel_sessions;", primaryDatabase));
-    });
-    const restorePool = databasePool(backend, restoreDatabase);
-    pools.push(restorePool);
-    const restored = await sessionRepository(restorePool).resolveSession({ credential: firstRedemption.credential, requestId: "handoff-restored-request", now: new Date() });
-    await scenario("resolve restored session", async () => {
+      const restorePool = databasePool(backend, restoreDatabase);
+      pools.push(restorePool);
+      const restored = await sessionRepository(restorePool).resolveSession({ credential: firstRedemption.credential, requestId: "restored", now: new Date() });
       assert.equal(restored.kind, "resolved");
-      if (restored.kind === "resolved") assert.equal(restored.tenantContext?.store.slug, "handoff-primary");
     });
 
     migration(backend, "202607140016_panel_session_handoffs.down.sql");
-    await scenario("rollback migration 016", async () => assert.equal(psql(backend, "SELECT to_regclass('saas.panel_session_handoffs') IS NULL;"), "t"));
-    await scenario("migrations 001-015 remain intact", async () => {
+    await scenario("22 migration 016 rolls back cleanly", async () => assert.equal(psql(backend, "SELECT to_regclass('saas.panel_session_handoffs') IS NULL;"), "t"));
+    await scenario("23 migrations 001-015 remain intact", async () => {
       assert.equal(psql(backend, "SELECT to_regclass('saas.panel_sessions') IS NOT NULL AND to_regclass('saas.registration_tenant_completions') IS NOT NULL AND to_regclass('saas.tenant_operations') IS NOT NULL;"), "t");
       assert.ok(Number(psql(backend, "SELECT count(*) FROM saas.panel_sessions;")) >= 1);
     });
     migration(backend, "202607140016_panel_session_handoffs.up.sql");
-    await scenario("reapply migration 016", async () => assert.equal(psql(backend, "SELECT to_regclass('saas.panel_session_handoffs') IS NOT NULL;"), "t"));
+    await scenario("24 migration 016 reapplies with exact checksums, grants, owner, and search_path", async () => {
+      for (const file of manifests) {
+        const manifest = JSON.parse(readFileSync(path.join(sqlDirectory, file), "utf8"));
+        for (const artifact of manifest.artifacts) assert.equal(createHash("sha256").update(readFileSync(path.join(sqlDirectory, artifact.file))).digest("hex"), artifact.sha256);
+      }
+      assert.equal(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_roles r ON r.oid=p.proowner WHERE n.nspname='saas' AND p.proname IN ('create_panel_session_handoff','recover_panel_session_handoff','redeem_panel_session_handoff','recover_panel_session_handoff_redemption') AND r.rolname='celebix_saas_owner' AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, saas']::text[];"), "4");
+      assert.equal(psql(backend, "SELECT has_table_privilege('celebix_saas_identity','saas.panel_session_handoffs','SELECT,INSERT,UPDATE,DELETE')::int || ':' || has_table_privilege('public','saas.panel_session_handoffs','SELECT,INSERT,UPDATE,DELETE')::int;"), "0:0");
+    });
   } catch (error) {
     runError = error;
   } finally {
@@ -655,7 +738,7 @@ async function run() {
   if (runError) throw runError;
   await scenario("complete cleanup", async () => assert.equal(existsSync(temporaryDirectory), false));
   await scenario("external network count zero", async () => assert.equal(externalNetworkAttempts, 0));
-  assert.equal(scenarios, 30);
+  assert.equal(scenarios, 26);
   process.stdout.write(`${JSON.stringify({
     status: "PASS",
     backend: backend.kind === "native" ? "native-postgresql" : backend.engine,

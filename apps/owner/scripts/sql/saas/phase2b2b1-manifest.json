@@ -7,14 +7,14 @@
       "id": "202607140016_panel_session_handoffs_up",
       "direction": "up",
       "file": "202607140016_panel_session_handoffs.up.sql",
-      "sha256": "8fba7d5a69855f4cda57710693d0b37ab6bb88813f626c102ef3895bbfd26b9f",
+      "sha256": "c540c6c31b0e02dd8af29fd0f1d2477e0a3253579d9bfebef4204d9ac915ad90",
       "purpose": "Create the disabled durable registration-to-panel-session handoff authority and narrow creation, redemption, and recovery functions."
     },
     {
       "id": "202607140016_panel_session_handoffs_down",
       "direction": "down",
       "file": "202607140016_panel_session_handoffs.down.sql",
-      "sha256": "42057bd83337ffcbbd82546de0f1fa651e8ee9651b767e9db14e99cdb0c9ccf5",
+      "sha256": "5cf272714cbc746f8f5537c8ce71745263ea9ff5b746bc471d44d9780b0e5ce1",
       "purpose": "Remove only Phase 2B2B1 handoff functions, guard, table, and indexes while preserving migrations 001 through 015."
     }
   ]

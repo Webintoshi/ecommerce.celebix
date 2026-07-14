@@ -169,6 +169,13 @@ BEGIN
   FOR UPDATE;
 
   IF FOUND THEN
+    IF existing.redeemed_at IS NOT NULL
+       OR existing.token_key_id <> p_token_key_id
+       OR existing.token_digest <> p_token_digest
+       OR existing.session_token_key_id <> p_session_token_key_id THEN
+      RETURN QUERY SELECT 'operation_mismatch'::text, NULL::jsonb;
+      RETURN;
+    END IF;
     IF p_now >= existing.expires_at THEN
       RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
       RETURN;
@@ -196,6 +203,12 @@ BEGIN
        AND membership.store_id = existing.active_store_id
        AND membership.role = 'store_owner'
        AND membership.status = 'active'
+      JOIN saas.principals AS principal
+        ON principal.id = existing.principal_id
+       AND principal.email_verified
+      JOIN saas.stores AS store
+        ON store.id = existing.active_store_id
+       AND store.status = 'active'
       WHERE workflow.attempt_id = existing.attempt_id
         AND workflow.state_digest = p_state_digest
         AND workflow.status IN ('tenant_created', 'session_created')
@@ -307,6 +320,9 @@ $phase2b2b1_create_handoff$;
 
 CREATE FUNCTION saas.recover_panel_session_handoff(
   p_state_digest text,
+  p_token_key_id text,
+  p_token_digest text,
+  p_session_token_key_id text,
   p_now timestamptz
 )
 RETURNS TABLE(outcome text, authority jsonb)
@@ -318,7 +334,11 @@ AS $phase2b2b1_recover_handoff$
 DECLARE
   existing saas.panel_session_handoffs%ROWTYPE;
 BEGIN
-  IF p_state_digest !~ '^[a-f0-9]{64}$' OR p_now IS NULL
+  IF p_state_digest !~ '^[a-f0-9]{64}$'
+     OR p_token_key_id !~ '^[A-Za-z0-9._-]{1,64}$' OR p_token_key_id ~ '^\.|\.$|\.\.'
+     OR p_token_digest !~ '^[a-f0-9]{64}$'
+     OR p_session_token_key_id !~ '^[A-Za-z0-9._-]{1,64}$' OR p_session_token_key_id ~ '^\.|\.$|\.\.'
+     OR p_now IS NULL
      OR p_now < pg_catalog.clock_timestamp() - interval '30 seconds'
      OR p_now > pg_catalog.clock_timestamp() + interval '30 seconds' THEN
     RETURN QUERY SELECT 'durable_authority_invalid'::text, NULL::jsonb;
@@ -331,8 +351,32 @@ BEGIN
     RETURN QUERY SELECT 'durable_authority_invalid'::text, NULL::jsonb;
     RETURN;
   END IF;
+  IF existing.redeemed_at IS NOT NULL
+     OR existing.token_key_id <> p_token_key_id
+     OR existing.token_digest <> p_token_digest
+     OR existing.session_token_key_id <> p_session_token_key_id THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text, NULL::jsonb;
+    RETURN;
+  END IF;
   IF p_now >= existing.expires_at THEN
     RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM saas.principals AS principal
+    JOIN saas.memberships AS membership
+      ON membership.principal_id = principal.id
+     AND membership.store_id = existing.active_store_id
+     AND membership.role = 'store_owner'
+     AND membership.status = 'active'
+    JOIN saas.stores AS store
+      ON store.id = membership.store_id
+     AND store.status = 'active'
+    WHERE principal.id = existing.principal_id
+      AND principal.email_verified
+  ) THEN
+    RETURN QUERY SELECT 'membership_denied'::text, NULL::jsonb;
     RETURN;
   END IF;
   RETURN QUERY SELECT 'handoff_replayed'::text, pg_catalog.jsonb_build_object(
@@ -397,7 +441,7 @@ BEGIN
     RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
     RETURN;
   END IF;
-  IF p_now >= handoff.expires_at THEN
+  IF handoff.redeemed_at IS NULL AND p_now >= handoff.expires_at THEN
     RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
     RETURN;
   END IF;
@@ -423,6 +467,33 @@ BEGIN
        OR session.expires_at <> handoff.session_expires_at
        OR session.previous_session_id IS NOT NULL THEN
       RETURN QUERY SELECT 'operation_mismatch'::text, NULL::jsonb;
+      RETURN;
+    END IF;
+    IF session.revoked_at IS NOT NULL
+       OR session.replaced_by_session_id IS NOT NULL
+       OR session.expires_at <= p_now THEN
+      RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
+      RETURN;
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1
+      FROM saas.principals AS principal
+      JOIN saas.memberships AS membership
+        ON membership.principal_id = principal.id
+       AND membership.store_id = handoff.active_store_id
+       AND membership.role = 'store_owner'
+       AND membership.status = 'active'
+      JOIN saas.stores AS store
+        ON store.id = membership.store_id
+       AND store.status = 'active'
+      WHERE principal.id = handoff.principal_id
+        AND principal.email_verified
+    ) THEN
+      RETURN QUERY SELECT 'membership_denied'::text, NULL::jsonb;
+      RETURN;
+    END IF;
+    IF p_now >= handoff.expires_at THEN
+      RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
       RETURN;
     END IF;
     RETURN QUERY SELECT 'session_replayed'::text, pg_catalog.jsonb_build_object(
@@ -537,11 +608,57 @@ BEGIN
     RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
     RETURN;
   END IF;
-  IF p_now >= handoff.expires_at THEN
+  IF handoff.redeemed_at IS NULL AND p_now >= handoff.expires_at THEN
     RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
     RETURN;
   END IF;
   IF p_session_token_key_id IS NULL THEN
+    IF handoff.redeemed_at IS NOT NULL THEN
+      SELECT persisted.* INTO session
+      FROM saas.panel_sessions AS persisted
+      WHERE persisted.operation_id = handoff.session_operation_id;
+      IF NOT FOUND
+         OR session.session_id <> handoff.session_id
+         OR session.family_id <> handoff.family_id
+         OR session.operation_kind <> 'issue'
+         OR session.token_key_id <> handoff.session_token_key_id
+         OR session.principal_id <> handoff.principal_id
+         OR session.active_store_id IS DISTINCT FROM handoff.active_store_id
+         OR session.issued_at <> handoff.redeemed_at
+         OR session.rotated_at <> handoff.redeemed_at
+         OR session.expires_at <> handoff.session_expires_at
+         OR session.previous_session_id IS NOT NULL THEN
+        RETURN QUERY SELECT 'operation_mismatch'::text, NULL::jsonb;
+        RETURN;
+      END IF;
+      IF session.revoked_at IS NOT NULL
+         OR session.replaced_by_session_id IS NOT NULL
+         OR session.expires_at <= p_now THEN
+        RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
+        RETURN;
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1
+        FROM saas.principals AS principal
+        JOIN saas.memberships AS membership
+          ON membership.principal_id = principal.id
+         AND membership.store_id = handoff.active_store_id
+         AND membership.role = 'store_owner'
+         AND membership.status = 'active'
+        JOIN saas.stores AS store
+          ON store.id = membership.store_id
+         AND store.status = 'active'
+        WHERE principal.id = handoff.principal_id
+          AND principal.email_verified
+      ) THEN
+        RETURN QUERY SELECT 'membership_denied'::text, NULL::jsonb;
+        RETURN;
+      END IF;
+      IF p_now >= handoff.expires_at THEN
+        RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
+        RETURN;
+      END IF;
+    END IF;
     RETURN QUERY SELECT 'handoff_replayed'::text, pg_catalog.jsonb_build_object(
       'sessionTokenKeyId', handoff.session_token_key_id
     );
@@ -570,6 +687,33 @@ BEGIN
     RETURN QUERY SELECT 'operation_mismatch'::text, NULL::jsonb;
     RETURN;
   END IF;
+  IF session.revoked_at IS NOT NULL
+     OR session.replaced_by_session_id IS NOT NULL
+     OR session.expires_at <= p_now THEN
+    RETURN QUERY SELECT 'unauthenticated'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM saas.principals AS principal
+    JOIN saas.memberships AS membership
+      ON membership.principal_id = principal.id
+     AND membership.store_id = handoff.active_store_id
+     AND membership.role = 'store_owner'
+     AND membership.status = 'active'
+    JOIN saas.stores AS store
+      ON store.id = membership.store_id
+     AND store.status = 'active'
+    WHERE principal.id = handoff.principal_id
+      AND principal.email_verified
+  ) THEN
+    RETURN QUERY SELECT 'membership_denied'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  IF p_now >= handoff.expires_at THEN
+    RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
+    RETURN;
+  END IF;
   RETURN QUERY SELECT 'session_replayed'::text, pg_catalog.jsonb_build_object(
     'session', pg_catalog.jsonb_build_object(
       'sessionId', session.session_id,
@@ -586,7 +730,7 @@ END
 $phase2b2b1_recover_redemption$;
 
 ALTER FUNCTION saas.create_panel_session_handoff(text,text,text,text,uuid,uuid,uuid,uuid,timestamptz,timestamptz,timestamptz) OWNER TO celebix_saas_owner;
-ALTER FUNCTION saas.recover_panel_session_handoff(text,timestamptz) OWNER TO celebix_saas_owner;
+ALTER FUNCTION saas.recover_panel_session_handoff(text,text,text,text,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.redeem_panel_session_handoff(text,text,text,text,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.recover_panel_session_handoff_redemption(text,text,text,text,timestamptz) OWNER TO celebix_saas_owner;
 ALTER FUNCTION saas.guard_panel_session_handoff_mutation() OWNER TO celebix_saas_owner;
@@ -594,13 +738,13 @@ ALTER FUNCTION saas.guard_panel_session_handoff_mutation() OWNER TO celebix_saas
 REVOKE ALL ON saas.panel_session_handoffs FROM PUBLIC;
 REVOKE ALL ON saas.panel_session_handoffs FROM celebix_saas_identity;
 REVOKE ALL ON FUNCTION saas.create_panel_session_handoff(text,text,text,text,uuid,uuid,uuid,uuid,timestamptz,timestamptz,timestamptz) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.recover_panel_session_handoff(text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.recover_panel_session_handoff(text,text,text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.redeem_panel_session_handoff(text,text,text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.recover_panel_session_handoff_redemption(text,text,text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.guard_panel_session_handoff_mutation() FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION saas.create_panel_session_handoff(text,text,text,text,uuid,uuid,uuid,uuid,timestamptz,timestamptz,timestamptz) TO celebix_saas_identity;
-GRANT EXECUTE ON FUNCTION saas.recover_panel_session_handoff(text,timestamptz) TO celebix_saas_identity;
+GRANT EXECUTE ON FUNCTION saas.recover_panel_session_handoff(text,text,text,text,timestamptz) TO celebix_saas_identity;
 GRANT EXECUTE ON FUNCTION saas.redeem_panel_session_handoff(text,text,text,text,timestamptz) TO celebix_saas_identity;
 GRANT EXECUTE ON FUNCTION saas.recover_panel_session_handoff_redemption(text,text,text,text,timestamptz) TO celebix_saas_identity;
 
@@ -618,7 +762,7 @@ BEGIN
   END IF;
   FOREACH function_name IN ARRAY ARRAY[
     'saas.create_panel_session_handoff(text,text,text,text,uuid,uuid,uuid,uuid,timestamp with time zone,timestamp with time zone,timestamp with time zone)',
-    'saas.recover_panel_session_handoff(text,timestamp with time zone)',
+    'saas.recover_panel_session_handoff(text,text,text,text,timestamp with time zone)',
     'saas.redeem_panel_session_handoff(text,text,text,text,timestamp with time zone)',
     'saas.recover_panel_session_handoff_redemption(text,text,text,text,timestamp with time zone)'
   ] LOOP
