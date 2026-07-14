@@ -6,7 +6,7 @@ import {
   type DerivedPanelSessionHandoffCredential,
 } from "./credential-codec.ts";
 import {
-  isActiveInitialVerifiedCallbackGrant,
+  isActiveInitialVerifiedCallbackGrantForState,
   isInitialVerifiedCallbackGrantBoundary,
   type InitialVerifiedCallbackGrant,
   type InitialVerifiedCallbackGrantBoundary,
@@ -92,6 +92,18 @@ export interface PostgresPanelSessionHandoffIssuer {
     candidateCredential: string;
     initialCallbackGrant: InitialVerifiedCallbackGrant;
   }): Promise<PanelSessionHandoffIssuerResult>;
+}
+
+const issuerAuthorities = new WeakMap<object, InitialVerifiedCallbackGrantBoundary>();
+
+export function isPostgresPanelSessionHandoffIssuerForBoundary(
+  issuer: unknown,
+  boundary: InitialVerifiedCallbackGrantBoundary,
+): issuer is PostgresPanelSessionHandoffIssuer {
+  return Boolean(
+    issuer && typeof issuer === "object" && isInitialVerifiedCallbackGrantBoundary(boundary)
+    && issuerAuthorities.get(issuer) === boundary,
+  );
 }
 
 interface HandoffAuthority {
@@ -292,8 +304,12 @@ export function createPostgresPanelSessionHandoffIssuer(approval: unknown, rawDe
     return Object.freeze({ ...result }) as PanelSessionHandoffIssuerResult;
   };
 
-  function validGrant(grant: unknown): grant is InitialVerifiedCallbackGrant {
-    return isActiveInitialVerifiedCallbackGrant(dependencies.initialCallbackGrantBoundary, grant);
+  function validGrant(grant: unknown, state: unknown): grant is InitialVerifiedCallbackGrant {
+    return isActiveInitialVerifiedCallbackGrantForState(
+      dependencies.initialCallbackGrantBoundary,
+      grant,
+      state,
+    );
   }
 
   function stateDigest(state: string): string {
@@ -316,9 +332,9 @@ export function createPostgresPanelSessionHandoffIssuer(approval: unknown, rawDe
     } catch { return finish(operation, { kind: "durable_authority_invalid" }); }
   }
 
-  return Object.freeze({
+  const issuer: PostgresPanelSessionHandoffIssuer = Object.freeze({
     async issueHandoff({ rawState: state, initialCallbackGrant }: { rawState: string; initialCallbackGrant: InitialVerifiedCallbackGrant }) {
-      if (!validGrant(initialCallbackGrant)) return finish("create", { kind: "durable_authority_invalid" });
+      if (!validGrant(initialCallbackGrant, state)) return finish("create", { kind: "durable_authority_invalid" });
       let digest: string;
       let candidate: DerivedPanelSessionHandoffCredential;
       let identifiers: string[];
@@ -343,7 +359,7 @@ export function createPostgresPanelSessionHandoffIssuer(approval: unknown, rawDe
     async recoverHandoff({ rawState: state, candidateCredential, initialCallbackGrant }: {
       rawState: string; candidateCredential: string; initialCallbackGrant: InitialVerifiedCallbackGrant;
     }) {
-      if (!validGrant(initialCallbackGrant)) return finish("recover", { kind: "durable_authority_invalid" });
+      if (!validGrant(initialCallbackGrant, state)) return finish("recover", { kind: "durable_authority_invalid" });
       let digest: string;
       let proof;
       let recoveredAt: Date;
@@ -363,4 +379,6 @@ export function createPostgresPanelSessionHandoffIssuer(approval: unknown, rawDe
       return project("recover", executed.value.outcome, candidate, executed.value.authority);
     },
   });
+  issuerAuthorities.set(issuer, dependencies.initialCallbackGrantBoundary);
+  return issuer;
 }

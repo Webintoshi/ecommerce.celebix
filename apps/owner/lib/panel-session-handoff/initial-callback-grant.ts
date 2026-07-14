@@ -28,10 +28,14 @@ export interface InitialVerifiedCallbackGrantBoundary {
 
 interface BoundaryAuthority {
   runtime: PersistentSelfServeRuntime;
-  active: WeakSet<object>;
+  activeStates: WeakMap<object, string>;
 }
 
 const authorities = new WeakMap<object, BoundaryAuthority>();
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
+const MINIMUM_STATE_LENGTH = 16;
+const MAXIMUM_STATE_LENGTH = 1_024;
+const MAXIMUM_CODE_LENGTH = 4_096;
 
 function successful(
   completion: SelfServeCallbackServiceResult,
@@ -45,12 +49,31 @@ function frozenResult<T extends object>(value: T): T {
   return Object.freeze(value);
 }
 
-export function isActiveInitialVerifiedCallbackGrant(
+function callbackValue(value: unknown, minimum: number, maximum: number): string {
+  if (typeof value !== "string" || value.length < minimum || value.length > maximum
+    || value.trim() !== value || CONTROL_CHARACTER.test(value)) {
+    throw new Error("initial_verified_callback_grant_invalid");
+  }
+  return value;
+}
+
+function snapshotCallback(callback: OidcCallbackInput): Readonly<OidcCallbackInput> {
+  if (!callback || typeof callback !== "object") throw new Error("initial_verified_callback_grant_invalid");
+  const state = callbackValue(callback.state, MINIMUM_STATE_LENGTH, MAXIMUM_STATE_LENGTH);
+  const code = callbackValue(callback.code, 1, MAXIMUM_CODE_LENGTH);
+  return Object.freeze({ state, code });
+}
+
+export function isActiveInitialVerifiedCallbackGrantForState(
   boundary: InitialVerifiedCallbackGrantBoundary,
   grant: unknown,
+  rawState: unknown,
 ): grant is InitialVerifiedCallbackGrant {
   const authority = boundary && typeof boundary === "object" ? authorities.get(boundary) : undefined;
-  return Boolean(authority && grant && typeof grant === "object" && authority.active.has(grant));
+  return Boolean(
+    authority && grant && typeof grant === "object" && typeof rawState === "string"
+    && authority.activeStates.get(grant) === rawState,
+  );
 }
 
 export function isInitialVerifiedCallbackGrantBoundary(
@@ -71,17 +94,18 @@ export function createInitialVerifiedCallbackGrantBoundary(
 ): InitialVerifiedCallbackGrantBoundary {
   assertPersistentSelfServeRuntime(runtime);
   const completeCallback = runtime.completeCallback.bind(runtime);
-  const authority: BoundaryAuthority = { runtime, active: new WeakSet<object>() };
+  const authority: BoundaryAuthority = { runtime, activeStates: new WeakMap<object, string>() };
 
   const boundary: InitialVerifiedCallbackGrantBoundary = {
     async executeInitialCallback<T>(
       callback: OidcCallbackInput,
       work: (grant: InitialVerifiedCallbackGrant, completion: InitialVerifiedCallbackCompletion) => T | Promise<T>,
     ): Promise<InitialCallbackExecutionResult<T>> {
+      const callbackSnapshot = snapshotCallback(callback);
       if (typeof work !== "function") throw new Error("initial_verified_callback_grant_invalid");
       let completion: SelfServeCallbackServiceResult;
       try {
-        completion = await completeCallback(callback);
+        completion = await completeCallback(callbackSnapshot);
       } catch (error) {
         if (error instanceof OidcFlowError && error.code === "oidc_state_replayed") {
           return frozenResult({ kind: "initial_callback_replayed" });
@@ -94,12 +118,12 @@ export function createInitialVerifiedCallbackGrantBoundary(
       }
 
       const grant = Object.freeze(Object.create(null)) as InitialVerifiedCallbackGrant;
-      authority.active.add(grant);
+      authority.activeStates.set(grant, callbackSnapshot.state);
       try {
         const value = await work(grant, capturedCompletion);
         return frozenResult({ kind: "initial_callback_granted", completion: capturedCompletion, value });
       } finally {
-        authority.active.delete(grant);
+        authority.activeStates.delete(grant);
       }
     },
   };

@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const sqlDirectory = path.join(root, "apps", "owner", "scripts", "sql", "saas");
 const base = "ed09846d80644fb0118c51dba9ae8fed0bdc816e";
+const correctionBase = "ed9738ab5fefa811a4b5ddaf98aff16cdedcc2d9";
 const upName = "202607140016_panel_session_handoffs.up.sql";
 const downName = "202607140016_panel_session_handoffs.down.sql";
 const manifestName = "phase2b2b1-manifest.json";
@@ -18,6 +19,12 @@ const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 function changed() {
   const tracked = execFileSync("git", ["diff", "--name-only", base, "--"], { cwd: root, encoding: "utf8" });
+  const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
+  return [...new Set(`${tracked}\n${untracked}`.trim().split("\n").filter(Boolean))].sort();
+}
+
+function correctionChanged() {
+  const tracked = execFileSync("git", ["diff", "--name-only", correctionBase, "--"], { cwd: root, encoding: "utf8" });
   const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
   return [...new Set(`${tracked}\n${untracked}`.trim().split("\n").filter(Boolean))].sort();
 }
@@ -124,8 +131,74 @@ test("handoff credentials are random, grant-bound, and consumed-state recovery c
   assert.match(codec, /randomBytes\(TOKEN_BYTES\)/);
   assert.match(issuer, /initialCallbackGrant/);
   assert.match(issuer, /candidateCredential/);
-  assert.match(issuer, /isActiveInitialVerifiedCallbackGrant/);
+  assert.match(issuer, /isActiveInitialVerifiedCallbackGrantForState/);
   assert.doesNotMatch(executor, /recoverConsumedCallback/);
+});
+
+test("callback grant authority is privately state-bound before issuer dependencies", () => {
+  const grant = read("apps/owner/lib/panel-session-handoff/initial-callback-grant.ts");
+  const issuer = read("apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts");
+  assert.match(grant, /activeStates:\s*WeakMap<object, string>/);
+  assert.match(grant, /activeStates\.set\(grant, callbackSnapshot\.state\)/);
+  assert.match(grant, /activeStates\.get\(grant\) === rawState/);
+  assert.match(grant, /Object\.freeze\(\{ state, code \}\)/);
+  assert.match(grant, /completeCallback\(callbackSnapshot\)/);
+  assert.doesNotMatch(grant, /WeakSet/);
+  assert.equal((issuer.match(/if \(!validGrant\(initialCallbackGrant, state\)\)/g) ?? []).length, 2);
+  for (const marker of ["async issueHandoff", "async recoverHandoff"]) {
+    const block = issuer.slice(issuer.indexOf(marker));
+    assert.ok(block.indexOf("if (!validGrant(initialCallbackGrant, state))") < block.indexOf("stateDigest(state)"));
+  }
+});
+
+test("executor accepts only the genuine issuer for its exact boundary and never re-reads callback state", () => {
+  const issuer = read("apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts");
+  const executor = read("apps/owner/lib/panel-session-handoff/initial-callback-executor.ts");
+  assert.match(issuer, /issuerAuthorities = new WeakMap<object, InitialVerifiedCallbackGrantBoundary>/);
+  assert.match(issuer, /issuerAuthorities\.get\(issuer\) === boundary/);
+  assert.match(issuer, /issuerAuthorities\.set\(issuer, dependencies\.initialCallbackGrantBoundary\)/);
+  assert.match(executor, /isPostgresPanelSessionHandoffIssuerForBoundary\(input\.issuer, input\.boundary\)/);
+  assert.match(executor, /const callbackSnapshot = snapshotCallback\(callback\)/);
+  const execution = executor.slice(executor.indexOf("execute(callback"));
+  assert.doesNotMatch(execution, /callback\.state|callback\.code/);
+  assert.equal((execution.match(/rawState: callbackSnapshot\.state/g) ?? []).length, 2);
+});
+
+test("correction remains in the exact state-binding allowlist and frozen surfaces stay byte-unchanged", () => {
+  const allowed = new Set([
+    "apps/owner/lib/panel-session-handoff/initial-callback-grant.ts",
+    "apps/owner/lib/panel-session-handoff/initial-callback-grant.test.ts",
+    "apps/owner/lib/panel-session-handoff/initial-callback-executor.ts",
+    "apps/owner/lib/panel-session-handoff/initial-callback-executor.test.ts",
+    "apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts",
+    "apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.test.ts",
+    "tests/saas-phase2/panel-session-handoffs/postgres-harness.mjs",
+    "tests/saas-phase2/panel-session-handoffs/static-security.test.mjs",
+  ]);
+  for (const file of correctionChanged()) assert.equal(allowed.has(file), true, file);
+  for (const file of [
+    `apps/owner/scripts/sql/saas/${upName}`,
+    `apps/owner/scripts/sql/saas/${downName}`,
+    `apps/owner/scripts/sql/saas/${manifestName}`,
+    "apps/owner/lib/panel-session-handoff/credential-codec.ts",
+    "apps/customer-panel/lib/panel-session-handoff/postgres-handoff-redeemer.ts",
+    "apps/owner/lib/self-serve-http/runtime.ts",
+    "apps/owner/lib/self-serve-http/oidc-callback-completion.ts",
+    "package.json",
+    "package-lock.json",
+  ]) {
+    const diff = execFileSync("git", ["diff", "--name-only", correctionBase, "--", file], { cwd: root, encoding: "utf8" }).trim();
+    assert.equal(diff, "", file);
+  }
+});
+
+test("real PostgreSQL harness contains A/B substitution and callback-mutation authority proofs", () => {
+  const harness = read("tests/saas-phase2/panel-session-handoffs/postgres-harness.mjs");
+  assert.match(harness, /registration A grant rejects completed registration B state/);
+  assert.match(harness, /registration B receives zero handoff rows and random candidates/);
+  assert.match(harness, /caller callback mutation cannot create a substituted-state handoff/);
+  assert.match(harness, /isActiveInitialVerifiedCallbackGrantForState/);
+  assert.doesNotMatch(harness, /\bcountedIssuer\b|\bisActiveInitialVerifiedCallbackGrant\b/);
 });
 
 test("handoff mutation permits only first redemption and makes every authority field immutable", () => {

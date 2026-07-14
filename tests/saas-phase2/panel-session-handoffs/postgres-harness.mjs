@@ -20,7 +20,7 @@ import { createPostgresPanelSessionRepository } from "../../../apps/customer-pan
 import { createPanelSessionHandoffApproval as createOwnerHandoffApproval } from "../../../apps/owner/lib/panel-session-handoff/activation.ts";
 import { createPanelSessionHandoffCredentialCodec } from "../../../apps/owner/lib/panel-session-handoff/credential-codec.ts";
 import { createInitialCallbackPanelSessionHandoffExecutor } from "../../../apps/owner/lib/panel-session-handoff/initial-callback-executor.ts";
-import { createInitialVerifiedCallbackGrantBoundary, isActiveInitialVerifiedCallbackGrant } from "../../../apps/owner/lib/panel-session-handoff/initial-callback-grant.ts";
+import { createInitialVerifiedCallbackGrantBoundary, isActiveInitialVerifiedCallbackGrantForState } from "../../../apps/owner/lib/panel-session-handoff/initial-callback-grant.ts";
 import { createPostgresPanelSessionHandoffIssuer } from "../../../apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts";
 import { createAes256GcmPayloadCipher, createOpaqueStateDigester } from "../../../apps/owner/lib/saas-persistence/identity-crypto.ts";
 import { PostgresOidcTransactionStore } from "../../../apps/owner/lib/saas-persistence/postgres-oidc-transaction-store.ts";
@@ -297,7 +297,27 @@ class DeterministicOidcProvider {
   }
 }
 
-function registrationRuntime(registrationStore, oidcStore, completion, clock) {
+class PausedOidcProvider extends DeterministicOidcProvider {
+  constructor() {
+    super();
+    this.captured = undefined;
+    this.started = new Promise((resolve) => { this.announceStarted = resolve; });
+    this.waitForRelease = new Promise((resolve) => { this.releaseProvider = resolve; });
+  }
+
+  async verifyCallback(input) {
+    this.captured = Object.freeze({ state: input.state, code: input.code });
+    this.announceStarted();
+    await this.waitForRelease;
+    return super.verifyCallback(input);
+  }
+
+  release() {
+    this.releaseProvider();
+  }
+}
+
+function registrationRuntime(registrationStore, oidcStore, completion, clock, provider = new DeterministicOidcProvider()) {
   const boundary = createVerifiedEdgeTrustBoundary({ async verify() { return "allowed"; } });
   const runtime = createPersistentSelfServeRuntime({
     activationApproval: createSelfServeHttpActivationApproval("disposable_test"),
@@ -305,7 +325,7 @@ function registrationRuntime(registrationStore, oidcStore, completion, clock) {
     oidcTransactionStore: oidcStore,
     registrationCompletion: completion,
     consumedCallbackRecovery: registrationStore,
-    oidcProvider: new DeterministicOidcProvider(),
+    oidcProvider: provider,
     requestGate: boundary.requestGate,
     clock,
     audit: () => undefined,
@@ -352,10 +372,10 @@ function createRegistrationHarness(pool) {
       const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
       return startRegistration(setup.runtime, slug);
     },
-    async complete(slug) {
+    async complete(slug, options = {}) {
       const state = await this.start(slug);
       clock.value = new Date(Date.now() - 1_000);
-      const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
+      const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now, options.provider);
       const grantBoundary = createInitialVerifiedCallbackGrantBoundary(setup.runtime);
       return { state, slug, runtime: setup.runtime, grantBoundary };
     },
@@ -371,9 +391,9 @@ function issuer(pool, stateDigester, initialCallbackGrantBoundary, options = {})
     sessionTokenKeyId: options.sessionTokenKeyId ?? sessionKeyId,
     clock: options.clock ?? (() => new Date()),
     randomBytes: options.randomBytes ?? ((size) => new Uint8Array(randomBytes(size))),
-    randomUuid: () => randomUUID(),
+    randomUuid: options.randomUuid ?? (() => randomUUID()),
     timeouts,
-    audit: () => undefined,
+    audit: options.audit ?? (() => undefined),
     initialCallbackGrantBoundary,
   });
 }
@@ -491,16 +511,68 @@ async function run() {
     pools.push(primaryPool, poolA, poolB);
     const registrations = createRegistrationHarness(primaryPool);
 
+    const registrationB = await registrations.complete("handoff-state-binding-b");
+    const completedB = await executeVerifiedCallback(registrationB, () => Object.freeze({ kind: "registration_b_completed" }));
+    assert.equal(completedB.kind, "initial_callback_granted");
+    const registrationBDigest = registrations.stateDigester.digest(registrationB.state);
+    const registrationA = await registrations.complete("handoff-state-binding-a");
+    let stateBinding;
+    let stateBindingRandomCalls = 0;
+    let randomCallsAfterSubstitution = -1;
+    const stateBoundIssuer = issuer(primaryPool, registrations.stateDigester, registrationA.grantBoundary, {
+      randomBytes(size) { stateBindingRandomCalls += 1; return new Uint8Array(randomBytes(size)); },
+    });
+    await scenario("registration A grant rejects completed registration B state", async () => {
+      const execution = await executeVerifiedCallback(registrationA, async (grant) => {
+        assert.equal(isActiveInitialVerifiedCallbackGrantForState(registrationA.grantBoundary, grant, registrationA.state), true);
+        assert.equal(isActiveInitialVerifiedCallbackGrantForState(registrationA.grantBoundary, grant, registrationB.state), false);
+        const substituted = await stateBoundIssuer.issueHandoff({ rawState: registrationB.state, initialCallbackGrant: grant });
+        randomCallsAfterSubstitution = stateBindingRandomCalls;
+        const exact = await stateBoundIssuer.issueHandoff({ rawState: registrationA.state, initialCallbackGrant: grant });
+        return { substituted, exact };
+      });
+      assert.equal(execution.kind, "initial_callback_granted");
+      stateBinding = execution.value;
+      assert.deepEqual(stateBinding.substituted, { kind: "durable_authority_invalid" });
+    });
+    await scenario("registration B receives zero handoff rows and random candidates", async () => {
+      assert.equal(randomCallsAfterSubstitution, 0);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_session_handoffs WHERE state_digest='${registrationBDigest}';`), "0");
+    });
+    await scenario("exact registration A state creates one handoff with its bound grant", async () => {
+      assert.equal(stateBinding.exact.kind, "handoff_created");
+      assert.equal(stateBindingRandomCalls, 1);
+      assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;"), "1");
+    });
+
+    await scenario("caller callback mutation cannot create a substituted-state handoff", async () => {
+      const provider = new PausedOidcProvider();
+      const registration = await registrations.complete("handoff-callback-mutation", { provider });
+      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary);
+      const executor = createInitialCallbackPanelSessionHandoffExecutor({ runtime: registration.runtime, boundary: registration.grantBoundary, issuer: ownerIssuer });
+      const callback = { state: registration.state, code: "valid-code" };
+      const pending = executor.execute(callback);
+      await provider.started;
+      callback.state = registrationB.state;
+      callback.code = "substituted-code";
+      provider.release();
+      const execution = await pending;
+      assert.equal(execution.kind, "initial_callback_granted");
+      assert.equal(execution.value.handoff.kind, "handoff_created");
+      assert.deepEqual(provider.captured, { state: registration.state, code: "valid-code" });
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_session_handoffs WHERE state_digest='${registrationBDigest}';`), "0");
+      const mutationDigest = registrations.stateDigester.digest(registration.state);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_session_handoffs WHERE state_digest='${mutationDigest}';`), "1");
+    });
+
     let primary;
     await scenario("1 initial provider-verified callback creates one active grant", async () => {
       const registration = await registrations.complete("handoff-primary");
-      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary);
       let issuerCalls = 0;
-      const countedIssuer = {
-        issueHandoff(input) { issuerCalls += 1; return ownerIssuer.issueHandoff(input); },
-        recoverHandoff(input) { return ownerIssuer.recoverHandoff(input); },
-      };
-      const executor = createInitialCallbackPanelSessionHandoffExecutor({ runtime: registration.runtime, boundary: registration.grantBoundary, issuer: countedIssuer });
+      const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary, {
+        audit() { issuerCalls += 1; },
+      });
+      const executor = createInitialCallbackPanelSessionHandoffExecutor({ runtime: registration.runtime, boundary: registration.grantBoundary, issuer: ownerIssuer });
       const execution = await executor.execute({ state: registration.state, code: "valid-code" });
       assert.equal(execution.kind, "initial_callback_granted");
       if (execution.kind !== "initial_callback_granted") throw new Error("verified callback grant missing");
@@ -511,7 +583,8 @@ async function run() {
     await scenario("2 active grant creates one random handoff", async () => {
       assert.equal(primary.handoff.kind, "handoff_created");
       assert.match(primary.handoff.credential, /^h1\.handoff\.active\.v1\.[A-Za-z0-9_-]{43}$/);
-      assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;"), "1");
+      const primaryDigest = registrations.stateDigester.digest(primary.registration.state);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_session_handoffs WHERE state_digest='${primaryDigest}';`), "1");
     });
     const firstHandoff = primary.handoff;
     if (firstHandoff.kind !== "handoff_created") throw new Error("primary handoff missing");
@@ -540,7 +613,7 @@ async function run() {
       const registration = await registrations.complete("handoff-exact-candidate");
       const ownerIssuer = issuer(primaryPool, registrations.stateDigester, registration.grantBoundary);
       const execution = await executeVerifiedCallback(registration, async (grant) => {
-        assert.equal(isActiveInitialVerifiedCallbackGrant(registration.grantBoundary, grant), true);
+        assert.equal(isActiveInitialVerifiedCallbackGrantForState(registration.grantBoundary, grant, registration.state), true);
         const created = await ownerIssuer.issueHandoff({ rawState: registration.state, initialCallbackGrant: grant });
         if (created.kind !== "handoff_created") throw new Error("candidate missing");
         const recovered = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: created.credential, initialCallbackGrant: grant });
@@ -596,13 +669,15 @@ async function run() {
         const unknown = await ownerIssuer.issueHandoff({ rawState: registration.state, initialCallbackGrant: grant });
         assert.equal(unknown.kind, "commit_unknown");
         const missing = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: undefined, initialCallbackGrant: grant });
+        const substituted = await ownerIssuer.recoverHandoff({ rawState: registrationB.state, candidateCredential: unknown.credential, initialCallbackGrant: grant });
         const recovered = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: unknown.credential, initialCallbackGrant: grant });
-        return { unknown, missing, recovered };
+        return { unknown, missing, substituted, recovered };
       });
       commitRecovery = execution.value;
       missingCandidate = commitRecovery.missing;
       assert.equal(commitRecovery.recovered.kind, "handoff_replayed");
       assert.equal(commitRecovery.recovered.credential, commitRecovery.unknown.credential);
+      assert.deepEqual(commitRecovery.substituted, { kind: "durable_authority_invalid" });
       processReplay = await ownerIssuer.recoverHandoff({ rawState: registration.state, candidateCredential: commitRecovery.unknown.credential, initialCallbackGrant: {} });
     });
     await scenario("12 missing candidate cannot recover handoff", async () => assert.deepEqual(missingCandidate, { kind: "durable_authority_invalid" }));
@@ -738,7 +813,7 @@ async function run() {
   if (runError) throw runError;
   await scenario("complete cleanup", async () => assert.equal(existsSync(temporaryDirectory), false));
   await scenario("external network count zero", async () => assert.equal(externalNetworkAttempts, 0));
-  assert.equal(scenarios, 26);
+  assert.equal(scenarios, 30);
   process.stdout.write(`${JSON.stringify({
     status: "PASS",
     backend: backend.kind === "native" ? "native-postgresql" : backend.engine,

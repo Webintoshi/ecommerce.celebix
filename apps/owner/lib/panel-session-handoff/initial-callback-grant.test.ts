@@ -10,12 +10,14 @@ import {
 } from "../self-serve-http/runtime.ts";
 import {
   createInitialVerifiedCallbackGrantBoundary,
-  isActiveInitialVerifiedCallbackGrant,
+  isActiveInitialVerifiedCallbackGrantForState,
 } from "./initial-callback-grant.ts";
 
 const NOW = new Date("2026-07-14T10:00:00.000Z");
 const STATE = "state_0123456789abcdefghijklmnop";
+const OTHER_STATE = "state_other_0123456789abcdefghijk";
 const CODE = "verified-code";
+const OTHER_CODE = "substituted-code";
 const CALLBACK = "https://panel.celebix.site/auth/callback";
 const ISSUER = "https://identity.example.test/oidc";
 const AUDIENCE = "customer-panel";
@@ -28,10 +30,15 @@ const tenantResult = {
   replayed: false,
 } as CreateStarterTenantResult;
 
-function fixture(completionKind: "tenant_created" | "in_progress" = "tenant_created") {
+function fixture(
+  completionKind: "tenant_created" | "in_progress" = "tenant_created",
+  hooks: { providerStarted?(): void; waitForProviderRelease?(): Promise<void> } = {},
+) {
   let consumed = false;
   let providerCalls = 0;
   let recoveryCalls = 0;
+  const providerInputs: Array<{ state: string; code: string }> = [];
+  const attemptStates: string[] = [];
   const runtime = createPersistentSelfServeRuntime({
     activationApproval: createSelfServeHttpActivationApproval("disposable_test"),
     oidcTransactionStore: {
@@ -56,7 +63,8 @@ function fixture(completionKind: "tenant_created" | "in_progress" = "tenant_crea
     },
     registrationAttemptStore: {
       async save() {},
-      async consume() {
+      async consume(state: string) {
+        attemptStates.push(state);
         return {
           id: "attempt_0123456789abcdefghijklmnop",
           state: STATE,
@@ -78,8 +86,11 @@ function fixture(completionKind: "tenant_created" | "in_progress" = "tenant_crea
     },
     oidcProvider: {
       buildAuthorizationUrl() { throw new Error("not used"); },
-      async verifyCallback() {
+      async verifyCallback(input) {
         providerCalls += 1;
+        providerInputs.push({ state: input.state, code: input.code });
+        hooks.providerStarted?.();
+        await hooks.waitForProviderRelease?.();
         return {
           issuer: ISSUER,
           subject: "subject-verified",
@@ -121,6 +132,8 @@ function fixture(completionKind: "tenant_created" | "in_progress" = "tenant_crea
     runtime,
     get providerCalls() { return providerCalls; },
     get recoveryCalls() { return recoveryCalls; },
+    providerInputs,
+    attemptStates,
   };
 }
 
@@ -134,7 +147,8 @@ test("current provider-verified callback owns one frozen active grant with no se
     assert.equal(Object.isFrozen(grant), true);
     assert.deepEqual(Object.keys(grant), []);
     assert.deepEqual(JSON.parse(JSON.stringify(grant)), {});
-    assert.equal(isActiveInitialVerifiedCallbackGrant(boundary, grant), true);
+    assert.equal(isActiveInitialVerifiedCallbackGrantForState(boundary, grant, STATE), true);
+    assert.equal(isActiveInitialVerifiedCallbackGrantForState(boundary, grant, OTHER_STATE), false);
     assert.equal(completion.kind, "tenant_created_session_pending");
     return "work-completed" as const;
   });
@@ -151,10 +165,10 @@ test("current provider-verified callback owns one frozen active grant with no se
   });
   assert.equal(current.providerCalls, 1);
   assert.equal(current.recoveryCalls, 0);
-  assert.equal(isActiveInitialVerifiedCallbackGrant(boundary, captured), false);
-  assert.equal(isActiveInitialVerifiedCallbackGrant(boundary, { ...(captured as object) }), false);
-  assert.equal(isActiveInitialVerifiedCallbackGrant(boundary, JSON.parse(JSON.stringify(captured))), false);
-  assert.equal(isActiveInitialVerifiedCallbackGrant(boundary, { kind: "tenant_created_session_pending" }), false);
+  assert.equal(isActiveInitialVerifiedCallbackGrantForState(boundary, captured, STATE), false);
+  assert.equal(isActiveInitialVerifiedCallbackGrantForState(boundary, { ...(captured as object) }, STATE), false);
+  assert.equal(isActiveInitialVerifiedCallbackGrantForState(boundary, JSON.parse(JSON.stringify(captured)), STATE), false);
+  assert.equal(isActiveInitialVerifiedCallbackGrantForState(boundary, { kind: "tenant_created_session_pending" }, STATE), false);
 });
 
 test("consumed callback and cross-boundary copies receive no grant and never use recovery", async () => {
@@ -165,7 +179,7 @@ test("consumed callback and cross-boundary copies receive no grant and never use
   let crossBoundaryAccepted = false;
   await boundary.executeInitialCallback({ state: STATE, code: CODE }, async (grant) => {
     workCalls += 1;
-    crossBoundaryAccepted = isActiveInitialVerifiedCallbackGrant(otherBoundary, grant);
+    crossBoundaryAccepted = isActiveInitialVerifiedCallbackGrantForState(otherBoundary, grant, STATE);
   });
   const replay = await boundary.executeInitialCallback({ state: STATE, code: CODE }, async () => { workCalls += 1; });
   assert.deepEqual(replay, { kind: "initial_callback_replayed" });
@@ -173,6 +187,36 @@ test("consumed callback and cross-boundary copies receive no grant and never use
   assert.equal(crossBoundaryAccepted, false);
   assert.equal(current.providerCalls, 1);
   assert.equal(current.recoveryCalls, 0);
+});
+
+test("callback snapshot survives caller mutation and privately binds the grant to the original exact state", async () => {
+  let announceProvider!: () => void;
+  const providerStarted = new Promise<void>((resolve) => { announceProvider = resolve; });
+  let releaseProvider!: () => void;
+  const providerRelease = new Promise<void>((resolve) => { releaseProvider = resolve; });
+  const current = fixture("tenant_created", {
+    providerStarted: announceProvider,
+    waitForProviderRelease: () => providerRelease,
+  });
+  const boundary = createInitialVerifiedCallbackGrantBoundary(current.runtime);
+  const callback = { state: STATE, code: CODE };
+  let acceptedOriginal = false;
+  let acceptedSubstitution = true;
+  const pending = boundary.executeInitialCallback(callback, (grant) => {
+    acceptedOriginal = isActiveInitialVerifiedCallbackGrantForState(boundary, grant, STATE);
+    acceptedSubstitution = isActiveInitialVerifiedCallbackGrantForState(boundary, grant, OTHER_STATE);
+  });
+  await providerStarted;
+  callback.state = OTHER_STATE;
+  callback.code = OTHER_CODE;
+  releaseProvider();
+  const result = await pending;
+
+  assert.equal(result.kind, "initial_callback_granted");
+  assert.deepEqual(current.providerInputs, [{ state: STATE, code: CODE }]);
+  assert.deepEqual(current.attemptStates, [STATE]);
+  assert.equal(acceptedOriginal, true);
+  assert.equal(acceptedSubstitution, false);
 });
 
 test("non-terminal completion creates no grant and does not invoke work", async () => {

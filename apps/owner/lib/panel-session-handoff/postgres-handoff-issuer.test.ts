@@ -8,10 +8,14 @@ import { OidcFlowError } from "../self-serve-oidc.ts";
 import { createPersistentSelfServeRuntime, createSelfServeHttpActivationApproval } from "../self-serve-http/runtime.ts";
 import { createPanelSessionHandoffApproval } from "./activation.ts";
 import { createInitialVerifiedCallbackGrantBoundary } from "./initial-callback-grant.ts";
-import { createPostgresPanelSessionHandoffIssuer } from "./postgres-handoff-issuer.ts";
+import {
+  createPostgresPanelSessionHandoffIssuer,
+  isPostgresPanelSessionHandoffIssuerForBoundary,
+} from "./postgres-handoff-issuer.ts";
 
 const NOW = new Date("2026-07-14T10:00:00.000Z");
 const RAW_STATE = "state_1234567890abcdefghijklmnop";
+const OTHER_STATE = "state_other_1234567890abcdefghijk";
 const STATE_DIGEST = "a".repeat(64);
 const HANDOFF_KEY_ID = "handoff.active.v1";
 const HANDOFF_KEY = new Uint8Array(32).fill(0x41);
@@ -114,6 +118,9 @@ function harness(responder: Responder, options: { commitFailure?: boolean } = {}
   let connects = 0;
   let random = 0;
   let randomByteCalls = 0;
+  let randomUuidCalls = 0;
+  let stateDigesterCalls = 0;
+  let clockCalls = 0;
   let failNextWriteCommit = options.commitFailure === true;
   const approvedRuntime = runtime();
   const boundary = createInitialVerifiedCallbackGrantBoundary(approvedRuntime);
@@ -141,13 +148,13 @@ function harness(responder: Responder, options: { commitFailure?: boolean } = {}
   };
   const dependencies = {
     pool,
-    stateDigester: { digest(state: string) { assert.equal(state, RAW_STATE); return STATE_DIGEST; } },
+    stateDigester: { digest(state: string) { stateDigesterCalls += 1; assert.equal(state, RAW_STATE); return STATE_DIGEST; } },
     handoffKeys,
     activeHandoffKeyId: HANDOFF_KEY_ID,
     sessionTokenKeyId: SESSION_KEY_ID,
-    clock: () => new Date(NOW),
+    clock: () => { clockCalls += 1; return new Date(NOW); },
     randomBytes(size: number) { randomByteCalls += 1; assert.equal(size, 32); return new Uint8Array(RANDOM); },
-    randomUuid: () => UUIDS[random++] ?? UUIDS.at(-1)!,
+    randomUuid: () => { randomUuidCalls += 1; return UUIDS[random++] ?? UUIDS.at(-1)!; },
     timeouts: { poolCheckoutMs: 1000, statementMs: 1000, lockMs: 1000, idleTransactionMs: 1000 },
     audit() {},
     initialCallbackGrantBoundary: boundary,
@@ -162,6 +169,8 @@ function harness(responder: Responder, options: { commitFailure?: boolean } = {}
   return {
     issuer, boundary, approvedRuntime, dependencies, pool, handoffKeys, handoffKey, oldKey, calls, releases, withGrant,
     get connects() { return connects; }, get randomByteCalls() { return randomByteCalls; },
+    get randomUuidCalls() { return randomUuidCalls; }, get stateDigesterCalls() { return stateDigesterCalls; },
+    get clockCalls() { return clockCalls; },
   };
 }
 
@@ -183,6 +192,34 @@ test("missing, plain, expired, and cross-boundary grants fail before database ac
   await h.boundary.executeInitialCallback({ state: RAW_STATE, code: "verified-code" }, (grant) => { expired = grant; });
   assert.deepEqual(await h.issuer.issueHandoff({ rawState: RAW_STATE, initialCallbackGrant: expired as never }), { kind: "durable_authority_invalid" });
   assert.equal(h.connects, 0);
+});
+
+test("state-bound grant rejects issue and recovery for another state before every authority dependency", async () => {
+  const h = harness(() => { throw new Error("must not query"); });
+  const results = await h.withGrant(async (initialCallbackGrant) => [
+    await h.issuer.issueHandoff({ rawState: OTHER_STATE, initialCallbackGrant }),
+    await h.issuer.recoverHandoff({ rawState: OTHER_STATE, candidateCredential: credential().value, initialCallbackGrant }),
+  ] as const);
+  assert.deepEqual(results, [{ kind: "durable_authority_invalid" }, { kind: "durable_authority_invalid" }]);
+  assert.equal(h.stateDigesterCalls, 0);
+  assert.equal(h.randomByteCalls, 0);
+  assert.equal(h.randomUuidCalls, 0);
+  assert.equal(h.clockCalls, 0);
+  assert.equal(h.connects, 0);
+  assert.deepEqual(h.calls, []);
+});
+
+test("only genuine issuer instances authenticate for their exact configured grant boundary", () => {
+  const h = harness(() => { throw new Error("not used"); });
+  const otherBoundary = createInitialVerifiedCallbackGrantBoundary(runtime());
+  const fake = {
+    issueHandoff: h.issuer.issueHandoff,
+    recoverHandoff: h.issuer.recoverHandoff,
+  };
+  assert.equal(isPostgresPanelSessionHandoffIssuerForBoundary(h.issuer, h.boundary), true);
+  assert.equal(isPostgresPanelSessionHandoffIssuerForBoundary(h.issuer, otherBoundary), false);
+  assert.equal(isPostgresPanelSessionHandoffIssuerForBoundary(fake, h.boundary), false);
+  assert.equal(isPostgresPanelSessionHandoffIssuerForBoundary({ ...h.issuer }, h.boundary), false);
 });
 
 test("first creation uses a random candidate and sends only state/candidate digests to PostgreSQL", async () => {

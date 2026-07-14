@@ -9,10 +9,28 @@ import {
   type InitialVerifiedCallbackCompletion,
   type InitialVerifiedCallbackGrantBoundary,
 } from "./initial-callback-grant.ts";
-import type {
-  PanelSessionHandoffIssuerResult,
-  PostgresPanelSessionHandoffIssuer,
+import {
+  isPostgresPanelSessionHandoffIssuerForBoundary,
+  type PanelSessionHandoffIssuerResult,
+  type PostgresPanelSessionHandoffIssuer,
 } from "./postgres-handoff-issuer.ts";
+
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
+
+function callbackValue(value: unknown, minimum: number, maximum: number): string {
+  if (typeof value !== "string" || value.length < minimum || value.length > maximum
+    || value.trim() !== value || CONTROL_CHARACTER.test(value)) {
+    throw new Error("initial_callback_handoff_executor_invalid");
+  }
+  return value;
+}
+
+function snapshotCallback(callback: OidcCallbackInput): Readonly<OidcCallbackInput> {
+  if (!callback || typeof callback !== "object") throw new Error("initial_callback_handoff_executor_invalid");
+  const state = callbackValue(callback.state, 16, 1_024);
+  const code = callbackValue(callback.code, 1, 4_096);
+  return Object.freeze({ state, code });
+}
 
 export interface InitialCallbackPanelSessionHandoffResult {
   completion: InitialVerifiedCallbackCompletion;
@@ -33,7 +51,7 @@ export function createInitialCallbackPanelSessionHandoffExecutor(input: {
   if (!isInitialVerifiedCallbackGrantBoundaryForRuntime(input.boundary, input.runtime)) {
     throw new Error("initial_callback_handoff_executor_invalid");
   }
-  if (!input.issuer || typeof input.issuer.issueHandoff !== "function" || typeof input.issuer.recoverHandoff !== "function") {
+  if (!isPostgresPanelSessionHandoffIssuerForBoundary(input.issuer, input.boundary)) {
     throw new Error("initial_callback_handoff_executor_invalid");
   }
   const boundary = input.boundary;
@@ -41,14 +59,15 @@ export function createInitialCallbackPanelSessionHandoffExecutor(input: {
 
   return Object.freeze({
     execute(callback: OidcCallbackInput) {
-      return boundary.executeInitialCallback(callback, async (initialCallbackGrant, completion) => {
+      const callbackSnapshot = snapshotCallback(callback);
+      return boundary.executeInitialCallback(callbackSnapshot, async (initialCallbackGrant, completion) => {
         const handoff = await issuer.issueHandoff({
-          rawState: callback.state,
+          rawState: callbackSnapshot.state,
           initialCallbackGrant,
         });
         const recovered = handoff.kind === "commit_unknown"
           ? await issuer.recoverHandoff({
-            rawState: callback.state,
+            rawState: callbackSnapshot.state,
             candidateCredential: handoff.credential,
             initialCallbackGrant,
           })
