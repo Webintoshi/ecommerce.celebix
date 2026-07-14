@@ -17,6 +17,7 @@ const MAXIMUM_TIMESTAMP_AGE_MS = 60_000;
 const MAXIMUM_FUTURE_SKEW_MS = 5_000;
 const SUCCESS_PARAMETERS = new Set(["state", "code"]);
 const ERROR_PARAMETERS = new Set(["state", "error", "error_description", "error_uri"]);
+const authenticatedRequests = new WeakMap<object, Uint8Array>();
 
 export type OwnerInternalCallbackGatewayApproval = Readonly<{
   purpose: "phase2b1b2b_owner_internal_callback_gateway";
@@ -180,6 +181,27 @@ function exactCallbackUrl(value: unknown): string {
   return value;
 }
 
+export type ReconstructedOwnerCallbackRequest = Readonly<
+  | { kind: "success"; callbackUrl: string; state: string; code: string }
+  | { kind: "provider_error"; callbackUrl: string; state: string; error: string }
+>;
+
+export function classifyReconstructedOwnerCallbackRequest(request: Request): ReconstructedOwnerCallbackRequest {
+  if (
+    !(request instanceof Request) || request.method !== "GET" || request.body !== null ||
+    [...request.headers].length !== 0
+  ) throw new Error("owner_internal_callback_request_invalid");
+  let callbackUrl: string;
+  try { callbackUrl = exactCallbackUrl(request.url); }
+  catch { throw new Error("owner_internal_callback_request_invalid"); }
+  const search = new URL(callbackUrl).searchParams;
+  const state = exactSingle(search, "state", 1_024);
+  if (search.has("code")) {
+    return Object.freeze({ kind: "success", callbackUrl, state, code: exactSingle(search, "code", 4_096) });
+  }
+  return Object.freeze({ kind: "provider_error", callbackUrl, state, error: exactSingle(search, "error", 256) });
+}
+
 function parseCanonicalEnvelope(bytes: Uint8Array): string {
   const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const parsed = JSON.parse(raw) as unknown;
@@ -195,6 +217,127 @@ function parseCanonicalEnvelope(bytes: Uint8Array): string {
   return callbackUrl;
 }
 
+export type OwnerInternalCallbackAuthenticationStage =
+  | "request_validation"
+  | "body_read"
+  | "authentication"
+  | "envelope_validation";
+
+export class OwnerInternalCallbackAuthenticationError extends Error {
+  readonly status: number;
+  readonly stage: OwnerInternalCallbackAuthenticationStage;
+
+  constructor(stage: OwnerInternalCallbackAuthenticationStage, status: number) {
+    super("owner_internal_callback_authentication_failed");
+    this.name = "OwnerInternalCallbackAuthenticationError";
+    this.stage = stage;
+    this.status = status;
+  }
+}
+
+export type AuthenticatedOwnerInternalCallbackRequest = Readonly<{
+  callbackUrl: string;
+  keyId: string;
+  timestamp: string;
+  requestBodyDigest: string;
+}>;
+
+function authenticationFailure(
+  stage: OwnerInternalCallbackAuthenticationStage,
+  status: number,
+): never {
+  throw new OwnerInternalCallbackAuthenticationError(stage, status);
+}
+
+function copyAuthenticationKeys(input: ReadonlyMap<string, Uint8Array>): ReadonlyMap<string, Uint8Array> {
+  if (!(input instanceof Map) || input.size < 1 || input.size > 16) invalid();
+  const keys = new Map<string, Uint8Array>();
+  for (const [keyId, secret] of input) {
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(keyId) || !(secret instanceof Uint8Array) || secret.byteLength < 32 || secret.byteLength > 64) invalid();
+    keys.set(keyId, new Uint8Array(secret));
+  }
+  return keys;
+}
+
+export function createOwnerInternalCallbackRequestAuthenticator(options: {
+  ownerInternalOrigin: string;
+  keys: ReadonlyMap<string, Uint8Array>;
+  clock(): Date;
+  maximumBodyBytes: number;
+}) {
+  const origin = exactOrigin(options.ownerInternalOrigin);
+  const keys = copyAuthenticationKeys(options.keys);
+  const maximumBodyBytes = bounded(options.maximumBodyBytes, 65_536);
+  if (typeof options.clock !== "function") invalid();
+  const endpoint = `${origin}${SELF_SERVE_INTERNAL_CALLBACK_PATH}`;
+  const clock = options.clock;
+
+  return Object.freeze({
+    endpoint,
+    async authenticate(request: Request): Promise<AuthenticatedOwnerInternalCallbackRequest> {
+      let keyId: string;
+      let timestamp: string;
+      let signatureBytes: Uint8Array;
+      try {
+        if (!(request instanceof Request) || request.method !== "POST") authenticationFailure("request_validation", 405);
+        const url = new URL(request.url);
+        if (url.toString() !== endpoint || url.origin !== origin || url.pathname !== SELF_SERVE_INTERNAL_CALLBACK_PATH || url.search || url.hash) {
+          throw new Error("invalid_request");
+        }
+        if (request.headers.get("content-type") !== "application/json; charset=utf-8") throw new Error("invalid_request");
+        keyId = exactHeader(request.headers, "x-celebix-callback-key-id", /^[A-Za-z0-9._-]{1,64}$/);
+        timestamp = exactHeader(request.headers, "x-celebix-callback-timestamp", /^\d+$/);
+        signatureBytes = canonicalSignatureBytes(exactHeader(request.headers, "x-celebix-callback-signature", /^[A-Za-z0-9_-]+$/));
+        const timestampNumber = Number(timestamp);
+        const now = clock();
+        if (
+          !Number.isSafeInteger(timestampNumber) || String(timestampNumber) !== timestamp || !(now instanceof Date) || !Number.isFinite(now.getTime()) ||
+          now.getTime() - timestampNumber > MAXIMUM_TIMESTAMP_AGE_MS || timestampNumber - now.getTime() > MAXIMUM_FUTURE_SKEW_MS
+        ) throw new Error("unauthorized");
+        const declared = request.headers.get("content-length");
+        if (declared !== null && (!/^\d+$/.test(declared) || !Number.isSafeInteger(Number(declared)))) throw new Error("invalid_request");
+        if (declared !== null && Number(declared) > maximumBodyBytes) throw new Error("too_large");
+      } catch (error) {
+        if (error instanceof OwnerInternalCallbackAuthenticationError) throw error;
+        const code = error instanceof Error ? error.message : "invalid_request";
+        authenticationFailure("request_validation", code === "too_large" ? 413 : code === "unauthorized" ? 401 : 400);
+      }
+
+      let rawBytes: Uint8Array;
+      try { rawBytes = await boundedRequestBytes(request, maximumBodyBytes); }
+      catch (error) {
+        authenticationFailure("body_read", error instanceof Error && error.message === "too_large" ? 413 : 400);
+      }
+      const requestBodyDigest = createHash("sha256").update(rawBytes).digest("hex");
+      const secret = keys.get(keyId);
+      if (!secret) authenticationFailure("authentication", 401);
+      const expected = createHmac("sha256", secret)
+        .update(`celebix-callback-v1\n${timestamp}\n${requestBodyDigest}`)
+        .digest();
+      if (signatureBytes.byteLength !== expected.byteLength || !timingSafeEqual(signatureBytes, expected)) {
+        authenticationFailure("authentication", 401);
+      }
+      let callbackUrl: string;
+      try { callbackUrl = parseCanonicalEnvelope(rawBytes); }
+      catch { authenticationFailure("envelope_validation", 400); }
+      const authenticated = Object.freeze({ callbackUrl, keyId, timestamp, requestBodyDigest });
+      authenticatedRequests.set(authenticated, new Uint8Array(secret));
+      return authenticated;
+    },
+  });
+}
+
+export function signWithAuthenticatedInternalCallbackRequest(
+  authenticated: AuthenticatedOwnerInternalCallbackRequest,
+  domainSeparatedPreimage: string,
+): string {
+  const secret = authenticated && typeof authenticated === "object" ? authenticatedRequests.get(authenticated) : undefined;
+  if (!secret || typeof domainSeparatedPreimage !== "string" || domainSeparatedPreimage.length < 1 || domainSeparatedPreimage.length > 8_192) {
+    throw new Error("owner_internal_callback_authenticated_request_invalid");
+  }
+  return createHmac("sha256", secret).update(domainSeparatedPreimage, "utf8").digest("base64url");
+}
+
 export function createDisabledOwnerInternalSelfServeCallbackGateway() {
   return async function disabledOwnerInternalSelfServeCallbackGateway(request: Request): Promise<Response> {
     return request.method === "POST"
@@ -205,88 +348,39 @@ export function createDisabledOwnerInternalSelfServeCallbackGateway() {
 
 export function createOwnerInternalSelfServeCallbackGateway(options: GatewayOptions) {
   assertApproval(options?.activationApproval);
-  const origin = exactOrigin(options.ownerInternalOrigin);
-  const maximumBodyBytes = bounded(options.maximumBodyBytes, 65_536);
   const maximumResponseBytes = bounded(options.maximumResponseBytes, 65_536);
   assertVerifiedEdgeTrustBoundary(options.edgeTrustBoundary);
   if (
-    !(options.keys instanceof Map) || options.keys.size < 1 || options.keys.size > 16 || typeof options.clock !== "function" ||
     typeof options.callbackHandler !== "function" || typeof options.audit !== "function"
   ) invalid();
-  const keys = new Map<string, Uint8Array>();
-  for (const [keyId, secret] of options.keys) {
-    if (!/^[A-Za-z0-9._-]{1,64}$/.test(keyId) || !(secret instanceof Uint8Array) || secret.byteLength < 32 || secret.byteLength > 64) invalid();
-    keys.set(keyId, new Uint8Array(secret));
-  }
-  const endpoint = `${origin}${SELF_SERVE_INTERNAL_CALLBACK_PATH}`;
-  const clock = options.clock;
+  const authenticator = createOwnerInternalCallbackRequestAuthenticator({
+    ownerInternalOrigin: options.ownerInternalOrigin,
+    keys: options.keys,
+    clock: options.clock,
+    maximumBodyBytes: options.maximumBodyBytes,
+  });
   const boundary = options.edgeTrustBoundary;
   const callbackHandler = options.callbackHandler;
   const audit = options.audit;
 
   return async function ownerInternalSelfServeCallbackGateway(request: Request): Promise<Response> {
-    let keyId: string;
-    let timestampRaw: string;
-    let signatureBytes: Uint8Array;
-    let timestamp: number;
-    try {
-      if (request.method !== "POST") return response("self_serve_internal_callback_method_not_allowed", 405);
-      const url = new URL(request.url);
-      if (url.toString() !== endpoint || url.origin !== origin || url.pathname !== SELF_SERVE_INTERNAL_CALLBACK_PATH || url.search || url.hash) {
-        throw new Error("invalid_request");
-      }
-      if (request.headers.get("content-type") !== "application/json; charset=utf-8") throw new Error("invalid_request");
-      keyId = exactHeader(request.headers, "x-celebix-callback-key-id", /^[A-Za-z0-9._-]{1,64}$/);
-      timestampRaw = exactHeader(request.headers, "x-celebix-callback-timestamp", /^\d+$/);
-      signatureBytes = canonicalSignatureBytes(exactHeader(request.headers, "x-celebix-callback-signature", /^[A-Za-z0-9_-]+$/));
-      timestamp = Number(timestampRaw);
-      const now = clock();
-      if (
-        !Number.isSafeInteger(timestamp) || String(timestamp) !== timestampRaw || !(now instanceof Date) || !Number.isFinite(now.getTime()) ||
-        now.getTime() - timestamp > MAXIMUM_TIMESTAMP_AGE_MS || timestamp - now.getTime() > MAXIMUM_FUTURE_SKEW_MS
-      ) throw new Error("unauthorized");
-      const declared = request.headers.get("content-length");
-      if (declared !== null && (!/^\d+$/.test(declared) || !Number.isSafeInteger(Number(declared)))) throw new Error("invalid_request");
-      if (declared !== null && Number(declared) > maximumBodyBytes) throw new Error("too_large");
-    } catch (error) {
-      const code = error instanceof Error ? error.message : "invalid_request";
-      const status = code === "too_large" ? 413 : code === "unauthorized" ? 401 : 400;
-      auditSafely(audit, { stage: "request_validation", outcome: "rejected" });
-      return response(status === 401 ? "self_serve_internal_callback_untrusted" : "self_serve_internal_callback_invalid", status);
-    }
-
-    let rawBytes: Uint8Array;
-    try { rawBytes = await boundedRequestBytes(request, maximumBodyBytes); }
+    if (request.method !== "POST") return response("self_serve_internal_callback_method_not_allowed", 405);
+    let authenticated: AuthenticatedOwnerInternalCallbackRequest;
+    try { authenticated = await authenticator.authenticate(request); }
     catch (error) {
-      const status = error instanceof Error && error.message === "too_large" ? 413 : 400;
-      auditSafely(audit, { stage: "body_read", outcome: "rejected" });
-      return response("self_serve_internal_callback_invalid", status);
-    }
-
-    const digest = createHash("sha256").update(rawBytes).digest("hex");
-    const secret = keys.get(keyId);
-    if (!secret) {
-      auditSafely(audit, { stage: "authentication", outcome: "rejected" });
-      return response("self_serve_internal_callback_untrusted", 401);
-    }
-    const expected = createHmac("sha256", secret)
-      .update(`celebix-callback-v1\n${timestampRaw}\n${digest}`)
-      .digest();
-    if (signatureBytes.byteLength !== expected.byteLength || !timingSafeEqual(signatureBytes, expected)) {
-      auditSafely(audit, { stage: "authentication", outcome: "rejected" });
-      return response("self_serve_internal_callback_untrusted", 401);
-    }
-
-    let callbackUrl: string;
-    try { callbackUrl = parseCanonicalEnvelope(rawBytes); }
-    catch {
-      auditSafely(audit, { stage: "envelope_validation", outcome: "rejected" });
-      return response("self_serve_internal_callback_invalid", 400);
+      const failure = error instanceof OwnerInternalCallbackAuthenticationError
+        ? error
+        : new OwnerInternalCallbackAuthenticationError("request_validation", 400);
+      auditSafely(audit, { stage: failure.stage, outcome: "rejected" });
+      return response(
+        failure.status === 401 ? "self_serve_internal_callback_untrusted" : "self_serve_internal_callback_invalid",
+        failure.status,
+      );
     }
 
     try {
       const projected = await boundary.invokeWithVerifiedContext(async (context) => {
-        const callbackRequest = new Request(callbackUrl, { method: "GET" });
+        const callbackRequest = new Request(authenticated.callbackUrl, { method: "GET" });
         const callbackResponse = await callbackHandler(callbackRequest, context);
         return projectOwnerInternalCallbackResponse(callbackResponse, maximumResponseBytes);
       });

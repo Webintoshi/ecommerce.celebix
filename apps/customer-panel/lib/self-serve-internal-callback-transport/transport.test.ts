@@ -5,6 +5,7 @@ import test from "node:test";
 import { createCustomerPanelCallbackEdgeApproval } from "../self-serve-callback-edge/edge.ts";
 import {
   canonicalInternalCallbackEnvelope,
+  createAuthenticatedInternalCallbackRequest,
   createAuthenticatedOwnerCallbackTransport,
   internalCallbackSignaturePreimage,
   sha256Hex,
@@ -60,6 +61,32 @@ test("canonical envelope, raw hash, signature preimage, and base64url signature 
   const expected = createHmac("sha256", SECRET).update(preimage).digest("base64url");
   assert.equal(signature, expected);
   assert.match(String(signature), /^[A-Za-z0-9_-]{43}$/);
+});
+
+test("shared request signer returns the exact opaque request authentication projection", async () => {
+  const signed = await createAuthenticatedInternalCallbackRequest({
+    endpoint: ENDPOINT,
+    callbackUrl: CALLBACK,
+    activeKeyId: "key.rotation-1",
+    activeSecret: SECRET,
+    clock: () => new Date(NOW),
+  });
+  const body = canonicalInternalCallbackEnvelope(CALLBACK);
+  const digest = createHash("sha256").update(body).digest("hex");
+  assert.deepEqual(
+    { keyId: signed.keyId, timestamp: signed.timestamp, requestBodyDigest: signed.requestBodyDigest },
+    { keyId: "key.rotation-1", timestamp: String(NOW.getTime()), requestBodyDigest: digest },
+  );
+  assert.equal(Object.isFrozen(signed), true);
+  assert.equal(signed.request.method, "POST");
+  assert.equal(signed.request.url, ENDPOINT);
+  assert.equal(await signed.request.clone().text(), body);
+  assert.equal(
+    signed.request.headers.get("x-celebix-callback-signature"),
+    createHmac("sha256", SECRET)
+      .update(internalCallbackSignaturePreimage(String(NOW.getTime()), digest))
+      .digest("base64url"),
+  );
 });
 
 test("transport copies a 32-64 byte secret and validates key ID and exact Owner origin", async () => {

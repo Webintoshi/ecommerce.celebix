@@ -169,15 +169,22 @@ test("protocol constants, canonical body, raw-body HMAC, timestamp bounds, and c
 });
 
 test("gateway authenticates exact raw bytes before JSON parsing or business invocation", () => {
+  const authenticator = gateway.slice(
+    gateway.indexOf("async authenticate(request"),
+    gateway.indexOf("export function signWithAuthenticatedInternalCallbackRequest"),
+  );
+  const rawRead = authenticator.indexOf("boundedRequestBytes(request");
+  const digest = authenticator.indexOf("createHash(\"sha256\")");
+  const key = authenticator.indexOf("keys.get(keyId)");
+  const compare = authenticator.indexOf("timingSafeEqual(signatureBytes, expected)");
+  const parse = authenticator.indexOf("parseCanonicalEnvelope(rawBytes)");
+  assert.equal([rawRead, digest, key, compare, parse].every((index) => index >= 0), true);
+  assert.equal(rawRead < digest && digest < key && key < compare && compare < parse, true);
+
   const handler = gateway.slice(gateway.indexOf("return async function ownerInternalSelfServeCallbackGateway"));
-  const rawRead = handler.indexOf("boundedRequestBytes(request");
-  const digest = handler.indexOf("createHash(\"sha256\")");
-  const key = handler.indexOf("keys.get(keyId)");
-  const compare = handler.indexOf("timingSafeEqual(signatureBytes, expected)");
-  const parse = handler.indexOf("parseCanonicalEnvelope(rawBytes)");
+  const authenticate = handler.indexOf("authenticator.authenticate(request)");
   const invoke = handler.indexOf("boundary.invokeWithVerifiedContext");
-  assert.equal([rawRead, digest, key, compare, parse, invoke].every((index) => index >= 0), true);
-  assert.equal(rawRead < digest && digest < key && key < compare && compare < parse && parse < invoke, true);
+  assert.equal(authenticate >= 0 && invoke > authenticate, true);
   assert.match(gateway, /raw !== canonical/);
 });
 

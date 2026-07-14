@@ -3,8 +3,10 @@ import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
 import {
+  createOwnerInternalCallbackRequestAuthenticator,
   createOwnerInternalCallbackGatewayApproval,
   createOwnerInternalSelfServeCallbackGateway,
+  signWithAuthenticatedInternalCallbackRequest,
 } from "./internal-callback-gateway.ts";
 import { createVerifiedEdgeTrustBoundary } from "./verified-edge-trust.ts";
 
@@ -82,6 +84,44 @@ function fixture(options: { handler?: (request: Request, context: unknown) => Pr
   });
   return { gateway, calls, boundary };
 }
+
+test("shared authenticator returns one sealed request authority and signs only through its authenticated key", async () => {
+  const authenticator = createOwnerInternalCallbackRequestAuthenticator({
+    ownerInternalOrigin: ORIGIN,
+    keys: new Map([["active", SECRET]]),
+    clock: () => new Date(NOW),
+    maximumBodyBytes: 8_192,
+  });
+  const authenticated = await authenticator.authenticate(request());
+  const body = new TextEncoder().encode(canonical());
+  assert.deepEqual(
+    {
+      callbackUrl: authenticated.callbackUrl,
+      keyId: authenticated.keyId,
+      timestamp: authenticated.timestamp,
+      requestBodyDigest: authenticated.requestBodyDigest,
+    },
+    {
+      callbackUrl: CALLBACK,
+      keyId: "active",
+      timestamp: String(NOW.getTime()),
+      requestBodyDigest: createHash("sha256").update(body).digest("hex"),
+    },
+  );
+  assert.equal(Object.isFrozen(authenticated), true);
+  assert.equal(Object.isSealed(authenticated), true);
+  const preimage = "celebix-session-handoff-response-v1\nprivate-domain-separated-fields";
+  assert.equal(
+    signWithAuthenticatedInternalCallbackRequest(authenticated, preimage),
+    createHmac("sha256", SECRET).update(preimage).digest("base64url"),
+  );
+  for (const fake of [{ ...authenticated }, JSON.parse(JSON.stringify(authenticated)), {}]) {
+    assert.throws(
+      () => signWithAuthenticatedInternalCallbackRequest(fake as never, preimage),
+      /owner_internal_callback_authenticated_request_invalid/,
+    );
+  }
+});
 
 test("sealed Owner approval accepts disposable or staging only and loses authority when copied", () => {
   const approval = createOwnerInternalCallbackGatewayApproval("disposable_test");

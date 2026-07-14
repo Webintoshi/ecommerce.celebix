@@ -24,7 +24,7 @@ function invalid(): never {
   throw new Error("owner_callback_transport_invalid");
 }
 
-function exactOwnerOrigin(value: string): string {
+export function validateOwnerInternalCallbackOrigin(value: string): string {
   try {
     const url = new URL(value);
     if (
@@ -110,9 +110,59 @@ export function internalCallbackSignaturePreimage(timestamp: string, digest: str
   return `celebix-callback-v1\n${timestamp}\n${digest}`;
 }
 
+export type AuthenticatedInternalCallbackRequest = Readonly<{
+  request: Request;
+  keyId: string;
+  timestamp: string;
+  requestBodyDigest: string;
+}>;
+
+export async function createAuthenticatedInternalCallbackRequest(input: {
+  endpoint: string;
+  callbackUrl: string;
+  activeKeyId: string;
+  activeSecret: Uint8Array;
+  clock(): Date;
+}): Promise<AuthenticatedInternalCallbackRequest> {
+  let endpoint: URL;
+  try { endpoint = new URL(input.endpoint); }
+  catch { return invalid(); }
+  if (
+    endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.port || endpoint.search || endpoint.hash ||
+    endpoint.pathname !== SELF_SERVE_INTERNAL_CALLBACK_PATH || endpoint.toString() !== input.endpoint
+  ) invalid();
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(input.activeKeyId)) invalid();
+  if (!(input.activeSecret instanceof Uint8Array) || input.activeSecret.byteLength < 32 || input.activeSecret.byteLength > 64) invalid();
+  if (typeof input.clock !== "function") invalid();
+  const secret = new Uint8Array(input.activeSecret);
+  const body = canonicalInternalCallbackEnvelope(input.callbackUrl);
+  const bytes = new TextEncoder().encode(body);
+  const now = input.clock();
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) invalid();
+  const timestamp = String(now.getTime());
+  if (!/^\d{13}$/.test(timestamp)) invalid();
+  const requestBodyDigest = await sha256Hex(bytes);
+  const signature = createHmac("sha256", secret)
+    .update(internalCallbackSignaturePreimage(timestamp, requestBodyDigest))
+    .digest("base64url");
+  const request = new Request(input.endpoint, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "x-celebix-callback-key-id": input.activeKeyId,
+      "x-celebix-callback-timestamp": timestamp,
+      "x-celebix-callback-signature": signature,
+    },
+    body,
+    redirect: "manual",
+    credentials: "omit",
+  });
+  return Object.freeze({ request, keyId: input.activeKeyId, timestamp, requestBodyDigest });
+}
+
 export function createAuthenticatedOwnerCallbackTransport(options: TransportOptions) {
   assertCustomerPanelCallbackEdgeApproval(options?.activationApproval);
-  const ownerOrigin = exactOwnerOrigin(options.ownerInternalOrigin);
+  const ownerOrigin = validateOwnerInternalCallbackOrigin(options.ownerInternalOrigin);
   if (!/^[A-Za-z0-9._-]{1,64}$/.test(options.activeKeyId)) invalid();
   if (!(options.activeSecret instanceof Uint8Array) || options.activeSecret.byteLength < 32 || options.activeSecret.byteLength > 64) invalid();
   if (
@@ -131,30 +181,17 @@ export function createAuthenticatedOwnerCallbackTransport(options: TransportOpti
 
   return Object.freeze({
     async forward(callbackUrl: string): Promise<Response> {
-      const body = canonicalInternalCallbackEnvelope(callbackUrl);
-      const bytes = new TextEncoder().encode(body);
-      const timestamp = String(clock().getTime());
+      const signed = await createAuthenticatedInternalCallbackRequest({
+        endpoint,
+        callbackUrl,
+        activeKeyId: keyId,
+        activeSecret: secret,
+        clock,
+      });
       let timer: ReturnType<typeof setTimeout> | undefined;
       const controller = new AbortController();
       try {
-        if (!/^\d{13}$/.test(timestamp)) throw new Error("invalid_clock");
-        const digest = await sha256Hex(bytes);
-        const signature = createHmac("sha256", secret)
-          .update(internalCallbackSignaturePreimage(timestamp, digest))
-          .digest("base64url");
-        const request = new Request(endpoint, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "x-celebix-callback-key-id": keyId,
-            "x-celebix-callback-timestamp": timestamp,
-            "x-celebix-callback-signature": signature,
-          },
-          body,
-          redirect: "manual",
-          credentials: "omit",
-          signal: controller.signal,
-        });
+        const request = new Request(signed.request, { signal: controller.signal });
         const deadline = new Promise<never>((_, reject) => {
           timer = setTimeout(() => {
             controller.abort();
