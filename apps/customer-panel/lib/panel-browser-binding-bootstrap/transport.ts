@@ -72,13 +72,13 @@ function exactSingle(search: URLSearchParams, name: string, maximum: number): st
   return value;
 }
 
-function canonicalProviderUrl(value: unknown): string {
+function canonicalProviderUrl(value: unknown, callbackAuthority: string): string {
   if (typeof value !== "string" || value.length < 1 || value.length > 16_384 || value.trim() !== value) invalid();
   let url: URL;
   try { url = new URL(value); } catch { return invalid(); }
   if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash || url.toString() !== value) invalid();
   if (exactSingle(url.searchParams, "state", 1_024).length < 16 ||
-      exactSingle(url.searchParams, "redirect_uri", 2_048) !== PANEL_OIDC_CALLBACK_URL ||
+      exactSingle(url.searchParams, "redirect_uri", 2_048) !== callbackAuthority ||
       exactSingle(url.searchParams, "response_type", 32) !== "code" ||
       exactSingle(url.searchParams, "response_mode", 32) !== "query") invalid();
   return value;
@@ -139,7 +139,13 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[]):
   if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) invalid();
 }
 
-function parseResult(raw: string, status: number, expectedProviderUrl: string, clock: () => Date): PanelBrowserBindingInternalResult {
+function parseResult(
+  raw: string,
+  status: number,
+  expectedProviderUrl: string,
+  callbackAuthority: string,
+  clock: () => Date,
+): PanelBrowserBindingInternalResult {
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch { return invalid(); }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) invalid();
@@ -148,7 +154,7 @@ function parseResult(raw: string, status: number, expectedProviderUrl: string, c
   if (status === 200) {
     exactKeys(body, ["schemaVersion", "kind", "providerAuthorizationUrl", "browserBindingExpiresAt"]);
     if (body.schemaVersion !== 1 || body.kind !== "browser_binding_ready") invalid();
-    const providerAuthorizationUrl = canonicalProviderUrl(body.providerAuthorizationUrl);
+    const providerAuthorizationUrl = canonicalProviderUrl(body.providerAuthorizationUrl, callbackAuthority);
     if (providerAuthorizationUrl !== expectedProviderUrl) invalid();
     const browserBindingExpiresAt = timestamp(body.browserBindingExpiresAt);
     const remaining = Date.parse(browserBindingExpiresAt) - trustedNow(clock).getTime();
@@ -172,6 +178,7 @@ function auditSafely(audit: Audit, event: Parameters<Audit>[0]): void {
 export function createAuthenticatedPanelBrowserBindingTransport(options: {
   activationApproval: unknown;
   ownerInternalOrigin: string;
+  panelCallbackAuthority?: string;
   activeKeyId: string;
   activeSecret: Uint8Array;
   fetch(request: Request): Promise<Response>;
@@ -182,6 +189,7 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
 }) {
   assertPanelBrowserBindingBootstrapApproval(options?.activationApproval);
   const ownerOrigin = exactOrigin(options.ownerInternalOrigin);
+  const panelCallbackAuthority = options.panelCallbackAuthority ?? PANEL_OIDC_CALLBACK_URL;
   if (!KEY_ID.test(options.activeKeyId) || !(options.activeSecret instanceof Uint8Array) ||
       options.activeSecret.byteLength < 32 || options.activeSecret.byteLength > 64 ||
       typeof options.fetch !== "function" || typeof options.clock !== "function" || typeof options.audit !== "function" ||
@@ -209,7 +217,7 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
         const body = JSON.stringify({
           schemaVersion: 1,
           bootstrapCredential: canonicalBootstrapCredential(input?.bootstrapCredential),
-          providerAuthorizationUrl: canonicalProviderUrl(input.providerAuthorizationUrl),
+          providerAuthorizationUrl: canonicalProviderUrl(input.providerAuthorizationUrl, panelCallbackAuthority),
           browserBindingCredential: canonicalPanelBrowserBindingCredential(input.browserBindingCredential),
         });
         const bodyBytes = new TextEncoder().encode(body);
@@ -256,7 +264,7 @@ export function createAuthenticatedPanelBrowserBindingTransport(options: {
         if (responseSignature.byteLength !== expected.byteLength || !timingSafeEqual(responseSignature, expected)) invalid();
         auditSafely(audit, { stage: "response_authentication", outcome: "completed" });
         const raw = new TextDecoder("utf-8", { fatal: true }).decode(rawBytes);
-        const result = parseResult(raw, response.status, input.providerAuthorizationUrl, clock);
+        const result = parseResult(raw, response.status, input.providerAuthorizationUrl, panelCallbackAuthority, clock);
         auditSafely(audit, { stage: "response_projection", outcome: "completed" });
         return result;
       } catch {

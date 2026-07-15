@@ -24,9 +24,19 @@ function escapeAttribute(value: string): string {
 export function createOwnerPanelBootstrapAutoPostResponse(input: {
   bootstrapCredential: string;
   providerAuthorizationUrl: string;
+  panelBootstrapAuthority?: string;
   randomBytes(size: number): Uint8Array;
 }): Response {
   if (!input || typeof input.randomBytes !== "function") invalid();
+  const panelBootstrapAuthority = input.panelBootstrapAuthority ?? PANEL_BROWSER_BOOTSTRAP_URL;
+  try {
+    const parsed = new URL(panelBootstrapAuthority);
+    if (
+      parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port ||
+      parsed.pathname !== "/auth/bootstrap" || parsed.search || parsed.hash ||
+      `${parsed.origin}${parsed.pathname}` !== panelBootstrapAuthority
+    ) invalid();
+  } catch { return invalid(); }
   const bootstrapCredential = escapeAttribute(safeValue(input.bootstrapCredential));
   const providerAuthorizationUrl = escapeAttribute(safeValue(input.providerAuthorizationUrl));
   const produced = input.randomBytes(24);
@@ -36,7 +46,7 @@ export function createOwnerPanelBootstrapAutoPostResponse(input: {
 
   const html = "<!doctype html>" +
     "<html lang=\"tr\"><head><meta charset=\"utf-8\"><title>Güvenli yönlendirme</title></head><body>" +
-    `<form method="post" action="${PANEL_BROWSER_BOOTSTRAP_URL}" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8" autocomplete="off">` +
+    `<form method="post" action="${panelBootstrapAuthority}" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8" autocomplete="off">` +
     `<input type="hidden" name="bootstrapCredential" value="${bootstrapCredential}">` +
     `<input type="hidden" name="providerAuthorizationUrl" value="${providerAuthorizationUrl}">` +
     "<noscript><button type=\"submit\">Devam et</button></noscript>" +
@@ -48,7 +58,7 @@ export function createOwnerPanelBootstrapAutoPostResponse(input: {
   const csp = [
     "default-src 'none'",
     "base-uri 'none'",
-    `form-action ${PANEL_BROWSER_BOOTSTRAP_URL}`,
+    `form-action ${panelBootstrapAuthority}`,
     "frame-ancestors 'none'",
     `script-src 'nonce-${nonce}'`,
     "connect-src 'none'",

@@ -31,6 +31,7 @@ export type OwnerInternalCallbackGatewayApproval = Readonly<{
 type GatewayOptions = {
   activationApproval: unknown;
   ownerInternalOrigin: string;
+  panelCallbackAuthority?: string;
   keys: ReadonlyMap<string, Uint8Array>;
   clock(): Date;
   maximumBodyBytes: number;
@@ -153,12 +154,12 @@ function exactSingle(search: URLSearchParams, name: string, maximum: number): st
   return value;
 }
 
-function exactCallbackUrl(value: unknown): string {
+function exactCallbackUrl(value: unknown, panelCallbackAuthority = PANEL_OIDC_CALLBACK_URL): string {
   if (typeof value !== "string" || value.length < 1 || value.length > 8_192) throw new Error("invalid_callback");
   const url = new URL(value);
   if (
     url.protocol !== "https:" || url.username || url.password || url.port || url.hash ||
-    `${url.origin}${url.pathname}` !== PANEL_OIDC_CALLBACK_URL
+    `${url.origin}${url.pathname}` !== panelCallbackAuthority
   ) throw new Error("invalid_callback");
   const marker = value.indexOf("?");
   const rawQuery = marker < 0 ? "" : value.slice(marker + 1);
@@ -186,13 +187,16 @@ export type ReconstructedOwnerCallbackRequest = Readonly<
   | { kind: "provider_error"; callbackUrl: string; state: string; error: string }
 >;
 
-export function classifyReconstructedOwnerCallbackRequest(request: Request): ReconstructedOwnerCallbackRequest {
+export function classifyReconstructedOwnerCallbackRequest(
+  request: Request,
+  panelCallbackAuthority = PANEL_OIDC_CALLBACK_URL,
+): ReconstructedOwnerCallbackRequest {
   if (
     !(request instanceof Request) || request.method !== "GET" || request.body !== null ||
     [...request.headers].length !== 0
   ) throw new Error("owner_internal_callback_request_invalid");
   let callbackUrl: string;
-  try { callbackUrl = exactCallbackUrl(request.url); }
+  try { callbackUrl = exactCallbackUrl(request.url, panelCallbackAuthority); }
   catch { throw new Error("owner_internal_callback_request_invalid"); }
   const search = new URL(callbackUrl).searchParams;
   const state = exactSingle(search, "state", 1_024);
@@ -202,7 +206,7 @@ export function classifyReconstructedOwnerCallbackRequest(request: Request): Rec
   return Object.freeze({ kind: "provider_error", callbackUrl, state, error: exactSingle(search, "error", 256) });
 }
 
-function parseCanonicalEnvelope(bytes: Uint8Array): string {
+function parseCanonicalEnvelope(bytes: Uint8Array, panelCallbackAuthority = PANEL_OIDC_CALLBACK_URL): string {
   const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const parsed = JSON.parse(raw) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid_envelope");
@@ -211,7 +215,7 @@ function parseCanonicalEnvelope(bytes: Uint8Array): string {
     Object.keys(object).length !== 2 || object.schemaVersion !== SELF_SERVE_INTERNAL_CALLBACK_SCHEMA_VERSION ||
     typeof object.callbackUrl !== "string"
   ) throw new Error("invalid_envelope");
-  const callbackUrl = exactCallbackUrl(object.callbackUrl);
+  const callbackUrl = exactCallbackUrl(object.callbackUrl, panelCallbackAuthority);
   const canonical = JSON.stringify({ schemaVersion: SELF_SERVE_INTERNAL_CALLBACK_SCHEMA_VERSION, callbackUrl });
   if (raw !== canonical) throw new Error("invalid_envelope");
   return callbackUrl;
@@ -343,6 +347,7 @@ export function copyAuthenticatedOwnerInternalCallbackRawBody(
 
 export function createOwnerInternalCallbackRequestAuthenticator(options: {
   ownerInternalOrigin: string;
+  panelCallbackAuthority?: string;
   keys: ReadonlyMap<string, Uint8Array>;
   clock(): Date;
   maximumBodyBytes: number;
@@ -353,7 +358,12 @@ export function createOwnerInternalCallbackRequestAuthenticator(options: {
     async authenticate(request: Request): Promise<AuthenticatedOwnerInternalCallbackRequest> {
       const raw = await rawAuthenticator.authenticate(request);
       let callbackUrl: string;
-      try { callbackUrl = parseCanonicalEnvelope(copyAuthenticatedOwnerInternalCallbackRawBody(raw)); }
+      try {
+        callbackUrl = parseCanonicalEnvelope(
+          copyAuthenticatedOwnerInternalCallbackRawBody(raw),
+          options.panelCallbackAuthority,
+        );
+      }
       catch { authenticationFailure("envelope_validation", 400); }
       const authenticated = Object.freeze({
         callbackUrl,
@@ -400,6 +410,7 @@ export function createOwnerInternalSelfServeCallbackGateway(options: GatewayOpti
   ) invalid();
   const authenticator = createOwnerInternalCallbackRequestAuthenticator({
     ownerInternalOrigin: options.ownerInternalOrigin,
+    panelCallbackAuthority: options.panelCallbackAuthority,
     keys: options.keys,
     clock: options.clock,
     maximumBodyBytes: options.maximumBodyBytes,

@@ -1,6 +1,7 @@
 import {
-  PANEL_BROWSER_BOOTSTRAP_URL,
-  PANEL_OIDC_CALLBACK_URL,
+  DEFAULT_SAAS_AUTH_AUTHORITY_PROFILE,
+  assertSaaSAuthAuthorityProfile,
+  type SaaSAuthAuthorityProfile,
 } from "../../../../packages/platform-config/src/saas.ts";
 import { createPanelBrowserBindingCredentialGenerator } from "../panel-browser-binding/credential-codec.ts";
 import { createPanelBrowserBindingBootstrapApproval } from "../panel-browser-binding-bootstrap/activation.ts";
@@ -79,6 +80,7 @@ export function assertDisabledCustomerPanelAuthComposition(
 
 export function createDisabledCustomerPanelAuthComposition(options: {
   activationApproval: unknown;
+  authorityProfile?: SaaSAuthAuthorityProfile;
   ownerInternalOrigin: string;
   randomBytes(size: number): Uint8Array;
   clock(): Date;
@@ -114,6 +116,9 @@ export function createDisabledCustomerPanelAuthComposition(options: {
     typeof options.handoffRedeemer.recoverRedemption !== "function"
   ) invalid();
   const environment: Environment = options.activationApproval.environment;
+  const authority = options.authorityProfile ?? DEFAULT_SAAS_AUTH_AUTHORITY_PROFILE;
+  try { assertSaaSAuthAuthorityProfile(authority); } catch { return invalid(); }
+  if (options.ownerInternalOrigin !== authority.ownerOrigin) invalid();
   const randomBytes = options.randomBytes;
   const clock = options.clock;
   const fetch = options.fetch;
@@ -128,6 +133,7 @@ export function createDisabledCustomerPanelAuthComposition(options: {
   const browserTransport = createAuthenticatedPanelBrowserBindingTransport({
     activationApproval: browserApproval,
     ownerInternalOrigin: options.ownerInternalOrigin,
+    panelCallbackAuthority: authority.panelCallbackUrl,
     activeKeyId: options.browserBinding.activeKeyId,
     activeSecret: browserSecret,
     fetch,
@@ -138,7 +144,7 @@ export function createDisabledCustomerPanelAuthComposition(options: {
   });
   const browserBootstrapHandler = createPanelBrowserBindingBootstrapHandler({
     activationApproval: browserApproval,
-    publicBootstrapAuthority: PANEL_BROWSER_BOOTSTRAP_URL,
+    publicBootstrapAuthority: authority.panelBootstrapUrl,
     maximumBodyBytes: options.browserBinding.maximumBodyBytes,
     credentialGenerator: createPanelBrowserBindingCredentialGenerator(randomBytes),
     transport: browserTransport,
@@ -150,6 +156,7 @@ export function createDisabledCustomerPanelAuthComposition(options: {
   const sessionTransport = createAuthenticatedPanelSessionCompletionTransport({
     activationApproval: sessionApproval,
     ownerInternalOrigin: options.ownerInternalOrigin,
+    panelCallbackAuthority: authority.panelCallbackUrl,
     activeKeyId: options.sessionCompletion.activeKeyId,
     activeSecret: sessionSecret,
     fetch,
@@ -160,7 +167,8 @@ export function createDisabledCustomerPanelAuthComposition(options: {
   });
   const panelSessionCompletionHandler = createPanelSessionCompletionHandler({
     activationApproval: sessionApproval,
-    publicCallbackAuthority: PANEL_OIDC_CALLBACK_URL,
+    publicCallbackAuthority: authority.panelCallbackUrl,
+    panelHomeAuthority: authority.panelHomeUrl,
     maximumQueryBytes: options.sessionCompletion.maximumQueryBytes,
     transport: sessionTransport,
     redeemer: handoffRedeemer,

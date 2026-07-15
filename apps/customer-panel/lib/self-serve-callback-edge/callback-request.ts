@@ -1,4 +1,3 @@
-import { PANEL_OIDC_CALLBACK_URL } from "../../../../packages/platform-config/src/saas.ts";
 import { parsePanelBrowserBindingCookie } from "../panel-browser-binding/cookie.ts";
 
 const SUCCESS_PARAMETERS = new Set(["state", "code"]);
@@ -48,8 +47,9 @@ export function validateCustomerPanelCallbackAuthority(value: string): string {
   try {
     const url = new URL(value);
     if (
-      value !== PANEL_OIDC_CALLBACK_URL || url.protocol !== "https:" || url.username || url.password ||
-      url.port || url.search || url.hash || `${url.origin}${url.pathname}` !== value
+      url.protocol !== "https:" || url.username || url.password || url.port ||
+      url.pathname !== "/auth/callback" || url.search || url.hash ||
+      `${url.origin}${url.pathname}` !== value
     ) reject();
     return value;
   } catch (error) {

@@ -75,6 +75,7 @@ export function createBrowserBoundSelfServeRegistrationHandler(options: {
     execute(registration: SelfServeRegistrationStartInput): Promise<PanelBrowserBindingRegistrationStartResult>;
   }>;
   randomBytes(size: number): Uint8Array;
+  panelBootstrapAuthority?: string;
   audit: BridgeAudit;
 }) {
   assertBrowserBoundRegistrationBridgeApproval(options?.activationApproval);
@@ -86,6 +87,7 @@ export function createBrowserBoundSelfServeRegistrationHandler(options: {
   const runtime = options.runtime;
   const execute = options.registrationStartExecutor.execute.bind(options.registrationStartExecutor);
   const randomBytes = options.randomBytes;
+  const panelBootstrapAuthority = options.panelBootstrapAuthority ?? PANEL_BROWSER_BOOTSTRAP_URL;
   const audit = options.audit;
 
   return async function browserBoundSelfServeRegistrationHandler(request: Request): Promise<Response> {
@@ -104,7 +106,7 @@ export function createBrowserBoundSelfServeRegistrationHandler(options: {
     let started: PanelBrowserBindingRegistrationStartResult;
     try {
       started = await execute(processed.registration);
-      if (started.panelBootstrapAuthority !== PANEL_BROWSER_BOOTSTRAP_URL) invalid();
+      if (started.panelBootstrapAuthority !== panelBootstrapAuthority) invalid();
     } catch {
       auditSafely(audit, { stage: "bootstrap", outcome: "unavailable" });
       return unavailable();
@@ -115,6 +117,7 @@ export function createBrowserBoundSelfServeRegistrationHandler(options: {
       const response = createOwnerPanelBootstrapAutoPostResponse({
         bootstrapCredential: started.bootstrapCredential,
         providerAuthorizationUrl: started.providerAuthorizationUrl,
+        panelBootstrapAuthority,
         randomBytes,
       });
       auditSafely(audit, { stage: "browser_response", outcome: "completed" });

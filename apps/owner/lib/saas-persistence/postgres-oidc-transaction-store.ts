@@ -22,13 +22,13 @@ const SCHEMA_VERSION = 1;
 
 interface StoredOidcPayload extends Omit<OidcAuthorizationTransaction, "state"> {}
 
-function callback(value: unknown): string {
+function callback(value: unknown, expectedCallbackAuthority: string): string {
   const parsed = requiredString(value, 2048);
-  if (parsed === PANEL_OIDC_CALLBACK_URL) return parsed;
+  if (parsed === expectedCallbackAuthority) return parsed;
   throw new OidcFlowError("oidc_invalid_callback", "OIDC callback URL is invalid.");
 }
 
-function payload(value: unknown): StoredOidcPayload {
+function payload(value: unknown, expectedCallbackAuthority: string): StoredOidcPayload {
   const row = exactObject(value, [
     "nonce", "codeVerifier", "redirectUri", "returnTo", "expectedIssuer", "expectedAudience", "createdAt", "expiresAt",
   ]);
@@ -47,7 +47,7 @@ function payload(value: unknown): StoredOidcPayload {
   return {
     nonce,
     codeVerifier,
-    redirectUri: callback(row.redirectUri),
+    redirectUri: callback(row.redirectUri, expectedCallbackAuthority),
     returnTo: "/kayit",
     expectedIssuer: requiredString(row.expectedIssuer, 2048),
     expectedAudience: requiredString(row.expectedAudience, 512),
@@ -56,7 +56,7 @@ function payload(value: unknown): StoredOidcPayload {
   };
 }
 
-function transaction(value: unknown): OidcAuthorizationTransaction {
+function transaction(value: unknown, expectedCallbackAuthority: string): OidcAuthorizationTransaction {
   const row = exactObject(value, [
     "state", "nonce", "codeVerifier", "redirectUri", "returnTo", "expectedIssuer", "expectedAudience", "createdAt", "expiresAt",
   ]);
@@ -71,7 +71,7 @@ function transaction(value: unknown): OidcAuthorizationTransaction {
     expectedAudience: row.expectedAudience,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
-  }) };
+  }, expectedCallbackAuthority) };
 }
 
 function integer(value: unknown): number {
@@ -106,13 +106,23 @@ function persistedTimestamp(value: unknown): string {
 
 export class PostgresOidcTransactionStore implements OidcTransactionStore {
   private readonly options: IdentityStoreDependencies;
+  private readonly callbackAuthority: string;
 
-  constructor(options: IdentityStoreDependencies) {
+  constructor(options: IdentityStoreDependencies, authorities?: { callbackAuthority: string }) {
     this.options = validateDependencies(options);
+    this.callbackAuthority = authorities?.callbackAuthority ?? PANEL_OIDC_CALLBACK_URL;
+    try {
+      const parsed = new URL(this.callbackAuthority);
+      if (
+        parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port ||
+        parsed.pathname !== "/auth/callback" || parsed.search || parsed.hash ||
+        `${parsed.origin}${parsed.pathname}` !== this.callbackAuthority
+      ) throw new Error("invalid");
+    } catch { throw new IdentityPersistenceError(); }
   }
 
   async save(input: OidcAuthorizationTransaction): Promise<void> {
-    const validated = transaction(input);
+    const validated = transaction(input, this.callbackAuthority);
     const digest = this.options.stateDigester.digest(validated.state);
     const { state: _state, ...stored } = validated;
     const sealed = this.options.payloadCipher.encrypt({
@@ -153,7 +163,7 @@ export class PostgresOidcTransactionStore implements OidcTransactionStore {
       const stored = payload(this.options.payloadCipher.decrypt({
         binding: { purpose: PURPOSE, stateDigest: digest, schemaVersion: integer(row.payload_schema_version) },
         encrypted: encrypted(row),
-      }));
+      }), this.callbackAuthority);
       const dbCreatedAt = persistedTimestamp(row.created_at);
       const dbExpiresAt = persistedTimestamp(row.expires_at);
       if (stored.createdAt !== dbCreatedAt || stored.expiresAt !== dbExpiresAt) throw new IdentityPersistenceError();

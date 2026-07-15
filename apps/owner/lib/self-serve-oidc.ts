@@ -90,6 +90,8 @@ export interface BeginOidcAuthorizationInput {
   expectedIssuer: string;
   expectedAudience: string;
   expectedAuthorizationOrigin?: string;
+  expectedCallbackAuthority?: string;
+  returnOrigin?: string;
   allowInsecureLocalAuthorization?: boolean;
   allowLocalTestCallback?: boolean;
   now?: () => Date;
@@ -113,10 +115,15 @@ async function createS256Challenge(verifier: string) {
   return Buffer.from(digest).toString("base64url");
 }
 
-export function sanitizeOidcReturnTo(value: string) {
+export function sanitizeOidcReturnTo(value: string, returnOrigin = "https://ecommerce.celebix.co") {
   try {
-    const parsed = new URL(value, "https://ecommerce.celebix.co");
-    if (parsed.origin !== "https://ecommerce.celebix.co" || !APPROVED_RETURN_PATHS.has(parsed.pathname)) {
+    const origin = new URL(returnOrigin);
+    if (
+      origin.protocol !== "https:" || origin.username || origin.password || origin.pathname !== "/" ||
+      origin.search || origin.hash || origin.origin !== returnOrigin
+    ) return "/kayit";
+    const parsed = new URL(value, returnOrigin);
+    if (parsed.origin !== returnOrigin || !APPROVED_RETURN_PATHS.has(parsed.pathname)) {
       return "/kayit";
     }
     return parsed.pathname;
@@ -200,8 +207,21 @@ function isExplicitLocalHttp(url: URL, allowed: boolean | undefined) {
   );
 }
 
-function assertCallbackUrl(value: string, allowLocalTestCallback: boolean | undefined) {
-  if (value === PANEL_OIDC_CALLBACK_URL) return;
+function assertCallbackUrl(
+  value: string,
+  expectedCallbackAuthority: string | undefined,
+  allowLocalTestCallback: boolean | undefined,
+) {
+  if (value === (expectedCallbackAuthority ?? PANEL_OIDC_CALLBACK_URL)) {
+    try {
+      const url = new URL(value);
+      if (
+        url.protocol === "https:" && !url.username && !url.password && !url.port &&
+        url.pathname === "/auth/callback" && !url.search && !url.hash &&
+        `${url.origin}${url.pathname}` === value
+      ) return;
+    } catch { /* Fall through. */ }
+  }
   try {
     const url = new URL(value);
     if (
@@ -262,13 +282,13 @@ function assertAuthorizationUrl(input: {
 }
 
 export async function beginOidcAuthorization(input: BeginOidcAuthorizationInput) {
-  assertCallbackUrl(input.redirectUri, input.allowLocalTestCallback);
+  assertCallbackUrl(input.redirectUri, input.expectedCallbackAuthority, input.allowLocalTestCallback);
   const now = input.now?.() ?? new Date();
   const state = randomOpaqueValue(32);
   const nonce = randomOpaqueValue(32);
   const codeVerifier = randomOpaqueValue(64);
   const codeChallenge = await createS256Challenge(codeVerifier);
-  const returnTo = sanitizeOidcReturnTo(input.returnTo);
+  const returnTo = sanitizeOidcReturnTo(input.returnTo, input.returnOrigin);
   const transaction: OidcAuthorizationTransaction = {
     state,
     nonce,

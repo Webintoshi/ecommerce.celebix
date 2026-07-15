@@ -135,6 +135,20 @@ export function createDisabledCustomerPanelAuthRouteSet(): CustomerPanelAuthRout
   return Object.freeze(routeSet);
 }
 
+export function createUnavailableCustomerPanelStagingAuthRouteSet(): CustomerPanelAuthRouteSet {
+  const routeSet: CustomerPanelAuthRouteSet = {
+    browserBootstrap: async (request) => request.method === "POST"
+      ? controlled("panel_auth_route_unavailable", 503)
+      : controlled("panel_browser_bootstrap_method_not_allowed", 405),
+    browserCallback: async (request) => request.method === "GET"
+      ? controlled("panel_auth_route_unavailable", 503)
+      : controlled("panel_callback_method_not_allowed", 405),
+    readiness: approvedStagingReadiness(),
+  };
+  routeSets.add(routeSet);
+  return Object.freeze(routeSet);
+}
+
 export function createApprovedStagingCustomerPanelAuthRouteSet(options: {
   approval: CustomerPanelAuthRouteMountApproval;
   environment: "approved_staging";
@@ -152,7 +166,17 @@ export function createApprovedStagingCustomerPanelAuthRouteSet(options: {
   return Object.freeze(routeSet);
 }
 
-const defaultRouteSet = createDisabledCustomerPanelAuthRouteSet();
+const defaultRouteSet: CustomerPanelAuthRouteSet = (() => {
+  const resolve = async () => (await import("../panel-auth-route-runtime/default.ts"))
+    .resolveDefaultCustomerPanelStagingAuthRouteSet();
+  const routeSet: CustomerPanelAuthRouteSet = {
+    browserBootstrap: async (request) => (await resolve()).browserBootstrap(request),
+    browserCallback: async (request) => (await resolve()).browserCallback(request),
+    readiness: readiness(),
+  };
+  routeSets.add(routeSet);
+  return Object.freeze(routeSet);
+})();
 
 export function getDefaultCustomerPanelAuthRouteSet(): CustomerPanelAuthRouteSet {
   return defaultRouteSet;

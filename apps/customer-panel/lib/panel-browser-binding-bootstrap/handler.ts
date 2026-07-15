@@ -100,8 +100,15 @@ export function createPanelBrowserBindingBootstrapHandler(options: {
   audit: Audit;
 }) {
   assertPanelBrowserBindingBootstrapApproval(options?.activationApproval);
-  if (options.publicBootstrapAuthority !== PANEL_BROWSER_BOOTSTRAP_URL ||
-      !Number.isSafeInteger(options.maximumBodyBytes) || options.maximumBodyBytes < 1 || options.maximumBodyBytes > 16_384 ||
+  let publicBootstrapAuthority: string;
+  try {
+    const parsed = new URL(options.publicBootstrapAuthority);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port ||
+        parsed.pathname !== "/auth/bootstrap" || parsed.search || parsed.hash ||
+        `${parsed.origin}${parsed.pathname}` !== options.publicBootstrapAuthority) invalid();
+    publicBootstrapAuthority = options.publicBootstrapAuthority;
+  } catch { return invalid(); }
+  if (!Number.isSafeInteger(options.maximumBodyBytes) || options.maximumBodyBytes < 1 || options.maximumBodyBytes > 16_384 ||
       !options.credentialGenerator || typeof options.credentialGenerator.generate !== "function" ||
       !options.transport || typeof options.transport.bind !== "function" ||
       typeof options.clock !== "function" || typeof options.audit !== "function") invalid();
@@ -114,7 +121,7 @@ export function createPanelBrowserBindingBootstrapHandler(options: {
 
   return async function panelBrowserBindingBootstrapHandler(request: Request): Promise<Response> {
     if (!(request instanceof Request) || request.method !== "POST") return failure("panel_browser_binding_method_not_allowed", 405);
-    if (request.url !== PANEL_BROWSER_BOOTSTRAP_URL) return failure("panel_browser_binding_request_invalid", 400);
+    if (request.url !== publicBootstrapAuthority) return failure("panel_browser_binding_request_invalid", 400);
     if (request.headers.get("content-type") !== "application/x-www-form-urlencoded") return failure("panel_browser_binding_content_type_invalid", 415);
     if (request.headers.has("cookie") || request.headers.has("authorization")) return failure("panel_browser_binding_request_invalid", 400);
     for (const name of request.headers.keys()) if (name.startsWith("x-celebix-")) return failure("panel_browser_binding_request_invalid", 400);

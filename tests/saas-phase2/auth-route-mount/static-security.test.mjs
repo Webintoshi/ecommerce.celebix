@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
-const BASE = "0501606272fa41dfabd23058bad50cbaece0c2cd";
+const BASE = "e585e27d7f3d0f9b40cf258529c416b8911d54fb";
 const OWNER_ROUTES = [
   "apps/owner/app/api/self-serve/register/route.ts",
   "apps/owner/app/api/internal/self-serve/browser-binding/route.ts",
@@ -38,10 +38,25 @@ function changedFiles() {
   ])].sort();
 }
 
-test("Phase 2B2B2C1 diff is confined to the exact Atlas allowlist", () => {
+test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
   const allowed = [
     /^apps\/owner\/lib\/self-serve-auth-route-(?:mount|runtime)\//,
     /^apps\/customer-panel\/lib\/panel-auth-route-(?:mount|runtime)\//,
+    /^apps\/owner\/lib\/(?:self-serve-auth-authority|self-serve-logto-provider)\//,
+    /^apps\/customer-panel\/lib\/panel-auth-authority\//,
+    /^apps\/owner\/lib\/self-serve-auth-composition\/composition\.ts$/,
+    /^apps\/customer-panel\/lib\/panel-auth-composition\/composition\.ts$/,
+    /^apps\/owner\/lib\/self-serve-browser-bound-registration\/(?:handler|auto-post-html)\.ts$/,
+    /^apps\/owner\/lib\/panel-browser-binding\/(?:start-executor|internal-gateway)\.ts$/,
+    /^apps\/owner\/lib\/self-serve-http\/(?:runtime|internal-callback-gateway)\.ts$/,
+    /^apps\/owner\/lib\/self-serve-oidc\.ts$/,
+    /^apps\/owner\/lib\/saas-persistence\/postgres-oidc-transaction-store\.ts$/,
+    /^apps\/customer-panel\/lib\/panel-browser-binding-bootstrap\/(?:handler|transport)\.ts$/,
+    /^apps\/customer-panel\/lib\/panel-session-completion\/(?:completion|transport)\.ts$/,
+    /^apps\/customer-panel\/lib\/self-serve-callback-edge\/callback-request\.ts$/,
+    /^packages\/platform-config\/src\/saas\.ts$/,
+    /^apps\/(?:owner|customer-panel)\/package\.json$/,
+    /^package-lock\.json$/,
     /^apps\/owner\/app\/api\/self-serve\/register\/route\.ts$/,
     /^apps\/owner\/app\/api\/internal\/self-serve\/(?:browser-binding|oidc-callback)\/route\.ts$/,
     /^apps\/customer-panel\/app\/auth\/(?:bootstrap|callback)\/route\.ts$/,
@@ -49,6 +64,7 @@ test("Phase 2B2B2C1 diff is confined to the exact Atlas allowlist", () => {
     /^tests\/saas-phase2\/http-wiring\//,
     /^tests\/saas-phase2\/panel-auth-composition\/static-security\.test\.mjs$/,
     /^tests\/saas-phase2\/panel-auth-composition\/postgres-harness\.mjs$/,
+    /^tests\/saas-phase2\/staging-auth-(?:runtime|e2e)\//,
   ];
   const unexpected = changedFiles().filter((file) => !allowed.some((pattern) => pattern.test(file)));
   assert.deepEqual(unexpected, []);
@@ -67,15 +83,15 @@ test("route files are thin default-resolver delegators without authority loading
   }
 });
 
-test("default resolvers are immutable disabled singletons without environment activation", () => {
+test("default resolvers are immutable lazy singletons with exact staging-only activation", () => {
   const owner = read("apps/owner/lib/self-serve-auth-route-mount/route-set.ts");
   const customer = read("apps/customer-panel/lib/panel-auth-route-mount/route-set.ts");
-  assert.match(owner, /const defaultRouteSet = createDisabledOwnerSelfServeAuthRouteSet\(\);/);
-  assert.match(customer, /const defaultRouteSet = createDisabledCustomerPanelAuthRouteSet\(\);/);
+  assert.match(owner, /self-serve-auth-route-runtime\/default\.ts/);
+  assert.match(customer, /panel-auth-route-runtime\/default\.ts/);
   assert.match(owner, /return defaultRouteSet;/);
   assert.match(customer, /return defaultRouteSet;/);
   for (const source of ROUTE_MOUNT_FILES.map(read)) {
-    assert.doesNotMatch(source, /process\.env|globalThis\.fetch|dynamic import|import\s*\(|DATABASE_URL|POSTGRES_URL|new\s+Pool|node:http|node:https/);
+    assert.doesNotMatch(source, /process\.env|globalThis\.fetch|DATABASE_URL|POSTGRES_URL|new\s+Pool|node:http|node:https/);
     assert.doesNotMatch(source, /environment:\s*"production"|environment:\s*"disposable_test"|createProduction|EnabledProduction|replaceRouteSet|setRouteSet|registerRouteSet/i);
   }
   assert.equal((owner.match(/const defaultRouteSet/g) ?? []).length, 1);
@@ -115,31 +131,24 @@ test("no readiness endpoint, middleware mutation, environment activation, or pro
   assert.match(read("apps/customer-panel/lib/config.ts"), /CUSTOMER_PANEL_AUTH_ENABLED = false/);
 });
 
-test("B2B2B compositions and every frozen security authority remain byte-unchanged", () => {
+test("authority changes are confined to the Atlas-approved parameterization files", () => {
   const protectedPaths = [
-    "apps/owner/lib/self-serve-auth-composition",
-    "apps/customer-panel/lib/panel-auth-composition",
-    "apps/owner/lib/self-serve-browser-bound-registration",
-    "apps/owner/lib/panel-browser-binding",
-    "apps/customer-panel/lib/panel-browser-binding-bootstrap",
-    "apps/customer-panel/lib/panel-session-completion",
     "apps/owner/lib/panel-session-handoff",
     "apps/customer-panel/lib/panel-session-handoff",
     "apps/customer-panel/lib/panel-session-persistence",
-    "apps/owner/lib/self-serve-http/runtime.ts",
     "apps/owner/lib/self-serve-registration-orchestrator.ts",
-    "apps/owner/lib/self-serve-oidc.ts",
     "apps/owner/lib/self-serve-registration-completion.ts",
   ];
   assert.equal(git("diff", "--name-only", BASE, "--", ...protectedPaths), "");
 });
 
-test("SQL, manifests, packages, lockfile, middleware, deploy, and workflows remain byte-unchanged", () => {
+test("SQL, manifests, contracts, middleware, deploy, and workflows remain byte-unchanged", () => {
   const protectedPaths = [
     "apps/owner/scripts/sql/saas",
-    "packages",
+    "packages/saas-contracts",
+    "packages/saas-data",
+    "packages/saas-tenant-core",
     "package.json",
-    "package-lock.json",
     "apps/owner/middleware.ts",
     "apps/customer-panel/middleware.ts",
     "deploy",

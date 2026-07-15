@@ -1,7 +1,6 @@
 import type { CreateStarterTenantResult } from "@celebix/saas-contracts";
 import { normalizeExactHttpsOrigin } from "@celebix/saas-data";
 
-import { PANEL_OIDC_CALLBACK_URL } from "../../../../packages/platform-config/src/saas.ts";
 import {
   beginSelfServeRegistration,
   type RegistrationAttemptStore,
@@ -204,7 +203,7 @@ function validateOptions(options: PersistentSelfServeRuntimeOptions) {
   }
   catch { throw new Error("self_serve_http_runtime_invalid"); }
   if (
-    options.callbackAuthority !== PANEL_OIDC_CALLBACK_URL ||
+    options.callbackAuthority !== `${panelOrigin}/auth/callback` ||
     !HOST.test(new URL(registrationOrigin).hostname) ||
     !HOST.test(options.platformDomainSuffix) ||
     options.platformDomainSuffix !== options.platformDomainSuffix.toLowerCase() ||
@@ -401,6 +400,8 @@ export function createPersistentSelfServeRuntime(
             expectedIssuer: validated.providerAuthority.issuer,
             expectedAudience: validated.providerAuthority.audience,
             expectedAuthorizationOrigin: validated.providerAuthority.authorizationOrigin,
+            expectedCallbackAuthority: options.callbackAuthority,
+            returnOrigin: validated.registrationOrigin,
             now: () => canonicalClock(options.clock),
           }),
           cancel: (state) => options.oidcTransactionStore.discard(state),

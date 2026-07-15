@@ -136,6 +136,7 @@ function internalResult(value: unknown, clock: () => Date): Record<string, unkno
 export function createPanelSessionCompletionHandler(options: {
   activationApproval: unknown;
   publicCallbackAuthority: string;
+  panelHomeAuthority?: string;
   maximumQueryBytes: number;
   transport: { complete(callbackUrl: string, browserBindingCredential: string): Promise<unknown> };
   redeemer: {
@@ -149,6 +150,13 @@ export function createPanelSessionCompletionHandler(options: {
   let authority: string;
   try { authority = validateCustomerPanelCallbackAuthority(options.publicCallbackAuthority); }
   catch { return invalid(); }
+  const panelHomeAuthority = options.panelHomeAuthority ?? PANEL_HOME_URL;
+  try {
+    const home = new URL(panelHomeAuthority);
+    if (home.protocol !== "https:" || home.username || home.password || home.port ||
+        home.pathname !== "/" || home.search || home.hash || home.toString() !== panelHomeAuthority ||
+        home.origin !== new URL(authority).origin) invalid();
+  } catch { return invalid(); }
   if (!Number.isSafeInteger(options.maximumQueryBytes) || options.maximumQueryBytes < 1 || options.maximumQueryBytes > 16_384) invalid();
   if (
     !options.transport || typeof options.transport.complete !== "function" || !options.redeemer ||
@@ -209,7 +217,7 @@ export function createPanelSessionCompletionHandler(options: {
       });
       auditSafely(audit, { stage: "redemption", outcome: "completed" });
       const headers = new Headers({
-        location: PANEL_HOME_URL,
+        location: panelHomeAuthority,
         "cache-control": "no-store",
         "referrer-policy": "no-referrer",
         "x-content-type-options": "nosniff",

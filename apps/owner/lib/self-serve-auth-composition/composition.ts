@@ -1,7 +1,11 @@
 import {
+  DEFAULT_SAAS_AUTH_AUTHORITY_PROFILE,
   PANEL_BROWSER_BINDING_INTERNAL_PATH,
-  PANEL_BROWSER_BOOTSTRAP_URL,
+  PANEL_OIDC_CALLBACK_URL,
+  PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION,
   SELF_SERVE_INTERNAL_CALLBACK_PATH,
+  assertSaaSAuthAuthorityProfile,
+  type SaaSAuthAuthorityProfile,
 } from "../../../../packages/platform-config/src/saas.ts";
 import type { PanelBrowserBindingAuthorityCodec } from "../panel-browser-binding/credential-codec.ts";
 import {
@@ -17,6 +21,10 @@ import {
   createOwnerPanelSessionHandoffGatewayApproval,
   createOwnerPanelSessionHandoffInternalGateway,
 } from "../panel-session-handoff/internal-gateway.ts";
+import {
+  createFreshLoginRequiredResult,
+  createSignedOwnerPanelSessionHandoffResponse,
+} from "../panel-session-handoff/internal-response.ts";
 import { createPostgresPanelSessionHandoffIssuer } from "../panel-session-handoff/postgres-handoff-issuer.ts";
 import type { OpaqueStateDigester } from "../saas-persistence/identity-crypto.ts";
 import {
@@ -27,6 +35,12 @@ import {
   assertPersistentSelfServeRuntime,
   type PersistentSelfServeRuntime,
 } from "../self-serve-http/runtime.ts";
+import {
+  classifyReconstructedOwnerCallbackRequest,
+  copyAuthenticatedOwnerInternalCallbackRawBody,
+  createOwnerInternalCallbackRawRequestAuthenticator,
+  OwnerInternalCallbackAuthenticationError,
+} from "../self-serve-http/internal-callback-gateway.ts";
 import { createVerifiedEdgeTrustBoundary } from "../self-serve-http/verified-edge-trust.ts";
 import {
   assertOwnerSelfServeAuthCompositionApproval,
@@ -46,6 +60,83 @@ type BrowserStartAudit = Parameters<typeof createPanelBrowserBindingRegistration
 type BrowserGatewayAudit = Parameters<typeof createOwnerPanelBrowserBindingInternalGateway>[0]["audit"];
 type InitialCallbackAudit = Parameters<typeof createOwnerPanelSessionInitialCallbackHandler>[0]["audit"];
 type SessionGatewayAudit = Parameters<typeof createOwnerPanelSessionHandoffInternalGateway>[0]["audit"];
+
+function authorityBoundSessionGateway(options: {
+  ownerInternalOrigin: string;
+  panelCallbackAuthority: string;
+  keys: ReadonlyMap<string, Uint8Array>;
+  clock(): Date;
+  maximumBodyBytes: number;
+  edgeTrustBoundary: ReturnType<typeof createVerifiedEdgeTrustBoundary>;
+  callbackHandler: ReturnType<typeof createOwnerPanelSessionInitialCallbackHandler>;
+  audit: SessionGatewayAudit;
+}) {
+  const authenticator = createOwnerInternalCallbackRawRequestAuthenticator({
+    ownerInternalOrigin: options.ownerInternalOrigin,
+    keys: options.keys,
+    clock: options.clock,
+    maximumBodyBytes: options.maximumBodyBytes,
+  });
+  const binding = (value: unknown): string => {
+    if (typeof value !== "string" || !/^pb1\.[A-Za-z0-9_-]{43}$/.test(value)) invalid();
+    const bytes = Buffer.from(value.slice(4), "base64url");
+    if (bytes.byteLength !== 32 || bytes.toString("base64url") !== value.slice(4)) invalid();
+    return value;
+  };
+  return async function ownerAuthorityBoundSessionGateway(request: Request): Promise<Response> {
+    let authenticated;
+    try { authenticated = await authenticator.authenticate(request); }
+    catch (error) {
+      const status = error instanceof OwnerInternalCallbackAuthenticationError ? error.status : 400;
+      return new Response('{"code":"owner_session_handoff_request_invalid"}', {
+        status,
+        headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
+    let result;
+    try {
+      const raw = new TextDecoder("utf-8", { fatal: true }).decode(
+        copyAuthenticatedOwnerInternalCallbackRawBody(authenticated),
+      );
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (
+        !parsed || typeof parsed !== "object" || Array.isArray(parsed) ||
+        Object.keys(parsed).join(",") !== "schemaVersion,callbackUrl,browserBindingCredential" ||
+        parsed.schemaVersion !== PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION ||
+        typeof parsed.callbackUrl !== "string"
+      ) invalid();
+      const callback = classifyReconstructedOwnerCallbackRequest(
+        new Request(parsed.callbackUrl, { method: "GET" }),
+        options.panelCallbackAuthority,
+      );
+      const browserBindingCredential = binding(parsed.browserBindingCredential);
+      if (raw !== JSON.stringify({
+        schemaVersion: PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION,
+        callbackUrl: callback.callbackUrl,
+        browserBindingCredential,
+      })) invalid();
+      result = await options.edgeTrustBoundary.invokeWithVerifiedContext((context) =>
+        options.callbackHandler.handle(
+          new Request(`${PANEL_OIDC_CALLBACK_URL}${new URL(callback.callbackUrl).search}`, { method: "GET" }),
+          context,
+          browserBindingCredential,
+        ));
+      try { void Promise.resolve(options.audit(Object.freeze({ stage: "callback", outcome: "completed" }))).catch(() => undefined); }
+      catch { /* Observability only. */ }
+    } catch {
+      try { void Promise.resolve(options.audit(Object.freeze({ stage: "callback", outcome: "unavailable" }))).catch(() => undefined); }
+      catch { /* Observability only. */ }
+      result = createFreshLoginRequiredResult("callback_unavailable");
+    }
+    try { return createSignedOwnerPanelSessionHandoffResponse(result, authenticated as never); }
+    catch {
+      return new Response('{"code":"owner_session_handoff_request_invalid"}', {
+        status: 503,
+        headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
+  };
+}
 
 export type OwnerSelfServeAuthReadiness = Readonly<{
   schemaVersion: 1;
@@ -107,6 +198,7 @@ export function assertDisabledOwnerSelfServeAuthComposition(
 export function createDisabledOwnerSelfServeAuthComposition(options: {
   activationApproval: unknown;
   runtime: PersistentSelfServeRuntime;
+  authorityProfile?: SaaSAuthAuthorityProfile;
   stateDigester: OpaqueStateDigester;
   browserBindingCredentialCodec: PanelBrowserBindingAuthorityCodec;
   browserBindingRepository: PostgresPanelBrowserBindingRepository;
@@ -134,6 +226,9 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     typeof options.randomNonceBytes !== "function"
   ) invalid();
   const environment: Environment = options.activationApproval.environment;
+  const authority = options.authorityProfile ?? DEFAULT_SAAS_AUTH_AUTHORITY_PROFILE;
+  try { assertSaaSAuthAuthorityProfile(authority); } catch { return invalid(); }
+  if (options.ownerInternalOrigin !== authority.ownerOrigin) invalid();
   const runtime = options.runtime;
   const clock = options.clock;
   const randomUuid = options.randomUuid;
@@ -145,7 +240,8 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     stateDigester,
     credentialCodec: options.browserBindingCredentialCodec,
     repository,
-    panelBootstrapAuthority: PANEL_BROWSER_BOOTSTRAP_URL,
+    panelBootstrapAuthority: authority.panelBootstrapUrl,
+    panelCallbackAuthority: authority.panelCallbackUrl,
     clock,
     randomUuid,
     audit: options.browserBindingStartAudit,
@@ -155,12 +251,14 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     runtime,
     registrationStartExecutor,
     randomBytes: options.randomNonceBytes,
+    panelBootstrapAuthority: authority.panelBootstrapUrl,
     audit: options.bridgeAudit,
   });
 
   const browserBindingInternalGateway = createOwnerPanelBrowserBindingInternalGateway({
     activationApproval: createPanelBrowserBindingInternalGatewayApproval(environment),
     ownerInternalOrigin: options.ownerInternalOrigin,
+    panelCallbackAuthority: authority.panelCallbackUrl,
     keys: options.browserBindingInternalKeys,
     clock,
     maximumBodyBytes: options.browserBindingMaximumBodyBytes,
@@ -187,16 +285,27 @@ export function createDisabledOwnerSelfServeAuthComposition(options: {
     clock,
     audit: options.initialCallbackAudit,
   });
-  const sessionHandoffInternalGateway = createOwnerPanelSessionHandoffInternalGateway({
-    activationApproval: createOwnerPanelSessionHandoffGatewayApproval(environment),
-    ownerInternalOrigin: options.ownerInternalOrigin,
-    keys: options.sessionCompletionInternalKeys,
-    clock,
-    maximumBodyBytes: options.sessionCompletionMaximumBodyBytes,
-    edgeTrustBoundary,
-    callbackHandler,
-    audit: options.sessionHandoffGatewayAudit,
-  });
+  const sessionHandoffInternalGateway = authority === DEFAULT_SAAS_AUTH_AUTHORITY_PROFILE
+    ? createOwnerPanelSessionHandoffInternalGateway({
+        activationApproval: createOwnerPanelSessionHandoffGatewayApproval(environment),
+        ownerInternalOrigin: options.ownerInternalOrigin,
+        keys: options.sessionCompletionInternalKeys,
+        clock,
+        maximumBodyBytes: options.sessionCompletionMaximumBodyBytes,
+        edgeTrustBoundary,
+        callbackHandler,
+        audit: options.sessionHandoffGatewayAudit,
+      })
+    : authorityBoundSessionGateway({
+        ownerInternalOrigin: options.ownerInternalOrigin,
+        panelCallbackAuthority: authority.panelCallbackUrl,
+        keys: options.sessionCompletionInternalKeys,
+        clock,
+        maximumBodyBytes: options.sessionCompletionMaximumBodyBytes,
+        edgeTrustBoundary,
+        callbackHandler,
+        audit: options.sessionHandoffGatewayAudit,
+      });
 
   const composition: DisabledOwnerSelfServeAuthComposition = {
     browserBoundRegistrationHandler,

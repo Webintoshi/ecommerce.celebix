@@ -26,7 +26,7 @@ type Audit = (event: Readonly<{
 export type PanelBrowserBindingRegistrationStartResult = Readonly<{
   bootstrapCredential: string;
   providerAuthorizationUrl: string;
-  panelBootstrapAuthority: typeof PANEL_BROWSER_BOOTSTRAP_URL;
+  panelBootstrapAuthority: string;
   bootstrapExpiresAt: string;
 }>;
 
@@ -57,7 +57,7 @@ function exactSingle(search: URLSearchParams, name: string, maximum: number): st
   return value;
 }
 
-function exactProviderAuthority(value: unknown): { url: string; state: string } {
+function exactProviderAuthority(value: unknown, callbackAuthority: string): { url: string; state: string } {
   if (typeof value !== "string" || value.length < 1 || value.length > 16_384 || value.trim() !== value) invalid();
   let url: URL;
   try { url = new URL(value); } catch { return invalid(); }
@@ -67,7 +67,7 @@ function exactProviderAuthority(value: unknown): { url: string; state: string } 
   ) invalid();
   const state = exactSingle(url.searchParams, "state", 1_024);
   if (state.length < 16) invalid();
-  if (exactSingle(url.searchParams, "redirect_uri", 2_048) !== PANEL_OIDC_CALLBACK_URL) invalid();
+  if (exactSingle(url.searchParams, "redirect_uri", 2_048) !== callbackAuthority) invalid();
   if (exactSingle(url.searchParams, "response_type", 32) !== "code") invalid();
   if (exactSingle(url.searchParams, "response_mode", 32) !== "query") invalid();
   return { url: value, state };
@@ -84,6 +84,7 @@ export function createPanelBrowserBindingRegistrationStartExecutor(input: {
   credentialCodec: PanelBrowserBindingAuthorityCodec;
   repository: Pick<PostgresPanelBrowserBindingRepository, "createBootstrap">;
   panelBootstrapAuthority: string;
+  panelCallbackAuthority?: string;
   clock(): Date;
   randomUuid(): string;
   audit: Audit;
@@ -93,9 +94,24 @@ export function createPanelBrowserBindingRegistrationStartExecutor(input: {
   if (!input.stateDigester || typeof input.stateDigester.digest !== "function" ||
       !input.credentialCodec || typeof input.credentialCodec.generateBootstrapCredential !== "function" ||
       !input.repository || typeof input.repository.createBootstrap !== "function" ||
-      input.panelBootstrapAuthority !== PANEL_BROWSER_BOOTSTRAP_URL ||
+      typeof input.panelBootstrapAuthority !== "string" ||
       typeof input.clock !== "function" || typeof input.randomUuid !== "function" || typeof input.audit !== "function") invalid();
   now(input.clock);
+  const panelBootstrapAuthority = input.panelBootstrapAuthority;
+  const panelCallbackAuthority = input.panelCallbackAuthority ?? PANEL_OIDC_CALLBACK_URL;
+  try {
+    const bootstrap = new URL(panelBootstrapAuthority);
+    const callback = new URL(panelCallbackAuthority);
+    if (
+      bootstrap.protocol !== "https:" || bootstrap.username || bootstrap.password || bootstrap.port ||
+      bootstrap.pathname !== "/auth/bootstrap" || bootstrap.search || bootstrap.hash ||
+      `${bootstrap.origin}${bootstrap.pathname}` !== panelBootstrapAuthority ||
+      callback.protocol !== "https:" || callback.username || callback.password || callback.port ||
+      callback.pathname !== "/auth/callback" || callback.search || callback.hash ||
+      `${callback.origin}${callback.pathname}` !== panelCallbackAuthority ||
+      bootstrap.origin !== callback.origin
+    ) invalid();
+  } catch { return invalid(); }
   const runtime = input.runtime;
   const digestState = input.stateDigester.digest.bind(input.stateDigester);
   const generateBootstrapCredential = input.credentialCodec.generateBootstrapCredential.bind(input.credentialCodec);
@@ -123,7 +139,7 @@ export function createPanelBrowserBindingRegistrationStartExecutor(input: {
       let candidate: ReturnType<PanelBrowserBindingAuthorityCodec["generateBootstrapCredential"]>;
       const issuedAt = now(clock);
       try {
-        provider = exactProviderAuthority(started.authorizationUrl);
+        provider = exactProviderAuthority(started.authorizationUrl, panelCallbackAuthority);
         const stateDigest = digestState(provider.state);
         if (typeof stateDigest !== "string" || !DIGEST.test(stateDigest)) invalid();
         const providerExpiry = timestamp(started.expiresAt);
@@ -164,7 +180,7 @@ export function createPanelBrowserBindingRegistrationStartExecutor(input: {
       return Object.freeze({
         bootstrapCredential: candidate.credential,
         providerAuthorizationUrl: provider.url,
-        panelBootstrapAuthority: PANEL_BROWSER_BOOTSTRAP_URL,
+        panelBootstrapAuthority,
         bootstrapExpiresAt: persisted.expiresAt,
       });
     },

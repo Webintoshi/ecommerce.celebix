@@ -161,6 +161,23 @@ export function createDisabledOwnerSelfServeAuthRouteSet(): OwnerSelfServeAuthRo
   return Object.freeze(routeSet);
 }
 
+export function createUnavailableOwnerStagingAuthRouteSet(): OwnerSelfServeAuthRouteSet {
+  const routeSet: OwnerSelfServeAuthRouteSet = {
+    publicRegistration: async (request) => request.method === "POST"
+      ? controlled("owner_auth_route_unavailable", 503)
+      : controlled("owner_registration_method_not_allowed", 405),
+    internalBrowserBinding: async (request) => request.method === "POST"
+      ? controlled("owner_auth_route_unavailable", 503)
+      : controlled("owner_browser_binding_method_not_allowed", 405),
+    internalCallback: async (request) => request.method === "POST"
+      ? controlled("owner_auth_route_unavailable", 503)
+      : controlled("owner_internal_callback_method_not_allowed", 405),
+    readiness: approvedStagingReadiness(),
+  };
+  routeSets.add(routeSet);
+  return Object.freeze(routeSet);
+}
+
 export function createApprovedStagingOwnerSelfServeAuthRouteSet(options: {
   approval: OwnerSelfServeAuthRouteMountApproval;
   environment: "approved_staging";
@@ -179,7 +196,18 @@ export function createApprovedStagingOwnerSelfServeAuthRouteSet(options: {
   return Object.freeze(routeSet);
 }
 
-const defaultRouteSet = createDisabledOwnerSelfServeAuthRouteSet();
+const defaultRouteSet: OwnerSelfServeAuthRouteSet = (() => {
+  const resolve = async () => (await import("../self-serve-auth-route-runtime/default.ts"))
+    .resolveDefaultOwnerStagingAuthRouteSet();
+  const routeSet: OwnerSelfServeAuthRouteSet = {
+    publicRegistration: async (request) => (await resolve()).publicRegistration(request),
+    internalBrowserBinding: async (request) => (await resolve()).internalBrowserBinding(request),
+    internalCallback: async (request) => (await resolve()).internalCallback(request),
+    readiness: readiness(),
+  };
+  routeSets.add(routeSet);
+  return Object.freeze(routeSet);
+})();
 
 export function getDefaultOwnerSelfServeAuthRouteSet(): OwnerSelfServeAuthRouteSet {
   return defaultRouteSet;

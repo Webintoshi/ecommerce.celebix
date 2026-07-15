@@ -143,19 +143,19 @@ function exactSingle(search: URLSearchParams, name: string, maximum: number): st
   return value;
 }
 
-function canonicalProviderUrl(value: unknown): string {
+function canonicalProviderUrl(value: unknown, callbackAuthority: string): string {
   if (typeof value !== "string" || value.length < 1 || value.length > 16_384 || value.trim() !== value) invalid();
   let url: URL;
   try { url = new URL(value); } catch { return invalid(); }
   if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash || url.toString() !== value) invalid();
   if (exactSingle(url.searchParams, "state", 1_024).length < 16) invalid();
-  if (exactSingle(url.searchParams, "redirect_uri", 2_048) !== PANEL_OIDC_CALLBACK_URL ||
+  if (exactSingle(url.searchParams, "redirect_uri", 2_048) !== callbackAuthority ||
       exactSingle(url.searchParams, "response_type", 32) !== "code" ||
       exactSingle(url.searchParams, "response_mode", 32) !== "query") invalid();
   return value;
 }
 
-function parseEnvelope(bytes: Uint8Array): {
+function parseEnvelope(bytes: Uint8Array, callbackAuthority: string): {
   bootstrapCredential: string;
   providerAuthorizationUrl: string;
   browserBindingCredential: string;
@@ -171,7 +171,7 @@ function parseEnvelope(bytes: Uint8Array): {
   const envelope = {
     schemaVersion: 1,
     bootstrapCredential: canonicalBootstrapCredential(body.bootstrapCredential),
-    providerAuthorizationUrl: canonicalProviderUrl(body.providerAuthorizationUrl),
+    providerAuthorizationUrl: canonicalProviderUrl(body.providerAuthorizationUrl, callbackAuthority),
     browserBindingCredential: canonicalBindingCredential(body.browserBindingCredential),
   };
   if (JSON.stringify(envelope) !== raw) invalid();
@@ -229,6 +229,7 @@ function signedResponse(input: {
 export function createOwnerPanelBrowserBindingInternalGateway(options: {
   activationApproval: unknown;
   ownerInternalOrigin: string;
+  panelCallbackAuthority?: string;
   keys: ReadonlyMap<string, Uint8Array>;
   clock(): Date;
   maximumBodyBytes: number;
@@ -237,6 +238,13 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
 }) {
   assertApproval(options?.activationApproval);
   const ownerOrigin = origin(options.ownerInternalOrigin);
+  const panelCallbackAuthority = options.panelCallbackAuthority ?? PANEL_OIDC_CALLBACK_URL;
+  try {
+    const callback = new URL(panelCallbackAuthority);
+    if (callback.protocol !== "https:" || callback.username || callback.password || callback.port ||
+        callback.pathname !== "/auth/callback" || callback.search || callback.hash ||
+        `${callback.origin}${callback.pathname}` !== panelCallbackAuthority) invalid();
+  } catch { return invalid(); }
   const keys = copyKeys(options.keys);
   if (!Number.isSafeInteger(options.maximumBodyBytes) || options.maximumBodyBytes < 1 || options.maximumBodyBytes > 16_384 ||
       typeof options.clock !== "function" || !options.repository || typeof options.repository.bindBrowserCredential !== "function" ||
@@ -290,7 +298,7 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
     }
 
     let envelope: ReturnType<typeof parseEnvelope>;
-    try { envelope = parseEnvelope(bytes); }
+    try { envelope = parseEnvelope(bytes, panelCallbackAuthority); }
     catch {
       auditSafely(audit, { stage: "envelope", outcome: "rejected" });
       return signedResponse({

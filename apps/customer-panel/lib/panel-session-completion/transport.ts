@@ -188,6 +188,7 @@ export function panelSessionHandoffResponseSignaturePreimage(input: {
 export function createAuthenticatedPanelSessionCompletionTransport(options: {
   activationApproval: unknown;
   ownerInternalOrigin: string;
+  panelCallbackAuthority?: string;
   activeKeyId: string;
   activeSecret: Uint8Array;
   fetch(request: Request): Promise<Response>;
@@ -198,6 +199,9 @@ export function createAuthenticatedPanelSessionCompletionTransport(options: {
 }) {
   assertPanelSessionCompletionApproval(options?.activationApproval);
   const ownerOrigin = validateOwnerInternalCallbackOrigin(options.ownerInternalOrigin);
+  const panelCallbackAuthority = options.panelCallbackAuthority ?? PANEL_OIDC_CALLBACK_URL;
+  try { validateCustomerPanelCallbackUrl(`${panelCallbackAuthority}?state=${"s".repeat(16)}&code=x`, panelCallbackAuthority, 16_384); }
+  catch { return invalid(); }
   if (!KEY_ID.test(options.activeKeyId)) invalid();
   if (!(options.activeSecret instanceof Uint8Array) || options.activeSecret.byteLength < 32 || options.activeSecret.byteLength > 64) invalid();
   if (
@@ -220,7 +224,7 @@ export function createAuthenticatedPanelSessionCompletionTransport(options: {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const controller = new AbortController();
       try {
-        const callback = validateCustomerPanelCallbackUrl(callbackUrl, PANEL_OIDC_CALLBACK_URL, 16_384);
+        const callback = validateCustomerPanelCallbackUrl(callbackUrl, panelCallbackAuthority, 16_384);
         const body = JSON.stringify({
           schemaVersion: PANEL_SESSION_COMPLETION_REQUEST_SCHEMA_VERSION,
           callbackUrl: callback.callbackUrl,
