@@ -21,7 +21,14 @@ const BS = `bs1.bootstrap.${Buffer.alloc(32, 0x11).toString("base64url")}`;
 const PB = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 const PROVIDER = "https://identity.example.test/authorize?state=state_0123456789abcdefghijklmnop&redirect_uri=https%3A%2F%2Fpanel.celebix.site%2Fauth%2Fcallback&response_type=code&response_mode=query";
 
-function signedRequest(overrides: { body?: string; signatureBody?: string; timestamp?: string } = {}) {
+function signedRequest(overrides: {
+  body?: string;
+  signatureBody?: string;
+  timestamp?: string;
+  url?: string;
+  method?: string;
+  headers?: Record<string, string>;
+} = {}) {
   const body = overrides.body ?? JSON.stringify({
     schemaVersion: 1,
     bootstrapCredential: BS,
@@ -34,15 +41,17 @@ function signedRequest(overrides: { body?: string; signatureBody?: string; times
   const signature = createHmac("sha256", SECRET)
     .update(`${PANEL_BROWSER_BOOTSTRAP_REQUEST_SIGNATURE_DOMAIN}\n${timestamp}\n${digest}`)
     .digest("base64url");
-  return new Request(ENDPOINT, {
-    method: "POST",
+  const method = overrides.method ?? "POST";
+  return new Request(overrides.url ?? ENDPOINT, {
+    method,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "x-celebix-browser-bootstrap-key-id": "bootstrap-hmac",
       "x-celebix-browser-bootstrap-timestamp": timestamp,
       "x-celebix-browser-bootstrap-signature": signature,
+      ...overrides.headers,
     },
-    body,
+    body: method === "GET" ? undefined : body,
   });
 }
 
@@ -106,6 +115,45 @@ test("authenticates exact raw bytes before binding and signs the exact canonical
   }]);
   assert.equal(response.headers.has("set-cookie"), false);
   assert.equal(response.headers.has("location"), false);
+});
+
+test("accepts the public endpoint and internal HTTP or HTTPS proxy URLs only at the exact browser-binding path", async () => {
+  for (const url of [
+    ENDPOINT,
+    `http://owner-runtime:3000${PANEL_BROWSER_BINDING_INTERNAL_PATH}`,
+    `https://owner-runtime.local${PANEL_BROWSER_BINDING_INTERNAL_PATH}`,
+  ]) {
+    const current = fixture();
+    const response = await current.gateway(signedRequest({ url }));
+    assert.equal(response.status, 200, url);
+    assert.equal(current.binds.length, 1, url);
+  }
+});
+
+test("rejects wrong browser-binding methods, protocols, paths, queries, fragments, and forwarded-header rescue before binding", async () => {
+  const forwarded = {
+    host: "owner-internal.example.test",
+    origin: ORIGIN,
+    referer: `${ORIGIN}/trusted`,
+    forwarded: "host=owner-internal.example.test;proto=https",
+    "x-forwarded-host": "owner-internal.example.test",
+    "x-forwarded-proto": "https",
+  };
+  const cases = [
+    { request: signedRequest({ method: "GET" }), status: 405 },
+    { request: signedRequest({ url: `ftp://owner-runtime${PANEL_BROWSER_BINDING_INTERNAL_PATH}` }), status: 400 },
+    { request: signedRequest({ url: "http://owner-runtime/api/internal/self-serve/oidc-callback" }), status: 400 },
+    { request: signedRequest({ url: `http://owner-runtime${PANEL_BROWSER_BINDING_INTERNAL_PATH}/child` }), status: 400 },
+    { request: signedRequest({ url: `http://owner-runtime${PANEL_BROWSER_BINDING_INTERNAL_PATH}?x=1` }), status: 400 },
+    { request: signedRequest({ url: `http://owner-runtime${PANEL_BROWSER_BINDING_INTERNAL_PATH}#fragment` }), status: 400 },
+    { request: signedRequest({ url: "http://owner-runtime/api/internal/self-serve/browser-bindin", headers: forwarded }), status: 400 },
+  ];
+  for (const input of cases) {
+    const current = fixture();
+    const response = await current.gateway(input.request);
+    assert.equal(response.status, input.status, input.request.url);
+    assert.equal(current.binds.length, 0, input.request.url);
+  }
 });
 
 test("wrong HMAC, non-canonical body, and stale timestamp fail before repository access", async () => {

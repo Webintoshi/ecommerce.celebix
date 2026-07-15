@@ -6,6 +6,7 @@ import {
   PANEL_BROWSER_BOOTSTRAP_RESPONSE_SIGNATURE_DOMAIN,
   PANEL_OIDC_CALLBACK_URL,
 } from "../../../../packages/platform-config/src/saas.ts";
+import { createInternalHmacRequestAuthorityValidator } from "../self-serve-auth-authority/internal-request-authority.ts";
 import type { PostgresPanelBrowserBindingRepository } from "./postgres-repository.ts";
 
 const approvals = new WeakSet<object>();
@@ -237,7 +238,7 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
   audit: Audit;
 }) {
   assertApproval(options?.activationApproval);
-  const ownerOrigin = origin(options.ownerInternalOrigin);
+  origin(options.ownerInternalOrigin);
   const panelCallbackAuthority = options.panelCallbackAuthority ?? PANEL_OIDC_CALLBACK_URL;
   try {
     const callback = new URL(panelCallbackAuthority);
@@ -250,7 +251,9 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
       typeof options.clock !== "function" || !options.repository || typeof options.repository.bindBrowserCredential !== "function" ||
       typeof options.audit !== "function") invalid();
   trustedNow(options.clock);
-  const endpoint = `${ownerOrigin}${PANEL_BROWSER_BINDING_INTERNAL_PATH}`;
+  const requestAuthority = createInternalHmacRequestAuthorityValidator({
+    pathname: PANEL_BROWSER_BINDING_INTERNAL_PATH,
+  });
   const maximumBodyBytes = options.maximumBodyBytes;
   const clock = options.clock;
   const bindBrowserCredential = options.repository.bindBrowserCredential.bind(options.repository);
@@ -264,9 +267,9 @@ export function createOwnerPanelBrowserBindingInternalGateway(options: {
     let requestBodyDigest: string;
     let secret: Uint8Array;
     try {
-      if (!(request instanceof Request) || request.method !== "POST") throw new Error("method");
-      const url = new URL(request.url);
-      if (url.toString() !== endpoint || url.origin !== ownerOrigin || url.pathname !== PANEL_BROWSER_BINDING_INTERNAL_PATH || url.search || url.hash) throw new Error("request");
+      const authorityDecision = requestAuthority.validate(request);
+      if (authorityDecision === "method_not_allowed") throw new Error("method");
+      if (authorityDecision !== "approved") throw new Error("request");
       if (request.headers.get("content-type") !== "application/json; charset=utf-8" || request.headers.has("authorization") || request.headers.has("cookie")) throw new Error("request");
       for (const name of request.headers.keys()) {
         if (name.startsWith("x-celebix-") && ![

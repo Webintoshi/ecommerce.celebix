@@ -10,6 +10,7 @@ import {
   createOwnerInternalSelfServeCallbackGateway,
   signWithAuthenticatedInternalCallbackRequest,
 } from "./internal-callback-gateway.ts";
+import { createInternalHmacRequestAuthorityValidator } from "../self-serve-auth-authority/internal-request-authority.ts";
 import { createVerifiedEdgeTrustBoundary } from "./verified-edge-trust.ts";
 
 const ORIGIN = "https://owner-internal.example.test";
@@ -36,6 +37,7 @@ function request(options: {
   method?: string;
   contentType?: string | null;
   contentLength?: string;
+  headers?: Record<string, string>;
 } = {}) {
   const body = typeof options.body === "string"
     ? new TextEncoder().encode(options.body)
@@ -47,6 +49,7 @@ function request(options: {
   if (options.timestamp !== null) headers.set("x-celebix-callback-timestamp", timestamp);
   if (options.signature !== null) headers.set("x-celebix-callback-signature", options.signature ?? signature(body, timestamp));
   if (options.contentLength !== undefined) headers.set("content-length", options.contentLength);
+  for (const [name, value] of Object.entries(options.headers ?? {})) headers.set(name, value);
   return new Request(options.url ?? ENDPOINT, {
     method: options.method ?? "POST",
     headers,
@@ -86,6 +89,28 @@ function fixture(options: { handler?: (request: Request, context: unknown) => Pr
   });
   return { gateway, calls, boundary };
 }
+
+test("shared internal HMAC request authority is immutable and ignores forwarding headers as authority", () => {
+  const authority = createInternalHmacRequestAuthorityValidator({
+    pathname: "/api/internal/self-serve/oidc-callback",
+  });
+  assert.equal(Object.isFrozen(authority), true);
+  assert.equal(Object.isSealed(authority), true);
+  assert.equal(authority.validate(new Request("http://owner-runtime:3000/api/internal/self-serve/oidc-callback", {
+    method: "POST",
+  })), "approved");
+  assert.equal(authority.validate(new Request("http://owner-runtime:3000/api/internal/self-serve/oidc-callbac", {
+    method: "POST",
+    headers: {
+      host: "owner-internal.example.test",
+      origin: ORIGIN,
+      referer: `${ORIGIN}/trusted`,
+      forwarded: "host=owner-internal.example.test;proto=https",
+      "x-forwarded-host": "owner-internal.example.test",
+      "x-forwarded-proto": "https",
+    },
+  })), "request_invalid");
+});
 
 test("shared authenticator returns one sealed request authority and signs only through its authenticated key", async () => {
   const authenticator = createOwnerInternalCallbackRequestAuthenticator({
@@ -220,12 +245,47 @@ test("valid HMAC creates private context, reconstructs one exact headerless GET,
   assert.equal(await value.boundary.requestGate.verify({ kind: "callback_completion", request: value.calls[0].request, edgeTrustContext: value.calls[0].context }), "unauthorized");
 });
 
+test("valid callback HMAC accepts the public endpoint and internal HTTP or HTTPS proxy URLs at the exact callback path", async () => {
+  for (const url of [
+    ENDPOINT,
+    "http://owner-runtime:3000/api/internal/self-serve/oidc-callback",
+    "https://owner-runtime.local/api/internal/self-serve/oidc-callback",
+  ]) {
+    const value = fixture();
+    const response = await value.gateway(request({ url }));
+    assert.equal(response.status, 200, url);
+    assert.equal(value.calls.length, 1, url);
+  }
+});
+
+test("wrong callback methods, protocols, paths, queries, fragments, and forwarded-header rescue fail before the handler", async () => {
+  const forwarded = {
+    host: "owner-internal.example.test",
+    origin: ORIGIN,
+    referer: `${ORIGIN}/trusted`,
+    forwarded: "host=owner-internal.example.test;proto=https",
+    "x-forwarded-host": "owner-internal.example.test",
+    "x-forwarded-proto": "https",
+  };
+  const cases = [
+    { input: request({ method: "GET" }), status: 405 },
+    { input: request({ url: "ftp://owner-runtime/api/internal/self-serve/oidc-callback" }), status: 400 },
+    { input: request({ url: "http://owner-runtime/api/internal/self-serve/browser-binding" }), status: 400 },
+    { input: request({ url: "http://owner-runtime/api/internal/self-serve/oidc-callback/child" }), status: 400 },
+    { input: request({ url: "http://owner-runtime/api/internal/self-serve/oidc-callback?x=1" }), status: 400 },
+    { input: request({ url: "http://owner-runtime/api/internal/self-serve/oidc-callback#fragment" }), status: 400 },
+    { input: request({ url: "http://owner-runtime/api/internal/self-serve/oidc-callbac", headers: forwarded }), status: 400 },
+  ];
+  for (const { input, status } of cases) {
+    const value = fixture();
+    const response = await value.gateway(input);
+    assert.equal(response.status, status, input.url);
+    assert.equal(value.calls.length, 0, input.url);
+  }
+});
+
 test("method, exact authority, content type, headers, timestamp, and declared bounds fail before body or business", async () => {
   const cases = [
-    request({ method: "GET" }),
-    request({ url: "https://attacker.example.test/api/internal/self-serve/oidc-callback" }),
-    request({ url: `${ORIGIN}/api/internal/self-serve/oidc-callback/extra` }),
-    request({ url: "https://owner-internal.example.test:444/api/internal/self-serve/oidc-callback" }),
     request({ contentType: "application/json" }),
     request({ keyId: null }),
     request({ keyId: "space key" }),

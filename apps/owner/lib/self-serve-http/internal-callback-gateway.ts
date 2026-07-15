@@ -6,6 +6,7 @@ import {
   SELF_SERVE_INTERNAL_CALLBACK_SCHEMA_VERSION,
 } from "../../../../packages/platform-config/src/saas.ts";
 
+import { createInternalHmacRequestAuthorityValidator } from "../self-serve-auth-authority/internal-request-authority.ts";
 import { ownerInternalCallbackJson, projectOwnerInternalCallbackResponse } from "./internal-callback-response.ts";
 import {
   assertVerifiedEdgeTrustBoundary,
@@ -280,6 +281,9 @@ export function createOwnerInternalCallbackRawRequestAuthenticator(options: {
   const maximumBodyBytes = bounded(options.maximumBodyBytes, 65_536);
   if (typeof options.clock !== "function") invalid();
   const endpoint = `${origin}${SELF_SERVE_INTERNAL_CALLBACK_PATH}`;
+  const requestAuthority = createInternalHmacRequestAuthorityValidator({
+    pathname: SELF_SERVE_INTERNAL_CALLBACK_PATH,
+  });
   const clock = options.clock;
 
   return Object.freeze({
@@ -289,11 +293,9 @@ export function createOwnerInternalCallbackRawRequestAuthenticator(options: {
       let timestamp: string;
       let signatureBytes: Uint8Array;
       try {
-        if (!(request instanceof Request) || request.method !== "POST") authenticationFailure("request_validation", 405);
-        const url = new URL(request.url);
-        if (url.toString() !== endpoint || url.origin !== origin || url.pathname !== SELF_SERVE_INTERNAL_CALLBACK_PATH || url.search || url.hash) {
-          throw new Error("invalid_request");
-        }
+        const authorityDecision = requestAuthority.validate(request);
+        if (authorityDecision === "method_not_allowed") authenticationFailure("request_validation", 405);
+        if (authorityDecision !== "approved") throw new Error("invalid_request");
         if (request.headers.get("content-type") !== "application/json; charset=utf-8") throw new Error("invalid_request");
         keyId = exactHeader(request.headers, "x-celebix-callback-key-id", /^[A-Za-z0-9._-]{1,64}$/);
         timestamp = exactHeader(request.headers, "x-celebix-callback-timestamp", /^\d+$/);
