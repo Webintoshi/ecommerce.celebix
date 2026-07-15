@@ -11,6 +11,7 @@ const correctionBase = "4b54a65276f7d26c3860d174abe53d746cbbd34b";
 const read = (file) => readFileSync(path.join(root, file), "utf8");
 const sourceFiles = [
   "apps/owner/lib/self-serve-http/runtime.ts",
+  "apps/owner/lib/self-serve-http/registration-request.ts",
   "apps/owner/lib/self-serve-http/registration-start.ts",
   "apps/owner/lib/self-serve-http/oidc-callback-completion.ts",
 ];
@@ -55,7 +56,7 @@ test("handler composition has no environment activation, direct pg, pool, generi
 
 test("registration authority is exact server-owned HTTPS origin and never request or proxy derived", () => {
   const runtime = read("apps/owner/lib/self-serve-http/runtime.ts");
-  const registration = read("apps/owner/lib/self-serve-http/registration-start.ts");
+  const registration = read("apps/owner/lib/self-serve-http/registration-request.ts");
   assert.match(runtime, /registrationOrigin:\s*string/);
   assert.match(runtime, /APPROVED_OWNER_REGISTRATION_ORIGIN\s*=\s*"https:\/\/ecommerce\.celebix\.co"/);
   assert.match(runtime, /normalizeExactHttpsOrigin\(options\.registrationOrigin\)/);
