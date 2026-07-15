@@ -7,6 +7,10 @@ import {
   type SecurityHeaderOptions,
   validateSameOriginRequest,
 } from "@celebix/platform-config/src/http-security";
+import {
+  PANEL_BROWSER_BINDING_INTERNAL_PATH,
+  SELF_SERVE_INTERNAL_CALLBACK_PATH,
+} from "@celebix/platform-config/src/saas";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import {
   expireOwnerAuthCookies,
@@ -29,6 +33,10 @@ const OWNER_RECOVER_PATH = "/auth/recover";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
+const INTERNAL_HMAC_PATHS = new Set([
+  PANEL_BROWSER_BINDING_INTERNAL_PATH,
+  SELF_SERVE_INTERNAL_CALLBACK_PATH,
+]);
 const SELF_SERVE_PUBLIC_PREFIXES = [
   "/branding",
   "/magaza-ac",
@@ -83,6 +91,10 @@ function isPublicSelfServeRoute(pathname: string) {
   return SELF_SERVE_PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+function isInternalHmacRoute(pathname: string) {
+  return INTERNAL_HMAC_PATHS.has(pathname);
+}
+
 function isProtectedOwnerApi(pathname: string) {
   return (
     pathname.startsWith("/api") &&
@@ -131,6 +143,10 @@ export async function middleware(request: NextRequest) {
         ? { contentSecurityPolicy: "route-owned" }
         : undefined,
     );
+  }
+
+  if (isInternalHmacRoute(pathname)) {
+    return withSecurity(request, nextResponse(request));
   }
 
   const requiresAuth = isProtectedOwnerPage(pathname) || isProtectedOwnerApi(pathname);

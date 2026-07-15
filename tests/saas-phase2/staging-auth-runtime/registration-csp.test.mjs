@@ -85,3 +85,36 @@ test("Owner middleware delegates CSP only for the exact public registration path
   assert.match(source, /pathname\s*===\s*OWNER_PUBLIC_REGISTRATION_PATH[\s\S]{0,180}contentSecurityPolicy:\s*"route-owned"/);
   assert.doesNotMatch(source, /default-src 'none'|form-action 'none'|nonce-/);
 });
+
+test("Owner middleware delegates only the two exact internal HMAC paths before legacy auth", () => {
+  const source = readFileSync(resolve(ROOT, "apps/owner/middleware.ts"), "utf8");
+  assert.match(source, /import\s*\{[\s\S]*PANEL_BROWSER_BINDING_INTERNAL_PATH[\s\S]*SELF_SERVE_INTERNAL_CALLBACK_PATH[\s\S]*\}\s*from\s*"@celebix\/platform-config\/src\/saas"/);
+  assert.match(
+    source,
+    /const INTERNAL_HMAC_PATHS\s*=\s*new Set\(\[[\s\S]*PANEL_BROWSER_BINDING_INTERNAL_PATH[\s\S]*SELF_SERVE_INTERNAL_CALLBACK_PATH[\s\S]*\]\)/,
+  );
+  assert.match(
+    source,
+    /function isInternalHmacRoute\(pathname:\s*string\)[\s\S]{0,160}INTERNAL_HMAC_PATHS\.has\(pathname\)/,
+  );
+
+  const bypassStart = source.indexOf("if (isInternalHmacRoute(pathname))");
+  const legacyEnvironmentGate = source.indexOf("const missingPublicEnv");
+  assert.notEqual(bypassStart, -1);
+  assert.notEqual(legacyEnvironmentGate, -1);
+  assert.ok(bypassStart < legacyEnvironmentGate);
+  const bypass = source.slice(bypassStart, legacyEnvironmentGate);
+  assert.match(bypass, /return withSecurity\([\s\S]{0,80}nextResponse\(request\)[\s\S]{0,80}\)/);
+  const bypassBody = bypass.slice(bypass.indexOf("{") + 1);
+  assert.doesNotMatch(bypassBody, /validateSameOriginRequest|Supabase|cookies?|headers\.get|HMAC|signature/i);
+
+  const classifierStart = source.indexOf("function isInternalHmacRoute");
+  const classifierEnd = source.indexOf("}", classifierStart);
+  const classifier = source.slice(classifierStart, classifierEnd + 1);
+  assert.doesNotMatch(classifier, /startsWith|includes|match|test\(|prefix/i);
+
+  const publicPrefixesStart = source.indexOf("const SELF_SERVE_PUBLIC_PREFIXES");
+  const publicPrefixesEnd = source.indexOf("];", publicPrefixesStart);
+  const publicPrefixes = source.slice(publicPrefixesStart, publicPrefixesEnd + 2);
+  assert.doesNotMatch(publicPrefixes, /PANEL_BROWSER_BINDING_INTERNAL_PATH|SELF_SERVE_INTERNAL_CALLBACK_PATH|\/api\/internal\/self-serve/);
+});
