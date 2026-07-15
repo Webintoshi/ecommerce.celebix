@@ -1,5 +1,6 @@
 import { isReservedSelfServeSlug } from "../self-serve-store-slug.ts";
 import type { SelfServeRegistrationStartInput } from "../self-serve-registration-orchestrator.ts";
+import { publicRegistrationRequestAuthority } from "../self-serve-auth-authority/request-authority.ts";
 import {
   assertPersistentSelfServeRuntime,
   type PersistentSelfServeRuntime,
@@ -51,20 +52,6 @@ function audit(
   event: Omit<SelfServeHttpAuditEvent, "operation">,
 ): void {
   runtime.audit({ operation: "registration_start", ...event });
-}
-
-function exactSameOrigin(request: Request, registrationOrigin: string): boolean {
-  const raw = request.headers.get("origin");
-  if (!raw || raw !== registrationOrigin) return false;
-  try {
-    const origin = new URL(raw);
-    const target = new URL(request.url);
-    return raw === origin.origin && !origin.username && !origin.password &&
-      origin.pathname === "/" && !origin.search && !origin.hash &&
-      origin.origin === registrationOrigin && target.origin === registrationOrigin;
-  } catch {
-    return false;
-  }
 }
 
 function gateResponse(decision: Exclude<SelfServeRequestGateDecision, "allowed">): Response {
@@ -279,7 +266,7 @@ export async function processSelfServeRegistrationRequest(
       }, 405),
     });
   }
-  if (!exactSameOrigin(request, runtime.registrationOrigin)) {
+  if (!publicRegistrationRequestAuthority.validate(request, runtime.registrationOrigin)) {
     return Object.freeze({
       ok: false,
       response: selfServeRegistrationJson({

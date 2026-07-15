@@ -3,6 +3,7 @@ import {
   type SaaSAuthAuthorityProfile,
 } from "../../../../packages/platform-config/src/saas.ts";
 import type { SelfServeRequestGate, SelfServeRequestGateInput } from "../self-serve-http/runtime.ts";
+import { publicRegistrationRequestAuthority } from "./request-authority.ts";
 
 export function createApprovedStagingSelfServeRequestGate(options: {
   authority: SaaSAuthAuthorityProfile;
@@ -28,14 +29,9 @@ export function createApprovedStagingSelfServeRequestGate(options: {
           ? "allowed"
           : "unauthorized";
       }
-      try {
-        const url = new URL(input.request.url);
-        if (
-          input.request.method !== "POST" || input.request.headers.get("origin") !== options.authority.ownerOrigin ||
-          url.origin !== options.authority.ownerOrigin || url.pathname !== "/api/self-serve/register" ||
-          url.search || url.hash
-        ) return "forbidden";
-      } catch { return "forbidden"; }
+      if (!publicRegistrationRequestAuthority.validate(input.request, options.authority.ownerOrigin)) {
+        return "forbidden";
+      }
       const cutoff = current.getTime() - 60_000;
       while (acceptedAt.length > 0 && acceptedAt[0] <= cutoff) acceptedAt.shift();
       if (acceptedAt.length >= maximum) return "rate_limited";
