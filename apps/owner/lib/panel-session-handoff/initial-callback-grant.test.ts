@@ -37,7 +37,7 @@ function fixture(
   let consumed = false;
   let providerCalls = 0;
   let recoveryCalls = 0;
-  const providerInputs: Array<{ state: string; code: string }> = [];
+  const providerInputs: Array<{ state: string; code: string; responseIssuer?: string }> = [];
   const attemptStates: string[] = [];
   const runtime = createPersistentSelfServeRuntime({
     activationApproval: createSelfServeHttpActivationApproval("disposable_test"),
@@ -88,7 +88,11 @@ function fixture(
       buildAuthorizationUrl() { throw new Error("not used"); },
       async verifyCallback(input) {
         providerCalls += 1;
-        providerInputs.push({ state: input.state, code: input.code });
+        providerInputs.push({
+          state: input.state,
+          code: input.code,
+          ...(input.responseIssuer ? { responseIssuer: input.responseIssuer } : {}),
+        });
         hooks.providerStarted?.();
         await hooks.waitForProviderRelease?.();
         return {
@@ -199,7 +203,7 @@ test("callback snapshot survives caller mutation and privately binds the grant t
     waitForProviderRelease: () => providerRelease,
   });
   const boundary = createInitialVerifiedCallbackGrantBoundary(current.runtime);
-  const callback = { state: STATE, code: CODE };
+  const callback = { state: STATE, code: CODE, responseIssuer: ISSUER };
   let acceptedOriginal = false;
   let acceptedSubstitution = true;
   const pending = boundary.executeInitialCallback(callback, (grant) => {
@@ -209,11 +213,12 @@ test("callback snapshot survives caller mutation and privately binds the grant t
   await providerStarted;
   callback.state = OTHER_STATE;
   callback.code = OTHER_CODE;
+  callback.responseIssuer = "https://attacker.example/oidc";
   releaseProvider();
   const result = await pending;
 
   assert.equal(result.kind, "initial_callback_granted");
-  assert.deepEqual(current.providerInputs, [{ state: STATE, code: CODE }]);
+  assert.deepEqual(current.providerInputs, [{ state: STATE, code: CODE, responseIssuer: ISSUER }]);
   assert.deepEqual(current.attemptStates, [STATE]);
   assert.equal(acceptedOriginal, true);
   assert.equal(acceptedSubstitution, false);

@@ -9,6 +9,7 @@ import {
 import {
   beginOidcAuthorization,
   completeOidcCallback,
+  rejectOidcProviderCallback,
   type OidcCallbackInput,
   type OidcProviderPort,
   type OidcTransactionStore,
@@ -130,7 +131,7 @@ export interface PersistentSelfServeRuntime {
   beginRegistration(registration: SelfServeRegistrationStartInput): ReturnType<typeof beginSelfServeRegistration>;
   completeCallback(callback: OidcCallbackInput): Promise<SelfServeCallbackServiceResult>;
   recoverConsumedCallback(state: string): Promise<SelfServeCallbackServiceResult>;
-  rejectProviderCallback(state: string): Promise<void>;
+  rejectProviderCallback(state: string, responseIssuer?: string): Promise<void>;
   audit(event: SelfServeHttpAuditEvent): void;
   readonly [RUNTIME_CAPABILITY]: true;
 }
@@ -456,11 +457,16 @@ export function createPersistentSelfServeRuntime(
       }
       return { kind: "recovery_failed", retryable: false, unavailable: classification.kind === "unavailable" };
     },
-    async rejectProviderCallback(state: string) {
+    async rejectProviderCallback(state: string, responseIssuer?: string) {
       if (typeof state !== "string" || state.length < 16 || state.length > 1_024 || state !== state.trim()) {
         throw new Error("oidc_invalid_state");
       }
-      await options.oidcTransactionStore.consume(state, canonicalClock(options.clock));
+      await rejectOidcProviderCallback({
+        transactionStore: options.oidcTransactionStore,
+        state,
+        ...(responseIssuer === undefined ? {} : { responseIssuer }),
+        now: () => canonicalClock(options.clock),
+      });
     },
     audit,
   } as PersistentSelfServeRuntime;

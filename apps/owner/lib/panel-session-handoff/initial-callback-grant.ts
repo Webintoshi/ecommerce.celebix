@@ -61,7 +61,10 @@ function snapshotCallback(callback: OidcCallbackInput): Readonly<OidcCallbackInp
   if (!callback || typeof callback !== "object") throw new Error("initial_verified_callback_grant_invalid");
   const state = callbackValue(callback.state, MINIMUM_STATE_LENGTH, MAXIMUM_STATE_LENGTH);
   const code = callbackValue(callback.code, 1, MAXIMUM_CODE_LENGTH);
-  return Object.freeze({ state, code });
+  const responseIssuer = callback.responseIssuer === undefined
+    ? undefined
+    : callbackValue(callback.responseIssuer, 1, 2_048);
+  return Object.freeze({ state, code, ...(responseIssuer ? { responseIssuer } : {}) });
 }
 
 export function isActiveInitialVerifiedCallbackGrantForState(

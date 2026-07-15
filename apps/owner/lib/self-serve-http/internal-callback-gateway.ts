@@ -16,8 +16,8 @@ import {
 const approvals = new WeakSet<object>();
 const MAXIMUM_TIMESTAMP_AGE_MS = 60_000;
 const MAXIMUM_FUTURE_SKEW_MS = 5_000;
-const SUCCESS_PARAMETERS = new Set(["state", "code"]);
-const ERROR_PARAMETERS = new Set(["state", "error", "error_description", "error_uri"]);
+const SUCCESS_PARAMETERS = new Set(["state", "code", "iss"]);
+const ERROR_PARAMETERS = new Set(["state", "error", "error_description", "error_uri", "iss"]);
 const authenticatedRequests = new WeakMap<object, Readonly<{ secret: Uint8Array; rawBody: Uint8Array }>>();
 
 export type OwnerInternalCallbackGatewayApproval = Readonly<{
@@ -155,6 +155,17 @@ function exactSingle(search: URLSearchParams, name: string, maximum: number): st
   return value;
 }
 
+function exactResponseIssuer(search: URLSearchParams): string | undefined {
+  if (!search.has("iss")) return undefined;
+  const value = exactSingle(search, "iss", 2_048);
+  const url = new URL(value);
+  if (
+    url.protocol !== "https:" || url.username || url.password || url.search || url.hash ||
+    url.toString().replace(/\/$/, "") !== value
+  ) throw new Error("invalid_callback");
+  return value;
+}
+
 function exactCallbackUrl(value: unknown, panelCallbackAuthority = PANEL_OIDC_CALLBACK_URL): string {
   if (typeof value !== "string" || value.length < 1 || value.length > 8_192) throw new Error("invalid_callback");
   const url = new URL(value);
@@ -174,6 +185,7 @@ function exactCallbackUrl(value: unknown, panelCallbackAuthority = PANEL_OIDC_CA
   if (names.some((name) => !allowed.has(name))) throw new Error("invalid_callback");
   const state = exactSingle(search, "state", 1_024);
   if (state.length < 16) throw new Error("invalid_callback");
+  exactResponseIssuer(search);
   if (hasCode) exactSingle(search, "code", 4_096);
   else {
     exactSingle(search, "error", 256);
@@ -184,8 +196,8 @@ function exactCallbackUrl(value: unknown, panelCallbackAuthority = PANEL_OIDC_CA
 }
 
 export type ReconstructedOwnerCallbackRequest = Readonly<
-  | { kind: "success"; callbackUrl: string; state: string; code: string }
-  | { kind: "provider_error"; callbackUrl: string; state: string; error: string }
+  | { kind: "success"; callbackUrl: string; state: string; code: string; responseIssuer?: string }
+  | { kind: "provider_error"; callbackUrl: string; state: string; error: string; responseIssuer?: string }
 >;
 
 export function classifyReconstructedOwnerCallbackRequest(
@@ -201,10 +213,23 @@ export function classifyReconstructedOwnerCallbackRequest(
   catch { throw new Error("owner_internal_callback_request_invalid"); }
   const search = new URL(callbackUrl).searchParams;
   const state = exactSingle(search, "state", 1_024);
+  const responseIssuer = exactResponseIssuer(search);
   if (search.has("code")) {
-    return Object.freeze({ kind: "success", callbackUrl, state, code: exactSingle(search, "code", 4_096) });
+    return Object.freeze({
+      kind: "success",
+      callbackUrl,
+      state,
+      code: exactSingle(search, "code", 4_096),
+      ...(responseIssuer ? { responseIssuer } : {}),
+    });
   }
-  return Object.freeze({ kind: "provider_error", callbackUrl, state, error: exactSingle(search, "error", 256) });
+  return Object.freeze({
+    kind: "provider_error",
+    callbackUrl,
+    state,
+    error: exactSingle(search, "error", 256),
+    ...(responseIssuer ? { responseIssuer } : {}),
+  });
 }
 
 function parseCanonicalEnvelope(bytes: Uint8Array, panelCallbackAuthority = PANEL_OIDC_CALLBACK_URL): string {

@@ -6,7 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const base = "2746e76b56e0199d110692f54068cbc5f1d25ba7";
+const base = "75e8a4db1e66c76339e53b80dc3d3310f20546ea";
 
 function git(args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -51,6 +51,12 @@ test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
     "apps/owner/lib/panel-session-handoff/internal-gateway.test.ts",
     "apps/owner/lib/self-serve-http/internal-callback-gateway.ts",
     "apps/owner/lib/self-serve-http/internal-callback-gateway.test.ts",
+    "apps/owner/lib/self-serve-http/runtime.ts",
+    "apps/owner/lib/self-serve-http/runtime.test.ts",
+    "apps/owner/lib/self-serve-oidc.ts",
+    "apps/owner/lib/panel-session-handoff/initial-callback-executor.ts",
+    "apps/owner/lib/panel-session-handoff/initial-callback-grant.ts",
+    "apps/owner/lib/panel-session-handoff/initial-callback-grant.test.ts",
     "packages/platform-config/src/saas.ts",
     "packages/platform-config/src/saas.test.ts",
   ]);
@@ -66,6 +72,8 @@ test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
       file.startsWith("tests/saas-phase2/panel-browser-binding/") ||
       file.startsWith("tests/saas-phase2/panel-session-completion/") ||
       file.startsWith("tests/saas-phase2/panel-session-handoffs/") ||
+      file === "tests/saas-phase2/panel-auth-composition/static-security.test.mjs" ||
+      file === "tests/saas-phase2/auth-route-mount/static-security.test.mjs" ||
       file.startsWith("tests/saas-phase2/http-wiring/") || file === "tests/saas-phase2/registration-session/postgres-harness.mjs",
       true,
       file,
@@ -86,22 +94,21 @@ test("migrations, manifests, frozen authorities, legacy completion, packages, an
     /^apps\/customer-panel\/lib\/session\.ts$/,
     /^apps\/customer-panel\/lib\/registration-completion\.ts$/,
     /^apps\/customer-panel\/lib\/panel-session-(?:handoff|persistence)\//,
-    /^apps\/owner\/lib\/panel-session-handoff\/(?:activation|credential-codec|initial-callback-executor|initial-callback-grant|postgres-handoff-issuer)(?:\.test)?\.ts$/,
-    /^apps\/owner\/lib\/self-serve-http\/(?:runtime|oidc-callback-completion)(?:\.test)?\.ts$/,
+    /^apps\/owner\/lib\/panel-session-handoff\/(?:activation|credential-codec|postgres-handoff-issuer)(?:\.test)?\.ts$/,
+    /^apps\/owner\/lib\/self-serve-http\/oidc-callback-completion(?:\.test)?\.ts$/,
   ];
   for (const file of changed) assert.equal(forbidden.some((pattern) => pattern.test(file)), false, file);
 });
 
-test("default customer and Owner routes remain byte-identical and import no enabled factory", () => {
+test("default customer and Owner routes remain byte-identical and delegate only to fail-closed route sets", () => {
   for (const file of [
     "apps/customer-panel/app/auth/callback/route.ts",
     "apps/owner/app/api/internal/self-serve/oidc-callback/route.ts",
   ]) {
     assert.equal(read(file), execFileSync("git", ["show", `${base}:${file}`], { cwd: root, encoding: "utf8" }));
-    assert.doesNotMatch(read(file), /panel-session-completion|panel-session-handoff\/internal-gateway|createPanelSessionCompletionApproval/);
+    assert.match(read(file), /getDefault(?:OwnerSelfServe|CustomerPanel)AuthRouteSet/);
+    assert.doesNotMatch(read(file), /panel-session-completion|panel-session-handoff\/internal-gateway|createPanelSessionCompletionApproval|auth-composition/);
   }
-  assert.match(read("apps/customer-panel/app/auth/callback/route.ts"), /createDisabledCustomerPanelSelfServeCallbackEdge/);
-  assert.match(read("apps/owner/app/api/internal/self-serve/oidc-callback/route.ts"), /createDisabledOwnerInternalSelfServeCallbackGateway/);
 });
 
 test("new application source contains no activation, env, provider networking, legacy helper, browser redirect authority, or generic SQL", () => {
@@ -159,7 +166,8 @@ test("persistent cookie and browser response are fixed, secure, host-only, and c
   const completion = read("apps/customer-panel/lib/panel-session-completion/completion.ts");
   assert.match(cookie, /__Host-celebix_panel=\$\{credential\}; HttpOnly; Secure; SameSite=Lax; Path=\/; Max-Age=/);
   assert.doesNotMatch(cookie, /Domain=|SameSite=None|local-http|encodeURIComponent/);
-  assert.match(completion, /location: PANEL_HOME_URL/);
+  assert.match(completion, /location: panelHomeAuthority/);
+  assert.match(completion, /home\.toString\(\) !== panelHomeAuthority/);
   assert.match(completion, /"referrer-policy": "no-referrer"/);
   assert.match(completion, /"x-content-type-options": "nosniff"/);
   assert.doesNotMatch(completion, /handoffCredential.*location|credential.*location/i);

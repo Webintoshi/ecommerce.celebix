@@ -10,19 +10,60 @@ import {
 
 const CALLBACK = "https://panel.celebix.site/auth/callback";
 const STATE = "state_0123456789abcdefghijklmnop";
+const ISSUER = "https://identity.example.test/oidc";
 const BINDING = `pb1.${Buffer.alloc(32, 0x22).toString("base64url")}`;
 
 test("classifies exact success and provider-error callbacks into frozen authority-free projections", () => {
-  const successUrl = `${CALLBACK}?state=${STATE}&code=provider-code`;
+  const successUrl = `${CALLBACK}?state=${STATE}&code=provider-code&iss=${encodeURIComponent(ISSUER)}`;
   const success = validateCustomerPanelCallbackRequest(new Request(successUrl), CALLBACK, 2_048);
-  assert.deepEqual(success, { kind: "success", callbackUrl: successUrl, state: STATE, code: "provider-code" });
+  assert.deepEqual(success, {
+    kind: "success",
+    callbackUrl: successUrl,
+    state: STATE,
+    code: "provider-code",
+    responseIssuer: ISSUER,
+  });
   assert.equal(Object.isFrozen(success), true);
 
-  const errorUrl = `${CALLBACK}?state=${STATE}&error=access_denied&error_description=private&error_uri=https%3A%2F%2Fidentity.example.test%2Ferror`;
+  const errorUrl = `${CALLBACK}?state=${STATE}&error=access_denied&error_description=private&error_uri=https%3A%2F%2Fidentity.example.test%2Ferror&iss=${encodeURIComponent(ISSUER)}`;
   const providerError = validateCustomerPanelCallbackUrl(errorUrl, CALLBACK, 2_048);
-  assert.deepEqual(providerError, { kind: "provider_error", callbackUrl: errorUrl, state: STATE, error: "access_denied" });
+  assert.deepEqual(providerError, {
+    kind: "provider_error",
+    callbackUrl: errorUrl,
+    state: STATE,
+    error: "access_denied",
+    responseIssuer: ISSUER,
+  });
   assert.equal(Object.isFrozen(providerError), true);
-  assert.deepEqual(Object.keys(providerError), ["kind", "callbackUrl", "state", "error"]);
+  assert.deepEqual(Object.keys(providerError), ["kind", "callbackUrl", "state", "error", "responseIssuer"]);
+
+  const compatibleUrl = `${CALLBACK}?state=${STATE}&code=provider-code`;
+  assert.deepEqual(validateCustomerPanelCallbackUrl(compatibleUrl, CALLBACK, 2_048), {
+    kind: "success",
+    callbackUrl: compatibleUrl,
+    state: STATE,
+    code: "provider-code",
+  });
+});
+
+test("rejects duplicate, empty, malformed, non-HTTPS, non-canonical, and expanded response issuers", () => {
+  for (const query of [
+    `state=${STATE}&code=code&iss=`,
+    `state=${STATE}&code=code&iss=${encodeURIComponent(ISSUER)}&iss=${encodeURIComponent(ISSUER)}`,
+    `state=${STATE}&code=code&iss=${encodeURIComponent("http://identity.example.test/oidc")}`,
+    `state=${STATE}&code=code&iss=${encodeURIComponent("https://user:pass@identity.example.test/oidc")}`,
+    `state=${STATE}&code=code&iss=${encodeURIComponent("https://identity.example.test/oidc?private=1")}`,
+    `state=${STATE}&code=code&iss=${encodeURIComponent("https://identity.example.test/oidc#private")}`,
+    `state=${STATE}&code=code&iss=${encodeURIComponent(` ${ISSUER}`)}`,
+    `state=${STATE}&code=code&iss=${encodeURIComponent("HTTPS://identity.example.test/oidc")}`,
+    `state=${STATE}&error=access_denied&iss=${encodeURIComponent("javascript:alert(1)")}`,
+  ]) {
+    assert.throws(
+      () => validateCustomerPanelCallbackUrl(`${CALLBACK}?${query}`, CALLBACK, 2_048),
+      CallbackRequestValidationError,
+      query,
+    );
+  }
 });
 
 test("rejects method, authority, delivery, syntax, duplicates, conflicts, unknown fields, and private headers", () => {
@@ -71,8 +112,8 @@ test("enforces raw query bounds without reading a browser body", () => {
   assert.equal(bodyReads, 0);
 });
 
-test("browser-bound completion accepts exactly one canonical pre-auth cookie", () => {
-  const callbackUrl = `${CALLBACK}?state=${STATE}&code=provider-code`;
+test("browser-bound completion accepts exactly one canonical pre-auth cookie and preserves response issuer", () => {
+  const callbackUrl = `${CALLBACK}?state=${STATE}&code=provider-code&iss=${encodeURIComponent(ISSUER)}`;
   const result = validateBrowserBoundPanelCompletionRequest(new Request(callbackUrl, {
     headers: { cookie: `__Host-celebix_panel_pre_auth=${BINDING}` },
   }), CALLBACK, 2_048);
@@ -81,6 +122,7 @@ test("browser-bound completion accepts exactly one canonical pre-auth cookie", (
     callbackUrl,
     state: STATE,
     code: "provider-code",
+    responseIssuer: ISSUER,
     browserBindingCredential: BINDING,
   });
   assert.equal(Object.isFrozen(result), true);

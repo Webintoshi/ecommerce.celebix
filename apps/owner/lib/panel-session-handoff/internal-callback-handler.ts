@@ -161,7 +161,7 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
 
       if (callback.kind === "provider_error") {
         try {
-          await runtime.rejectProviderCallback(callback.state);
+          await runtime.rejectProviderCallback(callback.state, callback.responseIssuer);
           auditSafely(audit, { stage: "provider_rejection", outcome: "accepted" });
           return createFreshLoginRequiredResult("provider_rejected");
         } catch {
@@ -171,7 +171,13 @@ export function createOwnerPanelSessionInitialCallbackHandler(input: {
       }
 
       let executed: Awaited<ReturnType<typeof executor.execute>>;
-      try { executed = await executor.execute({ state: callback.state, code: callback.code }); }
+      try {
+        executed = await executor.execute({
+          state: callback.state,
+          code: callback.code,
+          ...(callback.responseIssuer ? { responseIssuer: callback.responseIssuer } : {}),
+        });
+      }
       catch {
         auditSafely(audit, { stage: "callback", outcome: "unavailable" });
         return createFreshLoginRequiredResult("callback_unavailable");

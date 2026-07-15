@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   copyAuthenticatedOwnerInternalCallbackRawBody,
+  classifyReconstructedOwnerCallbackRequest,
   createOwnerInternalCallbackRawRequestAuthenticator,
   createOwnerInternalCallbackRequestAuthenticator,
   createOwnerInternalCallbackGatewayApproval,
@@ -16,6 +17,7 @@ import { createVerifiedEdgeTrustBoundary } from "./verified-edge-trust.ts";
 const ORIGIN = "https://owner-internal.example.test";
 const ENDPOINT = `${ORIGIN}/api/internal/self-serve/oidc-callback`;
 const CALLBACK = "https://panel.celebix.site/auth/callback?state=state_0123456789abcdefghijklmnop&code=code";
+const ISSUER = "https://identity.example.test/oidc";
 const NOW = new Date("2026-07-13T12:00:00.000Z");
 const SECRET = new Uint8Array(Array.from({ length: 32 }, (_, index) => index + 1));
 
@@ -243,6 +245,41 @@ test("valid HMAC creates private context, reconstructs one exact headerless GET,
   assert.equal(response.headers.has("set-cookie"), false);
   assert.equal(response.headers.has("location"), false);
   assert.equal(await value.boundary.requestGate.verify({ kind: "callback_completion", request: value.calls[0].request, edgeTrustContext: value.calls[0].context }), "unauthorized");
+});
+
+test("signed callback envelope preserves and reconstructs one exact optional response issuer", async () => {
+  for (const callbackUrl of [
+    `${CALLBACK}&iss=${encodeURIComponent(ISSUER)}`,
+    `https://panel.celebix.site/auth/callback?state=state_0123456789abcdefghijklmnop&error=access_denied&iss=${encodeURIComponent(ISSUER)}`,
+  ]) {
+    const value = fixture();
+    const response = await value.gateway(request({ body: canonical(callbackUrl) }));
+    assert.equal(response.status, 200);
+    assert.equal(value.calls.length, 1);
+    assert.equal(value.calls[0].request.url, callbackUrl);
+    const reconstructed = classifyReconstructedOwnerCallbackRequest(value.calls[0].request);
+    assert.equal(reconstructed.callbackUrl, callbackUrl);
+    assert.equal(reconstructed.responseIssuer, ISSUER);
+  }
+});
+
+test("Owner callback parser rejects invalid response issuer shapes without weakening unknown-field denial", async () => {
+  for (const query of [
+    `state=state_0123456789abcdefghijklmnop&code=code&iss=`,
+    `state=state_0123456789abcdefghijklmnop&code=code&iss=${encodeURIComponent(ISSUER)}&iss=${encodeURIComponent(ISSUER)}`,
+    `state=state_0123456789abcdefghijklmnop&code=code&iss=${encodeURIComponent("http://identity.example.test/oidc")}`,
+    `state=state_0123456789abcdefghijklmnop&code=code&iss=${encodeURIComponent("https://identity.example.test/oidc?query=1")}`,
+    `state=state_0123456789abcdefghijklmnop&code=code&iss=${encodeURIComponent("https://identity.example.test/oidc#fragment")}`,
+    `state=state_0123456789abcdefghijklmnop&code=code&iss=${encodeURIComponent("https://user:pass@identity.example.test/oidc")}`,
+    `state=state_0123456789abcdefghijklmnop&code=code&unknown=value`,
+  ]) {
+    const value = fixture();
+    const response = await value.gateway(request({
+      body: canonical(`https://panel.celebix.site/auth/callback?${query}`),
+    }));
+    assert.equal(response.status, 400, query);
+    assert.equal(value.calls.length, 0, query);
+  }
 });
 
 test("valid callback HMAC accepts the public endpoint and internal HTTP or HTTPS proxy URLs at the exact callback path", async () => {

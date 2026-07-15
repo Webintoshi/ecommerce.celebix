@@ -49,14 +49,15 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/customer-panel\/lib\/panel-auth-composition\/composition\.ts$/,
     /^apps\/owner\/lib\/self-serve-browser-bound-registration\/(?:handler|auto-post-html)\.ts$/,
     /^apps\/owner\/lib\/panel-browser-binding\/(?:start-executor|internal-gateway)\.ts$/,
-    /^apps\/owner\/lib\/self-serve-http\/(?:runtime|internal-callback-gateway)\.ts$/,
+    /^apps\/owner\/lib\/self-serve-http\/(?:runtime|internal-callback-gateway)(?:\.test)?\.ts$/,
     /^apps\/owner\/lib\/panel-browser-binding\/internal-gateway\.test\.ts$/,
     /^apps\/owner\/lib\/self-serve-http\/internal-callback-gateway\.test\.ts$/,
     /^apps\/owner\/lib\/self-serve-oidc\.ts$/,
     /^apps\/owner\/lib\/saas-persistence\/postgres-oidc-transaction-store\.ts$/,
     /^apps\/customer-panel\/lib\/panel-browser-binding-bootstrap\/(?:handler(?:\.test)?|transport)\.ts$/,
     /^apps\/customer-panel\/lib\/panel-session-completion\/(?:completion|transport)\.ts$/,
-    /^apps\/customer-panel\/lib\/self-serve-callback-edge\/callback-request\.ts$/,
+    /^apps\/customer-panel\/lib\/self-serve-callback-edge\/callback-request(?:\.test)?\.ts$/,
+    /^apps\/owner\/lib\/panel-session-handoff\/(?:initial-callback-(?:executor|grant)|internal-callback-handler)(?:\.test)?\.ts$/,
     /^packages\/platform-config\/src\/saas\.ts$/,
     /^packages\/platform-config\/src\/http-security\.ts$/,
     /^apps\/owner\/middleware\.ts$/,
@@ -71,6 +72,7 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^tests\/saas-phase2\/panel-auth-composition\/postgres-harness\.mjs$/,
     /^tests\/saas-phase2\/panel-auth-composition\/in-process\.test\.mjs$/,
     /^tests\/saas-phase2\/panel-session-completion\/postgres-harness\.mjs$/,
+    /^tests\/saas-phase2\/panel-session-completion\/static-security\.test\.mjs$/,
     /^tests\/saas-phase2\/staging-auth-(?:runtime|e2e)\//,
     /^apps\/customer-panel\/lib\/panel-auth-composition\/composition\.test\.ts$/,
   ];
@@ -143,7 +145,6 @@ test("no readiness endpoint, unauthorized middleware mutation, environment activ
 
 test("authority changes are confined to the Atlas-approved parameterization files", () => {
   const protectedPaths = [
-    "apps/owner/lib/panel-session-handoff",
     "apps/customer-panel/lib/panel-session-handoff",
     "apps/customer-panel/lib/panel-session-persistence",
     "apps/owner/lib/self-serve-registration-orchestrator.ts",

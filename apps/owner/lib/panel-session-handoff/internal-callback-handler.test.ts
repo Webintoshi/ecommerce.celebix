@@ -188,6 +188,37 @@ test("exact active edge context executes one genuine initial callback and return
   assert.deepEqual(current.order.slice(0, 3), ["claim", "provider", "issuer"]);
 });
 
+test("exact authorization-response issuer reaches OIDC completion before handoff", async () => {
+  const current = fixture();
+  const result = await invoke(current, `state=${STATE}&code=verified-code&iss=${encodeURIComponent(ISSUER)}`);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.kind, "session_handoff_ready");
+  assert.equal(current.providerCalls, 1);
+  assert.equal(current.issueCalls, 1);
+  assert.deepEqual(current.order.slice(0, 3), ["claim", "provider", "issuer"]);
+});
+
+test("authorization-response issuer mismatch consumes state but stops provider, tenant, handoff, and session authority", async () => {
+  const current = fixture();
+  const result = await invoke(
+    current,
+    `state=${STATE}&code=verified-code&iss=${encodeURIComponent("https://attacker.example/oidc")}`,
+  );
+  assert.deepEqual(result.body, {
+    schemaVersion: 1,
+    kind: "fresh_login_required",
+    code: "callback_unavailable",
+    retryable: false,
+  });
+  assert.equal(current.providerRejectCalls, 1);
+  assert.equal(current.providerCalls, 0);
+  assert.equal(current.issueCalls, 0);
+  assert.equal(current.recoveryCalls, 0);
+  assert.equal(current.recoverConsumedCalls, 0);
+  assert.equal(current.claimCalls, 1);
+  assert.deepEqual(current.order, ["claim"]);
+});
+
 test("callback handler snapshots the atomic browser claim dependency at composition", async () => {
   const current = fixture();
   current.browserBindingRepository.claimCallback = async () => { throw new Error("mutated"); };
@@ -225,7 +256,7 @@ test("consumed replay, no-grant completion, and expired handoff never return aut
 
 test("provider error consumes only provider state and creates no grant or handoff", async () => {
   const current = fixture();
-  const result = await invoke(current, `state=${STATE}&error=access_denied&error_description=private`);
+  const result = await invoke(current, `state=${STATE}&error=access_denied&error_description=private&iss=${encodeURIComponent(ISSUER)}`);
   assert.deepEqual(result.body, { schemaVersion: 1, kind: "fresh_login_required", code: "provider_rejected", retryable: false });
   assert.equal(current.providerCalls, 0);
   assert.equal(current.providerRejectCalls, 1);
@@ -233,6 +264,25 @@ test("provider error consumes only provider state and creates no grant or handof
   assert.equal(current.recoveryCalls, 0);
   assert.equal(current.recoverConsumedCalls, 0);
   assert.equal(current.claimCalls, 1);
+});
+
+test("provider-error issuer mismatch consumes state but is not accepted as a provider rejection", async () => {
+  const current = fixture();
+  const result = await invoke(
+    current,
+    `state=${STATE}&error=access_denied&iss=${encodeURIComponent("https://attacker.example/oidc")}`,
+  );
+  assert.deepEqual(result.body, {
+    schemaVersion: 1,
+    kind: "fresh_login_required",
+    code: "callback_unavailable",
+    retryable: false,
+  });
+  assert.equal(current.providerRejectCalls, 1);
+  assert.equal(current.providerCalls, 0);
+  assert.equal(current.issueCalls, 0);
+  assert.equal(current.claimCalls, 1);
+  assert.deepEqual(current.order, ["claim"]);
 });
 
 test("wrong, expired, replayed, and commit-unknown browser authority stop before provider and issuer", async () => {

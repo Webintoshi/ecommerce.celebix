@@ -185,3 +185,94 @@ test("runtime rejects browser-sized authority expansion and invalid server autho
     );
   }
 });
+
+test("response issuer mismatch consumes OIDC authority once and stops provider, identity, and tenant completion", async () => {
+  assert.ok(runtimeModule.createSelfServeHttpActivationApproval);
+  assert.ok(runtimeModule.createPersistentSelfServeRuntime);
+  const expectedIssuer = "https://identity.example.test/oidc";
+  const state = "state_0123456789abcdefghijklmnop";
+  let consumeCalls = 0;
+  let providerCalls = 0;
+  let attemptCalls = 0;
+  let identityCalls = 0;
+  let tenantCalls = 0;
+  const runtime = runtimeModule.createPersistentSelfServeRuntime({
+    ...dependencyOptions(runtimeModule.createSelfServeHttpActivationApproval("disposable_test")),
+    oidcTransactionStore: {
+      async save() {},
+      async discard() {},
+      async consume() {
+        consumeCalls += 1;
+        return {
+          state,
+          nonce: "nonce_0123456789abcdefghijklmnop",
+          codeVerifier: "verifier_0123456789abcdefghijklmnop",
+          redirectUri: "https://panel.celebix.site/auth/callback",
+          returnTo: "/kayit",
+          expectedIssuer,
+          expectedAudience: "customer-panel",
+          createdAt: "2026-07-13T12:00:00.000Z",
+          expiresAt: "2026-07-13T12:10:00.000Z",
+        };
+      },
+    },
+    oidcProvider: {
+      buildAuthorizationUrl() { throw new Error("not used"); },
+      async verifyCallback() { providerCalls += 1; throw new Error("must not run"); },
+    },
+    registrationAttemptStore: {
+      async save() {},
+      async consume() { attemptCalls += 1; throw new Error("must not run"); },
+    },
+    registrationCompletion: {
+      async recordVerifiedIdentity() { identityCalls += 1; throw new Error("must not run"); },
+      async resumeTenantCreation() { tenantCalls += 1; throw new Error("must not run"); },
+      async reconcileUnknownCommit() { throw new Error("must not run"); },
+    },
+  } as never);
+
+  await assert.rejects(
+    () => runtime.completeCallback({
+      state,
+      code: "verified-code",
+      responseIssuer: "https://attacker.example/oidc",
+    }),
+    (error: unknown) => (error as { code?: string }).code === "oidc_issuer_mismatch",
+  );
+  assert.deepEqual({ consumeCalls, providerCalls, attemptCalls, identityCalls, tenantCalls }, {
+    consumeCalls: 1,
+    providerCalls: 0,
+    attemptCalls: 0,
+    identityCalls: 0,
+    tenantCalls: 0,
+  });
+});
+
+test("provider-error response issuer is compared after transaction consume and remains optional", async () => {
+  assert.ok(runtimeModule.createSelfServeHttpActivationApproval);
+  assert.ok(runtimeModule.createPersistentSelfServeRuntime);
+  const expectedIssuer = "https://identity.example.test/oidc";
+  const state = "state_0123456789abcdefghijklmnop";
+  const runtimeWith = (consume: () => Promise<Record<string, string>>) => runtimeModule.createPersistentSelfServeRuntime({
+    ...dependencyOptions(runtimeModule.createSelfServeHttpActivationApproval!("disposable_test")),
+    oidcTransactionStore: { async save() {}, async discard() {}, consume },
+  } as never);
+  const transaction = async () => ({
+    state,
+    nonce: "nonce_0123456789abcdefghijklmnop",
+    codeVerifier: "verifier_0123456789abcdefghijklmnop",
+    redirectUri: "https://panel.celebix.site/auth/callback",
+    returnTo: "/kayit",
+    expectedIssuer,
+    expectedAudience: "customer-panel",
+    createdAt: "2026-07-13T12:00:00.000Z",
+    expiresAt: "2026-07-13T12:10:00.000Z",
+  });
+
+  await assert.doesNotReject(() => runtimeWith(transaction).rejectProviderCallback(state, expectedIssuer));
+  await assert.doesNotReject(() => runtimeWith(transaction).rejectProviderCallback(state));
+  await assert.rejects(
+    () => runtimeWith(transaction).rejectProviderCallback(state, "https://attacker.example/oidc"),
+    (error: unknown) => (error as { code?: string }).code === "oidc_issuer_mismatch",
+  );
+});

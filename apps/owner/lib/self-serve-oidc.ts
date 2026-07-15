@@ -39,6 +39,7 @@ export interface OidcAuthorizationRequest {
 export interface OidcCallbackInput {
   code: string;
   state: string;
+  responseIssuer?: string;
 }
 
 export interface OidcProviderCallbackInput extends OidcCallbackInput {
@@ -101,6 +102,13 @@ export interface CompleteOidcCallbackInput {
   provider: OidcProviderPort;
   transactionStore: OidcTransactionStore;
   callback: OidcCallbackInput;
+  now?: () => Date;
+}
+
+export interface RejectOidcProviderCallbackInput {
+  transactionStore: OidcTransactionStore;
+  state: string;
+  responseIssuer?: string;
   now?: () => Date;
 }
 
@@ -362,6 +370,42 @@ function assertVerifiedIdentity(
   ) throw new OidcFlowError("oidc_provider_rejected", "OIDC display name is invalid.");
 }
 
+function exactResponseIssuer(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== "string" || !value || value.length > 2_048 || value !== value.trim() ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  ) throw new OidcFlowError("oidc_invalid_callback", "OIDC response issuer is invalid.");
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" || url.username || url.password || url.search || url.hash ||
+      url.toString().replace(/\/$/, "") !== value
+    ) throw new Error("invalid");
+  } catch {
+    throw new OidcFlowError("oidc_invalid_callback", "OIDC response issuer is invalid.");
+  }
+  return value;
+}
+
+function assertResponseIssuer(
+  responseIssuer: string | undefined,
+  transaction: OidcAuthorizationTransaction,
+): void {
+  if (responseIssuer !== undefined && responseIssuer !== transaction.expectedIssuer) {
+    throw new OidcFlowError("oidc_issuer_mismatch", "OIDC response issuer validation failed.");
+  }
+}
+
+export async function rejectOidcProviderCallback(input: RejectOidcProviderCallbackInput): Promise<void> {
+  const now = input.now?.() ?? new Date();
+  const state = input.state.trim();
+  if (!state) throw new OidcFlowError("oidc_invalid_callback", "OIDC callback state is required.");
+  const responseIssuer = exactResponseIssuer(input.responseIssuer);
+  const transaction = await input.transactionStore.consume(state, now);
+  assertResponseIssuer(responseIssuer, transaction);
+}
+
 export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   const now = input.now?.() ?? new Date();
   const state = input.callback.state.trim();
@@ -369,13 +413,16 @@ export async function completeOidcCallback(input: CompleteOidcCallbackInput) {
   if (!state || !code) {
     throw new OidcFlowError("oidc_invalid_callback", "OIDC callback state and code are required.");
   }
+  const responseIssuer = exactResponseIssuer(input.callback.responseIssuer);
   const transaction = await input.transactionStore.consume(state, now);
+  assertResponseIssuer(responseIssuer, transaction);
   let identity: OidcVerifiedIdentity;
 
   try {
     identity = await input.provider.verifyCallback({
       code,
       state,
+      ...(responseIssuer ? { responseIssuer } : {}),
       codeVerifier: transaction.codeVerifier,
       redirectUri: transaction.redirectUri,
       expectedNonce: transaction.nonce,

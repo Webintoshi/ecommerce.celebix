@@ -1,7 +1,7 @@
 import { parsePanelBrowserBindingCookie } from "../panel-browser-binding/cookie.ts";
 
-const SUCCESS_PARAMETERS = new Set(["state", "code"]);
-const ERROR_PARAMETERS = new Set(["state", "error", "error_description", "error_uri"]);
+const SUCCESS_PARAMETERS = new Set(["state", "code", "iss"]);
+const ERROR_PARAMETERS = new Set(["state", "error", "error_description", "error_uri", "iss"]);
 const PRIVATE_HEADERS = [
   "authorization",
   "cookie",
@@ -20,13 +20,13 @@ const PRIVATE_HEADERS = [
 ] as const;
 
 export type CustomerPanelCallbackRequest = Readonly<
-  | { kind: "success"; callbackUrl: string; state: string; code: string }
-  | { kind: "provider_error"; callbackUrl: string; state: string; error: string }
+  | { kind: "success"; callbackUrl: string; state: string; code: string; responseIssuer?: string }
+  | { kind: "provider_error"; callbackUrl: string; state: string; error: string; responseIssuer?: string }
 >;
 
 export type BrowserBoundPanelCompletionRequest = Readonly<
-  | { kind: "success"; callbackUrl: string; state: string; code: string; browserBindingCredential: string }
-  | { kind: "provider_error"; callbackUrl: string; state: string; error: string; browserBindingCredential: string }
+  | { kind: "success"; callbackUrl: string; state: string; code: string; responseIssuer?: string; browserBindingCredential: string }
+  | { kind: "provider_error"; callbackUrl: string; state: string; error: string; responseIssuer?: string; browserBindingCredential: string }
 >;
 
 export class CallbackRequestValidationError extends Error {
@@ -87,6 +87,22 @@ function exactSingle(search: URLSearchParams, name: string, maximum: number): st
   return value;
 }
 
+function exactResponseIssuer(search: URLSearchParams): string | undefined {
+  if (!search.has("iss")) return undefined;
+  const value = exactSingle(search, "iss", 2_048);
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" || url.username || url.password || url.search || url.hash ||
+      url.toString().replace(/\/$/, "") !== value
+    ) reject();
+    return value;
+  } catch (error) {
+    if (error instanceof CallbackRequestValidationError) throw error;
+    return reject();
+  }
+}
+
 function classify(callbackUrl: string, authority: string, maximumQueryBytes: number): CustomerPanelCallbackRequest {
   let url: URL;
   try { url = new URL(callbackUrl); }
@@ -108,13 +124,26 @@ function classify(callbackUrl: string, authority: string, maximumQueryBytes: num
   if (names.some((name) => !allowed.has(name))) reject();
   const state = exactSingle(search, "state", 1_024);
   if (state.length < 16) reject();
+  const responseIssuer = exactResponseIssuer(search);
   if (hasCode) {
-    return Object.freeze({ kind: "success", callbackUrl, state, code: exactSingle(search, "code", 4_096) });
+    return Object.freeze({
+      kind: "success",
+      callbackUrl,
+      state,
+      code: exactSingle(search, "code", 4_096),
+      ...(responseIssuer ? { responseIssuer } : {}),
+    });
   }
   const error = exactSingle(search, "error", 256);
   if (search.has("error_description")) exactSingle(search, "error_description", 1_024);
   if (search.has("error_uri")) exactSingle(search, "error_uri", 1_024);
-  return Object.freeze({ kind: "provider_error", callbackUrl, state, error });
+  return Object.freeze({
+    kind: "provider_error",
+    callbackUrl,
+    state,
+    error,
+    ...(responseIssuer ? { responseIssuer } : {}),
+  });
 }
 
 export function validateCustomerPanelCallbackUrl(
