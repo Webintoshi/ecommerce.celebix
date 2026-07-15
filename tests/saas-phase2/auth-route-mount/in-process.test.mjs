@@ -85,7 +85,10 @@ test("approved-staging route adapters drive the genuine browser-bound flow witho
 
   const bootstrapRequest = new Request(BOOTSTRAP, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: {
+      origin: "https://ecommerce.celebix.co",
+      "content-type": "application/x-www-form-urlencoded",
+    },
     body: new URLSearchParams(form).toString(),
   });
   const bootstrap = await invoke("browserBootstrap", customer.browserBootstrap, bootstrapRequest);

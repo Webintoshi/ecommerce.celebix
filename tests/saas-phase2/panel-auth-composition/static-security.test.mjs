@@ -40,17 +40,20 @@ test("Phase 2B2B2C2 changes remain confined to the exact Atlas allowlist", () =>
     /^apps\/customer-panel\/app\/auth\/(?:bootstrap|callback)\/route\.ts$/,
     /^tests\/saas-phase2\/auth-route-mount\//,
     /^apps\/owner\/lib\/(?:self-serve-auth-authority|self-serve-logto-provider)\//,
-    /^apps\/customer-panel\/lib\/panel-auth-authority\//,
+    /^apps\/customer-panel\/lib\/panel-auth-authority\/(?:config|bootstrap-request-authority)\.ts$/,
     /^apps\/owner\/lib\/panel-browser-binding\/(?:start-executor|internal-gateway)\.ts$/,
     /^apps\/owner\/lib\/self-serve-http\/(?:runtime|internal-callback-gateway)\.ts$/,
     /^apps\/owner\/lib\/self-serve-oidc\.ts$/,
     /^apps\/owner\/lib\/saas-persistence\/postgres-oidc-transaction-store\.ts$/,
-    /^apps\/customer-panel\/lib\/panel-browser-binding-bootstrap\/(?:handler|transport)\.ts$/,
+    /^apps\/customer-panel\/lib\/panel-browser-binding-bootstrap\/(?:handler(?:\.test)?|transport)\.ts$/,
     /^apps\/customer-panel\/lib\/panel-session-completion\/(?:completion|transport)\.ts$/,
     /^apps\/customer-panel\/lib\/self-serve-callback-edge\/callback-request\.ts$/,
+    /^apps\/owner\/middleware\.ts$/,
+    /^packages\/platform-config\/src\/http-security\.ts$/,
     /^apps\/(?:owner|customer-panel)\/package\.json$/,
     /^package-lock\.json$/,
     /^tests\/saas-phase2\/staging-auth-(?:runtime|e2e)\//,
+    /^tests\/saas-phase2\/panel-session-completion\/postgres-harness\.mjs$/,
   ];
   const unexpected = changedFiles().filter((path) => !allowed.some((pattern) => pattern.test(path)));
   assert.deepEqual(unexpected, []);

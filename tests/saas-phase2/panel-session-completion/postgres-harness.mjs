@@ -488,6 +488,7 @@ function createRegistrationHarness(pool) {
     });
     const browserBootstrap = createPanelBrowserBindingBootstrapHandler({
       activationApproval: createPanelBrowserBindingBootstrapApproval("disposable_test"),
+      sourceOrigin: ownerOrigin,
       publicBootstrapAuthority: "https://panel.celebix.site/auth/bootstrap",
       maximumBodyBytes: 16_384,
       credentialGenerator: createPanelBrowserBindingCredentialGenerator(
@@ -499,7 +500,7 @@ function createRegistrationHarness(pool) {
     });
     const bootstrapResponse = await browserBootstrap(new Request("https://panel.celebix.site/auth/bootstrap", {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: { origin: ownerOrigin, "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         bootstrapCredential: started.bootstrapCredential,
         providerAuthorizationUrl: started.providerAuthorizationUrl,

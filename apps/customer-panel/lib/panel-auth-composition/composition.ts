@@ -144,6 +144,7 @@ export function createDisabledCustomerPanelAuthComposition(options: {
   });
   const browserBootstrapHandler = createPanelBrowserBindingBootstrapHandler({
     activationApproval: browserApproval,
+    sourceOrigin: authority.ownerOrigin,
     publicBootstrapAuthority: authority.panelBootstrapUrl,
     maximumBodyBytes: options.browserBinding.maximumBodyBytes,
     credentialGenerator: createPanelBrowserBindingCredentialGenerator(randomBytes),

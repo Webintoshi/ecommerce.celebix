@@ -106,7 +106,14 @@ test("customer composition captures fetch and defensively copies internal key by
   const body = new URLSearchParams({ bootstrapCredential: BS1, providerAuthorizationUrl: PROVIDER }).toString();
   const response = await fixtureValue.composition.browserBootstrapHandler(new Request(
     "https://panel.celebix.site/auth/bootstrap",
-    { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body },
+    {
+      method: "POST",
+      headers: {
+        origin: "https://ecommerce.celebix.co",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body,
+    },
   ));
   assert.equal(response.status, 503);
   assert.deepEqual(fixtureValue.counts(), { originalFetchCalls: 1, replacementFetchCalls: 0 });

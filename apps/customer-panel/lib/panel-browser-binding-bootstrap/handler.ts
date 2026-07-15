@@ -1,4 +1,4 @@
-import { PANEL_BROWSER_BOOTSTRAP_URL } from "../../../../packages/platform-config/src/saas.ts";
+import { createPanelBootstrapRequestAuthorityValidator } from "../panel-auth-authority/bootstrap-request-authority.ts";
 import type { createPanelBrowserBindingCredentialGenerator } from "../panel-browser-binding/credential-codec.ts";
 import { serializePanelBrowserBindingCookie } from "../panel-browser-binding/cookie.ts";
 import { assertPanelBrowserBindingBootstrapApproval } from "./activation.ts";
@@ -88,6 +88,7 @@ function parseForm(raw: string): { bootstrapCredential: string; providerAuthoriz
 
 export function createPanelBrowserBindingBootstrapHandler(options: {
   activationApproval: unknown;
+  sourceOrigin: string;
   publicBootstrapAuthority: string;
   maximumBodyBytes: number;
   credentialGenerator: CredentialGenerator;
@@ -100,13 +101,12 @@ export function createPanelBrowserBindingBootstrapHandler(options: {
   audit: Audit;
 }) {
   assertPanelBrowserBindingBootstrapApproval(options?.activationApproval);
-  let publicBootstrapAuthority: string;
+  let requestAuthority: ReturnType<typeof createPanelBootstrapRequestAuthorityValidator>;
   try {
-    const parsed = new URL(options.publicBootstrapAuthority);
-    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port ||
-        parsed.pathname !== "/auth/bootstrap" || parsed.search || parsed.hash ||
-        `${parsed.origin}${parsed.pathname}` !== options.publicBootstrapAuthority) invalid();
-    publicBootstrapAuthority = options.publicBootstrapAuthority;
+    requestAuthority = createPanelBootstrapRequestAuthorityValidator({
+      sourceOrigin: options.sourceOrigin,
+      publicBootstrapUrl: options.publicBootstrapAuthority,
+    });
   } catch { return invalid(); }
   if (!Number.isSafeInteger(options.maximumBodyBytes) || options.maximumBodyBytes < 1 || options.maximumBodyBytes > 16_384 ||
       !options.credentialGenerator || typeof options.credentialGenerator.generate !== "function" ||
@@ -120,8 +120,9 @@ export function createPanelBrowserBindingBootstrapHandler(options: {
   const audit = options.audit;
 
   return async function panelBrowserBindingBootstrapHandler(request: Request): Promise<Response> {
-    if (!(request instanceof Request) || request.method !== "POST") return failure("panel_browser_binding_method_not_allowed", 405);
-    if (request.url !== publicBootstrapAuthority) return failure("panel_browser_binding_request_invalid", 400);
+    const authorityDecision = requestAuthority.validate(request);
+    if (authorityDecision === "method_not_allowed") return failure("panel_browser_binding_method_not_allowed", 405);
+    if (authorityDecision !== "approved") return failure("panel_browser_binding_request_invalid", 400);
     if (request.headers.get("content-type") !== "application/x-www-form-urlencoded") return failure("panel_browser_binding_content_type_invalid", 415);
     if (request.headers.has("cookie") || request.headers.has("authorization")) return failure("panel_browser_binding_request_invalid", 400);
     for (const name of request.headers.keys()) if (name.startsWith("x-celebix-")) return failure("panel_browser_binding_request_invalid", 400);

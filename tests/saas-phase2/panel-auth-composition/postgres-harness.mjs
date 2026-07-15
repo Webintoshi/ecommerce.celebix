@@ -844,7 +844,7 @@ async function submitBootstrap(authorities, flow, customer = authorities.custome
   }).toString();
   const response = await customer.browserBootstrapHandler(new Request(BOOTSTRAP_AUTHORITY, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { origin: OWNER_ORIGIN, "content-type": "application/x-www-form-urlencoded" },
     body,
   }));
   const browserBindingCredential = response.status === 303
@@ -1272,7 +1272,7 @@ async function main() {
         BOOTSTRAP_AUTHORITY,
         {
           method: "POST",
-          headers: { "content-type": "application/x-www-form-urlencoded" },
+          headers: { origin: OWNER_ORIGIN, "content-type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
             bootstrapCredential: primaryFlow.bootstrapCredential,
             providerAuthorizationUrl: primaryFlow.providerAuthorizationUrl,

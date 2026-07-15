@@ -43,7 +43,7 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/owner\/lib\/self-serve-auth-route-(?:mount|runtime)\//,
     /^apps\/customer-panel\/lib\/panel-auth-route-(?:mount|runtime)\//,
     /^apps\/owner\/lib\/(?:self-serve-auth-authority|self-serve-logto-provider)\//,
-    /^apps\/customer-panel\/lib\/panel-auth-authority\//,
+    /^apps\/customer-panel\/lib\/panel-auth-authority\/(?:config|bootstrap-request-authority)\.ts$/,
     /^apps\/owner\/lib\/self-serve-auth-composition\/composition\.ts$/,
     /^apps\/owner\/lib\/self-serve-http\/registration-request\.ts$/,
     /^apps\/customer-panel\/lib\/panel-auth-composition\/composition\.ts$/,
@@ -52,7 +52,7 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/owner\/lib\/self-serve-http\/(?:runtime|internal-callback-gateway)\.ts$/,
     /^apps\/owner\/lib\/self-serve-oidc\.ts$/,
     /^apps\/owner\/lib\/saas-persistence\/postgres-oidc-transaction-store\.ts$/,
-    /^apps\/customer-panel\/lib\/panel-browser-binding-bootstrap\/(?:handler|transport)\.ts$/,
+    /^apps\/customer-panel\/lib\/panel-browser-binding-bootstrap\/(?:handler(?:\.test)?|transport)\.ts$/,
     /^apps\/customer-panel\/lib\/panel-session-completion\/(?:completion|transport)\.ts$/,
     /^apps\/customer-panel\/lib\/self-serve-callback-edge\/callback-request\.ts$/,
     /^packages\/platform-config\/src\/saas\.ts$/,
@@ -67,7 +67,10 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^tests\/saas-phase2\/http-wiring\//,
     /^tests\/saas-phase2\/panel-auth-composition\/static-security\.test\.mjs$/,
     /^tests\/saas-phase2\/panel-auth-composition\/postgres-harness\.mjs$/,
+    /^tests\/saas-phase2\/panel-auth-composition\/in-process\.test\.mjs$/,
+    /^tests\/saas-phase2\/panel-session-completion\/postgres-harness\.mjs$/,
     /^tests\/saas-phase2\/staging-auth-(?:runtime|e2e)\//,
+    /^apps\/customer-panel\/lib\/panel-auth-composition\/composition\.test\.ts$/,
   ];
   const unexpected = changedFiles().filter((file) => !allowed.some((pattern) => pattern.test(file)));
   assert.deepEqual(unexpected, []);

@@ -315,7 +315,7 @@ test("disabled compositions execute the complete browser-bound flow only through
   const formBody = new URLSearchParams(form).toString();
   const bootstrap = await flow.customer.browserBootstrapHandler(new Request(BOOTSTRAP, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { origin: OWNER_ORIGIN, "content-type": "application/x-www-form-urlencoded" },
     body: formBody,
   }));
   assert.equal(bootstrap.status, 303);
@@ -325,7 +325,9 @@ test("disabled compositions execute the complete browser-bound flow only through
   assert.equal(bootstrap.headers.get("location").includes(pb1), false);
 
   const repost = await flow.customer.browserBootstrapHandler(new Request(BOOTSTRAP, {
-    method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: formBody,
+    method: "POST",
+    headers: { origin: OWNER_ORIGIN, "content-type": "application/x-www-form-urlencoded" },
+    body: formBody,
   }));
   assert.equal(repost.status, 409);
   assert.equal(repost.headers.has("location"), false);
