@@ -178,3 +178,24 @@ test("the disposable PostgreSQL 16 harness declares exactly 58 scenarios and ful
   assert.match(harness, /external network count zero/);
   assert.match(harness, /production connection count zero/);
 });
+
+test("the first six PostgreSQL scenarios isolate durable bootstrap authority stages", () => {
+  const harness = read("tests/saas-phase2/panel-session-completion/postgres-harness.mjs");
+  const names = [...harness.matchAll(/await scenario\("([^"]+)"/g)].slice(0, 6).map((match) => match[1]);
+  assert.deepEqual(names, [
+    "bootstrap 1 PostgreSQL 16 and migrations 001-017 are applied",
+    "bootstrap 2 manifest checksums are verified",
+    "bootstrap 3 registration and OIDC authorities are created",
+    "bootstrap 4 SQL function returns browser_bootstrap_created",
+    "bootstrap 5 repository projection accepts the exact authority",
+    "bootstrap 6 panel browser binding completes",
+  ]);
+  const firstScenario = harness.indexOf('await scenario("bootstrap 1');
+  assert.ok(firstScenario >= 0);
+  assert.equal(harness.slice(harness.indexOf("async function run()"), firstScenario).includes("registrations.complete("), false);
+  const safeFailure = harness.slice(harness.indexOf("function safeBootstrapFailure"), harness.indexOf("function createRegistrationHarness"));
+  assert.match(safeFailure, /bootstrap scenario failed: \$\{scenarioName\} repository=\$\{repositoryKind\} sql=\$\{sqlOutcome\}/);
+  assert.doesNotMatch(safeFailure, /credential|authorizationUrl|stateDigest|keyId|SQL text|connection/);
+  assert.match(harness, /diagnostic\.sql = `SQLSTATE_\$\{code\}`/);
+  assert.match(harness, /diagnostic\.sql = typeof result\.rows\[0\]\?\.outcome/);
+});

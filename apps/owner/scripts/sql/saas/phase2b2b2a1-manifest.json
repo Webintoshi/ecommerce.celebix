@@ -7,7 +7,7 @@
       "id": "202607140017_panel_browser_bindings_up",
       "direction": "up",
       "file": "202607140017_panel_browser_bindings.up.sql",
-      "sha256": "3f813d5095952e839e272bf41dac572427504ee5af1733a3b7a59428bef0e354",
+      "sha256": "e3f384e365a2a884ae15a85244ceb1b59005f1288ca2854948b6e814af0cc893",
       "purpose": "Create the disabled durable pre-auth browser bootstrap, binding, atomic callback claim, and bounded cleanup authority."
     },
     {

@@ -19,14 +19,17 @@ function hmac(key: Uint8Array, domain: string, value: string): string {
   return createHmac("sha256", key).update(`${domain}\n${value}`).digest("hex");
 }
 
-function harness(rows: Record<string, unknown>[], commitFails = false) {
+function harness(rows: Record<string, unknown>[], commitFails = false, functionError?: Error & { code?: string; constraint?: string }) {
   const queries: Array<{ text: string; values?: readonly unknown[] }> = [];
   const releases: unknown[] = [];
   const client = {
     async query(text: string, values?: readonly unknown[]) {
       queries.push({ text, values });
       if (text === "COMMIT" && commitFails) throw new Error("connection_lost");
-      if (text.startsWith("SELECT outcome, authority FROM saas.")) return { rows, rowCount: rows.length };
+      if (text.startsWith("SELECT outcome, authority FROM saas.")) {
+        if (functionError) throw functionError;
+        return { rows, rowCount: rows.length };
+      }
       return { rows: [], rowCount: 0 };
     },
     release(value?: unknown) { releases.push(value); },
@@ -37,6 +40,7 @@ function harness(rows: Record<string, unknown>[], commitFails = false) {
 function repository(db: ReturnType<typeof harness>, overrides: {
   stateDigester?: { digest(value: string): string };
   oidcStateDigester?: { digest(value: string): string };
+  audit?: (event: unknown) => void;
 } = {}) {
   const codec = createPanelBrowserBindingAuthorityCodec({
     bootstrapKeys: new Map([["bootstrap", BOOTSTRAP_KEY]]),
@@ -52,7 +56,7 @@ function repository(db: ReturnType<typeof harness>, overrides: {
     credentialCodec: codec,
     clock: () => new Date(NOW),
     timeouts: { poolCheckoutMs: 1_000, statementMs: 1_000, lockMs: 1_000, idleTransactionMs: 1_000 },
-    audit() {},
+    audit: overrides.audit ?? (() => undefined),
   });
 }
 
@@ -119,6 +123,34 @@ test("every browser-binding write COMMIT uncertainty destroys the client and nev
   assert.equal(db.queries.filter((query) => query.text.includes("claim_panel_browser_callback")).length, 1);
   assert.equal(db.queries.filter((query) => query.text === "ROLLBACK").length, 0);
   assert.deepEqual(db.releases, [true]);
+});
+
+test("SQL and check-constraint exceptions remain unavailable with secret-free diagnostics", async () => {
+  const errors: Array<Error & { code: string; constraint?: string }> = [
+    Object.assign(new Error("function detail must not escape"), { code: "42883" }),
+    Object.assign(new Error("constraint detail must not escape"), { code: "23514", constraint: "private_constraint" }),
+  ];
+  for (const error of errors) {
+    const audits: unknown[] = [];
+    const db = harness([], false, error);
+    const result = await repository(db, { audit(event) { audits.push(event); } }).createBootstrap({
+      rawState: STATE,
+      bootstrapCredential: BOOTSTRAP,
+      providerAuthorizationUrl: PROVIDER_URL,
+      bindingId: BINDING_ID,
+      issuedAt: NOW,
+      expiresAt: new Date(NOW.getTime() + 300_000),
+    });
+    assert.deepEqual(result, { kind: "unavailable" });
+    assert.deepEqual(audits, [{ operation: "create", result: "unavailable" }]);
+    const diagnostic = JSON.stringify({ result, audits });
+    for (const secret of [STATE, BOOTSTRAP, PROVIDER_URL, error.message, error.constraint ?? "private_constraint"]) {
+      assert.equal(diagnostic.includes(secret), false);
+    }
+    assert.equal(db.queries.filter((query) => query.text.includes("create_panel_browser_bootstrap")).length, 1);
+    assert.equal(db.queries.filter((query) => query.text === "ROLLBACK").length, 1);
+    assert.deepEqual(db.releases, [true]);
+  }
 });
 
 test("captures state digest functions so post-composition mutation cannot redirect durable authority", async () => {

@@ -221,7 +221,7 @@ BEGIN
     pg_catalog.hashtextextended(p_state_digest, 2607140017)
   );
 
-  SELECT workflow.attempt_id, pg_catalog.least(workflow.expires_at, oidc.expires_at)
+  SELECT workflow.attempt_id, LEAST(workflow.expires_at, oidc.expires_at)
     INTO resolved_attempt_id, resolved_authority_expiry
   FROM saas.registration_workflows AS workflow
   JOIN saas.oidc_transactions AS oidc
@@ -242,7 +242,7 @@ BEGIN
       SELECT 1 FROM saas.registration_workflows AS workflow
       JOIN saas.oidc_transactions AS oidc ON oidc.state_digest = p_oidc_state_digest
       WHERE workflow.state_digest = p_state_digest
-        AND p_issued_at >= pg_catalog.least(workflow.expires_at, oidc.expires_at)
+        AND p_issued_at >= LEAST(workflow.expires_at, oidc.expires_at)
     ) THEN
       RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
     ELSE
@@ -381,7 +381,7 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT pg_catalog.least(workflow.expires_at, oidc.expires_at)
+  SELECT LEAST(workflow.expires_at, oidc.expires_at)
     INTO resolved_authority_expiry
   FROM saas.registration_workflows AS workflow
   JOIN saas.oidc_transactions AS oidc
@@ -402,7 +402,7 @@ BEGIN
     RETURN QUERY SELECT 'durable_authority_invalid'::text, NULL::jsonb;
     RETURN;
   END IF;
-  effective_binding_expiry := pg_catalog.least(p_browser_binding_expires_at, resolved_authority_expiry);
+  effective_binding_expiry := LEAST(p_browser_binding_expires_at, resolved_authority_expiry);
   IF effective_binding_expiry <= p_now THEN
     RETURN QUERY SELECT 'expired'::text, NULL::jsonb;
     RETURN;
@@ -588,7 +588,7 @@ BEGIN
     FROM saas.panel_browser_bindings AS binding
     WHERE (binding.version = 1 AND binding.bootstrap_expires_at <= p_now)
        OR (binding.version = 2 AND binding.browser_binding_expires_at <= p_now)
-       OR (binding.version = 3 AND binding.callback_claimed_at <= p_now)
+       OR (binding.version = 3 AND binding.browser_binding_expires_at <= p_now)
     ORDER BY COALESCE(binding.browser_binding_expires_at, binding.bootstrap_expires_at), binding.binding_id
     LIMIT p_limit
     FOR UPDATE SKIP LOCKED

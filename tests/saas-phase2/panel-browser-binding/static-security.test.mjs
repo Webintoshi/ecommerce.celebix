@@ -95,6 +95,23 @@ test("callback key rotation is matched under one row lock from bounded parallel 
   assert.match(claim, /callback_claimed_at = p_now[\s\S]*version = 3/);
 });
 
+test("migration 017 invokes PostgreSQL LEAST as special SQL syntax", () => {
+  const sql = read(`${sqlRoot}/202607140017_panel_browser_bindings.up.sql`);
+  assert.match(sql, /\bLEAST\s*\(/);
+  assert.doesNotMatch(sql, /pg_catalog\.least\s*\(/i);
+});
+
+test("cleanup retains claimed replay evidence until browser-binding expiry", () => {
+  const sql = read(`${sqlRoot}/202607140017_panel_browser_bindings.up.sql`);
+  const start = sql.indexOf("CREATE FUNCTION saas.cleanup_panel_browser_bindings");
+  const cleanup = sql.slice(start, sql.indexOf("$;", start) + 2);
+  assert.match(cleanup, /binding\.version = 1 AND binding\.bootstrap_expires_at <= p_now/);
+  assert.match(cleanup, /binding\.version = 2 AND binding\.browser_binding_expires_at <= p_now/);
+  assert.match(cleanup, /binding\.version = 3 AND binding\.browser_binding_expires_at <= p_now/);
+  assert.doesNotMatch(cleanup, /binding\.version = 3 AND binding\.callback_claimed_at <= p_now/);
+  assert.match(cleanup, /LIMIT p_limit/);
+});
+
 test("runtime, B2B1, B2A, old migrations/manifests, routes, packages, and flags remain unchanged", () => {
   const changed = new Set(changedFiles());
   for (const file of changed) {

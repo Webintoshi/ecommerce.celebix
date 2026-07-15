@@ -384,6 +384,41 @@ async function startRegistration(runtime, slug) {
   return new URL(body.authorizationUrl).searchParams.get("state");
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((settle) => { resolve = settle; });
+  return { promise, resolve };
+}
+
+function bootstrapDiagnosticPool(pool, diagnostic) {
+  return Object.freeze({
+    async connect() {
+      const client = await pool.connect();
+      return Object.freeze({
+        async query(text, values) {
+          if (!text.includes("saas.create_panel_browser_bootstrap")) return client.query(text, values);
+          try {
+            const result = await client.query(text, values);
+            diagnostic.sql = typeof result.rows[0]?.outcome === "string" ? result.rows[0].outcome : "projection_mismatch";
+            diagnostic.sqlObserved?.resolve();
+            return result;
+          } catch (error) {
+            const code = typeof error?.code === "string" && /^[0-9A-Z]{5}$/.test(error.code) ? error.code : "UNKNOWN";
+            diagnostic.sql = `SQLSTATE_${code}`;
+            diagnostic.sqlObserved?.resolve();
+            throw error;
+          }
+        },
+        release(destroy) { client.release(destroy); },
+      });
+    },
+  });
+}
+
+function safeBootstrapFailure(scenarioName, repositoryKind, sqlOutcome) {
+  return new Error(`bootstrap scenario failed: ${scenarioName} repository=${repositoryKind} sql=${sqlOutcome}`);
+}
+
 function createRegistrationHarness(pool) {
   const material = {
     hmacKey: randomBytes(32),
@@ -407,8 +442,9 @@ function createRegistrationHarness(pool) {
     activeBrowserBindingKeyId: browserBindingKeyId,
     randomBytes: (size) => new Uint8Array(randomBytes(size)),
   });
+  const bootstrapDiagnostic = { repository: "not_executed", sql: "SQL_NOT_EXECUTED", sqlObserved: undefined };
   const browserBindingRepository = createPostgresPanelBrowserBindingRepository({
-    pool,
+    pool: bootstrapDiagnosticPool(pool, bootstrapDiagnostic),
     stateDigester: registrationStateDigester,
     oidcStateDigester,
     credentialCodec: browserCredentialCodec,
@@ -416,90 +452,146 @@ function createRegistrationHarness(pool) {
     timeouts,
     audit: () => undefined,
   });
+  const executeStart = (runtime, repository) => createPanelBrowserBindingRegistrationStartExecutor({
+    runtime,
+    stateDigester: registrationStateDigester,
+    credentialCodec: browserCredentialCodec,
+    repository,
+    panelBootstrapAuthority: "https://panel.celebix.site/auth/bootstrap",
+    clock: now,
+    randomUuid: () => randomUUID(),
+    audit: () => undefined,
+  });
+  const finish = async (started, slug, options = {}) => {
+    const state = new URL(started.providerAuthorizationUrl).searchParams.get("state");
+    assert.ok(state);
+    clock.value = new Date(Date.now() - 1_000);
+    const ownerBrowserGateway = createOwnerPanelBrowserBindingInternalGateway({
+      activationApproval: createPanelBrowserBindingInternalGatewayApproval("disposable_test"),
+      ownerInternalOrigin: ownerOrigin,
+      keys: new Map([[browserInternalKeyId, browserInternalSecret]]),
+      clock: now,
+      maximumBodyBytes: 16_384,
+      repository: browserBindingRepository,
+      audit: () => undefined,
+    });
+    const browserTransport = createAuthenticatedPanelBrowserBindingTransport({
+      activationApproval: createPanelBrowserBindingBootstrapApproval("disposable_test"),
+      ownerInternalOrigin: ownerOrigin,
+      activeKeyId: browserInternalKeyId,
+      activeSecret: browserInternalSecret,
+      fetch: async (request) => withResponseUrl(await ownerBrowserGateway(request), browserInternalEndpoint),
+      clock: now,
+      deadlineMs: 2_000,
+      maximumResponseBytes: 16_384,
+      audit: () => undefined,
+    });
+    const browserBootstrap = createPanelBrowserBindingBootstrapHandler({
+      activationApproval: createPanelBrowserBindingBootstrapApproval("disposable_test"),
+      publicBootstrapAuthority: "https://panel.celebix.site/auth/bootstrap",
+      maximumBodyBytes: 16_384,
+      credentialGenerator: createPanelBrowserBindingCredentialGenerator(
+        (size) => new Uint8Array(randomBytes(size)),
+      ),
+      transport: browserTransport,
+      clock: now,
+      audit: () => undefined,
+    });
+    const bootstrapResponse = await browserBootstrap(new Request("https://panel.celebix.site/auth/bootstrap", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        bootstrapCredential: started.bootstrapCredential,
+        providerAuthorizationUrl: started.providerAuthorizationUrl,
+      }),
+    }));
+    assert.equal(bootstrapResponse.status, 303);
+    assert.equal(bootstrapResponse.headers.get("location"), started.providerAuthorizationUrl);
+    const preAuthCookie = bootstrapResponse.headers.getSetCookie()[0];
+    const bindingMatch = preAuthCookie?.match(/^__Host-celebix_panel_pre_auth=(pb1\.[A-Za-z0-9_-]{43});/);
+    assert.ok(bindingMatch);
+    const browserBindingCredential = bindingMatch[1];
+    const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now, options.provider);
+    const grantBoundary = createInitialVerifiedCallbackGrantBoundary(setup.runtime);
+    return {
+      state, slug, runtime: setup.runtime, edgeBoundary: setup.boundary, grantBoundary,
+      bootstrapCredential: started.bootstrapCredential,
+      providerAuthorizationUrl: started.providerAuthorizationUrl,
+      browserBindingCredential,
+      bootstrapResponse,
+    };
+  };
   return {
     stateDigester: registrationStateDigester,
     oidcStateDigester,
+    browserCredentialCodec,
     browserBindingRepository,
-    async start(slug) {
-      clock.value = new Date(Date.now() - 2_000);
+    bootstrapDiagnostic,
+    async start(slug, clockOffsetMs = -2_000) {
+      clock.value = new Date(Date.now() + clockOffsetMs);
       const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
       return startRegistration(setup.runtime, slug);
     },
-    async complete(slug, options = {}) {
+    async stage(slug) {
       clock.value = new Date(Date.now() - 2_000);
-      const startSetup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
-      const started = await createPanelBrowserBindingRegistrationStartExecutor({
-        runtime: startSetup.runtime,
-        stateDigester: registrationStateDigester,
-        credentialCodec: browserCredentialCodec,
-        repository: browserBindingRepository,
-        panelBootstrapAuthority: "https://panel.celebix.site/auth/bootstrap",
-        clock: now,
-        randomUuid: () => randomUUID(),
-        audit: () => undefined,
+      const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
+      const ready = deferred();
+      const release = deferred();
+      const repositoryObserved = deferred();
+      const sqlObserved = deferred();
+      let capturedInput;
+      bootstrapDiagnostic.repository = "pending";
+      bootstrapDiagnostic.sql = "SQL_NOT_EXECUTED";
+      bootstrapDiagnostic.sqlObserved = sqlObserved;
+      const startPromise = executeStart(setup.runtime, {
+        async createBootstrap(input) {
+          capturedInput = input;
+          ready.resolve();
+          await release.promise;
+          try {
+            const result = await browserBindingRepository.createBootstrap(input);
+            bootstrapDiagnostic.repository = result.kind;
+            if (bootstrapDiagnostic.sql === "SQL_NOT_EXECUTED") sqlObserved.resolve();
+            repositoryObserved.resolve(result);
+            return result;
+          } catch {
+            const result = Object.freeze({ kind: "unavailable" });
+            bootstrapDiagnostic.repository = result.kind;
+            if (bootstrapDiagnostic.sql === "SQL_NOT_EXECUTED") sqlObserved.resolve();
+            repositoryObserved.resolve(result);
+            throw new Error("bootstrap_unavailable");
+          }
+        },
       }).execute({
         storeName: `Disposable ${slug}`,
         storeSlug: slug,
         privacyConsent: true,
         marketingConsent: false,
       });
-      const state = new URL(started.providerAuthorizationUrl).searchParams.get("state");
-      assert.ok(state);
-      clock.value = new Date(Date.now() - 1_000);
-      const ownerBrowserGateway = createOwnerPanelBrowserBindingInternalGateway({
-        activationApproval: createPanelBrowserBindingInternalGatewayApproval("disposable_test"),
-        ownerInternalOrigin: ownerOrigin,
-        keys: new Map([[browserInternalKeyId, browserInternalSecret]]),
-        clock: now,
-        maximumBodyBytes: 16_384,
-        repository: browserBindingRepository,
-        audit: () => undefined,
+      const settledStart = startPromise.then(
+        (value) => ({ ok: true, value }),
+        () => ({ ok: false }),
+      );
+      await ready.promise;
+      return Object.freeze({
+        get input() { return capturedInput; },
+        releaseBootstrap() { release.resolve(); },
+        waitForSql: () => sqlObserved.promise,
+        waitForRepository: () => repositoryObserved.promise,
+        waitForStart: () => settledStart,
       });
-      const browserTransport = createAuthenticatedPanelBrowserBindingTransport({
-        activationApproval: createPanelBrowserBindingBootstrapApproval("disposable_test"),
-        ownerInternalOrigin: ownerOrigin,
-        activeKeyId: browserInternalKeyId,
-        activeSecret: browserInternalSecret,
-        fetch: async (request) => withResponseUrl(await ownerBrowserGateway(request), browserInternalEndpoint),
-        clock: now,
-        deadlineMs: 2_000,
-        maximumResponseBytes: 16_384,
-        audit: () => undefined,
+    },
+    finish,
+    async complete(slug, options = {}) {
+      clock.value = new Date(Date.now() - 2_000);
+      const startSetup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now);
+      const started = await executeStart(startSetup.runtime, browserBindingRepository).execute({
+        storeName: `Disposable ${slug}`,
+        storeSlug: slug,
+        privacyConsent: true,
+        marketingConsent: false,
       });
-      const browserBootstrap = createPanelBrowserBindingBootstrapHandler({
-        activationApproval: createPanelBrowserBindingBootstrapApproval("disposable_test"),
-        publicBootstrapAuthority: "https://panel.celebix.site/auth/bootstrap",
-        maximumBodyBytes: 16_384,
-        credentialGenerator: createPanelBrowserBindingCredentialGenerator(
-          (size) => new Uint8Array(randomBytes(size)),
-        ),
-        transport: browserTransport,
-        clock: now,
-        audit: () => undefined,
-      });
-      const bootstrapResponse = await browserBootstrap(new Request("https://panel.celebix.site/auth/bootstrap", {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          bootstrapCredential: started.bootstrapCredential,
-          providerAuthorizationUrl: started.providerAuthorizationUrl,
-        }),
-      }));
-      assert.equal(bootstrapResponse.status, 303);
-      assert.equal(bootstrapResponse.headers.get("location"), started.providerAuthorizationUrl);
-      const preAuthCookie = bootstrapResponse.headers.getSetCookie()[0];
-      const bindingMatch = preAuthCookie?.match(/^__Host-celebix_panel_pre_auth=(pb1\.[A-Za-z0-9_-]{43});/);
-      assert.ok(bindingMatch);
-      const browserBindingCredential = bindingMatch[1];
-      const setup = registrationRuntime(registrationStore, oidcStore, completionService(registrationStore, pool, now), now, options.provider);
-      const grantBoundary = createInitialVerifiedCallbackGrantBoundary(setup.runtime);
-      return {
-        state, slug, runtime: setup.runtime, edgeBoundary: setup.boundary, grantBoundary,
-        bootstrapCredential: started.bootstrapCredential,
-        providerAuthorizationUrl: started.providerAuthorizationUrl,
-        browserBindingCredential,
-        bootstrapResponse,
-      };
+      return finish(started, slug, options);
     },
   };
 }
@@ -716,6 +808,24 @@ async function identityQuery(pool, text, values = []) {
   }
 }
 
+async function directBootstrapOutcome(pool, stateDigest, oidcStateDigest, issuedAt = new Date(), expiresAt = new Date(Date.now() + 60_000)) {
+  const result = await identityQuery(
+    pool,
+    "SELECT outcome, authority FROM saas.create_panel_browser_bootstrap($1,$2,$3,$4,$5,$6,$7,$8)",
+    [
+      stateDigest,
+      oidcStateDigest,
+      "disposable.bootstrap.v1",
+      randomBytes(32).toString("hex"),
+      randomBytes(32).toString("hex"),
+      randomUUID(),
+      issuedAt,
+      expiresAt,
+    ],
+  );
+  return result.rows[0]?.outcome;
+}
+
 async function run() {
   let backend;
   const pools = [];
@@ -731,52 +841,168 @@ async function run() {
     evidence.push(name);
   };
   try {
-    backend = startPostgres();
-    temporaryDirectory = backend.temporaryDirectory;
-    assert.equal(Math.floor(Number(psql(backend, "SHOW server_version_num;", "postgres")) / 10_000), 16);
-    psql(backend, `CREATE DATABASE ${primaryDatabase};`, "postgres");
-    applyAll(backend, primaryDatabase, true);
-    psql(backend, `CREATE ROLE ${workloadRole} LOGIN NOINHERIT NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION; GRANT celebix_saas_identity, celebix_saas_bootstrap TO ${workloadRole};`, "postgres");
-    const primaryPool = databasePool(backend);
-    const poolA = databasePool(backend);
-    const poolB = databasePool(backend);
-    pools.push(primaryPool, poolA, poolB);
-    const registrations = createRegistrationHarness(primaryPool);
-
-    const completionRegistration = await registrations.complete("session-completion-primary");
-    const completion = sessionCompletionPipeline(primaryPool, registrations, completionRegistration);
-    let completionResponse;
-    let completionSessionCredential;
-    let completionResolution;
-    await scenario("browser binding 1 migration 017 and manifest are applied", async () => {
+    let primaryPool;
+    let poolA;
+    let poolB;
+    let registrations;
+    let stagedBootstrap;
+    let stagedRepositoryResult;
+    let startedBootstrap;
+    let completionRegistration;
+    await scenario("bootstrap 1 PostgreSQL 16 and migrations 001-017 are applied", async () => {
+      backend = startPostgres();
+      temporaryDirectory = backend.temporaryDirectory;
+      assert.equal(Math.floor(Number(psql(backend, "SHOW server_version_num;", "postgres")) / 10_000), 16);
+      psql(backend, `CREATE DATABASE ${primaryDatabase};`, "postgres");
+      applyAll(backend, primaryDatabase, true);
       assert.equal(psql(backend, "SELECT to_regclass('saas.panel_browser_bindings') IS NOT NULL;"), "t");
+      psql(backend, `CREATE ROLE ${workloadRole} LOGIN NOINHERIT NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION; GRANT celebix_saas_identity, celebix_saas_bootstrap TO ${workloadRole};`, "postgres");
+      primaryPool = databasePool(backend);
+      poolA = databasePool(backend);
+      poolB = databasePool(backend);
+      pools.push(primaryPool, poolA, poolB);
+      registrations = createRegistrationHarness(primaryPool);
+    });
+    await scenario("bootstrap 2 manifest checksums are verified", async () => {
       const manifest = JSON.parse(readFileSync(path.join(sqlDirectory, "phase2b2b2a1-manifest.json"), "utf8"));
       assert.equal(manifest.postgresqlMajor, 16);
       assert.equal(manifest.artifacts.length, 2);
+      for (const artifact of manifest.artifacts) {
+        const actual = createHash("sha256").update(readFileSync(path.join(sqlDirectory, artifact.file))).digest("hex");
+        assert.equal(actual, artifact.sha256);
+      }
     });
-    await scenario("browser binding 2 genuine start persists one version-2 bound bootstrap row", async () => {
+    await scenario("bootstrap 3 registration and OIDC authorities are created", async () => {
+      stagedBootstrap = await registrations.stage("session-completion-primary");
+      const stateDigest = registrations.stateDigester.digest(stagedBootstrap.input.rawState);
+      const oidcDigest = registrations.oidcStateDigester.digest(stagedBootstrap.input.rawState);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_workflows WHERE state_digest='${stateDigest}' AND status='awaiting_identity' AND consumed_at IS NULL AND terminal_at IS NULL;`), "1");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.oidc_transactions WHERE state_digest='${oidcDigest}' AND status='active' AND consumed_at IS NULL AND discarded_at IS NULL;`), "1");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.registration_workflows workflow JOIN saas.oidc_transactions oidc ON oidc.state_digest='${oidcDigest}' WHERE workflow.state_digest='${stateDigest}' AND '${stagedBootstrap.input.issuedAt.toISOString()}'::timestamptz < workflow.expires_at AND '${stagedBootstrap.input.issuedAt.toISOString()}'::timestamptz < oidc.expires_at AND '${stagedBootstrap.input.expiresAt.toISOString()}'::timestamptz <= workflow.expires_at AND '${stagedBootstrap.input.expiresAt.toISOString()}'::timestamptz <= oidc.expires_at;`), "1");
+      assert.equal(psql(backend, "SELECT has_schema_privilege('celebix_saas_identity','saas','USAGE') AND has_function_privilege('celebix_saas_identity','saas.create_panel_browser_bootstrap(text,text,text,text,text,uuid,timestamp with time zone,timestamp with time zone)','EXECUTE');"), "t");
+      const missingDigest = randomBytes(32).toString("hex");
+      assert.equal(await directBootstrapOutcome(primaryPool, missingDigest, oidcDigest), "durable_authority_invalid");
+      assert.equal(await directBootstrapOutcome(primaryPool, stateDigest, missingDigest), "durable_authority_invalid");
+      const authority = async (slug, offset = -2_000) => {
+        const state = await registrations.start(slug, offset);
+        return {
+          stateDigest: registrations.stateDigester.digest(state),
+          oidcDigest: registrations.oidcStateDigester.digest(state),
+        };
+      };
+      const discarded = await authority("bootstrap-proof-oidc-discarded");
+      psql(backend, `UPDATE saas.oidc_transactions SET status='discarded', discarded_at=clock_timestamp(), updated_at=clock_timestamp() WHERE state_digest='${discarded.oidcDigest}';`);
+      assert.equal(await directBootstrapOutcome(primaryPool, discarded.stateDigest, discarded.oidcDigest), "durable_authority_invalid");
+      const consumedOidc = await authority("bootstrap-proof-oidc-consumed");
+      psql(backend, `UPDATE saas.oidc_transactions SET status='consumed', consumed_at=clock_timestamp(), updated_at=clock_timestamp() WHERE state_digest='${consumedOidc.oidcDigest}';`);
+      assert.equal(await directBootstrapOutcome(primaryPool, consumedOidc.stateDigest, consumedOidc.oidcDigest), "durable_authority_invalid");
+      const consumedWorkflow = await authority("bootstrap-proof-workflow-consumed");
+      psql(backend, `UPDATE saas.registration_workflows SET consumed_at=clock_timestamp(), updated_at=clock_timestamp() WHERE state_digest='${consumedWorkflow.stateDigest}';`);
+      assert.equal(await directBootstrapOutcome(primaryPool, consumedWorkflow.stateDigest, consumedWorkflow.oidcDigest), "durable_authority_invalid");
+      const expiredWorkflow = await authority("bootstrap-proof-workflow-expired");
+      psql(backend, `UPDATE saas.registration_workflows SET status='expired', version=version+1, terminal_at=clock_timestamp(), updated_at=clock_timestamp() WHERE state_digest='${expiredWorkflow.stateDigest}';`);
+      assert.equal(await directBootstrapOutcome(primaryPool, expiredWorkflow.stateDigest, expiredWorkflow.oidcDigest), "durable_authority_invalid");
+      const expiredOidc = await authority("bootstrap-proof-oidc-expired");
+      psql(backend, `UPDATE saas.oidc_transactions SET status='expired', consumed_at=clock_timestamp(), updated_at=clock_timestamp() WHERE state_digest='${expiredOidc.oidcDigest}';`);
+      assert.equal(await directBootstrapOutcome(primaryPool, expiredOidc.stateDigest, expiredOidc.oidcDigest), "durable_authority_invalid");
+      const expiringAuthority = await authority("bootstrap-proof-expiry-bound", -6 * 60_000);
+      const issuedAt = new Date();
+      assert.equal(
+        await directBootstrapOutcome(primaryPool, expiringAuthority.stateDigest, expiringAuthority.oidcDigest, issuedAt, new Date(issuedAt.getTime() + 5 * 60_000)),
+        "durable_authority_invalid",
+      );
+    });
+    await scenario("bootstrap 4 SQL function returns browser_bootstrap_created", async () => {
+      stagedBootstrap.releaseBootstrap();
+      await stagedBootstrap.waitForSql();
+      stagedRepositoryResult = await stagedBootstrap.waitForRepository();
+      if (registrations.bootstrapDiagnostic.sql !== "browser_bootstrap_created") {
+        throw safeBootstrapFailure("bootstrap_sql", stagedRepositoryResult.kind, registrations.bootstrapDiagnostic.sql);
+      }
+      assert.equal(registrations.bootstrapDiagnostic.sql, "browser_bootstrap_created");
+    });
+    await scenario("bootstrap 5 repository projection accepts the exact authority", async () => {
+      const settled = await stagedBootstrap.waitForStart();
+      if (stagedRepositoryResult.kind !== "browser_bootstrap_created" || !settled.ok) {
+        throw safeBootstrapFailure("repository_projection", stagedRepositoryResult.kind, registrations.bootstrapDiagnostic.sql);
+      }
+      startedBootstrap = settled.value;
+      assert.equal(stagedRepositoryResult.expiresAt, stagedBootstrap.input.expiresAt.toISOString());
+      assert.equal(startedBootstrap.bootstrapExpiresAt, stagedRepositoryResult.expiresAt);
+    });
+    await scenario("bootstrap 6 panel browser binding completes", async () => {
+      completionRegistration = await registrations.finish(startedBootstrap, "session-completion-primary");
       const digest = registrations.stateDigester.digest(completionRegistration.state);
       const oidcDigest = registrations.oidcStateDigester.digest(completionRegistration.state);
       assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_browser_bindings WHERE state_digest='${digest}' AND oidc_state_digest='${oidcDigest}' AND version=2;`), "1");
-    });
-    await scenario("browser binding 3 raw bootstrap and pb1 credentials are absent from PostgreSQL", async () => {
       const dump = dataDump(backend);
       assert.equal(dump.includes(completionRegistration.bootstrapCredential), false);
       assert.equal(dump.includes(completionRegistration.browserBindingCredential), false);
-    });
-    await scenario("browser binding 4 exact provider URL digest is retained without the raw URL", async () => {
+      assert.equal(dump.includes(completionRegistration.providerAuthorizationUrl), false);
       const expected = createHash("sha256").update(completionRegistration.providerAuthorizationUrl, "utf8").digest("hex");
       assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_browser_bindings WHERE authorization_url_digest='${expected}';`), "1");
-      assert.equal(dataDump(backend).includes(completionRegistration.providerAuthorizationUrl), false);
+      assert.equal(completionRegistration.bootstrapResponse.status, 303);
     });
+    const completion = sessionCompletionPipeline(primaryPool, registrations, completionRegistration);
+    let completionResponse;
+    let completionSessionCredential;
+    let completionHandoffCredential;
+    let completionResolution;
     await scenario("completion 1 full callback pipeline returns HTTP 303", async () => {
       completionResponse = await completion.handler(browserCallback(completionRegistration));
       assert.equal(completionResponse.status, 303);
       assert.equal(await completionResponse.text(), "");
+      assert.equal(completion.lastInternalResult.kind, "session_handoff_ready");
+      completionHandoffCredential = completion.lastInternalResult.handoffCredential;
     });
     await scenario("browser binding 5 the successful callback advances exactly one row to claimed version 3", async () => {
       const digest = registrations.stateDigester.digest(completionRegistration.state);
       assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_browser_bindings WHERE state_digest='${digest}' AND version=3 AND callback_claimed_at IS NOT NULL;`), "1");
+      const rawStates = await Promise.all([
+        registrations.start("cleanup-claimed-short"),
+        registrations.start("cleanup-unclaimed-one"),
+        registrations.start("cleanup-unclaimed-two"),
+      ]);
+      const issuedAt = new Date();
+      const shortExpiry = new Date(issuedAt.getTime() + 5_000);
+      const created = [];
+      for (const [index, rawState] of rawStates.entries()) {
+        const bootstrap = registrations.browserCredentialCodec.generateBootstrapCredential();
+        const providerAuthorizationUrl = `https://identity.example.test/cleanup-authority-${index}`;
+        const result = await registrations.browserBindingRepository.createBootstrap({
+          rawState,
+          bootstrapCredential: bootstrap.credential,
+          providerAuthorizationUrl,
+          bindingId: randomUUID(),
+          issuedAt,
+          expiresAt: shortExpiry,
+        });
+        assert.equal(result.kind, "browser_bootstrap_created");
+        created.push({ rawState, bootstrapCredential: bootstrap.credential, providerAuthorizationUrl });
+      }
+      const browserBindingCredential = `pb1.${randomBytes(32).toString("base64url")}`;
+      assert.equal((await registrations.browserBindingRepository.bindBrowserCredential({
+        ...created[0],
+        browserBindingCredential,
+        now: issuedAt,
+        expiresAt: shortExpiry,
+      })).kind, "browser_binding_created");
+      assert.deepEqual(
+        await registrations.browserBindingRepository.claimCallback({ rawState: created[0].rawState, browserBindingCredential, now: issuedAt }),
+        { kind: "browser_callback_claimed" },
+      );
+      assert.deepEqual(await registrations.browserBindingRepository.cleanupExpired({ now: new Date(), limit: 10 }), { kind: "cleaned", count: 0 });
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_browser_bindings WHERE state_digest='${registrations.stateDigester.digest(created[0].rawState)}' AND version=3;`), "1");
+      assert.deepEqual(
+        await registrations.browserBindingRepository.claimCallback({ rawState: created[0].rawState, browserBindingCredential, now: new Date() }),
+        { kind: "callback_replayed" },
+      );
+      const waitMs = Math.max(0, shortExpiry.getTime() + 100 - Date.now());
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      assert.deepEqual(await registrations.browserBindingRepository.cleanupExpired({ now: new Date(), limit: 1 }), { kind: "cleaned", count: 1 });
+      assert.deepEqual(await registrations.browserBindingRepository.cleanupExpired({ now: new Date(), limit: 10 }), { kind: "cleaned", count: 2 });
+      const cleanupDigests = created.map((item) => `'${registrations.stateDigester.digest(item.rawState)}'`).join(",");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_browser_bindings WHERE state_digest IN (${cleanupDigests});`), "0");
     });
     await scenario("completion 2 browser success uses the exact fixed Location", async () => {
       assert.equal(completionResponse.headers.get("location"), "https://panel.celebix.site/");
@@ -955,17 +1181,14 @@ async function run() {
     await scenario("completion 15 raw callback state is absent from PostgreSQL data", async () => {
       assert.equal(dataDump(backend).includes(completionRegistration.state), false);
     });
-    await scenario("completion 16 raw handoff credential is absent from PostgreSQL data", async () => {
-      assert.equal(completion.lastInternalResult.kind, "session_handoff_ready");
-      assert.equal(dataDump(backend).includes(completion.lastInternalResult.handoffCredential), false);
-    });
-    await scenario("completion 17 raw session credential is absent from PostgreSQL data", async () => {
+    await scenario("completion 16 raw handoff and session credentials are absent from PostgreSQL data", async () => {
+      assert.equal(dataDump(backend).includes(completionHandoffCredential), false);
       assert.equal(dataDump(backend).includes(completionSessionCredential), false);
       assert.equal(dataDump(backend).includes(completionSessionCredential.split(".").at(-1)), false);
     });
     await scenario("completion 18 audit projections contain no callback handoff or session secrets", async () => {
       const captured = JSON.stringify(completion.audit);
-      for (const secret of [completionRegistration.state, completion.lastInternalResult.handoffCredential, completionSessionCredential]) {
+      for (const secret of [completionRegistration.state, completionHandoffCredential, completionSessionCredential]) {
         assert.equal(captured.includes(secret), false);
       }
     });
@@ -974,6 +1197,7 @@ async function run() {
     assert.equal(completedB.kind, "initial_callback_granted");
     const registrationBDigest = registrations.stateDigester.digest(registrationB.state);
     const registrationA = await registrations.complete("handoff-state-binding-a");
+    const registrationADigest = registrations.stateDigester.digest(registrationA.state);
     let stateBinding;
     let stateBindingRandomCalls = 0;
     let randomCallsAfterSubstitution = -1;
@@ -1000,7 +1224,7 @@ async function run() {
     await scenario("exact registration A state creates one handoff with its bound grant", async () => {
       assert.equal(stateBinding.exact.kind, "handoff_created");
       assert.equal(stateBindingRandomCalls, 1);
-      assert.equal(psql(backend, "SELECT count(*) FROM saas.panel_session_handoffs;"), "1");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.panel_session_handoffs WHERE state_digest='${registrationADigest}';`), "1");
     });
 
     await scenario("caller callback mutation cannot create a substituted-state handoff", async () => {
@@ -1271,8 +1495,10 @@ async function run() {
   }
   if (runError) throw runError;
   await scenario("complete cleanup", async () => assert.equal(existsSync(temporaryDirectory), false));
-  await scenario("external network count zero", async () => assert.equal(connectionEvidence.externalNetworkAttempts, 0));
-  await scenario("production connection count zero", async () => assert.equal(connectionEvidence.productionConnectionAttempts, 0));
+  await scenario("external network count zero and production connection count zero", async () => {
+    assert.equal(connectionEvidence.externalNetworkAttempts, 0);
+    assert.equal(connectionEvidence.productionConnectionAttempts, 0);
+  });
   assert.equal(scenarios, 58);
   process.stdout.write(`${JSON.stringify({
     status: "PASS",
