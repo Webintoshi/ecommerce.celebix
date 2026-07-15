@@ -123,13 +123,31 @@ test("migrations, manifests, frozen authorities, routes, packages, and infrastru
   assert.equal(git("diff", "--name-only", BASE, "--", ...protectedPaths), "");
 });
 
-test("the native PostgreSQL harness declares exactly the 40 Atlas scenarios and no external backend", () => {
+test("the native PostgreSQL harness directly executes 40 genuine composition scenarios", () => {
   const harness = read("tests/saas-phase2/panel-auth-composition/postgres-harness.mjs");
   const names = [...harness.matchAll(/^  "(\d+)\. ([^"]+)",$/gm)];
   assert.equal(names.length, 40);
   assert.deepEqual(names.map((match) => Number(match[1])), Array.from({ length: 40 }, (_, index) => index + 1));
-  assert.match(harness, /panel-session-completion\/postgres-harness\.mjs/);
+  assert.equal((harness.match(/await scenario\(/g) ?? []).length, 40);
+  assert.match(harness, /import pg from "pg"/);
+  assert.match(harness, /new Pool\(/);
+  assert.match(harness, /createDisabledOwnerSelfServeAuthComposition/);
+  assert.match(harness, /createDisabledCustomerPanelAuthComposition/);
+  assert.match(harness, /PostgresRegistrationAttemptStore/);
+  assert.match(harness, /PostgresOidcTransactionStore/);
+  assert.match(harness, /createPostgresPanelBrowserBindingRepository/);
+  assert.match(harness, /createPostgresPanelSessionHandoffRedeemer/);
+  assert.match(harness, /createPostgresPanelSessionRepository/);
+  assert.match(harness, /PostgresSaaSDataRepository/);
+  assert.match(harness, /createPersistentRegistrationCompletionService/);
+  assert.match(harness, /initdb/);
+  assert.match(harness, /pg_ctl/);
   assert.match(harness, /native-postgresql/);
-  assert.equal(/\b(?:docker|podman)\b/i.test(harness), false);
+  for (const forbidden of [
+    "unitPassed", "closedPassed", "completePipeline", "parseClosedHarness", "CLOSED_HARNESS",
+    "panel-session-completion/postgres-harness.mjs",
+  ]) assert.equal(harness.includes(forbidden), false);
+  assert.equal(/browserBindingRepository\s*=\s*\{/.test(harness), false);
+  assert.equal(/(?:registrationStore|oidcStore)\s*=\s*\{/.test(harness), false);
   assert.equal(harness.includes("production" + "ConnectionString"), false);
 });
