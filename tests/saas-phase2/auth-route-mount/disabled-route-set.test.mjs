@@ -18,6 +18,8 @@ const SECURITY_HEADERS = Object.freeze({
   "referrer-policy": "no-referrer",
   "x-content-type-options": "nosniff",
 });
+const REGISTRATION_FALLBACK_CSP =
+  "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
 
 function assertSecureDisabledResponse(response) {
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
@@ -131,6 +133,11 @@ test("disabled Owner route set preserves fail-closed HTTP behavior", async () =>
     assert.equal(response.status, status, code);
     assert.equal((await response.json()).code, code);
     assertSecureDisabledResponse(response);
+    if (handler === routeSet.publicRegistration) {
+      assert.equal(response.headers.get("content-security-policy"), REGISTRATION_FALLBACK_CSP);
+    } else {
+      assert.equal(response.headers.has("content-security-policy"), false);
+    }
   }
 });
 

@@ -71,6 +71,14 @@ test("approved-staging route adapters drive the genuine browser-bound flow witho
   assert.equal(registration.status, 200);
   assert.equal(registration.headers.has("location"), false);
   assert.equal(registration.headers.has("set-cookie"), false);
+  const bridgeCsp = registration.headers.get("content-security-policy");
+  assert.ok(bridgeCsp);
+  assert.match(bridgeCsp, new RegExp(`(?:^|; )form-action ${BOOTSTRAP.replaceAll(".", "\\.")}(?:;|$)`));
+  assert.match(bridgeCsp, /(?:^|; )script-src 'nonce-[A-Za-z0-9_-]{32}'(?:;|$)/);
+  assert.equal(bridgeCsp.includes("'self'"), false);
+  assert.equal(bridgeCsp.includes("*"), false);
+  assert.doesNotMatch(bridgeCsp, /(?:^|\s)https:(?:\s|;|$)/);
+  assert.equal((bridgeCsp.match(/(?:^|; )form-action /g) ?? []).length, 1);
   const form = decodeBridgeForm(await registration.text());
   assert.equal(form.providerAuthorizationUrl, flow.browserAuthority.provider);
   assert.equal(form.bootstrapCredential, flow.browserAuthority.bootstrap);

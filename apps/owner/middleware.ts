@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   applySecurityHeaders,
   isMutationMethod,
+  type SecurityHeaderOptions,
   validateSameOriginRequest,
 } from "@celebix/platform-config/src/http-security";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
@@ -22,6 +23,7 @@ import {
 const OWNER_LOGIN_PATH = "/login";
 const OWNER_LOGIN_API_PATH = "/api/auth/login";
 const OWNER_PUBLIC_RUNTIME_API_PATH = "/api/public/runtime";
+const OWNER_PUBLIC_REGISTRATION_PATH = "/api/self-serve/register";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
 const OWNER_RECOVER_PATH = "/auth/recover";
 const OWNER_ROLES = new Set(["super_admin", "affiliate_admin"]);
@@ -42,8 +44,12 @@ type OwnerProfileRecord = {
   is_active: boolean;
 };
 
-function withSecurity(request: NextRequest, response: NextResponse) {
-  return applySecurityHeaders(request, response, "owner");
+function withSecurity(
+  request: NextRequest,
+  response: NextResponse,
+  options?: SecurityHeaderOptions,
+) {
+  return applySecurityHeaders(request, response, "owner", options);
 }
 
 function buildRequestHeaders(request: NextRequest) {
@@ -118,7 +124,13 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (isPublicSelfServeRoute(pathname)) {
-    return withSecurity(request, nextResponse(request));
+    return withSecurity(
+      request,
+      nextResponse(request),
+      pathname === OWNER_PUBLIC_REGISTRATION_PATH
+        ? { contentSecurityPolicy: "route-owned" }
+        : undefined,
+    );
   }
 
   const requiresAuth = isProtectedOwnerPage(pathname) || isProtectedOwnerApi(pathname);

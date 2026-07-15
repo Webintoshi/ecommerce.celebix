@@ -11,6 +11,9 @@ import * as ownerRouteSets from "../../../apps/owner/lib/self-serve-auth-route-m
 import * as customerRouteSets from "../../../apps/customer-panel/lib/panel-auth-route-mount/route-set.ts";
 import { composeApprovedStagingFlow } from "./flow-fixture.mjs";
 
+const REGISTRATION_FALLBACK_CSP =
+  "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
+
 test("approved-staging route sets require genuine approvals and genuine compositions", () => {
   assert.equal(typeof ownerRouteSets.createApprovedStagingOwnerSelfServeAuthRouteSet, "function");
   assert.equal(typeof customerRouteSets.createApprovedStagingCustomerPanelAuthRouteSet, "function");
@@ -147,5 +150,8 @@ test("approved-staging route-set boundary returns handler responses and controls
     assert.equal(response.headers.get("x-content-type-options"), "nosniff");
     assert.equal(response.headers.has("location"), false);
     assert.equal(response.headers.has("set-cookie"), false);
+    if (response === ownerFailure) {
+      assert.equal(response.headers.get("content-security-policy"), REGISTRATION_FALLBACK_CSP);
+    }
   }
 });

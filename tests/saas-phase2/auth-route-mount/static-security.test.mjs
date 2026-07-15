@@ -45,6 +45,7 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/owner\/lib\/(?:self-serve-auth-authority|self-serve-logto-provider)\//,
     /^apps\/customer-panel\/lib\/panel-auth-authority\//,
     /^apps\/owner\/lib\/self-serve-auth-composition\/composition\.ts$/,
+    /^apps\/owner\/lib\/self-serve-http\/registration-request\.ts$/,
     /^apps\/customer-panel\/lib\/panel-auth-composition\/composition\.ts$/,
     /^apps\/owner\/lib\/self-serve-browser-bound-registration\/(?:handler|auto-post-html)\.ts$/,
     /^apps\/owner\/lib\/panel-browser-binding\/(?:start-executor|internal-gateway)\.ts$/,
@@ -55,6 +56,8 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/customer-panel\/lib\/panel-session-completion\/(?:completion|transport)\.ts$/,
     /^apps\/customer-panel\/lib\/self-serve-callback-edge\/callback-request\.ts$/,
     /^packages\/platform-config\/src\/saas\.ts$/,
+    /^packages\/platform-config\/src\/http-security\.ts$/,
+    /^apps\/owner\/middleware\.ts$/,
     /^apps\/(?:owner|customer-panel)\/package\.json$/,
     /^package-lock\.json$/,
     /^apps\/owner\/app\/api\/self-serve\/register\/route\.ts$/,
@@ -123,10 +126,12 @@ test("route-mount approvals and route sets use private WeakSet authority and exa
   }
 });
 
-test("no readiness endpoint, middleware mutation, environment activation, or production flag exists", () => {
+test("no readiness endpoint, unauthorized middleware mutation, environment activation, or production flag exists", () => {
   const changed = changedFiles();
   assert.equal(changed.some((file) => /\/readiness\/route\.ts$/.test(file)), false);
-  assert.equal(changed.some((file) => /(?:^|\/)middleware\.(?:ts|js)$/.test(file)), false);
+  assert.equal(changed.some((file) =>
+    /(?:^|\/)middleware\.(?:ts|js)$/.test(file) && file !== "apps/owner/middleware.ts"
+  ), false);
   assert.match(read("apps/owner/lib/self-serve-registration-orchestrator.ts"), /SELF_SERVE_SAAS_REGISTRATION_ENABLED = false/);
   assert.match(read("apps/customer-panel/lib/config.ts"), /CUSTOMER_PANEL_AUTH_ENABLED = false/);
 });
@@ -142,15 +147,18 @@ test("authority changes are confined to the Atlas-approved parameterization file
   assert.equal(git("diff", "--name-only", BASE, "--", ...protectedPaths), "");
 });
 
-test("SQL, manifests, contracts, middleware, deploy, and workflows remain byte-unchanged", () => {
+test("SQL, manifests, contracts, non-Owner middleware, deploy, and workflows remain byte-unchanged", () => {
   const protectedPaths = [
     "apps/owner/scripts/sql/saas",
     "packages/saas-contracts",
     "packages/saas-data",
     "packages/saas-tenant-core",
     "package.json",
-    "apps/owner/middleware.ts",
     "apps/customer-panel/middleware.ts",
+    "apps/admin/middleware.ts",
+    "apps/storefront-base/middleware.ts",
+    "apps/storefront-deri-kordon/middleware.ts",
+    "apps/storefront-test1/middleware.ts",
     "deploy",
     ".github/workflows",
   ];

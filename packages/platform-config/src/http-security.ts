@@ -1,7 +1,10 @@
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 
 export type SecuritySurface = "admin" | "owner" | "storefront";
+
+export type SecurityHeaderOptions = Readonly<{
+  contentSecurityPolicy?: "middleware-owned" | "route-owned";
+}>;
 
 type SecurityHeaders = Record<string, string>;
 
@@ -67,9 +70,9 @@ function buildContentSecurityPolicy(surface: SecuritySurface): string {
 function buildSecurityHeaders(
   request: Pick<NextRequest, "headers" | "nextUrl">,
   surface: SecuritySurface,
+  options: SecurityHeaderOptions,
 ): SecurityHeaders {
   const headers: SecurityHeaders = {
-    "Content-Security-Policy": buildContentSecurityPolicy(surface),
     "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Content-Type-Options": "nosniff",
@@ -77,6 +80,10 @@ function buildSecurityHeaders(
     "X-Frame-Options": "DENY",
     "X-Permitted-Cross-Domain-Policies": "none",
   };
+
+  if (options.contentSecurityPolicy !== "route-owned") {
+    headers["Content-Security-Policy"] = buildContentSecurityPolicy(surface);
+  }
 
   if (process.env.NODE_ENV === "production" && usesHttps(request)) {
     headers["Strict-Transport-Security"] = "max-age=15552000; includeSubDomains";
@@ -89,8 +96,9 @@ export function applySecurityHeaders<T extends NextResponse>(
   request: Pick<NextRequest, "headers" | "nextUrl">,
   response: T,
   surface: SecuritySurface,
+  options: SecurityHeaderOptions = {},
 ): T {
-  const headers = buildSecurityHeaders(request, surface);
+  const headers = buildSecurityHeaders(request, surface, options);
   for (const [key, value] of Object.entries(headers)) {
     response.headers.set(key, value);
   }

@@ -11,6 +11,8 @@ import {
 } from "./activation.ts";
 
 const routeSets = new WeakSet<object>();
+const REGISTRATION_FALLBACK_CSP =
+  "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
 
 type RouteHandler = (request: Request) => Promise<Response>;
 
@@ -63,9 +65,23 @@ function controlled(code: string, status: 405 | 503): Response {
   return secure(Response.json({ code, retryable: false }, { status }));
 }
 
+function preserveRegistrationCsp(response: Response): Response {
+  const contentSecurityPolicy = response.headers.get("content-security-policy");
+  if (contentSecurityPolicy === null || contentSecurityPolicy.trim() === "") {
+    response.headers.set("content-security-policy", REGISTRATION_FALLBACK_CSP);
+  }
+  return response;
+}
+
 function secureDisabled(handler: RouteHandler): RouteHandler {
   return async function secureDisabledOwnerRoute(request: Request): Promise<Response> {
     return secure(await handler(request));
+  };
+}
+
+function secureDisabledRegistration(handler: RouteHandler): RouteHandler {
+  return async function secureDisabledOwnerRegistration(request: Request): Promise<Response> {
+    return preserveRegistrationCsp(secure(await handler(request)));
   };
 }
 
@@ -76,6 +92,13 @@ function safeDelegate(handler: RouteHandler): RouteHandler {
     } catch {
       return controlled("owner_auth_route_unavailable", 503);
     }
+  };
+}
+
+function safeRegistrationDelegate(handler: RouteHandler): RouteHandler {
+  const delegate = safeDelegate(handler);
+  return async function approvedStagingOwnerRegistration(request: Request): Promise<Response> {
+    return preserveRegistrationCsp(await delegate(request));
   };
 }
 
@@ -145,7 +168,7 @@ export function assertOwnerSelfServeAuthRouteSet(
 }
 
 export function createDisabledOwnerSelfServeAuthRouteSet(): OwnerSelfServeAuthRouteSet {
-  const publicRegistration = secureDisabled(createSelfServeRegistrationStartHandler(
+  const publicRegistration = secureDisabledRegistration(createSelfServeRegistrationStartHandler(
     createDisabledSelfServeRuntime(),
   ));
   const internalCallback = secureDisabled(createDisabledOwnerInternalSelfServeCallbackGateway());
@@ -163,9 +186,9 @@ export function createDisabledOwnerSelfServeAuthRouteSet(): OwnerSelfServeAuthRo
 
 export function createUnavailableOwnerStagingAuthRouteSet(): OwnerSelfServeAuthRouteSet {
   const routeSet: OwnerSelfServeAuthRouteSet = {
-    publicRegistration: async (request) => request.method === "POST"
+    publicRegistration: async (request) => preserveRegistrationCsp(request.method === "POST"
       ? controlled("owner_auth_route_unavailable", 503)
-      : controlled("owner_registration_method_not_allowed", 405),
+      : controlled("owner_registration_method_not_allowed", 405)),
     internalBrowserBinding: async (request) => request.method === "POST"
       ? controlled("owner_auth_route_unavailable", 503)
       : controlled("owner_browser_binding_method_not_allowed", 405),
@@ -187,7 +210,7 @@ export function createApprovedStagingOwnerSelfServeAuthRouteSet(options: {
   if (options.environment !== "approved_staging") invalid();
   assertDisabledOwnerSelfServeAuthComposition(options.composition);
   const routeSet: OwnerSelfServeAuthRouteSet = {
-    publicRegistration: safeDelegate(options.composition.browserBoundRegistrationHandler),
+    publicRegistration: safeRegistrationDelegate(options.composition.browserBoundRegistrationHandler),
     internalBrowserBinding: safeDelegate(options.composition.browserBindingInternalGateway),
     internalCallback: safeDelegate(options.composition.sessionHandoffInternalGateway),
     readiness: approvedStagingReadiness(),
@@ -200,7 +223,9 @@ const defaultRouteSet: OwnerSelfServeAuthRouteSet = (() => {
   const resolve = async () => (await import("../self-serve-auth-route-runtime/default.ts"))
     .resolveDefaultOwnerStagingAuthRouteSet();
   const routeSet: OwnerSelfServeAuthRouteSet = {
-    publicRegistration: async (request) => (await resolve()).publicRegistration(request),
+    publicRegistration: async (request) => preserveRegistrationCsp(
+      await (await resolve()).publicRegistration(request),
+    ),
     internalBrowserBinding: async (request) => (await resolve()).internalBrowserBinding(request),
     internalCallback: async (request) => (await resolve()).internalCallback(request),
     readiness: readiness(),
