@@ -6,8 +6,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const base = "9ecdee03c3a87e07671001a30d79c4e9ca844735";
-const correctionBase = "4b54a65276f7d26c3860d174abe53d746cbbd34b";
+const base = "0501606272fa41dfabd23058bad50cbaece0c2cd";
+const correctionBase = base;
 const read = (file) => readFileSync(path.join(root, file), "utf8");
 const sourceFiles = [
   "apps/owner/lib/self-serve-http/runtime.ts",
@@ -34,9 +34,9 @@ test("production registration and customer authentication flags remain false", (
   assert.doesNotMatch(source, /SELF_SERVE_SAAS_REGISTRATION_ENABLED\s*=\s*true|CUSTOMER_PANEL_AUTH_ENABLED\s*=\s*true/);
 });
 
-test("the default route composes only the disabled runtime without body parsing or persistence authority", () => {
-  assert.match(route, /createDisabledSelfServeRuntime/);
-  assert.match(route, /createSelfServeRegistrationStartHandler/);
+test("the default route resolves only the immutable disabled route set without body parsing or persistence authority", () => {
+  assert.match(route, /getDefaultOwnerSelfServeAuthRouteSet/);
+  assert.match(read("apps/owner/lib/self-serve-auth-route-mount/route-set.ts"), /const defaultRouteSet = createDisabledOwnerSelfServeAuthRouteSet\(\);/);
   assert.doesNotMatch(route, /createPersistentSelfServeRuntime|createSelfServeHttpActivationApproval|process\.env|DATABASE_URL|POSTGRES_URL|\bPool\b|from\s+["']pg["']/);
   assert.doesNotMatch(route, /request\.(?:text|json|formData|arrayBuffer|blob)\s*\(/);
 });
@@ -137,32 +137,33 @@ test("accepted SQL, manifests, packages, lockfiles, and frozen contracts are byt
   assert.equal(files.some((file) => file === "package.json" || file === "package-lock.json" || file.endsWith("/package.json") || file.includes("packages/saas-contracts/")), false, files.join("\n"));
 });
 
-test("the correction changes no SQL, manifest, package, lockfile, customer panel, or infrastructure path", () => {
-  const files = correctionChanged();
+test("the route-mount correction changes no SQL, manifest, package, lockfile, or infrastructure path", () => {
+  const files = [...new Set([...correctionChanged(), ...changed()])].sort();
   assert.equal(files.some((file) => file.endsWith(".sql") || file.endsWith("manifest.json")), false, files.join("\n"));
   assert.equal(files.some((file) => /(?:^|\/)package(?:-lock)?\.json$/.test(file)), false, files.join("\n"));
-  assert.equal(files.some((file) => /^(?:apps\/customer-panel|apps\/admin|apps\/admin-shared|deploy|\.github\/workflows|packages)\//.test(file)), false, files.join("\n"));
+  assert.equal(files.some((file) => /^(?:apps\/admin|apps\/admin-shared|deploy|\.github\/workflows|packages)\//.test(file)), false, files.join("\n"));
 });
 
-test("the Phase 2B1B2A diff is confined to approved Owner and test paths", () => {
+test("the Phase 2B2B2C1 diff is confined to approved route-mount and test paths", () => {
   const files = changed();
   for (const file of files) {
     assert.equal(
       file === "apps/owner/app/api/self-serve/register/route.ts" ||
-      file === "apps/owner/app/api/self-serve/register/route.test.ts" ||
-      file === "apps/owner/lib/self-serve-registration-orchestrator.ts" ||
-      file === "apps/owner/lib/self-serve-oidc.ts" ||
-      file === "apps/owner/lib/self-serve-oidc.test.ts" ||
-      file === "apps/owner/lib/saas-persistence/postgres-registration-attempt-store.ts" ||
-      file === "apps/owner/lib/saas-persistence/postgres-verified-identity-workflow.test.ts" ||
-      file.startsWith("apps/owner/lib/self-serve-http/") ||
-      file.startsWith("tests/saas-phase2/registration-session/") ||
-      file.startsWith("tests/saas-phase2/http-wiring/"),
+      /^apps\/owner\/app\/api\/internal\/self-serve\/(?:browser-binding|oidc-callback)\/route\.ts$/.test(file) ||
+      /^apps\/customer-panel\/app\/auth\/(?:bootstrap|callback)\/route\.ts$/.test(file) ||
+      file.startsWith("apps/owner/lib/self-serve-auth-route-mount/") ||
+      file.startsWith("apps/owner/lib/self-serve-auth-route-runtime/") ||
+      file.startsWith("apps/customer-panel/lib/panel-auth-route-mount/") ||
+      file.startsWith("apps/customer-panel/lib/panel-auth-route-runtime/") ||
+      file.startsWith("tests/saas-phase2/auth-route-mount/") ||
+      file.startsWith("tests/saas-phase2/http-wiring/") ||
+      file === "tests/saas-phase2/panel-auth-composition/static-security.test.mjs" ||
+      file === "tests/saas-phase2/panel-auth-composition/postgres-harness.mjs",
       true,
       file,
     );
   }
-  assert.equal(files.some((file) => /^(?:apps\/customer-panel|apps\/admin|apps\/admin-shared|Hemenaku|deploy|\.github\/workflows|apps\/(?:storefront|web|site))\//.test(file)), false, files.join("\n"));
+  assert.equal(files.some((file) => /^(?:apps\/admin|apps\/admin-shared|Hemenaku|deploy|\.github\/workflows|apps\/(?:storefront|web|site))\//.test(file)), false, files.join("\n"));
 });
 
 test("production, staging, provider, and infrastructure connection strings are absent", () => {

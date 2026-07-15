@@ -1,14 +1,11 @@
-import { createSelfServeRegistrationStartHandler } from "../../../../lib/self-serve-http/registration-start.ts";
-import { createDisabledSelfServeRuntime } from "../../../../lib/self-serve-http/runtime.ts";
+import { getDefaultOwnerSelfServeAuthRouteSet } from "../../../../lib/self-serve-auth-route-mount/route-set.ts";
 
-const handleDisabledRegistration = createSelfServeRegistrationStartHandler(
-  createDisabledSelfServeRuntime(),
-);
+const routeSet = getDefaultOwnerSelfServeAuthRouteSet();
 
 export async function GET(request: Request) {
-  return handleDisabledRegistration(request);
+  return routeSet.publicRegistration(request);
 }
 
 export async function POST(request: Request) {
-  return handleDisabledRegistration(request);
+  return routeSet.publicRegistration(request);
 }

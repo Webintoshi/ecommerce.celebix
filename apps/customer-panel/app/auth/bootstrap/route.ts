@@ -3,9 +3,9 @@ import { getDefaultCustomerPanelAuthRouteSet } from "../../../lib/panel-auth-rou
 const routeSet = getDefaultCustomerPanelAuthRouteSet();
 
 export async function GET(request: Request) {
-  return routeSet.browserCallback(request);
+  return routeSet.browserBootstrap(request);
 }
 
 export async function POST(request: Request) {
-  return routeSet.browserCallback(request);
+  return routeSet.browserBootstrap(request);
 }

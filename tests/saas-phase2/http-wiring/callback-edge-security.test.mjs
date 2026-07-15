@@ -9,8 +9,8 @@ import { projectSafeCallbackResponse } from "../../../apps/customer-panel/lib/se
 import { projectOwnerInternalCallbackResponse } from "../../../apps/owner/lib/self-serve-http/internal-callback-response.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const base = "840a4c4b5793223fefdad980cbfcf2b967a4df0d";
-const correctionBase = "cab850e5157e1e59565440cd8b0037b800d0f26f";
+const fixtureBase = "840a4c4b5793223fefdad980cbfcf2b967a4df0d";
+const routeMountBase = "0501606272fa41dfabd23058bad50cbaece0c2cd";
 const read = (file) => readFileSync(path.join(root, file), "utf8");
 const customerRoute = read("apps/customer-panel/app/auth/callback/route.ts");
 const ownerRoute = read("apps/owner/app/api/internal/self-serve/oidc-callback/route.ts");
@@ -112,13 +112,7 @@ function upstreamResponse(body, status) {
 }
 
 function changed() {
-  const tracked = execFileSync("git", ["diff", "--name-only", base, "--"], { cwd: root, encoding: "utf8" });
-  const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
-  return [...new Set(`${tracked}\n${untracked}`.trim().split("\n").filter(Boolean))].sort();
-}
-
-function correctionChanged() {
-  const tracked = execFileSync("git", ["diff", "--name-only", correctionBase, "--"], { cwd: root, encoding: "utf8" });
+  const tracked = execFileSync("git", ["diff", "--name-only", routeMountBase, "--"], { cwd: root, encoding: "utf8" });
   const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
   return [...new Set(`${tracked}\n${untracked}`.trim().split("\n").filter(Boolean))].sort();
 }
@@ -131,12 +125,14 @@ function matrixSource(source) {
   return source.slice(start, end + 4);
 }
 
-test("both production routes remain disabled and cannot construct activation or dependencies", () => {
-  assert.match(customerRoute, /createDisabledCustomerPanelSelfServeCallbackEdge/);
-  assert.match(ownerRoute, /createDisabledOwnerInternalSelfServeCallbackGateway/);
+test("both mounted production routes resolve only default-disabled route sets", () => {
+  assert.match(customerRoute, /getDefaultCustomerPanelAuthRouteSet/);
+  assert.match(ownerRoute, /getDefaultOwnerSelfServeAuthRouteSet/);
   assert.doesNotMatch(customerRoute, /createCustomerPanelCallbackEdgeApproval|createCustomerPanelSelfServeCallbackEdge|process\.env|\bfetch\b|HMAC|secret/i);
   assert.doesNotMatch(ownerRoute, /createOwnerInternalCallbackGatewayApproval|createOwnerInternalSelfServeCallbackGateway|process\.env|\bfetch\b|\bPool\b|secret|keys/i);
-  assert.doesNotMatch(customerRoute, /export\s+(?:async\s+)?function\s+POST|export\s+const\s+POST/);
+  assert.match(customerRoute, /export\s+async\s+function\s+POST/);
+  assert.match(read("apps/customer-panel/lib/panel-auth-route-mount/route-set.ts"), /const defaultRouteSet = createDisabledCustomerPanelAuthRouteSet\(\);/);
+  assert.match(read("apps/owner/lib/self-serve-auth-route-mount/route-set.ts"), /const defaultRouteSet = createDisabledOwnerSelfServeAuthRouteSet\(\);/);
 });
 
 test("application edges do not import each other or legacy panel session completion", () => {
@@ -170,16 +166,23 @@ test("protocol constants, canonical body, raw-body HMAC, timestamp bounds, and c
 
 test("gateway authenticates exact raw bytes before JSON parsing or business invocation", () => {
   const authenticator = gateway.slice(
-    gateway.indexOf("async authenticate(request"),
-    gateway.indexOf("export function signWithAuthenticatedInternalCallbackRequest"),
+    gateway.indexOf("export function createOwnerInternalCallbackRawRequestAuthenticator"),
+    gateway.indexOf("export function copyAuthenticatedOwnerInternalCallbackRawBody"),
   );
   const rawRead = authenticator.indexOf("boundedRequestBytes(request");
   const digest = authenticator.indexOf("createHash(\"sha256\")");
   const key = authenticator.indexOf("keys.get(keyId)");
   const compare = authenticator.indexOf("timingSafeEqual(signatureBytes, expected)");
-  const parse = authenticator.indexOf("parseCanonicalEnvelope(rawBytes)");
-  assert.equal([rawRead, digest, key, compare, parse].every((index) => index >= 0), true);
-  assert.equal(rawRead < digest && digest < key && key < compare && compare < parse, true);
+  assert.equal([rawRead, digest, key, compare].every((index) => index >= 0), true);
+  assert.equal(rawRead < digest && digest < key && key < compare, true);
+
+  const canonicalAuthenticator = gateway.slice(
+    gateway.indexOf("export function createOwnerInternalCallbackRequestAuthenticator"),
+    gateway.indexOf("export function signWithAuthenticatedInternalCallbackRequest"),
+  );
+  const authenticateRaw = canonicalAuthenticator.indexOf("rawAuthenticator.authenticate(request)");
+  const parse = canonicalAuthenticator.indexOf("parseCanonicalEnvelope(copyAuthenticatedOwnerInternalCallbackRawBody(raw))");
+  assert.equal(authenticateRaw >= 0 && parse > authenticateRaw, true);
 
   const handler = gateway.slice(gateway.indexOf("return async function ownerInternalSelfServeCallbackGateway"));
   const authenticate = handler.indexOf("authenticator.authenticate(request)");
@@ -280,28 +283,26 @@ test("Atlas-approved fixture exceptions are each exactly one response_mode query
     ["apps/owner/lib/self-serve-http/registration-start.test.ts", '+    url.searchParams.set("response_mode", "query");'],
     ["tests/saas-phase1/phase1-flow.test.ts", '+      url.searchParams.set("response_mode", "query");'],
   ]) {
-    const output = execFileSync("git", ["diff", "-U0", base, "--", file], { cwd: root, encoding: "utf8" });
+    const output = execFileSync("git", ["diff", "-U0", fixtureBase, "--", file], { cwd: root, encoding: "utf8" });
     const additions = output.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++"));
     assert.deepEqual(additions, [expected], file);
   }
 });
 
-test("the current diff is confined to the approved Phase 2B1B2B scope", () => {
+test("the current diff is confined to the approved Phase 2B2B2C1 scope", () => {
   for (const file of changed()) {
     assert.equal(
-      file === "apps/customer-panel/app/auth/callback/route.ts" ||
-      file === "apps/customer-panel/app/auth/callback/route.test.ts" ||
-      file.startsWith("apps/customer-panel/lib/self-serve-callback-edge/") ||
-      file.startsWith("apps/customer-panel/lib/self-serve-internal-callback-transport/") ||
-      file.startsWith("apps/owner/app/api/internal/self-serve/oidc-callback/") ||
-      /^apps\/owner\/lib\/self-serve-http\/(?:internal-callback-|verified-edge-)/.test(file) ||
-      file === "apps/owner/lib/self-serve-oidc.ts" ||
-      file === "apps/owner/lib/self-serve-oidc.test.ts" ||
-      file === "apps/owner/lib/self-serve-http/registration-start.test.ts" ||
-      file === "tests/saas-phase1/phase1-flow.test.ts" ||
-      file === "packages/platform-config/src/saas.ts" ||
+      file === "apps/owner/app/api/self-serve/register/route.ts" ||
+      /^apps\/owner\/app\/api\/internal\/self-serve\/(?:browser-binding|oidc-callback)\/route\.ts$/.test(file) ||
+      /^apps\/customer-panel\/app\/auth\/(?:bootstrap|callback)\/route\.ts$/.test(file) ||
+      file.startsWith("apps/owner/lib/self-serve-auth-route-mount/") ||
+      file.startsWith("apps/owner/lib/self-serve-auth-route-runtime/") ||
+      file.startsWith("apps/customer-panel/lib/panel-auth-route-mount/") ||
+      file.startsWith("apps/customer-panel/lib/panel-auth-route-runtime/") ||
+      file.startsWith("tests/saas-phase2/auth-route-mount/") ||
       file.startsWith("tests/saas-phase2/http-wiring/") ||
-      file === "tests/saas-phase2/registration-session/postgres-harness.mjs",
+      file === "tests/saas-phase2/panel-auth-composition/static-security.test.mjs" ||
+      file === "tests/saas-phase2/panel-auth-composition/postgres-harness.mjs",
       true,
       file,
     );
@@ -319,23 +320,7 @@ test("SQL, manifests, packages, lockfile, flags, legacy sessions, admin, storefr
   assert.match(read("apps/owner/lib/self-serve-registration-orchestrator.ts"), /SELF_SERVE_SAAS_REGISTRATION_ENABLED\s*=\s*false/);
 });
 
-test("the correction is confined to the Atlas-approved projection files", () => {
-  const allowed = new Set([
-    "apps/customer-panel/lib/self-serve-callback-edge/safe-response.ts",
-    "apps/customer-panel/lib/self-serve-callback-edge/edge.test.ts",
-    "apps/customer-panel/lib/self-serve-callback-edge/safe-response.test.ts",
-    "apps/customer-panel/lib/self-serve-internal-callback-transport/transport.test.ts",
-    "apps/owner/lib/self-serve-http/internal-callback-response.ts",
-    "apps/owner/lib/self-serve-http/internal-callback-gateway.test.ts",
-    "apps/owner/lib/self-serve-http/internal-callback-response.test.ts",
-    "tests/saas-phase2/http-wiring/callback-edge-security.test.mjs",
-    "tests/saas-phase2/http-wiring/static-security.test.mjs",
-    "tests/saas-phase2/registration-session/postgres-harness.mjs",
-  ]);
-  for (const file of correctionChanged()) assert.equal(allowed.has(file), true, file);
-});
-
-test("the correction leaves fixtures, transport, trust, B1B2A runtime, routes, SQL, packages, and infrastructure byte-unchanged", () => {
+test("the route-mount correction leaves fixtures, transport, trust, B1B2A runtime, SQL, packages, and infrastructure byte-unchanged", () => {
   const protectedPaths = [
     "apps/owner/lib/self-serve-http/registration-start.test.ts",
     "tests/saas-phase1/phase1-flow.test.ts",
@@ -345,8 +330,6 @@ test("the correction leaves fixtures, transport, trust, B1B2A runtime, routes, S
     "apps/customer-panel/lib/self-serve-internal-callback-transport/transport.ts",
     "apps/owner/lib/self-serve-http/internal-callback-gateway.ts",
     "apps/owner/lib/self-serve-http/verified-edge-trust.ts",
-    "apps/customer-panel/app/auth/callback/route.ts",
-    "apps/owner/app/api/internal/self-serve/oidc-callback/route.ts",
     "apps/owner/scripts/sql/saas",
     "packages/saas-contracts",
     "packages/saas-data",
@@ -356,6 +339,6 @@ test("the correction leaves fixtures, transport, trust, B1B2A runtime, routes, S
     "deploy",
     ".github/workflows",
   ];
-  const output = execFileSync("git", ["diff", "--name-only", correctionBase, "--", ...protectedPaths], { cwd: root, encoding: "utf8" });
+  const output = execFileSync("git", ["diff", "--name-only", routeMountBase, "--", ...protectedPaths], { cwd: root, encoding: "utf8" });
   assert.equal(output.trim(), "");
 });

@@ -22,7 +22,7 @@ function changedFiles() {
   ])].sort();
 }
 
-test("Phase 2B2B2B changes remain confined to the exact Atlas allowlist", () => {
+test("Phase 2B2B2B and B2B2C1 changes remain confined to their exact Atlas allowlists", () => {
   const allowed = [
     /^apps\/owner\/lib\/self-serve-browser-bound-registration\//,
     /^apps\/owner\/lib\/self-serve-auth-composition\//,
@@ -33,23 +33,39 @@ test("Phase 2B2B2B changes remain confined to the exact Atlas allowlist", () => 
     /^tests\/saas-phase2\/http-wiring\//,
     /^tests\/saas-phase2\/panel-browser-binding\/static-security\.test\.mjs$/,
     /^tests\/saas-phase2\/panel-session-completion\/static-security\.test\.mjs$/,
+    /^apps\/owner\/lib\/self-serve-auth-route-(?:mount|runtime)\//,
+    /^apps\/customer-panel\/lib\/panel-auth-route-(?:mount|runtime)\//,
+    /^apps\/owner\/app\/api\/self-serve\/register\/route\.ts$/,
+    /^apps\/owner\/app\/api\/internal\/self-serve\/(?:browser-binding|oidc-callback)\/route\.ts$/,
+    /^apps\/customer-panel\/app\/auth\/(?:bootstrap|callback)\/route\.ts$/,
+    /^tests\/saas-phase2\/auth-route-mount\//,
   ];
   const unexpected = changedFiles().filter((path) => !allowed.some((pattern) => pattern.test(path)));
   assert.deepEqual(unexpected, []);
 });
 
-test("default Owner and customer-panel routes remain disabled and import no composition authority", () => {
-  const ownerRegistration = read("apps/owner/app/api/self-serve/register/route.ts");
-  const customerCallback = read("apps/customer-panel/app/auth/callback/route.ts");
-  const ownerCallback = read("apps/owner/app/api/internal/self-serve/oidc-callback/route.ts");
-  assert.match(ownerRegistration, /DisabledSelfServeRuntime|createDisabledSelfServeRuntime/);
-  assert.match(customerCallback, /createDisabledCustomerPanelSelfServeCallbackEdge/);
-  assert.match(ownerCallback, /createDisabledOwnerInternalSelfServeCallbackGateway/);
-  assert.equal(existsSync(resolve(ROOT, "apps/customer-panel/app/auth/bootstrap/route.ts")), false);
-  for (const source of [ownerRegistration, customerCallback, ownerCallback]) {
+test("mounted Owner and customer-panel routes resolve only immutable default-disabled route sets", () => {
+  const routePaths = [
+    "apps/owner/app/api/self-serve/register/route.ts",
+    "apps/owner/app/api/internal/self-serve/browser-binding/route.ts",
+    "apps/owner/app/api/internal/self-serve/oidc-callback/route.ts",
+    "apps/customer-panel/app/auth/bootstrap/route.ts",
+    "apps/customer-panel/app/auth/callback/route.ts",
+  ];
+  assert.equal(routePaths.every((path) => existsSync(resolve(ROOT, path))), true);
+  for (const source of routePaths.map(read)) {
+    assert.match(source, /getDefault(?:OwnerSelfServe|CustomerPanel)AuthRouteSet/);
     assert.equal(source.includes("auth-composition"), false);
     assert.equal(source.includes("CompositionApproval"), false);
   }
+  assert.match(
+    read("apps/owner/lib/self-serve-auth-route-mount/route-set.ts"),
+    /const defaultRouteSet = createDisabledOwnerSelfServeAuthRouteSet\(\);/,
+  );
+  assert.match(
+    read("apps/customer-panel/lib/panel-auth-route-mount/route-set.ts"),
+    /const defaultRouteSet = createDisabledCustomerPanelAuthRouteSet\(\);/,
+  );
   assert.match(read("apps/owner/lib/self-serve-registration-orchestrator.ts"), /SELF_SERVE_SAAS_REGISTRATION_ENABLED = false/);
   assert.match(read("apps/customer-panel/lib/config.ts"), /CUSTOMER_PANEL_AUTH_ENABLED = false/);
 });
@@ -100,10 +116,8 @@ test("new compositions are injected-only, secret-free, unmounted, and contain no
   assert.match(source, /route_mount_and_staging_e2e/);
 });
 
-test("migrations, manifests, frozen authorities, routes, packages, and infrastructure are byte-unchanged", () => {
+test("migrations, manifests, frozen authorities, packages, and infrastructure are byte-unchanged", () => {
   const protectedPaths = [
-    "apps/owner/app",
-    "apps/customer-panel/app",
     "apps/owner/scripts/sql/saas",
     "apps/owner/lib/self-serve-http/runtime.ts",
     "apps/owner/lib/self-serve-registration-orchestrator.ts",
@@ -121,6 +135,16 @@ test("migrations, manifests, frozen authorities, routes, packages, and infrastru
     ".github/workflows",
   ];
   assert.equal(git("diff", "--name-only", BASE, "--", ...protectedPaths), "");
+  const changedAppRoutes = changedFiles()
+    .filter((path) => path.startsWith("apps/owner/app/") || path.startsWith("apps/customer-panel/app/"))
+    .sort();
+  assert.deepEqual(changedAppRoutes, [
+    "apps/customer-panel/app/auth/bootstrap/route.ts",
+    "apps/customer-panel/app/auth/callback/route.ts",
+    "apps/owner/app/api/internal/self-serve/browser-binding/route.ts",
+    "apps/owner/app/api/internal/self-serve/oidc-callback/route.ts",
+    "apps/owner/app/api/self-serve/register/route.ts",
+  ]);
 });
 
 test("the native PostgreSQL harness directly executes 40 genuine composition scenarios", () => {

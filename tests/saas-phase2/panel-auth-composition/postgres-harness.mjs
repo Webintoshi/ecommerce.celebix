@@ -953,30 +953,54 @@ async function main() {
     });
 
     await scenario(SCENARIOS[2], async () => {
-      const ownerRoute = readFileSync(
-        path.join(ROOT, "apps/owner/app/api/self-serve/register/route.ts"),
-        "utf8",
+      const mountedRoutes = [
+        [
+          "apps/owner/app/api/self-serve/register/route.ts",
+          "getDefaultOwnerSelfServeAuthRouteSet",
+        ],
+        [
+          "apps/owner/app/api/internal/self-serve/browser-binding/route.ts",
+          "getDefaultOwnerSelfServeAuthRouteSet",
+        ],
+        [
+          "apps/owner/app/api/internal/self-serve/oidc-callback/route.ts",
+          "getDefaultOwnerSelfServeAuthRouteSet",
+        ],
+        [
+          "apps/customer-panel/app/auth/bootstrap/route.ts",
+          "getDefaultCustomerPanelAuthRouteSet",
+        ],
+        [
+          "apps/customer-panel/app/auth/callback/route.ts",
+          "getDefaultCustomerPanelAuthRouteSet",
+        ],
+      ];
+      for (const [relativePath, defaultResolver] of mountedRoutes) {
+        const absolutePath = path.join(ROOT, relativePath);
+        assert.equal(existsSync(absolutePath), true);
+        const source = readFileSync(absolutePath, "utf8");
+        const imports = source.match(/^import[^;]+;$/gm) ?? [];
+        assert.equal(imports.length, 1);
+        assert.match(imports[0], new RegExp(
+          `^import \\{ ${defaultResolver} \\} from ".+auth-route-mount/route-set\\.ts";$`,
+        ));
+        assert.doesNotMatch(
+          source,
+          /auth-composition|process\.env|postgres|pg\b|secret|keyring|clientSecret|HMAC|encryption|approved_staging/i,
+        );
+      }
+      const { getDefaultOwnerSelfServeAuthRouteSet } = await import(
+        "../../../apps/owner/lib/self-serve-auth-route-mount/route-set.ts"
       );
-      const customerCallback = readFileSync(
-        path.join(ROOT, "apps/customer-panel/app/auth/callback/route.ts"),
-        "utf8",
+      const { getDefaultCustomerPanelAuthRouteSet } = await import(
+        "../../../apps/customer-panel/lib/panel-auth-route-mount/route-set.ts"
       );
-      const ownerCallback = readFileSync(
-        path.join(ROOT, "apps/owner/app/api/internal/self-serve/oidc-callback/route.ts"),
-        "utf8",
-      );
-      assert.match(ownerRoute, /createDisabledSelfServeRuntime|DisabledSelfServeRuntime/);
-      assert.match(customerCallback, /createDisabledCustomerPanelSelfServeCallbackEdge/);
-      assert.match(ownerCallback, /createDisabledOwnerInternalSelfServeCallbackGateway/);
-      assert.equal(
-        existsSync(path.join(ROOT, "apps/customer-panel/app/auth/bootstrap/route.ts")),
-        false,
-      );
-      assert.equal(
-        [ownerRoute, customerCallback, ownerCallback]
-          .some((source) => source.includes("auth-composition")),
-        false,
-      );
+      const defaultOwnerRouteSet = getDefaultOwnerSelfServeAuthRouteSet();
+      const defaultCustomerRouteSet = getDefaultCustomerPanelAuthRouteSet();
+      assert.equal(defaultOwnerRouteSet.readiness.mode, "disabled");
+      assert.equal(defaultCustomerRouteSet.readiness.mode, "disabled");
+      assert.equal(defaultOwnerRouteSet.readiness.productionActivation, "forbidden");
+      assert.equal(defaultCustomerRouteSet.readiness.productionActivation, "forbidden");
       assert.match(
         readFileSync(path.join(ROOT, "apps/owner/lib/self-serve-registration-orchestrator.ts"), "utf8"),
         /SELF_SERVE_SAAS_REGISTRATION_ENABLED = false/,

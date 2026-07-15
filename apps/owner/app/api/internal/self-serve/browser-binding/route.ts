@@ -3,9 +3,9 @@ import { getDefaultOwnerSelfServeAuthRouteSet } from "../../../../../lib/self-se
 const routeSet = getDefaultOwnerSelfServeAuthRouteSet();
 
 export async function GET(request: Request) {
-  return routeSet.internalCallback(request);
+  return routeSet.internalBrowserBinding(request);
 }
 
 export async function POST(request: Request) {
-  return routeSet.internalCallback(request);
+  return routeSet.internalBrowserBinding(request);
 }
