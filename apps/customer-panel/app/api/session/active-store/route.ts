@@ -1,10 +1,3 @@
-import { rejectInvalidPanelMutation } from "../../../../lib/request-security.ts";
+import { handleDefaultPanelActiveStore } from "../../../../lib/server-panel-session-controls/default.ts";
 
-export async function POST(request: Request) {
-  const rejected = rejectInvalidPanelMutation(request);
-  if (rejected) return rejected;
-  return Response.json(
-    { code: "unauthenticated" },
-    { status: 401, headers: { "cache-control": "no-store" } },
-  );
-}
+export const POST = handleDefaultPanelActiveStore;

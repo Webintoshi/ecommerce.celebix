@@ -41,7 +41,7 @@ test("unknown route handler returns 401 without a production session store", asy
   assert.deepEqual(await response.json(), { code: "unauthenticated" });
 });
 
-test("active-store switch denies an unauthenticated request", async () => {
+test("active-store switch stays controlled unavailable without approved staging authority", async () => {
   const route = await load("../app/api/session/active-store/route.ts");
   assert.equal(typeof route.POST, "function");
   if (typeof route.POST !== "function") return;
@@ -51,7 +51,8 @@ test("active-store switch denies an unauthenticated request", async () => {
       body: JSON.stringify({ storeId: "browser-store" }),
     }),
   );
-  assert.equal(noOrigin.status, 403);
+  assert.equal(noOrigin.status, 503);
+  assert.equal(noOrigin.headers.has("set-cookie"), false);
   const response = await route.POST(
     new Request("https://panel.celebix.site/api/session/active-store", {
       method: "POST",
@@ -59,8 +60,9 @@ test("active-store switch denies an unauthenticated request", async () => {
       body: JSON.stringify({ storeId: "browser-store" }),
     }),
   );
-  assert.equal(response.status, 401);
-  assert.deepEqual(await response.json(), { code: "unauthenticated" });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { code: "panel_session_retry_required" });
+  assert.equal(response.headers.has("set-cookie"), false);
 });
 
 test("live auth callback remains disabled without setting a cookie", async () => {
@@ -113,7 +115,7 @@ test("state-changing routes reject near-match and cross-site origins", async () 
       const response = await (handler as (request: Request) => Promise<Response>)(
         new Request("https://panel.celebix.site/action", { method: "POST", headers: { origin } }),
       );
-      assert.equal(response.status, 403);
+      assert.equal(response.status, handler === switcher.POST ? 503 : 403);
       assert.equal(response.headers.has("set-cookie"), false);
     }
   }

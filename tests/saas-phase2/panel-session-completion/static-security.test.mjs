@@ -83,8 +83,15 @@ test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
       file.startsWith("tests/saas-phase2/panel-session-handoffs/") ||
       /^apps\/customer-panel\/lib\/server-(?:session|access)(?:\.test)?\.ts$/.test(file) ||
       file.startsWith("apps/customer-panel/lib/server-panel-access/") ||
+      file.startsWith("apps/customer-panel/lib/server-panel-session-controls/") ||
       file.startsWith("tests/saas-phase2/panel-server-access/") ||
+      file.startsWith("tests/saas-phase2/panel-session-controls/") ||
+      file === "apps/customer-panel/lib/routes.test.ts" ||
+      /^apps\/owner\/app\/kayit\/page(?:\.test)?\.tsx?$/.test(file) ||
+      /^apps\/owner\/lib\/self-serve-registration-orchestrator(?:\.test)?\.ts$/.test(file) ||
+      /^apps\/customer-panel\/app\/api\/session\/(?:active-store|logout)\/route(?:\.test)?\.ts$/.test(file) ||
       file === "tests/saas-phase2/panel-auth-composition/static-security.test.mjs" ||
+      file === "tests/saas-phase2/panel-auth-composition/postgres-harness.mjs" ||
       file === "tests/saas-phase2/auth-route-mount/static-security.test.mjs" ||
       file.startsWith("tests/saas-phase2/http-wiring/") || file === "tests/saas-phase2/registration-session/postgres-harness.mjs",
       true,
@@ -102,7 +109,8 @@ test("migrations, manifests, frozen authorities, legacy completion, packages, an
     /^package(?:-lock)?\.json$/,
     /^apps\/(?:admin|storefront|dedicated|hemenaku|derycraft)\//i,
     /^deploy\//, /^\.github\/workflows\//,
-    /^apps\/customer-panel\/app\//, /^apps\/owner\/app\//,
+    /^apps\/customer-panel\/app\/(?!api\/session\/(?:active-store|logout)\/route(?:\.test)?\.ts$)/,
+    /^apps\/owner\/app\/(?!kayit\/page(?:\.test)?\.tsx?$)/,
     /^apps\/customer-panel\/lib\/session\.ts$/,
     /^apps\/customer-panel\/lib\/registration-completion\.ts$/,
     /^apps\/customer-panel\/lib\/panel-session-(?:handoff|persistence)\//,

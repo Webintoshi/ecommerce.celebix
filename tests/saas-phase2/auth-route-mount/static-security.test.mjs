@@ -67,6 +67,10 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/owner\/app\/api\/self-serve\/register\/route\.ts$/,
     /^apps\/owner\/app\/api\/internal\/self-serve\/(?:browser-binding|oidc-callback)\/route\.ts$/,
     /^apps\/customer-panel\/app\/auth\/(?:bootstrap|callback)\/route\.ts$/,
+    /^apps\/customer-panel\/app\/api\/session\/(?:active-store|logout)\/route(?:\.test)?\.ts$/,
+    /^apps\/customer-panel\/lib\/routes\.test\.ts$/,
+    /^apps\/customer-panel\/lib\/panel-session-completion\/cookie(?:\.test)?\.ts$/,
+    /^apps\/customer-panel\/lib\/server-panel-session-controls\//,
     /^tests\/saas-phase2\/auth-route-mount\//,
     /^tests\/saas-phase2\/http-wiring\//,
     /^tests\/saas-phase2\/panel-auth-composition\/static-security\.test\.mjs$/,
@@ -79,6 +83,7 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/customer-panel\/lib\/server-(?:session|access)(?:\.test)?\.ts$/,
     /^apps\/customer-panel\/lib\/server-panel-access\//,
     /^tests\/saas-phase2\/panel-server-access\//,
+    /^tests\/saas-phase2\/panel-session-controls\//,
     /^apps\/owner\/lib\/self-serve-registration-orchestrator(?:\.test)?\.ts$/,
     /^apps\/owner\/app\/kayit\/(?:page|page\.test)\.tsx?$/,
   ];

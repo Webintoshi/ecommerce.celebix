@@ -17,7 +17,7 @@ test("guarded panel access is server-only, cookie-only, and delegates to the dur
   assert.match(joined, /createPostgresPanelSessionRepository/);
   assert.match(joined, /resolveSession/);
   assert.doesNotMatch(joined, /InMemoryPanelSessionStore|DisabledPanelSessionStore|DisabledPanelAuthorizationDataPort/);
-  assert.doesNotMatch(joined, /localStorage|authorization|x-forwarded|forwarded|referer|origin|host/i);
+  assert.doesNotMatch(joined, /localStorage|authorization|x-forwarded|forwarded|referer|request\.headers|headers\.get/i);
   assert.doesNotMatch(joined, /FROM\s+saas\.(?:principals|stores|store_memberships|subscriptions|plans)/i);
 
   const serverSession = read("apps/customer-panel/lib/server-session.ts");
@@ -68,5 +68,11 @@ test("approved staging access reuses the existing customer-panel pool and timeou
   }
   assert.match(access, /createPostgresPanelSessionRepository/);
   assert.match(access, /createPanelSessionPersistenceApproval\("approved_staging"\)/);
+  for (const authority of [
+    "resolve_panel_session",
+    "rotate_panel_session",
+    "revoke_panel_session",
+    "recover_panel_session_operation",
+  ]) assert.equal(access.includes(authority), true, authority);
   assert.doesNotMatch(access, /FROM\s+saas\.(?:principals|stores|memberships|subscriptions|plans|plan_versions)/i);
 });

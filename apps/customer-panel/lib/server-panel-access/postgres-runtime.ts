@@ -32,14 +32,27 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       EXISTS (
         SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
         WHERE n.nspname='saas' AND proname='resolve_panel_session'
-      ) AS session_resolver
+      ) AS session_resolver,
+      EXISTS (
+        SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
+        WHERE n.nspname='saas' AND proname='rotate_panel_session'
+      ) AS session_rotator,
+      EXISTS (
+        SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
+        WHERE n.nspname='saas' AND proname='revoke_panel_session'
+      ) AS session_revoker,
+      EXISTS (
+        SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
+        WHERE n.nspname='saas' AND proname='recover_panel_session_operation'
+      ) AS session_recovery
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
       result.rowCount !== 1 || !row ||
       Math.floor(Number(row.version_num) / 10_000) !== 16 ||
       row.database_name !== databaseName || row.is_superuser !== false ||
-      row.identity_member !== true || row.sessions !== true || row.session_resolver !== true
+      row.identity_member !== true || row.sessions !== true || row.session_resolver !== true ||
+      row.session_rotator !== true || row.session_revoker !== true || row.session_recovery !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
 }
@@ -74,5 +87,5 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       audit: () => undefined,
     },
   );
-  return createApprovedStagingServerPanelAccessRuntime(repository);
+  return createApprovedStagingServerPanelAccessRuntime(repository, config.authority.panelOrigin);
 }

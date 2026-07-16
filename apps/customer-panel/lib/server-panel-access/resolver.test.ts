@@ -37,7 +37,10 @@ function validEnvironment() {
 function runtime(mode: ServerPanelAccessRuntime["readiness"]["mode"]): ServerPanelAccessRuntime {
   return Object.freeze({
     readiness: Object.freeze({ mode }),
+    panelOrigin: mode === "approved_staging" ? "https://staging-panel.celebix.site" : null,
     async resolveCredential() { return Object.freeze({ kind: "unauthenticated" as const }); },
+    async rotateCredential() { return Object.freeze({ kind: "unavailable" as const }); },
+    async revokeCredential() { return Object.freeze({ kind: "unavailable" as const }); },
   });
 }
 

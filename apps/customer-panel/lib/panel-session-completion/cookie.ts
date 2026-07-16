@@ -19,6 +19,10 @@ function canonicalCredential(value: unknown): string {
   return value;
 }
 
+export function validatePersistentPanelSessionCredential(value: unknown): string {
+  return canonicalCredential(value);
+}
+
 function timestamp(value: unknown): number {
   if (typeof value !== "string" || value.length > 32 || value.trim() !== value) invalid();
   const milliseconds = Date.parse(value);
@@ -44,4 +48,8 @@ export function serializePersistentPanelSessionCookie(input: {
   const maxAge = Math.floor((expiresAt - now) / 1_000);
   if (!Number.isSafeInteger(maxAge) || maxAge < 1 || maxAge > MAXIMUM_MAX_AGE_SECONDS) invalid();
   return `__Host-celebix_panel=${credential}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+}
+
+export function serializePersistentPanelSessionDeletionCookie(): string {
+  return "__Host-celebix_panel=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0";
 }

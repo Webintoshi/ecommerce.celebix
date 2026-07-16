@@ -1001,10 +1001,25 @@ async function main() {
       assert.equal(defaultCustomerRouteSet.readiness.mode, "disabled");
       assert.equal(defaultOwnerRouteSet.readiness.productionActivation, "forbidden");
       assert.equal(defaultCustomerRouteSet.readiness.productionActivation, "forbidden");
-      assert.match(
-        readFileSync(path.join(ROOT, "apps/owner/lib/self-serve-registration-orchestrator.ts"), "utf8"),
-        /SELF_SERVE_SAAS_REGISTRATION_ENABLED = false/,
+      const registrationOrchestrator = readFileSync(
+        path.join(ROOT, "apps/owner/lib/self-serve-registration-orchestrator.ts"),
+        "utf8",
       );
+      assert.doesNotMatch(registrationOrchestrator, /SELF_SERVE_SAAS_REGISTRATION_ENABLED/);
+      assert.match(registrationOrchestrator, /resolveOwnerStagingAuthMode/);
+      assert.match(registrationOrchestrator, /parseOwnerStagingAuthConfig/);
+      assert.match(registrationOrchestrator, /export function resolveSelfServeRegistrationUiEnabled/);
+      const { resolveSelfServeRegistrationUiEnabled } = await import(
+        "../../../apps/owner/lib/self-serve-registration-orchestrator.ts"
+      );
+      assert.equal(resolveSelfServeRegistrationUiEnabled({}), false);
+      assert.equal(resolveSelfServeRegistrationUiEnabled({
+        CELEBIX_SAAS_AUTH_MODE: "approved_staging",
+      }), false);
+      assert.equal(resolveSelfServeRegistrationUiEnabled({
+        CELEBIX_SAAS_AUTH_MODE: "approved_staging",
+        CELEBIX_DEPLOYMENT_TIER: "production",
+      }), false);
       assert.match(
         readFileSync(path.join(ROOT, "apps/customer-panel/lib/config.ts"), "utf8"),
         /CUSTOMER_PANEL_AUTH_ENABLED = false/,
