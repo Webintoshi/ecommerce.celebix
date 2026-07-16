@@ -79,6 +79,8 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/customer-panel\/lib\/server-(?:session|access)(?:\.test)?\.ts$/,
     /^apps\/customer-panel\/lib\/server-panel-access\//,
     /^tests\/saas-phase2\/panel-server-access\//,
+    /^apps\/owner\/lib\/self-serve-registration-orchestrator(?:\.test)?\.ts$/,
+    /^apps\/owner\/app\/kayit\/(?:page|page\.test)\.tsx?$/,
   ];
   const unexpected = changedFiles().filter((file) => !allowed.some((pattern) => pattern.test(file)));
   assert.deepEqual(unexpected, []);
@@ -137,13 +139,19 @@ test("route-mount approvals and route sets use private WeakSet authority and exa
   }
 });
 
-test("no readiness endpoint, unauthorized middleware mutation, environment activation, or production flag exists", () => {
+test("no readiness endpoint, unauthorized middleware mutation, or production registration activation exists", () => {
   const changed = changedFiles();
   assert.equal(changed.some((file) => /\/readiness\/route\.ts$/.test(file)), false);
   assert.equal(changed.some((file) =>
     /(?:^|\/)middleware\.(?:ts|js)$/.test(file) && file !== "apps/owner/middleware.ts"
   ), false);
-  assert.match(read("apps/owner/lib/self-serve-registration-orchestrator.ts"), /SELF_SERVE_SAAS_REGISTRATION_ENABLED = false/);
+  const registration = read("apps/owner/lib/self-serve-registration-orchestrator.ts");
+  const registrationPage = read("apps/owner/app/kayit/page.tsx");
+  assert.doesNotMatch(registration, /SELF_SERVE_SAAS_REGISTRATION_ENABLED/);
+  assert.match(registration, /resolveOwnerStagingAuthMode/);
+  assert.match(registration, /parseOwnerStagingAuthConfig/);
+  assert.match(registrationPage, /resolveSelfServeRegistrationUiEnabled\(process\.env\)/);
+  assert.doesNotMatch(registrationPage, /headers\(|cookies\(|searchParams|Forwarded/);
   assert.match(read("apps/customer-panel/lib/config.ts"), /CUSTOMER_PANEL_AUTH_ENABLED = false/);
 });
 
@@ -151,7 +159,6 @@ test("authority changes are confined to the Atlas-approved parameterization file
   const protectedPaths = [
     "apps/customer-panel/lib/panel-session-handoff",
     "apps/customer-panel/lib/panel-session-persistence",
-    "apps/owner/lib/self-serve-registration-orchestrator.ts",
     "apps/owner/lib/self-serve-registration-completion.ts",
   ];
   assert.equal(git("diff", "--name-only", BASE, "--", ...protectedPaths), "");

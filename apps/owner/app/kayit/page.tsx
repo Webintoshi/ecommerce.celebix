@@ -1,9 +1,12 @@
-import { SELF_SERVE_SAAS_REGISTRATION_ENABLED } from "@/lib/self-serve-registration-orchestrator";
+import process from "node:process";
+
+import { resolveSelfServeRegistrationUiEnabled } from "@/lib/self-serve-registration-orchestrator";
 import { SelfServeDirectRegistrationForm } from "@/components/self-serve/SelfServeDirectRegistrationForm";
 import Link from "next/link";
 
 export default function KayitPage() {
-  const registrationState = SELF_SERVE_SAAS_REGISTRATION_ENABLED ? "integration_required" : "disabled";
+  const registrationEnabled = resolveSelfServeRegistrationUiEnabled(process.env);
+  const registrationState = registrationEnabled ? "integration_required" : "disabled";
 
   return (
     <main className="self-serve-public-page self-serve-register-page">
@@ -20,7 +23,7 @@ export default function KayitPage() {
       </section>
 
       <section className="self-serve-register-form-wrap" aria-label="Mağaza kayıt durumu" data-state={registrationState}>
-        <SelfServeDirectRegistrationForm enabled={SELF_SERVE_SAAS_REGISTRATION_ENABLED} />
+        <SelfServeDirectRegistrationForm enabled={registrationEnabled} />
         <section className="self-serve-register-disabled">
           <h2 id="self-serve-registration-state">Kayıt altyapısı hazırlanıyor.</h2>
           <p>

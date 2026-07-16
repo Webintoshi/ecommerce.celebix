@@ -24,8 +24,9 @@ test("/kayit is a single direct registration screen, not the old onboarding land
   assert.doesNotMatch(pageSource, /Kurulum sonrası/);
 });
 
-test("/kayit renders the safe direct registration form while remaining disabled by default", () => {
-  assert.match(pageSource, /SELF_SERVE_SAAS_REGISTRATION_ENABLED/);
+test("/kayit renders the safe direct registration form from one server-derived boolean", () => {
+  assert.match(pageSource, /resolveSelfServeRegistrationUiEnabled\(process\.env\)/);
+  assert.doesNotMatch(pageSource, /SELF_SERVE_SAAS_REGISTRATION_ENABLED/);
   assert.match(pageSource, /Kayıt altyapısı hazırlanıyor/);
   assert.match(pageSource, /canlı mağaza oluşturmaz/);
   assert.match(pageSource, /SelfServeDirectRegistrationForm/);
@@ -35,6 +36,20 @@ test("/kayit renders the safe direct registration form while remaining disabled 
   assert.match(formSource, /name="marketingConsent"/);
   assert.match(formSource, /Kimliğimi doğrula ve mağazamı kur/);
   assert.match(formSource, /disabled/);
+});
+
+test("/kayit does not consume browser authority or render staging secrets", () => {
+  for (const prohibited of [
+    /headers\(/,
+    /cookies\(/,
+    /searchParams/,
+    /Host/,
+    /Origin/,
+    /Forwarded/,
+    /CELEBIX_LOGTO_CLIENT_SECRET/,
+    /CELEBIX_SAAS_DATABASE_URL/,
+    /CELEBIX_SESSION_KEY_B64URL/,
+  ]) assert.doesNotMatch(pageSource, prohibited);
 });
 
 test("the direct form collects no browser identity credentials or authority IDs", () => {

@@ -1,7 +1,26 @@
 import type { ValidatedRegistrationDetails } from "./self-serve-identity";
+import {
+  OWNER_STAGING_AUTH_ENVIRONMENT_FIELDS,
+  parseOwnerStagingAuthConfig,
+  resolveOwnerStagingAuthMode,
+} from "./self-serve-auth-authority/config.ts";
 const ATTEMPT_LIFETIME_MS = 10 * 60_000;
 
-export const SELF_SERVE_SAAS_REGISTRATION_ENABLED = false;
+type RegistrationUiEnvironment = Readonly<Record<string, string | undefined>>;
+
+export function resolveSelfServeRegistrationUiEnabled(source: RegistrationUiEnvironment): boolean {
+  try {
+    if (!source || typeof source !== "object" || Array.isArray(source)) return false;
+    if (resolveOwnerStagingAuthMode(source) !== "approved_staging") return false;
+    const snapshot = Object.fromEntries(
+      OWNER_STAGING_AUTH_ENVIRONMENT_FIELDS.map((name) => [name, source[name]]),
+    ) as RegistrationUiEnvironment;
+    parseOwnerStagingAuthConfig(snapshot);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface SelfServeRegistrationStartInput {
   storeName: string;
