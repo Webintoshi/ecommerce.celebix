@@ -50,3 +50,12 @@ export type {
 
 export { SAAS_ERROR_CODES } from "./errors.ts";
 export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";
+export { PRODUCT_STATUSES, VARIANT_STATUSES, parseProduct, parseProductVariant } from "./catalog/index.ts";
+export type {
+  Product,
+  ProductId,
+  ProductStatus,
+  ProductVariant,
+  ProductVariantId,
+  VariantStatus,
+} from "./catalog/index.ts";

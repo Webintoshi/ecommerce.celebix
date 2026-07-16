@@ -1,0 +1,270 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import type { TenantContext } from "@celebix/saas-contracts";
+
+import { CatalogRepositoryError, PostgresCatalogRepository } from "./index.ts";
+
+const STORE_ID = "33333333-3333-4333-8333-333333333333";
+const PRINCIPAL_ID = "44444444-4444-4444-8444-444444444444";
+const MEMBERSHIP_ID = "55555555-5555-4555-8555-555555555555";
+const PLAN_ID = "66666666-6666-4666-8666-666666666666";
+const PRODUCT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const VARIANT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
+const NOW = new Date("2026-07-16T08:00:00.000Z");
+
+function tenantContext(overrides: Record<string, unknown> = {}): TenantContext {
+  return {
+    schemaVersion: 1,
+    requestId: "catalog-request-1",
+    principal: { id: PRINCIPAL_ID, issuer: "https://identity.example/oidc", subject: "subject-1" },
+    store: { id: STORE_ID, slug: "atlas-store", status: "active" },
+    membership: { id: MEMBERSHIP_ID, role: "store_owner", status: "active" },
+    entitlements: {
+      schemaVersion: 1,
+      planId: PLAN_ID,
+      planCode: "free_starter",
+      version: 1,
+      status: "active",
+      features: ["catalog"],
+      limits: { products: 10, staff: 1, storageBytes: 1024 },
+      validFrom: "2026-01-01T00:00:00.000Z",
+      validUntil: "2027-01-01T00:00:00.000Z",
+    },
+    locale: "tr-TR",
+    ...overrides,
+  } as TenantContext;
+}
+
+function product() {
+  return {
+    id: PRODUCT_ID,
+    storeId: STORE_ID,
+    slug: "atlas-mug",
+    title: "Atlas Mug",
+    description: "Catalog fixture",
+    status: "draft",
+    currency: "TRY",
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+    version: 1,
+  };
+}
+
+function variant() {
+  return {
+    id: VARIANT_ID,
+    productId: PRODUCT_ID,
+    storeId: STORE_ID,
+    title: "Default",
+    sku: "ATLAS-MUG-1",
+    barcode: "8690000000001",
+    priceCents: 12_500,
+    compareAtCents: 15_000,
+    costCents: 7_000,
+    stockTracking: true,
+    stockQuantity: 10,
+    status: "active",
+    attributes: { color: "black" },
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+    version: 1,
+  };
+}
+
+function createInput(extraProduct: Record<string, unknown> = {}) {
+  return {
+    tenantContext: tenantContext(),
+    now: NOW,
+    operationId: OPERATION_ID,
+    product: {
+      slug: "atlas-mug",
+      title: "Atlas Mug",
+      description: "Catalog fixture",
+      status: "draft" as const,
+      currency: "TRY",
+      ...extraProduct,
+    },
+    initialVariant: {
+      title: "Default",
+      sku: "ATLAS-MUG-1",
+      barcode: "8690000000001",
+      priceCents: 12_500,
+      compareAtCents: 15_000,
+      costCents: 7_000,
+      stockTracking: true,
+      stockQuantity: 10,
+      attributes: { color: "black" },
+    },
+  };
+}
+
+type Row = Record<string, unknown>;
+
+class FakeClient {
+  readonly calls: Array<{ text: string; values: unknown[] }> = [];
+  readonly releases: Array<boolean | Error | undefined> = [];
+  private readonly responder: (text: string, values: unknown[]) => Row[];
+  constructor(responder: (text: string, values: unknown[]) => Row[] = () => []) {
+    this.responder = responder;
+  }
+  async query(text: string, values: unknown[] = []) {
+    this.calls.push({ text, values });
+    return { rows: this.responder(text, values), rowCount: 0, command: "", oid: 0, fields: [] };
+  }
+  release(destroy?: boolean | Error) { this.releases.push(destroy); }
+}
+
+class FakePool {
+  readonly clients: FakeClient[];
+  connects = 0;
+  constructor(...clients: FakeClient[]) { this.clients = clients; }
+  async connect() {
+    const client = this.clients[this.connects++];
+    if (!client) throw new Error("unexpected pool checkout");
+    return client;
+  }
+}
+
+function repository(pool: FakePool, ids = [PRODUCT_ID, VARIANT_ID]) {
+  let index = 0;
+  return new PostgresCatalogRepository({
+    pool,
+    role: "celebix_saas_app",
+    timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 500, idleTransactionMs: 500 },
+    generateId: () => ids[index++]!,
+    audit: () => undefined,
+  });
+}
+
+test("createProduct derives store authority from TenantContext and creates an initial variant atomically", async () => {
+  const client = new FakeClient((text) => text.includes("saas.catalog_create_product")
+    ? [{ outcome: "created", result_payload: { product: product(), initialVariant: variant() } }]
+    : []);
+  const result = await repository(new FakePool(client)).createProduct(createInput());
+  assert.deepEqual(result, { product: product(), initialVariant: variant(), replayed: false });
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.product), true);
+  assert.equal(Object.isFrozen(result.initialVariant.attributes), true);
+  const mutation = client.calls.find((call) => call.text.includes("saas.catalog_create_product"));
+  assert.ok(mutation);
+  assert.equal(mutation.values[0], STORE_ID);
+  assert.equal(mutation.values.includes(PRODUCT_ID), true);
+  assert.equal(mutation.values.includes(VARIANT_ID), true);
+  assert.equal(mutation.values.includes("catalog-request-1"), false);
+  assert.equal(mutation.values.includes("subject-1"), false);
+  assert.deepEqual(client.releases, [undefined]);
+});
+
+test("contract design rejects browser-supplied store authority before pool checkout", async () => {
+  const pool = new FakePool();
+  await assert.rejects(
+    repository(pool).createProduct(createInput({ storeId: "99999999-9999-4999-8999-999999999999" })),
+    (error: unknown) => error instanceof CatalogRepositoryError && error.code === "invalid_input",
+  );
+  assert.equal(pool.connects, 0);
+});
+
+test("missing catalog entitlement and invalid durable authority fail before SQL", async () => {
+  const withoutCatalog = tenantContext();
+  withoutCatalog.entitlements = { ...withoutCatalog.entitlements, features: [] };
+  const malformedMembership = tenantContext({ membership: { id: "not-a-uuid", role: "store_owner", status: "active" } });
+  for (const [context, code] of [[withoutCatalog, "feature_not_enabled"], [malformedMembership, "durable_authority_invalid"]] as const) {
+    const pool = new FakePool();
+    await assert.rejects(
+      repository(pool).getProduct({ tenantContext: context, now: NOW, productId: PRODUCT_ID }),
+      (error: unknown) => error instanceof CatalogRepositoryError && error.code === code,
+    );
+    assert.equal(pool.connects, 0);
+  }
+});
+
+test("same operation replay returns the frozen prior projection without duplicate semantics", async () => {
+  const client = new FakeClient((text) => text.includes("saas.catalog_create_product")
+    ? [{ outcome: "operation_replayed", result_payload: { product: product(), initialVariant: variant() } }]
+    : []);
+  const result = await repository(new FakePool(client)).createProduct(createInput());
+  assert.equal(result.replayed, true);
+  assert.equal(client.calls.filter((call) => call.text.includes("catalog_create_product")).length, 1);
+});
+
+test("unknown COMMIT performs one fresh read-only recovery and never repeats the write", async () => {
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.catalog_create_product")) {
+      return [{ outcome: "created", result_payload: { product: product(), initialVariant: variant() } }];
+    }
+    if (text === "COMMIT") throw new Error("connection lost after commit");
+    return [];
+  });
+  const recovery = new FakeClient((text) => text.includes("saas.catalog_recover_operation")
+    ? [{ outcome: "operation_replayed", result_payload: { product: product(), initialVariant: variant() } }]
+    : []);
+  const result = await repository(new FakePool(writer, recovery)).createProduct(createInput());
+  assert.equal(result.replayed, true);
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(recovery.calls.some((call) => call.text === "BEGIN READ ONLY"), true);
+  assert.equal(recovery.calls.filter((call) => call.text.includes("catalog_recover_operation")).length, 1);
+  assert.equal(recovery.calls.some((call) => call.text.includes("catalog_create_product")), false);
+});
+
+test("a failed read-only recovery never rolls back or reuses either unknown-outcome client", async () => {
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.catalog_create_product")) {
+      return [{ outcome: "created", result_payload: { product: product(), initialVariant: variant() } }];
+    }
+    if (text === "COMMIT") throw new Error("write commit response lost");
+    return [];
+  });
+  const recovery = new FakeClient((text) => {
+    if (text.includes("saas.catalog_recover_operation")) {
+      return [{ outcome: "operation_replayed", result_payload: { product: product(), initialVariant: variant() } }];
+    }
+    if (text === "COMMIT") throw new Error("read-only commit response lost");
+    return [];
+  });
+  await assert.rejects(
+    repository(new FakePool(writer, recovery)).createProduct(createInput()),
+    (error: unknown) => error instanceof CatalogRepositoryError && error.code === "unavailable",
+  );
+  assert.deepEqual(writer.releases, [true]);
+  assert.deepEqual(recovery.releases, [true]);
+  assert.equal(writer.calls.some((call) => call.text === "ROLLBACK"), false);
+  assert.equal(recovery.calls.some((call) => call.text === "ROLLBACK"), false);
+});
+
+test("store-bound cursors fail closed in another TenantContext", async () => {
+  const firstPageClient = new FakeClient((text) => text.includes("saas.catalog_list_products")
+    ? [{ outcome: "listed", result_payload: { items: [product()], hasMore: true } }]
+    : []);
+  const firstPage = await repository(new FakePool(firstPageClient)).listProducts({
+    tenantContext: tenantContext(), now: NOW, pageSize: 1,
+  });
+  assert.equal(typeof firstPage.nextCursor, "string");
+  const otherStore = tenantContext({ store: { id: "99999999-9999-4999-8999-999999999999", slug: "other-store", status: "active" } });
+  const pool = new FakePool();
+  await assert.rejects(
+    repository(pool).listProducts({ tenantContext: otherStore, now: NOW, pageSize: 1, cursor: firstPage.nextCursor }),
+    (error: unknown) => error instanceof CatalogRepositoryError && error.code === "invalid_input",
+  );
+  assert.equal(pool.connects, 0);
+});
+
+test("finite SQL outcomes and unexpected driver failures expose only stable safe errors", async () => {
+  const denied = new FakeClient((text) => text.includes("saas.catalog_get_product")
+    ? [{ outcome: "product_not_found", result_payload: null }]
+    : []);
+  await assert.rejects(
+    repository(new FakePool(denied)).getProduct({ tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID }),
+    (error: unknown) => error instanceof CatalogRepositoryError && error.message === "product_not_found",
+  );
+
+  const broken = new FakeClient((text) => {
+    if (text.includes("saas.catalog_get_product")) throw new Error("driver detail SELECT private_table");
+    return [];
+  });
+  await assert.rejects(
+    repository(new FakePool(broken)).getProduct({ tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID }),
+    (error: unknown) => error instanceof CatalogRepositoryError && error.message === "unavailable",
+  );
+});

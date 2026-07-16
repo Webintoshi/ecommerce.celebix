@@ -363,6 +363,7 @@ test("keeps the public runtime export surface frozen", () => {
     "PLAN_ENTITLEMENT_STATUSES",
     "PLAN_FEATURE_KEYS",
     "PLAN_LIMIT_KEYS",
+    "PRODUCT_STATUSES",
     "PROVISIONING_STATUSES",
     "SAAS_CONTRACT_SCHEMA_VERSION",
     "SAAS_ERROR_CODES",
@@ -371,15 +372,25 @@ test("keeps the public runtime export surface frozen", () => {
     "STORE_MEMBERSHIP_ROLES",
     "STORE_MEMBERSHIP_STATUSES",
     "STORE_STATUSES",
+    "VARIANT_STATUSES",
     "getPlanLimit",
     "isPlanFeatureEnabled",
     "isPlanFeatureKey",
     "isPlanLimitKey",
+    "parseProduct",
+    "parseProductVariant",
   ]);
 });
 
 test("contract sources import no runtime application code", async () => {
-  const sourceFiles = ["index.ts", "types.ts", "errors.ts"];
+  const sourceFiles = [
+    "index.ts",
+    "types.ts",
+    "errors.ts",
+    "catalog/index.ts",
+    "catalog/types.ts",
+    "catalog/validation.ts",
+  ];
   const sources = await Promise.all(sourceFiles.map((file) => readFile(new URL(file, import.meta.url), "utf8")));
 
   for (const source of sources) {

@@ -7,6 +7,27 @@ export {
 } from "./canonical.ts";
 export { SaaSDataUniqueConflict } from "./errors.ts";
 export { createPanelStoreUrl, normalizeExactHttpsOrigin } from "./panel-origin.ts";
+export { CATALOG_ERROR_CODES, CatalogRepositoryError, PostgresCatalogRepository } from "./catalog/index.ts";
+export type {
+  ArchiveProductInput,
+  ArchiveVariantInput,
+  CatalogAuditEvent,
+  CatalogErrorCode,
+  CatalogProductFields,
+  CatalogRepository,
+  CatalogVariantFields,
+  CreateProductInput,
+  CreateProductResult,
+  CreateVariantInput,
+  GetProductInput,
+  ListProductsInput,
+  ListProductsResult,
+  PostgresCatalogRepositoryOptions,
+  ProductMutationResult,
+  UpdateProductInput,
+  UpdateVariantInput,
+  VariantMutationResult,
+} from "./catalog/index.ts";
 export {
   SaaSDataCorruptionError,
   SaaSDataLockTimeoutError,

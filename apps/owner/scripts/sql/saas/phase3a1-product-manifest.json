@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3a1-202607160018-product-catalog",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "DISPOSABLE_ONLY_NO_STAGING_OR_PRODUCTION_APPLY",
+  "rollbackLimitations": "The down migration destroys all shared catalog rows and is authorized only for disposable pre-production rehearsal before catalog data exists.",
+  "artifacts": [
+    {
+      "id": "202607160018_product_catalog_up",
+      "direction": "up",
+      "file": "202607160018_product_catalog.up.sql",
+      "sha256": "09d1d82b88b414de70e4eb4f6a5ef124ded9dbfb17d01c87607e4b3092b21a04",
+      "purpose": "Add tenant-isolated products, variants, immutable catalog operations, RLS and narrow catalog repository functions."
+    },
+    {
+      "id": "202607160018_product_catalog_down",
+      "direction": "down",
+      "file": "202607160018_product_catalog.down.sql",
+      "sha256": "b7914f6ee3f178e33fafd5ed2fa2fa59e5a530e03204a761d15300dcf1624e54",
+      "purpose": "Destructively remove only Phase 3A1 catalog objects in dependency-safe order for disposable rollback rehearsal."
+    },
+    {
+      "id": "202607160018_product_catalog_assertions",
+      "direction": "verify",
+      "file": "202607160018_product_catalog_assertions.sql",
+      "sha256": "f3c0d2c1918d7441c4a050a23df40b60b27314783260a669f59ee687616e1c78",
+      "purpose": "Fail on catalog ownership, RLS, ACL, composite authority, partial uniqueness, function grant, search_path or recovery drift."
+    }
+  ]
+}
