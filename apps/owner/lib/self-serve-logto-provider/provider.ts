@@ -12,6 +12,9 @@ const ASYMMETRIC_ALGORITHMS = new Set([
   "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA",
 ]);
 const CONTROL = /[\u0000-\u001f\u007f]/;
+const MEDIA_TYPE = /^([!#$%&'*+\-.^_`|~A-Za-z0-9]+)\/([!#$%&'*+\-.^_`|~A-Za-z0-9]+)(?:[ \t]*;[ \t]*[!#$%&'*+\-.^_`|~A-Za-z0-9]+[ \t]*=[ \t]*(?:[!#$%&'*+\-.^_`|~A-Za-z0-9]+|"(?:[\t !#-\[\]-~]|\\[\t -~])*"))*[ \t]*$/;
+const JSON_MEDIA_TYPES = Object.freeze(["application/json"]);
+const JWKS_MEDIA_TYPES = Object.freeze(["application/jwk-set+json", "application/json"]);
 
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -67,6 +70,13 @@ function exactObject(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function responseMediaType(value: string | null): string {
+  if (value === null || CONTROL.test(value)) rejected();
+  const parsed = MEDIA_TYPE.exec(value);
+  if (!parsed) rejected();
+  return `${parsed[1]?.toLowerCase()}/${parsed[2]?.toLowerCase()}`;
+}
+
 function boundedInteger(value: number, maximum: number): number {
   if (!Number.isSafeInteger(value) || value < 1 || value > maximum) rejected();
   return value;
@@ -84,6 +94,7 @@ async function fetchJson(
   init: RequestInit,
   timeoutMs: number,
   maximumResponseBytes: number,
+  acceptedMediaTypes: readonly string[],
 ): Promise<Record<string, unknown>> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -96,8 +107,8 @@ async function fetchJson(
   const operation = async (): Promise<Record<string, unknown>> => {
     const response = await fetcher(url, { ...init, redirect: "manual", signal: controller.signal });
     if (!(response instanceof Response) || response.status !== 200) rejected();
-    const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
-    if (contentType !== "application/json") rejected();
+    const contentType = responseMediaType(response.headers.get("content-type"));
+    if (!acceptedMediaTypes.includes(contentType)) rejected();
     const declared = response.headers.get("content-length");
     if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > maximumResponseBytes)) rejected();
     if (!response.body) rejected();
@@ -169,7 +180,7 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
       const document = await fetchJson(fetcher, options.discoveryUrl, {
         method: "GET",
         headers: { accept: "application/json" },
-      }, timeoutMs, maximumResponseBytes);
+      }, timeoutMs, maximumResponseBytes, JSON_MEDIA_TYPES);
       if (exactText(document.issuer, 2048) !== issuer) rejected();
       const authorizationEndpoint = exactHttpsUrl(document.authorization_endpoint).toString();
       const tokenEndpoint = exactHttpsUrl(document.token_endpoint).toString();
@@ -190,8 +201,8 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
     jwksPromise ??= (async () => {
       const document = await fetchJson(fetcher, discovery.jwksUri, {
         method: "GET",
-        headers: { accept: "application/json" },
-      }, timeoutMs, maximumResponseBytes);
+        headers: { accept: "application/jwk-set+json, application/json" },
+      }, timeoutMs, maximumResponseBytes, JWKS_MEDIA_TYPES);
       if (!Array.isArray(document.keys) || document.keys.length < 1 || document.keys.length > 32) rejected();
       return createLocalJWKSet(document as unknown as JSONWebKeySet);
     })();
@@ -238,7 +249,7 @@ export function createLogtoOidcProvider(options: LogtoOidcProviderOptions): Oidc
         method: "POST",
         headers,
         body: body.toString(),
-      }, timeoutMs, maximumResponseBytes);
+      }, timeoutMs, maximumResponseBytes, JSON_MEDIA_TYPES);
       const idToken = exactText(tokenResponse.id_token, maximumResponseBytes);
       const localJwks = await loadJwks(discovery);
       let verified: Awaited<ReturnType<typeof jwtVerify>>;
