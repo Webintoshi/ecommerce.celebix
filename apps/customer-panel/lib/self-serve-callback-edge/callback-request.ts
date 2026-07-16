@@ -1,4 +1,8 @@
 import { parsePanelBrowserBindingCookie } from "../panel-browser-binding/cookie.ts";
+import {
+  createCustomerPanelCallbackRequestAuthorityValidator,
+  validatePublicCustomerPanelCallbackAuthority,
+} from "../panel-auth-authority/callback-request-authority.ts";
 
 const SUCCESS_PARAMETERS = new Set(["state", "code", "iss"]);
 const ERROR_PARAMETERS = new Set(["state", "error", "error_description", "error_uri", "iss"]);
@@ -44,18 +48,8 @@ function reject(status = 400): never {
 }
 
 export function validateCustomerPanelCallbackAuthority(value: string): string {
-  try {
-    const url = new URL(value);
-    if (
-      url.protocol !== "https:" || url.username || url.password || url.port ||
-      url.pathname !== "/auth/callback" || url.search || url.hash ||
-      `${url.origin}${url.pathname}` !== value
-    ) reject();
-    return value;
-  } catch (error) {
-    if (error instanceof CallbackRequestValidationError) throw error;
-    return reject();
-  }
+  try { return validatePublicCustomerPanelCallbackAuthority(value); }
+  catch { return reject(); }
 }
 
 function boundedInteger(value: number): number {
@@ -156,16 +150,36 @@ export function validateCustomerPanelCallbackUrl(
   return classify(callbackUrl, authority, boundedInteger(maximumQueryBytes));
 }
 
+function reconstructProxySafeCallbackUrl(
+  request: Request,
+  publicCallbackAuthority: string,
+  maximumQueryBytes: number,
+): string {
+  let authority;
+  try {
+    authority = createCustomerPanelCallbackRequestAuthorityValidator({
+      publicCallbackAuthority,
+      maximumQueryBytes: boundedInteger(maximumQueryBytes),
+    }).validate(request);
+  } catch {
+    return reject();
+  }
+  if (authority.kind === "method_not_allowed") reject(405);
+  if (authority.kind === "query_too_large") reject(413);
+  if (authority.kind !== "approved") reject();
+  return authority.callbackUrl;
+}
+
 export function validateCustomerPanelCallbackRequest(
   request: Request,
   publicCallbackAuthority: string,
   maximumQueryBytes: number,
 ): CustomerPanelCallbackRequest {
-  if (!request || request.method !== "GET") reject(405);
+  const callbackUrl = reconstructProxySafeCallbackUrl(request, publicCallbackAuthority, maximumQueryBytes);
   if (request.body != null || request.headers.has("content-length") || request.headers.has("transfer-encoding")) reject();
   for (const name of request.headers.keys()) if (name.startsWith("x-celebix-")) reject();
   for (const name of PRIVATE_HEADERS) if (request.headers.has(name)) reject();
-  return validateCustomerPanelCallbackUrl(request.url, publicCallbackAuthority, maximumQueryBytes);
+  return validateCustomerPanelCallbackUrl(callbackUrl, publicCallbackAuthority, maximumQueryBytes);
 }
 
 export function validateBrowserBoundPanelCompletionRequest(
@@ -173,7 +187,7 @@ export function validateBrowserBoundPanelCompletionRequest(
   publicCallbackAuthority: string,
   maximumQueryBytes: number,
 ): BrowserBoundPanelCompletionRequest {
-  if (!request || request.method !== "GET") reject(405);
+  const callbackUrl = reconstructProxySafeCallbackUrl(request, publicCallbackAuthority, maximumQueryBytes);
   if (request.body != null || request.headers.has("content-length") || request.headers.has("transfer-encoding")) reject();
   for (const name of request.headers.keys()) if (name.startsWith("x-celebix-")) reject();
   for (const name of PRIVATE_HEADERS) {
@@ -182,6 +196,6 @@ export function validateBrowserBoundPanelCompletionRequest(
   let browserBindingCredential: string;
   try { browserBindingCredential = parsePanelBrowserBindingCookie(request.headers.get("cookie")); }
   catch { return reject(); }
-  const callback = validateCustomerPanelCallbackUrl(request.url, publicCallbackAuthority, maximumQueryBytes);
+  const callback = validateCustomerPanelCallbackUrl(callbackUrl, publicCallbackAuthority, maximumQueryBytes);
   return Object.freeze({ ...callback, browserBindingCredential }) as BrowserBoundPanelCompletionRequest;
 }

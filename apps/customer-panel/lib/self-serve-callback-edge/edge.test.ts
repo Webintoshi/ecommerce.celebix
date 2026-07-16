@@ -120,13 +120,23 @@ test("exact GET success and provider-error queries delegate once without reading
   }
 });
 
+test("proxy callback delegates the exact raw query under the configured public authority", async () => {
+  const fixture = createFixture();
+  const rawQuery = `code=provider%2Dcode&state=${STATE}&iss=https%3A%2F%2Fidentity.example.test%2Foidc`;
+  const response = await fixture.edge(new Request(`http://customer-panel:3400/auth/callback?${rawQuery}`, {
+    headers: {
+      forwarded: "host=attacker.example;proto=https",
+      "x-forwarded-host": "attacker.example",
+      "x-forwarded-proto": "https",
+    },
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(fixture.calls, [`${CALLBACK}?${rawQuery}`]);
+});
+
 test("public edge rejects method, authority, delivery, syntax, duplicates, unknown fields, and oversized queries before transport", async () => {
   const cases: Array<[string, string, string, Record<string, string>?]> = [
     ["POST", CALLBACK, `state=${STATE}&code=code`],
-    ["GET", "https://attacker.example/auth/callback", `state=${STATE}&code=code`],
-    ["GET", "https://sub.panel.celebix.site/auth/callback", `state=${STATE}&code=code`],
-    ["GET", "https://panel.celebix.site.attacker.example/auth/callback", `state=${STATE}&code=code`],
-    ["GET", "https://panel.celebix.site:444/auth/callback", `state=${STATE}&code=code`],
     ["GET", "https://panel.celebix.site/auth/callback/extra", `state=${STATE}&code=code`],
     ["GET", "https://user:pass@panel.celebix.site/auth/callback", `state=${STATE}&code=code`],
     ["GET", `${CALLBACK}#fragment`, `state=${STATE}&code=code`],

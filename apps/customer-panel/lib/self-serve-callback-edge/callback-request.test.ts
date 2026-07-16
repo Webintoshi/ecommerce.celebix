@@ -46,6 +46,67 @@ test("classifies exact success and provider-error callbacks into frozen authorit
   });
 });
 
+test("reconstructs proxy callback requests with the exact public authority and raw query", () => {
+  const rawQuery = `code=provider%2Dcode&state=${STATE}&iss=https%3A%2F%2Fidentity.example.test%2Foidc`;
+  const internalUrl = `http://customer-panel:3400/auth/callback?${rawQuery}`;
+  const request = new Request(internalUrl, {
+    headers: {
+      forwarded: "host=attacker.example;proto=https",
+      host: "attacker.example",
+      origin: "https://attacker.example",
+      referer: "https://attacker.example/private",
+      "x-forwarded-host": "attacker.example",
+      "x-forwarded-proto": "https",
+    },
+  });
+
+  const result = validateCustomerPanelCallbackRequest(request, CALLBACK, 2_048);
+
+  assert.deepEqual(result, {
+    kind: "success",
+    callbackUrl: `${CALLBACK}?${rawQuery}`,
+    state: STATE,
+    code: "provider-code",
+    responseIssuer: ISSUER,
+  });
+  assert.equal(result.callbackUrl.slice(result.callbackUrl.indexOf("?") + 1), rawQuery);
+  assert.doesNotMatch(result.callbackUrl, /customer-panel|3400|attacker/);
+});
+
+test("uses the same proxy-safe reconstruction for browser-bound completion", () => {
+  const rawQuery = `state=${STATE}&code=provider%2Bcode&iss=${encodeURIComponent(ISSUER)}`;
+  const internalUrl = `https://customer-panel.internal:3400/auth/callback?${rawQuery}`;
+  const result = validateBrowserBoundPanelCompletionRequest(new Request(internalUrl, {
+    headers: {
+      cookie: `__Host-celebix_panel_pre_auth=${BINDING}`,
+      host: "attacker.example",
+      "x-forwarded-host": "attacker.example",
+    },
+  }), CALLBACK, 2_048);
+
+  assert.equal(result.callbackUrl, `${CALLBACK}?${rawQuery}`);
+  assert.equal(result.kind, "success");
+  if (result.kind !== "success") assert.fail("expected success callback projection");
+  assert.equal(result.code, "provider+code");
+  assert.equal(result.browserBindingCredential, BINDING);
+});
+
+test("keeps callback URL string validation strict while accepting public request URLs", () => {
+  const callbackUrl = `${CALLBACK}?state=${STATE}&code=provider-code`;
+  assert.equal(
+    validateCustomerPanelCallbackRequest(new Request(callbackUrl), CALLBACK, 2_048).callbackUrl,
+    callbackUrl,
+  );
+  assert.throws(
+    () => validateCustomerPanelCallbackUrl(
+      `http://customer-panel:3400/auth/callback?state=${STATE}&code=provider-code`,
+      CALLBACK,
+      2_048,
+    ),
+    CallbackRequestValidationError,
+  );
+});
+
 test("rejects duplicate, empty, malformed, non-HTTPS, non-canonical, and expanded response issuers", () => {
   for (const query of [
     `state=${STATE}&code=code&iss=`,
@@ -69,9 +130,9 @@ test("rejects duplicate, empty, malformed, non-HTTPS, non-canonical, and expande
 test("rejects method, authority, delivery, syntax, duplicates, conflicts, unknown fields, and private headers", () => {
   const cases: Array<{ request: Request; status?: number }> = [
     { request: new Request(`${CALLBACK}?state=${STATE}&code=code`, { method: "POST", body: "secret" }), status: 405 },
-    { request: new Request(`https://attacker.example/auth/callback?state=${STATE}&code=code`) },
-    { request: new Request(`https://panel.celebix.site:444/auth/callback?state=${STATE}&code=code`) },
     { request: new Request(`https://panel.celebix.site/auth/callback/extra?state=${STATE}&code=code`) },
+    { request: new Request(`https://panel.celebix.site/auth/callback/child?state=${STATE}&code=code`) },
+    { request: new Request(`https://panel.celebix.site/auth/callback`) },
     { request: { method: "GET", url: `https://user:pass@panel.celebix.site/auth/callback?state=${STATE}&code=code`, headers: new Headers(), body: null } as Request },
     { request: new Request(`${CALLBACK}?state=${STATE}&code=code#fragment`) },
     { request: new Request(`${CALLBACK}?state=${STATE}&state=other&code=code`) },

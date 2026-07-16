@@ -41,6 +41,10 @@ test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
     "apps/customer-panel/lib/self-serve-callback-edge/callback-request.test.ts",
     "apps/customer-panel/lib/self-serve-callback-edge/edge.ts",
     "apps/customer-panel/lib/self-serve-callback-edge/edge.test.ts",
+    "apps/customer-panel/lib/panel-auth-authority/callback-request-authority.ts",
+    "apps/customer-panel/lib/panel-auth-authority/callback-request-authority.test.ts",
+    "apps/owner/lib/self-serve-browser-bound-registration/auto-post-html.ts",
+    "apps/owner/lib/self-serve-browser-bound-registration/auto-post-html.test.ts",
     "apps/customer-panel/lib/self-serve-internal-callback-transport/transport.ts",
     "apps/customer-panel/lib/self-serve-internal-callback-transport/transport.test.ts",
     "apps/owner/lib/panel-session-handoff/internal-callback-handler.ts",
@@ -59,6 +63,9 @@ test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
     "apps/owner/lib/panel-session-handoff/initial-callback-grant.test.ts",
     "packages/platform-config/src/saas.ts",
     "packages/platform-config/src/saas.test.ts",
+    "tests/saas-phase2/staging-auth-runtime/authority-injection.test.mjs",
+    "tests/saas-phase2/staging-auth-runtime/registration-csp.test.mjs",
+    "tests/saas-phase2/auth-route-mount/in-process.test.mjs",
   ]);
   for (const file of changed) {
     assert.equal(
