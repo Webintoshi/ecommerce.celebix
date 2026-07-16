@@ -12,15 +12,20 @@ const CALLBACK = `${PANEL}/auth/callback`;
 const BOOTSTRAP = `${PANEL}/auth/bootstrap`;
 
 test("auto-POST bridge binds form action and CSP to the injected immutable staging bootstrap authority", async () => {
+  const providerAuthorizationUrl = `https://identity.staging.example.test/authorize?state=${"s".repeat(32)}`;
   const response = createOwnerPanelBootstrapAutoPostResponse({
     bootstrapCredential: `bs1.staging.${"a".repeat(43)}`,
-    providerAuthorizationUrl: `https://identity.staging.example.test/authorize?state=${"s".repeat(32)}`,
+    providerAuthorizationUrl,
     panelBootstrapAuthority: BOOTSTRAP,
     randomBytes: () => new Uint8Array(24).fill(7),
   });
   const html = await response.text();
   assert.match(html, new RegExp(`action="${BOOTSTRAP}"`));
-  assert.match(response.headers.get("content-security-policy"), new RegExp(`form-action ${BOOTSTRAP}`));
+  assert.equal(
+    response.headers.get("content-security-policy")?.split("; ").find((directive) => directive.startsWith("form-action ")),
+    `form-action ${BOOTSTRAP} https://identity.staging.example.test`,
+  );
+  assert.equal(response.headers.get("content-security-policy")?.includes(new URL(providerAuthorizationUrl).search), false);
   assert.equal(html.includes("panel.celebix.site"), false);
 });
 

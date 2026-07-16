@@ -5,6 +5,8 @@ import { createOwnerPanelBootstrapAutoPostResponse } from "./auto-post-html.ts";
 
 const BS1 = `bs1.active.${Buffer.alloc(32, 7).toString("base64url")}`;
 const PROVIDER = "https://identity.example.test/authorize?response_type=code&response_mode=query&state=opaque_state_1234567890&redirect_uri=https%3A%2F%2Fpanel.celebix.site%2Fauth%2Fcallback&nonce=x%22y%27z%3C%3E";
+const STAGING_PROVIDER = "https://auth.saas-staging.celebix.site/oidc/auth?response_type=code&state=staging_state&code_challenge=challenge";
+const PRODUCTION_PROVIDER = "https://auth.celebix.site/oidc/auth?response_type=code&state=production_state&code_challenge=challenge";
 
 function decodeHtmlAttribute(value: string): string {
   return value
@@ -59,11 +61,39 @@ test("secure bridge HTML has one fixed POST form, exact fields, and one canonica
   assert.equal((html.match(/<script nonce=/g) ?? []).length, 1);
   assert.ok(html.includes(`<script nonce="${nonce}">document.forms[0].submit();</script>`));
   const csp = response.headers.get("content-security-policy") ?? "";
-  assert.equal(csp, `default-src 'none'; base-uri 'none'; form-action https://panel.celebix.site/auth/bootstrap; frame-ancestors 'none'; script-src 'nonce-${nonce}'; connect-src 'none'; img-src 'none'; style-src 'none'; object-src 'none'`);
+  assert.equal(csp, `default-src 'none'; base-uri 'none'; form-action https://panel.celebix.site/auth/bootstrap https://identity.example.test; frame-ancestors 'none'; script-src 'nonce-${nonce}'; connect-src 'none'; img-src 'none'; style-src 'none'; object-src 'none'`);
+  assert.equal(csp.includes(new URL(PROVIDER).search), false);
+  assert.equal(csp.includes("response_type"), false);
+  assert.equal(csp.includes("state="), false);
+  assert.equal(csp.includes("code_challenge"), false);
   for (const forbidden of ["unsafe-inline", "unsafe-eval", "*", "data:", "blob:"]) {
     assert.equal(csp.includes(forbidden), false);
   }
+  assert.doesNotMatch(csp, /(?:^|[ ;])https:(?:[ ;]|$)/);
+  assert.equal(csp.includes("'self'"), false);
   assert.equal(randomCalls, 1);
+});
+
+test("bridge CSP permits exactly the panel bootstrap URL and canonical provider origin", async () => {
+  for (const providerAuthorizationUrl of [STAGING_PROVIDER, PRODUCTION_PROVIDER]) {
+    const response = createOwnerPanelBootstrapAutoPostResponse({
+      bootstrapCredential: BS1,
+      providerAuthorizationUrl,
+      randomBytes: () => new Uint8Array(24),
+    });
+    const csp = response.headers.get("content-security-policy") ?? "";
+    const formAction = csp.split("; ").find((directive) => directive.startsWith("form-action "));
+    assert.equal(
+      formAction,
+      `form-action https://panel.celebix.site/auth/bootstrap ${new URL(providerAuthorizationUrl).origin}`,
+    );
+    assert.equal(csp.includes(new URL(providerAuthorizationUrl).search), false);
+
+    const html = await response.text();
+    const encodedProvider = [...html.matchAll(/<input type="hidden" name="providerAuthorizationUrl" value="([^"]*)">/g)];
+    assert.equal(encodedProvider.length, 1);
+    assert.equal(decodeHtmlAttribute(encodedProvider[0][1]), providerAuthorizationUrl);
+  }
 });
 
 test("HTML bridge rejects control characters, wrong random length, and response overflow", () => {
@@ -82,4 +112,29 @@ test("HTML bridge rejects control characters, wrong random length, and response 
     providerAuthorizationUrl: `https://identity.example.test/${"a".repeat(131_072)}`,
     randomBytes: validRandom,
   }));
+});
+
+test("HTML bridge rejects non-canonical or unsafe provider authorization URLs", () => {
+  const validRandom = () => new Uint8Array(24);
+  for (const providerAuthorizationUrl of [
+    "",
+    "not-a-url",
+    ` ${PROVIDER}`,
+    `${PROVIDER}\n`,
+    PROVIDER.replace("https://", "http://"),
+    PROVIDER.replace("https://", "https://user:password@"),
+    PROVIDER.replace("identity.example.test", "identity.example.test:8443"),
+    PROVIDER.replace("identity.example.test", "identity.example.test:443"),
+    `${PROVIDER}#fragment`,
+    `https://identity.example.test/${"a".repeat(16_385)}`,
+  ]) {
+    assert.throws(
+      () => createOwnerPanelBootstrapAutoPostResponse({
+        bootstrapCredential: BS1,
+        providerAuthorizationUrl,
+        randomBytes: validRandom,
+      }),
+      /browser_bound_registration_bridge_unavailable/,
+    );
+  }
 });

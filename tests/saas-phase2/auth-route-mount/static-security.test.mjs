@@ -48,6 +48,7 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^apps\/owner\/lib\/self-serve-http\/registration-request\.ts$/,
     /^apps\/customer-panel\/lib\/panel-auth-composition\/composition\.ts$/,
     /^apps\/owner\/lib\/self-serve-browser-bound-registration\/(?:handler|auto-post-html)\.ts$/,
+    /^apps\/owner\/lib\/self-serve-browser-bound-registration\/auto-post-html\.test\.ts$/,
     /^apps\/owner\/lib\/panel-browser-binding\/(?:start-executor|internal-gateway)\.ts$/,
     /^apps\/owner\/lib\/self-serve-http\/(?:runtime|internal-callback-gateway)(?:\.test)?\.ts$/,
     /^apps\/owner\/lib\/panel-browser-binding\/internal-gateway\.test\.ts$/,

@@ -8,6 +8,7 @@ import { applySecurityHeaders } from "../../../packages/platform-config/src/http
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const BOOTSTRAP = "https://panel.saas-staging.celebix.site/auth/bootstrap";
+const PROVIDER = `https://identity.staging.example.test/authorize?state=${"s".repeat(32)}`;
 
 function securityRequest() {
   return {
@@ -19,7 +20,7 @@ function securityRequest() {
 test("route-owned CSP mode preserves the exact registration bridge policy and every generic header", () => {
   const response = createOwnerPanelBootstrapAutoPostResponse({
     bootstrapCredential: `bs1.staging.${"a".repeat(43)}`,
-    providerAuthorizationUrl: `https://identity.staging.example.test/authorize?state=${"s".repeat(32)}`,
+    providerAuthorizationUrl: PROVIDER,
     panelBootstrapAuthority: BOOTSTRAP,
     randomBytes: () => new Uint8Array(24).fill(7),
   });
@@ -27,8 +28,10 @@ test("route-owned CSP mode preserves the exact registration bridge policy and ev
   assert.ok(exactCsp);
   assert.equal(
     exactCsp.split("; ").find((directive) => directive.startsWith("form-action ")),
-    `form-action ${BOOTSTRAP}`,
+    `form-action ${BOOTSTRAP} https://identity.staging.example.test`,
   );
+  assert.equal(exactCsp.includes(new URL(PROVIDER).search), false);
+  assert.doesNotMatch(exactCsp, /(?:^|[ ;])https:(?:[ ;]|$)|\*|'self'|unsafe-inline/);
   assert.match(exactCsp, /(?:^|; )script-src 'nonce-[A-Za-z0-9_-]{32}'(?:;|$)/);
 
   const previousNodeEnv = process.env.NODE_ENV;

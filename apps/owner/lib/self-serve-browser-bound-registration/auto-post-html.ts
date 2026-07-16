@@ -2,6 +2,7 @@ import { PANEL_BROWSER_BOOTSTRAP_URL } from "../../../../packages/platform-confi
 
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const MAXIMUM_HTML_BYTES = 131_072;
+const MAXIMUM_PROVIDER_AUTHORIZATION_URL_LENGTH = 16_384;
 
 function invalid(): never {
   throw new Error("browser_bound_registration_bridge_unavailable");
@@ -10,6 +11,18 @@ function invalid(): never {
 function safeValue(value: unknown): string {
   if (typeof value !== "string" || !value || value.trim() !== value || CONTROL.test(value)) invalid();
   return value;
+}
+
+function providerAuthorization(value: unknown): Readonly<{ exact: string; origin: string }> {
+  const exact = safeValue(value);
+  if (exact.length > MAXIMUM_PROVIDER_AUTHORIZATION_URL_LENGTH) invalid();
+  let parsed: URL;
+  try { parsed = new URL(exact); } catch { return invalid(); }
+  if (
+    parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port ||
+    parsed.hash || parsed.toString() !== exact
+  ) invalid();
+  return Object.freeze({ exact, origin: parsed.origin });
 }
 
 function escapeAttribute(value: string): string {
@@ -37,8 +50,9 @@ export function createOwnerPanelBootstrapAutoPostResponse(input: {
       `${parsed.origin}${parsed.pathname}` !== panelBootstrapAuthority
     ) invalid();
   } catch { return invalid(); }
+  const provider = providerAuthorization(input.providerAuthorizationUrl);
   const bootstrapCredential = escapeAttribute(safeValue(input.bootstrapCredential));
-  const providerAuthorizationUrl = escapeAttribute(safeValue(input.providerAuthorizationUrl));
+  const providerAuthorizationUrl = escapeAttribute(provider.exact);
   const produced = input.randomBytes(24);
   if (!(produced instanceof Uint8Array) || produced.byteLength !== 24) invalid();
   const nonce = Buffer.from(new Uint8Array(produced)).toString("base64url");
@@ -58,7 +72,7 @@ export function createOwnerPanelBootstrapAutoPostResponse(input: {
   const csp = [
     "default-src 'none'",
     "base-uri 'none'",
-    `form-action ${panelBootstrapAuthority}`,
+    `form-action ${panelBootstrapAuthority} ${provider.origin}`,
     "frame-ancestors 'none'",
     `script-src 'nonce-${nonce}'`,
     "connect-src 'none'",
