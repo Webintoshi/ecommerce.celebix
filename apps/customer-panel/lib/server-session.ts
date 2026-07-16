@@ -1,16 +1,17 @@
 import "server-only";
 
-import { cookies } from "next/headers";
-import {
-  DisabledPanelSessionStore,
-  PANEL_SESSION_COOKIE_NAME,
-  resolvePanelSession,
-} from "@/lib/session";
+import { randomUUID } from "node:crypto";
 
-const productionSessionStore = new DisabledPanelSessionStore();
+import { cookies } from "next/headers";
+import { resolveServerPanelSessionFromCookieStore } from "@/lib/server-panel-access/cookie";
+import { resolveDefaultServerPanelAccess } from "@/lib/server-panel-access/default";
 
 export async function resolveServerPanelSession() {
   const cookieStore = await cookies();
-  const sessionId = cookieStore.get(PANEL_SESSION_COOKIE_NAME)?.value ?? null;
-  return resolvePanelSession(sessionId, productionSessionStore);
+  return resolveServerPanelSessionFromCookieStore({
+    cookieStore,
+    requestId: randomUUID(),
+    now: new Date(),
+    resolve: resolveDefaultServerPanelAccess,
+  });
 }

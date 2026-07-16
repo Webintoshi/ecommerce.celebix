@@ -81,6 +81,9 @@ test("the Phase 2B2B2A diff is confined to the exact Atlas allowlist", () => {
       file.startsWith("tests/saas-phase2/panel-browser-binding/") ||
       file.startsWith("tests/saas-phase2/panel-session-completion/") ||
       file.startsWith("tests/saas-phase2/panel-session-handoffs/") ||
+      /^apps\/customer-panel\/lib\/server-(?:session|access)(?:\.test)?\.ts$/.test(file) ||
+      file.startsWith("apps/customer-panel/lib/server-panel-access/") ||
+      file.startsWith("tests/saas-phase2/panel-server-access/") ||
       file === "tests/saas-phase2/panel-auth-composition/static-security.test.mjs" ||
       file === "tests/saas-phase2/auth-route-mount/static-security.test.mjs" ||
       file.startsWith("tests/saas-phase2/http-wiring/") || file === "tests/saas-phase2/registration-session/postgres-harness.mjs",

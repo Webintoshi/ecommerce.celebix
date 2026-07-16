@@ -57,6 +57,9 @@ test("Phase 2B2B2C2 changes remain confined to the exact Atlas allowlist", () =>
     /^package-lock\.json$/,
     /^tests\/saas-phase2\/staging-auth-(?:runtime|e2e)\//,
     /^tests\/saas-phase2\/panel-session-completion\/postgres-harness\.mjs$/,
+    /^apps\/customer-panel\/lib\/server-(?:session|access)(?:\.test)?\.ts$/,
+    /^apps\/customer-panel\/lib\/server-panel-access\//,
+    /^tests\/saas-phase2\/panel-server-access\//,
   ];
   const unexpected = changedFiles().filter((path) => !allowed.some((pattern) => pattern.test(path)));
   assert.deepEqual(unexpected, []);

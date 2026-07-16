@@ -76,6 +76,9 @@ test("Phase 2B2B2C2 diff is confined to the exact Atlas allowlist", () => {
     /^tests\/saas-phase2\/panel-session-completion\/static-security\.test\.mjs$/,
     /^tests\/saas-phase2\/staging-auth-(?:runtime|e2e)\//,
     /^apps\/customer-panel\/lib\/panel-auth-composition\/composition\.test\.ts$/,
+    /^apps\/customer-panel\/lib\/server-(?:session|access)(?:\.test)?\.ts$/,
+    /^apps\/customer-panel\/lib\/server-panel-access\//,
+    /^tests\/saas-phase2\/panel-server-access\//,
   ];
   const unexpected = changedFiles().filter((file) => !allowed.some((pattern) => pattern.test(file)));
   assert.deepEqual(unexpected, []);
