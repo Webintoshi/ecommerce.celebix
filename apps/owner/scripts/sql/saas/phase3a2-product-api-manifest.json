@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3a2-202607160019-product-catalog-api",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "STAGING_AFTER_LOCAL_GATE_NO_PRODUCTION_APPLY",
+  "rollbackLimitations": "The down migration removes only the Phase 3A2 detail read function; it is retained for disposable rehearsal and is not authorized for production execution in this phase.",
+  "artifacts": [
+    {
+      "id": "202607160019_product_catalog_api_up",
+      "direction": "up",
+      "file": "202607160019_product_catalog_api.up.sql",
+      "sha256": "4ad68a3620e81c4d64fdcc231f4b3058af5f64afaf69f39418a318759acc458e",
+      "purpose": "Add the tenant-scoped product detail and ordered variant read authority required by the authenticated catalog API."
+    },
+    {
+      "id": "202607160019_product_catalog_api_down",
+      "direction": "down",
+      "file": "202607160019_product_catalog_api.down.sql",
+      "sha256": "d79f830bd55fbd7e4ba80e4055a4578ec2163e24034058c534f3048003e9b33c",
+      "purpose": "Remove only the Phase 3A2 product detail read function for disposable rollback rehearsal."
+    },
+    {
+      "id": "202607160019_product_catalog_api_assertions",
+      "direction": "verify",
+      "file": "202607160019_product_catalog_api_assertions.sql",
+      "sha256": "8be9a48d8aa5f66e916a5379c8d013659d3a17c27b4a6c182438726925d6f6c3",
+      "purpose": "Fail on function ownership, search path, ACL, tenant scoping, archived-row policy or deterministic-order drift."
+    }
+  ]
+}

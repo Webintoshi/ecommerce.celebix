@@ -11,10 +11,12 @@ import type {
   CreateProductInput,
   CreateProductResult,
   CreateVariantInput,
+  GetProductDetailsInput,
   GetProductInput,
   ListProductsInput,
   ListProductsResult,
   PostgresCatalogRepositoryOptions,
+  ProductDetailsResult,
   ProductMutationResult,
   UpdateProductInput,
   UpdateVariantInput,
@@ -287,6 +289,41 @@ export class PostgresCatalogRepository implements CatalogRepository {
     });
     if (result.outcome !== "found") throw unavailable();
     return parseProduct(payload(result.resultPayload, ["product"]).product);
+  }
+
+  async getProductDetails(input: GetProductDetailsInput): Promise<ProductDetailsResult> {
+    const exact = exactInput(input, ["tenantContext", "now", "productId"], ["includeArchivedVariants"]);
+    const authority = catalogAuthority(exact.tenantContext as GetProductDetailsInput["tenantContext"], exact.now as Date);
+    const productId = catalogUuid(exact.productId);
+    const includeArchivedVariants = exact.includeArchivedVariants ?? false;
+    if (typeof includeArchivedVariants !== "boolean") throw new CatalogRepositoryError("invalid_input");
+    const result = await this.read(authority, {
+      text: `SELECT outcome, result_payload FROM saas.catalog_get_product_details(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,
+        $9::uuid,$10::boolean
+      )`,
+      values: [...authorityValues(authority), productId, includeArchivedVariants],
+    });
+    if (result.outcome !== "found") throw unavailable();
+    const envelope = payload(result.resultPayload, ["product", "variants"]);
+    if (!Array.isArray(envelope.variants)) throw unavailable();
+    const product = parseProduct(envelope.product);
+    const variants = Object.freeze(envelope.variants.map((value) => parseProductVariant(value)));
+    if (
+      product.id !== productId || product.storeId !== authority.storeId || product.status === "archived" ||
+      variants.some((variant) => (
+        variant.productId !== product.id || variant.storeId !== authority.storeId ||
+        (!includeArchivedVariants && variant.status !== "active")
+      ))
+    ) throw unavailable();
+    for (let index = 1; index < variants.length; index += 1) {
+      const previous = variants[index - 1]!;
+      const current = variants[index]!;
+      if (previous.createdAt > current.createdAt || (previous.createdAt === current.createdAt && previous.id >= current.id)) {
+        throw unavailable();
+      }
+    }
+    return Object.freeze({ product, variants });
   }
 
   async listProducts(input: ListProductsInput): Promise<ListProductsResult> {

@@ -250,6 +250,27 @@ test("store-bound cursors fail closed in another TenantContext", async () => {
   assert.equal(pool.connects, 0);
 });
 
+test("getProductDetails derives store authority and returns ordered active variants from migration 019", async () => {
+  const client = new FakeClient((text) => text.includes("saas.catalog_get_product_details")
+    ? [{ outcome: "found", result_payload: { product: product(), variants: [variant()] } }]
+    : []);
+  const result = await repository(new FakePool(client)).getProductDetails({
+    tenantContext: tenantContext(),
+    now: NOW,
+    productId: PRODUCT_ID,
+  });
+  assert.deepEqual(result, { product: product(), variants: [variant()] });
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.product), true);
+  assert.equal(Object.isFrozen(result.variants), true);
+  assert.equal(Object.isFrozen(result.variants[0]?.attributes), true);
+  const read = client.calls.find((call) => call.text.includes("saas.catalog_get_product_details"));
+  assert.ok(read);
+  assert.equal(read.values[0], STORE_ID);
+  assert.equal(read.values[8], PRODUCT_ID);
+  assert.equal(read.values[9], false);
+});
+
 test("finite SQL outcomes and unexpected driver failures expose only stable safe errors", async () => {
   const denied = new FakeClient((text) => text.includes("saas.catalog_get_product")
     ? [{ outcome: "product_not_found", result_payload: null }]
