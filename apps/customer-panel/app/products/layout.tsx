@@ -3,7 +3,7 @@ import { requireServerPanelAccess } from "@/lib/server-access";
 
 export const dynamic = "force-dynamic";
 
-export default async function AuthenticatedPanelLayout({ children }: { children: React.ReactNode }) {
+export default async function ProductsLayout({ children }: { children: React.ReactNode }) {
   const { tenantContext } = await requireServerPanelAccess();
   return <PanelShell tenantContext={tenantContext}>{children}</PanelShell>;
 }
