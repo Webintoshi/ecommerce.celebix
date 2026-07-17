@@ -13,13 +13,13 @@ const ROLE_LABELS: Readonly<Record<string, string>> = Object.freeze({
 export function PanelShell({ children, tenantContext }: { children: React.ReactNode; tenantContext: TenantContext }) {
   const role = ROLE_LABELS[tenantContext.membership.role] ?? "Yetkili üye";
   return (
-    <div className="panel-shell">
+    <div className="panel-shell hemenaku-shell">
       <aside className="panel-sidebar">
         <Link className="panel-brand" href="/" aria-label="Celebix Panel ana sayfa">
           <span className="panel-brand-mark">C</span>
           <span>
             <strong>Celebix</strong>
-            <small>Merchant Console</small>
+            <small>Merchant Panel</small>
           </span>
         </Link>
 
@@ -35,7 +35,7 @@ export function PanelShell({ children, tenantContext }: { children: React.ReactN
         <PanelNavigation />
 
         <div className="sidebar-footer">
-          <p><span aria-hidden="true">●</span> Güvenli oturum</p>
+          <p><span aria-hidden="true">●</span> PostgreSQL doğrulamalı oturum</p>
         </div>
       </aside>
 

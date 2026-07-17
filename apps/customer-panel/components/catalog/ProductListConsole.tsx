@@ -70,68 +70,78 @@ export function ProductListConsole() {
 
   return (
     <section className="catalog-page" aria-labelledby="products-title">
-      <div className="catalog-heading-row">
-        <div className="catalog-heading">
-          <span className="eyebrow">KATALOG</span>
-          <h1 id="products-title">Ürünler</h1>
-          <p>Mağazanızdaki ürünleri, fiyatları ve stok durumlarını yönetin.</p>
+      <div className="hemenaku-product-hero">
+        <div className="catalog-heading-row">
+          <div className="catalog-heading">
+            <span className="eyebrow">ÜRÜNLER</span>
+            <h1 id="products-title">Ürün kataloğu</h1>
+            <p>Mağazanızdaki ürünleri, fiyatları ve stok durumlarını tek bir güvenli yüzeyden yönetin.</p>
+          </div>
+          <div className="heading-actions">
+            <button className="button button-secondary icon-only-button" type="button" onClick={() => void load()} aria-label="Ürün listesini yenile"><span aria-hidden="true">↻</span></button>
+            <Link className="button button-primary" href="/products/new"><span aria-hidden="true">＋</span> Yeni ürün</Link>
+          </div>
         </div>
-        <Link className="button button-primary" href="/products/new"><span aria-hidden="true">＋</span> Yeni ürün</Link>
       </div>
 
-      <div className="catalog-toolbar">
-        <div className="segmented-control" aria-label="Ürün durumu filtresi">
-          {(["draft", "active"] as const).map((status) => (
-            <button key={status} type="button" className={filter === status ? "is-active" : undefined} onClick={() => setFilter(status)}>
-              {STATUS_LABELS[status]}
-            </button>
-          ))}
+      <div className="hemenaku-catalog-surface">
+        <div className="catalog-surface-heading">
+          <div><span className="eyebrow">KATALOG GÖRÜNÜMÜ</span><h2>Ürünlerinizi yönetin</h2><p>Duruma göre filtreleyin, ayrıntıları açın veya güncel sürümü arşivleyin.</p></div>
+          <span className="result-count">{loading ? "Yükleniyor…" : `${items.length} ürün gösteriliyor`}</span>
         </div>
-        <span className="result-count">{loading ? "Yükleniyor…" : `${items.length} ürün`}</span>
+        <div className="catalog-toolbar">
+          <div className="segmented-control" aria-label="Ürün durumu filtresi">
+            {(["draft", "active"] as const).map((status) => (
+              <button key={status} type="button" className={filter === status ? "is-active" : undefined} onClick={() => setFilter(status)}>
+                {STATUS_LABELS[status]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error ? (
+          <div className="feedback feedback-error" role="alert">
+            <div><strong>Bir sorun oluştu</strong><p>{error}</p></div>
+            <button className="button button-secondary" type="button" onClick={() => void load()}>Tekrar dene</button>
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="catalog-loading" role="status" aria-live="polite">
+            <span className="spinner" aria-hidden="true" /> Ürünler güvenli mağaza bağlamından yükleniyor…
+          </div>
+        ) : items.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-mark" aria-hidden="true">◇</span>
+            <h2>Henüz ürün yok</h2>
+            <p>{filter === "draft" ? "İlk taslak ürününüzü oluşturarak kataloğunuzu hazırlayın." : "Aktif durumda gösterilecek ürün bulunmuyor."}</p>
+            <Link className="button button-primary" href="/products/new">İlk ürünü oluştur</Link>
+          </div>
+        ) : (
+          <div className="catalog-table-shell">
+            <table className="catalog-table">
+              <thead><tr><th>Ürün</th><th>Durum</th><th>Para birimi</th><th>Sürüm</th><th>Güncellendi</th><th><span className="sr-only">İşlemler</span></th></tr></thead>
+              <tbody>
+                {items.map((product) => (
+                  <tr key={product.id}>
+                    <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><span className="product-placeholder" aria-hidden="true">{product.title.slice(0, 1).toLocaleUpperCase("tr-TR")}</span><span><strong>{product.title}</strong><small>/{product.slug}</small></span></Link></td>
+                    <td data-label="Durum"><span className={`status-pill status-${product.status}`}>{STATUS_LABELS[product.status]}</span></td>
+                    <td data-label="Para birimi"><span className="mono-value">{product.currency}</span></td>
+                    <td data-label="Sürüm"><span className="version-badge">v{product.version}</span></td>
+                    <td data-label="Güncellendi"><span className="date-value">{date(product.updatedAt)}</span></td>
+                    <td className="row-actions">
+                      <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü aç`}>→</Link>
+                      <button className="icon-button danger" type="button" onClick={() => setArchiveCandidate(product)} aria-label={`${product.title} ürününü arşivle`}>×</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {nextCursor ? <button className="button button-secondary load-more" type="button" onClick={() => void load(nextCursor)} disabled={loadingMore}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
       </div>
-
-      {error ? (
-        <div className="feedback feedback-error" role="alert">
-          <div><strong>Bir sorun oluştu</strong><p>{error}</p></div>
-          <button className="button button-secondary" type="button" onClick={() => void load()}>Tekrar dene</button>
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div className="catalog-loading" role="status" aria-live="polite">
-          <span className="spinner" aria-hidden="true" /> Ürünler güvenli mağaza bağlamından yükleniyor…
-        </div>
-      ) : items.length === 0 ? (
-        <div className="empty-state">
-          <span className="empty-state-mark" aria-hidden="true">◇</span>
-          <h2>Henüz ürün yok</h2>
-          <p>{filter === "draft" ? "İlk taslak ürününüzü oluşturarak kataloğunuzu hazırlayın." : "Aktif durumda gösterilecek ürün bulunmuyor."}</p>
-          <Link className="button button-primary" href="/products/new">İlk ürünü oluştur</Link>
-        </div>
-      ) : (
-        <div className="catalog-table-shell">
-          <table className="catalog-table">
-            <thead><tr><th>Ürün</th><th>Durum</th><th>Para birimi</th><th>Sürüm</th><th>Güncellendi</th><th><span className="sr-only">İşlemler</span></th></tr></thead>
-            <tbody>
-              {items.map((product) => (
-                <tr key={product.id}>
-                  <td data-label="Ürün"><Link className="product-link" href={`/products/${product.id}`}><strong>{product.title}</strong><span>/{product.slug}</span></Link></td>
-                  <td data-label="Durum"><span className={`status-pill status-${product.status}`}>{STATUS_LABELS[product.status]}</span></td>
-                  <td data-label="Para birimi"><span className="mono-value">{product.currency}</span></td>
-                  <td data-label="Sürüm"><span className="version-badge">v{product.version}</span></td>
-                  <td data-label="Güncellendi"><span className="date-value">{date(product.updatedAt)}</span></td>
-                  <td className="row-actions">
-                    <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü aç`}>→</Link>
-                    <button className="icon-button danger" type="button" onClick={() => setArchiveCandidate(product)} aria-label={`${product.title} ürününü arşivle`}>×</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {nextCursor ? <button className="button button-secondary load-more" type="button" onClick={() => void load(nextCursor)} disabled={loadingMore}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
 
       {archiveCandidate ? (
         <div className="inline-confirmation" role="alertdialog" aria-labelledby="archive-title">

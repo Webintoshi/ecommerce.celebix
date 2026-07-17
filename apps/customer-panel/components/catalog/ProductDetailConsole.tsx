@@ -164,8 +164,9 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   return (
     <section className="catalog-page" aria-labelledby="product-title">
       <Link className="back-link" href="/products">← Ürünlere dön</Link>
-      <div className="detail-heading-row">
+      <div className="detail-heading-row hemenaku-detail-hero">
         <div className="catalog-heading">
+          <span className="eyebrow">ÜRÜN BİLGİLERİ</span>
           <div className="heading-meta"><span className={`status-pill status-${product.status}`}>{product.status === "active" ? "Aktif" : "Taslak"}</span><span className="version-badge">v{product.version}</span></div>
           <h1 id="product-title">{product.title}</h1>
           <p>/{product.slug} · {product.currency}</p>
@@ -182,7 +183,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
       {editingProduct ? (
         <form className="catalog-form inset-form" onSubmit={updateProduct} key={product.version}>
           <fieldset disabled={busy !== ""}>
-            <legend><span>01</span><span><strong>Ürün bilgilerini düzenle</strong><small>Güncel sürüm: v{product.version}</small></span></legend>
+            <legend><span>01</span><span><strong>Ürün Bilgileri</strong><small>Güncel sürüm: v{product.version}</small></span></legend>
             <div className="form-grid">
               <label className="field field-wide"><span>Ürün adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={product.title} /></label>
               <label className="field"><span>URL anahtarı <b>*</b></span><input name="slug" required minLength={3} maxLength={100} defaultValue={product.slug} /></label>

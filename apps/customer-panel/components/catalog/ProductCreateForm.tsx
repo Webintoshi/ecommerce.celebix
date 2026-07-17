@@ -48,16 +48,22 @@ export function ProductCreateForm() {
   return (
     <section className="catalog-page narrow-catalog-page" aria-labelledby="create-title">
       <Link className="back-link" href="/products">← Ürünlere dön</Link>
-      <div className="catalog-heading">
+      <div className="catalog-heading hemenaku-form-hero">
         <span className="eyebrow">YENİ KAYIT</span>
         <h1 id="create-title">Yeni ürün oluştur</h1>
         <p>Ürün bilgilerini ve satışa hazır ilk varyantı birlikte ekleyin.</p>
       </div>
 
+      <div className="hemenaku-wizard-stepper" aria-label="Ürün oluşturma adımları">
+        <span className="is-current"><b>1</b><span><strong>Temel Bilgiler</strong><small>Ürün tanımı ve durum</small></span></span>
+        <i aria-hidden="true" />
+        <span><b>2</b><span><strong>Fiyat ve Stok</strong><small>İlk satış varyantı</small></span></span>
+      </div>
+
       <form className="catalog-form" onSubmit={submit} noValidate>
         {error ? <div className="feedback feedback-error" role="alert"><div><strong>Formu kontrol edin</strong><p>{error}</p></div></div> : null}
         <fieldset disabled={submitting}>
-          <legend><span>01</span><span><strong>Ürün bilgileri</strong><small>Müşterilerin göreceği temel bilgiler</small></span></legend>
+          <legend><span>01</span><span><strong>Temel Bilgiler</strong><small>Müşterilerin göreceği temel bilgiler</small></span></legend>
           <div className="form-grid">
             <label className="field field-wide"><span>Ürün adı <b>*</b></span><input name="title" required maxLength={200} autoComplete="off" placeholder="Örn. Seramik kahve kupası" /></label>
             <label className="field"><span>URL anahtarı <b>*</b></span><input name="slug" required minLength={3} maxLength={100} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" autoComplete="off" placeholder="seramik-kahve-kupasi" /><small>Küçük harf, rakam ve tire kullanın.</small></label>
@@ -68,7 +74,7 @@ export function ProductCreateForm() {
         </fieldset>
 
         <fieldset disabled={submitting}>
-          <legend><span>02</span><span><strong>İlk varyant</strong><small>Fiyat, kod ve stok bilgileri</small></span></legend>
+          <legend><span>02</span><span><strong>Fiyat ve Stok</strong><small>İlk varyantın fiyat, kod ve stok bilgileri</small></span></legend>
           <div className="form-grid">
             <label className="field field-wide"><span>Varyant adı <b>*</b></span><input name="variantTitle" required maxLength={200} defaultValue="Standart" /></label>
             <label className="field"><span>SKU</span><input name="sku" maxLength={64} pattern="[A-Z0-9][A-Z0-9._-]{0,63}" placeholder="KUPA-BEYAZ-01" /><small>Büyük harf ve rakam önerilir.</small></label>

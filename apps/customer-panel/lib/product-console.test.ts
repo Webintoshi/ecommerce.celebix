@@ -61,6 +61,40 @@ test("product UI includes safe states and responsive mobile navigation without f
   assert.doesNotMatch(`${list}\n${detail}`, /placeholder analytics|fake product|image upload/i);
 });
 
+test("merchant shell adopts the Hemenaku visual language without its dedicated authorities", async () => {
+  const shell = await source("components/panel/PanelShell.tsx");
+  const navigation = await source("components/panel/PanelNavigation.tsx");
+  const styles = await source("app/globals.css");
+  assert.match(shell, /hemenaku-shell/);
+  assert.match(shell, /Celebix/);
+  assert.match(shell, /Merchant Panel/);
+  assert.match(styles, /--hemenaku-orange:\s*#FE6100/i);
+  assert.match(styles, /--hemenaku-canvas:\s*#f1f1f1/i);
+  assert.match(styles, /\.panel-sidebar[^}]*background:\s*var\(--hemenaku-sidebar\)/s);
+  assert.match(styles, /\.panel-navigation a\.is-active[^}]*background:\s*#fff/s);
+  assert.match(styles, /@media[^]*max-width:\s*767px/);
+  assert.deepEqual([...navigation.matchAll(/href:\s*"([^"]+)"/g)].map((match) => match[1]), ["/", "/products", "/setup"]);
+  assert.doesNotMatch(`${shell}\n${navigation}`, /apps\/admin|\/admin\/|supabase|STORE_RUNTIME|ToshiAssistant/);
+});
+
+test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupported modules", async () => {
+  const list = await source("components/catalog/ProductListConsole.tsx");
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const styles = await source("app/globals.css");
+  assert.match(list, /hemenaku-product-hero/);
+  assert.match(list, /hemenaku-catalog-surface/);
+  assert.match(list, /Ürün kataloğu/);
+  assert.match(create, /hemenaku-wizard-stepper/);
+  assert.match(create, /Temel Bilgiler/);
+  assert.match(create, /Fiyat ve Stok/);
+  assert.match(detail, /hemenaku-detail-hero/);
+  assert.match(detail, /Ürün Bilgileri/);
+  assert.match(styles, /\.hemenaku-product-hero[^}]*border-radius:\s*30px/s);
+  assert.match(styles, /\.catalog-form fieldset[^}]*border-radius:\s*28px/s);
+  assert.doesNotMatch(`${list}\n${create}\n${detail}`, /\/api\/admin|\/admin\/urunler|category|image upload|seo|supabase/i);
+});
+
 test("create, archive, variant and conflict flows keep rendered versions and navigate safely", async () => {
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const list = await source("components/catalog/ProductListConsole.tsx");
