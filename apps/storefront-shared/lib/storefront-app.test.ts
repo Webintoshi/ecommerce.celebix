@@ -49,11 +49,18 @@ function requireApp(): AppModule {
   return app as AppModule;
 }
 
-function requestHeaders(host: string | null, forwardedHost = "attacker.example.test") {
+function requestHeaders(forwardedHost: string | null, rawHost = "storefront.internal:3450") {
   const values = new Map<string, string>();
-  if (host) values.set("host", host);
-  values.set("x-forwarded-host", forwardedHost);
+  values.set("host", rawHost);
+  if (forwardedHost) values.set("x-forwarded-host", forwardedHost);
   return { get: (name: string) => values.get(name.toLowerCase()) ?? null };
+}
+
+function testAuthority(headers: { get(name: string): string | null }) {
+  const hostname = headers.get("x-forwarded-host");
+  return hostname
+    ? ({ kind: "trusted", hostname } as const)
+    : ({ kind: "invalid_forwarded_host" } as const);
 }
 
 function dependencies(
@@ -62,6 +69,7 @@ function dependencies(
   canonicalHosts: readonly ResolvedStoreHost[] = [],
 ) {
   return {
+    trustedHostAuthority: testAuthority,
     resolver: new InMemoryStoreDomainResolver([
       { host, storeStatus: currentStore?.status ?? "failed" },
       ...canonicalHosts.map((canonicalHost) => ({
@@ -75,11 +83,6 @@ function dependencies(
 
 test("exports the fail-closed request handler factory", () => {
   assert.equal(typeof app.createStorefrontRequestHandler, "function");
-});
-
-test("trusted host adapter reads Host and never X-Forwarded-Host", () => {
-  const headers = requestHeaders("shop.example.test", "other-store.example.test");
-  assert.equal(requireApp().selectTrustedHostHeader(headers), "shop.example.test");
 });
 
 test("default app without a resolver returns controlled 503", async () => {
@@ -126,6 +129,7 @@ test("ambiguous exact hostname fails closed without a tenant context", async () 
     { host: { ...activeHost, domainId: "domain_duplicate" }, storeStatus: "active" },
   ]);
   const result = await requireApp().createStorefrontRequestHandler({
+    trustedHostAuthority: testAuthority,
     resolver,
     loadStorefrontStore: async () => store,
   })({
@@ -169,6 +173,7 @@ test("store loader cannot mutate a verified alias into another redirect authorit
     { host: activeHost, storeStatus: "active" },
   ]);
   const result = await requireApp().createStorefrontRequestHandler({
+    trustedHostAuthority: testAuthority,
     resolver,
     loadStorefrontStore: async (_storeId, resolvedHost) => {
       resolvedHost.canonicalHostname = "evil.example.test";
@@ -183,6 +188,76 @@ test("store loader cannot mutate a verified alias into another redirect authorit
   assert.equal(result.kind, "canonical_redirect");
   assert.equal(result.status, 308);
   assert.equal(result.location, "https://shop.example.test/products/item");
+});
+
+test("invalid proxy authority invokes neither resolver nor store loader", async () => {
+  let resolverCalls = 0;
+  let loaderCalls = 0;
+  const result = await requireApp().createStorefrontRequestHandler({
+    trustedHostAuthority: () => ({ kind: "invalid_proxy_authority" }),
+    resolver: {
+      async resolveExactHostname() {
+        resolverCalls += 1;
+        return activeHost;
+      },
+    },
+    loadStorefrontStore: async () => {
+      loaderCalls += 1;
+      return store;
+    },
+  })({
+    headers: requestHeaders("shop.example.test", "shop.example.test"),
+    pathname: "/",
+    requestId: "request_invalid_proxy",
+  });
+
+  assert.equal(result.kind, "host_not_configured");
+  assert.equal(result.status, 503);
+  assert.equal(resolverCalls, 0);
+  assert.equal(loaderCalls, 0);
+});
+
+test("valid proxy authority invokes resolver exactly once with only the selected hostname", async () => {
+  const received: string[] = [];
+  const result = await requireApp().createStorefrontRequestHandler({
+    trustedHostAuthority: () => ({ kind: "trusted", hostname: activeHost.hostname }),
+    resolver: {
+      async resolveExactHostname(hostname) {
+        received.push(hostname);
+        return activeHost;
+      },
+    },
+    loadStorefrontStore: async () => store,
+  })({
+    headers: requestHeaders(activeHost.hostname, "attacker.internal"),
+    pathname: "/",
+    requestId: "request_trusted_proxy",
+  });
+
+  assert.equal(result.kind, "active_placeholder");
+  assert.deepEqual(received, [activeHost.hostname]);
+});
+
+test("unknown authenticated hostname reaches exact resolver and raw Host cannot select a default tenant", async () => {
+  const received: string[] = [];
+  const result = await requireApp().createStorefrontRequestHandler({
+    trustedHostAuthority: () => ({ kind: "trusted", hostname: "unknown.example.test" }),
+    resolver: {
+      async resolveExactHostname(hostname) {
+        received.push(hostname);
+        return new (await import("@celebix/saas-storefront-runtime")).StorefrontResolutionError("host_not_found");
+      },
+    },
+    loadStorefrontStore: async () => store,
+  })({
+    headers: requestHeaders("unknown.example.test", activeHost.hostname),
+    pathname: "/",
+    requestId: "request_unknown_proxy",
+  });
+
+  assert.equal(result.kind, "unknown_host");
+  assert.equal(result.status, 404);
+  assert.deepEqual(received, ["unknown.example.test"]);
 });
 
 test("alias with a missing canonical exact record fails closed without Location", async () => {

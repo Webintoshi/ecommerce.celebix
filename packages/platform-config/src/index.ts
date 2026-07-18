@@ -18,6 +18,7 @@ export * from "./policy-pages";
 export * from "./floating-contact";
 export * from "./content-pages";
 export * from "./saas";
+export * from "./storefront-proxy";
 
 export interface StoreRegistryEntry {
   slug: string;
