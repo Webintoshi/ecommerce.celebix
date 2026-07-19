@@ -35,21 +35,40 @@ interface HookInstance {
   pendingEffects: Map<number, HookEffect>;
 }
 
+interface HookTestDocumentState {
+  activeElement: HookTestHost | null;
+  canReceiveFocus?: (element: HookTestHost) => boolean;
+}
+
 class HookTestHost {
   readonly children: HookTestHost[] = [];
   focusCount = 0;
+  focusAttemptCount = 0;
+  parent: HookTestHost | null = null;
 
   constructor(
     readonly type: string,
     readonly props: HookTestProps,
-    private readonly documentState: { activeElement: HookTestHost | null },
+    private readonly documentState: HookTestDocumentState,
   ) {}
 
   contains(candidate: HookTestHost | null): boolean {
     return candidate === this || this.children.some((child) => child.contains(candidate));
   }
 
+  isWithinClassName(className: string): boolean {
+    let current: HookTestHost | null = this;
+    while (current) {
+      if (typeof current.props.className === "string"
+        && current.props.className.split(/\s+/).includes(className)) return true;
+      current = current.parent;
+    }
+    return false;
+  }
+
   focus(): void {
+    this.focusAttemptCount += 1;
+    if (this.documentState.canReceiveFocus?.(this) === false) return;
     this.focusCount += 1;
     this.documentState.activeElement = this;
   }
@@ -77,7 +96,7 @@ function sameDependencies(left?: readonly unknown[], right?: readonly unknown[])
 function createPanelInteractionHarness(
   root: HookTestComponent,
   props: HookTestProps,
-  documentState: { activeElement: HookTestHost | null },
+  documentState: HookTestDocumentState,
 ) {
   const fragment = Symbol("hook-test-fragment");
   const instances = new Map<string, HookInstance>();
@@ -199,7 +218,9 @@ function createPanelInteractionHarness(
     const host = new HookTestHost(node.type, node.props, documentState);
     const ref = node.props.ref as { current: HookTestHost | null } | undefined;
     if (ref) ref.current = host;
-    host.children.push(...renderNode(node.props.children, `${path}.${node.type}`));
+    const children = renderNode(node.props.children, `${path}.${node.type}`);
+    for (const child of children) child.parent = host;
+    host.children.push(...children);
     hosts.push(host);
     return [host];
   }
@@ -233,6 +254,9 @@ function createPanelInteractionHarness(
       seenInstances.clear();
       hosts = [];
       renderNode(jsxRuntime.jsx(rootComponent, props), "root");
+      if (documentState.activeElement && !hosts.includes(documentState.activeElement)) {
+        documentState.activeElement = null;
+      }
       commitEffects();
     }
   }
@@ -442,6 +466,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
   const documentState: {
     activeElement: HookTestHost | null;
     body: { style: { overflow: string } };
+    canReceiveFocus?: (element: HookTestHost) => boolean;
     documentElement: { style: { removeProperty: () => void; setProperty: () => void } };
   } = {
     activeElement: null,
@@ -476,6 +501,9 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
       return desktopQuery;
     },
   };
+  documentState.canReceiveFocus = (element) => !(
+    desktopQuery.matches && element.isWithinClassName("mobileDock")
+  );
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
   Object.defineProperty(globalThis, "window", { configurable: true, value: windowState });
@@ -517,13 +545,19 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
         throw new Error(`unexpected_panel_sidebar_import:${specifier}`);
       },
     );
-    const PanelMobileDock: HookTestComponent = (dockProps) => harness.jsxRuntime.jsx("button", {
-      ref: dockProps.menuButtonRef,
-      "aria-controls": "panel-mobile-drawer",
-      "aria-expanded": dockProps.menuOpen,
-      onClick: dockProps.onMenuToggle,
-      children: "Menü",
-    });
+    const PanelMobileDock = await compileHookTestComponent(
+      "components/panel/PanelMobileDock.tsx",
+      (specifier) => {
+        if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+        if (specifier === "lucide-react") return { Home: Icon, Menu: Icon, Package: Icon };
+        if (specifier === "next/link") return Link;
+        if (specifier === "@/lib/panel-ui/navigation") {
+          return { isPanelNavigationPathActive };
+        }
+        if (specifier === "./panel-shell.module.css") return styles;
+        throw new Error(`unexpected_panel_mobile_dock_import:${specifier}`);
+      },
+    );
     const PanelTopbarChromeProvider: HookTestComponent = (providerProps) => providerProps.children;
     const PanelLayoutClient = await compileHookTestComponent(
       "components/panel/PanelLayoutClient.tsx",
@@ -566,6 +600,24 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
     for (const listener of windowListeners.get("keydown") ?? []) listener(trappedTab);
     assert.equal(trappedTab.defaultPrevented, true);
 
+    const closeButton = harness.hosts().find((host) => (
+      host.type === "button" && host.props["aria-label"] === "Panel menüsünü kapat"
+    ));
+    assert.ok(closeButton);
+    (closeButton.props.onClick as () => void)();
+    harness.flush();
+
+    const restoredMobileMenuButton = harness.hosts().find((host) => (
+      host.type === "button" && host.props["aria-controls"] === "panel-mobile-drawer"
+    ));
+    assert.ok(restoredMobileMenuButton);
+    assert.equal(documentState.activeElement, restoredMobileMenuButton);
+    assert.equal(restoredMobileMenuButton.focusCount, 1);
+
+    (restoredMobileMenuButton.props.onClick as () => void)();
+    harness.flush();
+    assert.equal(documentState.body.style.overflow, "hidden");
+
     desktopQuery.matches = true;
     for (const listener of mediaListeners) listener({ matches: true, media: desktopQuery.media });
     harness.flush();
@@ -581,7 +633,13 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
     );
     assert.equal(documentState.body.style.overflow, "clip");
     assert.equal(windowListeners.get("keydown")?.size ?? 0, 0);
-    assert.equal(documentState.activeElement, desktopMenuButton);
+    assert.equal(desktopMenuButton.focusAttemptCount, 0);
+    const desktopFocusTarget = harness.hosts().find((host) => (
+      host.type === "main" && host.props.tabIndex === -1
+    ));
+    assert.ok(desktopFocusTarget);
+    assert.equal(documentState.activeElement, desktopFocusTarget);
+    assert.equal(desktopFocusTarget.focusCount, 1);
     const releasedTab = {
       defaultPrevented: false,
       key: "Tab",

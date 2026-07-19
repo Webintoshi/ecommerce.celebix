@@ -31,6 +31,8 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
   const [chrome, setChrome] = useState<PanelTopbarChromeState | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const desktopFocusRef = useRef<HTMLElement>(null);
+  const releasingDrawerForDesktop = useRef(false);
   const pathname = usePathname() ?? "";
   const handleChromeChange = useCallback((next: PanelTopbarChromeState | null) => {
     setChrome((current) => {
@@ -40,19 +42,35 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
     });
   }, []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-  const toggleDrawer = useCallback(() => setDrawerOpen((current) => !current), []);
+  const toggleDrawer = useCallback(() => {
+    releasingDrawerForDesktop.current = false;
+    setDrawerOpen((current) => !current);
+  }, []);
+  const restoreDrawerFocus = useCallback(() => {
+    const focusTarget = releasingDrawerForDesktop.current
+      ? desktopFocusRef.current
+      : menuButtonRef.current;
+    releasingDrawerForDesktop.current = false;
+    focusTarget?.focus();
+  }, []);
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 1025px)");
     const releaseDrawer = (event: MediaQueryListEvent) => {
-      if (event.matches) closeDrawer();
+      if (event.matches && drawerOpen) {
+        releasingDrawerForDesktop.current = true;
+        setDrawerOpen(false);
+      }
     };
-    if (desktop.matches) closeDrawer();
+    if (desktop.matches && drawerOpen) {
+      releasingDrawerForDesktop.current = true;
+      setDrawerOpen(false);
+    }
     desktop.addEventListener("change", releaseDrawer);
     return () => {
       desktop.removeEventListener("change", releaseDrawer);
     };
-  }, [closeDrawer]);
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -89,7 +107,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
           mode="drawer"
           open={drawerOpen}
           onClose={closeDrawer}
-          triggerRef={menuButtonRef}
+          onRestoreFocus={restoreDrawerFocus}
         />
         <div className={styles.workspace}>
           <header className={styles.desktopTopbar}>
@@ -97,7 +115,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
             <div id="panel-topbar-actions" />
           </header>
           <PanelTopbarChromeProvider onChange={handleChromeChange}>
-            <main className={styles.content}>{children}</main>
+            <main ref={desktopFocusRef} className={styles.content} tabIndex={-1}>{children}</main>
           </PanelTopbarChromeProvider>
         </div>
         <PanelMobileDock

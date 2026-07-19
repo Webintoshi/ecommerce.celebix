@@ -6,7 +6,6 @@ import {
   useEffect,
   useRef,
   type MouseEvent,
-  type RefObject,
   type TouchEvent,
 } from "react";
 import type { PanelChromeModel } from "@/lib/panel-ui/chrome-model";
@@ -14,12 +13,12 @@ import { LogoutButton } from "./LogoutButton";
 import { PanelNavigation } from "./PanelNavigation";
 import styles from "./panel-shell.module.css";
 
-export function PanelSidebar({ model, mode, open = false, onClose, triggerRef }: {
+export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocus }: {
   model: PanelChromeModel;
   mode: "desktop" | "drawer";
   open?: boolean;
   onClose?: () => void;
-  triggerRef?: RefObject<HTMLButtonElement | null>;
+  onRestoreFocus?: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const surfaceRef = useRef<HTMLElement>(null);
@@ -61,9 +60,9 @@ export function PanelSidebar({ model, mode, open = false, onClose, triggerRef }:
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      triggerRef?.current?.focus();
+      onRestoreFocus?.();
     };
-  }, [mode, onClose, open, triggerRef]);
+  }, [mode, onClose, onRestoreFocus, open]);
 
   function finishSwipe() {
     if (
