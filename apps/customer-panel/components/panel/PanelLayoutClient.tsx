@@ -43,6 +43,18 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
   const toggleDrawer = useCallback(() => setDrawerOpen((current) => !current), []);
 
   useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1025px)");
+    const releaseDrawer = (event: MediaQueryListEvent) => {
+      if (event.matches) closeDrawer();
+    };
+    if (desktop.matches) closeDrawer();
+    desktop.addEventListener("change", releaseDrawer);
+    return () => {
+      desktop.removeEventListener("change", releaseDrawer);
+    };
+  }, [closeDrawer]);
+
+  useEffect(() => {
     if (!drawerOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
