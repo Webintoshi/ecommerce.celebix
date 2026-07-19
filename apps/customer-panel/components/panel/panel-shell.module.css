@@ -158,3 +158,9 @@
   max-width: 32rem;
   color: var(--muted);
 }
+
+@media (min-width: 1025px) {
+  .pageActions {
+    display: none;
+  }
+}

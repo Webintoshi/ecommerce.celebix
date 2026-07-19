@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 
 export interface PanelTopbarChromeState {
@@ -9,21 +17,66 @@ export interface PanelTopbarChromeState {
   readonly actions?: ReactNode;
 }
 
-type Setter = (state: PanelTopbarChromeState | null) => void;
-const Context = createContext<Setter | null>(null);
+type PanelTopbarChromeSnapshot = Pick<PanelTopbarChromeState, "title" | "subtitle">;
+type Setter = (state: PanelTopbarChromeSnapshot | null) => void;
+type Registration = Readonly<{
+  publish: (state: PanelTopbarChromeSnapshot) => void;
+  release: () => void;
+}>;
+type RegisterOwner = () => Registration;
+
+const Context = createContext<RegisterOwner | null>(null);
 
 export function PanelTopbarChromeProvider(
   { children, onChange }: { children: ReactNode; onChange: Setter },
 ) {
-  return <Context.Provider value={onChange}>{children}</Context.Provider>;
+  const registrationsRef = useRef(new Map<symbol, PanelTopbarChromeSnapshot>());
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const registerOwner = useCallback(() => {
+    const owner = Symbol("panel-topbar-owner");
+    const registrations = registrationsRef.current;
+    let released = false;
+
+    function publish(state: PanelTopbarChromeSnapshot) {
+      if (released) return;
+      registrations.set(owner, state);
+      if ([...registrations.keys()].at(-1) === owner) onChangeRef.current(state);
+    }
+
+    function release() {
+      if (released) return;
+      released = true;
+      const wasActive = [...registrations.keys()].at(-1) === owner;
+      registrations.delete(owner);
+      if (wasActive) onChangeRef.current([...registrations.values()].at(-1) ?? null);
+    }
+
+    return Object.freeze({ publish, release });
+  }, []);
+
+  return <Context.Provider value={registerOwner}>{children}</Context.Provider>;
 }
 
 export function usePanelTopbarChrome(state: PanelTopbarChromeState) {
-  const setState = useContext(Context);
+  const registerOwner = useContext(Context);
+  const registrationRef = useRef<Registration | null>(null);
+
   useEffect(() => {
-    setState?.({ title: state.title, subtitle: state.subtitle });
-    return () => setState?.(null);
-  }, [setState, state.subtitle, state.title]);
+    const registration = registerOwner?.();
+    if (!registration) return;
+
+    registrationRef.current = registration;
+    return () => {
+      registration.release();
+      if (registrationRef.current === registration) registrationRef.current = null;
+    };
+  }, [registerOwner]);
+
+  useEffect(() => {
+    registrationRef.current?.publish({ title: state.title, subtitle: state.subtitle });
+  }, [registerOwner, state.subtitle, state.title]);
 }
 
 function useTopbarActionsTarget() {
