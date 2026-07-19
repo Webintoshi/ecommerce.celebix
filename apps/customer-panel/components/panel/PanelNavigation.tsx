@@ -1,37 +1,55 @@
 "use client";
 
+import { Home, Package, Plus, Settings, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  isPanelNavigationPathActive,
+  PANEL_NAVIGATION,
+  type PanelNavigationIcon,
+  type PanelNavigationItem,
+} from "@/lib/panel-ui/navigation";
+import styles from "./panel-shell.module.css";
 
-const LINKS = Object.freeze([
-  { href: "/", label: "Genel bakış", icon: "home" },
-  { href: "/products", label: "Ürünler", icon: "products" },
-  { href: "/setup", label: "Kurulum", icon: "setup" },
-]);
+const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
+  home: Home,
+  products: Package,
+  "add-product": Plus,
+  setup: Settings,
+});
 
-function NavigationIcon({ name }: { name: string }) {
-  if (name === "home") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10.5 8.5-7 8.5 7v9a1 1 0 0 1-1 1h-5v-6h-4v6h-5a1 1 0 0 1-1-1z" /></svg>;
-  }
-  if (name === "products") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4m-8 4v10" /></svg>;
-  }
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" /></svg>;
+function NavigationLink({ item, pathname }: { item: PanelNavigationItem; pathname: string }) {
+  const active = isPanelNavigationPathActive(pathname, item.href);
+  const Icon = ICONS[item.icon];
+  return (
+    <Link
+      href={item.href}
+      className={`${styles.navigationLink} ${active ? styles.navigationLinkActive : ""}`}
+      aria-current={active ? "page" : undefined}
+    >
+      <span className={styles.activeRail} aria-hidden="true" />
+      <span className={styles.iconBox}><Icon aria-hidden="true" /></span>
+      <span className={styles.navigationLabel}>{item.label}</span>
+    </Link>
+  );
 }
 
-export function PanelNavigation({ mobile = false }: { mobile?: boolean }) {
-  const pathname = usePathname();
+export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
+  const pathname = usePathname() ?? "";
   return (
-    <nav className={mobile ? "mobile-navigation" : "panel-navigation"} aria-label={mobile ? "Mobil panel menüsü" : "Panel menüsü"}>
-      {LINKS.map((link) => {
-        const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
-        return (
-          <Link key={link.href} href={link.href} className={active ? "is-active" : undefined} aria-current={active ? "page" : undefined}>
-            <span className="navigation-mark"><NavigationIcon name={link.icon} /></span>
-            <span>{link.label}</span>
-          </Link>
-        );
-      })}
+    <nav className={styles.navigation} aria-label={mode === "drawer" ? "Mobil panel menüsü" : "Panel menüsü"}>
+      {PANEL_NAVIGATION.map((item) => item.children?.length ? (
+        <section className={styles.navigationGroup} key={item.key}>
+          <div className={`${styles.navigationGroupLabel} ${isPanelNavigationPathActive(pathname, item.href) ? styles.navigationGroupActive : ""}`}>
+            <span className={styles.activeRail} aria-hidden="true" />
+            <span className={styles.iconBox}><Package aria-hidden="true" /></span>
+            <span className={styles.navigationLabel}>{item.label}</span>
+          </div>
+          <div className={styles.navigationChildren}>
+            {item.children.map((child) => <NavigationLink key={child.key} item={child} pathname={pathname} />)}
+          </div>
+        </section>
+      ) : <NavigationLink key={item.key} item={item} pathname={pathname} />)}
     </nav>
   );
 }

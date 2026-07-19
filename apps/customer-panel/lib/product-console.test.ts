@@ -36,10 +36,20 @@ test("catalog browser code is same-origin and contains no browser tenant or cred
 });
 
 test("authenticated shell shows store role and uses JSON session logout with a full navigation", async () => {
+  const layout = await source("app/(panel)/layout.tsx");
   const shell = await source("components/panel/PanelShell.tsx");
+  const clientFiles = await Promise.all([
+    "components/panel/PanelLayoutClient.tsx",
+    "components/panel/PanelSidebar.tsx",
+    "components/panel/PanelNavigation.tsx",
+  ].map(source));
   const logout = await source("components/panel/LogoutButton.tsx");
-  assert.match(shell, /tenantContext\.store\.slug/);
-  assert.match(shell, /tenantContext\.membership\.role/);
+  assert.match(layout, /createPanelChromeModel\(tenantContext\)/);
+  assert.match(layout, /PanelShell model=/);
+  assert.match(shell, /PanelLayoutClient/);
+  assert.match(shell, /createPanelChromeModel/);
+  assert.match(shell, /SERVER_CONTEXT_PROP/);
+  assert.doesNotMatch(clientFiles.join("\n"), /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
   assert.match(logout, /\/api\/session\/logout/);
   assert.match(logout, /application\/json/);
   assert.match(logout, /credentials:\s*["']same-origin["']/);
@@ -47,7 +57,7 @@ test("authenticated shell shows store role and uses JSON session logout with a f
   assert.doesNotMatch(`${shell}\n${logout}`, /document\.cookie|localStorage|sessionStorage/);
 });
 
-test("product UI includes safe states and responsive mobile navigation without fake records", async () => {
+test("product UI includes safe states and responsive catalog behavior without fake records", async () => {
   const list = await source("components/catalog/ProductListConsole.tsx");
   const detail = await source("components/catalog/ProductDetailConsole.tsx");
   const styles = await source("app/globals.css");
@@ -57,23 +67,23 @@ test("product UI includes safe states and responsive mobile navigation without f
   assert.match(detail, /version_conflict/);
   assert.match(detail, /En güncel veriler yeniden yüklendi/);
   assert.match(styles, /@media[^]*max-width:\s*640px/);
-  assert.match(styles, /mobile-navigation/);
   assert.doesNotMatch(`${list}\n${detail}`, /placeholder analytics|fake product|image upload/i);
 });
 
 test("merchant shell adopts the Hemenaku visual language without its dedicated authorities", async () => {
   const shell = await source("components/panel/PanelShell.tsx");
   const navigation = await source("components/panel/PanelNavigation.tsx");
-  const styles = await source("app/globals.css");
-  assert.match(shell, /hemenaku-shell/);
-  assert.match(shell, /Celebix/);
-  assert.match(shell, /Merchant Panel/);
-  assert.match(styles, /--hemenaku-orange:\s*#FE6100/i);
-  assert.match(styles, /--hemenaku-canvas:\s*#f1f1f1/i);
-  assert.match(styles, /\.panel-sidebar[^}]*background:\s*var\(--hemenaku-sidebar\)/s);
-  assert.match(styles, /\.panel-navigation a\.is-active[^}]*background:\s*#fff/s);
-  assert.match(styles, /@media[^]*max-width:\s*767px/);
-  assert.deepEqual([...navigation.matchAll(/href:\s*"([^"]+)"/g)].map((match) => match[1]), ["/", "/products", "/setup"]);
+  const styles = await source("components/panel/panel-shell.module.css");
+  const globals = await source("app/globals.css");
+  assert.match(shell, /PanelLayoutClient/);
+  assert.match(navigation, /PANEL_NAVIGATION/);
+  assert.match(navigation, /isPanelNavigationPathActive/);
+  assert.match(styles, /#2A2A2A/i);
+  assert.match(styles, /#F9F9F9/i);
+  assert.match(styles, /#FF6A00/i);
+  assert.match(styles, /min-width:\s*1025px/);
+  assert.match(globals, /--hemenaku-orange:\s*#FF6A00/i);
+  assert.match(globals, /--hemenaku-canvas:\s*#F9F9F9/i);
   assert.doesNotMatch(`${shell}\n${navigation}`, /apps\/admin|\/admin\/|supabase|STORE_RUNTIME|ToshiAssistant/);
 });
 
@@ -113,8 +123,11 @@ test("create, archive, variant and conflict flows keep rendered versions and nav
 test("store selection is omitted when no authorized server projection exists", async () => {
   const shell = await source("components/panel/PanelShell.tsx");
   const navigation = await source("components/panel/PanelNavigation.tsx");
-  assert.doesNotMatch(`${shell}\n${navigation}`, /StoreSelector|active-store|storeId/);
-  assert.match(shell, /tenantContext\.store\.slug/);
+  const client = await source("components/panel/PanelLayoutClient.tsx");
+  const sidebar = await source("components/panel/PanelSidebar.tsx");
+  assert.doesNotMatch(`${client}\n${sidebar}\n${navigation}`, /StoreSelector|active-store|storeId/);
+  assert.match(sidebar, /model\.storeSlug/);
+  assert.match(shell, /PanelChromeModel/);
 });
 
 test("server access remains the sole protected-page redirect authority", async () => {

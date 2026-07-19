@@ -37,3 +37,36 @@ test("page shell exports the fixed Hemenaku-derived primitive set without donor 
     /@media \(min-width: 1025px\)\s*\{\s*\.pageActions\s*\{\s*display: none;\s*\}\s*\}/,
   );
 });
+
+test("server layout projects TenantContext before entering the client shell", async () => {
+  const layout = await source("app/(panel)/layout.tsx");
+  const shell = await source("components/panel/PanelShell.tsx");
+  const client = await source("components/panel/PanelLayoutClient.tsx");
+  assert.match(layout, /createPanelChromeModel\(tenantContext\)/);
+  assert.match(layout, /PanelShell model=/);
+  assert.doesNotMatch(client, /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
+  assert.doesNotMatch(shell, /tenantContext/);
+});
+
+test("desktop shell carries exact donor tokens, widths, topbar, and supported navigation", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  const layout = await source("components/panel/PanelLayoutClient.tsx");
+  assert.match(css, /#2A2A2A/i);
+  assert.match(css, /#F9F9F9/i);
+  assert.match(css, /#FF6A00/i);
+  assert.match(css, /15rem/);
+  assert.match(css, /15\.5rem/);
+  assert.match(css, /16rem/);
+  assert.match(css, /min-width:\s*1025px/);
+  assert.match(layout, /panel-topbar-actions/);
+});
+
+test("logout stays on the existing same-origin JSON mutation", async () => {
+  const logout = await source("components/panel/LogoutButton.tsx");
+  assert.match(logout, /fetch\(["']\/api\/session\/logout["']/);
+  assert.match(logout, /method:\s*["']POST["']/);
+  assert.match(logout, /credentials:\s*["']same-origin["']/);
+  assert.match(logout, /application\/json/);
+  assert.match(logout, /location\.assign\(["']\/login["']\)/);
+  assert.doesNotMatch(logout, /document\.cookie|localStorage|sessionStorage/);
+});
