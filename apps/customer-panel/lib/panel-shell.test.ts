@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 import {
+  getPanelRoutePresentation,
   isPanelNavigationPathActive,
   PANEL_NAVIGATION,
 } from "./panel-ui/navigation.ts";
@@ -481,6 +482,116 @@ test("desktop shell carries exact donor tokens, widths, topbar, and supported na
   assert.match(layout, /panel-topbar-actions/);
 });
 
+test("desktop topbar follows route transitions while the active bridge keeps precedence", async () => {
+  const documentState: HookTestDocumentState & {
+    body: { style: { overflow: string } };
+    documentElement: { style: { removeProperty: () => void; setProperty: () => void } };
+  } = {
+    activeElement: null,
+    body: { style: { overflow: "" } },
+    documentElement: { style: { removeProperty() {}, setProperty() {} } },
+  };
+  const desktopQuery = {
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      innerHeight: 900,
+      matchMedia: () => desktopQuery,
+      visualViewport: undefined,
+    },
+  });
+  Object.defineProperty(globalThis, "document", { configurable: true, value: documentState });
+
+  let pathname = "/";
+  type ChromePublisher = (state: { title: string; subtitle?: string } | null) => void;
+  const bridge = { publish: null as ChromePublisher | null };
+  const EmptyRoot: HookTestComponent = () => null;
+  const harness = createPanelInteractionHarness(EmptyRoot, {
+    model: { membershipLabel: "Merchant", storeSlug: "demo" },
+    children: "content",
+  }, documentState);
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+  const PanelSidebar: HookTestComponent = () => harness.jsxRuntime.jsx("aside", {});
+  const PanelMobileDock: HookTestComponent = () => harness.jsxRuntime.jsx("nav", {});
+  const PanelTopbarChromeProvider: HookTestComponent = (props) => {
+    bridge.publish = props.onChange as ChromePublisher;
+    return props.children;
+  };
+
+  try {
+    const PanelLayoutClient = await compileHookTestComponent(
+      "components/panel/PanelLayoutClient.tsx",
+      (specifier) => {
+        if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+        if (specifier === "react") return harness.react;
+        if (specifier === "next/navigation") return { usePathname: () => pathname };
+        if (specifier === "@/lib/panel-ui/navigation") return { getPanelRoutePresentation };
+        if (specifier === "./PanelMobileDock") return { PanelMobileDock };
+        if (specifier === "./PanelSidebar") return { PanelSidebar };
+        if (specifier === "./PanelTopbarChrome") return { PanelTopbarChromeProvider };
+        if (specifier === "./panel-shell.module.css") return styles;
+        throw new Error(`unexpected_panel_layout_import:${specifier}`);
+      },
+    );
+    const topbarText = (tagName: "strong" | "span") => harness.hosts().find((host) => (
+      host.type === tagName && host.isWithinClassName("desktopTopbar")
+    ))?.props.children;
+    const renderRoute = (nextPathname: string) => {
+      pathname = nextPathname;
+      harness.setRoot(PanelLayoutClient);
+      harness.flush();
+    };
+
+    for (const [nextPathname, expectedTitle] of [
+      ["/", "Genel bakış"],
+      ["/products", "Ürün kataloğu"],
+      ["/products/new", "Yeni ürün oluştur"],
+      ["/products/product-123", "Ürün ayrıntısı"],
+      ["/setup", "Kurulum durumu"],
+    ] as const) {
+      renderRoute(nextPathname);
+      assert.equal(topbarText("strong"), expectedTitle);
+    }
+
+    renderRoute("/products");
+    assert.ok(bridge.publish);
+    bridge.publish({ title: "Köprü başlığı", subtitle: "Köprü açıklaması" });
+    harness.flush();
+    assert.equal(topbarText("strong"), "Köprü başlığı");
+    assert.equal(topbarText("span"), "Köprü açıklaması");
+
+    renderRoute("/setup");
+    assert.equal(topbarText("strong"), "Kurulum durumu");
+    assert.equal(topbarText("span"), undefined);
+
+    assert.ok(bridge.publish);
+    bridge.publish({ title: "Kurulum köprüsü" });
+    harness.flush();
+    assert.equal(topbarText("strong"), "Kurulum köprüsü");
+    bridge.publish(null);
+    harness.flush();
+    assert.equal(topbarText("strong"), "Kurulum durumu");
+  } finally {
+    harness.unmount();
+    if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+    if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
+    else Reflect.deleteProperty(globalThis, "document");
+  }
+});
+
 test("products/new marks only the Yeni ürün link as the current page", async () => {
   const html = await renderPanelNavigation("/products/new");
   const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
@@ -636,6 +747,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
         if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
         if (specifier === "react") return harness.react;
         if (specifier === "next/navigation") return { usePathname: () => "/" };
+        if (specifier === "@/lib/panel-ui/navigation") return { getPanelRoutePresentation };
         if (specifier === "./PanelMobileDock") return { PanelMobileDock };
         if (specifier === "./PanelSidebar") return { PanelSidebar };
         if (specifier === "./PanelTopbarChrome") {

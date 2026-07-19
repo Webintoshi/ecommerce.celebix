@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { PanelChromeModel } from "@/lib/panel-ui/chrome-model";
+import { getPanelRoutePresentation } from "@/lib/panel-ui/navigation";
 import { PanelMobileDock } from "./PanelMobileDock";
 import { PanelSidebar } from "./PanelSidebar";
 import {
@@ -21,6 +22,12 @@ import styles from "./panel-shell.module.css";
 
 const ModelContext = createContext<PanelChromeModel | null>(null);
 
+type PublishedPanelTopbarChrome = Readonly<{
+  pathname: string;
+  subtitle?: string;
+  title: string;
+}>;
+
 export function usePanelChromeModel(): PanelChromeModel {
   const model = useContext(ModelContext);
   if (!model) throw new Error("panel_chrome_model_unavailable");
@@ -28,19 +35,25 @@ export function usePanelChromeModel(): PanelChromeModel {
 }
 
 export function PanelLayoutClient({ model, children }: { model: PanelChromeModel; children: ReactNode }) {
-  const [chrome, setChrome] = useState<PanelTopbarChromeState | null>(null);
+  const [chrome, setChrome] = useState<PublishedPanelTopbarChrome | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const desktopFocusRef = useRef<HTMLElement>(null);
   const releasingDrawerForDesktop = useRef(false);
   const pathname = usePathname() ?? "";
+  const routePresentation = getPanelRoutePresentation(pathname);
+  const activeChrome = chrome?.pathname === pathname ? chrome : null;
   const handleChromeChange = useCallback((next: PanelTopbarChromeState | null) => {
     setChrome((current) => {
       if (!next) return current ? null : current;
-      if (current?.title === next.title && current?.subtitle === next.subtitle) return current;
-      return { title: next.title, subtitle: next.subtitle };
+      if (
+        current?.pathname === pathname
+        && current.title === next.title
+        && current.subtitle === next.subtitle
+      ) return current;
+      return { pathname, title: next.title, subtitle: next.subtitle };
     });
-  }, []);
+  }, [pathname]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => {
     releasingDrawerForDesktop.current = false;
@@ -111,7 +124,10 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
         />
         <div className={styles.workspace}>
           <header className={styles.desktopTopbar}>
-            <div><strong>{chrome?.title ?? "Genel bakış"}</strong><span>{chrome?.subtitle}</span></div>
+            <div>
+              <strong>{activeChrome?.title ?? routePresentation.title}</strong>
+              <span>{activeChrome?.subtitle}</span>
+            </div>
             <div id="panel-topbar-actions" />
           </header>
           <PanelTopbarChromeProvider onChange={handleChromeChange}>
