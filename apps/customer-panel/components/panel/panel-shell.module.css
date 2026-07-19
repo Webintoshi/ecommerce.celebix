@@ -36,6 +36,8 @@
 
 .drawerClose {
   display: grid;
+  min-width: 48px;
+  min-height: 48px;
   width: 2.75rem;
   height: 2.75rem;
   flex: 0 0 2.75rem;
@@ -101,7 +103,7 @@
 
 .desktopTopbar span {
   overflow: hidden;
-  color: #9CA3AF;
+  color: #667085;
   font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -157,7 +159,7 @@
   margin: 0.75rem 0.875rem 0;
   border: 1px solid rgb(255 255 255 / 10%);
   border-radius: 0.9rem;
-  background: rgb(255 255 255 / 6%);
+  background: #373737;
   padding: 0.75rem;
 }
 
@@ -174,7 +176,7 @@
 }
 
 .merchantIdentity small {
-  color: rgb(255 255 255 / 48%);
+  color: #B8B8B8;
   font-size: 0.6875rem;
 }
 
@@ -433,8 +435,8 @@
 
   .mobileDock a[aria-current="page"],
   .mobileDock button[aria-expanded="true"] {
-    background: rgb(255 106 0 / 10%);
-    color: #FF6A00;
+    background: #FFF0E5;
+    color: #8C3A00;
   }
 
   .mobileDock a:focus-visible,
@@ -451,6 +453,14 @@
   .mobileDock span {
     font-size: 0.6875rem;
     font-weight: 700;
+  }
+
+  .drawerSurface .navigationChildren .navigationLink {
+    min-height: 48px;
+  }
+
+  .drawerSurface .sidebarFooter :global(.logout-button) {
+    min-height: 48px;
   }
 
   .drawerBackdrop {

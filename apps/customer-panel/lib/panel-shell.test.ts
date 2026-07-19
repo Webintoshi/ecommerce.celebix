@@ -780,3 +780,62 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
   assert.match(styles, /\.cardGrid\s*>\s*\*\s*\{[^}]*min-width:\s*0;/);
   assert.match(styles, /\.cardGrid\s+strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
 });
+
+test("drawer controls keep a 48px minimum target in every compact shell override", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+
+  assert.match(
+    css,
+    /\.drawerClose\s*\{[^}]*min-width:\s*48px;[^}]*min-height:\s*48px;/s,
+  );
+  assert.match(
+    css,
+    /\.drawerSurface\s+\.navigationChildren\s+\.navigationLink\s*\{[^}]*min-height:\s*48px;/s,
+  );
+  assert.match(
+    css,
+    /\.drawerSurface\s+\.sidebarFooter\s+:global\(\.logout-button\)\s*\{[^}]*min-height:\s*48px;/s,
+  );
+});
+
+test("small shell text uses explicit AA-safe pairs without weakening orange brand or focus tokens", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  const rgb = (hex: string) => [
+    Number.parseInt(hex.slice(1, 3), 16),
+    Number.parseInt(hex.slice(3, 5), 16),
+    Number.parseInt(hex.slice(5, 7), 16),
+  ];
+  const luminance = (hex: string) => rgb(hex)
+    .map((channel) => {
+      const normalized = channel / 255;
+      return normalized <= 0.04045
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4;
+    })
+    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index]!, 0);
+  const contrast = (foreground: string, background: string) => {
+    const foregroundLuminance = luminance(foreground);
+    const backgroundLuminance = luminance(background);
+    return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
+      / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
+  };
+
+  assert.match(css, /\.merchantIdentity\s*\{[^}]*background:\s*#373737;/s);
+  assert.match(css, /\.merchantIdentity small\s*\{[^}]*color:\s*#B8B8B8;/s);
+  assert.match(css, /\.desktopTopbar span\s*\{[^}]*color:\s*#667085;/s);
+  assert.match(
+    css,
+    /\.mobileDock a\[aria-current="page"\],[^}]*\{[^}]*background:\s*#FFF0E5;[^}]*color:\s*#8C3A00;/s,
+  );
+
+  for (const [foreground, background] of [
+    ["#B8B8B8", "#373737"],
+    ["#667085", "#F9F9F9"],
+    ["#8C3A00", "#FFF0E5"],
+  ]) assert.ok(contrast(foreground, background) >= 4.5);
+
+  assert.match(css, /\.brand\s*>\s*span\s*\{[^}]*background:\s*#FF6A00;/s);
+  assert.match(css, /\.activeRail\s*\{[^}]*background:\s*#FF6A00;/s);
+  assert.match(css, /\.drawerClose:focus-visible\s*\{[^}]*rgb\(254 97 0 \/ 32%\)/s);
+  assert.match(css, /\.mobileDock button:focus-visible\s*\{[^}]*rgb\(254 97 0 \/ 32%\)/s);
+});
