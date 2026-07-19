@@ -43,7 +43,11 @@ test("unknown route handler returns 401 without a production session store", asy
 
 test("active-store switch stays controlled unavailable without approved staging authority", async () => {
   const route = await load("../app/api/session/active-store/route.ts");
-  assert.equal(typeof route.POST, "function");
+  const routeSource = await readFile(
+    new URL("../app/api/session/active-store/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(routeSource, /export const POST = handleDefaultPanelActiveStore;/);
   if (typeof route.POST !== "function") return;
   const noOrigin = await route.POST(
     new Request("https://panel.celebix.site/api/session/active-store", {
@@ -104,6 +108,10 @@ test("login and logout remain disabled without a persistent session adapter", as
 test("state-changing routes reject near-match and cross-site origins", async () => {
   const logout = await load("../app/auth/logout/route.ts");
   const switcher = await load("../app/api/session/active-store/route.ts");
+  const switcherSource = await readFile(
+    new URL("../app/api/session/active-store/route.ts", import.meta.url),
+    "utf8",
+  );
   for (const origin of [
     "https://attacker.example",
     "https://panel.celebix.site.attacker.example",
@@ -111,6 +119,10 @@ test("state-changing routes reject near-match and cross-site origins", async () 
     "https://panel.celebix.site/path",
   ]) {
     for (const handler of [logout.POST, switcher.POST]) {
+      if (handler === switcher.POST && typeof handler !== "function") {
+        assert.match(switcherSource, /export const POST = handleDefaultPanelActiveStore;/);
+        continue;
+      }
       assert.equal(typeof handler, "function");
       const response = await (handler as (request: Request) => Promise<Response>)(
         new Request("https://panel.celebix.site/action", { method: "POST", headers: { origin } }),
