@@ -660,3 +660,18 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
     else Reflect.deleteProperty(globalThis, "document");
   }
 });
+
+test("dashboard renders only the safe chrome model and truthful working actions", async () => {
+  const page = await source("app/(panel)/page.tsx");
+  const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
+  const model = await source("lib/panel-ui/dashboard-model.ts");
+  const combined = view + "\n" + model;
+  assert.match(page, /PanelDashboardHomeView/);
+  assert.match(view, /usePanelChromeModel/);
+  assert.match(view, /createPanelDashboardModel/);
+  assert.match(combined, /\/products/);
+  assert.match(combined, /\/products\/new/);
+  assert.match(combined, /\/setup/);
+  assert.doesNotMatch(view, /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
+  assert.doesNotMatch(combined, /revenue|ciro|order|sipariş|conversion|dönüşüm|analytics|Toshi/i);
+});
