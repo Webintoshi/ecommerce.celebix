@@ -291,18 +291,22 @@ async function sourceFiles(directory: string): Promise<string[]> {
   return nested.flat();
 }
 
-test("shared storefront imports no service-role, database, R2, Redis, or payment clients", async () => {
+test("shared storefront uses only the reviewed public PostgreSQL repository and no private service clients", async () => {
   const appRoot = path.resolve(import.meta.dirname, "..");
   const runtimeRoot = path.resolve(appRoot, "../../packages/saas-storefront-runtime");
   const files = [...await sourceFiles(appRoot), ...await sourceFiles(runtimeRoot)];
-  const forbiddenImport = /(?:from\s+|import\s*\()["'][^"']*(?:supabase|postgres|drizzle|@aws-sdk|redis|stripe|iyzipay|craftgate|payment)[^"']*["']/i;
-  const forbiddenConfig = /(?:service[_-]?role|DATABASE_URL|R2_ACCESS|REDIS_URL|PAYMENT_SECRET)/i;
+  const forbiddenImport = /(?:from\s+|import\s*\()["'][^"']*(?:supabase|drizzle|@aws-sdk|redis|stripe|iyzipay|craftgate|payment)[^"']*["']/i;
+  const forbiddenConfig = /(?:service[_-]?role|R2_ACCESS|R2_SECRET|REDIS_URL|PAYMENT_SECRET|celebix_saas_app)/i;
 
   for (const file of files) {
     const source = await readFile(file, "utf8");
     assert.doesNotMatch(source, forbiddenImport, file);
     assert.doesNotMatch(source, forbiddenConfig, file);
   }
+  const publicRuntime = await readFile(new URL("./default-runtime.ts", import.meta.url), "utf8");
+  assert.match(publicRuntime, /PostgresPublicStorefrontRepository/);
+  assert.match(publicRuntime, /celebix_saas_host_resolver/);
+  assert.doesNotMatch(publicRuntime, /ProductMediaRepository|INSERT|UPDATE|DELETE/);
 });
 
 test("application configuration defines baseline security headers", async () => {

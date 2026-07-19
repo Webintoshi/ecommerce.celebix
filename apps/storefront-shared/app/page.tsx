@@ -1,0 +1,9 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ProductGrid } from "@/components/ProductGrid";
+import { StorefrontFrame } from "@/components/StorefrontFrame";
+import { resolveStorefrontPage } from "@/lib/page-context.ts";
+import { requireStorefrontPage } from "@/lib/page-resolution.ts";
+
+export async function generateMetadata(): Promise<Metadata> { const selected = await resolveStorefrontPage(); if (selected.kind !== "active") return { title: "Mağaza bulunamadı", robots: { index: false, follow: false } }; const { storefront } = selected.context; return { title: storefront.name, description: `${storefront.name} yeni ve aktif ürünleri`, alternates: { canonical: storefront.canonicalUrl }, openGraph: { title: storefront.name, type: "website", url: storefront.canonicalUrl } }; }
+export default async function HomePage() { const { runtime, storefront } = requireStorefrontPage(await resolveStorefrontPage()); const products = await runtime.repository.listPublicProducts({ storefront, now: new Date(), limit: 8 }); return <StorefrontFrame storefront={storefront}><section className="home-hero"><div className="store-container hero-copy"><span>YENİ NESİL MAĞAZA</span><h1>{storefront.name}</h1><p>Günlük hayata özenle seçilmiş ürünleri keşfedin.</p><Link className="store-button" href="/products">Koleksiyonu keşfet</Link></div></section><section className="store-section store-container"><div className="section-heading"><div><span>SEÇİLİ KOLEKSİYON</span><h2>Yeni Ürünler</h2></div><Link href="/products">Tümünü gör →</Link></div><ProductGrid products={products.items} /></section><section className="brand-story"><div className="store-container"><span>MAĞAZA DENEYİMİ</span><h2>Az, öz ve özenle seçilmiş.</h2><p>{storefront.name}, ürünlerini güvenli Celebix altyapısı üzerinden aynı sade vitrin diliyle sunar.</p></div></section></StorefrontFrame>; }

@@ -14,8 +14,12 @@ const configSource = await readFile(
   new URL("../../../packages/platform-config/src/storefront-proxy.ts", import.meta.url),
   "utf8",
 ).catch(() => "");
-const routeSource = await readFile(
-  new URL("../../../apps/storefront-shared/app/[[...storefrontPath]]/route.ts", import.meta.url),
+const proxySource = await readFile(
+  new URL("../../../apps/storefront-shared/proxy.ts", import.meta.url),
+  "utf8",
+);
+const publicStorefrontSource = await readFile(
+  new URL("../../../apps/storefront-shared/lib/public-storefront.ts", import.meta.url),
   "utf8",
 );
 
@@ -40,8 +44,9 @@ test("authority implementation contains no logging or production activation", ()
   assert.doesNotMatch(source, /p1\.[A-Za-z0-9_-]{20,}/);
 });
 
-test("checkpoint route rejects every authenticated hostname through the exact resolver boundary", () => {
-  assert.match(routeSource, /createStorefrontRequestHandler\s*\(\s*\{/);
-  assert.match(routeSource, /StorefrontResolutionError\s*\(\s*["']host_not_found["']/);
-  assert.doesNotMatch(routeSource, /InMemoryStoreDomainResolver|headers\.get\(["']host["']\)|console\./);
+test("final proxy gate and persisted resolver keep trusted host authority fail closed", () => {
+  assert.match(proxySource, /selectTrustedStorefrontHostAuthority/);
+  assert.match(proxySource, /status:\s*503/);
+  assert.match(publicStorefrontSource, /getPublicStorefront\(\{ hostname: authority\.hostname/);
+  assert.doesNotMatch(`${proxySource}\n${publicStorefrontSource}`, /InMemoryStoreDomainResolver|headers\.get\(["']host["']\)|console\./);
 });

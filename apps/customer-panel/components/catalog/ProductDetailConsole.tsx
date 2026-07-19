@@ -11,6 +11,7 @@ import {
 } from "@/lib/catalog-ui/client";
 import { buildProductUpdatePayload, buildVariantPayload } from "@/lib/catalog-ui/forms";
 import { formatTurkishMoney, formatTurkishMoneyInput } from "@/lib/catalog-ui/money";
+import { ProductMediaManager } from "./ProductMediaManager";
 
 function value(data: FormData, key: string) {
   const candidate = data.get(key);
@@ -200,6 +201,8 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
           <article><span>Son güncelleme</span><strong>{new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date(product.updatedAt))}</strong></article>
         </div>
       )}
+
+      <ProductMediaManager productId={productId} />
 
       <div className="section-heading-row">
         <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2>Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>

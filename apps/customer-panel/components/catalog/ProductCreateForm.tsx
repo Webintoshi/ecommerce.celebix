@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { CatalogApiError, catalogApi } from "@/lib/catalog-ui/client";
 import { buildCreateProductPayload } from "@/lib/catalog-ui/forms";
+import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
 
 function value(data: FormData, key: string) {
   const candidate = data.get(key);
@@ -14,6 +15,24 @@ function value(data: FormData, key: string) {
 export function ProductCreateForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [image, setImage] = useState<File>();
+  const [imagePreview, setImagePreview] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [createdProductId, setCreatedProductId] = useState("");
+
+  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
+
+  function selectImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    setError(""); setUploadProgress(0);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    if (file === undefined) { setImage(undefined); setImagePreview(""); return; }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size < 1 || file.size > 5_242_880) {
+      event.currentTarget.value = ""; setImage(undefined); setImagePreview("");
+      setError("PNG, JPEG veya WebP biçiminde ve en fazla 5 MB bir görsel seçin."); return;
+    }
+    setImage(file); setImagePreview(URL.createObjectURL(file));
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,9 +57,14 @@ export function ProductCreateForm() {
     setSubmitting(true);
     try {
       const result = await catalogApi.createProduct(parsed.value);
+      setCreatedProductId(result.product.id);
+      if (image !== undefined) {
+        const altText = value(data, "imageAltText");
+        await productMediaApi.upload(result.product.id, { file: image, altText, onProgress: setUploadProgress });
+      }
       location.assign(`/products/${result.product.id}`);
     } catch (failure) {
-      setError(failure instanceof CatalogApiError ? failure.message : "Ürün oluşturulamadı. Lütfen yeniden deneyin.");
+      setError(failure instanceof CatalogApiError || failure instanceof ProductMediaApiError ? failure.message : "Ürün oluşturulamadı. Lütfen yeniden deneyin.");
       setSubmitting(false);
     }
   }
@@ -58,6 +82,8 @@ export function ProductCreateForm() {
         <span className="is-current"><b>1</b><span><strong>Temel Bilgiler</strong><small>Ürün tanımı ve durum</small></span></span>
         <i aria-hidden="true" />
         <span><b>2</b><span><strong>Fiyat ve Stok</strong><small>İlk satış varyantı</small></span></span>
+        <i aria-hidden="true" />
+        <span><b>3</b><span><strong>Ürün Görseli</strong><small>İsteğe bağlı ilk fotoğraf</small></span></span>
       </div>
 
       <form className="catalog-form" onSubmit={submit} noValidate>
@@ -87,9 +113,18 @@ export function ProductCreateForm() {
           </div>
         </fieldset>
 
+        <fieldset disabled={submitting || createdProductId !== ""}>
+          <legend><span>03</span><span><strong>Ürün Görseli</strong><small>İsteğe bağlı ilk ürün fotoğrafı</small></span></legend>
+          <div className="media-create-grid">
+            <label className="media-picker"><span>{image ? "Başka görsel seç" : "Görsel seç"}</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} /></label>
+            <div className="media-upload-preview">{imagePreview ? <img src={imagePreview} alt="Yüklenecek görsel önizlemesi" /> : <span aria-hidden="true">◇</span>}<label className="field"><span>Görsel alt metni</span><input name="imageAltText" maxLength={500} placeholder="Örn. Seramik kupanın ön görünümü" /></label></div>
+            {submitting && image ? <div className="upload-progress"><span>Yükleme ilerlemesi</span><progress role="progressbar" max="100" value={uploadProgress}>{uploadProgress}%</progress><b>{uploadProgress}%</b></div> : null}
+          </div>
+        </fieldset>
+
         <div className="form-actions">
           <Link className="button button-secondary" href="/products">Vazgeç</Link>
-          <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? "Ürün oluşturuluyor…" : "Ürünü oluştur"}</button>
+          {createdProductId ? <Link className="button button-primary" href={`/products/${createdProductId}`}>Oluşturulan ürüne git</Link> : <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? (image ? "Ürün ve görsel yükleniyor…" : "Ürün oluşturuluyor…") : "Ürünü oluştur"}</button>}
         </div>
       </form>
     </section>
