@@ -110,3 +110,20 @@ test("accepts storefront hostname only from a matching durable resolved host", (
     /panel_chrome_context_invalid/,
   );
 });
+
+for (const [label, resolvedHost] of [
+  ["null", null],
+  ["false", false],
+  ["zero", 0],
+  ["empty string", ""],
+  ["whitespace-only string", " "],
+] as const) {
+  test(`fails closed for a present ${label} resolved host`, () => {
+    const malformed = { ...CONTEXT, resolvedHost };
+    assert.throws(
+      () => createPanelChromeModel(malformed as unknown as TenantContext),
+      (error: unknown) =>
+        error instanceof Error && error.message === "panel_chrome_context_invalid",
+    );
+  });
+}

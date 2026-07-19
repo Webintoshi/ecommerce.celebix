@@ -45,8 +45,10 @@ export function createPanelChromeModel(context: TenantContext): PanelChromeModel
 
   const host = context.resolvedHost;
   if (
-    host &&
+    host !== undefined &&
     (
+      host === null ||
+      typeof host !== "object" ||
       host.status !== "active" ||
       host.storeId !== context.store.id ||
       host.storeSlug !== context.store.slug ||
@@ -61,7 +63,7 @@ export function createPanelChromeModel(context: TenantContext): PanelChromeModel
     planCode: context.entitlements.planCode,
     planVersion: context.entitlements.version,
     entitlementStatus: "active" as const,
-    ...(host ? { storefrontHostname: host.canonicalHostname } : {}),
+    ...(host !== undefined ? { storefrontHostname: host.canonicalHostname } : {}),
     locale: context.locale,
   });
 }
