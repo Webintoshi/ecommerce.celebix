@@ -9,6 +9,8 @@ import {
   isPanelNavigationPathActive,
   PANEL_NAVIGATION,
 } from "./panel-ui/navigation.ts";
+import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
+import { createPanelDashboardModel } from "./panel-ui/dashboard-model.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
@@ -354,6 +356,75 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop" }));
 }
 
+async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
+  const viewSource = await source("components/dashboard/PanelDashboardHomeView.tsx");
+  const output = ts.transpileModule(viewSource, {
+    compilerOptions: {
+      esModuleInterop: true,
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  const compiledModule: {
+    exports: { PanelDashboardHomeView?: ComponentType };
+  } = { exports: {} };
+  const PanelActionButton = ({ children, href }: { children?: ReactNode; href: string }) =>
+    createElement("a", { href }, children);
+  const PanelMetricCard = ({ detail, label, value }: {
+    detail?: string;
+    label: string;
+    value: string;
+  }) => createElement(
+    "article",
+    null,
+    createElement("span", null, label),
+    createElement("strong", null, value),
+    detail ? createElement("small", null, detail) : null,
+  );
+  const PanelPageHeader = ({ actions, description, title }: {
+    actions?: ReactNode;
+    description?: string;
+    title: string;
+  }) => createElement(
+    "header",
+    null,
+    createElement("h1", null, title),
+    description ? createElement("p", null, description) : null,
+    actions,
+  );
+  const PanelPageShell = ({ children }: { children?: ReactNode }) =>
+    createElement("section", null, children);
+  const PanelPanel = ({ children, title }: { children?: ReactNode; title?: string }) =>
+    createElement("section", null, title ? createElement("h2", null, title) : null, children);
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "@/components/panel/PanelPageShell") {
+      return { PanelActionButton, PanelMetricCard, PanelPageHeader, PanelPageShell, PanelPanel };
+    }
+    if (specifier === "@/components/panel/PanelLayoutClient") {
+      return { usePanelChromeModel: () => model };
+    }
+    if (specifier === "@/lib/panel-ui/dashboard-model") return { createPanelDashboardModel };
+    if (specifier === "./panel-dashboard.module.css") return styles;
+    throw new Error(`unexpected_panel_dashboard_import:${specifier}`);
+  };
+  Function("require", "module", "exports", output)(
+    requireModule,
+    compiledModule,
+    compiledModule.exports,
+  );
+  assert.ok(compiledModule.exports.PanelDashboardHomeView);
+  return renderToStaticMarkup(createElement(compiledModule.exports.PanelDashboardHomeView));
+}
+
 test("topbar chrome exposes a provider, page bridge, and dedicated action portal", async () => {
   const topbar = await source("components/panel/PanelTopbarChrome.tsx");
   assert.match(topbar, /PanelTopbarChromeProvider/);
@@ -674,4 +745,38 @@ test("dashboard renders only the safe chrome model and truthful working actions"
   assert.match(combined, /\/setup/);
   assert.doesNotMatch(view, /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
   assert.doesNotMatch(combined, /revenue|ciro|order|sipariş|conversion|dönüşüm|analytics|Toshi/i);
+});
+
+test("dashboard preserves maximum-length facts inside mobile card bounds", async () => {
+  const storeSlug = "s".repeat(63);
+  const planCode = "p".repeat(100);
+  const storefrontHostname = [
+    "a".repeat(63),
+    "b".repeat(63),
+    "c".repeat(63),
+    "d".repeat(61),
+  ].join(".");
+  assert.equal(storefrontHostname.length, 253);
+  const html = await renderPanelDashboard(Object.freeze({
+    storeSlug,
+    membershipLabel: "Mağaza sahibi",
+    planCode,
+    planVersion: 9,
+    entitlementStatus: "active",
+    storefrontHostname,
+    locale: "tr-TR",
+  }));
+  const renderedValues = [...html.matchAll(/<strong>([^<]*)<\/strong>/g)]
+    .map(([, value]) => value);
+  assert.deepEqual(renderedValues, [
+    storeSlug,
+    "Mağaza sahibi",
+    `${planCode} · v9`,
+    storefrontHostname,
+  ]);
+
+  const styles = await source("components/dashboard/panel-dashboard.module.css");
+  assert.match(styles, /\.cardGrid\s*\{[^}]*min-width:\s*0;/);
+  assert.match(styles, /\.cardGrid\s*>\s*\*\s*\{[^}]*min-width:\s*0;/);
+  assert.match(styles, /\.cardGrid\s+strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
 });
