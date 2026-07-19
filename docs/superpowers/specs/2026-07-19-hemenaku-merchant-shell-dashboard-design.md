@@ -2,7 +2,7 @@
 
 **Tarih:** 2026-07-19
 
-**Durum:** Kullanıcı yazılı incelemesini bekliyor
+**Durum:** Atlas tarafından yazılı olarak onaylandı
 
 **Hedef uygulama:** `apps/customer-panel`
 
