@@ -781,61 +781,493 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
   assert.match(styles, /\.cardGrid\s+strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
 });
 
-test("drawer controls keep a 48px minimum target in every compact shell override", async () => {
-  const css = await source("components/panel/panel-shell.module.css");
+interface CssTestElement {
+  attributes?: Readonly<Record<string, string>>;
+  classNames?: readonly string[];
+  parent?: CssTestElement;
+  states?: readonly string[];
+  tagName: string;
+}
 
-  assert.match(
-    css,
-    /\.drawerClose\s*\{[^}]*min-width:\s*48px;[^}]*min-height:\s*48px;/s,
-  );
-  assert.match(
-    css,
-    /\.drawerSurface\s+\.navigationChildren\s+\.navigationLink\s*\{[^}]*min-height:\s*48px;/s,
-  );
-  assert.match(
-    css,
-    /\.drawerSurface\s+\.sidebarFooter\s+:global\(\.logout-button\)\s*\{[^}]*min-height:\s*48px;/s,
-  );
-});
+interface CssTestDeclaration {
+  important: boolean;
+  order: number;
+  property: string;
+  selector: string;
+  specificity: readonly [number, number, number];
+  value: string;
+}
 
-test("small shell text uses explicit AA-safe pairs without weakening orange brand or focus tokens", async () => {
-  const css = await source("components/panel/panel-shell.module.css");
-  const rgb = (hex: string) => [
-    Number.parseInt(hex.slice(1, 3), 16),
-    Number.parseInt(hex.slice(3, 5), 16),
-    Number.parseInt(hex.slice(5, 7), 16),
+type CssTestColor = readonly [number, number, number, number];
+
+function selectorSpecificity(selector: string): readonly [number, number, number] {
+  const normalized = selector.replace(/:global\(([^)]+)\)/g, "$1");
+  const ids = normalized.match(/#[\w-]+/g)?.length ?? 0;
+  const classes = normalized.match(/\.[\w-]+/g)?.length ?? 0;
+  const attributes = normalized.match(/\[[^\]]+\]/g)?.length ?? 0;
+  const pseudos = normalized.match(/:(?!:)[\w-]+(?:\([^)]*\))?/g)?.length ?? 0;
+  const elements = normalized
+    .replace(/#[\w-]+|\.[\w-]+|\[[^\]]+\]|::?[\w-]+(?:\([^)]*\))?/g, " ")
+    .split(/[\s>+~]+/)
+    .filter((part) => /^[a-z][\w-]*$/i.test(part)).length;
+  return [ids, classes + attributes + pseudos, elements];
+}
+
+function splitSelectorList(selectors: string): string[] {
+  const result: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < selectors.length; index += 1) {
+    const character = selectors[index]!;
+    if (character === "(" || character === "[") depth += 1;
+    if (character === ")" || character === "]") depth -= 1;
+    if (character === "," && depth === 0) {
+      result.push(selectors.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  result.push(selectors.slice(start).trim());
+  return result.filter(Boolean);
+}
+
+function mediaApplies(query: string, viewportWidth: number): boolean {
+  if (/prefers-reduced-motion/i.test(query)) return false;
+  const minimums = [...query.matchAll(/min-width:\s*([\d.]+)px/gi)]
+    .map((match) => Number(match[1]));
+  const maximums = [...query.matchAll(/max-width:\s*([\d.]+)px/gi)]
+    .map((match) => Number(match[1]));
+  return minimums.every((minimum) => viewportWidth >= minimum)
+    && maximums.every((maximum) => viewportWidth <= maximum);
+}
+
+function parseApplicableCss(css: string, viewportWidth: number): CssTestDeclaration[] {
+  const declarations: CssTestDeclaration[] = [];
+  const input = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  let order = 0;
+
+  function closingBrace(openingBrace: number): number {
+    let depth = 1;
+    let quote = "";
+    for (let index = openingBrace + 1; index < input.length; index += 1) {
+      const character = input[index]!;
+      if (quote) {
+        if (character === quote && input[index - 1] !== "\\") quote = "";
+        continue;
+      }
+      if (character === "\"" || character === "'") quote = character;
+      else if (character === "{") depth += 1;
+      else if (character === "}" && --depth === 0) return index;
+    }
+    assert.fail("unterminated CSS block");
+  }
+
+  function visit(start: number, end: number): void {
+    let cursor = start;
+    while (cursor < end) {
+      const openingBrace = input.indexOf("{", cursor);
+      if (openingBrace === -1 || openingBrace >= end) return;
+      const prelude = input.slice(cursor, openingBrace).trim();
+      const endBrace = closingBrace(openingBrace);
+      assert.ok(endBrace <= end, `CSS block escapes its parent: ${prelude}`);
+      const bodyStart = openingBrace + 1;
+      if (/^@media\b/i.test(prelude)) {
+        if (mediaApplies(prelude, viewportWidth)) visit(bodyStart, endBrace);
+      } else if (!prelude.startsWith("@")) {
+        const parsed = input.slice(bodyStart, endBrace)
+          .split(";")
+          .map((declaration) => declaration.trim())
+          .filter(Boolean)
+          .map((declaration) => {
+            const colon = declaration.indexOf(":");
+            assert.ok(colon > 0, `invalid CSS declaration: ${declaration}`);
+            const property = declaration.slice(0, colon).trim().toLowerCase();
+            const rawValue = declaration.slice(colon + 1).trim();
+            const important = /\s*!important\s*$/i.test(rawValue);
+            order += 1;
+            return {
+              important,
+              order,
+              property,
+              value: rawValue.replace(/\s*!important\s*$/i, "").trim(),
+            };
+          });
+        for (const selector of splitSelectorList(prelude)) {
+          const specificity = selectorSpecificity(selector);
+          for (const declaration of parsed) {
+            declarations.push({ ...declaration, selector, specificity });
+          }
+        }
+      }
+      cursor = endBrace + 1;
+    }
+  }
+
+  visit(0, input.length);
+  return declarations;
+}
+
+function selectorChain(selector: string): {
+  combinators: (" " | ">")[];
+  compounds: string[];
+} {
+  const compounds: string[] = [];
+  const combinators: (" " | ">")[] = [];
+  for (const [groupIndex, group] of selector
+    .replace(/:global\(([^)]+)\)/g, "$1")
+    .split(/\s*>\s*/)
+    .entries()) {
+    const descendants = group.trim().split(/\s+/).filter(Boolean);
+    for (const [descendantIndex, compound] of descendants.entries()) {
+      if (compounds.length > 0) {
+        combinators.push(groupIndex > 0 && descendantIndex === 0 ? ">" : " ");
+      }
+      compounds.push(compound);
+    }
+  }
+  return { combinators, compounds };
+}
+
+function compoundMatches(element: CssTestElement, compound: string): boolean {
+  const tagName = compound.match(/^[a-z][\w-]*/i)?.[0];
+  if (tagName && tagName.toLowerCase() !== element.tagName.toLowerCase()) return false;
+  for (const [, className] of compound.matchAll(/\.([\w-]+)/g)) {
+    if (!element.classNames?.includes(className!)) return false;
+  }
+  for (const match of compound.matchAll(/\[([\w-]+)(?:\s*=\s*["']?([^"'\]]+)["']?)?\]/g)) {
+    const [, name, expected] = match;
+    if (!element.attributes || !(name! in element.attributes)) return false;
+    if (expected !== undefined && element.attributes[name!] !== expected) return false;
+  }
+  for (const [, pseudo] of compound.matchAll(/:([\w-]+)(?:\([^)]*\))?/g)) {
+    if (!element.states?.includes(pseudo!)) return false;
+  }
+  return true;
+}
+
+function selectorMatches(element: CssTestElement, selector: string): boolean {
+  const { combinators, compounds } = selectorChain(selector);
+  function matchesAt(candidate: CssTestElement | undefined, index: number): boolean {
+    if (!candidate || !compoundMatches(candidate, compounds[index]!)) return false;
+    if (index === 0) return true;
+    if (combinators[index - 1] === ">") return matchesAt(candidate.parent, index - 1);
+    for (let ancestor = candidate.parent; ancestor; ancestor = ancestor.parent) {
+      if (matchesAt(ancestor, index - 1)) return true;
+    }
+    return false;
+  }
+  return compounds.length > 0 && matchesAt(element, compounds.length - 1);
+}
+
+function winningDeclaration(
+  declarations: readonly CssTestDeclaration[],
+  element: CssTestElement,
+  properties: readonly string[],
+): CssTestDeclaration | undefined {
+  const candidates = declarations.filter((declaration) => (
+    properties.includes(declaration.property) && selectorMatches(element, declaration.selector)
+  ));
+  return candidates.sort((left, right) => {
+    if (left.important !== right.important) return left.important ? 1 : -1;
+    for (let index = 0; index < 3; index += 1) {
+      if (left.specificity[index] !== right.specificity[index]) {
+        return left.specificity[index]! - right.specificity[index]!;
+      }
+    }
+    return left.order - right.order;
+  }).at(-1);
+}
+
+function parseCssColor(value: string): CssTestColor {
+  const normalized = value.trim().toLowerCase();
+  const named: Record<string, CssTestColor> = {
+    black: [0, 0, 0, 1],
+    transparent: [0, 0, 0, 0],
+    white: [255, 255, 255, 1],
+  };
+  if (named[normalized]) return named[normalized];
+  const hex = normalized.match(/^#([\da-f]{3}|[\da-f]{6})$/i)?.[1];
+  if (hex) {
+    const expanded = hex.length === 3 ? [...hex].map((digit) => digit + digit).join("") : hex;
+    return [
+      Number.parseInt(expanded.slice(0, 2), 16),
+      Number.parseInt(expanded.slice(2, 4), 16),
+      Number.parseInt(expanded.slice(4, 6), 16),
+      1,
+    ];
+  }
+  const functional = normalized.match(/^rgba?\((.*)\)$/)?.[1];
+  assert.ok(functional, `unsupported CSS color: ${value}`);
+  const [channelsPart, alphaPart] = functional.includes(",")
+    ? [functional.split(",").slice(0, 3).join(" "), functional.split(",")[3]]
+    : functional.split(/\s*\/\s*/);
+  const channels = channelsPart!.trim().split(/[\s,]+/).map((channel) => (
+    channel.endsWith("%") ? Number.parseFloat(channel) * 2.55 : Number.parseFloat(channel)
+  ));
+  assert.equal(channels.length, 3, `invalid CSS color: ${value}`);
+  const alpha = alphaPart === undefined
+    ? 1
+    : alphaPart.trim().endsWith("%")
+      ? Number.parseFloat(alphaPart) / 100
+      : Number.parseFloat(alphaPart);
+  return [channels[0]!, channels[1]!, channels[2]!, alpha];
+}
+
+function compositeColor(foreground: CssTestColor, background: CssTestColor): CssTestColor {
+  const alpha = foreground[3] + background[3] * (1 - foreground[3]);
+  if (alpha === 0) return [0, 0, 0, 0];
+  return [
+    (foreground[0] * foreground[3] + background[0] * background[3] * (1 - foreground[3])) / alpha,
+    (foreground[1] * foreground[3] + background[1] * background[3] * (1 - foreground[3])) / alpha,
+    (foreground[2] * foreground[3] + background[2] * background[3] * (1 - foreground[3])) / alpha,
+    alpha,
   ];
-  const luminance = (hex: string) => rgb(hex)
+}
+
+function effectiveBackground(
+  declarations: readonly CssTestDeclaration[],
+  element: CssTestElement,
+): CssTestColor {
+  const ancestry: CssTestElement[] = [];
+  for (let current: CssTestElement | undefined = element; current; current = current.parent) {
+    ancestry.unshift(current);
+  }
+  return ancestry.reduce<CssTestColor>((background, current) => {
+    const declaration = winningDeclaration(declarations, current, ["background", "background-color"]);
+    return declaration ? compositeColor(parseCssColor(declaration.value), background) : background;
+  }, [255, 255, 255, 1]);
+}
+
+function effectiveForeground(
+  declarations: readonly CssTestDeclaration[],
+  element: CssTestElement,
+  background: CssTestColor,
+): { color: CssTestColor; declaration: CssTestDeclaration } {
+  for (let current: CssTestElement | undefined = element; current; current = current.parent) {
+    const declaration = winningDeclaration(declarations, current, ["color"]);
+    if (declaration) {
+      return { color: compositeColor(parseCssColor(declaration.value), background), declaration };
+    }
+  }
+  assert.fail(`no cascaded color for ${element.tagName}`);
+}
+
+function contrastRatio(foreground: CssTestColor, background: CssTestColor): number {
+  const luminance = (color: CssTestColor) => color.slice(0, 3)
     .map((channel) => {
-      const normalized = channel / 255;
+      const normalized = channel! / 255;
       return normalized <= 0.04045
         ? normalized / 12.92
         : ((normalized + 0.055) / 1.055) ** 2.4;
     })
-    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index]!, 0);
-  const contrast = (foreground: string, background: string) => {
-    const foregroundLuminance = luminance(foreground);
-    const backgroundLuminance = luminance(background);
-    return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
-      / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
+    .reduce((sum, channel, index) => sum + channel! * [0.2126, 0.7152, 0.0722][index]!, 0);
+  const foregroundLuminance = luminance(foreground);
+  const backgroundLuminance = luminance(background);
+  return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
+    / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
+}
+
+function shellElements() {
+  const shell: CssTestElement = { tagName: "div", classNames: ["shell"] };
+  const sidebar: CssTestElement = { tagName: "aside", classNames: ["desktopSidebar"], parent: shell };
+  const drawer: CssTestElement = { tagName: "aside", classNames: ["drawerSurface"], parent: shell };
+  const dock: CssTestElement = { tagName: "nav", classNames: ["mobileDock"], parent: shell };
+  const desktopMerchantIdentity: CssTestElement = {
+    tagName: "div",
+    classNames: ["merchantIdentity"],
+    parent: sidebar,
   };
+  const topbar: CssTestElement = { tagName: "header", classNames: ["desktopTopbar"], parent: shell };
+  const navigationChildren: CssTestElement = {
+    tagName: "div",
+    classNames: ["navigationChildren"],
+    parent: { tagName: "div", classNames: ["drawerNavigation"], parent: drawer },
+  };
+  const sidebarFooter: CssTestElement = {
+    tagName: "footer",
+    classNames: ["sidebarFooter"],
+    parent: drawer,
+  };
+  const activeDockLink: CssTestElement = {
+    tagName: "a",
+    attributes: { "aria-current": "page" },
+    parent: dock,
+  };
+  const activeDockButton: CssTestElement = {
+    tagName: "button",
+    attributes: { "aria-expanded": "true" },
+    parent: dock,
+  };
+  return {
+    activeDockButton,
+    activeDockButtonLabel: { tagName: "span", parent: activeDockButton } satisfies CssTestElement,
+    activeDockLabel: { tagName: "span", parent: activeDockLink } satisfies CssTestElement,
+    activeDockLink,
+    dock,
+    drawer,
+    drawerChildLink: {
+      tagName: "a",
+      classNames: ["navigationLink"],
+      parent: navigationChildren,
+    } satisfies CssTestElement,
+    drawerClose: {
+      tagName: "button",
+      classNames: ["drawerClose"],
+      parent: { tagName: "header", classNames: ["drawerHeader"], parent: drawer },
+    } satisfies CssTestElement,
+    drawerLogout: {
+      tagName: "button",
+      classNames: ["logout-button"],
+      parent: sidebarFooter,
+    } satisfies CssTestElement,
+    desktopMerchantSecondary: {
+      tagName: "small",
+      parent: desktopMerchantIdentity,
+    } satisfies CssTestElement,
+    drawerMerchantSecondary: {
+      tagName: "small",
+      parent: { tagName: "div", classNames: ["merchantIdentity"], parent: drawer },
+    } satisfies CssTestElement,
+    shell,
+    topbarSubtitle: { tagName: "span", parent: topbar } satisfies CssTestElement,
+  };
+}
 
-  assert.match(css, /\.merchantIdentity\s*\{[^}]*background:\s*#373737;/s);
-  assert.match(css, /\.merchantIdentity small\s*\{[^}]*color:\s*#B8B8B8;/s);
-  assert.match(css, /\.desktopTopbar span\s*\{[^}]*color:\s*#667085;/s);
-  assert.match(
-    css,
-    /\.mobileDock a\[aria-current="page"\],[^}]*\{[^}]*background:\s*#FFF0E5;[^}]*color:\s*#8C3A00;/s,
-  );
+function lengthInPixels(value: string): number {
+  const match = value.match(/^([\d.]+)(px|rem)$/);
+  assert.ok(match, `unsupported CSS length: ${value}`);
+  return Number(match[1]) * (match[2] === "rem" ? 16 : 1);
+}
 
-  for (const [foreground, background] of [
-    ["#B8B8B8", "#373737"],
-    ["#667085", "#F9F9F9"],
-    ["#8C3A00", "#FFF0E5"],
-  ]) assert.ok(contrast(foreground, background) >= 4.5);
+function assertMinimumShellTargets(css: string): void {
+  const declarations = parseApplicableCss(css, 390);
+  const elements = shellElements();
+  const targets: readonly [string, CssTestElement, readonly string[]][] = [
+    ["drawer close", elements.drawerClose, ["min-width", "min-height"]],
+    ["drawer child navigation", elements.drawerChildLink, ["min-height"]],
+    ["drawer logout", elements.drawerLogout, ["min-height"]],
+    ["mobile dock link", elements.activeDockLink, ["min-width", "min-height"]],
+    ["mobile dock button", { tagName: "button", parent: elements.dock }, ["min-width", "min-height"]],
+  ];
+  for (const [label, element, properties] of targets) {
+    for (const property of properties) {
+      const declaration = winningDeclaration(declarations, element, [property]);
+      assert.ok(declaration, `${label} has no applicable ${property}`);
+      assert.ok(
+        lengthInPixels(declaration.value) >= 48,
+        `${label} effective ${property} is ${declaration.value} from ${declaration.selector}`,
+      );
+    }
+  }
+}
 
-  assert.match(css, /\.brand\s*>\s*span\s*\{[^}]*background:\s*#FF6A00;/s);
-  assert.match(css, /\.activeRail\s*\{[^}]*background:\s*#FF6A00;/s);
-  assert.match(css, /\.drawerClose:focus-visible\s*\{[^}]*rgb\(254 97 0 \/ 32%\)/s);
-  assert.match(css, /\.mobileDock button:focus-visible\s*\{[^}]*rgb\(254 97 0 \/ 32%\)/s);
+function assertSmallShellContrast(css: string): void {
+  const elements = shellElements();
+  const contrastCases: readonly [string, CssTestElement, number][] = [
+    ["desktop merchant membership secondary", elements.desktopMerchantSecondary, 1440],
+    ["drawer merchant membership secondary", elements.drawerMerchantSecondary, 390],
+    ["desktop topbar subtitle", elements.topbarSubtitle, 1440],
+    ["active mobile dock link label", elements.activeDockLabel, 390],
+    ["expanded mobile dock button label", elements.activeDockButtonLabel, 390],
+  ];
+  for (const [label, element, viewportWidth] of contrastCases) {
+    const declarations = parseApplicableCss(css, viewportWidth);
+    const background = effectiveBackground(declarations, element);
+    const foreground = effectiveForeground(declarations, element, background);
+    const ratio = contrastRatio(foreground.color, background);
+    assert.ok(
+      ratio >= 4.5,
+      `${label} effective contrast is ${ratio.toFixed(2)}:1; winning color ${foreground.declaration.value} from ${foreground.declaration.selector}`,
+    );
+  }
+
+  const declarations = parseApplicableCss(css, 390);
+  const brand: CssTestElement = {
+    tagName: "span",
+    parent: { tagName: "a", classNames: ["brand"], parent: elements.drawer },
+  };
+  const activeRail: CssTestElement = {
+    tagName: "span",
+    classNames: ["activeRail"],
+    parent: elements.drawerChildLink,
+  };
+  const tokens: readonly [string, CssTestElement, readonly string[], string][] = [
+    ["orange brand", brand, ["background", "background-color"], "#FF6A00"],
+    ["orange active rail", activeRail, ["background", "background-color"], "#FF6A00"],
+    [
+      "drawer focus ring",
+      { ...elements.drawerClose, states: ["focus-visible"] },
+      ["box-shadow"],
+      "0 0 0 2px rgb(254 97 0 / 32%)",
+    ],
+    [
+      "dock focus ring",
+      { ...elements.activeDockButton, states: ["focus-visible"] },
+      ["box-shadow"],
+      "inset 0 0 0 2px rgb(254 97 0 / 32%)",
+    ],
+  ];
+  for (const [label, element, properties, expected] of tokens) {
+    const declaration = winningDeclaration(declarations, element, properties);
+    assert.ok(declaration, `${label} has no applicable ${properties.join("/")}`);
+    assert.equal(declaration.value.toLowerCase(), expected.toLowerCase(), `${label} cascade winner`);
+  }
+}
+
+test("drawer and dock controls keep an effective 48px minimum target", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  for (const [override, expectedFailure] of [
+    [`.drawerClose { min-height: 44px; }`, /drawer close effective min-height is 44px/],
+    [
+      `.drawerSurface .drawerNavigation .navigationChildren .navigationLink { min-height: 38px; }`,
+      /drawer child navigation effective min-height is 38px/,
+    ],
+    [
+      `.drawerSurface .sidebarFooter .logout-button { min-height: 42px; }`,
+      /drawer logout effective min-height is 42px/,
+    ],
+    [
+      `.shell .mobileDock a, .shell .mobileDock button { min-height: 40px; }`,
+      /mobile dock link effective min-height is 40px/,
+    ],
+  ] as const) {
+    assert.throws(() => assertMinimumShellTargets(`${css}\n${override}`), expectedFailure);
+  }
+  assertMinimumShellTargets(css);
+});
+
+test("effective small shell text colors meet AA without weakening orange brand or focus tokens", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  for (const [override, expectedFailure] of [
+    [
+      `.merchantIdentity small { color: rgb(255 255 255 / 48%); }`,
+      /desktop merchant membership secondary effective contrast is 4\.08:1/,
+    ],
+    [
+      `@media (min-width: 1025px) {
+        .shell .desktopTopbar span { color: #9CA3AF; }
+      }`,
+      /desktop topbar subtitle effective contrast is 2\.41:1/,
+    ],
+    [
+      `@media (max-width: 1024px) {
+        .mobileDock a[aria-current="page"] {
+          background: rgb(255 106 0 / 10%);
+          color: #FF6A00;
+        }
+      }`,
+      /active mobile dock link label effective contrast is 2\.57:1/,
+    ],
+    [
+      `@media (max-width: 1024px) {
+        .mobileDock button[aria-expanded="true"] {
+          background: rgb(255 106 0 / 10%);
+          color: #FF6A00;
+        }
+      }`,
+      /expanded mobile dock button label effective contrast is 2\.57:1/,
+    ],
+  ] as const) {
+    assert.throws(() => assertSmallShellContrast(`${css}\n${override}`), expectedFailure);
+  }
+  assertSmallShellContrast(css);
 });
