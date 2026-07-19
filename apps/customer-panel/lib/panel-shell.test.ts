@@ -1325,6 +1325,91 @@ function assertSmallShellContrast(css: string): void {
   }
 }
 
+function assertDonorCardGeometry(css: string): void {
+  const panel: CssTestElement = { tagName: "section", classNames: ["panel"] };
+  const metric: CssTestElement = { tagName: "article", classNames: ["metric"] };
+  const elements = {
+    panel,
+    panelHeading: { tagName: "h2", parent: panel } satisfies CssTestElement,
+    metric,
+    metricContext: { tagName: "small", parent: metric } satisfies CssTestElement,
+    metricLabel: { tagName: "span", parent: metric } satisfies CssTestElement,
+    metricValue: { tagName: "strong", parent: metric } satisfies CssTestElement,
+  };
+
+  const cases: readonly [
+    string,
+    number,
+    CssTestElement,
+    readonly string[],
+    string,
+  ][] = [
+    ["panel border", 390, elements.panel, ["border"], "1px solid #E3E7EE"],
+    ["panel radius", 390, elements.panel, ["border-radius"], "1rem"],
+    ["panel surface", 390, elements.panel, ["background", "background-color"], "#FFFFFF"],
+    ["panel shadow", 390, elements.panel, ["box-shadow"], "0 8px 18px rgba(17, 24, 39, 0.045)"],
+    ["panel mobile padding", 390, elements.panel, ["padding"], "1rem"],
+    ["panel heading size", 390, elements.panelHeading, ["font-size"], "0.98rem"],
+    ["panel heading weight", 390, elements.panelHeading, ["font-weight"], "600"],
+    ["panel heading leading", 390, elements.panelHeading, ["line-height"], "1.5"],
+    ["panel heading tracking", 390, elements.panelHeading, ["letter-spacing"], "-0.025em"],
+    ["panel heading color", 390, elements.panelHeading, ["color"], "#1F2937"],
+    ["panel heading spacing", 390, elements.panelHeading, ["margin"], "0 0 1rem"],
+    ["panel desktop padding", 1440, elements.panel, ["padding"], "1.5rem"],
+    ["metric border", 390, elements.metric, ["border"], "1px solid #E3E7EE"],
+    ["metric radius", 390, elements.metric, ["border-radius"], "1rem"],
+    ["metric surface", 390, elements.metric, ["background", "background-color"], "#FFFFFF"],
+    ["metric shadow", 390, elements.metric, ["box-shadow"], "0 4px 12px rgba(17, 24, 39, 0.035)"],
+    ["metric height", 390, elements.metric, ["min-height"], "124px"],
+    ["metric gap", 390, elements.metric, ["gap"], "0"],
+    ["metric mobile padding", 390, elements.metric, ["padding"], "0.875rem"],
+    ["metric desktop padding", 1440, elements.metric, ["padding"], "1.25rem"],
+    ["metric label size", 390, elements.metricLabel, ["font-size"], "13px"],
+    ["metric label weight", 390, elements.metricLabel, ["font-weight"], "500"],
+    ["metric label leading", 390, elements.metricLabel, ["line-height"], "1.5"],
+    ["metric label color", 390, elements.metricLabel, ["color"], "#6B7280"],
+    ["metric value spacing", 390, elements.metricValue, ["margin-top"], "0.5rem"],
+    ["metric value size", 390, elements.metricValue, ["font-size"], "1.55rem"],
+    ["metric desktop value size", 1440, elements.metricValue, ["font-size"], "1.8rem"],
+    ["metric value weight", 390, elements.metricValue, ["font-weight"], "600"],
+    ["metric value leading", 390, elements.metricValue, ["line-height"], "1.5"],
+    ["metric value tracking", 390, elements.metricValue, ["letter-spacing"], "-0.035em"],
+    ["metric value color", 390, elements.metricValue, ["color"], "#1F2937"],
+    ["metric context spacing", 390, elements.metricContext, ["margin-top"], "1rem"],
+    ["metric context size", 390, elements.metricContext, ["font-size"], "0.75rem"],
+    ["metric context weight", 390, elements.metricContext, ["font-weight"], "500"],
+    ["metric context leading", 390, elements.metricContext, ["line-height"], "1rem"],
+    ["metric context color", 390, elements.metricContext, ["color"], "#6B7280"],
+  ];
+
+  for (const [label, viewportWidth, element, properties, expected] of cases) {
+    const declaration = winningDeclaration(parseApplicableCss(css, viewportWidth), element, properties);
+    assert.ok(declaration, `${label} has no applicable ${properties.join("/")}`);
+    assert.equal(declaration.value.toLowerCase(), expected.toLowerCase(), `${label} cascade winner`);
+  }
+}
+
+test("panel and dashboard metrics retain the pinned donor card geometry", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  assertDonorCardGeometry(css);
+
+  for (const [override, expectedFailure] of [
+    [`.panel { border-radius: 20px; }`, /panel radius cascade winner/],
+    [`.panel { box-shadow: none; }`, /panel shadow cascade winner/],
+    [`.metric { min-height: 112px; }`, /metric height cascade winner/],
+    [`.metric { gap: 0.5rem; }`, /metric gap cascade winner/],
+    [`.metric > span { font-size: 12px; }`, /metric label size cascade winner/],
+    [`.metric > strong { font-weight: 700; }`, /metric value weight cascade winner/],
+    [`.metric > small { margin-top: 0.5rem; }`, /metric context spacing cascade winner/],
+    [
+      `@media (min-width: 1280px) { .metric { padding: 1rem; } }`,
+      /metric desktop padding cascade winner/,
+    ],
+  ] as const) {
+    assert.throws(() => assertDonorCardGeometry(`${css}\n${override}`), expectedFailure);
+  }
+});
+
 test("drawer and dock controls keep an effective 48px minimum target", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   for (const [override, expectedFailure] of [
