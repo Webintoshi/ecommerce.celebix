@@ -136,3 +136,31 @@ test("logout stays on the existing same-origin JSON mutation", async () => {
   assert.match(logout, /location\.assign\(["']\/login["']\)/);
   assert.doesNotMatch(logout, /document\.cookie|localStorage|sessionStorage/);
 });
+
+test("mobile drawer has dialog, Escape, backdrop, focus-return, and swipe-close behavior", async () => {
+  const sidebar = await source("components/panel/PanelSidebar.tsx");
+  const layout = await source("components/panel/PanelLayoutClient.tsx");
+  assert.match(sidebar, /role="dialog"/);
+  assert.match(sidebar, /aria-modal="true"/);
+  assert.match(sidebar, /Escape/);
+  assert.match(sidebar, /onTouchStart/);
+  assert.match(sidebar, /onTouchMove/);
+  assert.match(sidebar, /onTouchEnd/);
+  assert.match(sidebar, /\.focus\(\)/);
+  assert.match(layout, /document\.body\.style\.overflow/);
+});
+
+test("mobile dock is exact, safe-area aware, 48px, reduced-motion, and breakpoint-correct", async () => {
+  const dock = await source("components/panel/PanelMobileDock.tsx");
+  const css = await source("components/panel/panel-shell.module.css");
+  assert.match(dock, /label:\s*"Ana"/);
+  assert.match(dock, /label:\s*"Ürünler"/);
+  assert.match(dock, />Menü<\/span>/);
+  assert.doesNotMatch(dock, /Sipariş|Toshi|Müşteri|Bildirim/);
+  assert.match(css, /max-width:\s*1024px/);
+  assert.match(css, /min-width:\s*1025px/);
+  assert.match(css, /env\(safe-area-inset-bottom/);
+  assert.match(css, /--panel-keyboard-inset/);
+  assert.match(css, /min-height:\s*48px/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+});
