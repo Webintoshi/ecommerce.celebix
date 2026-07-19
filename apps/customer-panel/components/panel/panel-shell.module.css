@@ -672,9 +672,10 @@
 }
 
 .primaryAction {
+  min-height: 3rem;
   border-color: var(--accent);
   background: var(--accent);
-  color: white;
+  color: #2A2A2A;
 }
 
 .empty {

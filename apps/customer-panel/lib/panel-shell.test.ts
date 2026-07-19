@@ -1124,6 +1124,20 @@ function parseCssColor(value: string): CssTestColor {
   return [channels[0]!, channels[1]!, channels[2]!, alpha];
 }
 
+function resolveCssValue(
+  declarations: readonly CssTestDeclaration[],
+  element: CssTestElement,
+  value: string,
+): string {
+  const variable = value.trim().match(/^var\(\s*(--[\w-]+)\s*\)$/)?.[1];
+  if (!variable) return value;
+  for (let current: CssTestElement | undefined = element; current; current = current.parent) {
+    const declaration = winningDeclaration(declarations, current, [variable]);
+    if (declaration) return resolveCssValue(declarations, current, declaration.value);
+  }
+  assert.fail(`unresolved CSS variable: ${variable}`);
+}
+
 function compositeColor(foreground: CssTestColor, background: CssTestColor): CssTestColor {
   const alpha = foreground[3] + background[3] * (1 - foreground[3]);
   if (alpha === 0) return [0, 0, 0, 0];
@@ -1145,7 +1159,9 @@ function effectiveBackground(
   }
   return ancestry.reduce<CssTestColor>((background, current) => {
     const declaration = winningDeclaration(declarations, current, ["background", "background-color"]);
-    return declaration ? compositeColor(parseCssColor(declaration.value), background) : background;
+    return declaration
+      ? compositeColor(parseCssColor(resolveCssValue(declarations, current, declaration.value)), background)
+      : background;
   }, [255, 255, 255, 1]);
 }
 
@@ -1157,7 +1173,13 @@ function effectiveForeground(
   for (let current: CssTestElement | undefined = element; current; current = current.parent) {
     const declaration = winningDeclaration(declarations, current, ["color"]);
     if (declaration) {
-      return { color: compositeColor(parseCssColor(declaration.value), background), declaration };
+      return {
+        color: compositeColor(
+          parseCssColor(resolveCssValue(declarations, current, declaration.value)),
+          background,
+        ),
+        declaration,
+      };
     }
   }
   assert.fail(`no cascaded color for ${element.tagName}`);
@@ -1179,7 +1201,8 @@ function contrastRatio(foreground: CssTestColor, background: CssTestColor): numb
 }
 
 function shellElements() {
-  const shell: CssTestElement = { tagName: "div", classNames: ["shell"] };
+  const root: CssTestElement = { tagName: "html", states: ["root"] };
+  const shell: CssTestElement = { tagName: "div", classNames: ["shell"], parent: root };
   const sidebar: CssTestElement = { tagName: "aside", classNames: ["desktopSidebar"], parent: shell };
   const drawer: CssTestElement = { tagName: "aside", classNames: ["drawerSurface"], parent: shell };
   const dock: CssTestElement = { tagName: "nav", classNames: ["mobileDock"], parent: shell };
@@ -1239,9 +1262,41 @@ function shellElements() {
       tagName: "small",
       parent: { tagName: "div", classNames: ["merchantIdentity"], parent: drawer },
     } satisfies CssTestElement,
+    root,
     shell,
     topbarSubtitle: { tagName: "span", parent: topbar } satisfies CssTestElement,
   };
+}
+
+function assertDashboardPrimaryAction(css: string): { contrast: number; target: number } {
+  const declarations = parseApplicableCss(css, 390);
+  const elements = shellElements();
+  const action: CssTestElement = {
+    tagName: "a",
+    classNames: ["primaryAction"],
+    parent: {
+      tagName: "div",
+      classNames: ["pageActions"],
+      parent: { tagName: "header", classNames: ["pageHeader"], parent: elements.shell },
+    },
+  };
+  const background = effectiveBackground(declarations, action);
+  const foreground = effectiveForeground(declarations, action, background);
+  const contrast = contrastRatio(foreground.color, background);
+  const minHeight = winningDeclaration(declarations, action, ["min-height"]);
+  assert.ok(minHeight, "dashboard primary action has no applicable min-height");
+  const target = lengthInPixels(minHeight.value);
+  const failures = [
+    ...(contrast < 4.5
+      ? [`effective contrast is ${contrast.toFixed(2)}:1 from ${foreground.declaration.selector}`]
+      : []),
+    ...(target < 48
+      ? [`effective min-height is ${target}px from ${minHeight.selector}`]
+      : []),
+  ];
+  assert.deepEqual(failures, [], `dashboard primary action ${failures.join("; ")}`);
+  assert.deepEqual(background.slice(0, 3).map(Math.round), [255, 106, 0], "primary orange");
+  return { contrast, target };
 }
 
 function lengthInPixels(value: string): number {
@@ -1408,6 +1463,17 @@ test("panel and dashboard metrics retain the pinned donor card geometry", async 
   ] as const) {
     assert.throws(() => assertDonorCardGeometry(`${css}\n${override}`), expectedFailure);
   }
+});
+
+test("dashboard primary action keeps effective AA contrast and a 48px target", async () => {
+  const css = `${await source("app/globals.css")}\n${await source("components/panel/panel-shell.module.css")}`;
+  for (const [override, expectedFailure] of [
+    [`.shell .primaryAction { color: white; }`, /effective contrast is 2\.87:1/],
+    [`.shell .primaryAction { min-height: 44px; }`, /effective min-height is 44px/],
+  ] as const) {
+    assert.throws(() => assertDashboardPrimaryAction(`${css}\n${override}`), expectedFailure);
+  }
+  assertDashboardPrimaryAction(css);
 });
 
 test("drawer and dock controls keep an effective 48px minimum target", async () => {
