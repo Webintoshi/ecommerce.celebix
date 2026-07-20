@@ -7,12 +7,14 @@ import { CATALOG_ERROR_CODES, CatalogRepositoryError, type CatalogErrorCode } fr
 import type {
   ArchiveProductInput,
   ArchiveVariantInput,
+  CatalogDashboardSummary,
   CatalogRepository,
   CreateProductInput,
   CreateProductResult,
   CreateVariantInput,
   GetProductDetailsInput,
   GetProductInput,
+  GetCatalogDashboardSummaryInput,
   ListProductsInput,
   ListProductsResult,
   PostgresCatalogRepositoryOptions,
@@ -62,6 +64,40 @@ function payload(value: unknown, keys: readonly string[]): Record<string, unknow
   const parsed = value as Record<string, unknown>;
   if (Object.keys(parsed).sort().join(",") !== [...keys].sort().join(",")) throw unavailable();
   return parsed;
+}
+
+function count(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) throw unavailable();
+  return value as number;
+}
+
+function dashboardSummary(value: unknown): CatalogDashboardSummary {
+  const parsed = payload(value, [
+    "totalProducts",
+    "activeProducts",
+    "draftProducts",
+    "productLimit",
+    "activeVariants",
+    "outOfStockVariants",
+    "productsWithoutMedia",
+    "activeMedia",
+  ]);
+  const result = Object.freeze({
+    totalProducts: count(parsed.totalProducts),
+    activeProducts: count(parsed.activeProducts),
+    draftProducts: count(parsed.draftProducts),
+    productLimit: count(parsed.productLimit),
+    activeVariants: count(parsed.activeVariants),
+    outOfStockVariants: count(parsed.outOfStockVariants),
+    productsWithoutMedia: count(parsed.productsWithoutMedia),
+    activeMedia: count(parsed.activeMedia),
+  });
+  if (
+    result.activeProducts + result.draftProducts !== result.totalProducts ||
+    result.outOfStockVariants > result.activeVariants ||
+    result.productsWithoutMedia > result.totalProducts
+  ) throw unavailable();
+  return result;
 }
 
 function productResult(value: unknown, replayed: boolean): ProductMutationResult {
@@ -275,6 +311,22 @@ export class PostgresCatalogRepository implements CatalogRepository {
         initialVariant.stockTracking, initialVariant.stockQuantity, JSON.stringify(initialVariant.attributes),
       ],
     }, ["created"], createProductResult);
+  }
+
+  async getDashboardSummary(input: GetCatalogDashboardSummaryInput): Promise<CatalogDashboardSummary> {
+    const exact = exactInput(input, ["tenantContext", "now"]);
+    const authority = catalogAuthority(
+      exact.tenantContext as GetCatalogDashboardSummaryInput["tenantContext"],
+      exact.now as Date,
+    );
+    const result = await this.read(authority, {
+      text: `SELECT outcome, result_payload FROM saas.catalog_get_dashboard_summary(
+        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz
+      )`,
+      values: authorityValues(authority),
+    });
+    if (result.outcome !== "summarized") throw unavailable();
+    return dashboardSummary(result.resultPayload);
   }
 
   async getProduct(input: GetProductInput): Promise<Product> {

@@ -73,6 +73,20 @@ function variant() {
   };
 }
 
+function dashboardSummary(overrides: Record<string, unknown> = {}) {
+  return {
+    totalProducts: 4,
+    activeProducts: 3,
+    draftProducts: 1,
+    productLimit: 10,
+    activeVariants: 6,
+    outOfStockVariants: 2,
+    productsWithoutMedia: 1,
+    activeMedia: 7,
+    ...overrides,
+  };
+}
+
 function createInput(extraProduct: Record<string, unknown> = {}) {
   return {
     tenantContext: tenantContext(),
@@ -288,4 +302,64 @@ test("finite SQL outcomes and unexpected driver failures expose only stable safe
     repository(new FakePool(broken)).getProduct({ tenantContext: tenantContext(), now: NOW, productId: PRODUCT_ID }),
     (error: unknown) => error instanceof CatalogRepositoryError && error.message === "unavailable",
   );
+});
+
+test("getDashboardSummary derives authority from TenantContext and returns a frozen exact projection", async () => {
+  const expected = dashboardSummary();
+  const client = new FakeClient((text) => text.includes("saas.catalog_get_dashboard_summary")
+    ? [{ outcome: "summarized", result_payload: expected }]
+    : []);
+  const result = await repository(new FakePool(client)).getDashboardSummary({
+    tenantContext: tenantContext(),
+    now: NOW,
+  });
+  assert.deepEqual(result, expected);
+  assert.equal(Object.isFrozen(result), true);
+  const query = client.calls.find((call) => call.text.includes("saas.catalog_get_dashboard_summary"));
+  assert.ok(query);
+  assert.deepEqual(query.values, [
+    STORE_ID,
+    PRINCIPAL_ID,
+    MEMBERSHIP_ID,
+    PLAN_ID,
+    "free_starter",
+    1,
+    10,
+    NOW,
+  ]);
+  assert.equal(query.values.includes("catalog-request-1"), false);
+  assert.equal(query.values.includes("subject-1"), false);
+});
+
+test("getDashboardSummary rejects browser-supplied authority before pool checkout", async () => {
+  const pool = new FakePool();
+  await assert.rejects(
+    repository(pool).getDashboardSummary({
+      tenantContext: tenantContext(),
+      now: NOW,
+      storeId: STORE_ID,
+    } as never),
+    (error: unknown) => error instanceof CatalogRepositoryError && error.code === "invalid_input",
+  );
+  assert.equal(pool.connects, 0);
+});
+
+test("getDashboardSummary rejects malformed and internally inconsistent projections", async () => {
+  const malformed = [
+    dashboardSummary({ totalProducts: -1 }),
+    dashboardSummary({ totalProducts: 1.5 }),
+    dashboardSummary({ extra: 1 }),
+    dashboardSummary({ activeProducts: 2 }),
+    dashboardSummary({ outOfStockVariants: 7 }),
+    dashboardSummary({ productsWithoutMedia: 5 }),
+  ];
+  for (const resultPayload of malformed) {
+    const client = new FakeClient((text) => text.includes("saas.catalog_get_dashboard_summary")
+      ? [{ outcome: "summarized", result_payload: resultPayload }]
+      : []);
+    await assert.rejects(
+      repository(new FakePool(client)).getDashboardSummary({ tenantContext: tenantContext(), now: NOW }),
+      (error: unknown) => error instanceof CatalogRepositoryError && error.code === "unavailable",
+    );
+  }
 });

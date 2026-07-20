@@ -47,6 +47,8 @@ export interface GetProductDetailsInput extends CatalogAuthorityInput {
   readonly includeArchivedVariants?: boolean;
 }
 
+export interface GetCatalogDashboardSummaryInput extends CatalogAuthorityInput {}
+
 export interface ListProductsInput extends CatalogAuthorityInput {
   readonly pageSize: number;
   readonly cursor?: string;
@@ -111,8 +113,20 @@ export interface ProductDetailsResult {
   readonly variants: readonly ProductVariant[];
 }
 
+export interface CatalogDashboardSummary {
+  readonly totalProducts: number;
+  readonly activeProducts: number;
+  readonly draftProducts: number;
+  readonly productLimit: number;
+  readonly activeVariants: number;
+  readonly outOfStockVariants: number;
+  readonly productsWithoutMedia: number;
+  readonly activeMedia: number;
+}
+
 export interface CatalogRepository {
   createProduct(input: CreateProductInput): Promise<CreateProductResult>;
+  getDashboardSummary(input: GetCatalogDashboardSummaryInput): Promise<CatalogDashboardSummary>;
   getProduct(input: GetProductInput): Promise<Product>;
   getProductDetails(input: GetProductDetailsInput): Promise<ProductDetailsResult>;
   listProducts(input: ListProductsInput): Promise<ListProductsResult>;
