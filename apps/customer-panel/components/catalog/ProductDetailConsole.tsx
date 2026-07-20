@@ -64,6 +64,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
+  const newVariantButtonRef = useRef<HTMLButtonElement>(null);
   const wasArchiveDialogOpen = useRef(false);
 
   const load = useCallback(async (conflict = false) => {
@@ -91,7 +92,8 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
     }
     if (!wasArchiveDialogOpen.current) return;
     wasArchiveDialogOpen.current = false;
-    archiveTriggerRef.current?.isConnected && archiveTriggerRef.current.focus();
+    if (archiveTriggerRef.current?.isConnected) archiveTriggerRef.current.focus();
+    else newVariantButtonRef.current?.focus();
   }, [archiveDialogOpen]);
 
   function closeArchiveDialog() {
@@ -258,7 +260,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
       <section className="variant-list" aria-labelledby="variants-title">
       <div className="section-heading-row">
         <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 id="variants-title">Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
-        <button className="button button-primary" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}>＋ Yeni varyant</button>
+        <button ref={newVariantButtonRef} className="button button-primary" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}>＋ Yeni varyant</button>
       </div>
 
       {creatingVariant ? (

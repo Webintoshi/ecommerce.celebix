@@ -121,7 +121,74 @@ test("detail and media surfaces retain versioned target commands", async () => {
   assert.match(detail, /onKeyDown=\{handleArchiveDialogKeyDown\}/);
   assert.match(media, /aria-modal="true"/);
   assert.match(media, /onKeyDown=\{handleArchiveDialogKeyDown\}/);
+  assert.match(detail, /ref=\{newVariantButtonRef\}/);
+  assert.match(detail, /else newVariantButtonRef\.current\?\.focus\(\)/);
+  assert.match(media, /ref=\{mediaUploadCardRef\}/);
+  assert.match(media, /else mediaUploadCardRef\.current\?\.focus\(\)/);
+  assert.match(media, /failure instanceof ProductMediaApiError && failure\.code === "version_conflict"\) \{\s*await load\(\);\s*setArchiveTarget\(undefined\);\s*\}/);
   assert.doesNotMatch(`${detail}\n${media}`, /storeId|tenantId|document\.cookie|\/api\/admin|supabase/i);
+});
+
+class FocusTarget {
+  isConnected = true;
+  focusCount = 0;
+
+  focus() { this.focusCount += 1; }
+}
+
+function createArchiveDialogInteractionHarness(fallback: FocusTarget) {
+  const cancel = new FocusTarget();
+  const confirm = new FocusTarget();
+  let trigger: FocusTarget | undefined;
+  let open = false;
+  let active: FocusTarget | undefined;
+
+  function focus(target: FocusTarget) { target.focus(); active = target; }
+
+  return {
+    cancel,
+    confirm,
+    get open() { return open; },
+    openFrom(nextTrigger: FocusTarget) { trigger = nextTrigger; open = true; focus(cancel); },
+    close() {
+      open = false;
+      if (trigger?.isConnected) focus(trigger);
+      else focus(fallback);
+    },
+    keyDown(key: "Escape" | "Tab", shiftKey = false) {
+      if (key === "Escape") { this.close(); return; }
+      if (shiftKey ? active === cancel : active === confirm) focus(shiftKey ? confirm : cancel);
+    },
+  };
+}
+
+test("archive dialog interactions contain focus and restore a stable fallback after removal", () => {
+  const fallback = new FocusTarget();
+  const trigger = new FocusTarget();
+  const dialog = createArchiveDialogInteractionHarness(fallback);
+
+  dialog.openFrom(trigger);
+  assert.equal(dialog.cancel.focusCount, 1, "opening focuses cancel");
+  dialog.keyDown("Tab", true);
+  assert.equal(dialog.confirm.focusCount, 1, "Shift+Tab wraps from cancel to confirm");
+  dialog.keyDown("Tab");
+  assert.equal(dialog.cancel.focusCount, 2, "Tab wraps from confirm to cancel");
+  trigger.isConnected = false;
+  dialog.keyDown("Escape");
+  assert.equal(dialog.open, false, "Escape closes the dialog");
+  assert.equal(fallback.focusCount, 1, "a removed archive trigger restores focus to the stable control");
+});
+
+test("media archive conflict closes its modal and restores stable upload focus", () => {
+  const mediaUploadCard = new FocusTarget();
+  const removedArchiveTrigger = new FocusTarget();
+  removedArchiveTrigger.isConnected = false;
+  const dialog = createArchiveDialogInteractionHarness(mediaUploadCard);
+
+  dialog.openFrom(removedArchiveTrigger);
+  dialog.close();
+  assert.equal(dialog.open, false, "conflict recovery closes the stale archive modal after reload");
+  assert.equal(mediaUploadCard.focusCount, 1, "conflict recovery returns focus to the media upload card");
 });
 
 test("creation wizard remains bound to the durable target workflow", async () => {

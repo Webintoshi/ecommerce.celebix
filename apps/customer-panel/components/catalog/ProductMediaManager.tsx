@@ -22,6 +22,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
+  const mediaUploadCardRef = useRef<HTMLFormElement>(null);
   const wasArchiveDialogOpen = useRef(false);
 
   const load = useCallback(async () => {
@@ -42,7 +43,8 @@ export function ProductMediaManager({ productId }: { productId: string }) {
     }
     if (!wasArchiveDialogOpen.current) return;
     wasArchiveDialogOpen.current = false;
-    archiveTriggerRef.current?.isConnected && archiveTriggerRef.current.focus();
+    if (archiveTriggerRef.current?.isConnected) archiveTriggerRef.current.focus();
+    else mediaUploadCardRef.current?.focus();
   }, [archiveTarget]);
 
   function closeArchiveDialog() {
@@ -136,7 +138,13 @@ export function ProductMediaManager({ productId }: { productId: string }) {
       await productMediaApi.archive(productId, archiveTarget.id, archiveTarget.version);
       setMedia((current) => Object.freeze(current.filter((item) => item.id !== archiveTarget.id)));
       setArchiveTarget(undefined); setNotice("Görsel arşivlendi ve mağazadan kaldırıldı.");
-    } catch (failure) { setError(safeMessage(failure)); if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") await load(); }
+    } catch (failure) {
+      setError(safeMessage(failure));
+      if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") {
+        await load();
+        setArchiveTarget(undefined);
+      }
+    }
     finally { setBusy(""); }
   }
 
@@ -148,7 +156,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Görsel işlemi tamamlanamadı</strong><p>{error}</p></div></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
 
-      <form className="media-upload-card" onSubmit={upload}>
+      <form ref={mediaUploadCardRef} className="media-upload-card" onSubmit={upload} tabIndex={-1}>
         <label className="media-picker">
           <span>{selectedFile ? "Başka görsel seç" : "Görsel seç"}</span>
           <input type="file" accept="image/jpeg,image/png,image/webp" onChange={selectFile} disabled={busy !== ""} />
