@@ -480,15 +480,15 @@ test("server layout projects TenantContext before entering the client shell", as
   assert.doesNotMatch(shell, /tenantContext/);
 });
 
-test("desktop shell carries exact donor tokens, widths, topbar, and supported navigation", async () => {
+test("desktop shell carries exact donor tokens, fixed width, topbar, and supported navigation", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   const layout = await source("components/panel/PanelLayoutClient.tsx");
   assert.match(css, /#2A2A2A/i);
   assert.match(css, /#F9F9F9/i);
   assert.match(css, /#FF6A00/i);
-  assert.match(css, /15rem/);
-  assert.match(css, /15\.5rem/);
-  assert.match(css, /16rem/);
+  assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15rem;/);
+  assert.match(css, /\.workspace\s*\{[\s\S]*?margin-left:\s*15rem;/);
+  assert.doesNotMatch(css, /width:\s*(?:15\.5|16)rem/);
   assert.match(css, /min-width:\s*1025px/);
   assert.match(layout, /panel-topbar-actions/);
 });
@@ -723,6 +723,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
   const LogoutButton: HookTestComponent = () => harness.jsxRuntime.jsx("button", {
     children: "Çıkış",
   });
+  const drawerExit = { complete: null as (() => void) | null };
 
   try {
     const PanelSidebar = await compileHookTestComponent(
@@ -730,7 +731,37 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
       (specifier) => {
         if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
         if (specifier === "react") return harness.react;
+        if (specifier === "framer-motion") {
+          const AnimatePresence: HookTestComponent = (props) => {
+            const retainedChildren = harness.react.useRef<HookTestNode>(null);
+            const exitPending = harness.react.useRef(false);
+            const [, requestRender] = harness.react.useState(0);
+            if (props.children) {
+              retainedChildren.current = props.children;
+              drawerExit.complete = null;
+            } else if (retainedChildren.current) {
+              drawerExit.complete = () => {
+                retainedChildren.current = null;
+                exitPending.current = true;
+                requestRender((current) => current + 1);
+              };
+            }
+            const retainingExit = Boolean(retainedChildren.current);
+            harness.react.useEffect(() => {
+              if (!exitPending.current) return;
+              exitPending.current = false;
+              (props.onExitComplete as (() => void) | undefined)?.();
+            }, [props.onExitComplete, retainingExit]);
+            return props.children ?? retainedChildren.current;
+          };
+          return {
+            AnimatePresence,
+            motion: { aside: "aside", button: "button" },
+            useReducedMotion: () => false,
+          };
+        }
         if (specifier === "lucide-react") return { X: Icon };
+        if (specifier === "next/image") return Link;
         if (specifier === "next/link") return Link;
         if (specifier === "./LogoutButton") return { LogoutButton };
         if (specifier === "./PanelNavigation") return { PanelNavigation };
@@ -801,14 +832,35 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
     (closeButton.props.onClick as () => void)();
     harness.flush();
 
+    assert.equal(documentState.body.style.overflow, "hidden");
+    assert.equal(windowListeners.get("keydown")?.size, 1);
+    assert.equal(
+      harness.hosts().some((host) => host.props.id === "panel-mobile-drawer"),
+      true,
+    );
     const restoredMobileMenuButton = harness.hosts().find((host) => (
       host.type === "button" && host.props["aria-controls"] === "panel-mobile-drawer"
     ));
     assert.ok(restoredMobileMenuButton);
-    assert.equal(documentState.activeElement, restoredMobileMenuButton);
-    assert.equal(restoredMobileMenuButton.focusCount, 1);
+    assert.equal(restoredMobileMenuButton.focusCount, 0);
+    assert.ok(drawerExit.complete);
+    drawerExit.complete();
+    harness.flush();
 
-    (restoredMobileMenuButton.props.onClick as () => void)();
+    const focusedMobileMenuButton = harness.hosts().find((host) => (
+      host.type === "button" && host.props["aria-controls"] === "panel-mobile-drawer"
+    ));
+    assert.ok(focusedMobileMenuButton);
+    assert.equal(documentState.body.style.overflow, "clip");
+    assert.equal(windowListeners.get("keydown")?.size ?? 0, 0);
+    assert.equal(
+      harness.hosts().some((host) => host.props.id === "panel-mobile-drawer"),
+      false,
+    );
+    assert.equal(documentState.activeElement, focusedMobileMenuButton);
+    assert.equal(focusedMobileMenuButton.focusCount, 1);
+
+    (focusedMobileMenuButton.props.onClick as () => void)();
     harness.flush();
     assert.equal(documentState.body.style.overflow, "hidden");
 
@@ -823,11 +875,21 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
     assert.equal(desktopMenuButton.props["aria-expanded"], false);
     assert.equal(
       harness.hosts().some((host) => host.props.id === "panel-mobile-drawer"),
+      true,
+    );
+    assert.equal(documentState.body.style.overflow, "hidden");
+    assert.equal(windowListeners.get("keydown")?.size, 1);
+    assert.equal(desktopMenuButton.focusAttemptCount, 0);
+    assert.ok(drawerExit.complete);
+    drawerExit.complete();
+    harness.flush();
+
+    assert.equal(
+      harness.hosts().some((host) => host.props.id === "panel-mobile-drawer"),
       false,
     );
     assert.equal(documentState.body.style.overflow, "clip");
     assert.equal(windowListeners.get("keydown")?.size ?? 0, 0);
-    assert.equal(desktopMenuButton.focusAttemptCount, 0);
     const desktopFocusTarget = harness.hosts().find((host) => (
       host.type === "main" && host.props.tabIndex === -1
     ));
@@ -1377,17 +1439,12 @@ function assertSmallShellContrast(css: string): void {
   }
 
   const declarations = parseApplicableCss(css, 390);
-  const brand: CssTestElement = {
-    tagName: "span",
-    parent: { tagName: "a", classNames: ["brand"], parent: elements.drawer },
-  };
   const activeRail: CssTestElement = {
     tagName: "span",
     classNames: ["activeRail"],
     parent: elements.drawerChildLink,
   };
   const tokens: readonly [string, CssTestElement, readonly string[], string][] = [
-    ["orange brand", brand, ["background", "background-color"], "#FF6A00"],
     ["orange active rail", activeRail, ["background", "background-color"], "#FF6A00"],
     [
       "drawer focus ring",
@@ -1529,6 +1586,10 @@ test("drawer and dock controls keep an effective 48px minimum target", async () 
 
 test("effective small shell text colors meet AA without weakening orange brand or focus tokens", async () => {
   const css = await source("components/panel/panel-shell.module.css");
+  const sidebar = await source("components/panel/PanelSidebar.tsx");
+  const logo = await source("public/Logo/celebix-beyaz-logo.svg");
+  assert.match(sidebar, /<Image src="\/Logo\/celebix-beyaz-logo\.svg"/);
+  assert.match(logo, /fill="#FE6100"/i);
   for (const [override, expectedFailure] of [
     [
       `.merchantIdentity small { color: rgb(255 255 255 / 48%); }`,

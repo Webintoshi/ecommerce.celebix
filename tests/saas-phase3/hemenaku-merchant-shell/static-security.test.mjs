@@ -60,10 +60,43 @@ test("preserves exact same-origin logout semantics", async () => {
   assert.doesNotMatch(logout, /document\.cookie|localStorage|sessionStorage/);
 });
 
-test("adds only the direct lucide dependency and nested panel ui test glob", async () => {
+test("declares exactly the approved shell presentation dependencies and nested panel ui test glob", async () => {
   const pkg = JSON.parse(await read("apps/customer-panel/package.json"));
-  assert.match(pkg.dependencies["lucide-react"], /^\^0\.563\./);
+  assert.deepEqual({
+    "framer-motion": pkg.dependencies["framer-motion"],
+    "lucide-react": pkg.dependencies["lucide-react"],
+    recharts: pkg.dependencies.recharts,
+  }, {
+    "framer-motion": "^12.29.0",
+    "lucide-react": "^0.563.0",
+    recharts: "^3.7.0",
+  });
+  assert.equal(pkg.dependencies.sonner, undefined);
+  assert.equal(pkg.dependencies["@supabase/ssr"], undefined);
+  assert.equal(pkg.dependencies["@supabase/supabase-js"], undefined);
   assert.equal(pkg.scripts.test, "node --experimental-transform-types --test lib/*.test.ts lib/panel-ui/*.test.ts");
+});
+
+test("shell breakpoint and accessibility controls are exact", async () => {
+  const layout = await read("apps/customer-panel/components/panel/PanelLayoutClient.tsx");
+  const sidebar = await read("apps/customer-panel/components/panel/PanelSidebar.tsx");
+  const dock = await read("apps/customer-panel/components/panel/PanelMobileDock.tsx");
+  const css = await read("apps/customer-panel/components/panel/panel-shell.module.css");
+  assert.match(layout, /matchMedia\(["']\(min-width: 1025px\)["']\)/);
+  assert.match(sidebar, /event\.key === "Escape"/);
+  assert.match(sidebar, /aria-modal="true"/);
+  assert.match(sidebar, /touchCurrent\.current - touchStart\.current >= 64/);
+  assert.match(sidebar, /import Image from "next\/image"/);
+  assert.match(sidebar, /src="\/Logo\/celebix-beyaz-logo\.svg"/);
+  assert.match(sidebar, /<AnimatePresence onExitComplete=\{handleDrawerExitComplete\}>/);
+  assert.match(sidebar, /<motion\.button[\s\S]*?initial=\{\{ opacity: 0 \}\}[\s\S]*?exit=\{\{ opacity: 0 \}\}/);
+  assert.match(sidebar, /useReducedMotion\(\)/);
+  assert.match(sidebar, /reduceMotion \? 0\.00001 : 0\.2/);
+  assert.match(sidebar, /<motion\.aside[\s\S]*?initial=\{\{ x: "100%" \}\}[\s\S]*?exit=\{\{ x: "100%" \}\}/);
+  assert.match(dock, /aria-controls="panel-mobile-drawer"/);
+  assert.match(css, /@media\s*\(min-width:\s*1025px\)/);
+  assert.match(css, /min-height:\s*48px/);
+  assert.match(css, /--panel-keyboard-inset/);
 });
 
 test("does not change deploy production or infrastructure files", () => {

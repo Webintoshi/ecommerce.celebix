@@ -37,9 +37,11 @@ export function usePanelChromeModel(): PanelChromeModel {
 export function PanelLayoutClient({ model, children }: { model: PanelChromeModel; children: ReactNode }) {
   const [chrome, setChrome] = useState<PublishedPanelTopbarChrome | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerPresent, setDrawerPresent] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const desktopFocusRef = useRef<HTMLElement>(null);
   const releasingDrawerForDesktop = useRef(false);
+  const pendingFocusTarget = useRef<"desktop" | "menu" | null>(null);
   const pathname = usePathname() ?? "";
   const routePresentation = getPanelRoutePresentation(pathname);
   const activeChrome = chrome?.pathname === pathname ? chrome : null;
@@ -57,15 +59,23 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => {
     releasingDrawerForDesktop.current = false;
+    setDrawerPresent(true);
     setDrawerOpen((current) => !current);
   }, []);
   const restoreDrawerFocus = useCallback(() => {
-    const focusTarget = releasingDrawerForDesktop.current
+    pendingFocusTarget.current = releasingDrawerForDesktop.current ? "desktop" : "menu";
+    releasingDrawerForDesktop.current = false;
+    setDrawerPresent(false);
+  }, []);
+
+  useEffect(() => {
+    if (drawerPresent || !pendingFocusTarget.current) return;
+    const focusTarget = pendingFocusTarget.current === "desktop"
       ? desktopFocusRef.current
       : menuButtonRef.current;
-    releasingDrawerForDesktop.current = false;
+    pendingFocusTarget.current = null;
     focusTarget?.focus();
-  }, []);
+  }, [drawerPresent]);
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 1025px)");
@@ -86,13 +96,13 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
   }, [drawerOpen]);
 
   useEffect(() => {
-    if (!drawerOpen) return;
+    if (!drawerPresent) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previous;
     };
-  }, [drawerOpen]);
+  }, [drawerPresent]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
