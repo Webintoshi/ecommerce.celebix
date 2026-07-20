@@ -29,6 +29,8 @@ function invalid(): never {
 }
 
 export function createPanelChromeModel(context: TenantContext): PanelChromeModel {
+  if (!context || Object.getPrototypeOf(context) !== Object.prototype) invalid();
+
   if (
     context?.schemaVersion !== 1 ||
     context.store?.status !== "active" ||

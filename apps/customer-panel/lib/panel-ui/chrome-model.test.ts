@@ -70,6 +70,21 @@ test("returns an immutable projection", () => {
   assert.equal(Object.isFrozen(createPanelChromeModel(CONTEXT)), true);
 });
 
+test("chrome projection contains no enumerable authority graph", () => {
+  const model = createPanelChromeModel(CONTEXT);
+  assert.deepEqual(Object.keys(model).sort(), [
+    "entitlementStatus", "locale", "membershipLabel", "planCode",
+    "planVersion", "storeSlug", "storefrontHostname",
+  ]);
+});
+
+test("chrome rejects prototype and malformed hostname authority", () => {
+  const inherited = Object.create(CONTEXT);
+  assert.throws(() => createPanelChromeModel(inherited), /panel_chrome_context_invalid/);
+  const ported = { ...CONTEXT, resolvedHost: { ...CONTEXT.resolvedHost!, canonicalHostname: "atlas-store.celebix.site:443" } };
+  assert.throws(() => createPanelChromeModel(ported as TenantContext), /panel_chrome_context_invalid/);
+});
+
 test("does not expose authority IDs, issuer, subject, request, or credentials", () => {
   const json = JSON.stringify(createPanelChromeModel(CONTEXT));
   for (const value of [

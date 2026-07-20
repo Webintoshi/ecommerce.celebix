@@ -28,6 +28,17 @@ test("rejects near-match and alternate path spellings", () => {
   }
 });
 
+test("navigation never activates a query fragment or encoded near match", () => {
+  for (const pathname of ["/products?next=/products", "/products#x", "/products%2Fevil", "/products//evil"]) {
+    assert.equal(isPanelNavigationPathActive(pathname, "/products"), false);
+  }
+});
+
+test("navigation exposes no disabled donor destination", () => {
+  const hrefs = JSON.stringify(PANEL_NAVIGATION);
+  assert.doesNotMatch(hrefs, /admin|orders|customers|analytics|marketing|discount|settings/i);
+});
+
 test("matches root only at root", () => {
   assert.equal(isPanelNavigationPathActive("/", "/"), true);
   assert.equal(isPanelNavigationPathActive("/setup", "/"), false);

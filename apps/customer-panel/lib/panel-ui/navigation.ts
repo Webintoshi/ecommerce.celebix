@@ -44,6 +44,10 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
 ]);
 
 export function isPanelNavigationPathActive(pathname: string, href: PanelNavigationHref): boolean {
+  if (!pathname.startsWith("/") || pathname.includes("?") || pathname.includes("#") || pathname.includes("%") || pathname.includes("//")) {
+    return false;
+  }
+
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
 }
