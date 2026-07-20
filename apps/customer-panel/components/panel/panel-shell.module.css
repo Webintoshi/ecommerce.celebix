@@ -696,6 +696,19 @@
   color: var(--muted);
 }
 
+.skeletonBlock {
+  display: block;
+  min-height: 1rem;
+  border-radius: .75rem;
+  background: linear-gradient(90deg, #eceff3 25%, #f7f8fa 50%, #eceff3 75%);
+  background-size: 200% 100%;
+  animation: panelSkeleton 1.4s ease-in-out infinite;
+}
+
+@keyframes panelSkeleton {
+  to { background-position: -200% 0; }
+}
+
 @media (min-width: 640px) {
   .panel {
     padding: 1.25rem;
@@ -725,8 +738,10 @@
 @media (prefers-reduced-motion: reduce) {
   .drawerSurface,
   .mobileDock,
-  .mobileDock * {
+  .mobileDock *,
+  .skeletonBlock {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

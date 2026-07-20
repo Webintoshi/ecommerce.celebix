@@ -62,3 +62,7 @@ export function PanelActionButton(props: { href: string; children: ReactNode; pr
 export function PanelEmptyState(props: { title: string; description: string; action?: ReactNode }) {
   return <div className={styles.empty}><h2>{props.title}</h2><p>{props.description}</p>{props.action}</div>;
 }
+
+export function PanelSkeletonBlock({ className }: { className?: string }) {
+  return <span className={`${styles.skeletonBlock} ${className ?? ""}`} aria-hidden="true" />;
+}

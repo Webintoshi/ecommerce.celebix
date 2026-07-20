@@ -27,3 +27,20 @@ test("keeps production deploy infrastructure and donor outside the diff", () => 
   const changed = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter(Boolean);
   assert.equal(changed.some((path) => /^(apps\/admin|apps\/owner|deploy|infra|infrastructure)\//.test(path)), false);
 });
+
+test("ports the exact donor brand asset and core visual tokens", async () => {
+  const donorLogo = git("show", `${DONOR}:apps/admin/public/Logo/celebix-beyaz-logo.svg`);
+  const targetLogo = (await read("apps/customer-panel/public/Logo/celebix-beyaz-logo.svg")).trim();
+  assert.equal(targetLogo, donorLogo);
+  const css = await read("apps/customer-panel/app/globals.css");
+  assert.match(css, /--hemenaku-orange:\s*#FF6A00/i);
+  assert.match(css, /--hemenaku-sidebar:\s*#2A2A2A/i);
+  assert.match(css, /--panel-touch-target:\s*48px/i);
+});
+
+test("exports the complete donor-compatible page primitive set", async () => {
+  const source = await read("apps/customer-panel/components/panel/PanelPageShell.tsx");
+  for (const name of ["PanelPageShell", "PanelPageHeader", "PanelPanel", "PanelToolbar", "PanelBadge", "PanelStatusBadge", "PanelMetricCard", "PanelDataTable", "PanelLoadingState", "PanelActionButton", "PanelEmptyState", "PanelSkeletonBlock"]) {
+    assert.match(source, new RegExp(`export function ${name}\\b`));
+  }
+});
