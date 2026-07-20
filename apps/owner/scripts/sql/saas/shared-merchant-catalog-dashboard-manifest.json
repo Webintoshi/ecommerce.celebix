@@ -1,0 +1,30 @@
+{
+  "bundleId": "shared-merchant-202607200021-catalog-dashboard-summary",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "The down migration removes only the catalog dashboard summary read function and is for disposable rehearsal only.",
+  "artifacts": [
+    {
+      "id": "202607200021_catalog_dashboard_summary_up",
+      "direction": "up",
+      "file": "202607200021_catalog_dashboard_summary.up.sql",
+      "sha256": "4c96c2e44fd95d56cd8836ee64b813bb410770ad15e002c7d2b590a5dcd302d5",
+      "purpose": "Add tenant-scoped catalog dashboard summary authority."
+    },
+    {
+      "id": "202607200021_catalog_dashboard_summary_down",
+      "direction": "down",
+      "file": "202607200021_catalog_dashboard_summary.down.sql",
+      "sha256": "9d06435d240aada8e34b86b5f002ea36dea89bf66ecdd0e1dd9bd8dc065b1c45",
+      "purpose": "Remove only the summary function during disposable rollback rehearsal."
+    },
+    {
+      "id": "202607200021_catalog_dashboard_summary_assertions",
+      "direction": "verify",
+      "file": "202607200021_catalog_dashboard_summary_assertions.sql",
+      "sha256": "cc19a90f6e995ecadd5b9f49be161fc70518a3aa268456fccf12c7b436cf293d",
+      "purpose": "Fail on ownership, ACL, authority, tenant scope or visibility drift."
+    }
+  ]
+}
