@@ -882,6 +882,7 @@ test("dashboard loads real catalog summary without tenant authority in the brows
   assert.doesNotMatch(view, /console[.](?:log|warn|error)/);
   assert.doesNotMatch(view, /storeId|tenantId|principalId|membershipId|x-store|x-tenant/i);
   assert.match(styles, /[.]refreshButton,[\s\S]*?[.]errorState button\s*\{[\s\S]*?min-width:\s*48px;[\s\S]*?min-height:\s*48px;/);
+  assert.match(styles, /[.]actionRail a\s*\{[^}]*min-width:\s*48px;[^}]*min-height:\s*48px;/);
   assert.match(styles, /@media \(max-width: 1280px\)[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?grid-template-columns:\s*1fr/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\s*[.]01ms !important/);

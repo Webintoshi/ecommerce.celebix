@@ -71,6 +71,7 @@
 }
 .readinessLine { margin-top: 1rem; }
 .actionRail { display: flex; flex-wrap: wrap; gap: .75rem; }
+.actionRail a { min-width: 48px; min-height: 48px; }
 @keyframes catalogSkeleton { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 1280px) { .cardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1280px) { .skeletonCard { padding: 1.25rem; } }

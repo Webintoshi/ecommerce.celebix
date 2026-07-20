@@ -22,6 +22,7 @@ const SECOND_VARIANT_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
 const REQUEST_ID = "88888888-8888-4888-8888-888888888888";
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64url")}`;
+const INVALID_COOKIE = "__Host-celebix_panel" + "=v1.bad";
 const NOW = new Date("2026-07-17T08:00:00.000Z");
 
 function tenantContext(): TenantContext {
@@ -385,7 +386,7 @@ test("summary access failures deny before repository calls", async () => {
     assert.deepEqual(await response?.json(), { code });
   }
   const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(catalog));
-  for (const cookie of [null, "__Host-celebix_panel=v1.bad"]) {
+  for (const cookie of [null, INVALID_COOKIE]) {
     const response = await handlers?.getDashboardSummary(request(SUMMARY_PATH, { cookie }));
     assert.equal(response?.status, 401);
     assert.deepEqual(await response?.json(), { code: "unauthenticated" });
