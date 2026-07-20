@@ -360,6 +360,10 @@ test("unknown error codes are not part of the frozen success or authorization su
 
 test("keeps the public runtime export surface frozen", () => {
   assert.deepEqual(Object.keys(contracts).sort(), [
+    "MERCHANT_ACTIONS",
+    "ORDER_PAYMENT_STATUSES",
+    "ORDER_SOURCES",
+    "ORDER_STATUSES",
     "PLAN_ENTITLEMENT_STATUSES",
     "PLAN_FEATURE_KEYS",
     "PLAN_LIMIT_KEYS",
@@ -374,9 +378,13 @@ test("keeps the public runtime export surface frozen", () => {
     "STORE_STATUSES",
     "VARIANT_STATUSES",
     "getPlanLimit",
+    "isMerchantActionAllowed",
     "isPlanFeatureEnabled",
     "isPlanFeatureKey",
     "isPlanLimitKey",
+    "parseOrderDashboardSummary",
+    "parseOrderDetail",
+    "parseOrderListItem",
     "parseProduct",
     "parseProductVariant",
   ]);
@@ -390,6 +398,10 @@ test("contract sources import no runtime application code", async () => {
     "catalog/index.ts",
     "catalog/types.ts",
     "catalog/validation.ts",
+    "authorization/actions.ts",
+    "orders/index.ts",
+    "orders/types.ts",
+    "orders/validation.ts",
   ];
   const sources = await Promise.all(sourceFiles.map((file) => readFile(new URL(file, import.meta.url), "utf8")));
 

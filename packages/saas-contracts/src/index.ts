@@ -59,3 +59,26 @@ export type {
   ProductVariantId,
   VariantStatus,
 } from "./catalog/index.ts";
+export { MERCHANT_ACTIONS, isMerchantActionAllowed } from "./authorization/actions.ts";
+export type { MerchantAction } from "./authorization/actions.ts";
+export {
+  ORDER_PAYMENT_STATUSES,
+  ORDER_SOURCES,
+  ORDER_STATUSES,
+  parseOrderDashboardSummary,
+  parseOrderDetail,
+  parseOrderListItem,
+} from "./orders/index.ts";
+export type {
+  OrderAddress,
+  OrderDashboardSummary,
+  OrderDetail,
+  OrderEvent,
+  OrderItem,
+  OrderListItem,
+  OrderNote,
+  OrderPaymentStatus,
+  OrderSource,
+  OrderStatus,
+  OrderTracking,
+} from "./orders/index.ts";
