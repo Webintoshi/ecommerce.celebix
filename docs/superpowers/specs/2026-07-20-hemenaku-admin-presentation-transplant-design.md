@@ -2,7 +2,7 @@
 
 **Tarih:** 2026-07-20
 
-**Durum:** Yaklaşım onaylandı; yazılı spec incelemesi bekleniyor
+**Durum:** Kullanıcı tarafından yazılı olarak onaylandı
 
 **Uygulama tabanı:** `6563a1428434e1974f50af3ffb843eb4067f686a`
 
