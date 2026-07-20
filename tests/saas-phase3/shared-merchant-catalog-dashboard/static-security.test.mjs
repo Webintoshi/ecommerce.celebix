@@ -15,6 +15,7 @@ const allowedFiles = new Set([
   "apps/customer-panel/lib/server-catalog/runtime.ts",
   "apps/customer-panel/lib/server-catalog/runtime.test.ts",
   "apps/customer-panel/lib/catalog-http/request-authority.ts",
+  "apps/customer-panel/lib/catalog-http/request-authority.test.ts",
   "apps/customer-panel/lib/catalog-http/handler.ts",
   "apps/customer-panel/lib/catalog-http/handler.test.ts",
   "apps/customer-panel/lib/catalog-http/default.ts",

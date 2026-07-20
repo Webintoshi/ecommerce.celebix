@@ -11,6 +11,7 @@ import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import { readPersistentPanelSessionCookie } from "../server-panel-session-controls/request-input.ts";
 import type { ServerCatalogRuntime } from "../server-catalog/runtime.ts";
 import {
+  CATALOG_SUMMARY_PATH,
   createCatalogRequestAuthorityValidator,
   type CatalogRequestExpectation,
 } from "./request-authority.ts";
@@ -164,6 +165,20 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
   ) throw new Error("catalog_http_handler_invalid");
 
   return Object.freeze({
+    async getDashboardSummary(request: Request): Promise<Response> {
+      const authorized = await authorize(dependencies, request, {
+        method: "GET", pathname: CATALOG_SUMMARY_PATH, query: "forbidden",
+      });
+      if (isResponse(authorized)) return authorized;
+      return execute(
+        () => authorized.runtime.catalog.getDashboardSummary({
+          tenantContext: authorized.tenantContext,
+          now: authorized.now,
+        }),
+        (result) => json(result, 200),
+      );
+    },
+
     async listProducts(request: Request): Promise<Response> {
       const authorized = await authorize(dependencies, request, {
         method: "GET", pathname: PRODUCTS_PATH, query: "allowed",

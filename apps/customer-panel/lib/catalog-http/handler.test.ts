@@ -11,6 +11,7 @@ const handlersModule = await import("./handler.ts").catch(() => ({} as Partial<H
 
 const PANEL_ORIGIN = "https://panel.saas-staging.celebix.site";
 const PRODUCTS = "/api/catalog/products";
+const SUMMARY_PATH = "/api/catalog/summary";
 const STORE_ID = "33333333-3333-4333-8333-333333333333";
 const PRINCIPAL_ID = "44444444-4444-4444-8444-444444444444";
 const MEMBERSHIP_ID = "55555555-5555-4555-8555-555555555555";
@@ -83,6 +84,19 @@ function variant(overrides: Record<string, unknown> = {}) {
   });
 }
 
+function summary() {
+  return Object.freeze({
+    totalProducts: 4,
+    activeProducts: 3,
+    draftProducts: 1,
+    productLimit: 10,
+    activeVariants: 6,
+    outOfStockVariants: 2,
+    productsWithoutMedia: 1,
+    activeMedia: 7,
+  });
+}
+
 const CREATE_BODY = Object.freeze({
   product: Object.freeze({
     slug: "atlas-mug",
@@ -108,6 +122,7 @@ function repository(overrides: Partial<CatalogRepository> = {}): CatalogReposito
   const unavailable = async () => { throw new Error("unexpected repository call"); };
   return Object.freeze({
     createProduct: unavailable,
+    getDashboardSummary: unavailable,
     getProduct: unavailable,
     getProductDetails: unavailable,
     listProducts: unavailable,
@@ -313,4 +328,80 @@ test("replayed mutations remain successful and surface only replayed=true", asyn
   assert.equal(response?.status, 201);
   assert.equal((await response?.json()).replayed, true);
   assert.equal(writes, 1);
+});
+
+test("summary GET uses authenticated TenantContext and returns only exact counts", async () => {
+  const calls: unknown[] = [];
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async getDashboardSummary(input) {
+      calls.push(input);
+      return summary();
+    },
+  })));
+  const response = await handlers?.getDashboardSummary(request(SUMMARY_PATH));
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get("cache-control"), "no-store");
+  assert.equal(response?.headers.get("location"), null);
+  assert.deepEqual(await response?.json(), summary());
+  assert.deepEqual(calls, [{ tenantContext: tenantContext(), now: NOW }]);
+});
+
+test("summary denies query and near-match paths before repository authority", async () => {
+  let calls = 0;
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+    async getDashboardSummary() {
+      calls += 1;
+      return summary();
+    },
+  })));
+  for (const path of [
+    `${SUMMARY_PATH}?storeId=${STORE_ID}`,
+    `${SUMMARY_PATH}/`,
+    `${SUMMARY_PATH}-evil`,
+  ]) {
+    const response = await handlers?.getDashboardSummary(request(path));
+    assert.equal(response?.status, 400);
+    assert.deepEqual(await response?.json(), { code: "invalid_input" });
+  }
+  assert.equal(calls, 0);
+});
+
+test("summary access failures deny before repository calls", async () => {
+  let calls = 0;
+  const catalog = repository({
+    async getDashboardSummary() {
+      calls += 1;
+      throw new Error("unexpected summary call");
+    },
+  });
+  for (const [kind, status, code] of [
+    ["unauthenticated", 401, "unauthenticated"],
+    ["unauthorized", 403, "membership_denied"],
+    ["unavailable", 503, "unavailable"],
+  ] as const) {
+    const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(catalog, access(kind)));
+    const response = await handlers?.getDashboardSummary(request(SUMMARY_PATH));
+    assert.equal(response?.status, status);
+    assert.deepEqual(await response?.json(), { code });
+  }
+  const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(catalog));
+  for (const cookie of [null, "__Host-celebix_panel=v1.bad"]) {
+    const response = await handlers?.getDashboardSummary(request(SUMMARY_PATH, { cookie }));
+    assert.equal(response?.status, 401);
+    assert.deepEqual(await response?.json(), { code: "unauthenticated" });
+  }
+  assert.equal(calls, 0);
+});
+
+test("summary maps repository and driver failures to stable unavailable", async () => {
+  for (const failure of [new CatalogRepositoryError("unavailable"), new Error("postgres secret")]) {
+    const handlers = handlersModule.createCatalogHttpHandlers?.(dependencies(repository({
+      async getDashboardSummary() { throw failure; },
+    })));
+    const response = await handlers?.getDashboardSummary(request(SUMMARY_PATH));
+    assert.equal(response?.status, 503);
+    const body = await response?.text();
+    assert.equal(body, JSON.stringify({ code: "unavailable" }));
+    assert.doesNotMatch(body ?? "", /postgres|secret|driver|sql/i);
+  }
 });

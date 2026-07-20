@@ -11,6 +11,15 @@ test("exports the explicit public health route", async () => {
   assert.equal(typeof route.GET, "function");
 });
 
+test("exports the authenticated catalog dashboard summary route", async () => {
+  const routeSource = await readFile(
+    new URL("../app/api/catalog/summary/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(routeSource, /export const GET = handleDefaultCatalogGetDashboardSummary;/);
+  assert.doesNotMatch(routeSource, /export const POST/);
+});
+
 test("panel origin and fixed redirects derive from the single callback authority", async () => {
   const config = await load("./config.ts");
   const source = await readFile(new URL("./config.ts", import.meta.url), "utf8");

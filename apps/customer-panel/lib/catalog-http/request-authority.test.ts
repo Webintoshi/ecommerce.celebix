@@ -8,6 +8,7 @@ const authority = await import("./request-authority.ts").catch(
 
 const PANEL_ORIGIN = "https://panel.saas-staging.celebix.site";
 const PRODUCTS = "/api/catalog/products";
+const SUMMARY = "/api/catalog/summary";
 const PRODUCT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function request(options: {
@@ -90,6 +91,23 @@ test("GET authority needs no Origin but permits query only for the collection ro
     origin: null,
     url: `http://internal${PRODUCTS}/${PRODUCT_ID}?limit=20`,
   }), { method: "GET", pathname: `${PRODUCTS}/${PRODUCT_ID}`, query: "forbidden" }), "request_invalid");
+  assert.equal(validator?.validate(request({
+    method: "GET",
+    origin: null,
+    url: `http://internal${SUMMARY}`,
+  }), { method: "GET", pathname: SUMMARY, query: "forbidden" }), "approved");
+  for (const url of [
+    `http://internal${SUMMARY}?storeId=forged`,
+    `http://internal${SUMMARY}/`,
+    `http://internal${SUMMARY}-evil`,
+    `http://internal${SUMMARY}#fragment`,
+  ]) {
+    assert.equal(validator?.validate(request({ method: "GET", origin: null, url }), {
+      method: "GET",
+      pathname: SUMMARY,
+      query: "forbidden",
+    }), "request_invalid");
+  }
 });
 
 test("validator construction accepts only a canonical HTTPS panel origin", () => {

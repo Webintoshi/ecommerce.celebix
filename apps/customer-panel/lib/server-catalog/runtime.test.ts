@@ -26,6 +26,7 @@ function catalog(): CatalogRepository {
   const reject = async () => { throw new Error("unused"); };
   return {
     createProduct: reject,
+    getDashboardSummary: reject,
     getProduct: reject,
     getProductDetails: reject,
     listProducts: reject,
@@ -49,7 +50,7 @@ test("approved access runtime resolves a frozen catalog facade without exposing 
   assert.equal(Object.isFrozen(runtime), true);
   assert.equal(Object.isFrozen(runtime.catalog), true);
   assert.deepEqual(Object.keys(runtime.catalog).sort(), [
-    "archiveProduct", "archiveVariant", "createProduct", "createVariant", "getProduct",
+    "archiveProduct", "archiveVariant", "createProduct", "createVariant", "getDashboardSummary", "getProduct",
     "getProductDetails", "listProducts", "updateProduct", "updateVariant",
   ]);
   for (const forbidden of ["pool", "options", "database", "keys", "connectionString"]) {

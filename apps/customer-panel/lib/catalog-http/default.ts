@@ -21,6 +21,7 @@ type VariantRouteContext = Readonly<{
 
 export const handleDefaultCatalogListProducts = handlers.listProducts;
 export const handleDefaultCatalogCreateProduct = handlers.createProduct;
+export const handleDefaultCatalogGetDashboardSummary = handlers.getDashboardSummary;
 
 export async function handleDefaultCatalogGetProduct(
   request: Request,

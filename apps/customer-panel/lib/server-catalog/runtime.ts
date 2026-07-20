@@ -17,6 +17,7 @@ export type ServerCatalogRuntime = Readonly<{
 const repositories = new WeakMap<ServerPanelAccessRuntime, CatalogRepository>();
 const METHODS = Object.freeze([
   "createProduct",
+  "getDashboardSummary",
   "getProduct",
   "getProductDetails",
   "listProducts",
@@ -35,6 +36,7 @@ function facade(repository: CatalogRepository): CatalogRepository {
   if (!repository || METHODS.some((method) => typeof repository[method] !== "function")) invalid();
   const projected: CatalogRepository = {
     createProduct: (input) => repository.createProduct(input),
+    getDashboardSummary: (input) => repository.getDashboardSummary(input),
     getProduct: (input) => repository.getProduct(input),
     getProductDetails: (input) => repository.getProductDetails(input),
     listProducts: (input) => repository.listProducts(input),

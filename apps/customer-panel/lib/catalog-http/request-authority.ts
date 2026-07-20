@@ -1,8 +1,9 @@
 import "server-only";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+export const CATALOG_SUMMARY_PATH = "/api/catalog/summary";
 const CATALOG_PATH = new RegExp(
-  `^/api/catalog/products(?:/${UUID}(?:/archive|/variants(?:/${UUID}(?:/archive)?)?)?)?$`,
+  `^(?:/api/catalog/summary|/api/catalog/products(?:/${UUID}(?:/archive|/variants(?:/${UUID}(?:/archive)?)?)?)?)$`,
 );
 
 export type CatalogRequestAuthorityDecision =
