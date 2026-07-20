@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { CatalogApiError, catalogApi } from "@/lib/catalog-ui/client";
 import { buildCreateProductPayload } from "@/lib/catalog-ui/forms";
@@ -11,6 +11,12 @@ function value(data: FormData, key: string) {
   const candidate = data.get(key);
   return typeof candidate === "string" ? candidate : "";
 }
+
+const STEPS = Object.freeze([
+  { key: "basic", index: "01", label: "Temel Bilgiler", description: "Ürün tanımı ve durum" },
+  { key: "pricing", index: "02", label: "Fiyat ve Stok", description: "İlk satış varyantı" },
+  { key: "media", index: "03", label: "Ürün Görseli", description: "İsteğe bağlı ilk fotoğraf" },
+]);
 
 export function ProductCreateForm() {
   const [submitting, setSubmitting] = useState(false);
@@ -70,7 +76,7 @@ export function ProductCreateForm() {
   }
 
   return (
-    <section className="catalog-page narrow-catalog-page" aria-labelledby="create-title">
+    <section data-presentation="hemenaku-product-create" className="catalog-page narrow-catalog-page" aria-labelledby="create-title">
       <Link className="back-link" href="/products">← Ürünlere dön</Link>
       <div className="catalog-heading hemenaku-form-hero">
         <span className="eyebrow">YENİ KAYIT</span>
@@ -79,11 +85,15 @@ export function ProductCreateForm() {
       </div>
 
       <div className="hemenaku-wizard-stepper" aria-label="Ürün oluşturma adımları">
-        <span className="is-current"><b>1</b><span><strong>Temel Bilgiler</strong><small>Ürün tanımı ve durum</small></span></span>
-        <i aria-hidden="true" />
-        <span><b>2</b><span><strong>Fiyat ve Stok</strong><small>İlk satış varyantı</small></span></span>
-        <i aria-hidden="true" />
-        <span><b>3</b><span><strong>Ürün Görseli</strong><small>İsteğe bağlı ilk fotoğraf</small></span></span>
+        {STEPS.map((step, position) => (
+          <Fragment key={step.key}>
+            <span className={position === 0 ? "is-current" : undefined} aria-current={position === 0 ? "step" : undefined}>
+              <b>{step.index}</b>
+              <span><strong>{step.label}</strong><small>{step.description}</small></span>
+            </span>
+            {position < STEPS.length - 1 ? <i aria-hidden="true" /> : null}
+          </Fragment>
+        ))}
       </div>
 
       <form className="catalog-form" onSubmit={submit} noValidate>

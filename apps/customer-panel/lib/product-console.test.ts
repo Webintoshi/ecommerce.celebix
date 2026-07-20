@@ -107,6 +107,16 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   assert.doesNotMatch(`${list}\n${create}\n${detail}`, /\/api\/admin|\/admin\/urunler|category|image upload|seo|supabase/i);
 });
 
+test("creation wizard remains bound to the durable target workflow", async () => {
+  const create = await source("components/catalog/ProductCreateForm.tsx");
+  assert.match(create, /data-presentation="hemenaku-product-create"/);
+  assert.match(create, /buildCreateProductPayload/);
+  assert.match(create, /await catalogApi\.createProduct/);
+  assert.match(create, /await productMediaApi\.upload/);
+  assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
+  assert.doesNotMatch(create, /seo|nutrition|categoryId|\/api\/admin|supabase/i);
+});
+
 test("create, archive, variant and conflict flows keep rendered versions and navigate safely", async () => {
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const list = await source("components/catalog/ProductListConsole.tsx");
