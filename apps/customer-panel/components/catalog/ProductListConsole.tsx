@@ -69,7 +69,7 @@ export function ProductListConsole() {
   }
 
   return (
-    <section className="catalog-page" aria-labelledby="products-title">
+    <section className="catalog-page" aria-labelledby="products-title" data-presentation="hemenaku-product-list">
       <div className="hemenaku-product-hero">
         <div className="catalog-heading-row">
           <div className="catalog-heading">

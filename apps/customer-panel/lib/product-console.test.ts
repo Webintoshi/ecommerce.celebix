@@ -94,6 +94,8 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   const styles = await source("app/globals.css");
   assert.match(list, /hemenaku-product-hero/);
   assert.match(list, /hemenaku-catalog-surface/);
+  assert.match(list, /data-presentation="hemenaku-product-list"/);
+  assert.match(list, /aria-label="Ürün durumu filtresi"/);
   assert.match(list, /Ürün kataloğu/);
   assert.match(create, /hemenaku-wizard-stepper/);
   assert.match(create, /Temel Bilgiler/);

@@ -62,3 +62,12 @@ test("exports donor-compatible page primitives and truthful dashboard geometry",
   assert.doesNotMatch(dashboard, /TenantContext|storeId|tenantId|principal|membershipId|planId|requestId/);
   assert.match(styles, /[.]metricTabs\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
 });
+
+test("product list ports donor presentation while preserving target commands", async () => {
+  const source = await read("apps/customer-panel/components/catalog/ProductListConsole.tsx");
+  assert.match(source, /catalogApi\.listProducts/);
+  assert.match(source, /catalogApi\.archiveProduct\(archiveCandidate\.id, archiveCandidate\.version\)/);
+  assert.match(source, /data-presentation="hemenaku-product-list"/);
+  assert.match(source, /aria-label="Ürün durumu filtresi"/);
+  assert.doesNotMatch(source, /\/api\/admin|storeId|tenantId|supabase|bulk-stock|homepage-curation/i);
+});
