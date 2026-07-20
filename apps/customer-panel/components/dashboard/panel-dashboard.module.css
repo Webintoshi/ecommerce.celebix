@@ -6,6 +6,80 @@
 }
 .cardGrid > * { min-width: 0; }
 .cardGrid strong { overflow-wrap: anywhere; }
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.sectionHeader h2,
+.sectionHeader p,
+.errorState p,
+.readinessLine { margin: 0; }
+.sectionHeader h2 { color: #1F2937; font-size: .98rem; font-weight: 600; }
+.sectionHeader p,
+.readinessLine { color: #6B7280; font-size: .8125rem; }
+.sectionHeader p { margin-top: .25rem; }
+.refreshButton,
+.errorState button {
+  min-width: 48px;
+  min-height: 48px;
+  border: 1px solid #E3E7EE;
+  border-radius: .875rem;
+  background: #FFFFFF;
+  color: #1F2937;
+  padding: 0 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.refreshButton:focus-visible,
+.errorState button:focus-visible { outline: 3px solid rgb(255 106 0 / 35%); outline-offset: 2px; }
+.refreshButton:disabled { cursor: wait; opacity: .6; }
+.skeletonCard {
+  display: grid;
+  min-height: 124px;
+  align-content: start;
+  gap: 1rem;
+  border: 1px solid #E3E7EE;
+  border-radius: 1rem;
+  background: #FFFFFF;
+  padding: .875rem;
+  box-shadow: 0 4px 12px rgba(17, 24, 39, .035);
+}
+.skeletonLine {
+  display: block;
+  width: 64%;
+  height: .75rem;
+  border-radius: 999px;
+  background: #E3E7EE;
+  animation: catalogSkeleton 1.4s ease-in-out infinite alternate;
+}
+.skeletonLine:nth-child(2) { width: 38%; height: 1.8rem; }
+.skeletonLine:nth-child(3) { width: 78%; }
+.errorState {
+  display: flex;
+  min-height: 124px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #E3E7EE;
+  border-radius: 1rem;
+  background: #F9F9F9;
+  padding: 1rem;
+  color: #1F2937;
+}
+.readinessLine { margin-top: 1rem; }
 .actionRail { display: flex; flex-wrap: wrap; gap: .75rem; }
+@keyframes catalogSkeleton { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 1280px) { .cardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .cardGrid { grid-template-columns: 1fr; } .actionRail { display: grid; } }
+@media (min-width: 1280px) { .skeletonCard { padding: 1.25rem; } }
+@media (max-width: 640px) {
+  .cardGrid { grid-template-columns: 1fr; }
+  .sectionHeader,
+  .errorState { align-items: stretch; flex-direction: column; }
+  .actionRail { display: grid; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeletonLine { animation-duration: .01ms !important; }
+}

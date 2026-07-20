@@ -407,11 +407,22 @@ async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
   });
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") {
+      return {
+        useCallback: (callback: unknown) => callback,
+        useEffect: () => undefined,
+        useRef: (value: unknown) => ({ current: value }),
+        useState: (value: unknown) => [value, () => undefined],
+      };
+    }
     if (specifier === "@/components/panel/PanelPageShell") {
       return { PanelActionButton, PanelMetricCard, PanelPageHeader, PanelPageShell, PanelPanel };
     }
     if (specifier === "@/components/panel/PanelLayoutClient") {
       return { usePanelChromeModel: () => model };
+    }
+    if (specifier === "@/lib/catalog-ui/client") {
+      return { catalogApi: { getDashboardSummary: async () => undefined } };
     }
     if (specifier === "@/lib/panel-ui/dashboard-model") return { createPanelDashboardModel };
     if (specifier === "./panel-dashboard.module.css") return styles;
@@ -857,6 +868,23 @@ test("dashboard renders only the safe chrome model and truthful working actions"
   assert.match(combined, /\/setup/);
   assert.doesNotMatch(view, /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
   assert.doesNotMatch(combined, /revenue|ciro|order|sipariş|conversion|dönüşüm|analytics|Toshi/i);
+});
+
+test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {
+  const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
+  const styles = await source("components/dashboard/panel-dashboard.module.css");
+  assert.match(view, /catalogApi[.]getDashboardSummary\(\)/);
+  assert.match(view, /role="status"/);
+  assert.match(view, /role="alert"/);
+  assert.match(view, /Tekrar dene/);
+  assert.match(view, /Array[.]from\(\{ length: 4 \}/);
+  assert.match(view, /disabled=\{state === "loading"\}/);
+  assert.doesNotMatch(view, /console[.](?:log|warn|error)/);
+  assert.doesNotMatch(view, /storeId|tenantId|principalId|membershipId|x-store|x-tenant/i);
+  assert.match(styles, /[.]refreshButton,[\s\S]*?[.]errorState button\s*\{[\s\S]*?min-width:\s*48px;[\s\S]*?min-height:\s*48px;/);
+  assert.match(styles, /@media \(max-width: 1280px\)[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?grid-template-columns:\s*1fr/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\s*[.]01ms !important/);
 });
 
 test("dashboard preserves maximum-length facts inside mobile card bounds", async () => {

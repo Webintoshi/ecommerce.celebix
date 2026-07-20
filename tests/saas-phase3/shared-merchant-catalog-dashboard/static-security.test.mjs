@@ -55,8 +55,23 @@ test("tracked implementation scope is narrow and carries no legacy admin authori
   const source = target.map((file) => readFileSync(path.join(ROOT, file), "utf8")).join("\n");
   assert.doesNotMatch(
     source,
-    /from ["']@supabase|\/api\/admin\/|apps\/admin|localStorage.*(?:tenant|store)|x-(?:tenant|store)-id/i,
+    /from ["']@supabase|\/api\/admin\/|apps\/admin/i,
   );
+  const browserFiles = target.filter((file) =>
+    file.includes("/catalog-ui/") || file.includes("/panel-ui/") || file.includes("/components/dashboard/"),
+  );
+  const browserSource = browserFiles
+    .map((file) => readFileSync(path.join(ROOT, file), "utf8"))
+    .join("\n");
+  assert.doesNotMatch(browserSource, /localStorage.*(?:tenant|store)|x-(?:tenant|store)-id/i);
+
+  const handlerSource = readFileSync(
+    path.join(ROOT, "apps/customer-panel/lib/catalog-http/handler.ts"),
+    "utf8",
+  );
+  assert.match(handlerSource, /privateAuthorityPresent/);
+  assert.match(handlerSource, /"x-store-id"/);
+  assert.match(handlerSource, /"x-tenant-id"/);
 });
 
 test("catalog dashboard SQL authority artifacts are complete", () => {
