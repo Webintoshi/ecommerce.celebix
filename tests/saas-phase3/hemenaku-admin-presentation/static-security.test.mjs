@@ -8,6 +8,7 @@ const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const ROOT = new URL("../../../", import.meta.url);
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
+const readBytes = (path) => readFile(new URL(path, ROOT));
 
 test("pins the donor and leaves apps admin byte unchanged", () => {
   assert.equal(git("rev-parse", `${DONOR}^{commit}`), DONOR);
@@ -29,9 +30,9 @@ test("keeps production deploy infrastructure and donor outside the diff", () => 
 });
 
 test("ports the exact donor brand asset and core visual tokens", async () => {
-  const donorLogo = git("show", `${DONOR}:apps/admin/public/Logo/celebix-beyaz-logo.svg`);
-  const targetLogo = (await read("apps/customer-panel/public/Logo/celebix-beyaz-logo.svg")).trim();
-  assert.equal(targetLogo, donorLogo);
+  const donorLogo = execFileSync("git", ["show", `${DONOR}:apps/admin/public/Logo/celebix-beyaz-logo.svg`], { cwd: ROOT });
+  const targetLogo = await readBytes("apps/customer-panel/public/Logo/celebix-beyaz-logo.svg");
+  assert.deepEqual(targetLogo, donorLogo);
   const css = await read("apps/customer-panel/app/globals.css");
   assert.match(css, /--hemenaku-orange:\s*#FF6A00/i);
   assert.match(css, /--hemenaku-sidebar:\s*#2A2A2A/i);
