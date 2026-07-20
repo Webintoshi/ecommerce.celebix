@@ -5,48 +5,48 @@ BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
 CREATE TABLE saas.orders (
-  id uuid PRIMARY KEY,
-  store_id uuid NOT NULL REFERENCES saas.stores(id),
+  id uuid CONSTRAINT orders_pkey PRIMARY KEY,
+  store_id uuid NOT NULL CONSTRAINT orders_store_fk REFERENCES saas.stores(id),
   order_number text NOT NULL,
-  source text NOT NULL CHECK (source IN ('storefront','quick_link','marketplace','manual_import')),
+  source text NOT NULL CONSTRAINT orders_source_check CHECK (source IN ('storefront','quick_link','marketplace','manual_import')),
   customer_name text NOT NULL,
   customer_email text NOT NULL,
   customer_phone text,
-  currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
-  subtotal_cents bigint NOT NULL CHECK (subtotal_cents >= 0),
-  shipping_cents bigint NOT NULL CHECK (shipping_cents >= 0),
-  discount_cents bigint NOT NULL CHECK (discount_cents >= 0),
-  total_cents bigint NOT NULL CHECK (total_cents = subtotal_cents + shipping_cents - discount_cents AND total_cents >= 0),
-  status text NOT NULL CHECK (status IN ('pending','confirmed','preparing','shipped','delivered','cancelled','refunded')),
-  payment_status text NOT NULL CHECK (payment_status IN ('pending','processing','completed','failed','refunded')),
+  currency text NOT NULL CONSTRAINT orders_currency_check CHECK (currency ~ '^[A-Z]{3}$'),
+  subtotal_cents bigint NOT NULL CONSTRAINT orders_subtotal_cents_check CHECK (subtotal_cents >= 0),
+  shipping_cents bigint NOT NULL CONSTRAINT orders_shipping_cents_check CHECK (shipping_cents >= 0),
+  discount_cents bigint NOT NULL CONSTRAINT orders_discount_cents_check CHECK (discount_cents >= 0),
+  total_cents bigint NOT NULL CONSTRAINT orders_total_cents_check CHECK (total_cents = subtotal_cents + shipping_cents - discount_cents AND total_cents >= 0),
+  status text NOT NULL CONSTRAINT orders_status_check CHECK (status IN ('pending','confirmed','preparing','shipped','delivered','cancelled','refunded')),
+  payment_status text NOT NULL CONSTRAINT orders_payment_status_check CHECK (payment_status IN ('pending','processing','completed','failed','refunded')),
   shipping_address jsonb NOT NULL,
   tracking jsonb,
-  version bigint NOT NULL DEFAULT 1 CHECK (version > 0),
+  version bigint NOT NULL DEFAULT 1 CONSTRAINT orders_version_check CHECK (version > 0),
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
-  UNIQUE (store_id, id),
-  UNIQUE (store_id, order_number)
+  CONSTRAINT orders_store_id_id_key UNIQUE (store_id, id),
+  CONSTRAINT orders_store_id_order_number_key UNIQUE (store_id, order_number)
 );
 
 CREATE TABLE saas.order_items (
-  id uuid PRIMARY KEY,
+  id uuid CONSTRAINT order_items_pkey PRIMARY KEY,
   store_id uuid NOT NULL,
   order_id uuid NOT NULL,
   product_id uuid,
   variant_id uuid,
-  position integer NOT NULL CHECK (position BETWEEN 0 AND 99),
+  position integer NOT NULL CONSTRAINT order_items_position_check CHECK (position BETWEEN 0 AND 99),
   product_name text NOT NULL,
   variant_name text,
   sku text,
-  unit_price_cents bigint NOT NULL CHECK (unit_price_cents >= 0),
-  quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 9999),
-  discount_cents bigint NOT NULL CHECK (discount_cents >= 0),
-  line_total_cents bigint NOT NULL CHECK (line_total_cents = unit_price_cents * quantity - discount_cents AND line_total_cents >= 0),
+  unit_price_cents bigint NOT NULL CONSTRAINT order_items_unit_price_cents_check CHECK (unit_price_cents >= 0),
+  quantity integer NOT NULL CONSTRAINT order_items_quantity_check CHECK (quantity BETWEEN 1 AND 9999),
+  discount_cents bigint NOT NULL CONSTRAINT order_items_discount_cents_check CHECK (discount_cents >= 0),
+  line_total_cents bigint NOT NULL CONSTRAINT order_items_line_total_cents_check CHECK (line_total_cents = unit_price_cents * quantity - discount_cents AND line_total_cents >= 0),
   created_at timestamptz NOT NULL,
-  UNIQUE (store_id, order_id, position),
-  FOREIGN KEY (store_id, order_id) REFERENCES saas.orders(store_id, id),
-  FOREIGN KEY (store_id, product_id) REFERENCES saas.products(store_id, id),
-  FOREIGN KEY (store_id, variant_id) REFERENCES saas.product_variants(store_id, id)
+  CONSTRAINT order_items_store_id_order_id_position_key UNIQUE (store_id, order_id, position),
+  CONSTRAINT order_items_order_store_fk FOREIGN KEY (store_id, order_id) REFERENCES saas.orders(store_id, id),
+  CONSTRAINT order_items_product_store_fk FOREIGN KEY (store_id, product_id) REFERENCES saas.products(store_id, id),
+  CONSTRAINT order_items_variant_store_fk FOREIGN KEY (store_id, variant_id) REFERENCES saas.product_variants(store_id, id)
 );
 
 CREATE TABLE saas.order_events (

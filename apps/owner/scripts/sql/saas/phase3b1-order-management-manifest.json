@@ -9,7 +9,7 @@
       "id": "202607210022_order_management_up",
       "direction": "up",
       "file": "202607210022_order_management.up.sql",
-      "sha256": "3e08cbaa3c59e9745dad82711bddf1494a2266f6facb8dedcf52ab4b1b67efe5",
+      "sha256": "6cf6b5da8df4e925992d8a372dd2cc7c877427365ed6968b2fcf05d3f7869143",
       "purpose": "Add store-scoped order tables, immutable audit/operation rows and reusable merchant action authority."
     },
     {
@@ -23,7 +23,7 @@
       "id": "202607210022_order_management_assertions",
       "direction": "verify",
       "file": "202607210022_order_management_assertions.sql",
-      "sha256": "6b61f78150def9e455167fb64a5502bb3b128f642c59a6113296d3d6ccb51704",
+      "sha256": "0ffbac5621d8840d4ab132082094f373f17e4e99a81ba3678aa73f696d8d8971",
       "purpose": "Fail on owner, RLS, constraints, tenant FKs, ACL, immutability or action-authority drift."
     }
   ]

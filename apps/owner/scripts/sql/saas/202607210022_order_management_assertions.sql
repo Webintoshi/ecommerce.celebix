@@ -71,25 +71,43 @@ BEGIN
     RAISE EXCEPTION 'PHASE3B1_ORDER_ASSERTION_FAILED: order_items column drift';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_constraint
-    WHERE conrelid = 'saas.orders'::regclass
-      AND contype = 'c'
-      AND pg_catalog.pg_get_constraintdef(oid) ~ 'source.*storefront.*quick_link.*marketplace.*manual_import'
-  )
-  OR NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_constraint
-    WHERE conrelid = 'saas.orders'::regclass
-      AND contype = 'c'
-      AND pg_catalog.pg_get_constraintdef(oid) ~ 'total_cents = .*subtotal_cents \+ shipping_cents.*discount_cents.*total_cents >= 0'
-  )
-  OR NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_constraint
-    WHERE conrelid = 'saas.order_items'::regclass
-      AND contype = 'c'
-      AND pg_catalog.pg_get_constraintdef(oid) ~ 'line_total_cents = .*unit_price_cents.*quantity.*discount_cents.*line_total_cents >= 0'
+  IF EXISTS (
+    WITH expected(table_name, constraint_name, definition) AS (
+      VALUES
+        ('orders', 'orders_currency_check', 'CHECK ((currency ~ ''^[A-Z]{3}$''::text))'),
+        ('orders', 'orders_discount_cents_check', 'CHECK ((discount_cents >= 0))'),
+        ('orders', 'orders_payment_status_check', 'CHECK ((payment_status = ANY (ARRAY[''pending''::text, ''processing''::text, ''completed''::text, ''failed''::text, ''refunded''::text])))'),
+        ('orders', 'orders_shipping_cents_check', 'CHECK ((shipping_cents >= 0))'),
+        ('orders', 'orders_source_check', 'CHECK ((source = ANY (ARRAY[''storefront''::text, ''quick_link''::text, ''marketplace''::text, ''manual_import''::text])))'),
+        ('orders', 'orders_status_check', 'CHECK ((status = ANY (ARRAY[''pending''::text, ''confirmed''::text, ''preparing''::text, ''shipped''::text, ''delivered''::text, ''cancelled''::text, ''refunded''::text])))'),
+        ('orders', 'orders_subtotal_cents_check', 'CHECK ((subtotal_cents >= 0))'),
+        ('orders', 'orders_total_cents_check', 'CHECK (((total_cents = ((subtotal_cents + shipping_cents) - discount_cents)) AND (total_cents >= 0)))'),
+        ('orders', 'orders_version_check', 'CHECK ((version > 0))'),
+        ('orders', 'orders_store_id_id_key', 'UNIQUE (store_id, id)'),
+        ('orders', 'orders_store_id_order_number_key', 'UNIQUE (store_id, order_number)'),
+        ('order_items', 'order_items_discount_cents_check', 'CHECK ((discount_cents >= 0))'),
+        ('order_items', 'order_items_line_total_cents_check', 'CHECK (((line_total_cents = ((unit_price_cents * quantity) - discount_cents)) AND (line_total_cents >= 0)))'),
+        ('order_items', 'order_items_position_check', 'CHECK ((("position" >= 0) AND ("position" <= 99)))'),
+        ('order_items', 'order_items_quantity_check', 'CHECK (((quantity >= 1) AND (quantity <= 9999)))'),
+        ('order_items', 'order_items_unit_price_cents_check', 'CHECK ((unit_price_cents >= 0))'),
+        ('order_items', 'order_items_store_id_order_id_position_key', 'UNIQUE (store_id, order_id, "position")')
+    ),
+    actual(table_name, constraint_name, definition) AS (
+      SELECT relation.relname, constraint_record.conname, pg_catalog.pg_get_constraintdef(constraint_record.oid)
+      FROM pg_catalog.pg_constraint AS constraint_record
+      JOIN pg_catalog.pg_class AS relation ON relation.oid = constraint_record.conrelid
+      JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+      WHERE namespace.nspname = 'saas'
+        AND relation.relname IN ('orders', 'order_items')
+        AND constraint_record.contype IN ('c', 'u')
+    )
+    SELECT 1 FROM (
+      (SELECT * FROM expected EXCEPT SELECT * FROM actual)
+      UNION ALL
+      (SELECT * FROM actual EXCEPT SELECT * FROM expected)
+    ) AS constraint_drift
   ) THEN
-    RAISE EXCEPTION 'PHASE3B1_ORDER_ASSERTION_FAILED: exact money/source constraint drift';
+    RAISE EXCEPTION 'PHASE3B1_ORDER_ASSERTION_FAILED: exact check/unique constraint drift';
   END IF;
 
   IF (
@@ -202,6 +220,14 @@ BEGIN
      OR function_definition !~ '''analyst'' AND p_required_action = ''orders[.]read'''
   THEN
     RAISE EXCEPTION 'PHASE3B1_ORDER_ASSERTION_FAILED: authority tenant/feature/role matrix drift';
+  END IF;
+
+  IF (
+    SELECT pg_catalog.md5(procedure.prosrc)
+    FROM pg_catalog.pg_proc AS procedure
+    WHERE procedure.oid = authority_function
+  ) IS DISTINCT FROM 'b9db7856018ba8df94e0d64b70b38130' THEN
+    RAISE EXCEPTION 'PHASE3B1_ORDER_ASSERTION_FAILED: exact authority body drift';
   END IF;
 
   IF EXISTS (

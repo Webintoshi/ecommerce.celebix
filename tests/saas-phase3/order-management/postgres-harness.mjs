@@ -26,6 +26,10 @@ const PLAN = "00000000-0000-4000-8000-000000000001";
 const STORE_A = "10000000-0000-4000-8000-000000000001";
 const STORE_B = "10000000-0000-4000-8000-000000000002";
 const ORDER_A = "40000000-0000-4000-8000-000000000001";
+const PRODUCT_A = "41000000-0000-4000-8000-000000000001";
+const PRODUCT_B = "41000000-0000-4000-8000-000000000002";
+const VARIANT_A = "42000000-0000-4000-8000-000000000001";
+const VARIANT_B = "42000000-0000-4000-8000-000000000002";
 const EVENT_A = "50000000-0000-4000-8000-000000000001";
 const OPERATION_A = "60000000-0000-4000-8000-000000000001";
 const AUTHORITY_SIGNATURE = "saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)";
@@ -88,23 +92,33 @@ function command(program, args, options = {}) {
   return result;
 }
 
-function startPostgres() {
+function startPostgres(options = {}) {
   assertSafeEnvironment();
   const executables = Object.fromEntries(REQUIRED_NATIVE_TOOLS.map((name) => [name, executable(name)]));
   if (Object.values(executables).some((value) => !value)) throw new Error("DISPOSABLE_DB_EXECUTION_BLOCKED");
+  const runCommand = options.runCommand ?? command;
+  const runToken = options.token ?? TOKEN;
   const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "celebix-order-management-"));
-  const socketDirectory = path.join("/tmp", `com-${TOKEN}`);
+  const socketDirectory = path.join("/tmp", `com-${runToken}`);
   const dataDirectory = path.join(temporaryDirectory, "data");
   const port = 20_000 + Math.floor(Math.random() * 20_000);
   mkdirSync(socketDirectory, { mode: 0o700 });
-  command(executables.initdb, ["-D", dataDirectory, "--auth=trust", "--username=postgres", "--no-locale"]);
-  command(executables.pg_ctl, [
-    "-D", dataDirectory,
-    "-o", `-k ${socketDirectory} -p ${port} -h ''`,
-    "-l", path.join(temporaryDirectory, "postgres.log"),
-    "start",
-  ]);
-  return { executables, temporaryDirectory, socketDirectory, dataDirectory, port, started: true };
+  const backend = { executables, temporaryDirectory, socketDirectory, dataDirectory, port, started: false };
+  options.onAllocate?.(backend);
+  try {
+    runCommand(executables.initdb, ["-D", dataDirectory, "--auth=trust", "--username=postgres", "--no-locale"]);
+    backend.started = true;
+    runCommand(executables.pg_ctl, [
+      "-D", dataDirectory,
+      "-o", `-k ${socketDirectory} -p ${port} -h ''`,
+      "-l", path.join(temporaryDirectory, "postgres.log"),
+      "start",
+    ]);
+    return backend;
+  } catch (error) {
+    stopPostgres(backend);
+    throw error;
+  }
 }
 
 function stopPostgres(backend) {
@@ -146,11 +160,14 @@ function authoritySql({
   store = STORE_A,
   principal = "20000000-0000-4000-8000-000000000001",
   membership = "30000000-0000-4000-8000-000000000001",
+  plan = PLAN,
+  planCode = "free_starter",
+  planVersion = 1,
   feature = "orders",
   action = "orders.read",
   now = NOW,
 } = {}, database = DATABASE) {
-  return `SELECT COALESCE(saas.merchant_action_authority_error('${store}'::uuid,'${principal}'::uuid,'${membership}'::uuid,'${PLAN}'::uuid,'free_starter',1,'${now}'::timestamptz,'${feature}','${action}'),'<null>');`;
+  return `SELECT COALESCE(saas.merchant_action_authority_error('${store}'::uuid,'${principal}'::uuid,'${membership}'::uuid,'${plan}'::uuid,'${planCode}',${planVersion},'${now}'::timestamptz,'${feature}','${action}'),'<null>');`;
 }
 
 function authority(backend, options = {}, database = DATABASE) {
@@ -171,7 +188,8 @@ function seed(backend, database = DATABASE) {
       ('20000000-0000-4000-8000-000000000001','https://identity.example.test/oidc','orders-owner','owner@example.test',true,'2026-01-01','2026-01-01'),
       ('20000000-0000-4000-8000-000000000002','https://identity.example.test/oidc','orders-admin','admin@example.test',true,'2026-01-01','2026-01-01'),
       ('20000000-0000-4000-8000-000000000003','https://identity.example.test/oidc','orders-editor','editor@example.test',true,'2026-01-01','2026-01-01'),
-      ('20000000-0000-4000-8000-000000000004','https://identity.example.test/oidc','orders-analyst','analyst@example.test',true,'2026-01-01','2026-01-01');
+      ('20000000-0000-4000-8000-000000000004','https://identity.example.test/oidc','orders-analyst','analyst@example.test',true,'2026-01-01','2026-01-01'),
+      ('20000000-0000-4000-8000-000000000005','https://identity.example.test/oidc','orders-other-store','other@example.test',true,'2026-01-01','2026-01-01');
     INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES
       ('${STORE_A}','Orders Store A','orders-a','active','tr','TRY','default','2026-01-01','2026-01-01'),
       ('${STORE_B}','Orders Store B','orders-b','active','tr','TRY','default','2026-01-01','2026-01-01');
@@ -179,10 +197,17 @@ function seed(backend, database = DATABASE) {
       ('30000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','${STORE_A}','store_owner','active','2026-01-01','2026-01-01'),
       ('30000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','${STORE_A}','admin','active','2026-01-01','2026-01-01'),
       ('30000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000003','${STORE_A}','editor','active','2026-01-01','2026-01-01'),
-      ('30000000-0000-4000-8000-000000000004','20000000-0000-4000-8000-000000000004','${STORE_A}','analyst','active','2026-01-01','2026-01-01');
+      ('30000000-0000-4000-8000-000000000004','20000000-0000-4000-8000-000000000004','${STORE_A}','analyst','active','2026-01-01','2026-01-01'),
+      ('30000000-0000-4000-8000-000000000005','20000000-0000-4000-8000-000000000005','${STORE_B}','store_owner','active','2026-01-01','2026-01-01');
     INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,valid_until,created_at,updated_at) VALUES
       ('70000000-0000-4000-8000-000000000001','${STORE_A}','${PLAN}','free_starter',1,'active','2026-01-01',NULL,'2026-01-01','2026-01-01'),
       ('70000000-0000-4000-8000-000000000002','${STORE_B}','${PLAN}','free_starter',1,'active','2026-01-01',NULL,'2026-01-01','2026-01-01');
+    INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at) VALUES
+      ('${PRODUCT_A}','${STORE_A}','order-product-a','Order Product A','active','TRY',1,'2026-01-01','2026-01-01'),
+      ('${PRODUCT_B}','${STORE_B}','order-product-b','Order Product B','active','TRY',1,'2026-01-01','2026-01-01');
+    INSERT INTO saas.product_variants(id,product_id,store_id,title,price_cents,stock_tracking,stock_quantity,status,attributes,version,created_at,updated_at) VALUES
+      ('${VARIANT_A}','${PRODUCT_A}','${STORE_A}','Default',10000,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
+      ('${VARIANT_B}','${PRODUCT_B}','${STORE_B}','Default',10000,false,0,'active','{}',1,'2026-01-01','2026-01-01');
     INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at)
     VALUES ('${ORDER_A}','${STORE_A}','ORD-0001','storefront','Ada Lovelace','ada@example.test','TRY',10000,500,500,10000,'pending','pending','{"recipientName":"Ada Lovelace","line1":"Test 1","city":"Istanbul","country":"TR"}',1,'2026-07-21','2026-07-21');
     INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at)
@@ -222,23 +247,62 @@ async function main() {
       assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace JOIN pg_roles AS owner ON owner.oid=relation.relowner WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['${TABLES.join("','")}']) AND relation.relkind='r' AND owner.rolname='celebix_saas_owner' AND relation.relrowsecurity AND relation.relforcerowsecurity;`), "5");
     });
 
-    await scenario("orders and items expose exact columns and constraints", async () => {
-      assert.equal(psql(backend, `SELECT string_agg(column_name||':'||data_type||':'||is_nullable||':'||COALESCE(column_default,''),',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='saas' AND table_name='orders';`), "id:uuid:NO:,store_id:uuid:NO:,order_number:text:NO:,source:text:NO:,customer_name:text:NO:,customer_email:text:NO:,customer_phone:text:YES:,currency:text:NO:,subtotal_cents:bigint:NO:,shipping_cents:bigint:NO:,discount_cents:bigint:NO:,total_cents:bigint:NO:,status:text:NO:,payment_status:text:NO:,shipping_address:jsonb:NO:,tracking:jsonb:YES:,version:bigint:NO:1,created_at:timestamp with time zone:NO:,updated_at:timestamp with time zone:NO:");
-      assert.equal(psql(backend, `SELECT string_agg(column_name||':'||data_type||':'||is_nullable,',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='saas' AND table_name='order_items';`), "id:uuid:NO,store_id:uuid:NO,order_id:uuid:NO,product_id:uuid:YES,variant_id:uuid:YES,position:integer:NO,product_name:text:NO,variant_name:text:YES,sku:text:YES,unit_price_cents:bigint:NO,quantity:integer:NO,discount_cents:bigint:NO,line_total_cents:bigint:NO,created_at:timestamp with time zone:NO");
-      const constraintDefinitions = psql(backend, `SELECT string_agg(pg_get_constraintdef(oid),' ') FROM pg_constraint WHERE conrelid IN ('saas.orders'::regclass,'saas.order_items'::regclass) AND contype='c';`);
-      for (const fragment of ["source = ANY", "currency ~", "subtotal_cents >= 0", "total_cents =", "version > 0", "\"position\" >= 0", "\"position\" <= 99", "quantity >= 1", "quantity <= 9999", "line_total_cents ="]) {
-        assert.equal(constraintDefinitions.includes(fragment), true, `missing normalized constraint fragment: ${fragment}`);
-      }
-    });
-
     seed(backend);
 
-    await scenario("child rows enforce composite store authority", async () => {
+    await scenario("orders and items expose exact columns constraints and uniqueness", async () => {
+      assert.equal(psql(backend, `SELECT string_agg(column_name||':'||data_type||':'||is_nullable||':'||COALESCE(column_default,''),',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='saas' AND table_name='orders';`), "id:uuid:NO:,store_id:uuid:NO:,order_number:text:NO:,source:text:NO:,customer_name:text:NO:,customer_email:text:NO:,customer_phone:text:YES:,currency:text:NO:,subtotal_cents:bigint:NO:,shipping_cents:bigint:NO:,discount_cents:bigint:NO:,total_cents:bigint:NO:,status:text:NO:,payment_status:text:NO:,shipping_address:jsonb:NO:,tracking:jsonb:YES:,version:bigint:NO:1,created_at:timestamp with time zone:NO:,updated_at:timestamp with time zone:NO:");
+      assert.equal(psql(backend, `SELECT string_agg(column_name||':'||data_type||':'||is_nullable,',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='saas' AND table_name='order_items';`), "id:uuid:NO,store_id:uuid:NO,order_id:uuid:NO,product_id:uuid:YES,variant_id:uuid:YES,position:integer:NO,product_name:text:NO,variant_name:text:YES,sku:text:YES,unit_price_cents:bigint:NO,quantity:integer:NO,discount_cents:bigint:NO,line_total_cents:bigint:NO,created_at:timestamp with time zone:NO");
+      assert.equal(psql(backend, `SELECT string_agg(conname,',' ORDER BY conname) FROM pg_constraint WHERE conrelid='saas.orders'::regclass AND contype='c';`), "orders_currency_check,orders_discount_cents_check,orders_payment_status_check,orders_shipping_cents_check,orders_source_check,orders_status_check,orders_subtotal_cents_check,orders_total_cents_check,orders_version_check");
+      assert.equal(psql(backend, `SELECT string_agg(conname,',' ORDER BY conname) FROM pg_constraint WHERE conrelid='saas.order_items'::regclass AND contype='c';`), "order_items_discount_cents_check,order_items_line_total_cents_check,order_items_position_check,order_items_quantity_check,order_items_unit_price_cents_check");
+      assert.equal(psql(backend, `SELECT string_agg(conname,',' ORDER BY conname) FROM pg_constraint WHERE conrelid='saas.orders'::regclass AND contype='u';`), "orders_store_id_id_key,orders_store_id_order_number_key");
+      assert.equal(psql(backend, `SELECT string_agg(conname,',' ORDER BY conname) FROM pg_constraint WHERE conrelid='saas.order_items'::regclass AND contype='u';`), "order_items_store_id_order_id_position_key");
+      const invalidOrders = [
+        ["bad_source", "'invalid'", "'TRY'", "1", "0", "0", "1", "'pending'", "'pending'", "1"],
+        ["bad_currency", "'storefront'", "'try'", "1", "0", "0", "1", "'pending'", "'pending'", "1"],
+        ["bad_subtotal", "'storefront'", "'TRY'", "-1", "0", "0", "-1", "'pending'", "'pending'", "1"],
+        ["bad_shipping", "'storefront'", "'TRY'", "0", "-1", "0", "-1", "'pending'", "'pending'", "1"],
+        ["bad_discount", "'storefront'", "'TRY'", "0", "0", "-1", "1", "'pending'", "'pending'", "1"],
+        ["bad_total", "'storefront'", "'TRY'", "1", "0", "0", "2", "'pending'", "'pending'", "1"],
+        ["negative_total", "'storefront'", "'TRY'", "0", "0", "1", "-1", "'pending'", "'pending'", "1"],
+        ["bad_status", "'storefront'", "'TRY'", "1", "0", "0", "1", "'unknown'", "'pending'", "1"],
+        ["bad_payment", "'storefront'", "'TRY'", "1", "0", "0", "1", "'pending'", "'unknown'", "1"],
+        ["bad_version", "'storefront'", "'TRY'", "1", "0", "0", "1", "'pending'", "'pending'", "0"],
+      ];
+      for (const [index, [label, source, currency, subtotal, shipping, discount, total, status, payment, version]] of invalidOrders.entries()) {
+        const id = `81000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+        denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at) VALUES ('${id}','${STORE_A}','${label}',${source},'Test','test@example.test',${currency},${subtotal},${shipping},${discount},${total},${status},${payment},'{}',${version},'${NOW}','${NOW}'); COMMIT;`);
+      }
+      const constraintOrder = "82000000-0000-4000-8000-000000000001";
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at) VALUES ('${constraintOrder}','${STORE_A}','constraint-fixture','storefront','Test','test@example.test','TRY',1,0,0,1,'pending','pending','{}',1,'${NOW}','${NOW}'); COMMIT;`);
+      const invalidItems = [
+        ["-1", "1", "1", "0", "1"],
+        ["100", "1", "1", "0", "1"],
+        ["0", "-1", "1", "0", "-1"],
+        ["0", "1", "0", "0", "0"],
+        ["0", "1", "10000", "0", "10000"],
+        ["0", "1", "1", "-1", "2"],
+        ["0", "1", "1", "0", "2"],
+        ["0", "0", "1", "1", "-1"],
+      ];
+      for (const [index, [position, unitPrice, quantity, discount, lineTotal]] of invalidItems.entries()) {
+        const id = `83000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+        denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; INSERT INTO saas.order_items(id,store_id,order_id,position,product_name,unit_price_cents,quantity,discount_cents,line_total_cents,created_at) VALUES ('${id}','${STORE_A}','${constraintOrder}',${position},'Invalid item',${unitPrice},${quantity},${discount},${lineTotal},'${NOW}'); COMMIT;`);
+      }
+      const tamperedAssertions = `BEGIN; SET LOCAL ROLE celebix_saas_owner; ALTER TABLE saas.orders DROP CONSTRAINT orders_currency_check;\n${readFileSync(path.join(SQL, "202607210022_order_management_assertions.sql"), "utf8")}`;
+      const constraintDrift = psqlResult(backend, tamperedAssertions, DATABASE, { allowFailure: true });
+      assert.notEqual(constraintDrift.status, 0, "assertions accepted constraint drift");
+      assert.match(constraintDrift.stderr, /PHASE3B1_ORDER_ASSERTION_FAILED: exact check\/unique constraint drift/);
+    });
+
+    await scenario("child rows enforce every composite store authority edge", async () => {
       for (const statement of [
         `INSERT INTO saas.order_items(id,store_id,order_id,position,product_name,unit_price_cents,quantity,discount_cents,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000001','${STORE_B}','${ORDER_A}',0,'Cross',1,1,0,1,'${NOW}')`,
-        `INSERT INTO saas.order_events(id,store_id,order_id,event_type,message,payload,created_at) VALUES ('80000000-0000-4000-8000-000000000002','${STORE_B}','${ORDER_A}','order_created','Cross','{}','${NOW}')`,
-        `INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at) VALUES ('80000000-0000-4000-8000-000000000003','${STORE_B}','${ORDER_A}','30000000-0000-4000-8000-000000000001','Cross','${NOW}','${NOW}')`,
-        `INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('80000000-0000-4000-8000-000000000004','${STORE_B}','${ORDER_A}','transition_status',repeat('b',64),'{}','${NOW}')`,
+        `INSERT INTO saas.order_items(id,store_id,order_id,product_id,position,product_name,unit_price_cents,quantity,discount_cents,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000002','${STORE_A}','${ORDER_A}','${PRODUCT_B}',0,'Cross product',1,1,0,1,'${NOW}')`,
+        `INSERT INTO saas.order_items(id,store_id,order_id,variant_id,position,product_name,unit_price_cents,quantity,discount_cents,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000003','${STORE_A}','${ORDER_A}','${VARIANT_B}',0,'Cross variant',1,1,0,1,'${NOW}')`,
+        `INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,message,payload,created_at) VALUES ('80000000-0000-4000-8000-000000000004','${STORE_A}','${ORDER_A}','30000000-0000-4000-8000-000000000005','order_created','Cross actor','{}','${NOW}')`,
+        `INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at) VALUES ('80000000-0000-4000-8000-000000000005','${STORE_A}','${ORDER_A}','30000000-0000-4000-8000-000000000005','Cross author','${NOW}','${NOW}')`,
+        `INSERT INTO saas.order_events(id,store_id,order_id,event_type,message,payload,created_at) VALUES ('80000000-0000-4000-8000-000000000006','${STORE_B}','${ORDER_A}','order_created','Cross order','{}','${NOW}')`,
+        `INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('80000000-0000-4000-8000-000000000007','${STORE_B}','${ORDER_A}','transition_status',repeat('b',64),'{}','${NOW}')`,
       ]) denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; ${statement}; COMMIT;`);
     });
 
@@ -255,6 +319,17 @@ async function main() {
         }
       }
       assert.equal(authority(backend, { action: "orders.unknown" }), "durable_authority_invalid");
+      const upSql = readFileSync(path.join(SQL, "202607210022_order_management.up.sql"), "utf8");
+      const functionStart = upSql.indexOf("CREATE FUNCTION saas.merchant_action_authority_error(");
+      const functionEnd = upSql.indexOf("\n$function$;", functionStart) + "\n$function$;".length;
+      const broadenedFunction = upSql.slice(functionStart, functionEnd)
+        .replace("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION")
+        .replace("  IF NOT (\n    membership_role", "  IF membership_role = 'analyst' AND p_required_action = 'orders.payment' THEN\n    RETURN NULL;\n  END IF;\n\n  IF NOT (\n    membership_role");
+      assert.notEqual(broadenedFunction, upSql.slice(functionStart, functionEnd), "authority broadening fixture was not created");
+      const tamperedAssertions = `BEGIN; SET LOCAL ROLE celebix_saas_owner;\n${broadenedFunction}\n${readFileSync(path.join(SQL, "202607210022_order_management_assertions.sql"), "utf8")}`;
+      const authorityDrift = psqlResult(backend, tamperedAssertions, DATABASE, { allowFailure: true });
+      assert.notEqual(authorityDrift.status, 0, "assertions accepted broadened role/action authority");
+      assert.match(authorityDrift.stderr, /PHASE3B1_ORDER_ASSERTION_FAILED: exact authority body drift/);
     });
 
     await scenario("inactive membership is denied", async () => {
@@ -263,19 +338,35 @@ async function main() {
       psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.memberships SET status='active',updated_at='${NOW}' WHERE id='30000000-0000-4000-8000-000000000001'; COMMIT;`);
     });
 
-    await scenario("wrong store authority is denied", async () => {
+    await scenario("inactive and wrong store authority are denied", async () => {
       assert.equal(authority(backend, { store: STORE_B }), "membership_denied");
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.stores SET status='suspended',updated_at='${NOW}' WHERE id='${STORE_A}'; COMMIT;`);
+      assert.equal(authority(backend), "store_inactive");
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.stores SET status='active',updated_at='${NOW}' WHERE id='${STORE_A}'; COMMIT;`);
     });
 
-    await scenario("missing or disabled feature is denied", async () => {
+    await scenario("ordered enabled feature lookup allows only enabled plan features", async () => {
+      assert.equal(psql(backend, `SELECT string_agg(feature_key,',' ORDER BY feature_ordinal) FROM saas.plan_features WHERE plan_id='${PLAN}' AND enabled;`), "catalog,orders,customers,content,media,analytics,checkout");
+      assert.equal(authority(backend, { feature: "orders" }), "<null>");
       assert.equal(authority(backend, { feature: "custom_domains" }), "feature_not_enabled");
       assert.equal(authority(backend, { feature: "not_registered" }), "feature_not_enabled");
     });
 
-    await scenario("expired subscription is denied", async () => {
+    await scenario("plan subscription and tuple drift are durably denied", async () => {
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET status='inactive',updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
+      assert.equal(authority(backend), "durable_authority_invalid");
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET status='active',updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
       psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET valid_until='2026-07-20',updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
       assert.equal(authority(backend), "durable_authority_invalid");
       psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET valid_until=NULL,updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
+      psql(backend, `ALTER TABLE saas.plans DISABLE TRIGGER plan_versions_immutable; UPDATE saas.plans SET status='inactive' WHERE id='${PLAN}';`);
+      assert.equal(authority(backend), "durable_authority_invalid");
+      psql(backend, `UPDATE saas.plans SET status='expired' WHERE id='${PLAN}';`);
+      assert.equal(authority(backend), "durable_authority_invalid");
+      psql(backend, `UPDATE saas.plans SET status='active' WHERE id='${PLAN}'; ALTER TABLE saas.plans ENABLE TRIGGER plan_versions_immutable;`);
+      assert.equal(authority(backend, { plan: "00000000-0000-4000-8000-000000000099" }), "durable_authority_invalid");
+      assert.equal(authority(backend, { planCode: "wrong_plan" }), "durable_authority_invalid");
+      assert.equal(authority(backend, { planVersion: 2 }), "durable_authority_invalid");
     });
 
     await scenario("app role has no direct order table DML", async () => {
@@ -336,6 +427,20 @@ async function main() {
     await scenario("disposable PostgreSQL cluster and socket are cleaned up", async () => {
       assert.equal(existsSync(cleanupPaths.temporaryDirectory), false);
       assert.equal(existsSync(cleanupPaths.socketDirectory), false);
+      for (const [failureName, failureCall] of [["initdb", 1], ["pg_ctl", 2]]) {
+        let partialBackend;
+        let calls = 0;
+        assert.throws(() => startPostgres({
+          token: `${TOKEN}${failureCall}`,
+          onAllocate(candidate) { partialBackend = candidate; },
+          runCommand() {
+            calls += 1;
+            if (calls === failureCall) throw new Error(`injected ${failureName} failure`);
+          },
+        }), new RegExp(`injected ${failureName} failure`));
+        assert.equal(existsSync(partialBackend.temporaryDirectory), false);
+        assert.equal(existsSync(partialBackend.socketDirectory), false);
+      }
     });
     assert.equal(completed.length, TOTAL);
     process.stdout.write(`PASS ${TOTAL}/${TOTAL} order management PostgreSQL 16 harness complete; cleanup confirmed\n`);
