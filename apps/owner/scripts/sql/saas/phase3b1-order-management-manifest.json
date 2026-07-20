@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3b1-202607210022-order-management",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "The down migration destroys order data and removes only migration 022 objects; it is for disposable rehearsal only.",
+  "artifacts": [
+    {
+      "id": "202607210022_order_management_up",
+      "direction": "up",
+      "file": "202607210022_order_management.up.sql",
+      "sha256": "3e08cbaa3c59e9745dad82711bddf1494a2266f6facb8dedcf52ab4b1b67efe5",
+      "purpose": "Add store-scoped order tables, immutable audit/operation rows and reusable merchant action authority."
+    },
+    {
+      "id": "202607210022_order_management_down",
+      "direction": "down",
+      "file": "202607210022_order_management.down.sql",
+      "sha256": "f945fe69329958da10e3e671e52fc78b23eff3401ef1362f733527e8f317053f",
+      "purpose": "Remove only migration 022 objects during disposable rollback rehearsal."
+    },
+    {
+      "id": "202607210022_order_management_assertions",
+      "direction": "verify",
+      "file": "202607210022_order_management_assertions.sql",
+      "sha256": "6b61f78150def9e455167fb64a5502bb3b128f642c59a6113296d3d6ccb51704",
+      "purpose": "Fail on owner, RLS, constraints, tenant FKs, ACL, immutability or action-authority drift."
+    }
+  ]
+}
