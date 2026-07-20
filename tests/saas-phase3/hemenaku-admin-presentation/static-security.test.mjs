@@ -76,3 +76,28 @@ test("product list ports donor presentation while preserving target commands", a
   assert.match(source, /archiveTriggerRef[.]current = event[.]currentTarget/);
   assert.doesNotMatch(source, /\/api\/admin|storeId|tenantId|supabase|bulk-stock|homepage-curation/i);
 });
+
+test("client presentation contains no private authority or donor runtime", async () => {
+  const files = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter((path) => /apps\/customer-panel\/.+\.(ts|tsx)$/.test(path) && !/\.test\.[cm]?[jt]sx?$/.test(path));
+  const source = (await Promise.all(files.map(read))).join("\n");
+  assert.doesNotMatch(source, /@supabase|getAdminAuthContext|getBrowserSupabaseClient|STORE_RUNTIME|store-info-context|\/api\/admin\//i);
+  assert.doesNotMatch(source, /document\.cookie|localStorage|sessionStorage|x-(?:tenant|store)-id/i);
+});
+
+test("presentation CSS preserves touch contrast overflow and reduced motion gates", async () => {
+  const css = `${await read("apps/customer-panel/app/globals.css")}\n${await read("apps/customer-panel/components/panel/panel-shell.module.css")}\n${await read("apps/customer-panel/components/dashboard/panel-dashboard.module.css")}`;
+  assert.match(css, /min-(?:width|height):\s*48px/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /\.01ms/);
+  assert.doesNotMatch(css, /overflow-x:\s*visible/);
+});
+
+test("tracked diff contains no secrets or forbidden identifiers", () => {
+  const patch = git("diff", `${BASE}...HEAD`, "--", ".", ":(exclude)package-lock.json");
+  const forbiddenIds = [
+    ["10000000", "0000", "4000", "8000", "000000000001"].join("-"),
+    ["20000000", "0000", "4000", "8000", "000000000001"].join("-"),
+  ];
+  assert.doesNotMatch(patch, /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|postgres(?:ql)?:\/\/[^\s]+:[^\s]+@|v1\.panel\.|pb1\.|bs1\./i);
+  assert.doesNotMatch(patch, new RegExp(forbiddenIds.join("|")));
+});

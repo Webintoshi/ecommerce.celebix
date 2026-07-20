@@ -43,13 +43,16 @@ test("imports no donor auth data runtime or legacy admin API", async () => {
   assert.doesNotMatch(combined, /@supabase|getAdminAuthContext|getBrowserSupabaseClient|NEXT_PUBLIC_ADMIN_AUTH_PROVIDER|\/api\/admin\/|store-runtime|store-info-context/i);
 });
 
-test("contains no unsupported navigation or dashboard claims", async () => {
-  const combined = (await Promise.all([
-    "apps/customer-panel/lib/panel-ui/navigation.ts",
-    "apps/customer-panel/lib/panel-ui/dashboard-model.ts",
-    "apps/customer-panel/components/dashboard/PanelDashboardHomeView.tsx",
-  ].map(read))).join("\n");
-  assert.doesNotMatch(combined, /orders|sipariş|customers|müşteri|marketing|cms|accounting|muhasebe|seo|toshi|notification|revenue|ciro|conversion|analytics/i);
+test("forbids unsupported navigation while rendering dashboard authority as unavailable", async () => {
+  const navigation = await read("apps/customer-panel/lib/panel-ui/navigation.ts");
+  const dashboardModel = await read("apps/customer-panel/lib/panel-ui/dashboard-model.ts");
+  const dashboard = await read("apps/customer-panel/components/dashboard/PanelDashboardHomeView.tsx");
+  assert.doesNotMatch(navigation, /orders|sipariş|customers|müşteri|marketing|cms|accounting|muhasebe|seo|toshi|notification|revenue|ciro|conversion|analytics/i);
+  for (const capability of ["orders", "analytics", "customers", "carts"]) {
+    assert.match(dashboardModel, new RegExp(`unsupportedAuthority\\(\\"${capability}\\"\\)`));
+  }
+  assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length >= 2, true);
+  assert.doesNotMatch(dashboard, /href=[^\n]*(?:orders|analytics|customers|carts)/i);
 });
 
 test("preserves exact same-origin logout semantics", async () => {

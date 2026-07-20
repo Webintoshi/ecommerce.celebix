@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const BASE = "d343f493bf7f4950604dfb08770ccb5290659557";
+const IMPLEMENTATION_HEAD = "6563a1428434e1974f50af3ffb843eb4067f686a";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const allowedFiles = new Set([
   "packages/saas-data/src/catalog/types.ts",
@@ -35,19 +36,31 @@ const allowedFiles = new Set([
 ]);
 
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
+const isSharedCatalogAuthoritySurface = (file) =>
+  file.startsWith("packages/saas-data/src/catalog/") ||
+  file.startsWith("apps/customer-panel/lib/server-catalog/") ||
+  file.startsWith("apps/customer-panel/lib/catalog-http/") ||
+  file === "apps/customer-panel/lib/catalog-ui/client.ts" ||
+  file === "apps/customer-panel/app/api/catalog/summary/route.ts" ||
+  file === "apps/owner/scripts/sql/saas/202607200021_catalog_dashboard_summary.up.sql" ||
+  file === "apps/owner/scripts/sql/saas/202607200021_catalog_dashboard_summary.down.sql" ||
+  file === "apps/owner/scripts/sql/saas/202607200021_catalog_dashboard_summary_assertions.sql" ||
+  file === "apps/owner/scripts/sql/saas/shared-merchant-catalog-dashboard-manifest.json";
 
 test("donor snapshot is pinned and apps/admin remains read-only", () => {
   assert.equal(git("rev-parse", DONOR), DONOR);
   assert.equal(git("diff", "--name-only", `${BASE}...HEAD`, "--", "apps/admin"), "");
 });
 
-test("tracked implementation scope is narrow and carries no legacy admin authority", () => {
-  const changed = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter(Boolean);
+test("tracks the original authority scope while allowing later presentation-only changes", () => {
+  const changed = git("diff", "--name-only", `${BASE}...${IMPLEMENTATION_HEAD}`).split("\n").filter(Boolean);
   assert.equal(
     changed.every((file) => allowedFiles.has(file) || file.startsWith("tests/saas-phase3/shared-merchant-catalog-dashboard/")),
     true,
     changed.join("\n"),
   );
+  const laterAuthorityChanges = git("diff", "--name-only", `${IMPLEMENTATION_HEAD}...HEAD`).split("\n").filter(Boolean).filter(isSharedCatalogAuthoritySurface);
+  assert.deepEqual(laterAuthorityChanges, []);
   const target = changed.filter((file) =>
     (file.startsWith("apps/customer-panel/") || file.startsWith("packages/saas-data/")) &&
     !file.endsWith(".test.ts") && !file.endsWith(".test.tsx"),
