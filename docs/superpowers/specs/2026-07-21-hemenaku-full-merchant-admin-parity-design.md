@@ -94,7 +94,7 @@ Database functions enforce actions; hiding a control is never authorization. Eve
 
 ### Slice A — shared policy and orders
 
-Add the reusable action decision, order/customer snapshot model, order items, immutable order events, internal notes, quick-order creation, status/payment/shipping transitions, export projection, and abandoned-cart read/archive state. Activate the exact donor `Siparişler` group only after repository and HTTP isolation pass.
+Add the reusable action decision, order/customer snapshot model, order items, immutable order events, internal notes, status/payment/shipping transitions, export projection, quick-order payment links, and abandoned-cart read/archive state. Deliver this as three reviewed sub-slices: A1 core order list/detail, A2 quick-order link management plus public storefront redemption, and A3 abandoned carts. A destination becomes visible only after its own repository and HTTP isolation pass; the parent group may appear as soon as its first genuine child is active.
 
 ### Slice B — customers
 
@@ -126,12 +126,14 @@ Replace every current unsupported dashboard slice only with durable aggregate re
 
 ## 7. First visible slice: Orders
 
-The first implementation cycle delivers the exact pinned donor order family under target routes:
+The complete order family uses these target routes:
 
 - `/orders`
-- `/orders/quick`
+- `/orders/quick-links`
 - `/orders/abandoned-carts`
 - `/orders/[orderId]`
+
+The first implementation cycle is A1 and activates only `/orders` plus `/orders/[orderId]`. A2 then activates `/orders/quick-links`; A3 activates `/orders/abandoned-carts`.
 
 The shared model includes:
 
@@ -140,9 +142,12 @@ The shared model includes:
 - `order_events`: immutable actor/action/from/to metadata without secrets;
 - `order_notes`: merchant-only text with author membership and archive state;
 - `order_operations`: idempotent operation fingerprint and immutable result;
+- `quick_order_links` and items: a server-generated token digest, bounded expiry, product/variant and customer/address snapshots, allowed payment configuration, opened/paid/cancelled lifecycle, and an optional converted order;
 - `abandoned_carts` and items: opaque public cart reference, customer/contact snapshot, money totals, lifecycle, expiry and recovery state.
 
-Quick order is the first real creation path. It validates active products/variants, snapshots their durable prices, checks inventory and totals server-side, and commits order, items, stock movement, operation result, and event atomically. Browser-supplied totals are hints and never authority.
+Quick-order links reproduce the pinned donor behavior rather than inventing a direct order-entry form. The merchant selects real products/variants and an optional real customer, while the server revalidates active catalog rows, snapshots prices and addresses, calculates totals, generates an opaque credential, stores only its digest, and constructs the public URL from the verified storefront hostname. Link redemption is implemented in the shared storefront runtime before the menu destination is activated. Browser-supplied totals and storefront hosts are never authority.
+
+An order is created only by a server-owned checkout/redemption transaction. It checks inventory and totals server-side and commits order, items, stock movement, operation result, quick-link conversion when applicable, and order event atomically.
 
 Order transitions use an explicit state machine. Invalid transitions, stale versions, disabled `orders` entitlement, insufficient role, cross-store IDs, replay mismatch, expired membership, or unavailable runtime fail without mutation.
 
