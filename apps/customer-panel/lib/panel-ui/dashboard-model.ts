@@ -1,5 +1,10 @@
 import type { PanelChromeModel } from "./chrome-model.ts";
 import type { CatalogDashboardSummary } from "../catalog-ui/client.ts";
+import {
+  readyAuthority,
+  unsupportedAuthority,
+  type AuthoritySlice,
+} from "./authority-slice.ts";
 
 export interface PanelDashboardCard {
   readonly key: "store" | "membership" | "plan" | "storefront";
@@ -33,6 +38,32 @@ export interface PanelDashboardModel {
   readonly cards: readonly PanelDashboardCard[];
   readonly catalogCards: readonly PanelDashboardCatalogCard[];
   readonly catalogReadiness?: PanelDashboardCatalogReadiness;
+  readonly actions: readonly PanelDashboardAction[];
+}
+
+export interface CatalogMetric {
+  readonly key: "products" | "active-products" | "draft-products" | "out-of-stock" | "active-media";
+  readonly label: string;
+  readonly value: number;
+  readonly detail: string;
+}
+
+export interface CatalogDashboardViewModel {
+  readonly metrics: readonly CatalogMetric[];
+  readonly chart: readonly Readonly<{ label: string; value: number }>[];
+  readonly productsWithoutMedia: number;
+  readonly productLimit: number;
+}
+
+export interface MerchantDashboardViewModel {
+  readonly title: "Genel bakış";
+  readonly description: string;
+  readonly chromeCards: readonly PanelDashboardCard[];
+  readonly catalog: AuthoritySlice<CatalogDashboardViewModel>;
+  readonly orders: AuthoritySlice<never>;
+  readonly analytics: AuthoritySlice<never>;
+  readonly customers: AuthoritySlice<never>;
+  readonly carts: AuthoritySlice<never>;
   readonly actions: readonly PanelDashboardAction[];
 }
 
@@ -103,5 +134,68 @@ export function createPanelDashboardModel(
     catalogCards,
     ...(catalogReadiness === undefined ? {} : { catalogReadiness }),
     actions,
+  });
+}
+
+function createCatalogDashboardViewModel(summary: CatalogDashboardSummary): CatalogDashboardViewModel {
+  const metrics = Object.freeze([
+    Object.freeze({
+      key: "products" as const,
+      label: "Toplam ürün",
+      value: summary.totalProducts,
+      detail: `${summary.productLimit} ürün limitinden`,
+    }),
+    Object.freeze({
+      key: "active-products" as const,
+      label: "Aktif ürün",
+      value: summary.activeProducts,
+      detail: "Storefront için etkin",
+    }),
+    Object.freeze({
+      key: "draft-products" as const,
+      label: "Taslak ürün",
+      value: summary.draftProducts,
+      detail: "Yayın öncesi çalışma",
+    }),
+    Object.freeze({
+      key: "out-of-stock" as const,
+      label: "Stokta olmayan",
+      value: summary.outOfStockVariants,
+      detail: `${summary.activeVariants} aktif varyant içinde`,
+    }),
+    Object.freeze({
+      key: "active-media" as const,
+      label: "Etkin medya",
+      value: summary.activeMedia,
+      detail: `${summary.productsWithoutMedia} üründe medya eksik`,
+    }),
+  ]);
+  const chart = Object.freeze(metrics.map(({ label, value }) => Object.freeze({ label, value })));
+  return Object.freeze({
+    metrics,
+    chart,
+    productsWithoutMedia: summary.productsWithoutMedia,
+    productLimit: summary.productLimit,
+  });
+}
+
+export function createMerchantDashboardViewModel(
+  chrome: PanelChromeModel,
+  catalog: AuthoritySlice<CatalogDashboardSummary>,
+): MerchantDashboardViewModel {
+  const legacy = createPanelDashboardModel(chrome);
+  const catalogView = catalog.state === "ready"
+    ? readyAuthority(createCatalogDashboardViewModel(catalog.value), catalog.asOf)
+    : catalog;
+  return Object.freeze({
+    title: legacy.title,
+    description: legacy.description,
+    chromeCards: legacy.cards,
+    catalog: catalogView,
+    orders: unsupportedAuthority("orders"),
+    analytics: unsupportedAuthority("analytics"),
+    customers: unsupportedAuthority("customers"),
+    carts: unsupportedAuthority("carts"),
+    actions: legacy.actions,
   });
 }

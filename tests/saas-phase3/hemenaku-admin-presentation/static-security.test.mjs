@@ -39,9 +39,26 @@ test("ports the exact donor brand asset and core visual tokens", async () => {
   assert.match(css, /--panel-touch-target:\s*48px/i);
 });
 
-test("exports the complete donor-compatible page primitive set", async () => {
+test("exports donor-compatible page primitives and truthful dashboard geometry", async () => {
   const source = await read("apps/customer-panel/components/panel/PanelPageShell.tsx");
   for (const name of ["PanelPageShell", "PanelPageHeader", "PanelPanel", "PanelToolbar", "PanelBadge", "PanelStatusBadge", "PanelMetricCard", "PanelDataTable", "PanelLoadingState", "PanelActionButton", "PanelEmptyState", "PanelSkeletonBlock"]) {
     assert.match(source, new RegExp(`export function ${name}\\b`));
   }
+  const dashboard = await read("apps/customer-panel/components/dashboard/PanelDashboardHomeView.tsx");
+  const model = await read("apps/customer-panel/lib/panel-ui/dashboard-model.ts");
+  const styles = await read("apps/customer-panel/components/dashboard/panel-dashboard.module.css");
+  assert.match(dashboard, /createMerchantDashboardViewModel/);
+  assert.match(dashboard, /<ResponsiveContainer width="100%" height=\{280\}>/);
+  assert.match(dashboard, /<BarChart data=\{dashboard[.]catalog[.]value[.]chart\} accessibilityLayer>/);
+  assert.match(dashboard, /<YAxis allowDecimals=\{false\} \/>/);
+  assert.match(dashboard, /<Bar dataKey="value" fill="#FF6A00" radius=\{\[8, 8, 0, 0\]\} \/>/);
+  assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length >= 2, true);
+  assert.match(dashboard, /Sipariş, analiz, müşteri ve sepet verileri bu panelde desteklenmiyor[.]/);
+  for (const capability of ["orders", "analytics", "customers", "carts"]) {
+    assert.match(model, new RegExp(`unsupportedAuthority\\(\"${capability}\"\\)`));
+  }
+  assert.doesNotMatch(dashboard, /LineChart|AreaChart|dataKey="(?:revenue|orders|customers|conversion)"/i);
+  assert.doesNotMatch(dashboard, /href=[^\n]*(?:orders|analytics|customers|carts)/i);
+  assert.doesNotMatch(dashboard, /TenantContext|storeId|tenantId|principal|membershipId|planId|requestId/);
+  assert.match(styles, /[.]metricTabs\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
 });

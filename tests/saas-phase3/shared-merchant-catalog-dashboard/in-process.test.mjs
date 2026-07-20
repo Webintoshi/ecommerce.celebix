@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createCatalogApiClient } from "../../../apps/customer-panel/lib/catalog-ui/client.ts";
-import { createPanelDashboardModel } from "../../../apps/customer-panel/lib/panel-ui/dashboard-model.ts";
+import { readyAuthority } from "../../../apps/customer-panel/lib/panel-ui/authority-slice.ts";
+import { createMerchantDashboardViewModel } from "../../../apps/customer-panel/lib/panel-ui/dashboard-model.ts";
 
 const SUMMARY = Object.freeze({
   totalProducts: 4,
@@ -36,9 +37,31 @@ test("authenticated summary projects truthful dashboard values without unsupport
     },
   }).getDashboardSummary();
 
-  const model = createPanelDashboardModel(CHROME, summary);
+  const model = createMerchantDashboardViewModel(
+    CHROME,
+    readyAuthority(summary, "2026-07-20T12:00:00.000Z"),
+  );
   assert.equal(calls, 1);
-  assert.deepEqual(model.catalogCards.map((card) => card.value), ["4", "3", "1", "2"]);
+  assert.deepEqual(
+    model.catalog.state === "ready"
+      ? model.catalog.value.metrics.map(({ key, value }) => [key, value])
+      : [],
+    [
+      ["products", 4],
+      ["active-products", 3],
+      ["draft-products", 1],
+      ["out-of-stock", 2],
+      ["active-media", 7],
+    ],
+  );
+  assert.deepEqual(
+    [model.orders.state, model.analytics.state, model.customers.state, model.carts.state],
+    ["unsupported", "unsupported", "unsupported", "unsupported"],
+  );
   assert.equal(model.actions.some((action) => action.href === "/products/new"), true);
-  assert.doesNotMatch(JSON.stringify(model), /order|sipariş|revenue|ciro|customer|müşteri/i);
+  assert.doesNotMatch(
+    JSON.stringify(model),
+    /orderTotal|sipariş toplamı|revenue|ciro|customerTotal|müşteri toplamı|conversion|trend/i,
+  );
+  assert.doesNotMatch(JSON.stringify(model), /storeId|tenantId|principal|membershipId|planId|requestId/);
 });

@@ -11,7 +11,10 @@ import {
   PANEL_NAVIGATION,
 } from "./panel-ui/navigation.ts";
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
-import { createPanelDashboardModel } from "./panel-ui/dashboard-model.ts";
+import {
+  createMerchantDashboardViewModel,
+  createPanelDashboardModel,
+} from "./panel-ui/dashboard-model.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
@@ -415,6 +418,20 @@ async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
         useState: (value: unknown) => [value, () => undefined],
       };
     }
+    if (specifier === "recharts") {
+      const ChartContainer = ({ children }: { children?: ReactNode }) =>
+        createElement("div", null, children);
+      const ChartPrimitive = () => null;
+      return {
+        Bar: ChartPrimitive,
+        BarChart: ChartContainer,
+        CartesianGrid: ChartPrimitive,
+        ResponsiveContainer: ChartContainer,
+        Tooltip: ChartPrimitive,
+        XAxis: ChartPrimitive,
+        YAxis: ChartPrimitive,
+      };
+    }
     if (specifier === "@/components/panel/PanelPageShell") {
       return { PanelActionButton, PanelMetricCard, PanelPageHeader, PanelPageShell, PanelPanel };
     }
@@ -424,7 +441,9 @@ async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
     if (specifier === "@/lib/catalog-ui/client") {
       return { catalogApi: { getDashboardSummary: async () => undefined } };
     }
-    if (specifier === "@/lib/panel-ui/dashboard-model") return { createPanelDashboardModel };
+    if (specifier === "@/lib/panel-ui/dashboard-model") {
+      return { createMerchantDashboardViewModel, createPanelDashboardModel };
+    }
     if (specifier === "./panel-dashboard.module.css") return styles;
     throw new Error(`unexpected_panel_dashboard_import:${specifier}`);
   };
@@ -964,8 +983,15 @@ test("dashboard renders only the safe chrome model and truthful working actions"
   assert.match(combined, /\/products/);
   assert.match(combined, /\/products\/new/);
   assert.match(combined, /\/setup/);
+  for (const capability of ["orders", "analytics", "customers", "carts"]) {
+    assert.match(model, new RegExp(`unsupportedAuthority\\(\"${capability}\"\\)`));
+  }
   assert.doesNotMatch(view, /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
-  assert.doesNotMatch(combined, /revenue|ciro|order|sipariş|conversion|dönüşüm|analytics|Toshi/i);
+  assert.doesNotMatch(
+    combined,
+    /revenue|ciro|orderTotal|sipariş toplamı|conversion(?:Rate|Total)|dönüşüm oranı|customerTotal|previousRevenue|currentRevenue|Toshi/i,
+  );
+  assert.doesNotMatch(view, /href=[^\n]*(?:orders|analytics|customers|carts)|provider(?:Data|Payload)|TenantContext/i);
 });
 
 test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {

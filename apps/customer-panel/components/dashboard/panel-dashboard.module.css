@@ -4,49 +4,115 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
+
 .cardGrid > * { min-width: 0; }
 .cardGrid strong { overflow-wrap: anywhere; }
-.sectionHeader {
+
+.controlBar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: .75rem;
 }
-.sectionHeader h2,
-.sectionHeader p,
-.errorState p,
-.readinessLine { margin: 0; }
-.sectionHeader h2 { color: #1F2937; font-size: .98rem; font-weight: 600; }
-.sectionHeader p,
-.readinessLine { color: #6B7280; font-size: .8125rem; }
-.sectionHeader p { margin-top: .25rem; }
+
+.controlLabel {
+  margin: 0 0 .35rem;
+  color: #6B7280;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.filterButton,
 .refreshButton,
 .errorState button {
   min-width: 48px;
   min-height: 48px;
   border: 1px solid #E3E7EE;
-  border-radius: .875rem;
+  border-radius: .75rem;
   background: #FFFFFF;
   color: #1F2937;
   padding: 0 1rem;
   font-weight: 700;
-  cursor: pointer;
 }
+
+.filterButton:disabled {
+  cursor: not-allowed;
+  color: #6B7280;
+  background: #F9F9F9;
+  opacity: 1;
+}
+
+.refreshButton { cursor: pointer; }
+.refreshButton:disabled { cursor: wait; opacity: .6; }
 .refreshButton:focus-visible,
 .errorState button:focus-visible { outline: 3px solid rgb(255 106 0 / 35%); outline-offset: 2px; }
-.refreshButton:disabled { cursor: wait; opacity: .6; }
+
+.catalogSurface,
+.unsupportedSurface {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(218, 224, 233, .82);
+  border-radius: .75rem;
+  background: #FFFFFF;
+}
+
+.metricTabsViewport { overflow-x: auto; }
+
+.metricTabs {
+  display: grid;
+  min-width: 780px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.metricTab,
+.skeletonCard {
+  min-width: 0;
+  min-height: 108px;
+  border-right: 1px solid rgba(218, 224, 233, .82);
+  border-bottom: 1px solid rgba(218, 224, 233, .82);
+  background: #FFFFFF;
+  padding: 1rem;
+}
+
+.metricTab:last-child { border-right: 0; }
+.metricTab p,
+.metricTab span,
+.metricTab strong { display: block; margin: 0; }
+.metricTab p { color: #596273; font-size: .875rem; font-weight: 700; }
+.metricTab strong { margin-top: .55rem; color: #111827; font-size: 1.55rem; letter-spacing: -.04em; }
+.metricTab span { margin-top: .45rem; color: #7B8494; font-size: .75rem; }
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sectionHeader h2,
+.sectionHeader p,
+.errorState h2,
+.errorState p,
+.readinessLine { margin: 0; }
+.sectionHeader h2,
+.errorState h2 { color: #1F2937; font-size: .98rem; font-weight: 700; }
+.sectionHeader p,
+.errorState p,
+.readinessLine { color: #6B7280; font-size: .8125rem; }
+.sectionHeader p,
+.errorState p { margin-top: .25rem; }
+
+.chartPanel { padding: 1.25rem; }
+.chartViewport { min-width: 0; overflow-x: auto; }
+.chartInner { min-width: 620px; padding-top: 1rem; }
+.readinessLine { margin-top: .75rem; }
+
 .skeletonCard {
   display: grid;
-  min-height: 124px;
-  align-content: start;
-  gap: 1rem;
-  border: 1px solid #E3E7EE;
-  border-radius: 1rem;
-  background: #FFFFFF;
-  padding: .875rem;
-  box-shadow: 0 4px 12px rgba(17, 24, 39, .035);
+  align-content: center;
+  gap: .8rem;
 }
+
 .skeletonLine {
   display: block;
   width: 64%;
@@ -55,32 +121,78 @@
   background: #E3E7EE;
   animation: catalogSkeleton 1.4s ease-in-out infinite alternate;
 }
+
 .skeletonLine:nth-child(2) { width: 38%; height: 1.8rem; }
 .skeletonLine:nth-child(3) { width: 78%; }
+
+.chartSkeleton {
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+  padding: 1.25rem;
+}
+
+.chartSkeleton .skeletonLine { width: min(80%, 48rem); height: 240px; border-radius: .75rem; }
+
 .errorState {
   display: flex;
-  min-height: 124px;
+  min-height: 148px;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   border: 1px solid #E3E7EE;
-  border-radius: 1rem;
+  border-radius: .75rem;
   background: #F9F9F9;
-  padding: 1rem;
+  padding: 1.25rem;
   color: #1F2937;
 }
-.readinessLine { margin-top: 1rem; }
+
+.unsupportedSurface { padding: 1.25rem; }
+.unsupportedGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+  margin-top: 1rem;
+}
+
+.unsupportedCard {
+  min-width: 0;
+  min-height: 126px;
+  border: 1px dashed #D9DEE7;
+  border-radius: .5rem;
+  background: #F9F9F9;
+  padding: 1rem;
+}
+
+.unsupportedCard span,
+.unsupportedCard b { display: block; }
+.unsupportedCard span { color: #6B7280; font-size: .8rem; font-weight: 700; }
+.unsupportedCard b { margin-top: .6rem; color: #374151; font-size: .95rem; }
+.unsupportedCard p { margin: .55rem 0 0; color: #7B8494; font-size: .75rem; line-height: 1.45; }
+
 .actionRail { display: flex; flex-wrap: wrap; gap: .75rem; }
 .actionRail a { min-width: 48px; min-height: 48px; }
+
 @keyframes catalogSkeleton { from { opacity: .45; } to { opacity: 1; } }
-@media (max-width: 1280px) { .cardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1280px) { .skeletonCard { padding: 1.25rem; } }
+
+@media (max-width: 1280px) {
+  .cardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .unsupportedGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 640px) {
   .cardGrid { grid-template-columns: 1fr; }
+  .controlBar,
   .sectionHeader,
   .errorState { align-items: stretch; flex-direction: column; }
+  .controlBar > div { width: 100%; }
+  .filterButton { width: 100%; }
+  .chartPanel,
+  .unsupportedSurface { padding: 1rem; }
+  .unsupportedGrid { grid-template-columns: 1fr; }
   .actionRail { display: grid; }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .skeletonLine { animation-duration: .01ms !important; }
 }
