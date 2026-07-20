@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import type { ProductMedia } from "../../../../packages/saas-contracts/src/media/index.ts";
 
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
@@ -19,6 +19,10 @@ export function ProductMediaManager({ productId }: { productId: string }) {
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [archiveTarget, setArchiveTarget] = useState<ProductMedia>();
+  const archiveDialogRef = useRef<HTMLDivElement>(null);
+  const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
+  const archiveTriggerRef = useRef<HTMLButtonElement>(null);
+  const wasArchiveDialogOpen = useRef(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -29,6 +33,46 @@ export function ProductMediaManager({ productId }: { productId: string }) {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  useEffect(() => {
+    if (archiveTarget !== undefined) {
+      wasArchiveDialogOpen.current = true;
+      archiveCancelButtonRef.current?.focus();
+      return;
+    }
+    if (!wasArchiveDialogOpen.current) return;
+    wasArchiveDialogOpen.current = false;
+    archiveTriggerRef.current?.isConnected && archiveTriggerRef.current.focus();
+  }, [archiveTarget]);
+
+  function closeArchiveDialog() {
+    if (busy === "") setArchiveTarget(undefined);
+  }
+
+  function handleArchiveDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      closeArchiveDialog();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(archiveDialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ) ?? []);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      archiveDialogRef.current?.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable.at(-1)!;
+    if (event.shiftKey && (document.activeElement === first || !archiveDialogRef.current?.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !archiveDialogRef.current?.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   function selectFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -131,14 +175,21 @@ export function ProductMediaManager({ productId }: { productId: string }) {
               <div className="media-order-controls" aria-label="Görsel sırası">
                 <button type="button" className="button button-secondary" onClick={() => void move(index, -1)} disabled={busy !== "" || index === 0}>↑ Yukarı taşı</button>
                 <button type="button" className="button button-secondary" onClick={() => void move(index, 1)} disabled={busy !== "" || index === media.length - 1}>↓ Aşağı taşı</button>
-                <button type="button" className="text-danger-button" onClick={() => setArchiveTarget(item)} disabled={busy !== ""}>Arşivle</button>
+                <button type="button" className="text-danger-button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveTarget(item); }} disabled={busy !== ""}>Arşivle</button>
               </div>
             </article>
           ))}
         </div>
       )}
 
-      {archiveTarget ? <div className="inline-confirmation" role="alertdialog" aria-labelledby="archive-media-title"><div><strong id="archive-media-title">Görseli arşivlemeyi onayla</strong><p>Görsel ürün galerisinden ve mağazadan kaldırılacak.</p></div><div className="confirmation-actions"><button className="button button-secondary" type="button" onClick={() => setArchiveTarget(undefined)} disabled={busy !== ""}>Vazgeç</button><button className="button button-danger" type="button" onClick={() => void archive()} disabled={busy !== ""}>Görseli arşivle</button></div></div> : null}
+      {archiveTarget ? (
+        <div className="archive-dialog-layer">
+          <div ref={archiveDialogRef} className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-media-title" aria-describedby="archive-media-description" tabIndex={-1} onKeyDown={handleArchiveDialogKeyDown}>
+            <div><strong id="archive-media-title">Görseli arşivlemeyi onayla</strong><p id="archive-media-description">Görsel ürün galerisinden ve mağazadan kaldırılacak.</p></div>
+            <div className="confirmation-actions"><button ref={archiveCancelButtonRef} className="button button-secondary" type="button" onClick={closeArchiveDialog} disabled={busy !== ""}>Vazgeç</button><button className="button button-danger" type="button" onClick={() => void archive()} disabled={busy !== ""}>{busy === `archive-${archiveTarget.id}` ? "Arşivleniyor…" : "Görseli arşivle"}</button></div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

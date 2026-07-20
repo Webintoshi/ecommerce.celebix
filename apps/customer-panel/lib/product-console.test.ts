@@ -107,6 +107,23 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
   assert.doesNotMatch(`${list}\n${create}\n${detail}`, /\/api\/admin|\/admin\/urunler|category|image upload|seo|supabase/i);
 });
 
+test("detail and media surfaces retain versioned target commands", async () => {
+  const detail = await source("components/catalog/ProductDetailConsole.tsx");
+  const media = await source("components/catalog/ProductMediaManager.tsx");
+  assert.match(detail, /data-presentation="hemenaku-product-detail"/);
+  assert.match(detail, /updateProduct\(productId, parsed\.value\)/);
+  assert.match(detail, /updateVariant\(productId, variant\.id, parsed\.value\)/);
+  assert.match(detail, /archiveVariant\(productId, archiveVariant\.id, archiveVariant\.version\)/);
+  assert.match(detail, /failure\.code === "version_conflict"/);
+  assert.match(media, /productMediaApi\.reorder/);
+  assert.match(media, /productMediaApi\.archive/);
+  assert.match(detail, /aria-modal="true"/);
+  assert.match(detail, /onKeyDown=\{handleArchiveDialogKeyDown\}/);
+  assert.match(media, /aria-modal="true"/);
+  assert.match(media, /onKeyDown=\{handleArchiveDialogKeyDown\}/);
+  assert.doesNotMatch(`${detail}\n${media}`, /storeId|tenantId|document\.cookie|\/api\/admin|supabase/i);
+});
+
 test("creation wizard remains bound to the durable target workflow", async () => {
   const create = await source("components/catalog/ProductCreateForm.tsx");
   const createIndex = create.indexOf("await catalogApi.createProduct");

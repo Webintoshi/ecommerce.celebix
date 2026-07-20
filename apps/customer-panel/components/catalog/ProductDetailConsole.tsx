@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { Product, ProductVariant } from "@celebix/saas-contracts";
 
 import {
@@ -61,6 +61,10 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   const [editingVariant, setEditingVariant] = useState<string>();
   const [archiveVariant, setArchiveVariant] = useState<ProductVariant>();
   const [archiveProduct, setArchiveProduct] = useState(false);
+  const archiveDialogRef = useRef<HTMLDivElement>(null);
+  const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
+  const archiveTriggerRef = useRef<HTMLButtonElement>(null);
+  const wasArchiveDialogOpen = useRef(false);
 
   const load = useCallback(async (conflict = false) => {
     setError("");
@@ -76,6 +80,50 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   }, [productId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const archiveDialogOpen = archiveVariant !== undefined || archiveProduct;
+
+  useEffect(() => {
+    if (archiveDialogOpen) {
+      wasArchiveDialogOpen.current = true;
+      archiveCancelButtonRef.current?.focus();
+      return;
+    }
+    if (!wasArchiveDialogOpen.current) return;
+    wasArchiveDialogOpen.current = false;
+    archiveTriggerRef.current?.isConnected && archiveTriggerRef.current.focus();
+  }, [archiveDialogOpen]);
+
+  function closeArchiveDialog() {
+    if (busy !== "") return;
+    setArchiveVariant(undefined);
+    setArchiveProduct(false);
+  }
+
+  function handleArchiveDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      closeArchiveDialog();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(archiveDialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ) ?? []);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      archiveDialogRef.current?.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable.at(-1)!;
+    if (event.shiftKey && (document.activeElement === first || !archiveDialogRef.current?.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !archiveDialogRef.current?.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   async function mutation(name: string, action: () => Promise<void>) {
     setBusy(name);
@@ -163,7 +211,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
 
   const { product, variants } = detail;
   return (
-    <section className="catalog-page" aria-labelledby="product-title">
+    <section data-presentation="hemenaku-product-detail" className="catalog-page" aria-labelledby="product-title">
       <Link className="back-link" href="/products">← Ürünlere dön</Link>
       <div className="detail-heading-row hemenaku-detail-hero">
         <div className="catalog-heading">
@@ -174,15 +222,17 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
         </div>
         <div className="heading-actions">
           <button className="button button-secondary" type="button" onClick={() => setEditingProduct((current) => !current)}>Ürünü düzenle</button>
-          <button className="button button-quiet-danger" type="button" onClick={() => setArchiveProduct(true)}>Arşivle</button>
+          <button className="button button-quiet-danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveProduct(true); }}>Arşivle</button>
         </div>
       </div>
 
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><strong>Bilgi</strong><p>{notice}</p></div></div> : null}
 
-      {editingProduct ? (
-        <form className="catalog-form inset-form" onSubmit={updateProduct} key={product.version}>
+      <section aria-labelledby="product-fields-title">
+        <h2 id="product-fields-title" className="sr-only">Ürün bilgileri</h2>
+        {editingProduct ? (
+          <form className="catalog-form inset-form" onSubmit={updateProduct} key={product.version}>
           <fieldset disabled={busy !== ""}>
             <legend><span>01</span><span><strong>Ürün Bilgileri</strong><small>Güncel sürüm: v{product.version}</small></span></legend>
             <div className="form-grid">
@@ -194,18 +244,20 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
             </div>
           </fieldset>
           <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => setEditingProduct(false)}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === "product" ? "Kaydediliyor…" : "Değişiklikleri kaydet"}</button></div>
-        </form>
-      ) : (
-        <div className="product-summary-grid">
-          <article><span>Açıklama</span><p>{product.description ?? "Bu ürün için açıklama eklenmemiş."}</p></article>
-          <article><span>Son güncelleme</span><strong>{new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date(product.updatedAt))}</strong></article>
-        </div>
-      )}
+          </form>
+        ) : (
+          <div className="product-summary-grid">
+            <article><span>Açıklama</span><p>{product.description ?? "Bu ürün için açıklama eklenmemiş."}</p></article>
+            <article><span>Son güncelleme</span><strong>{new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date(product.updatedAt))}</strong></article>
+          </div>
+        )}
+      </section>
 
       <ProductMediaManager productId={productId} />
 
+      <section className="variant-list" aria-labelledby="variants-title">
       <div className="section-heading-row">
-        <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2>Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
+        <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 id="variants-title">Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
         <button className="button button-primary" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}>＋ Yeni varyant</button>
       </div>
 
@@ -235,15 +287,22 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
                   <span><small>Karşılaştırma</small><strong>{variant.compareAtCents === undefined ? "—" : formatTurkishMoney(variant.compareAtCents, product.currency)}</strong></span>
                   <span><small>Stok</small><strong>{variant.stockTracking ? `${variant.stockQuantity} adet` : "Takip dışı"}</strong></span>
                 </div>
-                <div className="variant-actions"><button className="button button-secondary" type="button" onClick={() => setEditingVariant(variant.id)}>Düzenle</button><button className="text-danger-button" type="button" onClick={() => setArchiveVariant(variant)}>Arşivle</button></div>
+                <div className="variant-actions"><button className="button button-secondary" type="button" onClick={() => setEditingVariant(variant.id)}>Düzenle</button><button className="text-danger-button" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button></div>
               </>
             )}
           </article>
         ))}
       </div>
+      </section>
 
-      {archiveVariant ? <div className="inline-confirmation" role="alertdialog" aria-labelledby="archive-variant-title"><div><strong id="archive-variant-title">Varyantı arşivlemeyi onayla</strong><p><b>{archiveVariant.title}</b> aktif varyantlardan kaldırılacak.</p></div><div className="confirmation-actions"><button className="button button-secondary" type="button" onClick={() => setArchiveVariant(undefined)} disabled={busy !== ""}>Vazgeç</button><button className="button button-danger" type="button" onClick={() => void confirmVariantArchive()} disabled={busy !== ""}>Varyantı arşivle</button></div></div> : null}
-      {archiveProduct ? <div className="inline-confirmation" role="alertdialog" aria-labelledby="archive-product-title"><div><strong id="archive-product-title">Ürünü arşivlemeyi onayla</strong><p><b>{product.title}</b> varsayılan listeden kaldırılacak. Bu işlem v{product.version} üzerinden yapılacak.</p></div><div className="confirmation-actions"><button className="button button-secondary" type="button" onClick={() => setArchiveProduct(false)} disabled={busy !== ""}>Vazgeç</button><button className="button button-danger" type="button" onClick={() => void confirmProductArchive()} disabled={busy !== ""}>{busy === "archive-product" ? "Arşivleniyor…" : "Ürünü arşivle"}</button></div></div> : null}
+      {archiveDialogOpen ? (
+        <div className="archive-dialog-layer">
+          <div ref={archiveDialogRef} className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby={archiveVariant ? "archive-variant-title" : "archive-product-title"} aria-describedby={archiveVariant ? "archive-variant-description" : "archive-product-description"} tabIndex={-1} onKeyDown={handleArchiveDialogKeyDown}>
+            {archiveVariant ? <div><strong id="archive-variant-title">Varyantı arşivlemeyi onayla</strong><p id="archive-variant-description"><b>{archiveVariant.title}</b> aktif varyantlardan kaldırılacak.</p></div> : <div><strong id="archive-product-title">Ürünü arşivlemeyi onayla</strong><p id="archive-product-description"><b>{product.title}</b> varsayılan listeden kaldırılacak. Bu işlem v{product.version} üzerinden yapılacak.</p></div>}
+            <div className="confirmation-actions"><button ref={archiveCancelButtonRef} className="button button-secondary" type="button" onClick={closeArchiveDialog} disabled={busy !== ""}>Vazgeç</button>{archiveVariant ? <button className="button button-danger" type="button" onClick={() => void confirmVariantArchive()} disabled={busy !== ""}>{busy === `archive-${archiveVariant.id}` ? "Arşivleniyor…" : "Varyantı arşivle"}</button> : <button className="button button-danger" type="button" onClick={() => void confirmProductArchive()} disabled={busy !== ""}>{busy === "archive-product" ? "Arşivleniyor…" : "Ürünü arşivle"}</button>}</div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
