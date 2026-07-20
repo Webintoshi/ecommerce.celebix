@@ -303,6 +303,7 @@ async function main() {
         `INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at) VALUES ('80000000-0000-4000-8000-000000000005','${STORE_A}','${ORDER_A}','30000000-0000-4000-8000-000000000005','Cross author','${NOW}','${NOW}')`,
         `INSERT INTO saas.order_events(id,store_id,order_id,event_type,message,payload,created_at) VALUES ('80000000-0000-4000-8000-000000000006','${STORE_B}','${ORDER_A}','order_created','Cross order','{}','${NOW}')`,
         `INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('80000000-0000-4000-8000-000000000007','${STORE_B}','${ORDER_A}','transition_status',repeat('b',64),'{}','${NOW}')`,
+        `INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at) VALUES ('80000000-0000-4000-8000-000000000008','${STORE_B}','${ORDER_A}','30000000-0000-4000-8000-000000000005','Cross note order','${NOW}','${NOW}')`,
       ]) denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; ${statement}; COMMIT;`);
     });
 
@@ -356,6 +357,9 @@ async function main() {
       psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET status='inactive',updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
       assert.equal(authority(backend), "durable_authority_invalid");
       psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET status='active',updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET valid_from='2026-07-22',updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
+      assert.equal(authority(backend), "durable_authority_invalid");
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET valid_from='2026-01-01',updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
       psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET valid_until='2026-07-20',updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
       assert.equal(authority(backend), "durable_authority_invalid");
       psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.subscriptions SET valid_until=NULL,updated_at='${NOW}' WHERE store_id='${STORE_A}'; COMMIT;`);
@@ -363,7 +367,11 @@ async function main() {
       assert.equal(authority(backend), "durable_authority_invalid");
       psql(backend, `UPDATE saas.plans SET status='expired' WHERE id='${PLAN}';`);
       assert.equal(authority(backend), "durable_authority_invalid");
-      psql(backend, `UPDATE saas.plans SET status='active' WHERE id='${PLAN}'; ALTER TABLE saas.plans ENABLE TRIGGER plan_versions_immutable;`);
+      psql(backend, `UPDATE saas.plans SET status='active',valid_from='2026-07-22' WHERE id='${PLAN}';`);
+      assert.equal(authority(backend), "durable_authority_invalid");
+      psql(backend, `UPDATE saas.plans SET valid_from='2026-01-01',valid_until='${NOW}' WHERE id='${PLAN}';`);
+      assert.equal(authority(backend), "durable_authority_invalid");
+      psql(backend, `UPDATE saas.plans SET valid_until=NULL WHERE id='${PLAN}'; ALTER TABLE saas.plans ENABLE TRIGGER plan_versions_immutable;`);
       assert.equal(authority(backend, { plan: "00000000-0000-4000-8000-000000000099" }), "durable_authority_invalid");
       assert.equal(authority(backend, { planCode: "wrong_plan" }), "durable_authority_invalid");
       assert.equal(authority(backend, { planVersion: 2 }), "durable_authority_invalid");
