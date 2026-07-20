@@ -862,6 +862,42 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
 
     (focusedMobileMenuButton.props.onClick as () => void)();
     harness.flush();
+    const closingBeforeResize = harness.hosts().find((host) => (
+      host.type === "button" && host.props["aria-label"] === "Panel menüsünü kapat"
+    ));
+    assert.ok(closingBeforeResize);
+    (closingBeforeResize.props.onClick as () => void)();
+    harness.flush();
+
+    desktopQuery.matches = true;
+    for (const listener of mediaListeners) listener({ matches: true, media: desktopQuery.media });
+    harness.flush();
+    const hiddenMenuDuringExit = harness.hosts().find((host) => (
+      host.type === "button" && host.props["aria-controls"] === "panel-mobile-drawer"
+    ));
+    assert.ok(hiddenMenuDuringExit);
+    assert.equal(hiddenMenuDuringExit.focusAttemptCount, 0);
+    assert.equal(documentState.body.style.overflow, "hidden");
+    assert.ok(drawerExit.complete);
+    drawerExit.complete();
+    harness.flush();
+
+    const resizedDesktopFocusTarget = harness.hosts().find((host) => (
+      host.type === "main" && host.props.tabIndex === -1
+    ));
+    assert.ok(resizedDesktopFocusTarget);
+    assert.equal(documentState.activeElement, resizedDesktopFocusTarget);
+    assert.equal(resizedDesktopFocusTarget.focusCount, 1);
+
+    desktopQuery.matches = false;
+    for (const listener of mediaListeners) listener({ matches: false, media: desktopQuery.media });
+    harness.flush();
+    const reopenedMobileMenuButton = harness.hosts().find((host) => (
+      host.type === "button" && host.props["aria-controls"] === "panel-mobile-drawer"
+    ));
+    assert.ok(reopenedMobileMenuButton);
+    (reopenedMobileMenuButton.props.onClick as () => void)();
+    harness.flush();
     assert.equal(documentState.body.style.overflow, "hidden");
 
     desktopQuery.matches = true;

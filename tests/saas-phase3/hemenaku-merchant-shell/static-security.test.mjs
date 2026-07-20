@@ -97,6 +97,7 @@ test("shell breakpoint and accessibility controls are exact", async () => {
   assert.match(css, /@media\s*\(min-width:\s*1025px\)/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /--panel-keyboard-inset/);
+  assert.doesNotMatch(css, /\.drawerSurface\s*\{[^}]*transition:\s*transform/);
 });
 
 test("does not change deploy production or infrastructure files", () => {

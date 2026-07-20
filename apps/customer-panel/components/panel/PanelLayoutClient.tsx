@@ -40,7 +40,6 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
   const [drawerPresent, setDrawerPresent] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const desktopFocusRef = useRef<HTMLElement>(null);
-  const releasingDrawerForDesktop = useRef(false);
   const pendingFocusTarget = useRef<"desktop" | "menu" | null>(null);
   const pathname = usePathname() ?? "";
   const routePresentation = getPanelRoutePresentation(pathname);
@@ -58,13 +57,13 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
   }, [pathname]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => {
-    releasingDrawerForDesktop.current = false;
     setDrawerPresent(true);
     setDrawerOpen((current) => !current);
   }, []);
   const restoreDrawerFocus = useCallback(() => {
-    pendingFocusTarget.current = releasingDrawerForDesktop.current ? "desktop" : "menu";
-    releasingDrawerForDesktop.current = false;
+    pendingFocusTarget.current = window.matchMedia("(min-width: 1025px)").matches
+      ? "desktop"
+      : "menu";
     setDrawerPresent(false);
   }, []);
 
@@ -81,12 +80,10 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
     const desktop = window.matchMedia("(min-width: 1025px)");
     const releaseDrawer = (event: MediaQueryListEvent) => {
       if (event.matches && drawerOpen) {
-        releasingDrawerForDesktop.current = true;
         setDrawerOpen(false);
       }
     };
     if (desktop.matches && drawerOpen) {
-      releasingDrawerForDesktop.current = true;
       setDrawerOpen(false);
     }
     desktop.addEventListener("change", releaseDrawer);
