@@ -109,11 +109,15 @@ test("catalog pages adapt Hemenaku list, form and detail surfaces without unsupp
 
 test("creation wizard remains bound to the durable target workflow", async () => {
   const create = await source("components/catalog/ProductCreateForm.tsx");
+  const createIndex = create.indexOf("await catalogApi.createProduct");
+  const uploadIndex = create.indexOf("await productMediaApi.upload");
+  const redirectIndex = create.indexOf("location.assign");
   assert.match(create, /data-presentation="hemenaku-product-create"/);
   assert.match(create, /buildCreateProductPayload/);
   assert.match(create, /await catalogApi\.createProduct/);
-  assert.match(create, /await productMediaApi\.upload/);
+  assert.match(create, /if \(image !== undefined\) \{[^]*await productMediaApi\.upload\(result\.product\.id,/);
   assert.match(create, /location\.assign\(`\/products\/\$\{result\.product\.id\}`\)/);
+  assert.ok(createIndex < uploadIndex && uploadIndex < redirectIndex);
   assert.doesNotMatch(create, /seo|nutrition|categoryId|\/api\/admin|supabase/i);
 });
 
