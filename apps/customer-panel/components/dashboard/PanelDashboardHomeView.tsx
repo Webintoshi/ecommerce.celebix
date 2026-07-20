@@ -23,7 +23,7 @@ import { catalogApi, type CatalogDashboardSummary } from "@/lib/catalog-ui/clien
 import type { AuthoritySlice } from "@/lib/panel-ui/authority-slice";
 import {
   createMerchantDashboardViewModel,
-  createPanelDashboardModel,
+  type MerchantDashboardViewModel,
 } from "@/lib/panel-ui/dashboard-model";
 import styles from "./panel-dashboard.module.css";
 
@@ -62,40 +62,20 @@ function DashboardRefreshButton({
   );
 }
 
-export function PanelDashboardHomeView() {
-  const chrome = usePanelChromeModel();
-  const legacyDashboard = createPanelDashboardModel(chrome);
-  const [catalog, setCatalog] = useState<AuthoritySlice<CatalogDashboardSummary>>(
-    () => unavailableCatalog(false),
-  );
-  const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
-  const requestSequence = useRef(0);
-  const load = useCallback(async () => {
-    const sequence = ++requestSequence.current;
-    setState("loading");
-    try {
-      const value = await catalogApi.getDashboardSummary();
-      if (sequence !== requestSequence.current) return;
-      setCatalog(readyCatalog(value));
-      setState("loaded");
-    } catch {
-      if (sequence !== requestSequence.current) return;
-      setCatalog(unavailableCatalog(true));
-      setState("error");
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    return () => { requestSequence.current += 1; };
-  }, [load]);
-
-  const dashboard = createMerchantDashboardViewModel(chrome, catalog);
+export function PanelDashboardPresentation({
+  dashboard,
+  onRefresh,
+  state,
+}: {
+  dashboard: MerchantDashboardViewModel;
+  onRefresh: () => void;
+  state: "loading" | "loaded" | "error";
+}) {
   return (
     <PanelPageShell>
       <PanelPageHeader
-        title={legacyDashboard.title}
-        description={legacyDashboard.description}
+        title={dashboard.title}
+        description={dashboard.description}
         actions={<PanelActionButton href="/products/new" primary>Yeni ürün</PanelActionButton>}
       />
 
@@ -155,7 +135,7 @@ export function PanelDashboardHomeView() {
           </div>
           <DashboardRefreshButton
             label="Tekrar dene"
-            onRefresh={() => { void load(); }}
+            onRefresh={onRefresh}
             state={state}
           />
         </div>
@@ -182,7 +162,7 @@ export function PanelDashboardHomeView() {
               </div>
               <DashboardRefreshButton
                 label="Yenile"
-                onRefresh={() => { void load(); }}
+                onRefresh={onRefresh}
                 state={state}
               />
             </div>
@@ -234,5 +214,42 @@ export function PanelDashboardHomeView() {
         </div>
       </PanelPanel>
     </PanelPageShell>
+  );
+}
+
+export function PanelDashboardHomeView() {
+  const chrome = usePanelChromeModel();
+  const [catalog, setCatalog] = useState<AuthoritySlice<CatalogDashboardSummary>>(
+    () => unavailableCatalog(false),
+  );
+  const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
+  const requestSequence = useRef(0);
+  const load = useCallback(async () => {
+    const sequence = ++requestSequence.current;
+    setState("loading");
+    try {
+      const value = await catalogApi.getDashboardSummary();
+      if (sequence !== requestSequence.current) return;
+      setCatalog(readyCatalog(value));
+      setState("loaded");
+    } catch {
+      if (sequence !== requestSequence.current) return;
+      setCatalog(unavailableCatalog(true));
+      setState("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    return () => { requestSequence.current += 1; };
+  }, [load]);
+
+  const dashboard = createMerchantDashboardViewModel(chrome, catalog);
+  return (
+    <PanelDashboardPresentation
+      dashboard={dashboard}
+      onRefresh={() => { void load(); }}
+      state={state}
+    />
   );
 }

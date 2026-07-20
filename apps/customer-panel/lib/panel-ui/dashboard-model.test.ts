@@ -124,15 +124,21 @@ test("marks absent commerce domains unsupported without zero KPI", () => {
 });
 
 test("keeps dashboard slices deeply frozen", () => {
+  const asOf = "2026-07-20T12:00:00.000Z";
   const model = createMerchantDashboardViewModel(
     chrome,
-    readyAuthority(summary, "2026-07-20T12:00:00.000Z"),
+    readyAuthority(summary, asOf),
   );
   assert.equal(Object.isFrozen(model), true);
-  assert.equal(model.catalog.state === "ready" && Object.isFrozen(model.catalog.value.metrics), true);
-  assert.equal(model.catalog.state === "ready" && model.catalog.value.metrics.every(Object.isFrozen), true);
-  assert.equal(model.catalog.state === "ready" && Object.isFrozen(model.catalog.value.chart), true);
-  assert.equal(model.catalog.state === "ready" && model.catalog.value.chart.every(Object.isFrozen), true);
+  assert.equal(model.catalog.state, "ready");
+  if (model.catalog.state !== "ready") assert.fail("catalog must be ready");
+  assert.equal(model.catalog.asOf, asOf);
+  assert.equal(Object.isFrozen(model.catalog), true);
+  assert.equal(Object.isFrozen(model.catalog.value), true);
+  assert.equal(Object.isFrozen(model.catalog.value.metrics), true);
+  assert.equal(model.catalog.value.metrics.every(Object.isFrozen), true);
+  assert.equal(Object.isFrozen(model.catalog.value.chart), true);
+  assert.equal(model.catalog.value.chart.every(Object.isFrozen), true);
 });
 
 test("maps catalog failure to controlled retry state", () => {

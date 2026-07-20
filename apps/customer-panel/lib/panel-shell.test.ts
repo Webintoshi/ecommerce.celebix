@@ -11,10 +11,8 @@ import {
   PANEL_NAVIGATION,
 } from "./panel-ui/navigation.ts";
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
-import {
-  createMerchantDashboardViewModel,
-  createPanelDashboardModel,
-} from "./panel-ui/dashboard-model.ts";
+import { readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
+import { createMerchantDashboardViewModel } from "./panel-ui/dashboard-model.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
@@ -360,7 +358,15 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop" }));
 }
 
-async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
+type DashboardPresentationInput = Readonly<{
+  dashboard: ReturnType<typeof createMerchantDashboardViewModel>;
+  state: "loading" | "loaded" | "error";
+}>;
+
+async function renderPanelDashboard(
+  model: PanelChromeModel,
+  presentation?: DashboardPresentationInput,
+): Promise<string> {
   const viewSource = await source("components/dashboard/PanelDashboardHomeView.tsx");
   const output = ts.transpileModule(viewSource, {
     compilerOptions: {
@@ -371,7 +377,10 @@ async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
     },
   }).outputText;
   const compiledModule: {
-    exports: { PanelDashboardHomeView?: ComponentType };
+    exports: {
+      PanelDashboardHomeView?: ComponentType;
+      PanelDashboardPresentation?: ComponentType<DashboardPresentationInput & { onRefresh: () => void }>;
+    };
   } = { exports: {} };
   const PanelActionButton = ({ children, href }: { children?: ReactNode; href: string }) =>
     createElement("a", { href }, children);
@@ -419,8 +428,19 @@ async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
       };
     }
     if (specifier === "recharts") {
-      const ChartContainer = ({ children }: { children?: ReactNode }) =>
-        createElement("div", null, children);
+      const ChartContainer = ({ children, data }: {
+        children?: ReactNode;
+        data?: readonly Readonly<{ label: string; value: number }>[];
+      }) => createElement(
+        "div",
+        data
+          ? {
+            "data-chart-labels": data.map(({ label }) => label).join("|"),
+            "data-chart-values": data.map(({ value }) => value).join(","),
+          }
+          : null,
+        children,
+      );
       const ChartPrimitive = () => null;
       return {
         Bar: ChartPrimitive,
@@ -442,7 +462,7 @@ async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
       return { catalogApi: { getDashboardSummary: async () => undefined } };
     }
     if (specifier === "@/lib/panel-ui/dashboard-model") {
-      return { createMerchantDashboardViewModel, createPanelDashboardModel };
+      return { createMerchantDashboardViewModel };
     }
     if (specifier === "./panel-dashboard.module.css") return styles;
     throw new Error(`unexpected_panel_dashboard_import:${specifier}`);
@@ -452,6 +472,13 @@ async function renderPanelDashboard(model: PanelChromeModel): Promise<string> {
     compiledModule,
     compiledModule.exports,
   );
+  if (presentation) {
+    assert.ok(compiledModule.exports.PanelDashboardPresentation);
+    return renderToStaticMarkup(createElement(compiledModule.exports.PanelDashboardPresentation, {
+      ...presentation,
+      onRefresh: () => undefined,
+    }));
+  }
   assert.ok(compiledModule.exports.PanelDashboardHomeView);
   return renderToStaticMarkup(createElement(compiledModule.exports.PanelDashboardHomeView));
 }
@@ -979,7 +1006,8 @@ test("dashboard renders only the safe chrome model and truthful working actions"
   const combined = view + "\n" + model;
   assert.match(page, /PanelDashboardHomeView/);
   assert.match(view, /usePanelChromeModel/);
-  assert.match(view, /createPanelDashboardModel/);
+  assert.match(view, /createMerchantDashboardViewModel/);
+  assert.match(model, /const legacy = createPanelDashboardModel\(chrome\)/);
   assert.match(combined, /\/products/);
   assert.match(combined, /\/products\/new/);
   assert.match(combined, /\/setup/);
@@ -1044,6 +1072,62 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
   assert.match(styles, /\.cardGrid\s*\{[^}]*min-width:\s*0;/);
   assert.match(styles, /\.cardGrid\s*>\s*\*\s*\{[^}]*min-width:\s*0;/);
   assert.match(styles, /\.cardGrid\s+strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+});
+
+test("dashboard presentation renders exact ready catalog data and unsupported commerce without links", async () => {
+  const chrome = Object.freeze({
+    storeSlug: "pilot-store",
+    membershipLabel: "Mağaza sahibi",
+    planCode: "free_starter",
+    planVersion: 1,
+    entitlementStatus: "active",
+    storefrontHostname: "pilot-store.celebix.site",
+    locale: "tr-TR",
+  });
+  const summary = Object.freeze({
+    totalProducts: 4,
+    activeProducts: 3,
+    draftProducts: 1,
+    productLimit: 10,
+    activeVariants: 6,
+    outOfStockVariants: 2,
+    productsWithoutMedia: 1,
+    activeMedia: 7,
+  });
+  const dashboard = createMerchantDashboardViewModel(
+    chrome,
+    readyAuthority(summary, "2026-07-20T12:00:00.000Z"),
+  );
+  const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded" });
+
+  assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
+  assert.match(html, /data-chart-labels="Toplam ürün\|Aktif ürün\|Taslak ürün\|Stokta olmayan\|Etkin medya"/);
+  assert.match(html, /data-chart-values="4,3,1,2,7"/);
+  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 2);
+  assert.equal((html.match(/<button[^>]*disabled=""[^>]*aria-disabled="true"/g) ?? []).length, 2);
+  const unsupported = html.match(/<section[^>]*aria-labelledby="unsupported-dashboard-title"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(unsupported);
+  assert.equal((unsupported.match(/Desteklenmiyor/g) ?? []).length, 4);
+  assert.doesNotMatch(unsupported, /<a\b|>\s*\d/);
+});
+
+test("dashboard presentation renders one retry control without stale ready data", async () => {
+  const chrome = Object.freeze({
+    storeSlug: "pilot-store",
+    membershipLabel: "Mağaza sahibi",
+    planCode: "free_starter",
+    planVersion: 1,
+    entitlementStatus: "active",
+    storefrontHostname: "pilot-store.celebix.site",
+    locale: "tr-TR",
+  });
+  const dashboard = createMerchantDashboardViewModel(chrome, unavailableAuthority(true));
+  const html = await renderPanelDashboard(chrome, { dashboard, state: "error" });
+
+  assert.equal((html.match(/>Tekrar dene<\/button>/g) ?? []).length, 1);
+  assert.equal((html.match(/<button(?![^>]*disabled)[^>]*>/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /role="listitem"|data-chart-(?:labels|values)|Katalog dağılımı/);
+  assert.doesNotMatch(html, /Toplam ürün|Aktif ürün|Taslak ürün|Stokta olmayan|Etkin medya/);
 });
 
 interface CssTestElement {
