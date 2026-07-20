@@ -6,6 +6,16 @@ import { CatalogApiError, createCatalogApiClient } from "./client.ts";
 const PRODUCT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const VARIANT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
+const SUMMARY = Object.freeze({
+  totalProducts: 4,
+  activeProducts: 3,
+  draftProducts: 1,
+  productLimit: 10,
+  activeVariants: 6,
+  outOfStockVariants: 2,
+  productsWithoutMedia: 1,
+  activeMedia: 7,
+});
 const PRODUCT = Object.freeze({
   id: PRODUCT_ID,
   storeId: "33333333-3333-4333-8333-333333333333",
@@ -53,6 +63,45 @@ test("list pagination accepts only a server cursor and preserves same-origin cre
   assert.equal(calls[0]?.[0], "/api/catalog/products?limit=20&status=draft&cursor=safe_cursor-1");
   assert.deepEqual(calls[0]?.[1], { method: "GET", credentials: "same-origin", cache: "no-store" });
   await assert.rejects(() => client.listProducts({ cursor: "unsafe%cursor" }), /catalog_client_invalid/);
+});
+
+test("dashboard summary client performs one same-origin no-store GET and freezes exact counts", async () => {
+  const calls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
+  const client = createCatalogApiClient({
+    fetch: async (input, init) => {
+      calls.push([input, init]);
+      return jsonResponse(SUMMARY);
+    },
+  });
+
+  const result = await client.getDashboardSummary();
+
+  assert.deepEqual(result, SUMMARY);
+  assert.equal(Object.isFrozen(result), true);
+  assert.deepEqual(calls, [["/api/catalog/summary", {
+    method: "GET",
+    credentials: "same-origin",
+    cache: "no-store",
+  }]]);
+});
+
+test("dashboard summary client rejects extra missing negative fractional and inconsistent counts", async () => {
+  const invalidSummaries = [
+    { ...SUMMARY, extra: 1 },
+    { ...SUMMARY, activeMedia: undefined },
+    { ...SUMMARY, totalProducts: -1 },
+    { ...SUMMARY, activeVariants: 1.5 },
+    { ...SUMMARY, activeProducts: 4 },
+    { ...SUMMARY, outOfStockVariants: 7 },
+    { ...SUMMARY, productsWithoutMedia: 5 },
+  ];
+
+  for (const body of invalidSummaries) {
+    await assert.rejects(
+      () => createCatalogApiClient({ fetch: async () => jsonResponse(body) }).getDashboardSummary(),
+      (error: unknown) => error instanceof CatalogApiError && error.code === "unavailable",
+    );
+  }
 });
 
 test("every mutation uses an exact UUID idempotency key and JSON without store authority", async () => {

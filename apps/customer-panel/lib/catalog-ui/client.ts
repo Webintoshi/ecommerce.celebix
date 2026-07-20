@@ -51,6 +51,27 @@ export type ProductDetailResult = Readonly<{ product: Product; variants: readonl
 export type CreateProductResult = Readonly<{ product: Product; initialVariant: ProductVariant; replayed: boolean }>;
 export type ProductMutationResult = Readonly<{ product: Product; replayed: boolean }>;
 export type VariantMutationResult = Readonly<{ variant: ProductVariant; replayed: boolean }>;
+export type CatalogDashboardSummary = Readonly<{
+  totalProducts: number;
+  activeProducts: number;
+  draftProducts: number;
+  productLimit: number;
+  activeVariants: number;
+  outOfStockVariants: number;
+  productsWithoutMedia: number;
+  activeMedia: number;
+}>;
+
+const SUMMARY_KEYS = Object.freeze([
+  "activeMedia",
+  "activeProducts",
+  "activeVariants",
+  "draftProducts",
+  "outOfStockVariants",
+  "productLimit",
+  "productsWithoutMedia",
+  "totalProducts",
+]);
 
 function record(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -87,6 +108,38 @@ function version(value: number): number {
   return value;
 }
 
+function count(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new CatalogApiError("unavailable", 503);
+  }
+  return value as number;
+}
+
+function parseCatalogDashboardSummary(value: unknown): CatalogDashboardSummary {
+  const parsed = record(value);
+  if (parsed === null || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(SUMMARY_KEYS)) {
+    throw new CatalogApiError("unavailable", 503);
+  }
+  const summary = Object.freeze({
+    totalProducts: count(parsed.totalProducts),
+    activeProducts: count(parsed.activeProducts),
+    draftProducts: count(parsed.draftProducts),
+    productLimit: count(parsed.productLimit),
+    activeVariants: count(parsed.activeVariants),
+    outOfStockVariants: count(parsed.outOfStockVariants),
+    productsWithoutMedia: count(parsed.productsWithoutMedia),
+    activeMedia: count(parsed.activeMedia),
+  });
+  if (
+    summary.activeProducts + summary.draftProducts !== summary.totalProducts ||
+    summary.outOfStockVariants > summary.activeVariants ||
+    summary.productsWithoutMedia > summary.totalProducts
+  ) {
+    throw new CatalogApiError("unavailable", 503);
+  }
+  return summary;
+}
+
 export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; randomUUID?: RandomUUID }>) {
   const fetchImpl = options?.fetch ?? ((input, init) => fetch(input, init));
   const randomUUID = options?.randomUUID ?? (() => crypto.randomUUID());
@@ -110,6 +163,14 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
   }
 
   return Object.freeze({
+    async getDashboardSummary(): Promise<CatalogDashboardSummary> {
+      return parseCatalogDashboardSummary(await request("/api/catalog/summary", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      }));
+    },
+
     async listProducts(input: Readonly<{ status?: Exclude<ProductStatus, "archived">; cursor?: string }> = {}): Promise<ProductListResult> {
       if (input.cursor !== undefined && !CURSOR.test(input.cursor)) throw new TypeError("catalog_client_invalid");
       if (input.status !== undefined && input.status !== "draft" && input.status !== "active") {

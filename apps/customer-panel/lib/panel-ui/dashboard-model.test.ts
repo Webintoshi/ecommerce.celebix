@@ -12,6 +12,16 @@ const chrome: PanelChromeModel = Object.freeze({
   storefrontHostname: "atlas-store.celebix.site",
   locale: "tr-TR",
 });
+const summary = Object.freeze({
+  totalProducts: 4,
+  activeProducts: 3,
+  draftProducts: 1,
+  productLimit: 10,
+  activeVariants: 6,
+  outOfStockVariants: 2,
+  productsWithoutMedia: 1,
+  activeMedia: 7,
+});
 
 test("projects exact store, membership, plan, and storefront facts", () => {
   const model = createPanelDashboardModel(chrome);
@@ -45,4 +55,30 @@ test("deep-freezes cards, actions, and the root", () => {
   assert.equal(model.cards.every(Object.isFrozen), true);
   assert.equal(Object.isFrozen(model.actions), true);
   assert.equal(model.actions.every(Object.isFrozen), true);
+});
+
+test("dashboard omits catalog metrics until real summary exists", () => {
+  const model = createPanelDashboardModel(chrome);
+  assert.deepEqual(model.catalogCards, []);
+  assert.equal(model.catalogReadiness, undefined);
+  assert.doesNotMatch(JSON.stringify(model), /0 ürün|0 sipariş|0 ₺/);
+});
+
+test("dashboard maps exact catalog summary without private authority", () => {
+  const model = createPanelDashboardModel(chrome, summary);
+  assert.deepEqual(model.catalogCards.map(({ key, value }) => [key, value]), [
+    ["products", "4"],
+    ["active-products", "3"],
+    ["draft-products", "1"],
+    ["stock-alerts", "2"],
+  ]);
+  assert.deepEqual(model.catalogReadiness, {
+    productsWithoutMedia: 1,
+    activeMedia: 7,
+    detail: "1 üründe medya eksik · 7 etkin medya",
+  });
+  assert.equal(Object.isFrozen(model), true);
+  assert.equal(Object.isFrozen(model.catalogCards), true);
+  assert.equal(Object.isFrozen(model.catalogReadiness), true);
+  assert.doesNotMatch(JSON.stringify(model), /storeId|principal|membershipId|planId|requestId/);
 });
