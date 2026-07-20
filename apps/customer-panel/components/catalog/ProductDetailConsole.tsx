@@ -11,7 +11,7 @@ import {
 } from "@/lib/catalog-ui/client";
 import { buildProductUpdatePayload, buildVariantPayload } from "@/lib/catalog-ui/forms";
 import { formatTurkishMoney, formatTurkishMoneyInput } from "@/lib/catalog-ui/money";
-import { ProductMediaManager } from "./ProductMediaManager";
+import { ProductMediaManager, restoreArchiveFocus } from "./ProductMediaManager";
 
 function value(data: FormData, key: string) {
   const candidate = data.get(key);
@@ -64,7 +64,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
-  const newVariantButtonRef = useRef<HTMLButtonElement>(null);
+  const variantsHeadingRef = useRef<HTMLHeadingElement>(null);
   const wasArchiveDialogOpen = useRef(false);
 
   const load = useCallback(async (conflict = false) => {
@@ -92,8 +92,7 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
     }
     if (!wasArchiveDialogOpen.current) return;
     wasArchiveDialogOpen.current = false;
-    if (archiveTriggerRef.current?.isConnected) archiveTriggerRef.current.focus();
-    else newVariantButtonRef.current?.focus();
+    restoreArchiveFocus(archiveTriggerRef.current, variantsHeadingRef.current);
   }, [archiveDialogOpen]);
 
   function closeArchiveDialog() {
@@ -259,8 +258,8 @@ export function ProductDetailConsole({ productId }: { productId: string }) {
 
       <section className="variant-list" aria-labelledby="variants-title">
       <div className="section-heading-row">
-        <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 id="variants-title">Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
-        <button ref={newVariantButtonRef} className="button button-primary" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}>＋ Yeni varyant</button>
+        <div><span className="eyebrow">SATIŞ SEÇENEKLERİ</span><h2 ref={variantsHeadingRef} tabIndex={-1} id="variants-title">Varyantlar</h2><p>SKU, fiyat ve stok bilgilerini ayrı ayrı yönetin.</p></div>
+        <button className="button button-primary" type="button" onClick={() => setCreatingVariant(true)} disabled={creatingVariant}>＋ Yeni varyant</button>
       </div>
 
       {creatingVariant ? (

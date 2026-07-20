@@ -9,6 +9,18 @@ function safeMessage(error: unknown) {
   return error instanceof ProductMediaApiError ? error.message : "Görsel işlemi tamamlanamadı. Lütfen yeniden deneyin.";
 }
 
+export function restoreArchiveFocus(trigger: HTMLElement | null, fallback: HTMLElement | null) {
+  if (trigger?.isConnected) {
+    trigger.focus();
+    return "trigger";
+  }
+  if (fallback?.isConnected) {
+    fallback.focus();
+    return "fallback";
+  }
+  return "none";
+}
+
 export function ProductMediaManager({ productId }: { productId: string }) {
   const [media, setMedia] = useState<readonly ProductMedia[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,8 +55,7 @@ export function ProductMediaManager({ productId }: { productId: string }) {
     }
     if (!wasArchiveDialogOpen.current) return;
     wasArchiveDialogOpen.current = false;
-    if (archiveTriggerRef.current?.isConnected) archiveTriggerRef.current.focus();
-    else mediaUploadCardRef.current?.focus();
+    restoreArchiveFocus(archiveTriggerRef.current, mediaUploadCardRef.current);
   }, [archiveTarget]);
 
   function closeArchiveDialog() {
