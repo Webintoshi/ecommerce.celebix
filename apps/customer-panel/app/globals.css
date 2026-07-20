@@ -124,6 +124,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .inline-confirmation strong { font-size: 12px; }
 .inline-confirmation p { margin: 0; color: #755950; font-size: 11px; }
 .confirmation-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+.archive-dialog-layer { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(28 25 23 / 42%); }
+.archive-dialog { display: flex; width: min(100%, 680px); align-items: center; justify-content: space-between; gap: 20px; border: 1px solid #d8b7ae; border-radius: 13px; background: #fffaf7; padding: 15px 18px; box-shadow: 0 16px 50px rgb(43 25 17 / 14%); }
+.archive-dialog > div:first-child { display: grid; gap: 3px; }
+.archive-dialog strong { font-size: 12px; }
+.archive-dialog p { margin: 0; color: #755950; font-size: 11px; }
 
 .catalog-form { display: grid; gap: 18px; }
 .hemenaku-wizard-stepper { display: flex; min-width: 0; align-items: center; gap: 14px; overflow-x: auto; border: 1px solid rgb(254 97 0 / 10%); border-radius: 28px; background: linear-gradient(135deg, #fff, #fffdfb, #faf5f0); padding: 12px; box-shadow: 0 18px 40px rgb(72 36 8 / 6%); }
@@ -254,6 +259,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .catalog-table .row-actions { display: flex; grid-column: 2; grid-row: 1; }
   .product-link strong { font-size: 14px; }
   .inline-confirmation { bottom: 76px; align-items: stretch; flex-direction: column; }
+  .archive-dialog { align-items: stretch; flex-direction: column; }
   .confirmation-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .form-grid { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }

@@ -69,5 +69,10 @@ test("product list ports donor presentation while preserving target commands", a
   assert.match(source, /catalogApi\.archiveProduct\(archiveCandidate\.id, archiveCandidate\.version\)/);
   assert.match(source, /data-presentation="hemenaku-product-list"/);
   assert.match(source, /aria-label="Ürün durumu filtresi"/);
+  assert.match(source, /role="alertdialog"[^>]*aria-modal="true"/);
+  assert.match(source, /archiveCancelButtonRef[.]current[?][.]focus\(\)/);
+  assert.match(source, /function handleArchiveDialogKeyDown/);
+  assert.match(source, /event[.]key === "Escape"/);
+  assert.match(source, /archiveTriggerRef[.]current = event[.]currentTarget/);
   assert.doesNotMatch(source, /\/api\/admin|storeId|tenantId|supabase|bulk-stock|homepage-curation/i);
 });

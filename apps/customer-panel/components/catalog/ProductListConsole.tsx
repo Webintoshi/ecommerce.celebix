@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Product } from "@celebix/saas-contracts";
 
 import { CatalogApiError, catalogApi } from "@/lib/catalog-ui/client";
@@ -28,6 +28,11 @@ export function ProductListConsole() {
   const [archiveCandidate, setArchiveCandidate] = useState<Product>();
   const [archiving, setArchiving] = useState(false);
   const requestSequence = useRef(0);
+  const archiveDialogRef = useRef<HTMLDivElement>(null);
+  const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
+  const archiveTriggerRef = useRef<HTMLButtonElement>(null);
+  const refreshListButtonRef = useRef<HTMLButtonElement>(null);
+  const wasArchiveDialogOpen = useRef(false);
 
   const load = useCallback(async (cursor?: string) => {
     const sequence = ++requestSequence.current;
@@ -50,6 +55,47 @@ export function ProductListConsole() {
   }, [filter]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (archiveCandidate !== undefined) {
+      wasArchiveDialogOpen.current = true;
+      archiveCancelButtonRef.current?.focus();
+      return;
+    }
+    if (!wasArchiveDialogOpen.current) return;
+    wasArchiveDialogOpen.current = false;
+    if (archiveTriggerRef.current?.isConnected) archiveTriggerRef.current.focus();
+    else refreshListButtonRef.current?.focus();
+  }, [archiveCandidate]);
+
+  function closeArchiveDialog() {
+    if (!archiving) setArchiveCandidate(undefined);
+  }
+
+  function handleArchiveDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      if (!archiving) closeArchiveDialog();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(archiveDialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ) ?? []);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      archiveDialogRef.current?.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable.at(-1)!;
+    if (event.shiftKey && (document.activeElement === first || !archiveDialogRef.current?.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !archiveDialogRef.current?.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   async function archive() {
     if (archiveCandidate === undefined) return;
@@ -78,7 +124,7 @@ export function ProductListConsole() {
             <p>Mağazanızdaki ürünleri, fiyatları ve stok durumlarını tek bir güvenli yüzeyden yönetin.</p>
           </div>
           <div className="heading-actions">
-            <button className="button button-secondary icon-only-button" type="button" onClick={() => void load()} aria-label="Ürün listesini yenile"><span aria-hidden="true">↻</span></button>
+            <button ref={refreshListButtonRef} className="button button-secondary icon-only-button" type="button" onClick={() => void load()} aria-label="Ürün listesini yenile"><span aria-hidden="true">↻</span></button>
             <Link className="button button-primary" href="/products/new"><span aria-hidden="true">＋</span> Yeni ürün</Link>
           </div>
         </div>
@@ -131,7 +177,7 @@ export function ProductListConsole() {
                     <td data-label="Güncellendi"><span className="date-value">{date(product.updatedAt)}</span></td>
                     <td className="row-actions">
                       <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü aç`}>→</Link>
-                      <button className="icon-button danger" type="button" onClick={() => setArchiveCandidate(product)} aria-label={`${product.title} ürününü arşivle`}>×</button>
+                      <button className="icon-button danger" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`}>×</button>
                     </td>
                   </tr>
                 ))}
@@ -144,11 +190,13 @@ export function ProductListConsole() {
       </div>
 
       {archiveCandidate ? (
-        <div className="inline-confirmation" role="alertdialog" aria-labelledby="archive-title">
-          <div><strong id="archive-title">Arşivlemeyi onayla</strong><p><b>{archiveCandidate.title}</b> varsayılan ürün listesinden kaldırılacak.</p></div>
-          <div className="confirmation-actions">
-            <button className="button button-secondary" type="button" onClick={() => setArchiveCandidate(undefined)} disabled={archiving}>Vazgeç</button>
-            <button className="button button-danger" type="button" onClick={() => void archive()} disabled={archiving}>{archiving ? "Arşivleniyor…" : "Ürünü arşivle"}</button>
+        <div className="archive-dialog-layer">
+          <div ref={archiveDialogRef} className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-title" aria-describedby="archive-description" tabIndex={-1} onKeyDown={handleArchiveDialogKeyDown}>
+            <div><strong id="archive-title">Arşivlemeyi onayla</strong><p id="archive-description"><b>{archiveCandidate.title}</b> varsayılan ürün listesinden kaldırılacak.</p></div>
+            <div className="confirmation-actions">
+              <button ref={archiveCancelButtonRef} className="button button-secondary" type="button" onClick={closeArchiveDialog} disabled={archiving}>Vazgeç</button>
+              <button className="button button-danger" type="button" onClick={() => void archive()} disabled={archiving}>{archiving ? "Arşivleniyor…" : "Ürünü arşivle"}</button>
+            </div>
           </div>
         </div>
       ) : null}
