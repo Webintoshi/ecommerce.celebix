@@ -54,6 +54,73 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.quick_link_base64url_is_canonical(candidate text)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, saas
+AS $function$
+DECLARE
+  standard_alphabet text;
+  padded text;
+  decoded bytea;
+  canonical text;
+BEGIN
+  IF candidate = ''
+     OR candidate !~ '^[A-Za-z0-9_-]+$'
+     OR pg_catalog.char_length(candidate) % 4 = 1 THEN
+    RETURN false;
+  END IF;
+
+  standard_alphabet := pg_catalog.translate(candidate, '-_', '+/');
+  padded := standard_alphabet || pg_catalog.repeat(
+    '=',
+    (4 - pg_catalog.char_length(standard_alphabet) % 4) % 4
+  );
+  decoded := pg_catalog.decode(padded, 'base64');
+  canonical := pg_catalog.translate(
+    pg_catalog.encode(decoded, 'base64'),
+    E'+/=\n\r',
+    '-_'
+  );
+  RETURN canonical = candidate;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN false;
+END
+$function$;
+
+CREATE FUNCTION saas.quick_link_timestamp_is_canonical(candidate text)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, saas
+AS $function$
+DECLARE
+  parsed timestamptz;
+  normalized text;
+BEGIN
+  IF candidate !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.(?:[0-9]{3}|[0-9]{6})Z$' THEN
+    RETURN false;
+  END IF;
+  parsed := candidate::timestamptz;
+  normalized := CASE pg_catalog.char_length(candidate)
+    WHEN 24 THEN pg_catalog.left(candidate, 23) || '000Z'
+    WHEN 27 THEN candidate
+    ELSE NULL
+  END;
+  RETURN pg_catalog.to_char(
+    parsed AT TIME ZONE 'UTC',
+    'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+  ) = normalized;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN false;
+END
+$function$;
+
 CREATE FUNCTION saas.quick_link_sealed_envelope_is_valid(candidate jsonb, expected_key_id text)
 RETURNS boolean
 LANGUAGE sql
@@ -84,11 +151,73 @@ AS $function$
     AND candidate->>'iv' ~ '^[A-Za-z0-9_-]{16}$'
     AND candidate->>'tag' ~ '^[A-Za-z0-9_-]{22}$'
     AND pg_catalog.char_length(candidate->>'ciphertext') BETWEEN 1 AND 8192
-    AND candidate->>'ciphertext' ~ '^[A-Za-z0-9_-]+$';
+    AND saas.quick_link_base64url_is_canonical(candidate->>'iv')
+    AND saas.quick_link_base64url_is_canonical(candidate->>'tag')
+    AND saas.quick_link_base64url_is_canonical(candidate->>'ciphertext');
 $function$;
 
 REVOKE ALL ON FUNCTION saas.quick_link_address_is_valid(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.quick_link_base64url_is_canonical(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.quick_link_timestamp_is_canonical(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.quick_link_sealed_envelope_is_valid(jsonb,text) FROM PUBLIC;
+
+CREATE FUNCTION saas.quick_link_canonical_image_url(
+  p_store_id uuid,
+  p_product_id uuid,
+  p_variant_id uuid
+)
+RETURNS text
+LANGUAGE sql
+STABLE
+STRICT
+SECURITY DEFINER
+SET search_path = pg_catalog, saas
+AS $function$
+  SELECT media.public_url
+  FROM saas.product_media AS media
+  WHERE media.store_id = p_store_id
+    AND media.product_id = p_product_id
+    AND media.status = 'active'
+    AND (media.variant_id = p_variant_id OR media.variant_id IS NULL)
+  ORDER BY (media.variant_id = p_variant_id) DESC NULLS LAST, media.sort_order ASC, media.id ASC
+  LIMIT 1;
+$function$;
+
+REVOKE ALL ON FUNCTION saas.quick_link_canonical_image_url(uuid,uuid,uuid) FROM PUBLIC;
+
+CREATE FUNCTION saas.quick_link_operation_result_is_valid(candidate jsonb, expected_link_id uuid)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, saas
+AS $function$
+  SELECT pg_catalog.jsonb_typeof(candidate) = 'object'
+    AND pg_catalog.pg_column_size(candidate) <= 32768
+    AND candidate ?& ARRAY['id','status','version','expiresAt','updatedAt']
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_catalog.jsonb_object_keys(candidate) AS supplied_key(value)
+      WHERE supplied_key.value <> ALL (ARRAY['id','status','version','expiresAt','updatedAt'])
+    )
+    AND pg_catalog.jsonb_typeof(candidate->'id') = 'string'
+    AND candidate->>'id' ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    AND candidate->>'id' = expected_link_id::text
+    AND pg_catalog.jsonb_typeof(candidate->'status') = 'string'
+    AND candidate->>'status' IN ('active','opened','paid','cancelled','expired')
+    AND pg_catalog.jsonb_typeof(candidate->'version') = 'number'
+    AND candidate->>'version' ~ '^[1-9][0-9]{0,18}$'
+    AND (
+      pg_catalog.char_length(candidate->>'version') < 19
+      OR candidate->>'version' <= '9223372036854775807'
+    )
+    AND pg_catalog.jsonb_typeof(candidate->'expiresAt') = 'string'
+    AND saas.quick_link_timestamp_is_canonical(candidate->>'expiresAt')
+    AND pg_catalog.jsonb_typeof(candidate->'updatedAt') = 'string'
+    AND saas.quick_link_timestamp_is_canonical(candidate->>'updatedAt');
+$function$;
+
+REVOKE ALL ON FUNCTION saas.quick_link_operation_result_is_valid(jsonb,uuid) FROM PUBLIC;
 
 CREATE TABLE saas.checkout_provider_configs (
   id uuid CONSTRAINT checkout_provider_configs_pkey PRIMARY KEY,
@@ -206,7 +335,7 @@ CREATE TABLE saas.quick_order_links (
     subtotal_cents BETWEEN 0 AND 7999200000000000
     AND shipping_cents BETWEEN 0 AND 500000000000000
     AND discount_cents BETWEEN 0 AND 500000000000000
-    AND total_cents = subtotal_cents + shipping_cents - discount_cents
+    AND total_cents::numeric = subtotal_cents::numeric + shipping_cents::numeric - discount_cents::numeric
     AND total_cents BETWEEN 0 AND 8500000000000000
   ),
   expires_at timestamptz NOT NULL,
@@ -318,7 +447,7 @@ CREATE TABLE saas.quick_order_link_items (
   ),
   quantity integer NOT NULL CONSTRAINT quick_order_link_items_quantity_check CHECK (quantity BETWEEN 1 AND 9999),
   line_total_cents bigint NOT NULL CONSTRAINT quick_order_link_items_line_total_check CHECK (
-    line_total_cents = unit_price_cents * quantity
+    line_total_cents::numeric = unit_price_cents::numeric * quantity::numeric
     AND line_total_cents BETWEEN 0 AND 79992000000000
   ),
   created_at timestamptz NOT NULL,
@@ -344,12 +473,7 @@ CREATE TABLE saas.quick_order_link_operations (
     payload_fingerprint ~ '^[a-f0-9]{64}$'
   ),
   result_payload jsonb NOT NULL CONSTRAINT quick_order_link_operations_result_payload_check CHECK (
-    pg_catalog.jsonb_typeof(result_payload) = 'object'
-    AND pg_catalog.pg_column_size(result_payload) <= 32768
-    AND NOT (result_payload ?| ARRAY[
-      'token','tokenDigest','sealedToken','tokenKeyId','sealedConfiguration','configurationKeyId',
-      'storeId','membershipId','principalId'
-    ])
+    saas.quick_link_operation_result_is_valid(result_payload, quick_order_link_id)
   ),
   committed_at timestamptz NOT NULL,
   CONSTRAINT quick_order_link_operations_store_id_key UNIQUE (store_id, operation_id),

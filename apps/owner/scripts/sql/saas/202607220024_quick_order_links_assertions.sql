@@ -11,12 +11,16 @@ DECLARE
   constraint_definition text;
   constraint_catalog_fingerprint text;
   address_definition text := pg_catalog.pg_get_functiondef('saas.quick_link_address_is_valid(jsonb)'::regprocedure);
+  base64url_definition text := pg_catalog.pg_get_functiondef('saas.quick_link_base64url_is_canonical(text)'::regprocedure);
+  timestamp_definition text := pg_catalog.pg_get_functiondef('saas.quick_link_timestamp_is_canonical(text)'::regprocedure);
   envelope_definition text := pg_catalog.pg_get_functiondef('saas.quick_link_sealed_envelope_is_valid(jsonb,text)'::regprocedure);
+  operation_result_definition text := pg_catalog.pg_get_functiondef('saas.quick_link_operation_result_is_valid(jsonb,uuid)'::regprocedure);
+  image_function regprocedure := 'saas.quick_link_canonical_image_url(uuid,uuid,uuid)'::regprocedure;
+  image_definition text := pg_catalog.pg_get_functiondef(image_function);
   provider_guard_definition text := pg_catalog.pg_get_functiondef('saas.guard_quick_link_provider_authority()'::regprocedure);
   authority_function regprocedure := 'saas.quick_link_merchant_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)'::regprocedure;
   authority_definition text := pg_catalog.pg_get_functiondef(authority_function);
   merchant_definition text := pg_catalog.pg_get_functiondef('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)'::regprocedure);
-  canonical_media_source constant text := '(media.variant_id = selected_variant.id OR media.variant_id IS NULL) ORDER BY (media.variant_id = selected_variant.id) DESC, media.sort_order ASC, media.id ASC';
 BEGIN
   FOREACH checked_table IN ARRAY ARRAY[
     'checkout_provider_configs','quick_order_links','quick_order_link_items','quick_order_link_operations'
@@ -147,7 +151,7 @@ BEGIN
     )
     AND constraint_record.contype IN ('p','u','c');
 
-  IF constraint_catalog_fingerprint <> '2efb3e4261668c122d93bc732d5901aa' THEN
+  IF constraint_catalog_fingerprint <> '37fcc3f0811b7fd0424ca861bfdf88ba' THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact check/unique definitions drift: %', constraint_catalog_fingerprint;
   END IF;
 
@@ -159,9 +163,13 @@ BEGIN
   IF constraint_definition !~ 'subtotal_cents >= 0'
      OR constraint_definition !~ '7999200000000000'
      OR constraint_definition !~ '500000000000000'
-     OR constraint_definition !~ 'total_cents ='
-     OR constraint_definition !~ 'subtotal_cents \+ shipping_cents'
-     OR constraint_definition !~ '- discount_cents'
+     OR constraint_definition !~ 'total_cents.*numeric.*='
+     OR constraint_definition !~ 'subtotal_cents.*numeric.*\+.*shipping_cents.*numeric'
+     OR constraint_definition !~ '-.*discount_cents.*numeric'
+     OR constraint_definition !~ 'total_cents.*numeric'
+     OR constraint_definition !~ 'subtotal_cents.*numeric'
+     OR constraint_definition !~ 'shipping_cents.*numeric'
+     OR constraint_definition !~ 'discount_cents.*numeric'
      OR constraint_definition !~ '8500000000000000' THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: total money bounds drift: %', constraint_definition;
   END IF;
@@ -171,10 +179,13 @@ BEGIN
   FROM pg_catalog.pg_constraint
   WHERE conrelid = 'saas.quick_order_link_items'::regclass
     AND conname = 'quick_order_link_items_line_total_check';
-  IF constraint_definition !~ 'line_total_cents ='
-     OR constraint_definition !~ 'unit_price_cents \* quantity'
+  IF constraint_definition !~ 'line_total_cents.*numeric.*='
+     OR constraint_definition !~ 'unit_price_cents.*numeric.*\*.*quantity.*numeric'
      OR constraint_definition !~ 'line_total_cents >= 0'
      OR constraint_definition !~ '79992000000000'
+     OR constraint_definition !~ 'line_total_cents.*numeric'
+     OR constraint_definition !~ 'unit_price_cents.*numeric'
+     OR constraint_definition !~ 'quantity.*numeric'
      OR NOT EXISTS (
        SELECT 1 FROM pg_catalog.pg_constraint
        WHERE conrelid = 'saas.quick_order_link_items'::regclass
@@ -266,8 +277,14 @@ BEGIN
     WHERE conrelid = 'saas.checkout_provider_configs'::regclass
       AND conname = 'checkout_provider_configs_sealed_check'
       AND pg_catalog.pg_get_constraintdef(oid) = 'CHECK (saas.quick_link_sealed_envelope_is_valid(sealed_configuration, configuration_key_id))'
+  )
+  OR NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'saas.quick_order_link_operations'::regclass
+      AND conname = 'quick_order_link_operations_result_payload_check'
+      AND pg_catalog.pg_get_constraintdef(oid) = 'CHECK (saas.quick_link_operation_result_is_valid(result_payload, quick_order_link_id))'
   ) THEN
-    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: token/address/envelope constraint drift';
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: token/address/envelope/result constraint drift';
   END IF;
 
   IF address_definition !~ 'jsonb_typeof.candidate. <> ''object'''
@@ -279,15 +296,49 @@ BEGIN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact address helper drift';
   END IF;
 
+  IF pg_catalog.strpos(base64url_definition, 'candidate !~ ''^[A-Za-z0-9_-]+$''') = 0
+     OR pg_catalog.strpos(base64url_definition, 'char_length(candidate) % 4 = 1') = 0
+     OR pg_catalog.strpos(base64url_definition, 'translate(candidate, ''-_'', ''+/'')') = 0
+     OR pg_catalog.strpos(base64url_definition, 'repeat(') = 0
+     OR pg_catalog.strpos(base64url_definition, 'decode(padded, ''base64'')') = 0
+     OR pg_catalog.strpos(base64url_definition, 'encode(decoded, ''base64'')') = 0
+     OR pg_catalog.strpos(base64url_definition, 'E''+/=\n\r''') = 0
+     OR pg_catalog.strpos(base64url_definition, 'canonical = candidate') = 0
+     OR pg_catalog.strpos(base64url_definition, 'WHEN OTHERS') = 0 THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: canonical base64url helper drift';
+  END IF;
+
+  IF pg_catalog.strpos(timestamp_definition, '(?:[0-9]{3}|[0-9]{6})Z$') = 0
+     OR pg_catalog.strpos(timestamp_definition, 'candidate::timestamptz') = 0
+     OR pg_catalog.strpos(timestamp_definition, 'AT TIME ZONE ''UTC''') = 0
+     OR pg_catalog.strpos(timestamp_definition, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') = 0
+     OR pg_catalog.strpos(timestamp_definition, 'WHEN OTHERS') = 0 THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: canonical timestamp helper drift';
+  END IF;
+
   IF pg_catalog.strpos(envelope_definition, 'pg_column_size(candidate) <= 12288') = 0
      OR envelope_definition !~ 'algorithm.*ciphertext.*iv.*keyId.*tag.*version'
      OR envelope_definition !~ 'A256GCM'
      OR pg_catalog.strpos(envelope_definition, '{16}') = 0
      OR pg_catalog.strpos(envelope_definition, '{22}') = 0
      OR pg_catalog.strpos(envelope_definition, 'char_length(candidate->>''ciphertext'') BETWEEN 1 AND 8192') = 0
-     OR pg_catalog.strpos(envelope_definition, 'ciphertext'' ~ ''^[A-Za-z0-9_-]+$''') = 0
+     OR pg_catalog.strpos(envelope_definition, 'quick_link_base64url_is_canonical(candidate->>''iv'')') = 0
+     OR pg_catalog.strpos(envelope_definition, 'quick_link_base64url_is_canonical(candidate->>''tag'')') = 0
+     OR pg_catalog.strpos(envelope_definition, 'quick_link_base64url_is_canonical(candidate->>''ciphertext'')') = 0
      OR pg_catalog.strpos(envelope_definition, 'candidate->>''keyId'' = expected_key_id') = 0 THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact sealed-envelope helper drift: %', envelope_definition;
+  END IF;
+
+  IF pg_catalog.strpos(operation_result_definition, 'pg_column_size(candidate) <= 32768') = 0
+     OR pg_catalog.strpos(operation_result_definition, 'id'',''status'',''version'',''expiresAt'',''updatedAt') = 0
+     OR pg_catalog.strpos(operation_result_definition, 'jsonb_object_keys(candidate)') = 0
+     OR pg_catalog.strpos(operation_result_definition, 'candidate->>''id'' = expected_link_id::text') = 0
+     OR pg_catalog.strpos(operation_result_definition, 'active'',''opened'',''paid'',''cancelled'',''expired') = 0
+     OR pg_catalog.strpos(operation_result_definition, '^[1-9][0-9]{0,18}$') = 0
+     OR pg_catalog.strpos(operation_result_definition, '9223372036854775807') = 0
+     OR pg_catalog.strpos(operation_result_definition, 'quick_link_timestamp_is_canonical(candidate->>''expiresAt'')') = 0
+     OR pg_catalog.strpos(operation_result_definition, 'quick_link_timestamp_is_canonical(candidate->>''updatedAt'')') = 0 THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact operation result descriptor drift';
   END IF;
 
   IF (
@@ -361,19 +412,28 @@ BEGIN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: composite store authority drift';
   END IF;
 
-  IF canonical_media_source !~ 'media[.]variant_id = selected_variant[.]id OR media[.]variant_id IS NULL'
-     OR canonical_media_source !~ 'media[.]sort_order ASC, media[.]id ASC'
-     OR NOT EXISTS (
+  IF NOT EXISTS (
        SELECT 1
-       FROM information_schema.columns
-       WHERE table_schema = 'saas'
-         AND table_name = 'product_media'
-         AND column_name IN ('store_id','product_id','variant_id','public_url','sort_order','status')
-       GROUP BY table_schema, table_name
-       HAVING pg_catalog.count(*) = 6
+       FROM pg_catalog.pg_proc AS procedure
+       JOIN pg_catalog.pg_roles AS owner_role ON owner_role.oid = procedure.proowner
+       WHERE procedure.oid = image_function
+         AND owner_role.rolname = 'celebix_saas_owner'
+         AND procedure.provolatile = 's'
+         AND procedure.prosecdef
+         AND procedure.proisstrict
+         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
      )
+     OR pg_catalog.has_function_privilege('public', image_function, 'EXECUTE')
+     OR pg_catalog.has_function_privilege('celebix_saas_app', image_function, 'EXECUTE')
+     OR pg_catalog.strpos(image_definition, 'FROM saas.product_media AS media') = 0
+     OR pg_catalog.strpos(image_definition, 'media.store_id = p_store_id') = 0
+     OR pg_catalog.strpos(image_definition, 'media.product_id = p_product_id') = 0
+     OR pg_catalog.strpos(image_definition, 'media.status = ''active''') = 0
+     OR pg_catalog.strpos(image_definition, 'media.variant_id = p_variant_id OR media.variant_id IS NULL') = 0
+     OR pg_catalog.strpos(image_definition, 'ORDER BY (media.variant_id = p_variant_id) DESC NULLS LAST, media.sort_order ASC, media.id ASC') = 0
+     OR pg_catalog.strpos(image_definition, 'LIMIT 1') = 0
      OR pg_catalog.to_regclass('saas.product_media_product_status_order_idx') IS NULL THEN
-    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: canonical product_media source dependency drift';
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: executable canonical product_media source drift';
   END IF;
 
   FOREACH checked_index IN ARRAY ARRAY[
@@ -421,7 +481,11 @@ BEGIN
 
   FOREACH checked_function IN ARRAY ARRAY[
     'saas.quick_link_address_is_valid(jsonb)'::regprocedure,
+    'saas.quick_link_base64url_is_canonical(text)'::regprocedure,
+    'saas.quick_link_timestamp_is_canonical(text)'::regprocedure,
     'saas.quick_link_sealed_envelope_is_valid(jsonb,text)'::regprocedure,
+    image_function,
+    'saas.quick_link_operation_result_is_valid(jsonb,uuid)'::regprocedure,
     'saas.guard_quick_link_provider_authority()'::regprocedure,
     'saas.guard_quick_link_operation_mutation()'::regprocedure,
     authority_function
@@ -434,10 +498,27 @@ BEGIN
         AND owner_role.rolname = 'celebix_saas_owner'
         AND procedure.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
     )
-    OR pg_catalog.has_function_privilege('public', checked_function, 'EXECUTE') THEN
+    OR pg_catalog.has_function_privilege('public', checked_function, 'EXECUTE')
+    OR pg_catalog.has_function_privilege('celebix_saas_app', checked_function, 'EXECUTE') THEN
       RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: function owner/search_path/ACL drift on %', checked_function;
     END IF;
   END LOOP;
+
+  IF (
+    SELECT pg_catalog.count(*)
+    FROM pg_catalog.pg_proc
+    WHERE oid = ANY (ARRAY[
+      'saas.quick_link_address_is_valid(jsonb)'::regprocedure,
+      'saas.quick_link_base64url_is_canonical(text)'::regprocedure,
+      'saas.quick_link_timestamp_is_canonical(text)'::regprocedure,
+      'saas.quick_link_sealed_envelope_is_valid(jsonb,text)'::regprocedure,
+      'saas.quick_link_operation_result_is_valid(jsonb,uuid)'::regprocedure
+    ])
+      AND provolatile = 'i'
+      AND proisstrict
+  ) <> 5 THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: immutable strict validation helper drift';
+  END IF;
 
   IF NOT EXISTS (
     SELECT 1

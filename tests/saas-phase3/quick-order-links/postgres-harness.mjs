@@ -34,6 +34,8 @@ const PRODUCT_B = "40000000-0000-4000-8000-000000000003";
 const VARIANT_A = "41000000-0000-4000-8000-000000000001";
 const VARIANT_A2 = "41000000-0000-4000-8000-000000000002";
 const VARIANT_B = "41000000-0000-4000-8000-000000000003";
+const VARIANT_A_SIBLING = "41000000-0000-4000-8000-000000000004";
+const VARIANT_A_GENERIC = "41000000-0000-4000-8000-000000000005";
 const PROVIDER_A = "50000000-0000-4000-8000-000000000001";
 const PROVIDER_B = "50000000-0000-4000-8000-000000000002";
 const LINK_A = "60000000-0000-4000-8000-000000000001";
@@ -44,13 +46,18 @@ const OPERATION_A = "90000000-0000-4000-8000-000000000001";
 const TABLES = ["checkout_provider_configs", "quick_order_links", "quick_order_link_items", "quick_order_link_operations"];
 const FUNCTIONS = [
   "saas.quick_link_address_is_valid(jsonb)",
+  "saas.quick_link_base64url_is_canonical(text)",
+  "saas.quick_link_timestamp_is_canonical(text)",
   "saas.quick_link_sealed_envelope_is_valid(jsonb,text)",
+  "saas.quick_link_canonical_image_url(uuid,uuid,uuid)",
+  "saas.quick_link_operation_result_is_valid(jsonb,uuid)",
   "saas.guard_quick_link_provider_authority()",
   "saas.guard_quick_link_operation_mutation()",
   "saas.quick_link_merchant_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)",
 ];
 const VALID_ADDRESS = `'{"recipientName":"Ada Lovelace","phone":"+905551110000","line1":"Test 1","city":"Istanbul","country":"TR"}'::jsonb`;
-const VALID_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"abc123_-","iv":"abcdefghijklmnop","keyId":"key-1","tag":"abcdefghijklmnopqrstuv","version":1}'::jsonb`;
+const VALID_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
+const VALID_RESULT = `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`;
 
 const priorMigrations = [
   "202607110001_roles.up.sql",
@@ -117,16 +124,20 @@ function startPostgres(options = {}) {
   const executables = Object.fromEntries(REQUIRED_NATIVE_TOOLS.map((name) => [name, executable(name)]));
   if (Object.values(executables).some((value) => !value)) throw new Error("DISPOSABLE_DB_EXECUTION_BLOCKED");
   const runCommand = options.runCommand ?? command;
+  const makeDirectory = options.makeDirectory ?? mkdirSync;
   const runToken = options.token ?? TOKEN;
-  const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "celebix-quick-order-links-"));
-  const socketDirectory = path.join("/tmp", `c3b2-${runToken}`);
-  const dataDirectory = path.join(temporaryDirectory, "data");
-  const port = 20_000 + Math.floor(Math.random() * 20_000);
-  mkdirSync(socketDirectory, { mode: 0o700 });
-  const backend = { executables, temporaryDirectory, socketDirectory, dataDirectory, port, started: false };
-  options.onAllocate?.(backend);
+  let backend;
+  let ready = false;
   try {
+    const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "celebix-quick-order-links-"));
+    const socketDirectory = path.join("/tmp", `c3b2-${runToken}`);
+    const dataDirectory = path.join(temporaryDirectory, "data");
+    const port = 20_000 + Math.floor(Math.random() * 20_000);
+    backend = { executables, temporaryDirectory, socketDirectory, dataDirectory, port, started: false, startAttempted: false };
+    options.onAllocate?.(backend);
+    makeDirectory(socketDirectory, { mode: 0o700 });
     runCommand(executables.initdb, ["-D", dataDirectory, "--auth=trust", "--username=postgres", "--no-locale"]);
+    backend.startAttempted = true;
     runCommand(executables.pg_ctl, [
       "-D", dataDirectory,
       "-o", `-k ${socketDirectory} -p ${port} -h ''`,
@@ -134,18 +145,20 @@ function startPostgres(options = {}) {
       "start",
     ]);
     backend.started = true;
+    backend.startAttempted = false;
+    ready = true;
     return backend;
-  } catch (error) {
-    stopPostgres(backend);
-    throw error;
+  } finally {
+    if (!ready) stopPostgres(backend);
   }
 }
 
 function stopPostgres(backend) {
   if (!backend) return;
-  if (backend.started) {
+  if (backend.started || backend.startAttempted) {
     command(backend.executables.pg_ctl, ["-D", backend.dataDirectory, "-m", "fast", "stop"], { allowFailure: true });
     backend.started = false;
+    backend.startAttempted = false;
   }
   rmSync(backend.socketDirectory, { recursive: true, force: true });
   rmSync(backend.temporaryDirectory, { recursive: true, force: true });
@@ -174,6 +187,55 @@ function denied(backend, source, database = DATABASE) {
   const result = psqlResult(backend, source, database, { allowFailure: true });
   assert.notEqual(result.status, 0, "statement unexpectedly succeeded");
   return result;
+}
+
+function databaseInventory(backend, database = DATABASE) {
+  return psql(backend, `
+    WITH inventory(kind, identity, definition) AS (
+      SELECT 'schema', namespace.nspname,
+        owner_role.rolname||':'||COALESCE(namespace.nspacl::text,'<null>')
+      FROM pg_namespace AS namespace
+      JOIN pg_roles AS owner_role ON owner_role.oid=namespace.nspowner
+      WHERE namespace.nspname='saas'
+      UNION ALL
+      SELECT 'relation', namespace.nspname||'.'||relation.relname,
+        relation.relkind::text||':'||owner_role.rolname||':'||relation.relrowsecurity::text||':'||relation.relforcerowsecurity::text||':'||COALESCE(relation.relacl::text,'<null>')
+      FROM pg_class AS relation
+      JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+      JOIN pg_roles AS owner_role ON owner_role.oid=relation.relowner
+      WHERE namespace.nspname='saas' AND relation.relkind IN ('r','p','S','v','m')
+      UNION ALL
+      SELECT 'function', procedure.oid::regprocedure::text,
+        owner_role.rolname||':'||procedure.provolatile::text||':'||procedure.prosecdef::text||':'||COALESCE(procedure.proconfig::text,'<null>')||':'||COALESCE(procedure.proacl::text,'<null>')||E'\n'||pg_get_functiondef(procedure.oid)
+      FROM pg_proc AS procedure
+      JOIN pg_namespace AS namespace ON namespace.oid=procedure.pronamespace
+      JOIN pg_roles AS owner_role ON owner_role.oid=procedure.proowner
+      WHERE namespace.nspname='saas'
+      UNION ALL
+      SELECT 'constraint', relation.relname||'.'||constraint_record.conname,
+        constraint_record.contype::text||':'||pg_get_constraintdef(constraint_record.oid)
+      FROM pg_constraint AS constraint_record
+      JOIN pg_class AS relation ON relation.oid=constraint_record.conrelid
+      JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+      WHERE namespace.nspname='saas'
+      UNION ALL
+      SELECT 'index', namespace.nspname||'.'||index_relation.relname,
+        owner_role.rolname||':'||pg_get_indexdef(index_relation.oid)
+      FROM pg_class AS index_relation
+      JOIN pg_namespace AS namespace ON namespace.oid=index_relation.relnamespace
+      JOIN pg_roles AS owner_role ON owner_role.oid=index_relation.relowner
+      WHERE namespace.nspname='saas' AND index_relation.relkind='i'
+      UNION ALL
+      SELECT 'policy', relation.relname||'.'||policy.polname,
+        policy.polcmd::text||':'||policy.polpermissive::text||':'||policy.polroles::text||':'||COALESCE(pg_get_expr(policy.polqual,policy.polrelid),'<null>')||':'||COALESCE(pg_get_expr(policy.polwithcheck,policy.polrelid),'<null>')
+      FROM pg_policy AS policy
+      JOIN pg_class AS relation ON relation.oid=policy.polrelid
+      JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+      WHERE namespace.nspname='saas'
+    )
+    SELECT string_agg(kind||':'||identity||':'||definition,E'\n' ORDER BY kind,identity,definition)
+    FROM inventory;
+  `, database);
 }
 
 async function scenario(name, run) {
@@ -230,7 +292,14 @@ function seed(backend, database = DATABASE) {
     INSERT INTO saas.product_variants(id,product_id,store_id,title,price_cents,stock_tracking,stock_quantity,status,attributes,version,created_at,updated_at) VALUES
       ('${VARIANT_A}','${PRODUCT_A}','${STORE_A}','Default A',10000,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
       ('${VARIANT_A2}','${PRODUCT_A2}','${STORE_A}','Default A2',12000,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
-      ('${VARIANT_B}','${PRODUCT_B}','${STORE_B}','Default B',10000,false,0,'active','{}',1,'2026-01-01','2026-01-01');
+      ('${VARIANT_B}','${PRODUCT_B}','${STORE_B}','Default B',10000,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
+      ('${VARIANT_A_SIBLING}','${PRODUCT_A}','${STORE_A}','Sibling A',11000,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
+      ('${VARIANT_A_GENERIC}','${PRODUCT_A}','${STORE_A}','Generic-only A',11500,false,0,'active','{}',1,'2026-01-01','2026-01-01');
+    INSERT INTO saas.product_media(id,store_id,product_id,variant_id,object_key,public_url,media_type,byte_size,sort_order,status,created_at,updated_at) VALUES
+      ('43000000-0000-4000-8000-000000000001','${STORE_A}','${PRODUCT_A}','${VARIANT_A}','stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000001.webp','https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000001.webp','image/webp',100,5,'active','2026-01-01','2026-01-01'),
+      ('43000000-0000-4000-8000-000000000002','${STORE_A}','${PRODUCT_A}',NULL,'stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000002.webp','https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000002.webp','image/webp',100,1,'active','2026-01-01','2026-01-01'),
+      ('43000000-0000-4000-8000-000000000003','${STORE_A}','${PRODUCT_A}','${VARIANT_A_SIBLING}','stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000003.webp','https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000003.webp','image/webp',100,0,'active','2026-01-01','2026-01-01'),
+      ('43000000-0000-4000-8000-000000000004','${STORE_A}','${PRODUCT_A}','${VARIANT_A_GENERIC}','stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000004.webp','https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000004.webp','image/webp',100,2,'pending','2026-01-01','2026-01-01');
     INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at)
     VALUES ('${ORDER_A}','${STORE_A}','QL-ORDER-1','quick_link','Ada Lovelace','ada@example.test','TRY',10000,0,0,10000,'confirmed','completed','{}',1,'2026-07-21','2026-07-21');
     INSERT INTO saas.checkout_provider_configs(id,store_id,provider_key,status,public_origin,configuration_key_id,sealed_configuration,version,created_at,updated_at) VALUES
@@ -246,11 +315,15 @@ function seed(backend, database = DATABASE) {
 }
 
 async function main() {
-  let backend = startPostgres();
+  let backend;
   let cleanupPaths;
+  let pre024Inventory;
+  let post024Inventory;
   try {
+    backend = startPostgres();
     createDatabase(backend, DATABASE);
     for (const migration of priorMigrations) apply(backend, migration);
+    pre024Inventory = databaseInventory(backend);
 
     await scenario("apply migration 024 and run exact assertions", async () => {
       apply(backend, "202607220024_quick_order_links.up.sql");
@@ -258,6 +331,7 @@ async function main() {
       assert.match(psql(backend, "SHOW server_version;"), /^16\./);
       assert.equal(psql(backend, `SELECT COALESCE(saas.quick_link_merchant_authority_error('${STORE_A}','${PRINCIPAL_A}','${MEMBERSHIP_A}','${PLAN}','free_starter',1,'2026-07-21','quick_links.read'),'<null>');`), "store_inactive");
       assert.equal(psql(backend, `SELECT saas.quick_link_merchant_authority_error(NULL,NULL,NULL,NULL,NULL,NULL,NULL,'unknown');`), "durable_authority_invalid");
+      post024Inventory = databaseInventory(backend);
     });
 
     await scenario("manifest bytes exactly bind the three 024 SQL artifacts", async () => {
@@ -295,8 +369,9 @@ async function main() {
       assert.equal(psql(backend, "SELECT count(*) FROM information_schema.columns WHERE table_schema='saas' AND table_name='quick_order_links';"), "28");
       assert.equal(psql(backend, "SELECT count(*) FROM pg_constraint WHERE conrelid=ANY(ARRAY['saas.checkout_provider_configs'::regclass,'saas.quick_order_links'::regclass,'saas.quick_order_link_items'::regclass,'saas.quick_order_link_operations'::regclass]) AND contype IN ('p','u','c');"), "49");
       assert.equal(psql(backend, "SELECT count(*) FROM pg_indexes WHERE schemaname='saas' AND indexname=ANY(ARRAY['checkout_provider_configs_store_status_idx','quick_order_links_store_status_expiry_idx','quick_order_links_token_digest_idx','quick_order_link_items_link_position_idx','quick_order_link_operations_store_committed_idx']);"), "5");
-      const assertions = readFileSync(path.join(SQL, "202607220024_quick_order_links_assertions.sql"), "utf8");
-      for (const source of ["product_media", "media.variant_id = selected_variant.id", "media.variant_id IS NULL", "media.sort_order", "media.id"]) assert.ok(assertions.includes(source), `missing product-media source assertion: ${source}`);
+      assert.equal(psql(backend, "SELECT to_regprocedure('saas.quick_link_canonical_image_url(uuid,uuid,uuid)')::text;"), "saas.quick_link_canonical_image_url(uuid,uuid,uuid)");
+      const imageSource = psql(backend, "SELECT pg_get_functiondef('saas.quick_link_canonical_image_url(uuid,uuid,uuid)'::regprocedure);");
+      for (const source of ["FROM saas.product_media AS media", "media.store_id = p_store_id", "media.product_id = p_product_id", "media.status = 'active'", "media.variant_id = p_variant_id", "media.variant_id IS NULL", "ORDER BY (media.variant_id = p_variant_id) DESC NULLS LAST", "media.sort_order", "media.id", "LIMIT 1"]) assert.ok(imageSource.includes(source), `missing executable product-media source: ${source}`);
     });
 
     await scenario("every parent and child reference carries store authority", async () => {
@@ -316,6 +391,8 @@ async function main() {
     await scenario("PUBLIC ACLs are empty for every 024 relation and function", async () => {
       assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation, LATERAL aclexplode(COALESCE(relation.relacl,acldefault('r',relation.relowner))) AS privilege WHERE relation.oid=ANY(ARRAY[${TABLES.map((table) => `'saas.${table}'::regclass`).join(",")}]) AND privilege.grantee=0;`), "0");
       assert.equal(psql(backend, `SELECT count(*) FROM unnest(ARRAY[${FUNCTIONS.map((signature) => `'${signature}'::regprocedure`).join(",")}]) AS function_oid(value), LATERAL aclexplode(COALESCE((SELECT proacl FROM pg_proc WHERE oid=function_oid.value),acldefault('f',(SELECT proowner FROM pg_proc WHERE oid=function_oid.value)))) AS privilege WHERE privilege.grantee=0;`), "0");
+      assert.equal(psql(backend, `SELECT count(*) FROM unnest(ARRAY[${FUNCTIONS.map((signature) => `'${signature}'::regprocedure`).join(",")}]) AS function_oid(value) WHERE has_function_privilege('celebix_saas_app',function_oid.value,'EXECUTE');`), "0");
+      assert.equal(psql(backend, "SELECT owner_role.rolname||':'||procedure.provolatile::text||':'||procedure.prosecdef::text||':'||procedure.proconfig::text FROM pg_proc AS procedure JOIN pg_roles AS owner_role ON owner_role.oid=procedure.proowner WHERE procedure.oid='saas.quick_link_canonical_image_url(uuid,uuid,uuid)'::regprocedure;"), "celebix_saas_owner:s:true:{\"search_path=pg_catalog, saas\"}");
     });
 
     await scenario("application direct table DML remains denied", async () => {
@@ -335,15 +412,64 @@ async function main() {
     });
 
     await scenario("sealed envelopes are exact bounded objects and never enter safe results", async () => {
+      for (const canonical of ["AQ", "AQEBAQEBAQEBAQEB", "AgICAgICAgICAgICAgICAg", "cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0"]) {
+        assert.equal(psql(backend, `SELECT saas.quick_link_base64url_is_canonical('${canonical}');`), "t", canonical);
+      }
+      for (const noncanonical of ["A", "AR", "AgICAgICAgICAgICAgICAh", "A*", "AQ==", "AQ\n"]) {
+        assert.equal(psql(backend, `SELECT saas.quick_link_base64url_is_canonical('${noncanonical}');`), "f", noncanonical);
+      }
       assert.equal(psql(backend, `SELECT saas.quick_link_sealed_envelope_is_valid(${VALID_ENVELOPE},'key-1');`), "t");
       for (const invalid of [
-        `'{"algorithm":"A256GCM","ciphertext":"abc","iv":"short","keyId":"key-1","tag":"abcdefghijklmnopqrstuv","version":1}'::jsonb`,
-        `'{"algorithm":"A256GCM","ciphertext":"abc","iv":"abcdefghijklmnop","keyId":"other","tag":"abcdefghijklmnopqrstuv","version":1}'::jsonb`,
-        `'{"algorithm":"A256GCM","ciphertext":"abc","iv":"abcdefghijklmnop","keyId":"key-1","tag":"abcdefghijklmnopqrstuv","version":1,"extra":"x"}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":"cXVpY2s","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","version":1}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":"cXVpY2s","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1,"extra":"x"}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":1,"iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`,
+        `'{"algorithm":"A128GCM","ciphertext":"cXVpY2s","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":"cXVpY2s","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":2}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":"cXVpY2s","iv":"AQEBAQEBAQEBAQEB","keyId":"other","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":"A","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":"cXVpY2s","iv":"AQEBAQEBAQEBAQE","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":"cXVpY2s","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICA","version":1}'::jsonb`,
+        `'{"algorithm":"A256GCM","ciphertext":"cXVpY2s","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAh","version":1}'::jsonb`,
+        `pg_catalog.jsonb_build_object('algorithm','A256GCM','ciphertext',pg_catalog.repeat('A',8193),'iv','AQEBAQEBAQEBAQEB','keyId','key-1','tag','AgICAgICAgICAgICAgICAg','version',1)`,
+        `pg_catalog.jsonb_build_object('algorithm','A256GCM','ciphertext',pg_catalog.repeat('A',8192),'iv','AQEBAQEBAQEBAQEB','keyId',pg_catalog.repeat('k',4096),'tag','AgICAgICAgICAgICAgICAg','version',1)`,
       ]) assert.equal(psql(backend, `SELECT saas.quick_link_sealed_envelope_is_valid(${invalid},'key-1');`), "f");
-      denied(backend, `INSERT INTO saas.quick_order_link_operations(operation_id,store_id,quick_order_link_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('90000000-0000-4000-8000-000000000010','${STORE_A}','${LINK_A}','create',repeat('d',64),'{"sealedToken":"secret"}','2026-07-21');`);
+
+      const fullAddress = `'{"recipientName":"Ada Lovelace","phone":"+905551110000","line1":"Test 1","line2":"Kat 2","district":"Kadikoy","city":"Istanbul","postalCode":"34710","country":"TR"}'::jsonb`;
+      assert.equal(psql(backend, `SELECT saas.quick_link_address_is_valid(${VALID_ADDRESS}) AND saas.quick_link_address_is_valid(${fullAddress});`), "t");
+      for (const invalidAddress of [
+        `'{"recipientName":"Ada","line1":"Test","city":"Istanbul","country":"TR"}'::jsonb`,
+        `'{"recipientName":"Ada","phone":"+90555","line1":"Test","city":"Istanbul","country":"TR","extra":"x"}'::jsonb`,
+        `'{"recipientName":"Ada","phone":123,"line1":"Test","city":"Istanbul","country":"TR"}'::jsonb`,
+        `'{"recipientName":" Ada","phone":"+90555","line1":"Test","city":"Istanbul","country":"TR"}'::jsonb`,
+        `'{"recipientName":"Ada\\nLovelace","phone":"+90555","line1":"Test","city":"Istanbul","country":"TR"}'::jsonb`,
+        `'{"recipientName":"Ada","phone":"+90555","line1":"Test","city":"Istanbul","country":"tr"}'::jsonb`,
+        `pg_catalog.jsonb_build_object('recipientName',pg_catalog.repeat('x',201),'phone','+90555','line1','Test','city','Istanbul','country','TR')`,
+        `'[]'::jsonb`,
+      ]) assert.equal(psql(backend, `SELECT saas.quick_link_address_is_valid(${invalidAddress});`), "f");
+
+      const insertOperation = (id, kind, payload) => `INSERT INTO saas.quick_order_link_operations(operation_id,store_id,quick_order_link_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('${id}','${STORE_A}','${LINK_A}','${kind}',repeat('d',64),${payload},'2026-07-21');`;
+      psql(backend, insertOperation("90000000-0000-4000-8000-000000000011", "cancel", VALID_RESULT));
+      psql(backend, insertOperation("90000000-0000-4000-8000-000000000012", "duplicate", `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.123456Z","updatedAt":"2026-07-21T10:00:00.654321Z"}'::jsonb`));
+      const invalidResults = [
+        `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z","extra":true}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z","metadata":{"token":"secret"}}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z","credential":"secret"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z","secretMaterial":{"ciphertext":"secret"}}'::jsonb`,
+        `'{"id":"not-a-uuid","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"draft","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":"1","expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":0,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":1.5,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-02-30T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+      ];
+      for (let index = 0; index < invalidResults.length; index += 1) {
+        const id = `90000000-0000-4000-8000-${String(100 + index).padStart(12, "0")}`;
+        denied(backend, insertOperation(id, "create", invalidResults[index]));
+      }
       const projected = psql(backend, `SELECT result_payload::text FROM saas.quick_order_link_operations WHERE operation_id='${OPERATION_A}';`);
-      for (const secret of ["sealedToken", "tokenDigest", "tokenKeyId", "ciphertext", "key-1"]) assert.equal(projected.includes(secret), false);
+      assert.deepEqual(JSON.parse(projected), { id: LINK_A, status: "active", version: 1, expiresAt: "2026-07-22T10:00:00.000Z", updatedAt: "2026-07-21T10:00:00.000Z" });
     });
 
     await scenario("quick-link operation rows are immutable", async () => {
@@ -354,6 +480,10 @@ async function main() {
     await scenario("cross-store and wrong-product catalog references are rejected", async () => {
       denied(backend, `INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000010','${STORE_A}','${LINK_A}','${PRODUCT_B}','${VARIANT_B}',1,'Foreign',100,1,100,'2026-07-21');`);
       denied(backend, `INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000011','${STORE_A}','${LINK_A}','${PRODUCT_A2}','${VARIANT_A}',1,'Mismatch',100,1,100,'2026-07-21');`);
+      assert.equal(psql(backend, `SELECT saas.quick_link_canonical_image_url('${STORE_A}','${PRODUCT_A}','${VARIANT_A}');`), `https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000001.webp`);
+      assert.equal(psql(backend, `SELECT saas.quick_link_canonical_image_url('${STORE_A}','${PRODUCT_A}','${VARIANT_A_GENERIC}');`), `https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000002.webp`);
+      assert.equal(psql(backend, `SELECT COALESCE(saas.quick_link_canonical_image_url('${STORE_A}','${PRODUCT_A2}','${VARIANT_A2}'),'<null>');`), "<null>");
+      assert.equal(psql(backend, `SELECT COALESCE(saas.quick_link_canonical_image_url('${STORE_B}','${PRODUCT_A}','${VARIANT_A}'),'<null>');`), "<null>");
     });
 
     await scenario("link currency must equal its store currency", async () => {
@@ -362,12 +492,27 @@ async function main() {
     });
 
     await scenario("provider config must belong to the same active store", async () => {
-      denied(backend, insertLinkSql({ id: "60000000-0000-4000-8000-000000000020", provider: PROVIDER_B, digest: "d" }));
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; ${insertLinkSql({ id: "60000000-0000-4000-8000-000000000025", digest: "9" })} DELETE FROM saas.quick_order_links WHERE id='60000000-0000-4000-8000-000000000025'; COMMIT;`);
+      denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; ${insertLinkSql({ id: "60000000-0000-4000-8000-000000000020", provider: PROVIDER_B, digest: "d" })} COMMIT;`);
       psql(backend, `UPDATE saas.checkout_provider_configs SET status='disabled',updated_at='2026-07-21' WHERE id='${PROVIDER_A}';`);
-      denied(backend, insertLinkSql({ id: "60000000-0000-4000-8000-000000000021", digest: "e" }));
+      denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; ${insertLinkSql({ id: "60000000-0000-4000-8000-000000000021", digest: "e" })} COMMIT;`);
       psql(backend, `UPDATE saas.checkout_provider_configs SET status='active',updated_at='2026-07-21' WHERE id='${PROVIDER_A}'; UPDATE saas.stores SET status='suspended',updated_at='2026-07-21' WHERE id='${STORE_A}';`);
-      denied(backend, insertLinkSql({ id: "60000000-0000-4000-8000-000000000022", digest: "f" }));
+      denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; ${insertLinkSql({ id: "60000000-0000-4000-8000-000000000022", digest: "f" })} COMMIT;`);
       psql(backend, `UPDATE saas.stores SET status='active',updated_at='2026-07-21' WHERE id='${STORE_A}';`);
+
+      const authority = (action) => psql(backend, `SELECT COALESCE(saas.quick_link_merchant_authority_error('${STORE_A}','${PRINCIPAL_A}','${MEMBERSHIP_A}','${PLAN}','free_starter',1,'2026-07-21','${action}'),'<null>');`);
+      assert.equal(authority("quick_links.read"), "<null>");
+      assert.equal(authority("quick_links.manage"), "<null>");
+      assert.equal(authority("orders.read"), "durable_authority_invalid");
+      psql(backend, "ALTER TABLE saas.plan_features DISABLE TRIGGER plan_features_immutable;");
+      try {
+        psql(backend, `UPDATE saas.plan_features SET enabled=false WHERE plan_id='${PLAN}' AND feature_key='orders';`);
+        assert.equal(authority("quick_links.read"), "feature_not_enabled");
+        psql(backend, `UPDATE saas.plan_features SET enabled=true WHERE plan_id='${PLAN}' AND feature_key='orders'; UPDATE saas.plan_features SET enabled=false WHERE plan_id='${PLAN}' AND feature_key='checkout';`);
+        assert.equal(authority("quick_links.read"), "feature_not_enabled");
+      } finally {
+        psql(backend, `UPDATE saas.plan_features SET enabled=true WHERE plan_id='${PLAN}' AND feature_key IN ('orders','checkout'); ALTER TABLE saas.plan_features ENABLE TRIGGER plan_features_immutable;`);
+      }
     });
 
     await scenario("invalid status expiry and lifecycle timestamps are rejected", async () => {
@@ -381,7 +526,16 @@ async function main() {
       denied(backend, `UPDATE saas.quick_order_links SET total_cents=9999 WHERE id='${LINK_A}';`);
       denied(backend, `UPDATE saas.quick_order_links SET subtotal_cents=7999200000000001,shipping_cents=0,discount_cents=0,total_cents=7999200000000001 WHERE id='${LINK_A}';`);
       denied(backend, `INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000020','${STORE_A}','${LINK_A}','${PRODUCT_A}','${VARIANT_A}',1,'Overflow',8000000001,9999,79992000009999,'2026-07-21');`);
-      assert.equal(psql(backend, `SELECT total_cents||':'||(subtotal_cents+shipping_cents-discount_cents) FROM saas.quick_order_links WHERE id='${LINK_A}';`), "10000:10000");
+      psql(backend, `UPDATE saas.quick_order_links SET subtotal_cents=7999200000000000,shipping_cents=500000000000000,discount_cents=500000000000000,total_cents=7999200000000000 WHERE id='${LINK_A}';`);
+      psql(backend, `INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000021','${STORE_A}','${LINK_A}','${PRODUCT_A}','${VARIANT_A}',1,'Maximum',8000000000,9999,79992000000000,'2026-07-21');`);
+      assert.equal(psql(backend, `SELECT subtotal_cents||':'||shipping_cents||':'||discount_cents||':'||total_cents FROM saas.quick_order_links WHERE id='${LINK_A}';`), "7999200000000000:500000000000000:500000000000000:7999200000000000");
+      assert.equal(psql(backend, "SELECT unit_price_cents||':'||quantity||':'||line_total_cents FROM saas.quick_order_link_items WHERE id='80000000-0000-4000-8000-000000000021';"), "8000000000:9999:79992000000000");
+      const hugeLink = denied(backend, `UPDATE saas.quick_order_links SET subtotal_cents=9223372036854775807,shipping_cents=9223372036854775807,discount_cents=0,total_cents=9223372036854775807 WHERE id='${LINK_A}';`);
+      assert.doesNotMatch(hugeLink.stderr, /bigint out of range|value out of range/i);
+      assert.match(hugeLink.stderr, /quick_order_links_(subtotal_cents|total_cents)_check/);
+      const hugeItem = denied(backend, `INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000022','${STORE_A}','${LINK_A}','${PRODUCT_A}','${VARIANT_A}',2,'Huge',9223372036854775807,9999,9223372036854775807,'2026-07-21');`);
+      assert.doesNotMatch(hugeItem.stderr, /bigint out of range|value out of range/i);
+      assert.match(hugeItem.stderr, /quick_order_link_items_(unit_price|line_total)_check/);
     });
 
     await scenario("forced RLS denies cross-store visibility even after a temporary grant", async () => {
@@ -399,10 +553,12 @@ async function main() {
       assert.equal(psql(backend, `SELECT count(*) FROM unnest(ARRAY[${FUNCTIONS.map((signature) => `'${signature}'`).join(",")}]) AS signature(value) WHERE to_regprocedure(signature.value) IS NOT NULL;`, ROLLBACK_DATABASE), "0");
       assert.equal(psql(backend, "SELECT count(*) FROM pg_constraint WHERE conrelid='saas.product_variants'::regclass AND conname='product_variants_store_product_id_key';", ROLLBACK_DATABASE), "0");
       assert.equal(psql(backend, "SELECT to_regclass('saas.orders')::text||':'||to_regprocedure('saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)')::text;", ROLLBACK_DATABASE), "saas.orders:saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)");
+      assert.equal(databaseInventory(backend, ROLLBACK_DATABASE), pre024Inventory, "down changed a pre-024 table/function/constraint/index/policy/ACL object");
       apply(backend, "202607220024_quick_order_links.up.sql", ROLLBACK_DATABASE);
       apply(backend, "202607220024_quick_order_links_assertions.sql", ROLLBACK_DATABASE);
       assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['${TABLES.join("','")}']);`, ROLLBACK_DATABASE), "4");
       assert.equal(psql(backend, "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='saas.product_variants'::regclass AND conname='product_variants_store_product_id_key';", ROLLBACK_DATABASE), "UNIQUE (store_id, product_id, id)");
+      assert.equal(databaseInventory(backend, ROLLBACK_DATABASE), post024Inventory, "reapply did not restore the exact 024 object inventory");
     });
 
     assert.equal(completed.length, TOTAL - 1);
@@ -412,6 +568,14 @@ async function main() {
     await scenario("cluster socket and partial-start allocations are always cleaned", async () => {
       assert.equal(existsSync(cleanupPaths.temporaryDirectory), false);
       assert.equal(existsSync(cleanupPaths.socketDirectory), false);
+      let socketBackend;
+      assert.throws(() => startPostgres({
+        token: `${TOKEN}socket`,
+        onAllocate(candidate) { socketBackend = candidate; },
+        makeDirectory() { throw new Error("injected socket mkdir failure"); },
+      }), /injected socket mkdir failure/);
+      assert.equal(existsSync(socketBackend.temporaryDirectory), false);
+      assert.equal(existsSync(socketBackend.socketDirectory), false);
       for (const [failureName, failureCall] of [["initdb", 1], ["pg_ctl", 2]]) {
         let partialBackend;
         let calls = 0;
