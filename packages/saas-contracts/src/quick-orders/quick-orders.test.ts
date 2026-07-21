@@ -138,6 +138,21 @@ test("accepts only the exact configured expiry intervals", () => {
   assert.throws(() => parseQuickOrderLinkDetail(detail({ expiresAt: "2026-07-21T13:00:00.000Z" })), /quick_order_contract_invalid/);
 });
 
+test("preserves exact six-digit expiry precision across ordinary and far-future dates", () => {
+  const ordinaryCreatedAt = "2026-07-21T23:59:59.123456Z";
+  const ordinaryExpiresAt = "2026-07-22T03:59:59.123456Z";
+  const farFutureCreatedAt = "9999-01-01T00:00:00.000001Z";
+  const farFutureExpiresAt = "9999-01-01T04:00:00.000001Z";
+  const fixture = (createdAt: string, expiresAt: string) => detail({ createdAt, expiresAt, openedAt: createdAt, updatedAt: expiresAt });
+
+  assert.equal(parseQuickOrderLinkDetail(fixture(ordinaryCreatedAt, ordinaryExpiresAt)).expiresAt, ordinaryExpiresAt);
+  assert.equal(parseQuickOrderLinkDetail(fixture(farFutureCreatedAt, farFutureExpiresAt)).expiresAt, farFutureExpiresAt);
+  assert.throws(() => parseQuickOrderLinkDetail(fixture(ordinaryCreatedAt, "2026-07-22T03:59:59.123455Z")), /quick_order_contract_invalid/);
+  assert.throws(() => parseQuickOrderLinkDetail(fixture(ordinaryCreatedAt, "2026-07-22T03:59:59.123457Z")), /quick_order_contract_invalid/);
+  assert.throws(() => parseQuickOrderLinkDetail(fixture(farFutureCreatedAt, "9999-01-01T04:00:00.000000Z")), /quick_order_contract_invalid/);
+  assert.throws(() => parseQuickOrderLinkDetail(fixture(farFutureCreatedAt, "9999-01-01T04:00:00.000002Z")), /quick_order_contract_invalid/);
+});
+
 test("accepts the exact quantity and subtotal upper bounds", () => {
   const maximumItem = item({
     unitPriceCents: QUICK_ORDER_MAX_UNIT_PRICE_CENTS,

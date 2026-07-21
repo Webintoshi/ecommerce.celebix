@@ -18,7 +18,7 @@ const CURRENCY = /^[A-Z]{3}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const QUICK_ORDER_MAX_SUBTOTAL_CENTS = QUICK_ORDER_MAX_UNIT_PRICE_CENTS * 9_999 * 100;
-const HOUR_MICROSECONDS = 3_600_000_000;
+const HOUR_MICROSECONDS = 3_600_000_000n;
 
 type InputRecord = Readonly<Record<string, unknown>>;
 
@@ -94,10 +94,10 @@ function comparableTimestamp(value: string): string {
   return value.replace(/(\.\d{3})Z$/, "$1000Z");
 }
 
-function timestampMicroseconds(value: string): number {
+function timestampMicroseconds(value: string): bigint {
   const fraction = value.match(/\.(\d{3})(\d{3})?Z$/);
   if (!fraction) invalid();
-  return new Date(value).getTime() * 1_000 + Number(fraction[2] ?? "000");
+  return BigInt(new Date(value).getTime()) * 1_000n + BigInt(fraction[2] ?? "000");
 }
 
 function safeInteger(value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): number {
@@ -193,7 +193,7 @@ function parseList(value: InputRecord): Readonly<QuickOrderLinkListItem> {
   const createdAt = timestamp(value.createdAt);
   const expiresAt = timestamp(value.expiresAt);
   const expiryDifference = timestampMicroseconds(expiresAt) - timestampMicroseconds(createdAt);
-  if (expiryDifference <= 0 || !QUICK_ORDER_EXPIRY_HOURS.includes((expiryDifference / HOUR_MICROSECONDS) as never)) invalid();
+  if (expiryDifference <= 0n || !QUICK_ORDER_EXPIRY_HOURS.some((hours) => expiryDifference === BigInt(hours) * HOUR_MICROSECONDS)) invalid();
   return freeze({
     id: uuid(value.id),
     customerName: string(value.customerName, 1, 200),
