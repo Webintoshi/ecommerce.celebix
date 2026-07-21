@@ -32,6 +32,7 @@ export type {
 } from "./catalog/index.ts";
 export * from "./storefront/index.ts";
 export * from "./media/index.ts";
+export * from "./orders/index.ts";
 export {
   SaaSDataCorruptionError,
   SaaSDataLockTimeoutError,
