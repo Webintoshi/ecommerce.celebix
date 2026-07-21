@@ -113,7 +113,8 @@
 .primaryButton,
 .refreshButton,
 .loadMore,
-.listError button {
+.listError button,
+.paginationError button {
   min-height: 48px;
   border: 1px solid #DDE3EB;
   border-radius: 7px;
@@ -138,6 +139,7 @@
 .refreshButton:focus-visible,
 .loadMore:focus-visible,
 .listError button:focus-visible,
+.paginationError button:focus-visible,
 .linksBody [tabindex="-1"]:focus-visible {
   outline: 3px solid rgb(255 106 0 / 30%);
   outline-offset: 2px;
@@ -145,10 +147,13 @@
 }
 
 .searchResults {
+  margin: 0;
   overflow: hidden;
+  padding: 0;
   border: 1px solid #E1E6EF;
   border-radius: 7px;
   background: #F9F9F9;
+  list-style: none;
 }
 
 .searchProduct {
@@ -453,7 +458,8 @@
 .secondaryButton,
 .refreshButton,
 .loadMore,
-.listError button {
+.listError button,
+.paginationError button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -471,7 +477,8 @@
 .secondaryButton,
 .refreshButton,
 .loadMore,
-.listError button {
+.listError button,
+.paginationError button {
   color: #B94B00;
   font-weight: 700;
 }
@@ -546,6 +553,12 @@
   font-weight: 650;
 }
 
+.fieldError {
+  color: #9F282D;
+  font-size: .75rem;
+  font-weight: 650;
+}
+
 .feedback {
   border-color: #BBF7D0;
   background: #EAF8EF;
@@ -579,6 +592,20 @@
   display: block;
   margin-bottom: .35rem;
   color: #9F282D;
+}
+
+.paginationError {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  border: 1px solid #FECACA;
+  border-radius: 7px;
+  background: #FDECEC;
+  padding: .75rem;
+  color: #9F282D;
+  font-size: .8rem;
+  font-weight: 650;
 }
 
 .desktopTable {

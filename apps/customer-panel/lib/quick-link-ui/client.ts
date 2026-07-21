@@ -12,10 +12,13 @@ import { catalogApi } from "../catalog-ui/client.ts";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CURSOR = /^[A-Za-z0-9_-]{1,1024}$/;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
-const EMAIL = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/i;
+const EMAIL = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const SHARE_PATH = /^\/odeme\/hizli\/[A-Za-z0-9_-]{43}$/;
 const MAX_COMPONENT_CENTS = 500_000_000_000_000;
+const MAX_SEARCH_PAGES = 5;
+const SEARCH_DETAIL_CONCURRENCY = 4;
+const SEARCH_RESULT_LIMIT = 12;
 
 const API_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled",
@@ -195,7 +198,9 @@ function createIntent(value: QuickLinkCreateIntent): Readonly<QuickLinkCreateInt
   const shippingAddress = address(selected?.shippingAddress);
   const billingAddress = address(selected?.billingAddress);
   const customerName = text(selected?.customerName, 1, 200);
-  const customerEmail = text(selected?.customerEmail, 3, 320, EMAIL);
+  const customerEmail = typeof selected?.customerEmail === "string"
+    ? text(selected.customerEmail.toLowerCase(), 3, 320, EMAIL)
+    : null;
   const customerPhone = text(selected?.customerPhone, 3, 32);
   const customerNote = selected && Object.hasOwn(selected, "customerNote") ? text(selected.customerNote, 1, 2_000) : undefined;
   const internalLabel = selected && Object.hasOwn(selected, "internalLabel") ? text(selected.internalLabel, 1, 200) : undefined;
@@ -318,6 +323,14 @@ function includesQuery(values: readonly (string | undefined)[], query: string): 
   return values.some((value) => value?.toLocaleLowerCase("tr-TR").includes(query));
 }
 
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    const error = new Error("quick_link_ui_search_aborted");
+    error.name = "AbortError";
+    throw error;
+  }
+}
+
 export function createQuickLinkUiClient(options?: Readonly<{ fetch?: Fetch; randomUUID?: RandomUUID; catalog?: Catalog }>) {
   let fetchImpl: Fetch;
   let randomUUID: RandomUUID;
@@ -344,12 +357,18 @@ export function createQuickLinkUiClient(options?: Readonly<{ fetch?: Fetch; rand
     return body;
   }
 
-  async function mutation(path: string, body: unknown, idempotent = true): Promise<unknown> {
+  function newOperationId(): string {
+    let operationId: string;
+    try { operationId = randomUUID(); }
+    catch { throw new TypeError("quick_link_ui_client_invalid"); }
+    if (typeof operationId !== "string" || !UUID.test(operationId)) throw new TypeError("quick_link_ui_client_invalid");
+    return operationId;
+  }
+
+  async function mutation(path: string, body: unknown, idempotent = true, suppliedOperationId?: string): Promise<unknown> {
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (idempotent) {
-      let operationId: string;
-      try { operationId = randomUUID(); }
-      catch { throw new TypeError("quick_link_ui_client_invalid"); }
+      const operationId = suppliedOperationId ?? newOperationId();
       if (typeof operationId !== "string" || !UUID.test(operationId)) throw new TypeError("quick_link_ui_client_invalid");
       headers["idempotency-key"] = operationId;
     }
@@ -362,6 +381,10 @@ export function createQuickLinkUiClient(options?: Readonly<{ fetch?: Fetch; rand
   }
 
   return Object.freeze({
+    newCreateOperationId(): string {
+      return newOperationId();
+    },
+
     async listLinks(input: Readonly<{ pageSize?: number; cursor?: string; status?: QuickOrderLinkStatus }> = {}): Promise<QuickLinkListResult> {
       const selected = listInput(input);
       const query = new URLSearchParams({ pageSize: String(selected.pageSize) });
@@ -374,8 +397,8 @@ export function createQuickLinkUiClient(options?: Readonly<{ fetch?: Fetch; rand
       }), selected.pageSize);
     },
 
-    async createLink(input: QuickLinkCreateIntent): Promise<QuickLinkShareResult> {
-      return shareResult(await mutation("/api/orders/quick-links", createIntent(input)));
+    async createLink(input: QuickLinkCreateIntent, operationId?: string): Promise<QuickLinkShareResult> {
+      return shareResult(await mutation("/api/orders/quick-links", createIntent(input), true, operationId));
     },
 
     async cancelLink(id: string, expectedVersion: number) {
@@ -411,31 +434,43 @@ export function createQuickLinkUiClient(options?: Readonly<{ fetch?: Fetch; rand
       return providerResult(await mutation("/api/orders/quick-links/provider/revoke", {}), "revoked");
     },
 
-    async searchProducts(rawQuery: string): Promise<readonly CatalogSearchProduct[]> {
+    async searchProducts(rawQuery: string, options: Readonly<{ signal?: AbortSignal }> = {}): Promise<readonly CatalogSearchProduct[]> {
       const query = searchText(rawQuery);
       if (query === "") return Object.freeze([]);
-      const page = await catalog.listProducts({ status: "active" });
-      const details = await Promise.all(page.items.map((product) => catalog.getProduct(product.id)));
-      const results = details.flatMap(({ product, variants }) => {
-        const productMatches = includesQuery([product.title, product.slug], query);
-        const selected = variants.flatMap((variant) => {
-          if (
-            variant.status !== "active" || (variant.stockTracking && variant.stockQuantity < 1) ||
-            (!productMatches && !includesQuery([variant.title, variant.sku, variant.barcode], query))
-          ) return [];
-          return [Object.freeze({
-            variantId: variant.id,
-            title: variant.title,
-            ...(variant.sku === undefined ? {} : { sku: variant.sku }),
-            priceCents: variant.priceCents,
-            ...(variant.stockTracking ? { availableQuantity: variant.stockQuantity } : {}),
-          })];
-        });
-        return selected.length === 0
-          ? []
-          : [Object.freeze({ title: product.title, variants: Object.freeze(selected) })];
-      });
-      return Object.freeze(results.slice(0, 12));
+      if (exactRecord(options, [], ["signal"]) === null) throw new TypeError("quick_link_ui_client_invalid");
+      const signal = options.signal;
+      const results: CatalogSearchProduct[] = [];
+      let cursor: string | undefined;
+      for (let pageIndex = 0; pageIndex < MAX_SEARCH_PAGES && results.length < SEARCH_RESULT_LIMIT; pageIndex += 1) {
+        throwIfAborted(signal);
+        const page = await catalog.listProducts({ status: "active", ...(cursor === undefined ? {} : { cursor }) });
+        for (let offset = 0; offset < page.items.length && results.length < SEARCH_RESULT_LIMIT; offset += SEARCH_DETAIL_CONCURRENCY) {
+          throwIfAborted(signal);
+          const details = await Promise.all(page.items.slice(offset, offset + SEARCH_DETAIL_CONCURRENCY).map((product) => catalog.getProduct(product.id)));
+          throwIfAborted(signal);
+          for (const { product, variants } of details) {
+            const productMatches = includesQuery([product.title, product.slug], query);
+            const selected = variants.flatMap((variant) => {
+              if (
+                variant.status !== "active" || (variant.stockTracking && variant.stockQuantity < 1) ||
+                (!productMatches && !includesQuery([variant.title, variant.sku, variant.barcode], query))
+              ) return [];
+              return [Object.freeze({
+                variantId: variant.id,
+                title: variant.title,
+                ...(variant.sku === undefined ? {} : { sku: variant.sku }),
+                priceCents: variant.priceCents,
+                ...(variant.stockTracking ? { availableQuantity: variant.stockQuantity } : {}),
+              })];
+            });
+            if (selected.length > 0) results.push(Object.freeze({ title: product.title, variants: Object.freeze(selected) }));
+            if (results.length === SEARCH_RESULT_LIMIT) break;
+          }
+        }
+        cursor = page.nextCursor;
+        if (cursor === undefined) break;
+      }
+      return Object.freeze(results);
     },
   });
 }

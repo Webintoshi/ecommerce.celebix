@@ -27,6 +27,7 @@ import styles from "./quick-order-links.module.css";
 type ListState = "loading" | "loaded" | "error";
 type SearchState = "idle" | "loading" | "loaded" | "error";
 type ProviderState = "unknown" | "activating" | "ready" | "not-ready" | "error";
+type FormFieldErrors = Partial<Record<"items" | "shipping" | "discount", string>>;
 
 type AddressForm = {
   recipientName: string;
@@ -91,15 +92,19 @@ function cents(value: string) {
   return Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
 }
 
+function singleLine(value: string) {
+  return value.trim().replace(/[\t\r\n]+/g, " ").replace(/ {2,}/g, " ");
+}
+
 function toAddress(value: AddressForm): Readonly<QuickOrderAddress> {
   return Object.freeze({
-    recipientName: value.recipientName.trim(),
-    phone: value.phone.trim(),
-    line1: value.line1.trim(),
-    ...(value.line2.trim() === "" ? {} : { line2: value.line2.trim() }),
-    ...(value.district.trim() === "" ? {} : { district: value.district.trim() }),
-    city: value.city.trim(),
-    ...(value.postalCode.trim() === "" ? {} : { postalCode: value.postalCode.trim() }),
+    recipientName: singleLine(value.recipientName),
+    phone: singleLine(value.phone),
+    line1: singleLine(value.line1),
+    ...(singleLine(value.line2) === "" ? {} : { line2: singleLine(value.line2) }),
+    ...(singleLine(value.district) === "" ? {} : { district: singleLine(value.district) }),
+    city: singleLine(value.city),
+    ...(singleLine(value.postalCode) === "" ? {} : { postalCode: singleLine(value.postalCode) }),
     country: value.country.trim().toUpperCase(),
   });
 }
@@ -154,9 +159,9 @@ function SearchResults({ products, onAdd, onKeyDown, buttonRefs }: {
 }) {
   let buttonIndex = -1;
   return (
-    <div className={styles.searchResults} id="quick-order-product-results" role="listbox" aria-label="Katalog arama sonuçları">
+    <ul className={styles.searchResults} id="quick-order-product-results" aria-label="Katalog arama sonuçları">
       {products.map((product) => (
-        <section key={product.title} className={styles.searchProduct}>
+        <li key={product.variants[0]?.variantId ?? product.title} className={styles.searchProduct}>
           <div className={styles.searchProductTitle}><Package aria-hidden="true" /><strong>{product.title}</strong><span>{product.variants.length} varyant</span></div>
           <div className={styles.variantResults}>{product.variants.map((variant) => {
             buttonIndex += 1;
@@ -166,8 +171,6 @@ function SearchResults({ products, onAdd, onKeyDown, buttonRefs }: {
                 key={variant.variantId}
                 ref={(element) => { buttonRefs.current[index] = element; }}
                 type="button"
-                role="option"
-                aria-selected="false"
                 onClick={() => onAdd(product, variant)}
                 onKeyDown={(event) => onKeyDown(event, index)}
               >
@@ -176,9 +179,9 @@ function SearchResults({ products, onAdd, onKeyDown, buttonRefs }: {
               </button>
             );
           })}</div>
-        </section>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -223,17 +226,20 @@ export function QuickOrderLinksConsole() {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FormFieldErrors>({});
   const [listState, setListState] = useState<ListState>("loading");
   const [links, setLinks] = useState<readonly QuickOrderLinkListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string>();
   const [loadingMore, setLoadingMore] = useState(false);
   const [listError, setListError] = useState("");
+  const [paginationError, setPaginationError] = useState("");
   const [busyLinkId, setBusyLinkId] = useState<string>();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const searchSequence = useRef(0);
   const listSequence = useRef(0);
+  const createRetry = useRef<Readonly<{ fingerprint: string; operationId: string }> | undefined>(undefined);
 
   const shippingCents = cents(shippingInput) ?? 0;
   const discountCents = cents(discountInput) ?? 0;
@@ -241,23 +247,33 @@ export function QuickOrderLinksConsole() {
     () => selectedLines.reduce((total, line) => total + line.unitPriceCents * line.quantity, 0),
     [selectedLines],
   );
-  const totalCents = Math.max(0, subtotalCents + shippingCents - discountCents);
+  const totalCents = subtotalCents + shippingCents - discountCents;
 
   const loadLinks = useCallback(async (cursor?: string) => {
     const sequence = ++listSequence.current;
-    if (cursor === undefined) setListState("loading");
-    else setLoadingMore(true);
-    setListError("");
+    if (cursor === undefined) {
+      setListState("loading");
+      setListError("");
+    } else {
+      setLoadingMore(true);
+      setPaginationError("");
+    }
     try {
       const result = await quickLinkUi.listLinks({ pageSize: 20, ...(cursor === undefined ? {} : { cursor }) });
       if (sequence !== listSequence.current) return;
       setLinks((current) => cursor === undefined ? result.items : Object.freeze([...current, ...result.items]));
       setNextCursor(result.nextCursor);
       setListState("loaded");
+      setPaginationError("");
     } catch (error) {
       if (sequence !== listSequence.current) return;
-      setListError(errorMessage(error, "Linkler yüklenemedi. Lütfen yeniden deneyin."));
-      setListState("error");
+      const message = errorMessage(error, "Linkler yüklenemedi. Lütfen yeniden deneyin.");
+      if (cursor === undefined) {
+        setListError(message);
+        setListState("error");
+      } else {
+        setPaginationError(message);
+      }
     } finally {
       if (sequence === listSequence.current) setLoadingMore(false);
     }
@@ -271,6 +287,7 @@ export function QuickOrderLinksConsole() {
   useEffect(() => {
     const normalized = query.trim();
     const sequence = ++searchSequence.current;
+    const controller = new AbortController();
     resultButtonRefs.current = [];
     if (normalized === "") {
       setSearchState("idle");
@@ -278,22 +295,26 @@ export function QuickOrderLinksConsole() {
       setSearchError("");
       return;
     }
+    setSearchResults([]);
+    setSearchState("loading");
+    setSearchError("");
     const timeout = window.setTimeout(async () => {
-      setSearchState("loading");
-      setSearchError("");
       try {
-        const result = await quickLinkUi.searchProducts(normalized);
+        const result = await quickLinkUi.searchProducts(normalized, { signal: controller.signal });
         if (sequence !== searchSequence.current) return;
         setSearchResults(result);
         setSearchState("loaded");
       } catch (error) {
-        if (sequence !== searchSequence.current) return;
+        if (sequence !== searchSequence.current || controller.signal.aborted) return;
         setSearchResults([]);
         setSearchError(errorMessage(error, "Ürün araması tamamlanamadı."));
         setSearchState("error");
       }
     }, 300);
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [query]);
 
   function updateAddress(setter: typeof setShippingAddress, key: keyof AddressForm, value: string) {
@@ -301,10 +322,20 @@ export function QuickOrderLinksConsole() {
   }
 
   function addVariant(product: CatalogSearchProduct, variant: CatalogSearchVariant) {
+    const existing = selectedLines.some((line) => line.variantId === variant.variantId);
+    if (!existing && selectedLines.length >= 100) {
+      setFieldErrors((current) => ({ ...current, items: "En fazla 100 farklı katalog varyantı ekleyebilirsiniz." }));
+      setFeedback("");
+      return;
+    }
+    setFieldErrors((current) => {
+      const { items: _items, ...remaining } = current;
+      return remaining;
+    });
     setSelectedLines((current) => {
-      const existing = current.find((line) => line.variantId === variant.variantId);
-      if (existing) {
-        const maximum = existing.availableQuantity ?? 9_999;
+      const selected = current.find((line) => line.variantId === variant.variantId);
+      if (selected) {
+        const maximum = selected.availableQuantity ?? 9_999;
         return Object.freeze(current.map((line) => line.variantId === variant.variantId
           ? Object.freeze({ ...line, quantity: Math.min(maximum, line.quantity + 1) })
           : line));
@@ -374,6 +405,7 @@ export function QuickOrderLinksConsole() {
     setShippingInput("0");
     setDiscountInput("0");
     setFormError("");
+    setFieldErrors({});
     searchInputRef.current?.focus();
   }
 
@@ -396,37 +428,56 @@ export function QuickOrderLinksConsole() {
     setFeedback("");
     const parsedShipping = cents(shippingInput);
     const parsedDiscount = cents(discountInput);
+    const nextFieldErrors: FormFieldErrors = {};
     if (selectedLines.length === 0) {
-      setFormError("En az bir katalog varyantı seçin.");
-      searchInputRef.current?.focus();
+      nextFieldErrors.items = "En az bir katalog varyantı seçin.";
+    }
+    if (parsedShipping === null) nextFieldErrors.shipping = "Kargo tutarını en fazla iki ondalık basamakla girin.";
+    if (parsedDiscount === null) nextFieldErrors.discount = "İndirim tutarını en fazla iki ondalık basamakla girin.";
+    if (parsedShipping !== null && parsedDiscount !== null && parsedDiscount > subtotalCents + parsedShipping) {
+      nextFieldErrors.discount = "İndirim, ara toplam ile kargo toplamını aşamaz.";
+    }
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) {
+      if (nextFieldErrors.items) searchInputRef.current?.focus();
       return;
     }
-    if (parsedShipping === null || parsedDiscount === null) {
-      setFormError("Kargo ve indirim tutarlarını en fazla iki ondalık basamakla girin.");
-      return;
-    }
+    if (parsedShipping === null || parsedDiscount === null) return;
     setSubmitting(true);
     try {
-      const result = await quickLinkUi.createLink({
+      const intent = {
         items: selectedLines.map((line) => Object.freeze({ variantId: line.variantId, quantity: line.quantity })),
         customerName: customerName.trim(),
-        customerEmail: customerEmail.trim(),
+        customerEmail: customerEmail.trim().toLowerCase(),
         customerPhone: customerPhone.trim(),
         shippingAddress: toAddress(shippingAddress),
         billingAddress: toAddress(billingSameAsShipping ? shippingAddress : billingAddress),
-        ...(customerNote.trim() === "" ? {} : { customerNote: customerNote.trim() }),
+        ...(singleLine(customerNote) === "" ? {} : { customerNote: singleLine(customerNote) }),
         ...(internalLabel.trim() === "" ? {} : { internalLabel: internalLabel.trim() }),
         shippingCents: parsedShipping,
         discountCents: parsedDiscount,
         expiryHours,
-      });
+      } as const;
+      const fingerprint = JSON.stringify(intent);
+      if (createRetry.current?.fingerprint !== fingerprint) {
+        createRetry.current = Object.freeze({ fingerprint, operationId: quickLinkUi.newCreateOperationId() });
+      }
+      const result = await quickLinkUi.createLink(intent, createRetry.current.operationId);
+      createRetry.current = undefined;
       setProviderState("ready");
-      setFeedback(`Ödeme linki oluşturuldu. ${date(result.expiresAt)} tarihine kadar geçerli.`);
-      await navigator.clipboard.writeText(result.url).catch(() => undefined);
-      resetBuilder();
       await loadLinks();
+      resetBuilder();
+      try {
+        await navigator.clipboard.writeText(result.url);
+        setFeedback(`Ödeme linki oluşturuldu ve panoya kopyalandı. ${date(result.expiresAt)} tarihine kadar geçerli.`);
+      } catch {
+        setFeedback(`Ödeme linki oluşturuldu ancak panoya kopyalanamadı. ${date(result.expiresAt)} tarihine kadar geçerli.`);
+      }
     } catch (error) {
       if (error instanceof QuickLinkUiApiError && error.code === "provider_not_ready") setProviderState("not-ready");
+      if (!(error instanceof QuickLinkUiApiError) || (error.code !== "unavailable" && error.code !== "commit_unknown")) {
+        createRetry.current = undefined;
+      }
       setFormError(errorMessage(error, "Hızlı sipariş linki oluşturulamadı."));
     } finally {
       setSubmitting(false);
@@ -528,14 +579,12 @@ export function QuickOrderLinksConsole() {
                       placeholder="Ürün ara…"
                       maxLength={100}
                       autoComplete="off"
-                      aria-controls="quick-order-product-results"
-                      aria-expanded={searchResults.length > 0}
                     />
                   </label>
                   <label className={styles.field}><span>Link geçerliliği</span><select value={expiryHours} onChange={(event) => setExpiryHours(Number(event.target.value) as typeof expiryHours)}>{EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label} · TRY</option>)}</select></label>
                 </div>
                 {searchContent}
-                <section className={styles.selectedLines} aria-label="Seçilen sipariş kalemleri">
+                <section className={styles.selectedLines} aria-label="Seçilen sipariş kalemleri" aria-describedby={fieldErrors.items ? "quick-order-items-error" : undefined}>
                   {selectedLines.length === 0 ? (
                     <div className={styles.linesEmpty}><Package aria-hidden="true" /><strong>Siparişleriniz burada gösterilecek</strong><p>Hızlı ödeme linkine eklenecek kalemleri gerçek katalogdan seçin.</p></div>
                   ) : selectedLines.map((line) => (
@@ -547,6 +596,7 @@ export function QuickOrderLinksConsole() {
                     </article>
                   ))}
                 </section>
+                {fieldErrors.items ? <p id="quick-order-items-error" className={styles.inlineError} role="alert">{fieldErrors.items}</p> : null}
               </div>
             </Panel>
 
@@ -579,8 +629,8 @@ export function QuickOrderLinksConsole() {
                   <div><dt>İndirim</dt><dd>− {money(discountCents)}</dd></div>
                   <div><dt>Toplam</dt><dd>{money(totalCents)}</dd></div>
                 </dl>
-                <label className={styles.field}><span>Kargo (TRY)</span><input inputMode="decimal" value={shippingInput} onChange={(event) => setShippingInput(event.target.value)} /></label>
-                <label className={styles.field}><span>İndirim (TRY)</span><input inputMode="decimal" value={discountInput} onChange={(event) => setDiscountInput(event.target.value)} /></label>
+                <label className={styles.field}><span>Kargo (TRY)</span><input inputMode="decimal" value={shippingInput} onChange={(event) => { setShippingInput(event.target.value); setFieldErrors((current) => { const { shipping: _shipping, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.shipping ? true : undefined} aria-describedby={fieldErrors.shipping ? "quick-order-shipping-error" : undefined} />{fieldErrors.shipping ? <small id="quick-order-shipping-error" className={styles.fieldError} role="alert">{fieldErrors.shipping}</small> : null}</label>
+                <label className={styles.field}><span>İndirim (TRY)</span><input inputMode="decimal" value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setFieldErrors((current) => { const { discount: _discount, ...remaining } = current; return remaining; }); }} aria-invalid={fieldErrors.discount ? true : undefined} aria-describedby={fieldErrors.discount ? "quick-order-discount-error" : undefined} />{fieldErrors.discount ? <small id="quick-order-discount-error" className={styles.fieldError} role="alert">{fieldErrors.discount}</small> : null}</label>
                 <button className={styles.primaryButton} type="submit" disabled={submitting}>{submitting ? "Oluşturuluyor…" : "Ödeme linki oluştur"}</button>
                 <button className={styles.secondaryButton} type="button" onClick={resetBuilder}>Temizle</button>
               </div>
@@ -641,7 +691,8 @@ export function QuickOrderLinksConsole() {
                 <dl><div><dt>Ürün</dt><dd>{link.firstProductName}{link.itemCount > 1 ? ` + ${link.itemCount - 1}` : ""}</dd></div><div><dt>Geçerlilik</dt><dd>{date(link.expiresAt)}</dd></div><div><dt>Toplam</dt><dd>{money(link.totalCents)}</dd></div></dl>
                 <LinkActions link={link} busy={busyLinkId === link.id} onCopy={copyLink} onOpen={openLink} onDuplicate={duplicateLink} onCancel={cancelLink} />
               </article>)}</div>
-              {nextCursor ? <button className={styles.loadMore} type="button" disabled={loadingMore} onClick={() => { void loadLinks(nextCursor); }}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
+              {paginationError && nextCursor ? <div className={styles.paginationError} role="alert"><span>{paginationError}</span><button type="button" onClick={() => { void loadLinks(nextCursor); }}>Sayfayı tekrar dene</button></div> : null}
+              {nextCursor && !paginationError ? <button className={styles.loadMore} type="button" disabled={loadingMore} onClick={() => { void loadLinks(nextCursor); }}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
             </>
           )}
         </div>
