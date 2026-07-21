@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { accessSync, constants, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,7 +18,8 @@ const PG16 = "/Users/Celebix/.codex/tmp/postgresql-16.14-install/bin";
 const TOKEN = randomBytes(6).toString("hex");
 const DATABASE = `quick_order_links_${TOKEN}`;
 const ROLLBACK_DATABASE = `${DATABASE}_rollback`;
-const TOTAL = 18;
+const RESTORE_DATABASE = `${DATABASE}_restore`;
+const TOTAL = 40;
 const completed = [];
 
 const PLAN = "00000000-0000-4000-8000-000000000001";
@@ -26,8 +27,14 @@ const STORE_A = "10000000-0000-4000-8000-000000000001";
 const STORE_B = "10000000-0000-4000-8000-000000000002";
 const PRINCIPAL_A = "20000000-0000-4000-8000-000000000001";
 const PRINCIPAL_B = "20000000-0000-4000-8000-000000000002";
+const PRINCIPAL_ADMIN = "20000000-0000-4000-8000-000000000003";
+const PRINCIPAL_EDITOR = "20000000-0000-4000-8000-000000000004";
+const PRINCIPAL_ANALYST = "20000000-0000-4000-8000-000000000005";
 const MEMBERSHIP_A = "30000000-0000-4000-8000-000000000001";
 const MEMBERSHIP_B = "30000000-0000-4000-8000-000000000002";
+const MEMBERSHIP_ADMIN = "30000000-0000-4000-8000-000000000003";
+const MEMBERSHIP_EDITOR = "30000000-0000-4000-8000-000000000004";
+const MEMBERSHIP_ANALYST = "30000000-0000-4000-8000-000000000005";
 const PRODUCT_A = "40000000-0000-4000-8000-000000000001";
 const PRODUCT_A2 = "40000000-0000-4000-8000-000000000002";
 const PRODUCT_B = "40000000-0000-4000-8000-000000000003";
@@ -36,6 +43,7 @@ const VARIANT_A2 = "41000000-0000-4000-8000-000000000002";
 const VARIANT_B = "41000000-0000-4000-8000-000000000003";
 const VARIANT_A_SIBLING = "41000000-0000-4000-8000-000000000004";
 const VARIANT_A_GENERIC = "41000000-0000-4000-8000-000000000005";
+const VARIANT_A_STOCK = "41000000-0000-4000-8000-000000000006";
 const PROVIDER_A = "50000000-0000-4000-8000-000000000001";
 const PROVIDER_B = "50000000-0000-4000-8000-000000000002";
 const LINK_A = "60000000-0000-4000-8000-000000000001";
@@ -55,8 +63,17 @@ const FUNCTIONS = [
   "saas.guard_quick_link_operation_mutation()",
   "saas.quick_link_merchant_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)",
 ];
+const API_FUNCTIONS = [
+  "saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)",
+  "saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+  "saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)",
+  "saas.quick_links_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,uuid,text)",
+  "saas.quick_links_duplicate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid[],text,text,jsonb,uuid,text)",
+  "saas.quick_links_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)",
+];
 const VALID_ADDRESS = `'{"recipientName":"Ada Lovelace","phone":"+905551110000","line1":"Test 1","city":"Istanbul","country":"TR"}'::jsonb`;
 const VALID_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
+const DUPLICATE_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"ZHVwbGljYXRlLXRva2VuLWNpcGhlcnRleHQ","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
 const VALID_RESULT = `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`;
 
 const priorMigrations = [
@@ -192,6 +209,28 @@ function psql(backend, source, database = DATABASE, options = {}) {
   return psqlResult(backend, source, database, options).stdout.trim();
 }
 
+function psqlAsync(backend, source, database = DATABASE) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(backend.executables.psql, [
+      "-h", backend.socketDirectory, "-p", String(backend.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+      "-U", "postgres", "-d", database,
+    ], {
+      cwd: ROOT,
+      env: { PATH: `${PG16}:${process.env.PATH ?? ""}`, LC_ALL: "C", LANG: "C" },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (status) => resolve({ status, stdout: stdout.trim(), stderr: stderr.trim() }));
+    child.stdin.end(source);
+  });
+}
+
 function apply(backend, file, database = DATABASE) {
   psql(backend, readFileSync(path.join(SQL, file), "utf8"), database);
 }
@@ -204,6 +243,81 @@ function denied(backend, source, database = DATABASE) {
   const result = psqlResult(backend, source, database, { allowFailure: true });
   assert.notEqual(result.status, 0, "statement unexpectedly succeeded");
   return result;
+}
+
+function apiResult(backend, functionCall, database = DATABASE, role = "celebix_saas_app") {
+  const raw = psql(backend, `${role ? `SET ROLE ${role};` : ""}
+    SELECT pg_catalog.jsonb_build_object('outcome',call.outcome,'result',call.result_payload)
+    FROM ${functionCall} AS call;`, database);
+  return JSON.parse(raw);
+}
+
+function authorityArgs({
+  store = STORE_A,
+  principal = PRINCIPAL_A,
+  membership = MEMBERSHIP_A,
+  plan = PLAN,
+  planCode = "free_starter",
+  planVersion = 1,
+  now = "2026-07-21 12:00:00.123456+00",
+} = {}) {
+  return `'${store}'::uuid,'${principal}'::uuid,'${membership}'::uuid,'${plan}'::uuid,'${planCode}'::text,${planVersion}::bigint,'${now}'::timestamptz`;
+}
+
+function createCall({
+  auth,
+  link = "60000000-0000-4000-8000-000000000100",
+  items = ["80000000-0000-4000-8000-000000000100"],
+  variants = [VARIANT_A],
+  quantities = [2],
+  provider = PROVIDER_A,
+  customerName = "Grace Hopper",
+  customerEmail = "grace@example.test",
+  customerPhone = "+905551112233",
+  shippingAddress = VALID_ADDRESS,
+  billingAddress = VALID_ADDRESS,
+  customerNote = "Call on arrival",
+  internalLabel = "Priority",
+  shipping = 500,
+  discount = 250,
+  expiry = 24,
+  digest = "d",
+  key = "key-1",
+  envelope = VALID_ENVELOPE,
+  operation = "90000000-0000-4000-8000-000000000100",
+  fingerprint = "e",
+} = {}) {
+  const itemArray = `ARRAY[${items.map((id) => `'${id}'::uuid`).join(",")}]::uuid[]`;
+  const variantArray = `ARRAY[${variants.map((id) => `'${id}'::uuid`).join(",")}]::uuid[]`;
+  const quantityArray = `ARRAY[${quantities.map((quantity) => `${quantity}::bigint`).join(",")}]::bigint[]`;
+  const textOrNull = (value) => value === null ? "NULL::text" : `'${value.replaceAll("'", "''")}'::text`;
+  const digestSql = digest.length === 64 ? `'${digest}'::text` : `repeat('${digest}',64)::text`;
+  return `saas.quick_links_create(${auth ?? authorityArgs()},'${link}'::uuid,${itemArray},${variantArray},${quantityArray},'${provider}'::uuid,${textOrNull(customerName)},${textOrNull(customerEmail)},${textOrNull(customerPhone)},${shippingAddress},${billingAddress},${textOrNull(customerNote)},${textOrNull(internalLabel)},${shipping}::bigint,${discount}::bigint,${expiry}::bigint,${digestSql},'${key}'::text,${envelope},'${operation}'::uuid,repeat('${fingerprint}',64)::text)`;
+}
+
+function listCall({ auth, status = null, size = 100, cursorCreatedAt = null, cursorId = null } = {}) {
+  return `saas.quick_links_list(${auth ?? authorityArgs()},${status === null ? "NULL::text" : `'${status}'::text`},${size}::bigint,${cursorCreatedAt === null ? "NULL::timestamptz" : `'${cursorCreatedAt}'::timestamptz`},${cursorId === null ? "NULL::uuid" : `'${cursorId}'::uuid`})`;
+}
+
+function getCall({ auth, link = LINK_A } = {}) {
+  return `saas.quick_links_get(${auth ?? authorityArgs()},'${link}'::uuid)`;
+}
+
+function cancelCall({ auth, link, version = 1, operation, fingerprint = "f", now } = {}) {
+  return `saas.quick_links_cancel(${auth ?? authorityArgs(now === undefined ? {} : { now })},'${link}'::uuid,${version}::bigint,'${operation}'::uuid,repeat('${fingerprint}',64)::text)`;
+}
+
+function duplicateCall({ auth, source = LINK_A, link, items, digest = "7", key = "key-1", envelope = DUPLICATE_ENVELOPE, operation, fingerprint = "8" } = {}) {
+  const digestSql = digest.length === 64 ? `'${digest}'::text` : `repeat('${digest}',64)::text`;
+  return `saas.quick_links_duplicate(${auth ?? authorityArgs()},'${source}'::uuid,'${link}'::uuid,ARRAY[${items.map((id) => `'${id}'::uuid`).join(",")}]::uuid[],${digestSql},'${key}'::text,${envelope},'${operation}'::uuid,repeat('${fingerprint}',64)::text)`;
+}
+
+function recoverCall({ auth, operation, kind, fingerprint = "e" } = {}) {
+  return `saas.quick_links_recover_operation(${auth ?? authorityArgs()},'${operation}'::uuid,'${kind}'::text,repeat('${fingerprint}',64)::text)`;
+}
+
+function digestFor(value) {
+  return Number(value).toString(16).padStart(64, "0");
 }
 
 function databaseInventory(backend, database = DATABASE) {
@@ -324,13 +438,19 @@ function seed(backend, database = DATABASE) {
   psql(backend, `
     INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at) VALUES
       ('${PRINCIPAL_A}','https://identity.example.test/oidc','quick-owner-a','owner-a@example.test',true,'2026-01-01','2026-01-01'),
-      ('${PRINCIPAL_B}','https://identity.example.test/oidc','quick-owner-b','owner-b@example.test',true,'2026-01-01','2026-01-01');
+      ('${PRINCIPAL_B}','https://identity.example.test/oidc','quick-owner-b','owner-b@example.test',true,'2026-01-01','2026-01-01'),
+      ('${PRINCIPAL_ADMIN}','https://identity.example.test/oidc','quick-admin','admin@example.test',true,'2026-01-01','2026-01-01'),
+      ('${PRINCIPAL_EDITOR}','https://identity.example.test/oidc','quick-editor','editor@example.test',true,'2026-01-01','2026-01-01'),
+      ('${PRINCIPAL_ANALYST}','https://identity.example.test/oidc','quick-analyst','analyst@example.test',true,'2026-01-01','2026-01-01');
     INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES
       ('${STORE_A}','Quick Store A','quick-store-a','active','tr','TRY','default','2026-01-01','2026-01-01'),
       ('${STORE_B}','Quick Store B','quick-store-b','active','tr','TRY','default','2026-01-01','2026-01-01');
     INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at) VALUES
       ('${MEMBERSHIP_A}','${PRINCIPAL_A}','${STORE_A}','store_owner','active','2026-01-01','2026-01-01'),
-      ('${MEMBERSHIP_B}','${PRINCIPAL_B}','${STORE_B}','store_owner','active','2026-01-01','2026-01-01');
+      ('${MEMBERSHIP_B}','${PRINCIPAL_B}','${STORE_B}','store_owner','active','2026-01-01','2026-01-01'),
+      ('${MEMBERSHIP_ADMIN}','${PRINCIPAL_ADMIN}','${STORE_A}','admin','active','2026-01-01','2026-01-01'),
+      ('${MEMBERSHIP_EDITOR}','${PRINCIPAL_EDITOR}','${STORE_A}','editor','active','2026-01-01','2026-01-01'),
+      ('${MEMBERSHIP_ANALYST}','${PRINCIPAL_ANALYST}','${STORE_A}','analyst','active','2026-01-01','2026-01-01');
     INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,valid_until,created_at,updated_at) VALUES
       ('31000000-0000-4000-8000-000000000001','${STORE_A}','${PLAN}','free_starter',1,'active','2026-01-01',NULL,'2026-01-01','2026-01-01'),
       ('31000000-0000-4000-8000-000000000002','${STORE_B}','${PLAN}','free_starter',1,'active','2026-01-01',NULL,'2026-01-01','2026-01-01');
@@ -343,7 +463,8 @@ function seed(backend, database = DATABASE) {
       ('${VARIANT_A2}','${PRODUCT_A2}','${STORE_A}','Default A2',12000,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
       ('${VARIANT_B}','${PRODUCT_B}','${STORE_B}','Default B',10000,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
       ('${VARIANT_A_SIBLING}','${PRODUCT_A}','${STORE_A}','Sibling A',11000,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
-      ('${VARIANT_A_GENERIC}','${PRODUCT_A}','${STORE_A}','Generic-only A',11500,false,0,'active','{}',1,'2026-01-01','2026-01-01');
+      ('${VARIANT_A_GENERIC}','${PRODUCT_A}','${STORE_A}','Generic-only A',11500,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
+      ('${VARIANT_A_STOCK}','${PRODUCT_A}','${STORE_A}','Tracked A',12500,true,2,'active','{}',1,'2026-01-01','2026-01-01');
     INSERT INTO saas.product_media(id,store_id,product_id,variant_id,object_key,public_url,media_type,byte_size,sort_order,status,created_at,updated_at) VALUES
       ('43000000-0000-4000-8000-000000000001','${STORE_A}','${PRODUCT_A}','${VARIANT_A}','stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000001.webp','https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000001.webp','image/webp',100,5,'active','2026-01-01','2026-01-01'),
       ('43000000-0000-4000-8000-000000000002','${STORE_A}','${PRODUCT_A}',NULL,'stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000002.webp','https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000002.webp','image/webp',100,1,'active','2026-01-01','2026-01-01'),
@@ -368,6 +489,8 @@ async function main() {
   let cleanupPaths;
   let pre024Inventory;
   let post024Inventory;
+  let pre025Inventory;
+  let post025Inventory;
   try {
     backend = startPostgres();
     createDatabase(backend, DATABASE);
@@ -383,11 +506,14 @@ async function main() {
       post024Inventory = databaseInventory(backend);
     });
 
-    await scenario("manifest bytes exactly bind the three 024 SQL artifacts", async () => {
+    await scenario("manifest bytes exactly bind all 024 and 025 SQL artifacts", async () => {
       const artifacts = [
         ["202607220024_quick_order_links_up", "up", "202607220024_quick_order_links.up.sql", "Add store-scoped checkout configuration and quick-order link persistence with forced RLS."],
         ["202607220024_quick_order_links_down", "down", "202607220024_quick_order_links.down.sql", "Remove only migration 024 quick-order link objects during disposable rollback rehearsal."],
         ["202607220024_quick_order_links_assertions", "verify", "202607220024_quick_order_links_assertions.sql", "Fail on quick-link catalog, constraint, tenant-FK, ACL, RLS, immutability, secret-envelope or authority drift."],
+        ["202607220025_quick_order_links_api_up", "up", "202607220025_quick_order_links_api.up.sql", "Add the least-privilege merchant quick-order link API and durable operation recovery."],
+        ["202607220025_quick_order_links_api_down", "down", "202607220025_quick_order_links_api.down.sql", "Remove only migration 025 API functions during disposable rollback rehearsal."],
+        ["202607220025_quick_order_links_api_assertions", "verify", "202607220025_quick_order_links_api_assertions.sql", "Fail on quick-link API signature, authority, deterministic projection, recovery or ACL drift."],
       ].map(([id, direction, file, purpose]) => ({
         id,
         direction,
@@ -396,11 +522,11 @@ async function main() {
         purpose,
       }));
       const expected = {
-        bundleId: "phase3b2-202607220024-quick-order-links",
+        bundleId: "phase3b2-202607220025-quick-order-links-api",
         postgresqlMajor: 16,
         migrationClassification: "additive",
         environmentAuthorization: "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
-        rollbackLimitations: "Migration 024 rollback destroys checkout provider configuration and quick-order link data and is for disposable rehearsal only.",
+        rollbackLimitations: "Migration 024 rollback destroys checkout provider configuration and quick-order link data; migration 025 rollback removes only API functions. Both are for disposable rehearsal only.",
         artifacts,
       };
       assert.equal(readFileSync(path.join(SQL, "phase3b2-quick-order-links-manifest.json"), "utf8"), `${JSON.stringify(expected, null, 2)}\n`);
@@ -627,7 +753,7 @@ async function main() {
       assert.equal(databaseInventory(backend, ROLLBACK_DATABASE), post024Inventory, "reapply did not restore the exact 024 object inventory");
     });
 
-    assert.equal(completed.length, TOTAL - 1);
+    assert.equal(completed.length, 17);
     cleanupPaths = { temporaryDirectory: backend.temporaryDirectory, socketDirectory: backend.socketDirectory };
     stopPostgres(backend);
     backend = undefined;
@@ -672,6 +798,314 @@ async function main() {
         assert.equal(existsSync(partialBackend.temporaryDirectory), false);
         assert.equal(existsSync(partialBackend.socketDirectory), false);
       }
+    });
+
+    backend = startPostgres({ token: `${TOKEN}api` });
+    createDatabase(backend, DATABASE);
+    for (const migration of priorMigrations) apply(backend, migration);
+    apply(backend, "202607220024_quick_order_links.up.sql");
+    apply(backend, "202607220024_quick_order_links_assertions.sql");
+    seed(backend);
+    pre025Inventory = databaseInventory(backend);
+
+    await scenario("apply migration 025 and run exact API assertions", async () => {
+      const migration = path.join(SQL, "202607220025_quick_order_links_api.up.sql");
+      if (existsSync(migration)) apply(backend, path.basename(migration));
+      assert.equal(
+        psql(backend, "SELECT to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)')::text;"),
+        "saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)",
+      );
+      apply(backend, "202607220025_quick_order_links_api_assertions.sql");
+      assert.match(psql(backend, "SHOW server_version;"), /^16\./);
+      post025Inventory = databaseInventory(backend);
+    });
+
+    await scenario("only the six exact API functions are executable by the application role", async () => {
+      assert.equal(psql(backend, `SELECT count(*) FROM unnest(ARRAY[${API_FUNCTIONS.map((signature) => `'${signature}'::regprocedure`).join(",")}]) AS function_oid(value) WHERE has_function_privilege('celebix_saas_app',function_oid.value,'EXECUTE') AND NOT has_function_privilege('public',function_oid.value,'EXECUTE');`), "6");
+      assert.equal(psql(backend, `SELECT count(*) FROM pg_proc AS procedure JOIN pg_roles AS owner_role ON owner_role.oid=procedure.proowner WHERE procedure.oid=ANY(ARRAY[${API_FUNCTIONS.map((signature) => `'${signature}'::regprocedure`).join(",")}]) AND owner_role.rolname='celebix_saas_owner' AND procedure.prosecdef AND procedure.proretset AND procedure.proconfig=ARRAY['search_path=pg_catalog, saas']::text[];`), "6");
+      for (const table of TABLES) {
+        denied(backend, `SET ROLE celebix_saas_app; SELECT * FROM saas.${table};`);
+        denied(backend, `SET ROLE celebix_saas_app; INSERT INTO saas.${table} DEFAULT VALUES;`);
+      }
+      const actionSources = psql(backend, `SELECT string_agg(proname||':'||prosrc,E'\n' ORDER BY proname) FROM pg_proc WHERE oid=ANY(ARRAY[${API_FUNCTIONS.map((signature) => `'${signature}'::regprocedure`).join(",")}]);`);
+      for (const name of ["quick_links_list", "quick_links_get"]) assert.match(actionSources, new RegExp(`${name}:[\\s\\S]*quick_links.read`));
+      for (const name of ["quick_links_create", "quick_links_cancel", "quick_links_duplicate", "quick_links_recover_operation"]) assert.match(actionSources, new RegExp(`${name}:[\\s\\S]*quick_links.manage`));
+    });
+
+    await scenario("owner and admin create canonical catalog price and media snapshots", async () => {
+      const ownerCreate = apiResult(backend, createCall({
+        link: "60000000-0000-4000-8000-000000000100",
+        items: ["80000000-0000-4000-8000-000000000100", "80000000-0000-4000-8000-000000000101"],
+        variants: [VARIANT_A, VARIANT_A_GENERIC],
+        quantities: [2, 1],
+        digest: digestFor(100),
+        operation: "90000000-0000-4000-8000-000000000100",
+      }));
+      assert.equal(ownerCreate.outcome, "committed");
+      assert.deepEqual(Object.keys(ownerCreate.result).sort(), ["expiresAt", "id", "status", "updatedAt", "version"]);
+      assert.deepEqual(ownerCreate.result, {
+        id: "60000000-0000-4000-8000-000000000100",
+        status: "active",
+        version: 1,
+        expiresAt: "2026-07-22T12:00:00.123456Z",
+        updatedAt: "2026-07-21T12:00:00.123456Z",
+      });
+      assert.equal(psql(backend, "SELECT subtotal_cents||':'||shipping_cents||':'||discount_cents||':'||total_cents||':'||currency FROM saas.quick_order_links WHERE id='60000000-0000-4000-8000-000000000100';"), "31500:500:250:31750:TRY");
+      assert.equal(psql(backend, "SELECT string_agg(position||':'||product_name||':'||variant_name||':'||COALESCE(sku,'<null>')||':'||unit_price_cents||':'||quantity||':'||line_total_cents||':'||COALESCE(image_url,'<null>'),E'\\n' ORDER BY position) FROM saas.quick_order_link_items WHERE quick_order_link_id='60000000-0000-4000-8000-000000000100';"), `0:Quick Product A:Default A:<null>:10000:2:20000:https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000001.webp\n1:Quick Product A:Generic-only A:<null>:11500:1:11500:https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000002.webp`);
+      const adminAuth = authorityArgs({ principal: PRINCIPAL_ADMIN, membership: MEMBERSHIP_ADMIN });
+      const adminCreate = apiResult(backend, createCall({ auth: adminAuth, link: "60000000-0000-4000-8000-000000000101", items: ["80000000-0000-4000-8000-000000000102"], variants: [VARIANT_A2], quantities: [1], expiry: 4, digest: digestFor(101), operation: "90000000-0000-4000-8000-000000000101", fingerprint: "1" }));
+      assert.equal(adminCreate.outcome, "committed");
+      assert.equal(adminCreate.result.expiresAt, "2026-07-21T16:00:00.123456Z");
+      const tracked = apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000103", items: ["80000000-0000-4000-8000-000000000103"], variants: [VARIANT_A_STOCK], quantities: [2], digest: digestFor(103), operation: "90000000-0000-4000-8000-000000000103", fingerprint: "3" }));
+      assert.equal(tracked.outcome, "committed");
+    });
+
+    await scenario("editor and analyst are read-only while owner and admin retain manage authority", async () => {
+      const adminAuth = authorityArgs({ principal: PRINCIPAL_ADMIN, membership: MEMBERSHIP_ADMIN });
+      assert.equal(apiResult(backend, listCall({ auth: adminAuth })).outcome, "listed");
+      assert.equal(apiResult(backend, getCall({ auth: adminAuth, link: "60000000-0000-4000-8000-000000000100" })).outcome, "found");
+      for (const [principal, membership] of [[PRINCIPAL_EDITOR, MEMBERSHIP_EDITOR], [PRINCIPAL_ANALYST, MEMBERSHIP_ANALYST]]) {
+        const auth = authorityArgs({ principal, membership });
+        assert.equal(apiResult(backend, listCall({ auth })).outcome, "listed");
+        assert.equal(apiResult(backend, getCall({ auth, link: "60000000-0000-4000-8000-000000000100" })).outcome, "found");
+        const deniedCreate = apiResult(backend, createCall({ auth, link: membership.replace(/^3/, "6"), items: [membership.replace(/^3/, "8")], digest: digestFor(Number(membership.slice(-2)) + 300), operation: membership.replace(/^3/, "9") }));
+        assert.equal(deniedCreate.outcome, "action_denied");
+      }
+      assert.equal(psql(backend, "SELECT count(*) FROM saas.quick_order_links WHERE id IN ('60000000-0000-4000-8000-000000000004','60000000-0000-4000-8000-000000000005');"), "0");
+    });
+
+    await scenario("store membership plan and feature authority failures stay stable", async () => {
+      psql(backend, `UPDATE saas.stores SET status='suspended',updated_at='2026-07-21 12:00:00+00' WHERE id='${STORE_A}';`);
+      assert.equal(apiResult(backend, listCall()).outcome, "store_inactive");
+      psql(backend, `UPDATE saas.stores SET status='active',updated_at='2026-07-21 12:00:00+00' WHERE id='${STORE_A}';`);
+      assert.equal(apiResult(backend, listCall({ auth: authorityArgs({ principal: PRINCIPAL_B }) })).outcome, "membership_denied");
+      assert.equal(apiResult(backend, listCall({ auth: authorityArgs({ store: STORE_B }) })).outcome, "membership_denied");
+      assert.equal(apiResult(backend, listCall({ auth: authorityArgs({ planVersion: 2 }) })).outcome, "durable_authority_invalid");
+      psql(backend, `UPDATE saas.memberships SET status='revoked',updated_at='2026-07-21 12:00:00+00' WHERE id='${MEMBERSHIP_A}';`);
+      assert.equal(apiResult(backend, listCall()).outcome, "membership_denied");
+      psql(backend, `UPDATE saas.memberships SET status='active',updated_at='2026-07-21 12:00:00+00' WHERE id='${MEMBERSHIP_A}'; ALTER TABLE saas.plan_features DISABLE TRIGGER plan_features_immutable;`);
+      try {
+        psql(backend, `UPDATE saas.plan_features SET enabled=false WHERE plan_id='${PLAN}' AND feature_key='orders';`);
+        assert.equal(apiResult(backend, listCall()).outcome, "feature_not_enabled");
+        psql(backend, `UPDATE saas.plan_features SET enabled=true WHERE plan_id='${PLAN}' AND feature_key='orders'; UPDATE saas.plan_features SET enabled=false WHERE plan_id='${PLAN}' AND feature_key='checkout';`);
+        assert.equal(apiResult(backend, listCall()).outcome, "feature_not_enabled");
+      } finally {
+        psql(backend, `UPDATE saas.plan_features SET enabled=true WHERE plan_id='${PLAN}' AND feature_key IN ('orders','checkout'); ALTER TABLE saas.plan_features ENABLE TRIGGER plan_features_immutable;`);
+      }
+    });
+
+    await scenario("bounded list inputs expiry choices and exact provider readiness are enforced", async () => {
+      for (const invalid of [listCall({ size: 0 }), listCall({ size: 101 }), listCall({ status: "draft" }), listCall({ cursorCreatedAt: "2026-07-21 12:00:00+00" })]) {
+        assert.equal(apiResult(backend, invalid).outcome, "invalid_input");
+      }
+      for (const [index, expiry] of [4, 12, 48, 72].entries()) {
+        const suffix = 104 + index;
+        assert.equal(apiResult(backend, createCall({ link: `60000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`, items: [`80000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`], expiry, digest: digestFor(suffix), operation: `90000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`, fingerprint: "4" })).outcome, "committed");
+      }
+      psql(backend, `UPDATE saas.checkout_provider_configs SET status='disabled',updated_at='2026-07-21 12:00:00+00' WHERE id='${PROVIDER_A}';`);
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000140", items: ["80000000-0000-4000-8000-000000000140"], digest: digestFor(140), operation: "90000000-0000-4000-8000-000000000140" })).outcome, "provider_not_ready");
+      psql(backend, `UPDATE saas.checkout_provider_configs SET status='active',updated_at='2026-07-21 12:00:00+00' WHERE id='${PROVIDER_A}';`);
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000141", items: ["80000000-0000-4000-8000-000000000141"], provider: PROVIDER_B, digest: digestFor(141), operation: "90000000-0000-4000-8000-000000000141" })).outcome, "provider_not_ready");
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000142", items: ["80000000-0000-4000-8000-000000000142"], provider: "50000000-0000-4000-8000-000000000099", digest: digestFor(142), operation: "90000000-0000-4000-8000-000000000142" })).outcome, "provider_not_ready");
+    });
+
+    await scenario("inactive cross-store and insufficient-stock catalog requests fail atomically", async () => {
+      const before = psql(backend, "SELECT (SELECT count(*) FROM saas.quick_order_links)||':'||(SELECT count(*) FROM saas.quick_order_link_operations);");
+      psql(backend, `UPDATE saas.products SET status='draft',updated_at='2026-07-21 12:00:00+00' WHERE id='${PRODUCT_A}';`);
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000150", items: ["80000000-0000-4000-8000-000000000150"], digest: digestFor(150), operation: "90000000-0000-4000-8000-000000000150" })).outcome, "catalog_item_unavailable");
+      psql(backend, `UPDATE saas.products SET status='active',updated_at='2026-07-21 12:00:00+00' WHERE id='${PRODUCT_A}'; UPDATE saas.product_variants SET status='archived',archived_at='2026-07-21 12:00:00+00',updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A}';`);
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000151", items: ["80000000-0000-4000-8000-000000000151"], digest: digestFor(151), operation: "90000000-0000-4000-8000-000000000151" })).outcome, "catalog_item_unavailable");
+      psql(backend, `UPDATE saas.product_variants SET status='active',archived_at=NULL,updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A}';`);
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000152", items: ["80000000-0000-4000-8000-000000000152"], variants: [VARIANT_B], digest: digestFor(152), operation: "90000000-0000-4000-8000-000000000152" })).outcome, "catalog_item_unavailable");
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000153", items: ["80000000-0000-4000-8000-000000000153"], variants: [VARIANT_A_STOCK], quantities: [3], digest: digestFor(153), operation: "90000000-0000-4000-8000-000000000153" })).outcome, "stock_unavailable");
+      assert.equal(psql(backend, "SELECT (SELECT count(*) FROM saas.quick_order_links)||':'||(SELECT count(*) FROM saas.quick_order_link_operations);"), before);
+    });
+
+    await scenario("server numeric arithmetic accepts global maxima and rejects overflow without exceptions", async () => {
+      psql(backend, `UPDATE saas.product_variants SET price_cents=8000000000,updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A}';`);
+      const maximumItems = Array.from({ length: 100 }, (_, index) => `80000000-0000-4000-8000-${String(2000 + index).padStart(12, "0")}`);
+      const maximum = apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000160", items: maximumItems, variants: maximumItems.map(() => VARIANT_A), quantities: maximumItems.map(() => 9999), shipping: 500000000000000, discount: 0, digest: digestFor(160), operation: "90000000-0000-4000-8000-000000000160", fingerprint: "6" }));
+      assert.equal(maximum.outcome, "committed");
+      assert.equal(psql(backend, "SELECT subtotal_cents||':'||total_cents FROM saas.quick_order_links WHERE id='60000000-0000-4000-8000-000000000160';"), "7999200000000000:8499200000000000");
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000161", items: ["80000000-0000-4000-8000-000000000161"], shipping: 500000000000001, digest: digestFor(161), operation: "90000000-0000-4000-8000-000000000161" })).outcome, "invalid_input");
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000164", items: ["80000000-0000-4000-8000-000000000164"], shipping: 9223372036854775807n, digest: digestFor(164), operation: "90000000-0000-4000-8000-000000000164" })).outcome, "invalid_input");
+      psql(backend, `UPDATE saas.product_variants SET price_cents=8000000001,updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A}';`);
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000162", items: ["80000000-0000-4000-8000-000000000162"], digest: digestFor(162), operation: "90000000-0000-4000-8000-000000000162" })).outcome, "invalid_input");
+      psql(backend, `UPDATE saas.product_variants SET price_cents=10000,updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A}';`);
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000163", items: ["80000000-0000-4000-8000-000000000163"], shipping: 0, discount: 20001, digest: digestFor(163), operation: "90000000-0000-4000-8000-000000000163" })).outcome, "invalid_input");
+    });
+
+    await scenario("create replay ignores regenerated IDs and token randomness but rejects changed intent", async () => {
+      const replay = apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000199", items: ["80000000-0000-4000-8000-000000000198", "80000000-0000-4000-8000-000000000199"], variants: [VARIANT_A, VARIANT_A_GENERIC], quantities: [2, 1], digest: digestFor(999), key: "regenerated-key", operation: "90000000-0000-4000-8000-000000000100" }));
+      assert.equal(replay.outcome, "operation_replayed");
+      assert.equal(replay.result.id, "60000000-0000-4000-8000-000000000100");
+      assert.equal(apiResult(backend, createCall({ link: "60000000-0000-4000-8000-000000000199", items: ["80000000-0000-4000-8000-000000000199"], customerName: "Changed Merchant Intent", digest: digestFor(998), operation: "90000000-0000-4000-8000-000000000100", fingerprint: "9" })).outcome, "operation_mismatch");
+      assert.equal(psql(backend, "SELECT count(*) FROM saas.quick_order_links WHERE id='60000000-0000-4000-8000-000000000199';"), "0");
+    });
+
+    await scenario("list and get are secret-free effective-status reads with no expiry mutation", async () => {
+      const before = psql(backend, `SELECT status||':'||version||':'||saas.quick_links_json_timestamp(updated_at) FROM saas.quick_order_links WHERE id='${LINK_A}';`);
+      const expiredAuth = authorityArgs({ now: "2026-07-23 12:00:00+00" });
+      const detail = apiResult(backend, getCall({ auth: expiredAuth, link: LINK_A }));
+      assert.equal(detail.outcome, "found");
+      assert.equal(detail.result.status, "expired");
+      assert.deepEqual(Object.keys(detail.result).sort(), ["billingAddress", "currency", "customerEmail", "customerName", "customerPhone", "expiresAt", "firstProductName", "id", "internalLabel", "itemCount", "items", "providerKey", "shippingAddress", "shippingCents", "status", "subtotalCents", "totalCents", "updatedAt", "version", "createdAt", "discountCents"].sort());
+      assert.doesNotMatch(JSON.stringify(detail), /token|digest|sealed|keyId|storeId|membershipId|principalId/i);
+      const expiredList = apiResult(backend, listCall({ auth: expiredAuth, status: "expired" }));
+      assert.equal(expiredList.outcome, "listed");
+      assert.ok(expiredList.result.items.some((item) => item.id === LINK_A && item.status === "expired"));
+      assert.ok(!apiResult(backend, listCall({ auth: expiredAuth, status: "active" })).result.items.some((item) => item.id === LINK_A));
+      assert.deepEqual(Object.keys(expiredList.result.items[0]).sort(), ["createdAt", "currency", "customerEmail", "customerName", "expiresAt", "firstProductName", "id", "itemCount", "status", "totalCents", "version"]);
+      assert.equal(psql(backend, `SELECT status||':'||version||':'||saas.quick_links_json_timestamp(updated_at) FROM saas.quick_order_links WHERE id='${LINK_A}';`), before);
+    });
+
+    await scenario("pagination preserves six-digit microseconds and raw timestamp UUID ordering", async () => {
+      const timestamp = "2026-07-21 13:00:00.123456+00";
+      for (const suffix of [700, 900, 800]) {
+        assert.equal(apiResult(backend, createCall({ auth: authorityArgs({ now: suffix === 700 ? "2026-07-21 13:00:00.123455+00" : timestamp }), link: `60000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`, items: [`80000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`], digest: digestFor(suffix), operation: `90000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`, fingerprint: "a" })).outcome, "committed");
+      }
+      const page1 = apiResult(backend, listCall({ auth: authorityArgs({ now: "2026-07-21 13:01:00+00" }), size: 2 }));
+      assert.deepEqual(page1.result.items.map((item) => item.id), ["60000000-0000-4000-8000-000000000900", "60000000-0000-4000-8000-000000000800"]);
+      assert.equal(page1.result.items[1].createdAt, "2026-07-21T13:00:00.123456Z");
+      assert.deepEqual(page1.result.nextCursor, { createdAt: "2026-07-21T13:00:00.123456Z", id: "60000000-0000-4000-8000-000000000800" });
+      const page2 = apiResult(backend, listCall({ auth: authorityArgs({ now: "2026-07-21 13:01:00+00" }), size: 2, cursorCreatedAt: page1.result.nextCursor.createdAt, cursorId: page1.result.nextCursor.id }));
+      assert.equal(page2.result.items[0].id, "60000000-0000-4000-8000-000000000700");
+      assert.equal(page2.result.items[0].createdAt, "2026-07-21T13:00:00.123455Z");
+    });
+
+    await scenario("cancel enforces optimistic versions and the active-opened state machine", async () => {
+      const adminAuth = authorityArgs({ principal: PRINCIPAL_ADMIN, membership: MEMBERSHIP_ADMIN });
+      const cancelled = apiResult(backend, cancelCall({ auth: adminAuth, link: "60000000-0000-4000-8000-000000000101", operation: "90000000-0000-4000-8000-000000000300", fingerprint: "b" }));
+      assert.equal(cancelled.outcome, "committed");
+      assert.deepEqual({ status: cancelled.result.status, version: cancelled.result.version }, { status: "cancelled", version: 2 });
+      psql(backend, "UPDATE saas.quick_order_links SET status='opened',opened_at='2026-07-21 12:30:00.123456+00',updated_at='2026-07-21 12:30:00.123456+00' WHERE id='60000000-0000-4000-8000-000000000104';");
+      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000104", operation: "90000000-0000-4000-8000-000000000301", fingerprint: "c", now: "2026-07-21 13:00:00.123456+00" })).outcome, "committed");
+      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000104", version: 1, operation: "90000000-0000-4000-8000-000000000302", fingerprint: "d" })).outcome, "version_conflict");
+      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000104", version: 2, operation: "90000000-0000-4000-8000-000000000303", fingerprint: "e" })).outcome, "invalid_transition");
+    });
+
+    await scenario("concurrent same-version cancels have exactly one winner", async () => {
+      const queryA = `SET ROLE celebix_saas_app; SELECT outcome FROM ${cancelCall({ link: "60000000-0000-4000-8000-000000000105", operation: "90000000-0000-4000-8000-000000000310", fingerprint: "1" })};`;
+      const queryB = `SET ROLE celebix_saas_app; SELECT outcome FROM ${cancelCall({ link: "60000000-0000-4000-8000-000000000105", operation: "90000000-0000-4000-8000-000000000311", fingerprint: "1" })};`;
+      const results = await Promise.all([psqlAsync(backend, queryA), psqlAsync(backend, queryB)]);
+      assert.deepEqual(results.map((entry) => entry.status), [0, 0]);
+      assert.deepEqual(results.map((entry) => entry.stdout).sort(), ["committed", "version_conflict"]);
+      assert.equal(psql(backend, "SELECT status||':'||version FROM saas.quick_order_links WHERE id='60000000-0000-4000-8000-000000000105';"), "cancelled:2");
+      assert.equal(psql(backend, "SELECT count(*) FROM saas.quick_order_link_operations WHERE operation_id IN ('90000000-0000-4000-8000-000000000310','90000000-0000-4000-8000-000000000311');"), "1");
+    });
+
+    await scenario("cancel replay precedes current-state inspection and mismatches remain stable", async () => {
+      const replay = apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000101", operation: "90000000-0000-4000-8000-000000000300", fingerprint: "b" }));
+      assert.equal(replay.outcome, "operation_replayed");
+      assert.equal(replay.result.version, 2);
+      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000101", operation: "90000000-0000-4000-8000-000000000300", fingerprint: "2" })).outcome, "operation_mismatch");
+      assert.equal(apiResult(backend, cancelCall({ link: LINK_A, operation: "90000000-0000-4000-8000-000000000320", fingerprint: "3", now: "2026-07-23 12:00:00+00" })).outcome, "invalid_transition");
+      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000099", operation: "90000000-0000-4000-8000-000000000321", fingerprint: "4" })).outcome, "quick_link_not_found");
+    });
+
+    await scenario("duplicate uses fresh token material canonical snapshots and a fixed 24-hour expiry", async () => {
+      const duplicated = apiResult(backend, duplicateCall({ source: "60000000-0000-4000-8000-000000000100", link: "60000000-0000-4000-8000-000000000330", items: ["80000000-0000-4000-8000-000000000330", "80000000-0000-4000-8000-000000000331"], digest: digestFor(330), operation: "90000000-0000-4000-8000-000000000330" }));
+      assert.equal(duplicated.outcome, "committed");
+      assert.deepEqual({ status: duplicated.result.status, version: duplicated.result.version, expiresAt: duplicated.result.expiresAt }, { status: "active", version: 1, expiresAt: "2026-07-22T12:00:00.123456Z" });
+      assert.equal(psql(backend, "SELECT (source.token_digest<>copy.token_digest)::text||':'||(source.sealed_token<>copy.sealed_token)::text||':'||(copy.expires_at-copy.created_at)::text FROM saas.quick_order_links AS source CROSS JOIN saas.quick_order_links AS copy WHERE source.id='60000000-0000-4000-8000-000000000100' AND copy.id='60000000-0000-4000-8000-000000000330';"), "true:true:1 day");
+      assert.equal(psql(backend, "SELECT string_agg(position||':'||unit_price_cents||':'||quantity||':'||COALESCE(image_url,'<null>'),E'\\n' ORDER BY position) FROM saas.quick_order_link_items WHERE quick_order_link_id='60000000-0000-4000-8000-000000000330';"), `0:10000:2:https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000001.webp\n1:11500:1:https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000002.webp`);
+      const adminAuth = authorityArgs({ principal: PRINCIPAL_ADMIN, membership: MEMBERSHIP_ADMIN });
+      assert.equal(apiResult(backend, duplicateCall({ auth: adminAuth, source: "60000000-0000-4000-8000-000000000100", link: "60000000-0000-4000-8000-000000000332", items: ["80000000-0000-4000-8000-000000000332", "80000000-0000-4000-8000-000000000333"], digest: digestFor(332), operation: "90000000-0000-4000-8000-000000000332", fingerprint: "2" })).outcome, "committed");
+    });
+
+    await scenario("duplicate revalidates source provider catalog stock and stays atomic", async () => {
+      const before = psql(backend, "SELECT (SELECT count(*) FROM saas.quick_order_links)||':'||(SELECT count(*) FROM saas.quick_order_link_operations);");
+      assert.equal(apiResult(backend, duplicateCall({ source: "60000000-0000-4000-8000-000000000100", link: "60000000-0000-4000-8000-000000000339", items: ["80000000-0000-4000-8000-000000000338", "80000000-0000-4000-8000-000000000339"], digest: digestFor(339), envelope: VALID_ENVELOPE, operation: "90000000-0000-4000-8000-000000000339" })).outcome, "invalid_input");
+      assert.equal(apiResult(backend, duplicateCall({ source: "60000000-0000-4000-8000-000000000099", link: "60000000-0000-4000-8000-000000000340", items: ["80000000-0000-4000-8000-000000000340"], digest: digestFor(340), operation: "90000000-0000-4000-8000-000000000340" })).outcome, "quick_link_not_found");
+      psql(backend, `UPDATE saas.checkout_provider_configs SET status='disabled',updated_at='2026-07-21 12:00:00+00' WHERE id='${PROVIDER_A}';`);
+      assert.equal(apiResult(backend, duplicateCall({ source: "60000000-0000-4000-8000-000000000100", link: "60000000-0000-4000-8000-000000000341", items: ["80000000-0000-4000-8000-000000000341", "80000000-0000-4000-8000-000000000342"], digest: digestFor(341), operation: "90000000-0000-4000-8000-000000000341" })).outcome, "provider_not_ready");
+      psql(backend, `UPDATE saas.checkout_provider_configs SET status='active',updated_at='2026-07-21 12:00:00+00' WHERE id='${PROVIDER_A}'; UPDATE saas.product_variants SET status='archived',archived_at='2026-07-21 12:00:00+00',updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A}';`);
+      assert.equal(apiResult(backend, duplicateCall({ source: "60000000-0000-4000-8000-000000000100", link: "60000000-0000-4000-8000-000000000343", items: ["80000000-0000-4000-8000-000000000343", "80000000-0000-4000-8000-000000000344"], digest: digestFor(343), operation: "90000000-0000-4000-8000-000000000343" })).outcome, "catalog_item_unavailable");
+      psql(backend, `UPDATE saas.product_variants SET status='active',archived_at=NULL,updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A}'; UPDATE saas.product_variants SET stock_quantity=1,updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A_STOCK}';`);
+      assert.equal(apiResult(backend, duplicateCall({ source: "60000000-0000-4000-8000-000000000103", link: "60000000-0000-4000-8000-000000000345", items: ["80000000-0000-4000-8000-000000000345"], digest: digestFor(345), operation: "90000000-0000-4000-8000-000000000345" })).outcome, "stock_unavailable");
+      psql(backend, `UPDATE saas.product_variants SET stock_quantity=2,updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_A_STOCK}';`);
+      assert.equal(psql(backend, "SELECT (SELECT count(*) FROM saas.quick_order_links)||':'||(SELECT count(*) FROM saas.quick_order_link_operations);"), before);
+    });
+
+    await scenario("duplicate replay ignores regenerated IDs and token envelope before validation", async () => {
+      const replay = apiResult(backend, duplicateCall({ source: "60000000-0000-4000-8000-000000000100", link: "60000000-0000-4000-8000-000000000399", items: ["80000000-0000-4000-8000-000000000398", "80000000-0000-4000-8000-000000000399"], digest: digestFor(399), key: "regenerated-key", operation: "90000000-0000-4000-8000-000000000330" }));
+      assert.equal(replay.outcome, "operation_replayed");
+      assert.equal(replay.result.id, "60000000-0000-4000-8000-000000000330");
+      assert.equal(apiResult(backend, duplicateCall({ source: "60000000-0000-4000-8000-000000000100", link: "60000000-0000-4000-8000-000000000399", items: ["80000000-0000-4000-8000-000000000398", "80000000-0000-4000-8000-000000000399"], digest: digestFor(399), operation: "90000000-0000-4000-8000-000000000330", fingerprint: "9" })).outcome, "operation_mismatch");
+      assert.equal(psql(backend, "SELECT count(*) FROM saas.quick_order_links WHERE id='60000000-0000-4000-8000-000000000399';"), "0");
+    });
+
+    await scenario("operation recovery is exact read-only and never takes row locks", async () => {
+      const before = psql(backend, "SELECT result_payload::text||':'||committed_at::text FROM saas.quick_order_link_operations WHERE operation_id='90000000-0000-4000-8000-000000000100';");
+      const recovered = apiResult(backend, recoverCall({ operation: "90000000-0000-4000-8000-000000000100", kind: "create" }));
+      assert.equal(recovered.outcome, "operation_replayed");
+      assert.equal(recovered.result.id, "60000000-0000-4000-8000-000000000100");
+      assert.equal(apiResult(backend, recoverCall({ operation: "90000000-0000-4000-8000-000000000100", kind: "cancel" })).outcome, "operation_mismatch");
+      assert.equal(apiResult(backend, recoverCall({ operation: "90000000-0000-4000-8000-000000000100", kind: "create", fingerprint: "9" })).outcome, "operation_mismatch");
+      assert.equal(apiResult(backend, recoverCall({ operation: "90000000-0000-4000-8000-000000000099", kind: "create" })).outcome, "quick_link_not_found");
+      assert.doesNotMatch(psql(backend, "SELECT prosrc FROM pg_proc WHERE oid='saas.quick_links_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)'::regprocedure;"), /FOR (UPDATE|SHARE)|pg_advisory/i);
+      assert.equal(psql(backend, "SELECT result_payload::text||':'||committed_at::text FROM saas.quick_order_link_operations WHERE operation_id='90000000-0000-4000-8000-000000000100';"), before);
+    });
+
+    await scenario("all API failures return only the closed outcome vocabulary", async () => {
+      const expected = new Set(["listed", "found", "committed", "operation_replayed", "invalid_input", "quick_link_not_found", "provider_not_ready", "catalog_item_unavailable", "stock_unavailable", "version_conflict", "invalid_transition", "operation_mismatch", "store_inactive", "membership_denied", "feature_not_enabled", "action_denied", "durable_authority_invalid"]);
+      const observed = [
+        apiResult(backend, listCall()).outcome,
+        apiResult(backend, getCall({ link: "60000000-0000-4000-8000-000000000099" })).outcome,
+        apiResult(backend, listCall({ size: -1 })).outcome,
+        apiResult(backend, recoverCall({ operation: "90000000-0000-4000-8000-000000000100", kind: "unknown" })).outcome,
+      ];
+      for (const outcome of observed) assert.ok(expected.has(outcome), outcome);
+      assert.equal(psql(backend, `SELECT count(*) FROM (SELECT DISTINCT outcome FROM (VALUES ${[...expected].map((entry) => `('${entry}')`).join(",")}) AS allowed(outcome)) AS exact_outcomes;`), "17");
+      for (const signature of API_FUNCTIONS) {
+        const source = psql(backend, `SELECT prosrc FROM pg_proc WHERE oid='${signature}'::regprocedure;`);
+        assert.doesNotMatch(source, /RAISE EXCEPTION/);
+      }
+    });
+
+    await scenario("manifest bytes bind all six 024 and 025 SQL artifacts", async () => {
+      const artifacts = [
+        ["202607220024_quick_order_links_up", "up", "202607220024_quick_order_links.up.sql", "Add store-scoped checkout configuration and quick-order link persistence with forced RLS."],
+        ["202607220024_quick_order_links_down", "down", "202607220024_quick_order_links.down.sql", "Remove only migration 024 quick-order link objects during disposable rollback rehearsal."],
+        ["202607220024_quick_order_links_assertions", "verify", "202607220024_quick_order_links_assertions.sql", "Fail on quick-link catalog, constraint, tenant-FK, ACL, RLS, immutability, secret-envelope or authority drift."],
+        ["202607220025_quick_order_links_api_up", "up", "202607220025_quick_order_links_api.up.sql", "Add the least-privilege merchant quick-order link API and durable operation recovery."],
+        ["202607220025_quick_order_links_api_down", "down", "202607220025_quick_order_links_api.down.sql", "Remove only migration 025 API functions during disposable rollback rehearsal."],
+        ["202607220025_quick_order_links_api_assertions", "verify", "202607220025_quick_order_links_api_assertions.sql", "Fail on quick-link API signature, authority, deterministic projection, recovery or ACL drift."],
+      ].map(([id, direction, file, purpose]) => ({ id, direction, file, sha256: createHash("sha256").update(readFileSync(path.join(SQL, file))).digest("hex"), purpose }));
+      const expected = {
+        bundleId: "phase3b2-202607220025-quick-order-links-api",
+        postgresqlMajor: 16,
+        migrationClassification: "additive",
+        environmentAuthorization: "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+        rollbackLimitations: "Migration 024 rollback destroys checkout provider configuration and quick-order link data; migration 025 rollback removes only API functions. Both are for disposable rehearsal only.",
+        artifacts,
+      };
+      assert.equal(readFileSync(path.join(SQL, "phase3b2-quick-order-links-manifest.json"), "utf8"), `${JSON.stringify(expected, null, 2)}\n`);
+    });
+
+    await scenario("backup restore and 025 down reapply preserve exact operation authority", async () => {
+      const dump = path.join(backend.temporaryDirectory, "quick-order-links.dump");
+      command(backend.executables.pg_dump, ["-h", backend.socketDirectory, "-p", String(backend.port), "-U", "postgres", "-d", DATABASE, "-Fc", "-f", dump]);
+      createDatabase(backend, RESTORE_DATABASE);
+      command(backend.executables.pg_restore, ["-h", backend.socketDirectory, "-p", String(backend.port), "-U", "postgres", "-d", RESTORE_DATABASE, "--exit-on-error", dump]);
+      assert.equal(apiResult(backend, recoverCall({ operation: "90000000-0000-4000-8000-000000000100", kind: "create" }), RESTORE_DATABASE).outcome, "operation_replayed");
+      createDatabase(backend, ROLLBACK_DATABASE, DATABASE);
+      apply(backend, "202607220025_quick_order_links_api.down.sql", ROLLBACK_DATABASE);
+      assert.equal(psql(backend, `SELECT count(*) FROM unnest(ARRAY[${API_FUNCTIONS.map((signature) => `'${signature}'`).join(",")}]) AS signature(value) WHERE to_regprocedure(signature.value) IS NOT NULL;`, ROLLBACK_DATABASE), "0");
+      assert.equal(databaseInventory(backend, ROLLBACK_DATABASE), pre025Inventory, "025 down changed a pre-025 object");
+      apply(backend, "202607220025_quick_order_links_api.up.sql", ROLLBACK_DATABASE);
+      apply(backend, "202607220025_quick_order_links_api_assertions.sql", ROLLBACK_DATABASE);
+      assert.equal(databaseInventory(backend, ROLLBACK_DATABASE), post025Inventory, "025 reapply did not restore the exact API inventory");
+      rmSync(dump, { force: true });
+    });
+
+    assert.equal(completed.length, TOTAL - 1);
+    cleanupPaths = { temporaryDirectory: backend.temporaryDirectory, socketDirectory: backend.socketDirectory };
+    stopPostgres(backend);
+    backend = undefined;
+    await scenario("API rehearsal cluster backup and socket allocations are cleaned", async () => {
+      assert.equal(existsSync(cleanupPaths.temporaryDirectory), false);
+      assert.equal(existsSync(cleanupPaths.socketDirectory), false);
     });
     assert.equal(completed.length, TOTAL);
     process.stdout.write(`PASS ${TOTAL}/${TOTAL} quick-order links PostgreSQL 16 harness complete; cleanup confirmed\n`);
