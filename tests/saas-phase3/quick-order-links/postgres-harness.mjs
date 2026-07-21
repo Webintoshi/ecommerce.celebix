@@ -133,9 +133,20 @@ function startPostgres(options = {}) {
     const socketDirectory = path.join("/tmp", `c3b2-${runToken}`);
     const dataDirectory = path.join(temporaryDirectory, "data");
     const port = 20_000 + Math.floor(Math.random() * 20_000);
-    backend = { executables, temporaryDirectory, socketDirectory, dataDirectory, port, started: false, startAttempted: false };
+    backend = {
+      executables,
+      temporaryDirectory,
+      socketDirectory,
+      dataDirectory,
+      port,
+      temporaryDirectoryOwned: true,
+      socketDirectoryOwned: false,
+      started: false,
+      startAttempted: false,
+    };
     options.onAllocate?.(backend);
     makeDirectory(socketDirectory, { mode: 0o700 });
+    backend.socketDirectoryOwned = true;
     runCommand(executables.initdb, ["-D", dataDirectory, "--auth=trust", "--username=postgres", "--no-locale"]);
     backend.startAttempted = true;
     runCommand(executables.pg_ctl, [
@@ -160,8 +171,14 @@ function stopPostgres(backend) {
     backend.started = false;
     backend.startAttempted = false;
   }
-  rmSync(backend.socketDirectory, { recursive: true, force: true });
-  rmSync(backend.temporaryDirectory, { recursive: true, force: true });
+  if (backend.socketDirectoryOwned) {
+    rmSync(backend.socketDirectory, { recursive: true, force: true });
+    backend.socketDirectoryOwned = false;
+  }
+  if (backend.temporaryDirectoryOwned) {
+    rmSync(backend.temporaryDirectory, { recursive: true, force: true });
+    backend.temporaryDirectoryOwned = false;
+  }
 }
 
 function psqlResult(backend, source, database = DATABASE, options = {}) {
@@ -205,6 +222,21 @@ function databaseInventory(backend, database = DATABASE) {
       JOIN pg_roles AS owner_role ON owner_role.oid=relation.relowner
       WHERE namespace.nspname='saas' AND relation.relkind IN ('r','p','S','v','m')
       UNION ALL
+      SELECT 'column', namespace.nspname||'.'||relation.relname||'.'||attribute.attname,
+        pg_catalog.format_type(attribute.atttypid,attribute.atttypmod)||':'||attribute.attnotnull::text||':'||
+        COALESCE(pg_catalog.pg_get_expr(default_record.adbin,default_record.adrelid),'<null>')||':'||
+        CASE WHEN attribute.attcollation=0 THEN '<null>' ELSE attribute.attcollation::regcollation::text END||':'||
+        COALESCE(attribute.attacl::text,'<null>')
+      FROM pg_catalog.pg_attribute AS attribute
+      JOIN pg_catalog.pg_class AS relation ON relation.oid=attribute.attrelid
+      JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+      LEFT JOIN pg_catalog.pg_attrdef AS default_record
+        ON default_record.adrelid=attribute.attrelid AND default_record.adnum=attribute.attnum
+      WHERE namespace.nspname='saas'
+        AND relation.relkind IN ('r','p','v','m')
+        AND attribute.attnum>0
+        AND NOT attribute.attisdropped
+      UNION ALL
       SELECT 'function', procedure.oid::regprocedure::text,
         owner_role.rolname||':'||procedure.provolatile::text||':'||procedure.prosecdef::text||':'||COALESCE(procedure.proconfig::text,'<null>')||':'||COALESCE(procedure.proacl::text,'<null>')||E'\n'||pg_get_functiondef(procedure.oid)
       FROM pg_proc AS procedure
@@ -225,6 +257,23 @@ function databaseInventory(backend, database = DATABASE) {
       JOIN pg_namespace AS namespace ON namespace.oid=index_relation.relnamespace
       JOIN pg_roles AS owner_role ON owner_role.oid=index_relation.relowner
       WHERE namespace.nspname='saas' AND index_relation.relkind='i'
+      UNION ALL
+      SELECT 'trigger', namespace.nspname||'.'||relation.relname||'.'||
+        CASE WHEN trigger_record.tgisinternal
+          THEN COALESCE(constraint_record.conname,'<internal>')||':'||trigger_record.tgfoid::regprocedure::text||':'||trigger_record.tgtype::text
+          ELSE trigger_record.tgname
+        END,
+        trigger_record.tgenabled::text||':'||trigger_record.tgisinternal::text||':'||
+        trigger_record.tgtype::text||':'||trigger_record.tgfoid::regprocedure::text||':'||
+        trigger_record.tgdeferrable::text||':'||trigger_record.tginitdeferred::text||':'||
+        trigger_record.tgattr::text||':'||pg_catalog.encode(trigger_record.tgargs,'escape')||':'||
+        COALESCE(pg_catalog.pg_get_expr(trigger_record.tgqual,trigger_record.tgrelid),'<null>')||':'||
+        COALESCE(trigger_record.tgoldtable,'<null>')||':'||COALESCE(trigger_record.tgnewtable,'<null>')
+      FROM pg_catalog.pg_trigger AS trigger_record
+      JOIN pg_catalog.pg_class AS relation ON relation.oid=trigger_record.tgrelid
+      JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+      LEFT JOIN pg_catalog.pg_constraint AS constraint_record ON constraint_record.oid=trigger_record.tgconstraint
+      WHERE namespace.nspname='saas'
       UNION ALL
       SELECT 'policy', relation.relname||'.'||policy.polname,
         policy.polcmd::text||':'||policy.polpermissive::text||':'||policy.polroles::text||':'||COALESCE(pg_get_expr(policy.polqual,policy.polrelid),'<null>')||':'||COALESCE(pg_get_expr(policy.polwithcheck,policy.polrelid),'<null>')
@@ -367,11 +416,19 @@ async function main() {
       assert.equal(columns("quick_order_link_items"), "id:uuid:NO:,store_id:uuid:NO:,quick_order_link_id:uuid:NO:,product_id:uuid:NO:,variant_id:uuid:NO:,position:integer:NO:,product_name:text:NO:,variant_name:text:YES:,sku:text:YES:,image_url:text:YES:,unit_price_cents:bigint:NO:,quantity:integer:NO:,line_total_cents:bigint:NO:,created_at:timestamp with time zone:NO:");
       assert.equal(columns("quick_order_link_operations"), "operation_id:uuid:NO:,store_id:uuid:NO:,quick_order_link_id:uuid:NO:,operation_kind:text:NO:,payload_fingerprint:character:NO:,result_payload:jsonb:NO:,committed_at:timestamp with time zone:NO:");
       assert.equal(psql(backend, "SELECT count(*) FROM information_schema.columns WHERE table_schema='saas' AND table_name='quick_order_links';"), "28");
-      assert.equal(psql(backend, "SELECT count(*) FROM pg_constraint WHERE conrelid=ANY(ARRAY['saas.checkout_provider_configs'::regclass,'saas.quick_order_links'::regclass,'saas.quick_order_link_items'::regclass,'saas.quick_order_link_operations'::regclass]) AND contype IN ('p','u','c');"), "49");
+      assert.equal(psql(backend, "SELECT count(*) FROM pg_constraint WHERE conrelid=ANY(ARRAY['saas.checkout_provider_configs'::regclass,'saas.quick_order_links'::regclass,'saas.quick_order_link_items'::regclass,'saas.quick_order_link_operations'::regclass]) AND contype IN ('p','u','c');"), "53");
+      const uuidChecks = psql(backend, "SELECT string_agg(relation.relname||'.'||constraint_record.conname||':'||pg_get_constraintdef(constraint_record.oid),E'\\n' ORDER BY relation.relname) FROM pg_constraint AS constraint_record JOIN pg_class AS relation ON relation.oid=constraint_record.conrelid WHERE constraint_record.conname=ANY(ARRAY['checkout_provider_configs_id_check','quick_order_links_id_check','quick_order_link_items_id_check','quick_order_link_operations_operation_id_check']);");
+      for (const expected of [
+        "checkout_provider_configs.checkout_provider_configs_id_check",
+        "quick_order_links.quick_order_links_id_check",
+        "quick_order_link_items.quick_order_link_items_id_check",
+        "quick_order_link_operations.quick_order_link_operations_operation_id_check",
+        "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      ]) assert.ok(uuidChecks.includes(expected), `missing public UUID authority: ${expected}`);
       assert.equal(psql(backend, "SELECT count(*) FROM pg_indexes WHERE schemaname='saas' AND indexname=ANY(ARRAY['checkout_provider_configs_store_status_idx','quick_order_links_store_status_expiry_idx','quick_order_links_token_digest_idx','quick_order_link_items_link_position_idx','quick_order_link_operations_store_committed_idx']);"), "5");
       assert.equal(psql(backend, "SELECT to_regprocedure('saas.quick_link_canonical_image_url(uuid,uuid,uuid)')::text;"), "saas.quick_link_canonical_image_url(uuid,uuid,uuid)");
       const imageSource = psql(backend, "SELECT pg_get_functiondef('saas.quick_link_canonical_image_url(uuid,uuid,uuid)'::regprocedure);");
-      for (const source of ["FROM saas.product_media AS media", "media.store_id = p_store_id", "media.product_id = p_product_id", "media.status = 'active'", "media.variant_id = p_variant_id", "media.variant_id IS NULL", "ORDER BY (media.variant_id = p_variant_id) DESC NULLS LAST", "media.sort_order", "media.id", "LIMIT 1"]) assert.ok(imageSource.includes(source), `missing executable product-media source: ${source}`);
+      for (const source of ["FROM saas.product_media AS media", "FROM saas.product_variants AS selected_variant", "selected_variant.store_id = p_store_id", "selected_variant.product_id = p_product_id", "selected_variant.id = p_variant_id", "media.store_id = p_store_id", "media.product_id = p_product_id", "media.status = 'active'", "media.variant_id = p_variant_id", "media.variant_id IS NULL", "ORDER BY (media.variant_id = p_variant_id) DESC NULLS LAST", "media.sort_order", "media.id", "LIMIT 1"]) assert.ok(imageSource.includes(source), `missing executable product-media source: ${source}`);
     });
 
     await scenario("every parent and child reference carries store authority", async () => {
@@ -409,6 +466,11 @@ async function main() {
       denied(backend, insertLinkSql({ id: "60000000-0000-4000-8000-000000000011", digest: "a" }));
       denied(backend, insertLinkSql({ id: "60000000-0000-4000-8000-000000000012", digest: "-" }));
       assert.equal(psql(backend, "SELECT length(token_digest)||':'||(token_digest~'^[a-f0-9]{64}$') FROM saas.quick_order_links WHERE id='60000000-0000-4000-8000-000000000001';"), "64:true");
+      assert.equal(psql(backend, `SELECT count(*) FROM (VALUES ('${PROVIDER_A}'::uuid),('${LINK_A}'::uuid),('${ITEM_A}'::uuid),('${OPERATION_A}'::uuid)) AS public_id(value) WHERE value::text~'^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';`), "4");
+      denied(backend, `INSERT INTO saas.checkout_provider_configs(id,store_id,provider_key,status,public_origin,configuration_key_id,sealed_configuration,version,created_at,updated_at) VALUES ('50000000-0000-0000-8000-000000000099','${STORE_A}','paytr','active','https://www.paytr.com','key-1',${VALID_ENVELOPE},1,'2026-01-01','2026-01-01');`);
+      denied(backend, insertLinkSql({ id: "60000000-0000-4000-0000-000000000099", digest: "7" }));
+      denied(backend, `INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ('80000000-0000-9000-8000-000000000099','${STORE_A}','${LINK_A}','${PRODUCT_A}','${VARIANT_A}',9,'Invalid UUID',100,1,100,'2026-07-21');`);
+      denied(backend, `INSERT INTO saas.quick_order_link_operations(operation_id,store_id,quick_order_link_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('90000000-0000-4000-f000-000000000099','${STORE_A}','${LINK_A}','create',repeat('7',64),${VALID_RESULT},'2026-07-21');`);
     });
 
     await scenario("sealed envelopes are exact bounded objects and never enter safe results", async () => {
@@ -482,6 +544,8 @@ async function main() {
       denied(backend, `INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000011','${STORE_A}','${LINK_A}','${PRODUCT_A2}','${VARIANT_A}',1,'Mismatch',100,1,100,'2026-07-21');`);
       assert.equal(psql(backend, `SELECT saas.quick_link_canonical_image_url('${STORE_A}','${PRODUCT_A}','${VARIANT_A}');`), `https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000001.webp`);
       assert.equal(psql(backend, `SELECT saas.quick_link_canonical_image_url('${STORE_A}','${PRODUCT_A}','${VARIANT_A_GENERIC}');`), `https://cdn.example.test/stores/${STORE_A}/products/${PRODUCT_A}/43000000-0000-4000-8000-000000000002.webp`);
+      assert.equal(psql(backend, `SELECT COALESCE(saas.quick_link_canonical_image_url('${STORE_A}','${PRODUCT_A}','${VARIANT_A2}'),'<null>');`), "<null>");
+      assert.equal(psql(backend, `SELECT COALESCE(saas.quick_link_canonical_image_url('${STORE_A}','${PRODUCT_A}','41000000-0000-4000-8000-000000000099'),'<null>');`), "<null>");
       assert.equal(psql(backend, `SELECT COALESCE(saas.quick_link_canonical_image_url('${STORE_A}','${PRODUCT_A2}','${VARIANT_A2}'),'<null>');`), "<null>");
       assert.equal(psql(backend, `SELECT COALESCE(saas.quick_link_canonical_image_url('${STORE_B}','${PRODUCT_A}','${VARIANT_A}'),'<null>');`), "<null>");
     });
@@ -548,6 +612,8 @@ async function main() {
 
     createDatabase(backend, ROLLBACK_DATABASE, DATABASE);
     await scenario("down removes only 024 objects and reapply restores them", async () => {
+      for (const requiredKind of ["column:", "trigger:", "relation:"]) assert.ok(pre024Inventory.includes(requiredKind), `pre-024 inventory omitted ${requiredKind}`);
+      assert.ok(pre024Inventory.includes(":<null>"), "pre-024 inventory omitted column ACL/default sentinels");
       apply(backend, "202607220024_quick_order_links.down.sql", ROLLBACK_DATABASE);
       assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['${TABLES.join("','")}']);`, ROLLBACK_DATABASE), "0");
       assert.equal(psql(backend, `SELECT count(*) FROM unnest(ARRAY[${FUNCTIONS.map((signature) => `'${signature}'`).join(",")}]) AS signature(value) WHERE to_regprocedure(signature.value) IS NOT NULL;`, ROLLBACK_DATABASE), "0");
@@ -576,6 +642,22 @@ async function main() {
       }), /injected socket mkdir failure/);
       assert.equal(existsSync(socketBackend.temporaryDirectory), false);
       assert.equal(existsSync(socketBackend.socketDirectory), false);
+      const preexistingToken = `${TOKEN}preexisting`;
+      const preexistingSocket = path.join("/tmp", `c3b2-${preexistingToken}`);
+      const sentinel = path.join(preexistingSocket, "sentinel");
+      mkdirSync(sentinel, { recursive: true, mode: 0o700 });
+      try {
+        let preexistingBackend;
+        assert.throws(() => startPostgres({
+          token: preexistingToken,
+          onAllocate(candidate) { preexistingBackend = candidate; },
+        }), (error) => error?.code === "EEXIST");
+        assert.equal(existsSync(preexistingBackend.temporaryDirectory), false);
+        assert.equal(existsSync(preexistingSocket), true);
+        assert.equal(existsSync(sentinel), true);
+      } finally {
+        rmSync(preexistingSocket, { recursive: true, force: true });
+      }
       for (const [failureName, failureCall] of [["initdb", 1], ["pg_ctl", 2]]) {
         let partialBackend;
         let calls = 0;

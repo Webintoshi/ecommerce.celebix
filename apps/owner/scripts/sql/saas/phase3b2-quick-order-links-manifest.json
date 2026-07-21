@@ -9,21 +9,21 @@
       "id": "202607220024_quick_order_links_up",
       "direction": "up",
       "file": "202607220024_quick_order_links.up.sql",
-      "sha256": "b644029699018c3f72397e72589032cb988a873b7159f0429ffc620e8999c25d",
+      "sha256": "71091c8f88ecdf5f218c4689573a06a9f743cfe598cf1e95a2e1d7be21436bc3",
       "purpose": "Add store-scoped checkout configuration and quick-order link persistence with forced RLS."
     },
     {
       "id": "202607220024_quick_order_links_down",
       "direction": "down",
       "file": "202607220024_quick_order_links.down.sql",
-      "sha256": "087cbc744954e7160e95735383b82f401db21a2c7bdfc617a118e7e6d9090b73",
+      "sha256": "cae1763cec8b93e4cb5c559a741b2766e92b9c57cb2145e8e04e52b99c7d2527",
       "purpose": "Remove only migration 024 quick-order link objects during disposable rollback rehearsal."
     },
     {
       "id": "202607220024_quick_order_links_assertions",
       "direction": "verify",
       "file": "202607220024_quick_order_links_assertions.sql",
-      "sha256": "f3e4caa13abc2c5767e87c127e947429baef39478ebaa032879f663b9fc182a0",
+      "sha256": "73f33d6d7cb80064f512a8445f2ea375a2a3c14ea9056b6a62d42ac99803bda2",
       "purpose": "Fail on quick-link catalog, constraint, tenant-FK, ACL, RLS, immutability, secret-envelope or authority drift."
     }
   ]

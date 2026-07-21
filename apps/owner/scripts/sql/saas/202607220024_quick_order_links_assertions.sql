@@ -132,8 +132,30 @@ BEGIN
       'saas.quick_order_link_operations'::regclass
     ])
       AND contype IN ('p','u','c')
-  ) <> 49 THEN
+  ) <> 53 THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact check/unique count drift';
+  END IF;
+
+  IF (
+    SELECT pg_catalog.count(*)
+    FROM (VALUES
+      ('checkout_provider_configs','checkout_provider_configs_id_check'),
+      ('quick_order_links','quick_order_links_id_check'),
+      ('quick_order_link_items','quick_order_link_items_id_check'),
+      ('quick_order_link_operations','quick_order_link_operations_operation_id_check')
+    ) AS expected(relation_name, constraint_name)
+    JOIN pg_catalog.pg_class AS relation ON relation.relname = expected.relation_name
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = relation.relnamespace AND namespace.nspname = 'saas'
+    JOIN pg_catalog.pg_constraint AS constraint_record
+      ON constraint_record.conrelid = relation.oid
+     AND constraint_record.conname = expected.constraint_name
+    WHERE pg_catalog.strpos(
+      pg_catalog.pg_get_constraintdef(constraint_record.oid),
+      '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    ) > 0
+  ) <> 4 THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: public UUID authority drift';
   END IF;
 
   SELECT pg_catalog.md5(pg_catalog.string_agg(
@@ -151,7 +173,7 @@ BEGIN
     )
     AND constraint_record.contype IN ('p','u','c');
 
-  IF constraint_catalog_fingerprint <> '37fcc3f0811b7fd0424ca861bfdf88ba' THEN
+  IF constraint_catalog_fingerprint <> '62e7db41be486158bd3271b4dc6b24ea' THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact check/unique definitions drift: %', constraint_catalog_fingerprint;
   END IF;
 
@@ -426,6 +448,10 @@ BEGIN
      OR pg_catalog.has_function_privilege('public', image_function, 'EXECUTE')
      OR pg_catalog.has_function_privilege('celebix_saas_app', image_function, 'EXECUTE')
      OR pg_catalog.strpos(image_definition, 'FROM saas.product_media AS media') = 0
+     OR pg_catalog.strpos(image_definition, 'FROM saas.product_variants AS selected_variant') = 0
+     OR pg_catalog.strpos(image_definition, 'selected_variant.store_id = p_store_id') = 0
+     OR pg_catalog.strpos(image_definition, 'selected_variant.product_id = p_product_id') = 0
+     OR pg_catalog.strpos(image_definition, 'selected_variant.id = p_variant_id') = 0
      OR pg_catalog.strpos(image_definition, 'media.store_id = p_store_id') = 0
      OR pg_catalog.strpos(image_definition, 'media.product_id = p_product_id') = 0
      OR pg_catalog.strpos(image_definition, 'media.status = ''active''') = 0

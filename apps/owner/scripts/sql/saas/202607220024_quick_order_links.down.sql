@@ -4,6 +4,8 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
+-- The four table-local public UUID checks are removed with their owning tables below.
+
 DROP FUNCTION saas.quick_link_merchant_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text);
 DROP FUNCTION saas.quick_link_canonical_image_url(uuid,uuid,uuid);
 

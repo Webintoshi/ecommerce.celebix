@@ -175,7 +175,14 @@ SET search_path = pg_catalog, saas
 AS $function$
   SELECT media.public_url
   FROM saas.product_media AS media
-  WHERE media.store_id = p_store_id
+  WHERE EXISTS (
+      SELECT 1
+      FROM saas.product_variants AS selected_variant
+      WHERE selected_variant.store_id = p_store_id
+        AND selected_variant.product_id = p_product_id
+        AND selected_variant.id = p_variant_id
+    )
+    AND media.store_id = p_store_id
     AND media.product_id = p_product_id
     AND media.status = 'active'
     AND (media.variant_id = p_variant_id OR media.variant_id IS NULL)
@@ -220,7 +227,10 @@ $function$;
 REVOKE ALL ON FUNCTION saas.quick_link_operation_result_is_valid(jsonb,uuid) FROM PUBLIC;
 
 CREATE TABLE saas.checkout_provider_configs (
-  id uuid CONSTRAINT checkout_provider_configs_pkey PRIMARY KEY,
+  id uuid CONSTRAINT checkout_provider_configs_pkey PRIMARY KEY
+    CONSTRAINT checkout_provider_configs_id_check CHECK (
+      id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    ),
   store_id uuid NOT NULL,
   provider_key text NOT NULL CONSTRAINT checkout_provider_configs_provider_key_check CHECK (
     provider_key = 'paytr'
@@ -263,7 +273,10 @@ ALTER TABLE saas.product_variants
   ADD CONSTRAINT product_variants_store_product_id_key UNIQUE (store_id, product_id, id);
 
 CREATE TABLE saas.quick_order_links (
-  id uuid CONSTRAINT quick_order_links_pkey PRIMARY KEY,
+  id uuid CONSTRAINT quick_order_links_pkey PRIMARY KEY
+    CONSTRAINT quick_order_links_id_check CHECK (
+      id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    ),
   store_id uuid NOT NULL,
   creating_membership_id uuid NOT NULL,
   provider_config_id uuid NOT NULL,
@@ -406,7 +419,10 @@ BEFORE INSERT OR UPDATE OF store_id, provider_config_id ON saas.quick_order_link
 FOR EACH ROW EXECUTE FUNCTION saas.guard_quick_link_provider_authority();
 
 CREATE TABLE saas.quick_order_link_items (
-  id uuid CONSTRAINT quick_order_link_items_pkey PRIMARY KEY,
+  id uuid CONSTRAINT quick_order_link_items_pkey PRIMARY KEY
+    CONSTRAINT quick_order_link_items_id_check CHECK (
+      id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    ),
   store_id uuid NOT NULL,
   quick_order_link_id uuid NOT NULL,
   product_id uuid NOT NULL,
@@ -460,7 +476,10 @@ CREATE TABLE saas.quick_order_link_items (
 );
 
 CREATE TABLE saas.quick_order_link_operations (
-  operation_id uuid CONSTRAINT quick_order_link_operations_pkey PRIMARY KEY,
+  operation_id uuid CONSTRAINT quick_order_link_operations_pkey PRIMARY KEY
+    CONSTRAINT quick_order_link_operations_operation_id_check CHECK (
+      operation_id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    ),
   store_id uuid NOT NULL,
   quick_order_link_id uuid NOT NULL,
   operation_kind text NOT NULL CONSTRAINT quick_order_link_operations_kind_check CHECK (
