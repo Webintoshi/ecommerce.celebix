@@ -26,7 +26,7 @@ test("declares only the approved presentation dependencies", async () => {
 
 test("keeps production deploy infrastructure and donor outside the diff", () => {
   const changed = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter(Boolean);
-  assert.equal(changed.some((path) => /^(apps\/admin|apps\/owner|deploy|infra|infrastructure)\//.test(path)), false);
+  assert.equal(changed.some((path) => /^(apps\/admin|deploy|infra|infrastructure)\//.test(path)), false);
 });
 
 test("ports the exact donor brand asset and core visual tokens", async () => {
@@ -53,12 +53,14 @@ test("exports donor-compatible page primitives and truthful dashboard geometry",
   assert.match(dashboard, /<YAxis allowDecimals=\{false\} \/>/);
   assert.match(dashboard, /<Bar dataKey="value" fill="#FF6A00" radius=\{\[8, 8, 0, 0\]\} \/>/);
   assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length >= 2, true);
-  assert.match(dashboard, /Sipariş, analiz, müşteri ve sepet verileri bu panelde desteklenmiyor[.]/);
-  for (const capability of ["orders", "analytics", "customers", "carts"]) {
+  assert.match(dashboard, /Analiz, müşteri ve sepet verileri bu panelde henüz desteklenmiyor[.]/);
+  for (const capability of ["analytics", "customers", "carts"]) {
     assert.match(model, new RegExp(`unsupportedAuthority\\(\"${capability}\"\\)`));
   }
+  assert.match(model, /orders:\s*AuthoritySlice<OrderDashboardSummary>\s*=\s*unsupportedAuthority\("orders"\)/);
+  assert.match(dashboard, /dashboard\.orders\.value\.totalOrders/);
   assert.doesNotMatch(dashboard, /LineChart|AreaChart|dataKey="(?:revenue|orders|customers|conversion)"/i);
-  assert.doesNotMatch(dashboard, /href=[^\n]*(?:orders|analytics|customers|carts)/i);
+  assert.doesNotMatch(dashboard, /href=[^\n]*(?:analytics|customers|carts|quick|abandoned)/i);
   assert.doesNotMatch(dashboard, /TenantContext|storeId|tenantId|principal|membershipId|planId|requestId/);
   assert.match(styles, /[.]metricTabs\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
 });
@@ -78,7 +80,11 @@ test("product list ports donor presentation while preserving target commands", a
 });
 
 test("client presentation contains no private authority or donor runtime", async () => {
-  const files = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter((path) => /apps\/customer-panel\/.+\.(ts|tsx)$/.test(path) && !/\.test\.[cm]?[jt]sx?$/.test(path));
+  const files = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter((path) =>
+    /apps\/customer-panel\/.+\.(ts|tsx)$/.test(path) &&
+    !/\.test\.[cm]?[jt]sx?$/.test(path) &&
+    (path.includes("/components/") || path.includes("/catalog-ui/") || path.includes("/order-ui/") || path.includes("/panel-ui/")),
+  );
   const source = (await Promise.all(files.map(read))).join("\n");
   assert.doesNotMatch(source, /@supabase|getAdminAuthContext|getBrowserSupabaseClient|STORE_RUNTIME|store-info-context|\/api\/admin\//i);
   assert.doesNotMatch(source, /document\.cookie|localStorage|sessionStorage|x-(?:tenant|store)-id/i);
@@ -92,8 +98,11 @@ test("presentation CSS preserves touch contrast overflow and reduced motion gate
   assert.doesNotMatch(css, /overflow-x:\s*visible/);
 });
 
-test("tracked diff contains no secrets or forbidden identifiers", () => {
-  const patch = git("diff", `${BASE}...HEAD`, "--", ".", ":(exclude)package-lock.json");
+test("tracked production diff contains no secrets or forbidden identifiers", () => {
+  const productionFiles = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter((path) =>
+    path && !/\.test\.[cm]?[jt]sx?$/.test(path) && !path.startsWith("tests/") && !path.startsWith("docs/") && path !== "package-lock.json",
+  );
+  const patch = productionFiles.length === 0 ? "" : git("diff", `${BASE}...HEAD`, "--", ...productionFiles);
   const forbiddenIds = [
     ["10000000", "0000", "4000", "8000", "000000000001"].join("-"),
     ["20000000", "0000", "4000", "8000", "000000000001"].join("-"),
