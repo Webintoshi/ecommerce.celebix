@@ -1,8 +1,14 @@
 import "server-only";
 
 import { randomBytes, randomUUID } from "node:crypto";
+import process from "node:process";
 
-import { PostgresCatalogRepository, PostgresOrderRepository } from "@celebix/saas-data";
+import {
+  PostgresCatalogRepository,
+  PostgresOrderRepository,
+  PostgresQuickOrderLinkRepository,
+  PostgresQuickOrderPrivateRepository,
+} from "@celebix/saas-data";
 import pg from "pg";
 
 import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
@@ -10,6 +16,11 @@ import { createPanelSessionPersistenceApproval } from "../panel-session-persiste
 import { createPostgresPanelSessionRepository } from "../panel-session-persistence/postgres-panel-session-repository.ts";
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
+import {
+  QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
+  parseQuickLinkServerConfig,
+} from "../server-quick-links/config.ts";
+import { registerServerQuickLinksRuntime } from "../server-quick-links/runtime.ts";
 import {
   createApprovedStagingServerPanelAccessRuntime,
   type ServerPanelAccessRuntime,
@@ -54,6 +65,18 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.order_events') IS NOT NULL
         AND to_regclass('saas.order_notes') IS NOT NULL
         AND to_regclass('saas.order_operations') IS NOT NULL AS migrations_022,
+      to_regclass('saas.checkout_provider_configs') IS NOT NULL
+        AND to_regclass('saas.quick_order_links') IS NOT NULL
+        AND to_regclass('saas.quick_order_link_items') IS NOT NULL
+        AND to_regclass('saas.quick_order_link_operations') IS NOT NULL
+        AND to_regclass('saas.quick_order_redemption_sessions') IS NOT NULL
+        AND to_regclass('saas.checkout_payment_attempts') IS NOT NULL
+        AND to_regclass('saas.checkout_inventory_reservations') IS NOT NULL
+        AND to_regclass('saas.checkout_callback_receipts') IS NOT NULL
+        AND to_regclass('saas.checkout_reconciliation_jobs') IS NOT NULL
+        AND to_regclass('saas.checkout_reconciliation_run') IS NOT NULL
+        AND to_regclass('saas.checkout_reconciliation_receipts') IS NOT NULL
+        AND to_regclass('saas.checkout_operations') IS NOT NULL AS migrations_024_026,
       to_regclass('saas.panel_sessions') IS NOT NULL AS sessions,
       EXISTS (
         SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
@@ -90,7 +113,17 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.orders_update_shipping(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb,jsonb)') IS NOT NULL AS order_shipping_update,
       to_regprocedure('saas.orders_add_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)') IS NOT NULL AS order_note_adder,
       to_regprocedure('saas.orders_archive_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid)') IS NOT NULL AS order_note_archiver,
-      to_regprocedure('saas.orders_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS order_recovery
+      to_regprocedure('saas.orders_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS order_recovery,
+      to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.quick_links_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.quick_links_duplicate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid[],text,text,jsonb,uuid,text)') IS NOT NULL AS quick_link_repository,
+      to_regprocedure('saas.quick_links_get_provider_readiness(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.quick_links_configure_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.quick_links_revoke_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.quick_links_reveal_credential(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.quick_links_reveal_provider_configuration(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS quick_link_private_repository
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -99,6 +132,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.database_name !== databaseName || row.is_superuser !== false ||
       row.identity_member !== true || row.catalog_member !== true || row.migrations_001_019 !== true ||
       row.migrations_022 !== true ||
+      row.migrations_024_026 !== true ||
       row.sessions !== true || row.session_resolver !== true || row.session_rotator !== true ||
       row.session_revoker !== true || row.session_recovery !== true || row.catalog_reader !== true ||
       row.catalog_lister !== true || row.catalog_creator !== true || row.catalog_updater !== true ||
@@ -107,7 +141,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.merchant_action_authority !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
-      row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true
+      row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true ||
+      row.quick_link_repository !== true || row.quick_link_private_repository !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
 }
@@ -128,6 +163,9 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
   pool.on("error", () => undefined);
   try {
     await preflight(pool, config.database.name);
+    const quickLinksConfig = parseQuickLinkServerConfig(Object.fromEntries(
+      QUICK_LINK_SERVER_ENVIRONMENT_FIELDS.map((field) => [field, process.env[field]]),
+    ));
     const sessionRepository = createPostgresPanelSessionRepository(
       createPanelSessionPersistenceApproval("approved_staging"),
       {
@@ -155,12 +193,26 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       generateId: () => randomUUID(),
       audit: () => undefined,
     });
+    const quickLinkRepositoryOptions = {
+      pool,
+      role: "celebix_saas_app" as const,
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    };
+    const quickLinkRepository = new PostgresQuickOrderLinkRepository(quickLinkRepositoryOptions);
+    const quickLinkPrivateRepository = new PostgresQuickOrderPrivateRepository(quickLinkRepositoryOptions);
     const access = createApprovedStagingServerPanelAccessRuntime(
       sessionRepository,
       config.authority.panelOrigin,
     );
     registerServerCatalogRepository(access, catalogRepository);
     registerServerOrderRepository(access, orderRepository);
+    registerServerQuickLinksRuntime(access, {
+      links: quickLinkRepository,
+      privateLinks: quickLinkPrivateRepository,
+      keyring: quickLinksConfig.keyring,
+      paytrConfiguration: quickLinksConfig.paytrConfiguration,
+    });
     return access;
   } catch (error) {
     await pool.end().catch(() => undefined);
