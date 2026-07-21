@@ -1,50 +1,1045 @@
 import { types as nodeTypes } from "node:util";
 
-import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
-import { exposeCheckoutPaymentError, isTrustedCheckoutPaymentError, trustedCheckoutPaymentError, type CheckoutPaymentErrorCode } from "./errors.ts";
-import type { ApplyReconciliationSuccessInput, BeginAttemptInput, BeginAttemptResult, CallbackAuthority, CheckoutPaymentRepository, ClaimReconciliationInput, CleanupPreProviderAttemptsInput, MarkInitiationFailedInput, MarkProviderReadyInput, PaymentPresentationAuthority, PostgresCheckoutPaymentRepositoryOptions, ProviderReadyResult, ReconciliationAuthority, ReconciliationRunInput, RecordReconciliationUnknownInput, ResolveRedemptionInput, SettleCallbackInput } from "./types.ts";
-import { digest, envelope, exact, hostname, integer, merchantOid, now, token, uuid } from "./validation.ts";
+import {
+  acquirePostgresClient,
+  type PostgresClientLike,
+} from "../postgres/pool.ts";
+import {
+  exposeCheckoutPaymentError,
+  isTrustedCheckoutPaymentError,
+  trustedCheckoutPaymentError,
+  type CheckoutPaymentErrorCode,
+} from "./errors.ts";
+import type {
+  ApplyReconciliationSuccessInput,
+  BeginAttemptInput,
+  BeginAttemptResult,
+  CallbackAuthority,
+  CheckoutPaymentRepository,
+  ClaimReconciliationInput,
+  CleanupPreProviderAttemptsInput,
+  MarkInitiationFailedInput,
+  MarkProviderReadyInput,
+  PaymentPresentationAuthority,
+  PostgresCheckoutPaymentRepositoryOptions,
+  ProviderReadyResult,
+  ReconciliationAuthority,
+  ReconciliationRunInput,
+  RecordReconciliationUnknownInput,
+  ResolveRedemptionInput,
+  SettleCallbackInput,
+} from "./types.ts";
+import {
+  digest,
+  envelope,
+  exact,
+  hostname,
+  integer,
+  merchantOid,
+  now,
+  token,
+  uuid,
+  uuidArray,
+} from "./validation.ts";
 
 type Options = Readonly<PostgresCheckoutPaymentRepositoryOptions>;
 type Selected = Readonly<{ outcome: string; payload: unknown }>;
 type Query = Readonly<{ text: string; values: readonly unknown[] }>;
-const DIRECT = new Set<CheckoutPaymentErrorCode>(["invalid_input", "attempt_not_found", "attempt_in_progress", "provider_not_ready", "catalog_item_unavailable", "stock_unavailable", "invalid_transition", "operation_mismatch", "invalid_lease", "run_not_owned"]);
-function unavailable(): never { throw trustedCheckoutPaymentError("unavailable"); }
-function unknown(): never { throw trustedCheckoutPaymentError("commit_unknown"); }
-function timeout(value: unknown): string { return `${integer(value, 1, 60_000)}ms`; }
-function release(client: PostgresClientLike, destroy = false): void { try { client.release(destroy); } catch { /* cleanup cannot alter authority */ } }
-function record(value: unknown, required: readonly string[], optional: readonly string[] = []): Readonly<Record<string, unknown>> { try { if (typeof value !== "object" || value === null || Array.isArray(value) || nodeTypes.isProxy(value)) unavailable(); const prototype = Object.getPrototypeOf(value); if (prototype !== Object.prototype && prototype !== null) unavailable(); const descriptors = Object.getOwnPropertyDescriptors(value); const allowed = new Set([...required, ...optional]); if (Reflect.ownKeys(descriptors).some((key) => typeof key !== "string" || !allowed.has(key)) || required.some((key) => !Object.hasOwn(descriptors, key))) unavailable(); const copy: Record<string, unknown> = Object.create(null); for (const key of required.concat(optional)) { const descriptor = descriptors[key]; if (!descriptor) continue; if (!("value" in descriptor) || !descriptor.enumerable) unavailable(); copy[key] = descriptor.value; } return Object.freeze(copy); } catch (error) { if (isTrustedCheckoutPaymentError(error)) throw error; return unavailable(); } }
-function selected(value: unknown): Selected { try { const result = record(value, ["rows", "rowCount"]); if (result.rowCount !== 1 || !Array.isArray(result.rows) || nodeTypes.isProxy(result.rows) || result.rows.length !== 1) unavailable(); const row = record(result.rows[0], ["outcome", "result_payload"]); if (typeof row.outcome !== "string" || row.outcome.length > 64) unavailable(); return Object.freeze({ outcome: row.outcome, payload: row.result_payload }); } catch (error) { if (isTrustedCheckoutPaymentError(error)) throw error; return unavailable(); } }
-function outcome(value: string): void { if (DIRECT.has(value as CheckoutPaymentErrorCode)) throw trustedCheckoutPaymentError(value as CheckoutPaymentErrorCode); if (value === "unavailable") unavailable(); }
-function plainString(value: unknown, min = 1, max = 2_048): string { if (typeof value !== "string" || value.length < min || value.length > max || value !== value.trim() || /[\0-\x1f\x7f]/.test(value)) unavailable(); return value; }
-function paymentAmount(value: unknown): number { try { return integer(value, 1); } catch { return unavailable(); } }
-function parseAuthority(value: unknown, lease = false): CallbackAuthority | ReconciliationAuthority { const v = record(value, ["storeId", "attemptId", "merchantOid", "providerConfigId", "status", "expectedPaymentAmount", "currency", "configurationDigest", "configurationKeyId", "sealedConfiguration"], lease ? ["leaseToken", "attemptNumber"] : []); const status = v.status; if (status !== "provider_ready" && status !== "initiation_unknown" && status !== "succeeded" && status !== "failed") unavailable(); if (v.currency !== "TRY") unavailable(); const base = Object.freeze({ storeId: uuid(v.storeId), attemptId: uuid(v.attemptId), merchantOid: merchantOid(v.merchantOid), providerConfigId: uuid(v.providerConfigId), status, expectedPaymentAmount: paymentAmount(v.expectedPaymentAmount), currency: "TRY" as const, configurationDigest: digest(v.configurationDigest), configurationKeyId: plainString(v.configurationKeyId, 1, 128), sealedConfiguration: envelope(v.sealedConfiguration) }); return lease ? Object.freeze({ ...base, leaseToken: token(v.leaseToken), attemptNumber: integer(v.attemptNumber, 1, 1_000) }) : base; }
-function parseBegin(value: unknown, replayed: boolean): BeginAttemptResult { const v = record(value, ["attemptId", "storeId", "providerConfigId", "status", "merchantOid", "paymentAmount", "currency", "customerName", "customerEmail", "customerPhone", "shippingAddress", "basket", "configurationDigest", "configurationKeyId", "sealedConfiguration"], ["holdExpiresAt", "providerConfigVersion"]); if (v.status !== "reserved" && v.status !== "provider_ready" && v.status !== "initiation_unknown" || v.currency !== "TRY" || !Array.isArray(v.basket)) unavailable(); const basket = v.basket.map((entry) => { if (!Array.isArray(entry) || entry.length !== 3) unavailable(); return Object.freeze({ name: plainString(entry[0], 1, 200), unitPriceCents: paymentAmount(entry[1]), quantity: integer(entry[2], 1, 9999) }); }); return Object.freeze({ outcome: replayed ? "replayed" : "created", status: v.status, storeId: uuid(v.storeId), attemptId: uuid(v.attemptId), merchantOid: merchantOid(v.merchantOid), currency: "TRY", paymentAmount: paymentAmount(v.paymentAmount), customerName: plainString(v.customerName, 1, 60), customerEmail: plainString(v.customerEmail, 3, 100), customerPhone: plainString(v.customerPhone, 1, 20), customerAddress: plainString(v.shippingAddress, 1, 400), basket: Object.freeze(basket), providerConfigId: uuid(v.providerConfigId), configurationDigest: digest(v.configurationDigest), configurationKeyId: plainString(v.configurationKeyId, 1, 128), sealedConfiguration: envelope(v.sealedConfiguration) }); }
-function parseReady(value: unknown, replayed: boolean): ProviderReadyResult { const v = record(value, ["attemptId", "status", "providerTokenDigest", "providerTokenKeyId", "sealedProviderToken"]); if (v.status !== "provider_ready") unavailable(); return Object.freeze({ attemptId: uuid(v.attemptId), status: "provider_ready", replayed, providerTokenDigest: digest(v.providerTokenDigest), sealedProviderToken: envelope(v.sealedProviderToken) }); }
-function parsePresentation(value: unknown): PaymentPresentationAuthority { const v = record(value, ["attemptId", "storeId", "merchantOid", "providerTokenDigest", "providerTokenKeyId", "sealedProviderToken"]); return Object.freeze({ attemptId: uuid(v.attemptId), storeId: uuid(v.storeId), merchantOid: merchantOid(v.merchantOid), providerTokenDigest: digest(v.providerTokenDigest), sealedProviderToken: envelope(v.sealedProviderToken) }); }
-async function configure(client: PostgresClientLike, options: Options): Promise<void> { await client.query("SELECT pg_catalog.set_config('statement_timeout', $1, true)", [timeout(options.timeouts.statementMs)]); await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [timeout(options.timeouts.lockMs)]); await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(options.timeouts.idleTransactionMs)]); await client.query("SET LOCAL ROLE celebix_saas_workflow"); }
-async function acquire(options: Options): Promise<PostgresClientLike> { try { return await acquirePostgresClient(options.pool, integer(options.timeouts.poolCheckoutMs, 1, 60_000)); } catch { return unavailable(); } }
-async function rollback(client: PostgresClientLike): Promise<void> { try { await client.query("ROLLBACK"); release(client); } catch { release(client, true); } }
-function audit(options: Options): void { try { void Promise.resolve(options.audit(Object.freeze({ type: "checkout_payment_commit_unknown" }))).catch(() => undefined); } catch { /* observational */ } }
-async function read<T>(options: Options, query: Query, expected: string | readonly string[], parser: (value: unknown, result: string) => T): Promise<T> { const client = await acquire(options); let began = false; let terminal = false; try { await client.query("BEGIN READ ONLY"); began = true; await configure(client, options); const result = selected(await client.query(query.text, [...query.values])); outcome(result.outcome); if (!(Array.isArray(expected) ? expected : [expected]).includes(result.outcome)) unavailable(); const parsed = parser(result.payload, result.outcome); await client.query("COMMIT"); terminal = true; release(client); return parsed; } catch (error) { if (began && !terminal) await rollback(client); else if (!began && !terminal) release(client, true); if (isTrustedCheckoutPaymentError(error)) throw error; return unavailable(); } }
-async function write<T>(options: Options, query: Query, expected: readonly string[], parser: (value: unknown, result: string) => T, recovery?: Query): Promise<T | undefined> { const client = await acquire(options); let began = false; let terminal = false; try { await client.query("BEGIN ISOLATION LEVEL READ COMMITTED"); began = true; await configure(client, options); const result = selected(await client.query(query.text, [...query.values])); outcome(result.outcome); if (!expected.includes(result.outcome)) unavailable(); const parsed = parser(result.payload, result.outcome); try { await client.query("COMMIT"); terminal = true; release(client); return parsed; } catch { terminal = true; release(client, true); audit(options); if (!recovery) return undefined; try { return await read(options, recovery, "operation_replayed", (value, recoveryOutcome) => parser(value, recoveryOutcome)); } catch { return undefined; } } } catch (error) { if (began && !terminal) await rollback(client); else if (!began && !terminal) release(client, true); if (isTrustedCheckoutPaymentError(error)) throw error; return unavailable(); } }
+const DIRECT = new Set<CheckoutPaymentErrorCode>([
+  "invalid_input",
+  "attempt_not_found",
+  "attempt_in_progress",
+  "provider_not_ready",
+  "catalog_item_unavailable",
+  "stock_unavailable",
+  "invalid_transition",
+  "operation_mismatch",
+  "invalid_lease",
+  "run_not_owned",
+]);
+function unavailable(): never {
+  throw trustedCheckoutPaymentError("unavailable");
+}
+function unknown(): never {
+  throw trustedCheckoutPaymentError("commit_unknown");
+}
+function timeout(value: unknown): string {
+  return `${integer(value, 1, 60_000)}ms`;
+}
+function release(client: PostgresClientLike, destroy = false): void {
+  try {
+    client.release(destroy);
+  } catch {
+    /* cleanup cannot alter authority */
+  }
+}
+function record(
+  value: unknown,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): Readonly<Record<string, unknown>> {
+  try {
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      Array.isArray(value) ||
+      nodeTypes.isProxy(value)
+    )
+      unavailable();
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) unavailable();
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const allowed = new Set([...required, ...optional]);
+    if (
+      Reflect.ownKeys(descriptors).some(
+        (key) => typeof key !== "string" || !allowed.has(key),
+      ) ||
+      required.some((key) => !Object.hasOwn(descriptors, key))
+    )
+      unavailable();
+    const copy: Record<string, unknown> = Object.create(null);
+    for (const key of required.concat(optional)) {
+      const descriptor = descriptors[key];
+      if (!descriptor) continue;
+      if (!("value" in descriptor) || !descriptor.enumerable) unavailable();
+      copy[key] = descriptor.value;
+    }
+    return Object.freeze(copy);
+  } catch (error) {
+    if (isTrustedCheckoutPaymentError(error)) throw error;
+    return unavailable();
+  }
+}
+function selected(value: unknown): Selected {
+  try {
+    if (typeof value !== "object" || value === null || nodeTypes.isProxy(value))
+      unavailable();
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const rowsDescriptor = descriptors.rows;
+    const countDescriptor = descriptors.rowCount;
+    if (
+      !rowsDescriptor ||
+      !("value" in rowsDescriptor) ||
+      !rowsDescriptor.enumerable ||
+      !countDescriptor ||
+      !("value" in countDescriptor) ||
+      !countDescriptor.enumerable ||
+      countDescriptor.value !== 1 ||
+      !Array.isArray(rowsDescriptor.value) ||
+      nodeTypes.isProxy(rowsDescriptor.value) ||
+      rowsDescriptor.value.length !== 1
+    )
+      unavailable();
+    const row = record(rowsDescriptor.value[0], ["outcome", "result_payload"]);
+    if (
+      typeof row.outcome !== "string" ||
+      row.outcome.length < 1 ||
+      row.outcome.length > 64
+    )
+      unavailable();
+    return Object.freeze({ outcome: row.outcome, payload: row.result_payload });
+  } catch (error) {
+    if (isTrustedCheckoutPaymentError(error)) throw error;
+    return unavailable();
+  }
+}
+function outcome(value: string): void {
+  if (DIRECT.has(value as CheckoutPaymentErrorCode))
+    throw trustedCheckoutPaymentError(value as CheckoutPaymentErrorCode);
+  if (value === "unavailable") unavailable();
+}
+function plainString(value: unknown, min = 1, max = 2_048): string {
+  if (
+    typeof value !== "string" ||
+    value.length < min ||
+    value.length > max ||
+    value !== value.trim() ||
+    /[\0-\x1f\x7f]/.test(value)
+  )
+    unavailable();
+  return value;
+}
+function paymentAmount(value: unknown): number {
+  try {
+    return integer(value, 1);
+  } catch {
+    return unavailable();
+  }
+}
+function durableEnvelope(value: unknown) {
+  try {
+    return envelope(value);
+  } catch {
+    return unavailable();
+  }
+}
+function matchingEnvelope(value: unknown, keyId: unknown) {
+  const sealed = durableEnvelope(value);
+  if (plainString(keyId, 1, 128) !== sealed.keyId) unavailable();
+  return sealed;
+}
+function parseAuthority(
+  value: unknown,
+  lease = false,
+): CallbackAuthority | ReconciliationAuthority {
+  const v = record(
+    value,
+    [
+      "storeId",
+      "attemptId",
+      "merchantOid",
+      "providerConfigId",
+      "status",
+      "expectedPaymentAmount",
+      "currency",
+      "configurationDigest",
+      "configurationKeyId",
+      "sealedConfiguration",
+    ],
+    lease ? ["leaseToken", "attemptNumber"] : [],
+  );
+  const status = v.status;
+  if (
+    status !== "provider_ready" &&
+    status !== "initiation_unknown" &&
+    status !== "succeeded" &&
+    status !== "failed"
+  )
+    unavailable();
+  if (v.currency !== "TRY") unavailable();
+  const base = Object.freeze({
+    storeId: uuid(v.storeId),
+    attemptId: uuid(v.attemptId),
+    merchantOid: merchantOid(v.merchantOid),
+    providerConfigId: uuid(v.providerConfigId),
+    status,
+    expectedPaymentAmount: paymentAmount(v.expectedPaymentAmount),
+    currency: "TRY" as const,
+    configurationDigest: digest(v.configurationDigest),
+    configurationKeyId: plainString(v.configurationKeyId, 1, 128),
+    sealedConfiguration: matchingEnvelope(
+      v.sealedConfiguration,
+      v.configurationKeyId,
+    ),
+  });
+  return lease
+    ? Object.freeze({
+        ...base,
+        leaseToken: token(v.leaseToken),
+        attemptNumber: integer(v.attemptNumber, 1, 1_000),
+      })
+    : base;
+}
+function parseBegin(value: unknown, replayed: boolean): BeginAttemptResult {
+  const v = record(
+    value,
+    [
+      "attemptId",
+      "storeId",
+      "providerConfigId",
+      "status",
+      "merchantOid",
+      "paymentAmount",
+      "currency",
+      "customerName",
+      "customerEmail",
+      "customerPhone",
+      "shippingAddress",
+      "basket",
+      "configurationDigest",
+      "configurationKeyId",
+      "sealedConfiguration",
+    ],
+    ["holdExpiresAt", "providerConfigVersion"],
+  );
+  if (
+    (v.status !== "reserved" &&
+      v.status !== "provider_ready" &&
+      v.status !== "initiation_unknown") ||
+    v.currency !== "TRY" ||
+    !Array.isArray(v.basket)
+  )
+    unavailable();
+  const basket = v.basket.map((entry) => {
+    if (!Array.isArray(entry) || entry.length !== 3) unavailable();
+    return Object.freeze({
+      name: plainString(entry[0], 1, 200),
+      unitPriceCents: paymentAmount(entry[1]),
+      quantity: integer(entry[2], 1, 9999),
+    });
+  });
+  return Object.freeze({
+    outcome: replayed ? "replayed" : "created",
+    status: v.status,
+    storeId: uuid(v.storeId),
+    attemptId: uuid(v.attemptId),
+    merchantOid: merchantOid(v.merchantOid),
+    currency: "TRY",
+    paymentAmount: paymentAmount(v.paymentAmount),
+    customerName: plainString(v.customerName, 1, 60),
+    customerEmail: plainString(v.customerEmail, 3, 100),
+    customerPhone: plainString(v.customerPhone, 1, 20),
+    customerAddress: plainString(v.shippingAddress, 1, 400),
+    basket: Object.freeze(basket),
+    providerConfigId: uuid(v.providerConfigId),
+    configurationDigest: digest(v.configurationDigest),
+    configurationKeyId: plainString(v.configurationKeyId, 1, 128),
+    sealedConfiguration: matchingEnvelope(
+      v.sealedConfiguration,
+      v.configurationKeyId,
+    ),
+  });
+}
+function parseReady(value: unknown, replayed: boolean): ProviderReadyResult {
+  const v = record(value, [
+    "attemptId",
+    "status",
+    "providerTokenDigest",
+    "providerTokenKeyId",
+    "sealedProviderToken",
+  ]);
+  if (v.status !== "provider_ready") unavailable();
+  return Object.freeze({
+    attemptId: uuid(v.attemptId),
+    status: "provider_ready",
+    replayed,
+    providerTokenDigest: digest(v.providerTokenDigest),
+    sealedProviderToken: matchingEnvelope(
+      v.sealedProviderToken,
+      v.providerTokenKeyId,
+    ),
+  });
+}
+function parsePresentation(value: unknown): PaymentPresentationAuthority {
+  const v = record(value, [
+    "attemptId",
+    "storeId",
+    "merchantOid",
+    "providerTokenDigest",
+    "providerTokenKeyId",
+    "sealedProviderToken",
+  ]);
+  return Object.freeze({
+    attemptId: uuid(v.attemptId),
+    storeId: uuid(v.storeId),
+    merchantOid: merchantOid(v.merchantOid),
+    providerTokenDigest: digest(v.providerTokenDigest),
+    sealedProviderToken: matchingEnvelope(
+      v.sealedProviderToken,
+      v.providerTokenKeyId,
+    ),
+  });
+}
+async function configure(
+  client: PostgresClientLike,
+  options: Options,
+): Promise<void> {
+  await client.query(
+    "SELECT pg_catalog.set_config('statement_timeout', $1, true)",
+    [timeout(options.timeouts.statementMs)],
+  );
+  await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [
+    timeout(options.timeouts.lockMs),
+  ]);
+  await client.query(
+    "SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)",
+    [timeout(options.timeouts.idleTransactionMs)],
+  );
+  await client.query("SET LOCAL ROLE celebix_saas_workflow");
+}
+async function acquire(options: Options): Promise<PostgresClientLike> {
+  try {
+    return await acquirePostgresClient(
+      options.pool,
+      integer(options.timeouts.poolCheckoutMs, 1, 60_000),
+    );
+  } catch {
+    return unavailable();
+  }
+}
+async function rollback(client: PostgresClientLike): Promise<void> {
+  try {
+    await client.query("ROLLBACK");
+    release(client);
+  } catch {
+    release(client, true);
+  }
+}
+function audit(options: Options): void {
+  try {
+    void Promise.resolve(
+      options.audit(Object.freeze({ type: "checkout_payment_commit_unknown" })),
+    ).catch(() => undefined);
+  } catch {
+    /* observational */
+  }
+}
+async function read<T>(
+  options: Options,
+  query: Query,
+  expected: string | readonly string[],
+  parser: (value: unknown, result: string) => T,
+): Promise<T> {
+  const client = await acquire(options);
+  let began = false;
+  let terminal = false;
+  try {
+    await client.query("BEGIN READ ONLY");
+    began = true;
+    await configure(client, options);
+    const result = selected(await client.query(query.text, [...query.values]));
+    outcome(result.outcome);
+    if (
+      !(Array.isArray(expected) ? expected : [expected]).includes(
+        result.outcome,
+      )
+    )
+      unavailable();
+    const parsed = parser(result.payload, result.outcome);
+    await client.query("COMMIT");
+    terminal = true;
+    release(client);
+    return parsed;
+  } catch (error) {
+    if (began && !terminal) await rollback(client);
+    else if (!began && !terminal) release(client, true);
+    if (isTrustedCheckoutPaymentError(error)) throw error;
+    return unavailable();
+  }
+}
+async function write<T>(
+  options: Options,
+  query: Query,
+  expected: readonly string[],
+  parser: (value: unknown, result: string) => T,
+  recovery?: Query,
+): Promise<T | undefined> {
+  const client = await acquire(options);
+  let began = false;
+  let terminal = false;
+  try {
+    await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+    began = true;
+    await configure(client, options);
+    const result = selected(await client.query(query.text, [...query.values]));
+    outcome(result.outcome);
+    if (!expected.includes(result.outcome)) unavailable();
+    const parsed = parser(result.payload, result.outcome);
+    try {
+      await client.query("COMMIT");
+      terminal = true;
+      release(client);
+      return parsed;
+    } catch {
+      terminal = true;
+      release(client, true);
+      audit(options);
+      if (!recovery) return undefined;
+      try {
+        return await read(
+          options,
+          recovery,
+          "operation_replayed",
+          (value, recoveryOutcome) => parser(value, recoveryOutcome),
+        );
+      } catch {
+        return undefined;
+      }
+    }
+  } catch (error) {
+    if (began && !terminal) await rollback(client);
+    else if (!began && !terminal) release(client, true);
+    if (isTrustedCheckoutPaymentError(error)) throw error;
+    return unavailable();
+  }
+}
 
-export class PostgresCheckoutPaymentRepository implements CheckoutPaymentRepository {
+export class PostgresCheckoutPaymentRepository
+  implements CheckoutPaymentRepository
+{
   private readonly options: Options;
-  constructor(options: PostgresCheckoutPaymentRepositoryOptions) { try { const v = record(options, ["pool", "role", "timeouts", "audit"]); if (v.role !== "celebix_saas_workflow" || typeof v.audit !== "function") unavailable(); const t = record(v.timeouts, ["poolCheckoutMs", "statementMs", "lockMs", "idleTransactionMs"]); timeout(t.poolCheckoutMs); timeout(t.statementMs); timeout(t.lockMs); timeout(t.idleTransactionMs); this.options = Object.freeze({ pool: v.pool as Options["pool"], role: "celebix_saas_workflow", timeouts: Object.freeze({ poolCheckoutMs: t.poolCheckoutMs as number, statementMs: t.statementMs as number, lockMs: t.lockMs as number, idleTransactionMs: t.idleTransactionMs as number }), audit: v.audit as Options["audit"] }); } catch (error) { throw exposeCheckoutPaymentError(error); } }
-  async beginAttempt(input: BeginAttemptInput): Promise<BeginAttemptResult> { const v = exact(input, ["hostname", "redemptionDigest", "attemptId", "merchantOid", "operationId", "fingerprint", "now"]); const h = hostname(v.hostname), d = digest(v.redemptionDigest), attempt = uuid(v.attemptId), oid = merchantOid(v.merchantOid), operation = uuid(v.operationId), fingerprint = digest(v.fingerprint), at = now(v.now); const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_begin_attempt($1::text,$2::text,$3::uuid,$4::text,$5::uuid,$6::text,$7::timestamptz)", values: [h, d, attempt, oid, operation, fingerprint, at] }, ["committed", "operation_replayed"], (payload, resultOutcome) => parseBegin(payload, resultOutcome === "operation_replayed"), { text: "SELECT outcome, result_payload FROM saas.checkout_recover_attempt_operation($1::uuid,$2::uuid,$3::text,$4::text)", values: [attempt, operation, "begin_attempt", fingerprint] }); if (!result) unknown(); return result; }
-  async markProviderReady(input: MarkProviderReadyInput): Promise<ProviderReadyResult> { const v = exact(input, ["attemptId", "operationId", "fingerprint", "providerTokenDigest", "sealedProviderToken", "now"]); const attempt = uuid(v.attemptId), operation = uuid(v.operationId), fingerprint = digest(v.fingerprint), sealed = envelope(v.sealedProviderToken), tokenDigest = digest(v.providerTokenDigest), at = now(v.now); const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_mark_provider_ready($1::uuid,$2::uuid,$3::text,$4::jsonb,$5::text,$6::timestamptz)", values: [attempt, operation, fingerprint, JSON.stringify(sealed), tokenDigest, at] }, ["committed", "operation_replayed"], (payload, resultOutcome) => parseReady(payload, resultOutcome === "operation_replayed"), { text: "SELECT outcome, result_payload FROM saas.checkout_recover_attempt_operation($1::uuid,$2::uuid,$3::text,$4::text)", values: [attempt, operation, "provider_ready", fingerprint] }); if (!result) unknown(); return result; }
-  private async mark(input: MarkInitiationFailedInput, fn: "checkout_mark_initiation_unknown" | "checkout_mark_initiation_failed", kind: string): Promise<void> { const v = exact(input, ["attemptId", "operationId", "fingerprint", "now"]); const attempt = uuid(v.attemptId), operation = uuid(v.operationId), fingerprint = digest(v.fingerprint), at = now(v.now); const result = await write(this.options, { text: `SELECT outcome, result_payload FROM saas.${fn}($1::uuid,$2::uuid,$3::text,$4::timestamptz)`, values: [attempt, operation, fingerprint, at] }, ["committed", "operation_replayed"], () => true, { text: "SELECT outcome, result_payload FROM saas.checkout_recover_attempt_operation($1::uuid,$2::uuid,$3::text,$4::text)", values: [attempt, operation, kind, fingerprint] }); if (result === undefined) unknown(); }
-  markInitiationUnknown(input: MarkInitiationFailedInput) { return this.mark(input, "checkout_mark_initiation_unknown", "initiation_unknown"); }
-  markInitiationFailed(input: MarkInitiationFailedInput) { return this.mark(input, "checkout_mark_initiation_failed", "initiation_failed"); }
-  async getPaymentPresentation(input: ResolveRedemptionInput): Promise<PaymentPresentationAuthority> { const v = exact(input, ["hostname", "redemptionDigest", "now"]); return read(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_get_payment_presentation($1::text,$2::text,$3::timestamptz)", values: [hostname(v.hostname), digest(v.redemptionDigest), now(v.now)] }, "found", (payload) => parsePresentation(payload)); }
-  async getCallbackAuthority(input: Readonly<{ merchantOid: string; now: Date }>): Promise<CallbackAuthority> { const v = exact(input, ["merchantOid", "now"]); return read(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_get_callback_authority($1::text,$2::timestamptz)", values: [merchantOid(v.merchantOid), now(v.now)] }, "found", (payload) => parseAuthority(payload) as CallbackAuthority); }
-  async settleCallback(input: SettleCallbackInput): Promise<Readonly<{ outcome: "settled" | "replayed" | "failed" | "commit_unknown"; orderNumber?: string }>> { const success = input.status === "success"; const fields = success ? ["status", "merchantOid", "callbackDigest", "operationId", "fingerprint", "paymentAmount", "totalAmount", "currency", "paymentType", "testMode", "orderId", "orderItemIds", "orderEventId", "orderNumber", "now"] : ["status", "merchantOid", "callbackDigest", "operationId", "fingerprint", "totalAmount", "paymentType", "testMode", "failedReasonCode", "failedReasonMessageDigest", "now"]; const v = exact(input, fields); const oid = merchantOid(v.merchantOid), callback = digest(v.callbackDigest), operation = uuid(v.operationId), fingerprint = digest(v.fingerprint), at = now(v.now); if ((v.status !== "success" && v.status !== "failed") || (v.paymentType !== "card" && v.paymentType !== "eft") || v.testMode !== 1) throw trustedCheckoutPaymentError("invalid_input"); const values = success ? [oid, callback, operation, fingerprint, "success", paymentAmount(v.paymentAmount), paymentAmount(v.totalAmount), "TRY", v.paymentType, 1, null, null, uuid(v.orderId), (v.orderItemIds as unknown[]).map(uuid), uuid(v.orderEventId), plainString(v.orderNumber, 1, 128), at] : [oid, callback, operation, fingerprint, "failed", null, paymentAmount(v.totalAmount), null, v.paymentType, 1, plainString(v.failedReasonCode, 1, 64), digest(v.failedReasonMessageDigest), null, null, null, null, at]; const parser = (payload: unknown, resultOutcome: string) => { if (resultOutcome === "failed") return Object.freeze({ outcome: "failed" as const }); const p = record(payload, [], ["outcome", "orderNumber"]); const orderNumber = p.orderNumber === undefined ? undefined : plainString(p.orderNumber, 1, 128); const normalized = resultOutcome === "operation_replayed" ? "replayed" : resultOutcome; if (normalized !== "settled" && normalized !== "replayed") unavailable(); return Object.freeze({ outcome: normalized, ...(orderNumber === undefined ? {} : { orderNumber }) }) as Readonly<{ outcome: "settled" | "replayed"; orderNumber?: string }>; }; const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_settle_callback($1::text,$2::text,$3::uuid,$4::text,$5::text,$6::bigint,$7::bigint,$8::text,$9::text,$10::integer,$11::text,$12::text,$13::uuid,$14::uuid[],$15::uuid,$16::text,$17::timestamptz)", values }, ["settled", "replayed", "failed"], parser, { text: "SELECT outcome, result_payload FROM saas.checkout_recover_callback($1::text,$2::text,$3::uuid,$4::text)", values: [oid, callback, operation, fingerprint] }); return result ?? Object.freeze({ outcome: "commit_unknown" }); }
-  async beginReconciliationRun(input: ReconciliationRunInput): Promise<Readonly<{ outcome: "acquired" | "busy" }>> { const v = exact(input, ["workerId", "runTokenDigest", "now", "leaseExpiresAt"]); const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_begin_reconciliation_run($1::uuid,$2::text,$3::timestamptz,$4::timestamptz)", values: [uuid(v.workerId), digest(v.runTokenDigest), now(v.now), now(v.leaseExpiresAt)] }, ["acquired", "busy"], (_payload, resultOutcome) => Object.freeze({ outcome: resultOutcome as "acquired" | "busy" })); if (!result) unknown(); return result; }
-  async claimReconciliation(input: ClaimReconciliationInput): Promise<readonly ReconciliationAuthority[]> { const v = exact(input, ["workerId", "now", "leaseExpiresAt", "limit"]); const limit = integer(v.limit, 1, 25); const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_claim_reconciliation($1::uuid,$2::timestamptz,$3::timestamptz,$4::bigint)", values: [uuid(v.workerId), now(v.now), now(v.leaseExpiresAt), limit] }, ["claimed"], (payload) => { const p = record(payload, ["claims"]); if (!Array.isArray(p.claims) || p.claims.length > limit) unavailable(); return Object.freeze(p.claims.map((claim) => parseAuthority(claim, true) as ReconciliationAuthority)); }); if (!result) unknown(); return result; }
-  async claimRedemptionReconciliation(input: ResolveRedemptionInput & Readonly<{ workerId: string; leaseExpiresAt: Date }>): Promise<ReconciliationAuthority | undefined> { const v = exact(input, ["hostname", "redemptionDigest", "workerId", "now", "leaseExpiresAt"]); const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_claim_redemption_reconciliation($1::text,$2::text,$3::uuid,$4::timestamptz,$5::timestamptz)", values: [hostname(v.hostname), digest(v.redemptionDigest), uuid(v.workerId), now(v.now), now(v.leaseExpiresAt)] }, ["claimed", "not_found"], (payload, resultOutcome) => resultOutcome === "not_found" ? null : parseAuthority(payload, true) as ReconciliationAuthority); if (result === undefined) unknown(); return result ?? undefined; }
-  async applyReconciliationSuccess(input: ApplyReconciliationSuccessInput): Promise<Readonly<{ outcome: "settled" | "replayed"; orderNumber: string }>> { const v = exact(input, ["merchantOid", "workerId", "leaseToken", "operationId", "fingerprint", "paymentAmount", "totalAmount", "currency", "testMode", "orderId", "orderItemIds", "orderEventId", "orderNumber", "now"]); if (v.currency !== "TRY" || v.testMode !== 1 || !Array.isArray(v.orderItemIds)) throw trustedCheckoutPaymentError("invalid_input"); const oid = merchantOid(v.merchantOid), operation = uuid(v.operationId), fingerprint = digest(v.fingerprint); const parser = (payload: unknown, resultOutcome: string) => { const p = record(payload, ["orderNumber"]); const normalized = resultOutcome === "operation_replayed" ? "replayed" : resultOutcome; if (normalized !== "settled" && normalized !== "replayed") unavailable(); return Object.freeze({ outcome: normalized as "settled" | "replayed", orderNumber: plainString(p.orderNumber, 1, 128) }); }; const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_apply_reconciliation_success($1::text,$2::uuid,$3::text,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::text,$9::integer,$10::uuid,$11::uuid[],$12::uuid,$13::text,$14::timestamptz)", values: [oid, uuid(v.workerId), token(v.leaseToken), operation, fingerprint, paymentAmount(v.paymentAmount), paymentAmount(v.totalAmount), "TRY", 1, uuid(v.orderId), v.orderItemIds.map(uuid), uuid(v.orderEventId), plainString(v.orderNumber, 1, 128), now(v.now)] }, ["settled", "replayed"], parser, { text: "SELECT outcome, result_payload FROM saas.checkout_recover_reconciliation($1::text,$2::uuid,$3::text)", values: [oid, operation, fingerprint] }); if (!result) unknown(); return result; }
-  async recordReconciliationUnknown(input: RecordReconciliationUnknownInput): Promise<void> { const v = exact(input, ["merchantOid", "workerId", "leaseToken", "operationId", "fingerprint", "nextAttemptAt", "now"]); const oid = merchantOid(v.merchantOid), operation = uuid(v.operationId), fingerprint = digest(v.fingerprint); const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_record_reconciliation_unknown($1::text,$2::uuid,$3::text,$4::uuid,$5::text,$6::timestamptz,$7::timestamptz)", values: [oid, uuid(v.workerId), token(v.leaseToken), operation, fingerprint, now(v.nextAttemptAt), now(v.now)] }, ["committed", "operation_replayed"], () => true, { text: "SELECT outcome, result_payload FROM saas.checkout_recover_reconciliation($1::text,$2::uuid,$3::text)", values: [oid, operation, fingerprint] }); if (result === undefined) unknown(); }
-  async finishReconciliationRun(input: Readonly<{ workerId: string; runToken: string; now: Date }>): Promise<void> { const v = exact(input, ["workerId", "runToken", "now"]); const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_finish_reconciliation_run($1::uuid,$2::text,$3::timestamptz)", values: [uuid(v.workerId), token(v.runToken), now(v.now)] }, ["committed"], () => true); if (result === undefined) unknown(); }
-  async cleanupPreProviderAttempts(input: CleanupPreProviderAttemptsInput): Promise<Readonly<{ releasedCount: number }>> { const v = exact(input, ["workerId", "operationId", "fingerprint", "now", "limit"]); const worker = uuid(v.workerId), operation = uuid(v.operationId), fingerprint = digest(v.fingerprint), limit = integer(v.limit, 1, 100); const parser = (payload: unknown) => { const p = record(payload, ["releasedCount"]); return Object.freeze({ releasedCount: integer(p.releasedCount, 0, limit) }); }; const result = await write(this.options, { text: "SELECT outcome, result_payload FROM saas.checkout_cleanup_pre_provider_attempts($1::uuid,$2::uuid,$3::text,$4::timestamptz,$5::bigint)", values: [worker, operation, fingerprint, now(v.now), limit] }, ["committed", "operation_replayed"], parser, { text: "SELECT outcome, result_payload FROM saas.checkout_recover_cleanup_operation($1::uuid,$2::uuid,$3::text)", values: [worker, operation, fingerprint] }); if (!result) unknown(); return result; }
+  constructor(options: PostgresCheckoutPaymentRepositoryOptions) {
+    try {
+      const v = record(options, ["pool", "role", "timeouts", "audit"]);
+      if (v.role !== "celebix_saas_workflow" || typeof v.audit !== "function")
+        unavailable();
+      const t = record(v.timeouts, [
+        "poolCheckoutMs",
+        "statementMs",
+        "lockMs",
+        "idleTransactionMs",
+      ]);
+      timeout(t.poolCheckoutMs);
+      timeout(t.statementMs);
+      timeout(t.lockMs);
+      timeout(t.idleTransactionMs);
+      this.options = Object.freeze({
+        pool: v.pool as Options["pool"],
+        role: "celebix_saas_workflow",
+        timeouts: Object.freeze({
+          poolCheckoutMs: t.poolCheckoutMs as number,
+          statementMs: t.statementMs as number,
+          lockMs: t.lockMs as number,
+          idleTransactionMs: t.idleTransactionMs as number,
+        }),
+        audit: v.audit as Options["audit"],
+      });
+    } catch (error) {
+      throw exposeCheckoutPaymentError(error);
+    }
+  }
+  async beginAttempt(input: BeginAttemptInput): Promise<BeginAttemptResult> {
+    const v = exact(input, [
+      "hostname",
+      "redemptionDigest",
+      "attemptId",
+      "merchantOid",
+      "operationId",
+      "fingerprint",
+      "now",
+    ]);
+    const h = hostname(v.hostname),
+      d = digest(v.redemptionDigest),
+      attempt = uuid(v.attemptId),
+      oid = merchantOid(v.merchantOid),
+      operation = uuid(v.operationId),
+      fingerprint = digest(v.fingerprint),
+      at = now(v.now);
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_begin_attempt($1::text,$2::text,$3::uuid,$4::text,$5::uuid,$6::text,$7::timestamptz)",
+        values: [h, d, attempt, oid, operation, fingerprint, at],
+      },
+      ["committed", "operation_replayed"],
+      (payload, resultOutcome) =>
+        parseBegin(payload, resultOutcome === "operation_replayed"),
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_recover_attempt_operation($1::uuid,$2::uuid,$3::text,$4::text)",
+        values: [attempt, operation, "begin_attempt", fingerprint],
+      },
+    );
+    if (!result) unknown();
+    return result;
+  }
+  async markProviderReady(
+    input: MarkProviderReadyInput,
+  ): Promise<ProviderReadyResult> {
+    const v = exact(input, [
+      "attemptId",
+      "operationId",
+      "fingerprint",
+      "providerTokenDigest",
+      "sealedProviderToken",
+      "now",
+    ]);
+    const attempt = uuid(v.attemptId),
+      operation = uuid(v.operationId),
+      fingerprint = digest(v.fingerprint),
+      sealed = envelope(v.sealedProviderToken),
+      tokenDigest = digest(v.providerTokenDigest),
+      at = now(v.now);
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_mark_provider_ready($1::uuid,$2::uuid,$3::text,$4::jsonb,$5::text,$6::timestamptz)",
+        values: [
+          attempt,
+          operation,
+          fingerprint,
+          JSON.stringify(sealed),
+          tokenDigest,
+          at,
+        ],
+      },
+      ["committed", "operation_replayed"],
+      (payload, resultOutcome) =>
+        parseReady(payload, resultOutcome === "operation_replayed"),
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_recover_attempt_operation($1::uuid,$2::uuid,$3::text,$4::text)",
+        values: [attempt, operation, "provider_ready", fingerprint],
+      },
+    );
+    if (!result) unknown();
+    return result;
+  }
+  private async mark(
+    input: MarkInitiationFailedInput,
+    fn: "checkout_mark_initiation_unknown" | "checkout_mark_initiation_failed",
+    kind: string,
+  ): Promise<void> {
+    const v = exact(input, ["attemptId", "operationId", "fingerprint", "now"]);
+    const attempt = uuid(v.attemptId),
+      operation = uuid(v.operationId),
+      fingerprint = digest(v.fingerprint),
+      at = now(v.now);
+    const expectedStatus =
+      kind === "initiation_unknown" ? "initiation_unknown" : "failed";
+    const result = await write(
+      this.options,
+      {
+        text: `SELECT outcome, result_payload FROM saas.${fn}($1::uuid,$2::uuid,$3::text,$4::timestamptz)`,
+        values: [attempt, operation, fingerprint, at],
+      },
+      ["committed", "operation_replayed"],
+      (payload) => {
+        const p = record(payload, ["status"]);
+        if (p.status !== expectedStatus) unavailable();
+        return true;
+      },
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_recover_attempt_operation($1::uuid,$2::uuid,$3::text,$4::text)",
+        values: [attempt, operation, kind, fingerprint],
+      },
+    );
+    if (result === undefined) unknown();
+  }
+  markInitiationUnknown(input: MarkInitiationFailedInput) {
+    return this.mark(
+      input,
+      "checkout_mark_initiation_unknown",
+      "initiation_unknown",
+    );
+  }
+  markInitiationFailed(input: MarkInitiationFailedInput) {
+    return this.mark(
+      input,
+      "checkout_mark_initiation_failed",
+      "initiation_failed",
+    );
+  }
+  async getPaymentPresentation(
+    input: ResolveRedemptionInput,
+  ): Promise<PaymentPresentationAuthority> {
+    const v = exact(input, ["hostname", "redemptionDigest", "now"]);
+    return read(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_get_payment_presentation($1::text,$2::text,$3::timestamptz)",
+        values: [hostname(v.hostname), digest(v.redemptionDigest), now(v.now)],
+      },
+      "found",
+      (payload) => parsePresentation(payload),
+    );
+  }
+  async getCallbackAuthority(
+    input: Readonly<{ merchantOid: string; now: Date }>,
+  ): Promise<CallbackAuthority> {
+    const v = exact(input, ["merchantOid", "now"]);
+    return read(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_get_callback_authority($1::text,$2::timestamptz)",
+        values: [merchantOid(v.merchantOid), now(v.now)],
+      },
+      "found",
+      (payload) => parseAuthority(payload) as CallbackAuthority,
+    );
+  }
+  async settleCallback(
+    input: SettleCallbackInput,
+  ): Promise<
+    Readonly<{
+      outcome: "settled" | "replayed" | "failed" | "commit_unknown";
+      orderNumber?: string;
+    }>
+  > {
+    const success = input.status === "success";
+    const fields = success
+      ? [
+          "status",
+          "merchantOid",
+          "callbackDigest",
+          "operationId",
+          "fingerprint",
+          "paymentAmount",
+          "totalAmount",
+          "currency",
+          "paymentType",
+          "testMode",
+          "orderId",
+          "orderItemIds",
+          "orderEventId",
+          "orderNumber",
+          "now",
+        ]
+      : [
+          "status",
+          "merchantOid",
+          "callbackDigest",
+          "operationId",
+          "fingerprint",
+          "totalAmount",
+          "paymentType",
+          "testMode",
+          "failedReasonCode",
+          "failedReasonMessageDigest",
+          "now",
+        ];
+    const v = exact(input, fields);
+    const oid = merchantOid(v.merchantOid),
+      callback = digest(v.callbackDigest),
+      operation = uuid(v.operationId),
+      fingerprint = digest(v.fingerprint),
+      at = now(v.now);
+    if (
+      (v.status !== "success" && v.status !== "failed") ||
+      (v.paymentType !== "card" && v.paymentType !== "eft") ||
+      v.testMode !== 1 ||
+      (success && v.currency !== "TRY")
+    )
+      throw trustedCheckoutPaymentError("invalid_input");
+    const values = success
+      ? [
+          oid,
+          callback,
+          operation,
+          fingerprint,
+          "success",
+          paymentAmount(v.paymentAmount),
+          paymentAmount(v.totalAmount),
+          "TRY",
+          v.paymentType,
+          1,
+          null,
+          null,
+          uuid(v.orderId),
+          uuidArray(v.orderItemIds, 1, 100),
+          uuid(v.orderEventId),
+          plainString(v.orderNumber, 1, 128),
+          at,
+        ]
+      : [
+          oid,
+          callback,
+          operation,
+          fingerprint,
+          "failed",
+          null,
+          paymentAmount(v.totalAmount),
+          null,
+          v.paymentType,
+          1,
+          plainString(v.failedReasonCode, 1, 64),
+          digest(v.failedReasonMessageDigest),
+          null,
+          null,
+          null,
+          null,
+          at,
+        ];
+    const parser = (payload: unknown, resultOutcome: string) => {
+      if (resultOutcome === "failed") {
+        const p = record(payload, ["outcome", "status"]);
+        if (p.outcome !== "failed" || p.status !== "failed") unavailable();
+        return Object.freeze({ outcome: "failed" as const });
+      }
+      const p = record(payload, [], ["outcome", "orderNumber"]);
+      const orderNumber =
+        p.orderNumber === undefined
+          ? undefined
+          : plainString(p.orderNumber, 1, 128);
+      const normalized =
+        resultOutcome === "operation_replayed" ? "replayed" : resultOutcome;
+      if (normalized !== "settled" && normalized !== "replayed") unavailable();
+      return Object.freeze({
+        outcome: normalized,
+        ...(orderNumber === undefined ? {} : { orderNumber }),
+      }) as Readonly<{ outcome: "settled" | "replayed"; orderNumber?: string }>;
+    };
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_settle_callback($1::text,$2::text,$3::uuid,$4::text,$5::text,$6::bigint,$7::bigint,$8::text,$9::text,$10::integer,$11::text,$12::text,$13::uuid,$14::uuid[],$15::uuid,$16::text,$17::timestamptz)",
+        values,
+      },
+      ["settled", "replayed", "failed"],
+      parser,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_recover_callback($1::text,$2::text,$3::uuid,$4::text)",
+        values: [oid, callback, operation, fingerprint],
+      },
+    );
+    return result ?? Object.freeze({ outcome: "commit_unknown" });
+  }
+  async beginReconciliationRun(
+    input: ReconciliationRunInput,
+  ): Promise<Readonly<{ outcome: "acquired" | "busy" }>> {
+    const v = exact(input, [
+      "workerId",
+      "runTokenDigest",
+      "now",
+      "leaseExpiresAt",
+    ]);
+    const workerId = uuid(v.workerId),
+      runTokenDigest = digest(v.runTokenDigest),
+      at = now(v.now),
+      leaseExpiresAt = now(v.leaseExpiresAt);
+    const parse = (payload: unknown, resultOutcome: string) => {
+      const p = record(
+        payload,
+        ["status"],
+        resultOutcome === "acquired" ? ["leaseExpiresAt"] : [],
+      );
+      if (
+        (resultOutcome === "acquired" && p.status !== "acquired") ||
+        (resultOutcome === "busy" && p.status !== "busy")
+      )
+        unavailable();
+      return Object.freeze({ outcome: resultOutcome as "acquired" | "busy" });
+    };
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_begin_reconciliation_run($1::uuid,$2::text,$3::timestamptz,$4::timestamptz)",
+        values: [workerId, runTokenDigest, at, leaseExpiresAt],
+      },
+      ["acquired", "busy"],
+      parse,
+    );
+    if (result) return result;
+    try {
+      return await read(
+        this.options,
+        {
+          text: "SELECT outcome, result_payload FROM saas.checkout_recover_reconciliation_run($1::uuid,$2::text,$3::timestamptz)",
+          values: [workerId, runTokenDigest, at],
+        },
+        "acquired",
+        parse,
+      );
+    } catch {
+      unknown();
+    }
+  }
+  async claimReconciliation(
+    input: ClaimReconciliationInput,
+  ): Promise<readonly ReconciliationAuthority[]> {
+    const v = exact(input, ["workerId", "now", "leaseExpiresAt", "limit"]);
+    const limit = integer(v.limit, 1, 25);
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_claim_reconciliation($1::uuid,$2::timestamptz,$3::timestamptz,$4::bigint)",
+        values: [uuid(v.workerId), now(v.now), now(v.leaseExpiresAt), limit],
+      },
+      ["claimed"],
+      (payload) => {
+        const p = record(payload, ["claims"]);
+        if (!Array.isArray(p.claims) || p.claims.length > limit) unavailable();
+        return Object.freeze(
+          p.claims.map(
+            (claim) => parseAuthority(claim, true) as ReconciliationAuthority,
+          ),
+        );
+      },
+    );
+    if (!result) unknown();
+    return result;
+  }
+  async claimRedemptionReconciliation(
+    input: ResolveRedemptionInput &
+      Readonly<{ workerId: string; leaseExpiresAt: Date }>,
+  ): Promise<ReconciliationAuthority | undefined> {
+    const v = exact(input, [
+      "hostname",
+      "redemptionDigest",
+      "workerId",
+      "now",
+      "leaseExpiresAt",
+    ]);
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_claim_redemption_reconciliation($1::text,$2::text,$3::uuid,$4::timestamptz,$5::timestamptz)",
+        values: [
+          hostname(v.hostname),
+          digest(v.redemptionDigest),
+          uuid(v.workerId),
+          now(v.now),
+          now(v.leaseExpiresAt),
+        ],
+      },
+      ["claimed", "not_found"],
+      (payload, resultOutcome) =>
+        resultOutcome === "not_found"
+          ? null
+          : (parseAuthority(payload, true) as ReconciliationAuthority),
+    );
+    if (result === undefined) unknown();
+    return result ?? undefined;
+  }
+  async applyReconciliationSuccess(
+    input: ApplyReconciliationSuccessInput,
+  ): Promise<
+    Readonly<{ outcome: "settled" | "replayed"; orderNumber: string }>
+  > {
+    const v = exact(input, [
+      "merchantOid",
+      "workerId",
+      "leaseToken",
+      "operationId",
+      "fingerprint",
+      "paymentAmount",
+      "totalAmount",
+      "currency",
+      "testMode",
+      "orderId",
+      "orderItemIds",
+      "orderEventId",
+      "orderNumber",
+      "now",
+    ]);
+    if (
+      v.currency !== "TRY" ||
+      v.testMode !== 1 ||
+      !Array.isArray(v.orderItemIds)
+    )
+      throw trustedCheckoutPaymentError("invalid_input");
+    const oid = merchantOid(v.merchantOid),
+      operation = uuid(v.operationId),
+      fingerprint = digest(v.fingerprint);
+    const parser = (payload: unknown, resultOutcome: string) => {
+      const p = record(payload, ["orderNumber"]);
+      const normalized =
+        resultOutcome === "operation_replayed" ? "replayed" : resultOutcome;
+      if (normalized !== "settled" && normalized !== "replayed") unavailable();
+      return Object.freeze({
+        outcome: normalized as "settled" | "replayed",
+        orderNumber: plainString(p.orderNumber, 1, 128),
+      });
+    };
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_apply_reconciliation_success($1::text,$2::uuid,$3::text,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::text,$9::integer,$10::uuid,$11::uuid[],$12::uuid,$13::text,$14::timestamptz)",
+        values: [
+          oid,
+          uuid(v.workerId),
+          token(v.leaseToken),
+          operation,
+          fingerprint,
+          paymentAmount(v.paymentAmount),
+          paymentAmount(v.totalAmount),
+          "TRY",
+          1,
+          uuid(v.orderId),
+          v.orderItemIds.map(uuid),
+          uuid(v.orderEventId),
+          plainString(v.orderNumber, 1, 128),
+          now(v.now),
+        ],
+      },
+      ["settled", "replayed"],
+      parser,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_recover_reconciliation($1::text,$2::uuid,$3::text)",
+        values: [oid, operation, fingerprint],
+      },
+    );
+    if (!result) unknown();
+    return result;
+  }
+  async recordReconciliationUnknown(
+    input: RecordReconciliationUnknownInput,
+  ): Promise<void> {
+    const v = exact(input, [
+      "merchantOid",
+      "workerId",
+      "leaseToken",
+      "operationId",
+      "fingerprint",
+      "nextAttemptAt",
+      "now",
+    ]);
+    const oid = merchantOid(v.merchantOid),
+      operation = uuid(v.operationId),
+      fingerprint = digest(v.fingerprint);
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_record_reconciliation_unknown($1::text,$2::uuid,$3::text,$4::uuid,$5::text,$6::timestamptz,$7::timestamptz)",
+        values: [
+          oid,
+          uuid(v.workerId),
+          token(v.leaseToken),
+          operation,
+          fingerprint,
+          now(v.nextAttemptAt),
+          now(v.now),
+        ],
+      },
+      ["committed", "operation_replayed"],
+      (payload) => {
+        const p = record(payload, ["outcome", "status", "nextAttemptAt"]);
+        if (
+          p.outcome !== "unknown" ||
+          p.status !== "unknown" ||
+          typeof p.nextAttemptAt !== "string"
+        )
+          unavailable();
+        return true;
+      },
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_recover_reconciliation($1::text,$2::uuid,$3::text)",
+        values: [oid, operation, fingerprint],
+      },
+    );
+    if (result === undefined) unknown();
+  }
+  async finishReconciliationRun(
+    input: Readonly<{ workerId: string; runToken: string; now: Date }>,
+  ): Promise<void> {
+    const v = exact(input, ["workerId", "runToken", "now"]);
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_finish_reconciliation_run($1::uuid,$2::text,$3::timestamptz)",
+        values: [uuid(v.workerId), token(v.runToken), now(v.now)],
+      },
+      ["committed"],
+      (payload) => {
+        const p = record(payload, ["status"]);
+        if (p.status !== "finished") unavailable();
+        return true;
+      },
+    );
+    if (result === undefined) unknown();
+  }
+  async cleanupPreProviderAttempts(
+    input: CleanupPreProviderAttemptsInput,
+  ): Promise<Readonly<{ releasedCount: number }>> {
+    const v = exact(input, [
+      "workerId",
+      "operationId",
+      "fingerprint",
+      "now",
+      "limit",
+    ]);
+    const worker = uuid(v.workerId),
+      operation = uuid(v.operationId),
+      fingerprint = digest(v.fingerprint),
+      limit = integer(v.limit, 1, 100);
+    const parser = (payload: unknown) => {
+      const p = record(payload, ["releasedCount"]);
+      return Object.freeze({
+        releasedCount: integer(p.releasedCount, 0, limit),
+      });
+    };
+    const result = await write(
+      this.options,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_cleanup_pre_provider_attempts($1::uuid,$2::uuid,$3::text,$4::timestamptz,$5::bigint)",
+        values: [worker, operation, fingerprint, now(v.now), limit],
+      },
+      ["committed", "operation_replayed"],
+      parser,
+      {
+        text: "SELECT outcome, result_payload FROM saas.checkout_recover_cleanup_operation($1::uuid,$2::uuid,$3::text)",
+        values: [worker, operation, fingerprint],
+      },
+    );
+    if (!result) unknown();
+    return result;
+  }
 }
