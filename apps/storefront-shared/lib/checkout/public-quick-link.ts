@@ -1,4 +1,5 @@
 import { createHash, randomBytes as secureRandomBytes, randomUUID as secureRandomUUID } from "node:crypto";
+import { QuickOrderLinkRepositoryError } from "@celebix/saas-data";
 import type { QuickOrderPublicQuote } from "../../../../packages/saas-contracts/src/quick-orders/index.ts";
 
 import type { CheckoutRuntime } from "./runtime.ts";
@@ -52,6 +53,11 @@ function tokenDigest(value: string): string {
 
 function validDate(value: unknown): value is Date {
   return value instanceof Date && Number.isFinite(value.getTime());
+}
+
+function repositoryUncertainty(error: unknown): boolean {
+  return error instanceof QuickOrderLinkRepositoryError &&
+    (error.code === "commit_unknown" || error.code === "unavailable");
 }
 
 function requestToken(request: Request): string | null {
@@ -146,8 +152,10 @@ export async function claimPublicQuickOrder(input: Readonly<{
       setCookie: serializeRedemptionCookie(credential, maxAge),
       quote: claimed.quote,
     });
-  } catch {
-    return Object.freeze({ kind: "denied", status: 404 });
+  } catch (error) {
+    return repositoryUncertainty(error)
+      ? Object.freeze({ kind: "unavailable", status: 503 })
+      : Object.freeze({ kind: "denied", status: 404 });
   }
 }
 

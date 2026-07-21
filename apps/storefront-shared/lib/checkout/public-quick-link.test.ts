@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { PublicQuickOrderRepository, PublicStorefrontRepository } from "@celebix/saas-data";
+import { QuickOrderLinkRepositoryError, type PublicQuickOrderRepository, type PublicStorefrontRepository } from "@celebix/saas-data";
 import {
   claimPublicQuickOrder,
   createPublicQuickOrderStatusRoute,
@@ -49,6 +49,53 @@ test("approved claimPublicQuickOrder interface returns persisted expiry authorit
   const result = await claimPublicQuickOrder({ trustedHostname: "shop.example.test", token, now }, { runtime: fixture.runtime, randomBytes: () => newCredentialBytes, randomUUID: () => "00000000-0000-4000-8000-000000000002" });
   assert.equal(result.kind, "claimed");
   assert.match(result.kind === "claimed" ? result.setCookie : "", /Max-Age=900/);
+});
+
+test("repository uncertainty fails closed as unavailable without cookie redirect or retry", async () => {
+  for (const [code, expectedStatus] of [
+    ["commit_unknown", 503],
+    ["unavailable", 503],
+    ["invalid_input", 404],
+    ["quick_link_not_found", 404],
+  ] as const) {
+    const fixture = repositories();
+    const quickOrderRepository = {
+      ...fixture.runtime.quickOrderRepository,
+      async claimRedemption(input: Parameters<PublicQuickOrderRepository["claimRedemption"]>[0]) {
+        fixture.calls.claim.push(input);
+        throw new QuickOrderLinkRepositoryError(code);
+      },
+    } satisfies PublicQuickOrderRepository;
+    const runtime = createCheckoutRuntime({ storefrontRepository: fixture.runtime.storefrontRepository, quickOrderRepository });
+    const result = await claimPublicQuickOrder(
+      { trustedHostname: "shop.example.test", token, now },
+      { runtime, randomBytes: () => newCredentialBytes, randomUUID: () => "00000000-0000-4000-8000-000000000002" },
+    );
+    assert.deepEqual(result, expectedStatus === 503 ? { kind: "unavailable", status: 503 } : { kind: "denied", status: 404 });
+    assert.equal(fixture.calls.claim.length, 1);
+
+    const proxyToken = Buffer.alloc(32, 0x26).toString("base64url");
+    const route = createPublicQuickOrderTokenRoute({
+      selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers, {
+        CELEBIX_DEPLOYMENT_TIER: "staging",
+        CELEBIX_STOREFRONT_PROXY_MODE: "approved_staging",
+        CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL: proxyToken,
+      }),
+      resolveRuntime: async () => runtime,
+      now: () => now,
+      randomBytes: () => newCredentialBytes,
+      randomUUID: () => "00000000-0000-4000-8000-000000000002",
+    });
+    const response = await route(new Request(`http://storefront.internal:3450/odeme/hizli/${token}`, { headers: {
+      "x-celebix-storefront-proxy": `p1.${proxyToken}`,
+      "x-forwarded-host": "shop.example.test",
+      "x-forwarded-proto": "https",
+    } }), { params: Promise.resolve({ token }) });
+    assert.equal(response.status, expectedStatus);
+    assert.equal(response.headers.get("location"), null);
+    assert.equal(response.headers.get("set-cookie"), null);
+    assert.equal(fixture.calls.claim.length, 2);
+  }
 });
 
 test("injectable route adapters invoke real Response behavior and deny before repositories", async () => {

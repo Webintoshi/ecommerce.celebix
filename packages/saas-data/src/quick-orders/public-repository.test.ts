@@ -199,6 +199,10 @@ test("claimRedemption controls SQL outcomes and proves unknown commits with one 
     { ...redemptionProjection(), canonicalHostname: "other.example.com" },
     { ...redemptionProjection(), redemptionExpiresAt: "2026-07-21T08:15:01.000000Z" },
     { ...redemptionProjection(), redemptionExpiresAt: "2026-07-21T08:00:00.000000Z" },
+    {
+      ...redemptionProjection(),
+      quote: { ...quote(), expiresAt: "2026-07-21T08:14:59.000000Z" },
+    },
   ]) {
     const mismatch = new FakeClient((text) => text.includes("quick_links_claim_redemption")
       ? [row("claimed", projection)]

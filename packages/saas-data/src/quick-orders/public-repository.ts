@@ -190,17 +190,20 @@ function parseProjection(
   expectedExpiry?: Date,
 ): RedemptionProjection {
   const parsed = strictRecord(value, ["canonicalHostname", "redemptionExpiresAt", "quote"]);
+  const quote = safeQuote(parsed.quote);
+  const quoteExpiration = timestamp(quote.expiresAt);
   const canonicalHostname = hostname(parsed.canonicalHostname, "unavailable");
   const expiration = timestamp(parsed.redemptionExpiresAt);
   if (
     canonicalHostname !== expectedHostname || expiration.milliseconds <= now.getTime() ||
+    expiration.milliseconds > quoteExpiration.milliseconds ||
     (expectedExpiry !== undefined && expiration.milliseconds > expectedExpiry.getTime())
   ) unavailable();
   return Object.freeze({
     canonicalHostname,
     redemptionExpiresAt: expiration.text,
     redemptionExpiresAtMilliseconds: expiration.milliseconds,
-    quote: safeQuote(parsed.quote),
+    quote,
   });
 }
 

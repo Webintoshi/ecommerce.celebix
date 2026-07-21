@@ -49,6 +49,7 @@ function privateIpv6(value: string): boolean {
     (first & 0xff00) === 0xff00 ||
     (first === 0x64 && second === 0xff9b && third === 1) ||
     (first === 0x100 && second === 0 && third === 0 && fourth === 0) ||
+    (first === 0x100 && second === 0 && third === 0 && fourth === 1) ||
     (first === 0x2001 && second <= 0x01ff) ||
     (first === 0x2001 && second === 0x0db8) || first === 0x2002 ||
     (first & 0xfff0) === 0x3ff0 || first === 0x5f00 ||

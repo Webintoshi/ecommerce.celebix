@@ -22,6 +22,13 @@ test("rejects internal, loopback, unspecified, documentation, benchmark, multica
   ]) assert.equal(parseTrustedClientIp(value), null, value);
 });
 
+test("rejects the exact IANA dummy IPv6 prefix without consuming its upper neighbor", () => {
+  assert.equal(parseTrustedClientIp("100:0:0:1::"), null);
+  assert.equal(parseTrustedClientIp("100:0:0:1:ffff:ffff:ffff:ffff"), null);
+  assert.equal(parseTrustedClientIp("100:0:0:0:ffff:ffff:ffff:ffff"), null);
+  assert.equal(parseTrustedClientIp("100:0:0:2::"), "100:0:0:2::");
+});
+
 test("rejects ports, zones, malformed values, and non-string authority", () => {
   for (const value of ["8.8.8.8:443", "[2606:4700:4700::1111]", "fe80::1%en0", "example.test", "", null, "192.0.2.1", "198.51.100.1", "203.0.113.1", "198.18.0.1", "224.0.0.1", "255.255.255.255", "2001:db8::1", "ff02::1"]) assert.equal(parseTrustedClientIp(value), null);
 });
