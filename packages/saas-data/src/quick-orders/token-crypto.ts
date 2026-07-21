@@ -11,6 +11,10 @@ const DIGEST = /^[a-f0-9]{64}$/;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const PURPOSES = new Set(["link-token", "provider-config", "provider-token"] as const);
+const TYPED_ARRAY_TAG_GETTER = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype),
+  Symbol.toStringTag,
+)!.get as (this: ArrayBufferView) => string | undefined;
 const TYPED_ARRAY_VALUES = Uint8Array.prototype.values;
 const TYPED_ARRAY_ITERATOR_NEXT = Object.getPrototypeOf(TYPED_ARRAY_VALUES.call(new Uint8Array()))
   .next as (this: IterableIterator<number>) => IteratorResult<number>;
@@ -114,6 +118,7 @@ function canonicalBase64url(value: unknown, bytesMinimum: number, bytesMaximum: 
 
 function copyKey(value: unknown): Buffer {
   if (typeof value !== "object" || value === null) invalid();
+  if (Reflect.apply(TYPED_ARRAY_TAG_GETTER, value, []) !== "Uint8Array") invalid();
   const iterator = Reflect.apply(TYPED_ARRAY_VALUES, value, []) as IterableIterator<number>;
   const copy = Buffer.alloc(32);
   let retained = false;

@@ -141,6 +141,18 @@ test("quick link crypto rejects invalid 31-byte and 33-byte key material", () =>
   const envelope = seal({ keyring: keyring("active-v1", [{ keyId: "active-v1", key: accessorKey }]) });
   assert.equal(open(envelope, { keyring: keyring("active-v1", [{ keyId: "active-v1", key: Buffer.alloc(32, 0x11) }]) }), TOKEN);
   assert.equal(getterCalled, 0);
+  for (const foreignKey of [
+    new Uint16Array(32),
+    new Uint8ClampedArray(32),
+    new Int8Array(32),
+    new DataView(new ArrayBuffer(32)),
+    new Proxy(new Uint8Array(32), {}),
+  ]) {
+    assert.throws(
+      () => seal({ keyring: keyring("active-v1", [{ keyId: "active-v1", key: foreignKey as unknown as Uint8Array }]) }),
+      /quick_link_crypto_invalid/,
+    );
+  }
 });
 
 test("quick link crypto rejects duplicate IDs missing active keys and duplicate bytes", () => {
