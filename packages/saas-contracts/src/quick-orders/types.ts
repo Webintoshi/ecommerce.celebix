@@ -29,6 +29,20 @@ export interface QuickOrderAddress {
   readonly country: string;
 }
 
+export interface QuickOrderCreateIntent {
+  readonly items: readonly Readonly<{ variantId: string; quantity: number }>[];
+  readonly customerName: string;
+  readonly customerEmail: string;
+  readonly customerPhone: string;
+  readonly shippingAddress: Readonly<QuickOrderAddress>;
+  readonly billingAddress: Readonly<QuickOrderAddress>;
+  readonly customerNote?: string;
+  readonly internalLabel?: string;
+  readonly shippingCents: number;
+  readonly discountCents: number;
+  readonly expiryHours: 4 | 12 | 24 | 48 | 72;
+}
+
 export interface QuickOrderLinkListItem {
   readonly id: string;
   readonly customerName: string;

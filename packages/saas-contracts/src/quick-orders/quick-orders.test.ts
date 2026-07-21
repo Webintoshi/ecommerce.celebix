@@ -7,9 +7,13 @@ import {
   QUICK_ORDER_MAX_COMPONENT_CENTS,
   QUICK_ORDER_MAX_TOTAL_CENTS,
   QUICK_ORDER_MAX_UNIT_PRICE_CENTS,
+  parseCheckoutState,
+  parseQuickOrderCreateIntent,
   parseQuickOrderLinkDetail,
   parseQuickOrderLinkListItem,
   parseQuickOrderLinkMutationResult,
+  parseQuickOrderMerchantUrl,
+  parseQuickOrderPublicQuote,
 } from "./index.ts";
 
 const LINK_ID = "11111111-1111-4111-8111-111111111111";
@@ -84,6 +88,46 @@ function detail(overrides: Record<string, unknown> = {}) {
     items: [item()],
     openedAt: OPENED_AT,
     updatedAt: UPDATED_AT,
+    ...overrides,
+  };
+}
+
+function createIntent(overrides: Record<string, unknown> = {}) {
+  return {
+    items: [{ variantId: ITEM_ID, quantity: 2 }],
+    customerName: "Ada Lovelace",
+    customerEmail: "ada@example.com",
+    customerPhone: "+905551112233",
+    shippingAddress: address(),
+    billingAddress: address({ line1: "Farkli Sokak 2" }),
+    customerNote: "Please call on arrival",
+    internalLabel: "VIP",
+    shippingCents: 1_000,
+    discountCents: 1_500,
+    expiryHours: 24,
+    ...overrides,
+  };
+}
+
+function publicQuote(overrides: Record<string, unknown> = {}) {
+  return {
+    schemaVersion: 1,
+    status: "opened",
+    merchantName: "Atlas Store",
+    currency: "TRY",
+    subtotalCents: 24_000,
+    shippingCents: 1_000,
+    discountCents: 1_500,
+    totalCents: 23_500,
+    expiresAt: EXPIRES_AT,
+    items: [{
+      productName: "Atlas Mug",
+      variantName: "Black",
+      imageUrl: "https://cdn.example.test/products/atlas-mug.png",
+      unitPriceCents: 12_000,
+      quantity: 2,
+      lineTotalCents: 24_000,
+    }],
     ...overrides,
   };
 }
@@ -358,4 +402,285 @@ test("rejects every lifecycle timestamp and status mismatch", () => {
   for (const [name, overrides] of cases) {
     assert.throws(() => parseQuickOrderLinkDetail(detail(overrides)), /quick_order_contract_invalid/, name);
   }
+});
+
+test("quick order create intent copies and deeply freezes canonical merchant input", () => {
+  const input = createIntent();
+  const parsed = parseQuickOrderCreateIntent(input);
+
+  assert.deepEqual(parsed, input);
+  assert.notEqual(parsed, input);
+  assert.notEqual(parsed.items, input.items);
+  assert.notEqual(parsed.shippingAddress, input.shippingAddress);
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.equal(Object.isFrozen(parsed.items), true);
+  assert.equal(Object.isFrozen(parsed.items[0]), true);
+  assert.equal(Object.isFrozen(parsed.shippingAddress), true);
+  assert.equal(Object.isFrozen(parsed.billingAddress), true);
+  assert.equal(Object.isFrozen(input), false);
+});
+
+test("quick order create intent accepts only omitted optional merchant text", () => {
+  const { customerNote: _note, internalLabel: _label, ...required } = createIntent();
+  assert.deepEqual(parseQuickOrderCreateIntent(required), required);
+  for (const overrides of [{ customerNote: undefined }, { internalLabel: "" }, { customerNote: " note" }]) {
+    assert.throws(() => parseQuickOrderCreateIntent(createIntent(overrides)), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order create intent requires exact own root keys and an ordinary object", () => {
+  const missing = createIntent();
+  delete (missing as Record<string, unknown>).customerPhone;
+  const inherited = Object.create(createIntent()) as Record<string, unknown>;
+  for (const value of [createIntent({ unexpected: true }), missing, inherited, [], Object.create(null, {
+    ...Object.getOwnPropertyDescriptors(createIntent()),
+    hidden: { value: true, enumerable: false },
+  })]) {
+    assert.throws(() => parseQuickOrderCreateIntent(value), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order create intent never invokes hostile root or nested properties", () => {
+  let rootGetterCalled = false;
+  const rootGetter = createIntent();
+  Object.defineProperty(rootGetter, "customerName", {
+    enumerable: true,
+    get() {
+      rootGetterCalled = true;
+      throw new Error("hostile");
+    },
+  });
+  let addressGetterCalled = false;
+  const hostileAddress = address();
+  Object.defineProperty(hostileAddress, "city", {
+    enumerable: true,
+    get() {
+      addressGetterCalled = true;
+      throw new Error("hostile");
+    },
+  });
+  for (const value of [
+    rootGetter,
+    createIntent({ shippingAddress: hostileAddress }),
+    new Proxy(createIntent(), { ownKeys() { throw new Error("hostile"); } }),
+    createIntent({ billingAddress: new Proxy(address(), { getOwnPropertyDescriptor() { throw new Error("hostile"); } }) }),
+  ]) {
+    assert.throws(() => parseQuickOrderCreateIntent(value), /quick_order_contract_invalid/);
+  }
+  assert.equal(rootGetterCalled, false);
+  assert.equal(addressGetterCalled, false);
+});
+
+test("quick order create intent descriptor-copies dense item arrays without mutation", () => {
+  const input = createIntent();
+  const maliciousMap = [{ variantId: ITEM_ID, quantity: 2 }];
+  Object.defineProperty(maliciousMap, "map", { value() { throw new Error("hostile"); } });
+  const accessor = [{ variantId: ITEM_ID, quantity: 2 }];
+  let getterCalled = false;
+  Object.defineProperty(accessor, "0", { enumerable: true, get() { getterCalled = true; return {}; } });
+  const sparse = new Array(1);
+  const extra = [{ variantId: ITEM_ID, quantity: 2 }] as unknown[] & { token?: string };
+  extra.token = "secret";
+  for (const items of [maliciousMap, accessor, sparse, extra, new Proxy([{}], { ownKeys() { throw new Error("hostile"); } })]) {
+    assert.throws(() => parseQuickOrderCreateIntent(createIntent({ items })), /quick_order_contract_invalid/);
+    assert.equal(Object.isFrozen(items), false);
+  }
+  assert.deepEqual(input, createIntent());
+  assert.equal(getterCalled, false);
+});
+
+test("quick order create intent rejects noncanonical UUID email and required phone", () => {
+  const cases = [
+    { items: [{ variantId: "ABCDEFAB-CDEF-4ABC-8ABC-ABCDEFABCDEF", quantity: 2 }] },
+    { customerEmail: "Ada@Example.com" },
+    { customerEmail: " ada@example.com" },
+    { customerEmail: "ada@example" },
+    { customerPhone: "" },
+    { customerPhone: " +905551112233" },
+    { customerPhone: "+90555\n1112233" },
+  ];
+  for (const overrides of cases) {
+    assert.throws(() => parseQuickOrderCreateIntent(createIntent(overrides)), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order create intent rejects malformed addresses and private authority", () => {
+  for (const overrides of [
+    { shippingAddress: address({ country: "tr" }) },
+    { billingAddress: address({ phone: "" }) },
+    { shippingAddress: address({ unexpected: true }) },
+    { shippingAddress: [] },
+    { storeId: LINK_ID },
+    { providerConfigId: LINK_ID },
+    { currency: "TRY" },
+    { tokenDigest: "a".repeat(64) },
+  ]) {
+    assert.throws(() => parseQuickOrderCreateIntent(createIntent(overrides)), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order create intent enforces item money and expiry boundaries", () => {
+  for (const overrides of [
+    { items: [] },
+    { items: Array.from({ length: 101 }, () => ({ variantId: ITEM_ID, quantity: 1 })) },
+    { items: [{ variantId: ITEM_ID, quantity: 0 }] },
+    { items: [{ variantId: ITEM_ID, quantity: 10_000 }] },
+    { shippingCents: -1 },
+    { discountCents: QUICK_ORDER_MAX_COMPONENT_CENTS + 1 },
+    { expiryHours: 6 },
+  ]) {
+    assert.throws(() => parseQuickOrderCreateIntent(createIntent(overrides)), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order public quote copies and deeply freezes the exact safe projection", () => {
+  const input = publicQuote();
+  const parsed = parseQuickOrderPublicQuote(input);
+  assert.deepEqual(parsed, input);
+  assert.notEqual(parsed, input);
+  assert.notEqual(parsed.items, input.items);
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.equal(Object.isFrozen(parsed.items), true);
+  assert.equal(Object.isFrozen(parsed.items[0]), true);
+  assert.equal(Object.isFrozen(input), false);
+});
+
+test("quick order public quote requires exact own keys and rejects private material", () => {
+  const missing = publicQuote();
+  delete (missing as Record<string, unknown>).merchantName;
+  const inherited = Object.create(publicQuote()) as Record<string, unknown>;
+  for (const value of [
+    missing,
+    inherited,
+    [],
+    publicQuote({ storeId: LINK_ID }),
+    publicQuote({ linkId: LINK_ID }),
+    publicQuote({ customerEmail: "ada@example.com" }),
+    publicQuote({ token: "secret" }),
+    publicQuote({ tokenDigest: "a".repeat(64) }),
+    publicQuote({ sealedToken: {} }),
+    publicQuote({ providerConfig: {} }),
+  ]) {
+    assert.throws(() => parseQuickOrderPublicQuote(value), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order public quote rejects hostile and malformed item arrays without access", () => {
+  const items = publicQuote().items;
+  const accessor = [...items];
+  let getterCalled = false;
+  Object.defineProperty(accessor, "0", { enumerable: true, get() { getterCalled = true; return {}; } });
+  const extra = [...items] as unknown[] & { digest?: string };
+  extra.digest = "secret";
+  for (const value of [accessor, extra, new Array(1), new Proxy([...items], { ownKeys() { throw new Error("hostile"); } })]) {
+    assert.throws(() => parseQuickOrderPublicQuote(publicQuote({ items: value })), /quick_order_contract_invalid/);
+    assert.equal(Object.isFrozen(value), false);
+  }
+  assert.equal(getterCalled, false);
+});
+
+test("quick order public quote accepts only canonical text status TRY timestamps and URLs", () => {
+  for (const overrides of [
+    { schemaVersion: 2 },
+    { status: "paid" },
+    { merchantName: " Atlas Store" },
+    { currency: "USD" },
+    { expiresAt: "2026-07-22T08:00:00Z" },
+    { expiresAt: "2026-07-22T24:00:00.000Z" },
+    { items: [{ ...publicQuote().items[0], productName: "Atlas\nMug" }] },
+    { items: [{ ...publicQuote().items[0], imageUrl: "http://cdn.example.test/a.png" }] },
+    { items: [{ ...publicQuote().items[0], imageUrl: "https://CDN.example.test/a.png" }] },
+  ]) {
+    assert.throws(() => parseQuickOrderPublicQuote(publicQuote(overrides)), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order public quote enforces dense cardinality and exact safe money arithmetic", () => {
+  for (const overrides of [
+    { items: [] },
+    { items: Array.from({ length: 101 }, () => publicQuote().items[0]) },
+    { items: [{ ...publicQuote().items[0], quantity: 0 }] },
+    { items: [{ ...publicQuote().items[0], lineTotalCents: 1 }] },
+    { subtotalCents: 1 },
+    { shippingCents: -1 },
+    { discountCents: 30_000 },
+    { totalCents: 1 },
+    { totalCents: Number.MAX_SAFE_INTEGER + 1 },
+  ]) {
+    assert.throws(() => parseQuickOrderPublicQuote(publicQuote(overrides)), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order public quote allows only active or opened and omits all recipient PII", () => {
+  assert.equal(parseQuickOrderPublicQuote(publicQuote({ status: "active" })).status, "active");
+  assert.equal(parseQuickOrderPublicQuote(publicQuote({ status: "opened" })).status, "opened");
+  for (const key of ["customerName", "customerPhone", "shippingAddress", "billingAddress", "internalLabel"]) {
+    assert.throws(() => parseQuickOrderPublicQuote(publicQuote({ [key]: "private" })), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order merchant URL copies a canonical token-bearing HTTPS URL", () => {
+  const input = {
+    url: `https://atlas.example.test/odeme/hizli/${Buffer.alloc(32, 0x41).toString("base64url")}`,
+    expiresAt: EXPIRES_AT,
+  };
+  const parsed = parseQuickOrderMerchantUrl(input);
+  assert.deepEqual(parsed, input);
+  assert.notEqual(parsed, input);
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.equal(Object.isFrozen(input), false);
+});
+
+test("quick order merchant URL rejects noncanonical locations and private side fields", () => {
+  const token = Buffer.alloc(32, 0x41).toString("base64url");
+  const valid = `https://atlas.example.test/odeme/hizli/${token}`;
+  for (const value of [
+    { url: valid },
+    { url: valid, expiresAt: EXPIRES_AT, linkId: LINK_ID },
+    { url: `http://atlas.example.test/odeme/hizli/${token}`, expiresAt: EXPIRES_AT },
+    { url: `https://ATLAS.example.test/odeme/hizli/${token}`, expiresAt: EXPIRES_AT },
+    { url: `${valid}?token=x`, expiresAt: EXPIRES_AT },
+    { url: `https://atlas.example.test:443/odeme/hizli/${token}`, expiresAt: EXPIRES_AT },
+    { url: `https://user@atlas.example.test/odeme/hizli/${token}`, expiresAt: EXPIRES_AT },
+    { url: `https://atlas.example.test/odeme/hizli/${token}=`, expiresAt: EXPIRES_AT },
+  ]) {
+    assert.throws(() => parseQuickOrderMerchantUrl(value), /quick_order_contract_invalid/);
+  }
+});
+
+test("quick order checkout state parses and freezes every finite safe variant", () => {
+  const fixtures = [
+    { kind: "ready", quote: publicQuote() },
+    { kind: "processing" },
+    { kind: "paid", orderNumber: "CBX-2026-000001" },
+    { kind: "failed" },
+    { kind: "unavailable" },
+  ];
+  for (const fixture of fixtures) {
+    const parsed = parseCheckoutState(fixture);
+    assert.deepEqual(parsed, fixture);
+    assert.equal(Object.isFrozen(parsed), true);
+    if (parsed.kind === "ready") assert.equal(Object.isFrozen(parsed.quote.items), true);
+  }
+});
+
+test("quick order checkout state rejects unknown extra hostile and private variants", () => {
+  let getterCalled = false;
+  const getter = { kind: "paid", orderNumber: "CBX-1" };
+  Object.defineProperty(getter, "orderNumber", { enumerable: true, get() { getterCalled = true; throw new Error("hostile"); } });
+  for (const value of [
+    {},
+    [],
+    { kind: "complete" },
+    { kind: "processing", quote: publicQuote() },
+    { kind: "paid" },
+    { kind: "paid", orderNumber: " CBX-1" },
+    { kind: "failed", storeId: LINK_ID },
+    { kind: "ready", quote: publicQuote({ tokenDigest: "a".repeat(64) }) },
+    getter,
+    new Proxy({ kind: "failed" }, { ownKeys() { throw new Error("hostile"); } }),
+  ]) {
+    assert.throws(() => parseCheckoutState(value), /quick_order_contract_invalid/);
+  }
+  assert.equal(getterCalled, false);
 });

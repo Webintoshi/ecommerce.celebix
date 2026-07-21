@@ -15,3 +15,16 @@ export type {
   QuickOrderLinkRepository,
   SealedQuickLinkToken,
 } from "./types.ts";
+export {
+  digestQuickLinkToken,
+  generateQuickLinkToken,
+  openQuickLinkSecret,
+  sealQuickLinkSecret,
+} from "./token-crypto.ts";
+export type { QuickLinkKeyring, SealedEnvelope } from "./token-crypto.ts";
+export {
+  digestCanonicalPaytrConfiguration,
+  parseCanonicalPaytrConfiguration,
+  serializeCanonicalPaytrConfiguration,
+} from "./provider-configuration.ts";
+export type { CanonicalPaytrConfiguration } from "./provider-configuration.ts";

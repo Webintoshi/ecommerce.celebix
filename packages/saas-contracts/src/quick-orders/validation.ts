@@ -5,6 +5,7 @@ import {
   QUICK_ORDER_MAX_TOTAL_CENTS,
   QUICK_ORDER_MAX_UNIT_PRICE_CENTS,
   type QuickOrderAddress,
+  type QuickOrderCreateIntent,
   type QuickOrderLinkDetail,
   type QuickOrderLinkItem,
   type QuickOrderLinkListItem,
@@ -16,6 +17,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CANONICAL_EMAIL = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const QUICK_ORDER_MAX_SUBTOTAL_CENTS = QUICK_ORDER_MAX_UNIT_PRICE_CENTS * 9_999 * 100;
 const HOUR_MICROSECONDS = 3_600_000_000n;
@@ -189,6 +191,26 @@ function parseItems(value: unknown): readonly QuickOrderLinkItem[] {
   return Object.freeze(items);
 }
 
+function parseCreateItems(value: unknown): QuickOrderCreateIntent["items"] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) invalid();
+  const descriptors = ownDescriptors(value);
+  const lengthDescriptor = descriptors.length;
+  if (!lengthDescriptor || !("value" in lengthDescriptor) || lengthDescriptor.enumerable) invalid();
+  const length = safeInteger(lengthDescriptor.value, 1, 100);
+  if (Reflect.ownKeys(descriptors).length !== length + 1) invalid();
+  const items: Readonly<{ variantId: string; quantity: number }>[] = [];
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) invalid();
+    const parsed = exact(descriptor.value, ["variantId", "quantity"]);
+    items.push(Object.freeze({
+      variantId: uuid(parsed.variantId),
+      quantity: safeInteger(parsed.quantity, 1, 9_999),
+    }));
+  }
+  return Object.freeze(items);
+}
+
 function parseList(value: InputRecord): Readonly<QuickOrderLinkListItem> {
   const createdAt = timestamp(value.createdAt);
   const expiresAt = timestamp(value.expiresAt);
@@ -300,5 +322,28 @@ export function parseQuickOrderLinkMutationResult(value: unknown): Readonly<Quic
       updatedAt,
       replayed: parsed.replayed,
     } satisfies QuickOrderLinkMutationResult);
+  });
+}
+
+export function parseQuickOrderCreateIntent(value: unknown): Readonly<QuickOrderCreateIntent> {
+  return guarded(() => {
+    const parsed = exact(value, [
+      "items", "customerName", "customerEmail", "customerPhone", "shippingAddress", "billingAddress",
+      "shippingCents", "discountCents", "expiryHours",
+    ], ["customerNote", "internalLabel"]);
+    if (!QUICK_ORDER_EXPIRY_HOURS.includes(parsed.expiryHours as 4 | 12 | 24 | 48 | 72)) invalid();
+    return freeze({
+      items: parseCreateItems(parsed.items),
+      customerName: string(parsed.customerName, 1, 200),
+      customerEmail: string(parsed.customerEmail, 3, 320, CANONICAL_EMAIL),
+      customerPhone: string(parsed.customerPhone, 3, 32),
+      shippingAddress: parseAddress(parsed.shippingAddress),
+      billingAddress: parseAddress(parsed.billingAddress),
+      ...(Object.hasOwn(parsed, "customerNote") ? { customerNote: string(parsed.customerNote, 1, 2_000) } : {}),
+      ...(Object.hasOwn(parsed, "internalLabel") ? { internalLabel: string(parsed.internalLabel, 1, 200) } : {}),
+      shippingCents: safeInteger(parsed.shippingCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS),
+      discountCents: safeInteger(parsed.discountCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS),
+      expiryHours: parsed.expiryHours as 4 | 12 | 24 | 48 | 72,
+    } satisfies QuickOrderCreateIntent);
   });
 }

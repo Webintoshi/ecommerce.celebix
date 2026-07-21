@@ -7,6 +7,7 @@ export {
 } from "./types.ts";
 export type {
   QuickOrderAddress,
+  QuickOrderCreateIntent,
   QuickOrderLinkDetail,
   QuickOrderLinkItem,
   QuickOrderLinkListItem,
@@ -14,7 +15,10 @@ export type {
   QuickOrderLinkStatus,
 } from "./types.ts";
 export {
+  parseQuickOrderCreateIntent,
   parseQuickOrderLinkDetail,
   parseQuickOrderLinkListItem,
   parseQuickOrderLinkMutationResult,
 } from "./validation.ts";
+export type { CheckoutState, QuickOrderMerchantUrl, QuickOrderPublicQuote } from "./public-types.ts";
+export { parseCheckoutState, parseQuickOrderMerchantUrl, parseQuickOrderPublicQuote } from "./public-validation.ts";
