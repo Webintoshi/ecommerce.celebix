@@ -21,6 +21,7 @@ import {
 import {
   QUICK_LINK_ERROR_CODES,
   QuickOrderLinkRepositoryError,
+  exposeQuickLinkError,
   isTrustedQuickLinkError,
   trustedQuickLinkError,
   type QuickOrderLinkErrorCode,
@@ -246,6 +247,14 @@ async function acquire(options: RepositoryOptions): Promise<PostgresClientLike> 
   }
 }
 
+async function exposeQuickLinkOperation<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    throw exposeQuickLinkError(error, "unavailable");
+  }
+}
+
 async function read<T>(
   options: RepositoryOptions,
   spec: QuerySpec,
@@ -400,168 +409,177 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
         audit: selected.audit as PostgresQuickOrderLinkRepositoryOptions["audit"],
       });
     } catch (error) {
-      if (isTrustedQuickLinkError(error)) throw error;
-      throw unavailable();
+      throw exposeQuickLinkError(error, "unavailable");
     }
   }
 
   async list(input: ListQuickLinksInput): Promise<ListQuickLinksResult> {
-    const exact = exactQuickLinkInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status"]);
-    const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
-    const pageSize = quickLinkPageSize(exact.pageSize);
-    const status = quickLinkStatusFilter(exact.status);
-    const cursor = decodeQuickLinkCursor(exact.cursor as string | undefined, authority.storeId, status);
-    return read(this.options, {
-      text: `SELECT outcome, result_payload FROM saas.quick_links_list(
-        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
-        $8::text,$9::bigint,$10::timestamptz,$11::uuid
-      )`,
-      values: [
-        ...authorityValues(authority), status ?? null, pageSize,
-        cursor?.createdAt ?? null, cursor?.id ?? null,
-      ],
-    }, "listed", (value) => {
-      const envelope = strictRecord(value, ["items"], ["nextCursor"]);
-      const rawItems = strictDenseArray(envelope.items, pageSize);
-      const parsedItems: QuickOrderLinkListItem[] = new Array(rawItems.length);
-      for (let index = 0; index < rawItems.length; index += 1) {
-        parsedItems[index] = safeListItem(rawItems[index]);
-      }
-      const items = Object.freeze(parsedItems);
-      for (let index = 1; index < items.length; index += 1) compareListOrder(items[index - 1]!, items[index]!);
-      if (!Object.hasOwn(envelope, "nextCursor")) return Object.freeze({ items });
-      if (items.length !== pageSize || items.length === 0) throw unavailable();
-      let databaseCursor;
-      try { databaseCursor = parseQuickLinkDatabaseCursor(envelope.nextCursor, items.at(-1)!); }
-      catch { throw unavailable(); }
-      return Object.freeze({ items, nextCursor: encodeQuickLinkCursor(authority.storeId, status, databaseCursor) });
+    return exposeQuickLinkOperation(() => {
+      const exact = exactQuickLinkInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status"]);
+      const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+      const pageSize = quickLinkPageSize(exact.pageSize);
+      const status = quickLinkStatusFilter(exact.status);
+      const cursor = decodeQuickLinkCursor(exact.cursor as string | undefined, authority.storeId, status);
+      return read(this.options, {
+        text: `SELECT outcome, result_payload FROM saas.quick_links_list(
+          $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
+          $8::text,$9::bigint,$10::timestamptz,$11::uuid
+        )`,
+        values: [
+          ...authorityValues(authority), status ?? null, pageSize,
+          cursor?.createdAt ?? null, cursor?.id ?? null,
+        ],
+      }, "listed", (value) => {
+        const envelope = strictRecord(value, ["items"], ["nextCursor"]);
+        const rawItems = strictDenseArray(envelope.items, pageSize);
+        const parsedItems: QuickOrderLinkListItem[] = new Array(rawItems.length);
+        for (let index = 0; index < rawItems.length; index += 1) {
+          parsedItems[index] = safeListItem(rawItems[index]);
+        }
+        const items = Object.freeze(parsedItems);
+        for (let index = 1; index < items.length; index += 1) compareListOrder(items[index - 1]!, items[index]!);
+        if (!Object.hasOwn(envelope, "nextCursor")) return Object.freeze({ items });
+        if (items.length !== pageSize || items.length === 0) throw unavailable();
+        let databaseCursor;
+        try { databaseCursor = parseQuickLinkDatabaseCursor(envelope.nextCursor, items.at(-1)!); }
+        catch { throw unavailable(); }
+        return Object.freeze({ items, nextCursor: encodeQuickLinkCursor(authority.storeId, status, databaseCursor) });
+      });
     });
   }
 
   async get(input: GetQuickLinkInput): Promise<QuickOrderLinkDetail> {
-    const exact = exactQuickLinkInput(input, ["tenantContext", "now", "linkId"]);
-    const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
-    const linkId = quickLinkUuid(exact.linkId);
-    return read(this.options, {
-      text: `SELECT outcome, result_payload FROM saas.quick_links_get(
-        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
-      )`,
-      values: [...authorityValues(authority), linkId],
-    }, "found", (value) => {
-      const result = safeDetail(value);
-      if (result.id !== linkId) throw unavailable();
-      return result;
+    return exposeQuickLinkOperation(() => {
+      const exact = exactQuickLinkInput(input, ["tenantContext", "now", "linkId"]);
+      const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+      const linkId = quickLinkUuid(exact.linkId);
+      return read(this.options, {
+        text: `SELECT outcome, result_payload FROM saas.quick_links_get(
+          $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid
+        )`,
+        values: [...authorityValues(authority), linkId],
+      }, "found", (value) => {
+        const result = safeDetail(value);
+        if (result.id !== linkId) throw unavailable();
+        return result;
+      });
     });
   }
 
   async create(input: CreateQuickLinkInput): Promise<QuickOrderLinkMutationResult> {
-    const exact = exactQuickLinkInput(input, [
-      "tenantContext", "now", "operationId", "linkId", "items", "providerConfigId",
-      "customerName", "customerEmail", "shippingAddress", "billingAddress", "shippingCents",
-      "discountCents", "expiryHours", "tokenDigest", "sealedToken",
-    ], ["customerPhone", "customerNote", "internalLabel"]);
-    const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
-    const operationId = quickLinkUuid(exact.operationId);
-    const linkId = quickLinkUuid(exact.linkId);
-    const items = quickLinkItems(exact.items);
-    const providerConfigId = quickLinkUuid(exact.providerConfigId);
-    const customerName = quickLinkCustomerName(exact.customerName);
-    const customerEmail = quickLinkEmail(exact.customerEmail);
-    const customerPhone = exact.customerPhone === undefined ? undefined : quickLinkPhone(exact.customerPhone);
-    const shippingAddress = quickLinkAddress(exact.shippingAddress);
-    const billingAddress = quickLinkAddress(exact.billingAddress);
-    const customerNote = exact.customerNote === undefined ? undefined : quickLinkNote(exact.customerNote);
-    const internalLabel = exact.internalLabel === undefined ? undefined : quickLinkLabel(exact.internalLabel);
-    const shippingCents = quickLinkComponentCents(exact.shippingCents);
-    const discountCents = quickLinkComponentCents(exact.discountCents);
-    const expiryHours = quickLinkExpiryHours(exact.expiryHours);
-    const tokenDigest = quickLinkDigest(exact.tokenDigest);
-    const sealedToken = quickLinkSealedToken(exact.sealedToken);
-    const fingerprint = quickOrderFingerprint("create", authority.storeId, {
-      customerName,
-      customerEmail,
-      customerPhone: customerPhone ?? null,
-      shippingAddress,
-      billingAddress,
-      customerNote: customerNote ?? null,
-      internalLabel: internalLabel ?? null,
-      shippingCents,
-      discountCents,
-      expiryHours,
-      items: items.map(({ variantId, quantity }) => ({ variantId, quantity })),
-      providerConfigId,
+    return exposeQuickLinkOperation(() => {
+      const exact = exactQuickLinkInput(input, [
+        "tenantContext", "now", "operationId", "linkId", "items", "providerConfigId",
+        "customerName", "customerEmail", "shippingAddress", "billingAddress", "shippingCents",
+        "discountCents", "expiryHours", "tokenDigest", "sealedToken",
+      ], ["customerPhone", "customerNote", "internalLabel"]);
+      const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+      const operationId = quickLinkUuid(exact.operationId);
+      const linkId = quickLinkUuid(exact.linkId);
+      const items = quickLinkItems(exact.items);
+      const providerConfigId = quickLinkUuid(exact.providerConfigId);
+      const customerName = quickLinkCustomerName(exact.customerName);
+      const customerEmail = quickLinkEmail(exact.customerEmail);
+      const customerPhone = exact.customerPhone === undefined ? undefined : quickLinkPhone(exact.customerPhone);
+      const shippingAddress = quickLinkAddress(exact.shippingAddress);
+      const billingAddress = quickLinkAddress(exact.billingAddress);
+      const customerNote = exact.customerNote === undefined ? undefined : quickLinkNote(exact.customerNote);
+      const internalLabel = exact.internalLabel === undefined ? undefined : quickLinkLabel(exact.internalLabel);
+      const shippingCents = quickLinkComponentCents(exact.shippingCents);
+      const discountCents = quickLinkComponentCents(exact.discountCents);
+      const expiryHours = quickLinkExpiryHours(exact.expiryHours);
+      const tokenDigest = quickLinkDigest(exact.tokenDigest);
+      const sealedToken = quickLinkSealedToken(exact.sealedToken);
+      const fingerprint = quickOrderFingerprint("create", authority.storeId, {
+        customerName,
+        customerEmail,
+        customerPhone: customerPhone ?? null,
+        shippingAddress,
+        billingAddress,
+        customerNote: customerNote ?? null,
+        internalLabel: internalLabel ?? null,
+        shippingCents,
+        discountCents,
+        expiryHours,
+        items: items.map(({ variantId, quantity }) => ({ variantId, quantity })),
+        providerConfigId,
+      });
+      const parser: MutationParser = (value, replayed) => {
+        const result = safeMutation(value, replayed);
+        if ((!replayed && result.id !== linkId) || result.status !== "active" || result.version !== 1) throw unavailable();
+        return result;
+      };
+      return mutate(this.options, authority, operationId, "create", fingerprint, {
+        text: `SELECT outcome, result_payload FROM saas.quick_links_create(
+          $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
+          $8::uuid,$9::uuid[],$10::uuid[],$11::bigint[],$12::uuid,
+          $13::text,$14::text,$15::text,$16::jsonb,$17::jsonb,$18::text,$19::text,
+          $20::bigint,$21::bigint,$22::bigint,$23::text,$24::text,$25::jsonb,$26::uuid,$27::text
+        )`,
+        values: [
+          ...authorityValues(authority), linkId,
+          items.map(({ itemId }) => itemId), items.map(({ variantId }) => variantId), items.map(({ quantity }) => quantity),
+          providerConfigId, customerName, customerEmail, customerPhone ?? null,
+          JSON.stringify(shippingAddress), JSON.stringify(billingAddress), customerNote ?? null, internalLabel ?? null,
+          shippingCents, discountCents, expiryHours, tokenDigest, sealedToken.keyId, JSON.stringify(sealedToken),
+          operationId, fingerprint,
+        ],
+      }, parser);
     });
-    const parser: MutationParser = (value, replayed) => {
-      const result = safeMutation(value, replayed);
-      if ((!replayed && result.id !== linkId) || result.status !== "active" || result.version !== 1) throw unavailable();
-      return result;
-    };
-    return mutate(this.options, authority, operationId, "create", fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.quick_links_create(
-        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
-        $8::uuid,$9::uuid[],$10::uuid[],$11::bigint[],$12::uuid,
-        $13::text,$14::text,$15::text,$16::jsonb,$17::jsonb,$18::text,$19::text,
-        $20::bigint,$21::bigint,$22::bigint,$23::text,$24::text,$25::jsonb,$26::uuid,$27::text
-      )`,
-      values: [
-        ...authorityValues(authority), linkId,
-        items.map(({ itemId }) => itemId), items.map(({ variantId }) => variantId), items.map(({ quantity }) => quantity),
-        providerConfigId, customerName, customerEmail, customerPhone ?? null,
-        JSON.stringify(shippingAddress), JSON.stringify(billingAddress), customerNote ?? null, internalLabel ?? null,
-        shippingCents, discountCents, expiryHours, tokenDigest, sealedToken.keyId, JSON.stringify(sealedToken),
-        operationId, fingerprint,
-      ],
-    }, parser);
   }
 
   async cancel(input: CancelQuickLinkInput): Promise<QuickOrderLinkMutationResult> {
-    const exact = exactQuickLinkInput(input, ["tenantContext", "now", "linkId", "operationId", "expectedVersion"]);
-    const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
-    const linkId = quickLinkUuid(exact.linkId);
-    const operationId = quickLinkUuid(exact.operationId);
-    const expectedVersion = quickLinkVersion(exact.expectedVersion);
-    const fingerprint = quickOrderFingerprint("cancel", authority.storeId, { linkId, expectedVersion });
-    const parser: MutationParser = (value, replayed) => {
-      const result = safeMutation(value, replayed);
-      if (result.id !== linkId || result.status !== "cancelled" || result.version !== expectedVersion + 1) throw unavailable();
-      return result;
-    };
-    return mutate(this.options, authority, operationId, "cancel", fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.quick_links_cancel(
-        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
-        $8::uuid,$9::bigint,$10::uuid,$11::text
-      )`,
-      values: [...authorityValues(authority), linkId, expectedVersion, operationId, fingerprint],
-    }, parser);
+    return exposeQuickLinkOperation(() => {
+      const exact = exactQuickLinkInput(input, ["tenantContext", "now", "linkId", "operationId", "expectedVersion"]);
+      const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+      const linkId = quickLinkUuid(exact.linkId);
+      const operationId = quickLinkUuid(exact.operationId);
+      const expectedVersion = quickLinkVersion(exact.expectedVersion);
+      const fingerprint = quickOrderFingerprint("cancel", authority.storeId, { linkId, expectedVersion });
+      const parser: MutationParser = (value, replayed) => {
+        const result = safeMutation(value, replayed);
+        if (result.id !== linkId || result.status !== "cancelled" || result.version !== expectedVersion + 1) throw unavailable();
+        return result;
+      };
+      return mutate(this.options, authority, operationId, "cancel", fingerprint, {
+        text: `SELECT outcome, result_payload FROM saas.quick_links_cancel(
+          $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
+          $8::uuid,$9::bigint,$10::uuid,$11::text
+        )`,
+        values: [...authorityValues(authority), linkId, expectedVersion, operationId, fingerprint],
+      }, parser);
+    });
   }
 
   async duplicate(input: DuplicateQuickLinkInput): Promise<QuickOrderLinkMutationResult> {
-    const exact = exactQuickLinkInput(input, [
-      "tenantContext", "now", "linkId", "operationId", "newLinkId", "newItemIds", "tokenDigest", "sealedToken",
-    ]);
-    const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
-    const sourceLinkId = quickLinkUuid(exact.linkId);
-    const operationId = quickLinkUuid(exact.operationId);
-    const newLinkId = quickLinkUuid(exact.newLinkId);
-    if (newLinkId === sourceLinkId) throw trustedQuickLinkError("invalid_input");
-    const newItemIds = quickLinkItemIds(exact.newItemIds);
-    const tokenDigest = quickLinkDigest(exact.tokenDigest);
-    const sealedToken = quickLinkSealedToken(exact.sealedToken);
-    const fingerprint = quickOrderFingerprint("duplicate", authority.storeId, { sourceLinkId });
-    const parser: MutationParser = (value, replayed) => {
-      const result = safeMutation(value, replayed);
-      if ((!replayed && result.id !== newLinkId) || result.status !== "active" || result.version !== 1) throw unavailable();
-      return result;
-    };
-    return mutate(this.options, authority, operationId, "duplicate", fingerprint, {
-      text: `SELECT outcome, result_payload FROM saas.quick_links_duplicate(
-        $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
-        $8::uuid,$9::uuid,$10::uuid[],$11::text,$12::text,$13::jsonb,$14::uuid,$15::text
-      )`,
-      values: [
-        ...authorityValues(authority), sourceLinkId, newLinkId, [...newItemIds], tokenDigest,
-        sealedToken.keyId, JSON.stringify(sealedToken), operationId, fingerprint,
-      ],
-    }, parser);
+    return exposeQuickLinkOperation(() => {
+      const exact = exactQuickLinkInput(input, [
+        "tenantContext", "now", "linkId", "operationId", "newLinkId", "newItemIds", "tokenDigest", "sealedToken",
+      ]);
+      const authority = quickLinkAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+      const sourceLinkId = quickLinkUuid(exact.linkId);
+      const operationId = quickLinkUuid(exact.operationId);
+      const newLinkId = quickLinkUuid(exact.newLinkId);
+      if (newLinkId === sourceLinkId) throw trustedQuickLinkError("invalid_input");
+      const newItemIds = quickLinkItemIds(exact.newItemIds);
+      const tokenDigest = quickLinkDigest(exact.tokenDigest);
+      const sealedToken = quickLinkSealedToken(exact.sealedToken);
+      const fingerprint = quickOrderFingerprint("duplicate", authority.storeId, { sourceLinkId });
+      const parser: MutationParser = (value, replayed) => {
+        const result = safeMutation(value, replayed);
+        if ((!replayed && result.id !== newLinkId) || result.status !== "active" || result.version !== 1) throw unavailable();
+        return result;
+      };
+      return mutate(this.options, authority, operationId, "duplicate", fingerprint, {
+        text: `SELECT outcome, result_payload FROM saas.quick_links_duplicate(
+          $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
+          $8::uuid,$9::uuid,$10::uuid[],$11::text,$12::text,$13::jsonb,$14::uuid,$15::text
+        )`,
+        values: [
+          ...authorityValues(authority), sourceLinkId, newLinkId, [...newItemIds], tokenDigest,
+          sealedToken.keyId, JSON.stringify(sealedToken), operationId, fingerprint,
+        ],
+      }, parser);
+    });
   }
 }

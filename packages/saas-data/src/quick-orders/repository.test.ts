@@ -739,6 +739,117 @@ test("public repository errors thrown by untrusted inputs, rows, drivers, or con
   );
 });
 
+test("escaped repository errors are fresh sealed public values and cannot transfer internal trust", async () => {
+  async function capture(operation: () => Promise<unknown>): Promise<unknown> {
+    let captured: unknown;
+    try {
+      await operation();
+    } catch (error) {
+      captured = error;
+    }
+    assert.notEqual(captured, undefined, "expected repository rejection");
+    return captured;
+  }
+
+  function captureSync(operation: () => unknown): unknown {
+    let captured: unknown;
+    try {
+      operation();
+    } catch (error) {
+      captured = error;
+    }
+    assert.notEqual(captured, undefined, "expected repository rejection");
+    return captured;
+  }
+
+  function assertSealedPublicError(error: unknown, code: string): asserts error is QuickOrderLinkRepositoryError {
+    assert.ok(error instanceof QuickOrderLinkRepositoryError);
+    assert.equal(error.code, code);
+    assert.equal(error.name, "QuickOrderLinkRepositoryError");
+    assert.equal(error.message, code);
+    assert.equal(error.constructor, QuickOrderLinkRepositoryError);
+    assert.equal(Object.getPrototypeOf(error), QuickOrderLinkRepositoryError.prototype);
+    assert.equal(Object.isFrozen(error), true);
+    for (const [key, value] of [
+      ["code", "commit_unknown"],
+      ["name", PRIVATE_DRIVER],
+      ["message", PRIVATE_DRIVER],
+    ] as const) {
+      assert.throws(() => { (error as unknown as Record<string, unknown>)[key] = value; }, TypeError);
+      assert.equal(String(error).includes(PRIVATE_DRIVER), false);
+    }
+  }
+
+  const constructorError = captureSync(() => new PostgresQuickOrderLinkRepository({
+    pool: new FakePool(),
+    role: "celebix_saas_owner",
+    timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
+    audit: () => undefined,
+  } as never));
+  assertSealedPublicError(constructorError, "unavailable");
+
+  const invalidOperations = [
+    () => repository(new FakePool()).list({ tenantContext: tenantContext(), now: NOW, pageSize: 0 }),
+    () => repository(new FakePool()).get({ tenantContext: tenantContext(), now: NOW, linkId: "not-a-uuid" }),
+    () => repository(new FakePool()).create(createInput({ operationId: "not-a-uuid" })),
+    () => repository(new FakePool()).cancel({
+      tenantContext: tenantContext(), now: NOW, linkId: LINK_ID, operationId: OPERATION_ID, expectedVersion: 0,
+    }),
+    () => repository(new FakePool()).duplicate(duplicateInput({ newLinkId: LINK_ID })),
+  ];
+  const exposedInputErrors: QuickOrderLinkRepositoryError[] = [];
+  for (const operation of invalidOperations) {
+    const error = await capture(operation);
+    assertSealedPublicError(error, "invalid_input");
+    exposedInputErrors.push(error);
+  }
+  const invalidInput = exposedInputErrors[2]!;
+
+  const EscapedConstructor = invalidInput.constructor as typeof QuickOrderLinkRepositoryError;
+  const constructed = new EscapedConstructor("commit_unknown");
+  assertSealedPublicError(constructed, "commit_unknown");
+
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.quick_links_create")) return [{ outcome: "committed", result_payload: mutation() }];
+    if (text === "COMMIT") throw new Error(PRIVATE_DRIVER);
+    return [];
+  });
+  const internalCommitUnknown = await capture(() => repository(new FakePool(writer, new Error(PRIVATE_DRIVER))).create(createInput()));
+  assertSealedPublicError(internalCommitUnknown, "commit_unknown");
+
+  for (const injected of [invalidInput, constructed, internalCommitUnknown]) {
+    const inputPool = new FakePool();
+    const inputResult = await capture(() => repository(inputPool).create(new Proxy(createInput(), {
+      ownKeys: () => { throw injected; },
+    })));
+    assertSealedPublicError(inputResult, "invalid_input");
+    assert.notEqual(inputResult, injected);
+    assert.equal(inputPool.connects, 0);
+
+    const queryClient = new FakeClient((text) => {
+      if (text.includes("saas.quick_links_get")) throw injected;
+      return [];
+    });
+    const queryResult = await capture(() => repository(new FakePool(queryClient)).get({
+      tenantContext: tenantContext(), now: NOW, linkId: LINK_ID,
+    }));
+    assertSealedPublicError(queryResult, "unavailable");
+    assert.notEqual(queryResult, injected);
+
+    const hostileRow = new Proxy({ outcome: "found", result_payload: detail() }, {
+      ownKeys: () => { throw injected; },
+    });
+    const rowClient = new FakeClient((text) => text.includes("saas.quick_links_get")
+      ? { rows: [hostileRow], rowCount: 1 }
+      : []);
+    const rowResult = await capture(() => repository(new FakePool(rowClient)).get({
+      tenantContext: tenantContext(), now: NOW, linkId: LINK_ID,
+    }));
+    assertSealedPublicError(rowResult, "unavailable");
+    assert.notEqual(rowResult, injected);
+  }
+});
+
 test("known mutation COMMIT returns once, releases normally, and audit cannot alter it", async () => {
   let audits = 0;
   const client = new FakeClient((text) => text.includes("saas.quick_links_create")

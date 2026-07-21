@@ -30,8 +30,13 @@ export class QuickOrderLinkRepositoryError extends Error {
       throw new TypeError("quick_link_error_code_invalid");
     }
     super(code);
-    this.name = "QuickOrderLinkRepositoryError";
     this.code = code;
+    Object.defineProperties(this, {
+      code: { configurable: false, enumerable: true, value: code, writable: false },
+      message: { configurable: false, enumerable: false, value: code, writable: false },
+      name: { configurable: false, enumerable: false, value: "QuickOrderLinkRepositoryError", writable: false },
+    });
+    Object.freeze(this);
   }
 }
 
@@ -43,4 +48,11 @@ export function trustedQuickLinkError(code: QuickOrderLinkErrorCode): QuickOrder
 
 export function isTrustedQuickLinkError(error: unknown): error is QuickOrderLinkRepositoryError {
   return error instanceof TrustedQuickOrderLinkRepositoryError;
+}
+
+export function exposeQuickLinkError(
+  error: unknown,
+  fallback: QuickOrderLinkErrorCode,
+): QuickOrderLinkRepositoryError {
+  return new QuickOrderLinkRepositoryError(isTrustedQuickLinkError(error) ? error.code : fallback);
 }
