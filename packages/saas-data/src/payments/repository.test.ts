@@ -241,6 +241,91 @@ test("provider-ready, initiation terminal methods and presentation use their exa
     client.calls.map((call) => call.text).join("\n"),
     /checkout_mark_provider_ready[\s\S]*checkout_mark_initiation_unknown[\s\S]*checkout_mark_initiation_failed[\s\S]*checkout_get_payment_presentation/,
   );
+  const cases = [
+    {
+      name: "provider-ready",
+      initial: row("committed", ready),
+      recovered: row("operation_replayed", ready),
+      sql: "checkout_mark_provider_ready",
+      recover: "checkout_recover_attempt_operation",
+      invoke: (target: PostgresCheckoutPaymentRepository) =>
+        target.markProviderReady({
+          attemptId: ids.attempt,
+          operationId: ids.operation,
+          fingerprint: digest,
+          providerTokenDigest: digest,
+          sealedProviderToken: envelope,
+          now,
+        }),
+    },
+    {
+      name: "initiation-unknown",
+      initial: row("committed", { status: "initiation_unknown" }),
+      recovered: row("operation_replayed", {
+        status: "initiation_unknown",
+      }),
+      sql: "checkout_mark_initiation_unknown",
+      recover: "checkout_recover_attempt_operation",
+      invoke: (target: PostgresCheckoutPaymentRepository) =>
+        target.markInitiationUnknown({
+          attemptId: ids.attempt,
+          operationId: ids.operation,
+          fingerprint: digest,
+          now,
+        }),
+    },
+    {
+      name: "initiation-failed",
+      initial: row("committed", { status: "failed" }),
+      recovered: row("operation_replayed", { status: "failed" }),
+      sql: "checkout_mark_initiation_failed",
+      recover: "checkout_recover_attempt_operation",
+      invoke: (target: PostgresCheckoutPaymentRepository) =>
+        target.markInitiationFailed({
+          attemptId: ids.attempt,
+          operationId: ids.operation,
+          fingerprint: digest,
+          now,
+        }),
+    },
+  ];
+  for (const entry of cases) {
+    const proven = repo([entry.initial, entry.recovered], true);
+    await entry.invoke(proven.repository);
+    assert.equal(
+      proven.client.calls[0]?.text,
+      "BEGIN ISOLATION LEVEL READ COMMITTED",
+    );
+    assert.equal(proven.client.releases[0], true);
+    assert.equal(
+      proven.client.calls.filter((call) => call.text.includes(entry.sql))
+        .length,
+      1,
+    );
+    assert.equal(
+      proven.client.calls.filter((call) => call.text.includes(entry.recover))
+        .length,
+      1,
+    );
+    assert.equal(
+      proven.client.calls.filter((call) => call.text === "BEGIN READ ONLY")
+        .length,
+      1,
+    );
+    const absent = repo([entry.initial, row("not_found", null)], true);
+    await assert.rejects(
+      () => entry.invoke(absent.repository),
+      /commit_unknown/,
+    );
+    const mismatch = repo(
+      [entry.initial, row("operation_mismatch", null)],
+      true,
+    );
+    await assert.rejects(
+      () => entry.invoke(mismatch.repository),
+      /commit_unknown/,
+    );
+  }
 });
 test("callback authority is read-only and keeps provider configuration server-only", async () => {
   const { repository, client } = repo([row("found", authority)]);
@@ -487,6 +572,107 @@ test("reconciliation lifecycle and cleanup use bounded canonical parameters", as
     }),
     { releasedCount: 2 },
   );
+  const recoveryCases = [
+    {
+      name: "reconciliation-success",
+      initial: row("settled", { orderNumber: "ORD-1" }),
+      recovered: row("operation_replayed", { orderNumber: "ORD-1" }),
+      sql: "checkout_apply_reconciliation_success",
+      invoke: (target: PostgresCheckoutPaymentRepository) =>
+        target.applyReconciliationSuccess({
+          merchantOid,
+          workerId: ids.worker,
+          leaseToken: token,
+          operationId: ids.operation,
+          fingerprint: digest,
+          paymentAmount: 1234,
+          totalAmount: 1234,
+          currency: "TRY",
+          testMode: 1,
+          orderId: ids.order,
+          orderItemIds: [ids.item],
+          orderEventId: ids.event,
+          orderNumber: "ORD-1",
+          now,
+        }),
+    },
+    {
+      name: "reconciliation-unknown",
+      initial: row("committed", {
+        outcome: "unknown",
+        status: "unknown",
+        nextAttemptAt: later.toISOString(),
+      }),
+      recovered: row("operation_replayed", {
+        outcome: "unknown",
+        status: "unknown",
+        nextAttemptAt: later.toISOString(),
+      }),
+      sql: "checkout_record_reconciliation_unknown",
+      invoke: (target: PostgresCheckoutPaymentRepository) =>
+        target.recordReconciliationUnknown({
+          merchantOid,
+          workerId: ids.worker,
+          leaseToken: token,
+          operationId: ids.operation,
+          fingerprint: digest,
+          nextAttemptAt: later,
+          now,
+        }),
+    },
+    {
+      name: "cleanup",
+      initial: row("committed", { releasedCount: 2 }),
+      recovered: row("operation_replayed", { releasedCount: 2 }),
+      sql: "checkout_cleanup_pre_provider_attempts",
+      invoke: (target: PostgresCheckoutPaymentRepository) =>
+        target.cleanupPreProviderAttempts({
+          workerId: ids.worker,
+          operationId: ids.operation,
+          fingerprint: digest,
+          now,
+          limit: 2,
+        }),
+    },
+  ];
+  for (const entry of recoveryCases) {
+    const proven = repo([entry.initial, entry.recovered], true);
+    await entry.invoke(proven.repository);
+    assert.equal(
+      proven.client.calls[0]?.text,
+      "BEGIN ISOLATION LEVEL READ COMMITTED",
+      entry.name,
+    );
+    assert.equal(proven.client.releases[0], true, entry.name);
+    assert.equal(
+      proven.client.calls.filter((call) => call.text.includes(entry.sql))
+        .length,
+      1,
+      entry.name,
+    );
+    assert.equal(
+      proven.client.calls.filter((call) =>
+        call.text.includes("BEGIN READ ONLY"),
+      ).length,
+      1,
+      entry.name,
+    );
+    const absent = repo([entry.initial, row("not_found", null)], true);
+    await assert.rejects(
+      () => entry.invoke(absent.repository),
+      /commit_unknown/,
+      entry.name,
+    );
+    const mismatch = repo(
+      [entry.initial, row("operation_mismatch", null)],
+      true,
+    );
+    await assert.rejects(
+      () => entry.invoke(mismatch.repository),
+      /commit_unknown/,
+      entry.name,
+    );
+  }
 });
 test("hostile rows and driver failures expose safe payment errors", async () => {
   const { repository } = repo([
@@ -651,6 +837,27 @@ test("reconciliation-run unknown commit recovers once only when the durable auth
   ]);
   await assert.rejects(
     () => malformedPayload.repository.beginReconciliationRun(input),
+    /unavailable/,
+  );
+  const extraPayload = repo([
+    row("acquired", {
+      status: "acquired",
+      leaseExpiresAt: later.toISOString(),
+      workerId: ids.worker,
+    }),
+  ]);
+  await assert.rejects(
+    () => extraPayload.repository.beginReconciliationRun(input),
+    /unavailable/,
+  );
+  const contradictoryPayload = repo([
+    row("acquired", {
+      status: "acquired",
+      leaseExpiresAt: new Date(later.getTime() + 1_000).toISOString(),
+    }),
+  ]);
+  await assert.rejects(
+    () => contradictoryPayload.repository.beginReconciliationRun(input),
     /unavailable/,
   );
   const proven = repo(
