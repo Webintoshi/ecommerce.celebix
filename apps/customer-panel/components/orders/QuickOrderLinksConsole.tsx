@@ -238,8 +238,10 @@ export function QuickOrderLinksConsole() {
   const resultButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const searchSequence = useRef(0);
+  const activeSearchAbort = useRef<AbortController | undefined>(undefined);
   const listSequence = useRef(0);
   const createRetry = useRef<Readonly<{ fingerprint: string; operationId: string }> | undefined>(undefined);
+  const renderedSearchSequence = searchSequence.current;
 
   const shippingCents = cents(shippingInput) ?? 0;
   const discountCents = cents(discountInput) ?? 0;
@@ -286,8 +288,7 @@ export function QuickOrderLinksConsole() {
 
   useEffect(() => {
     const normalized = query.trim();
-    const sequence = ++searchSequence.current;
-    const controller = new AbortController();
+    const sequence = renderedSearchSequence;
     resultButtonRefs.current = [];
     if (normalized === "") {
       setSearchState("idle");
@@ -295,6 +296,8 @@ export function QuickOrderLinksConsole() {
       setSearchError("");
       return;
     }
+    const controller = new AbortController();
+    activeSearchAbort.current = controller;
     setSearchResults([]);
     setSearchState("loading");
     setSearchError("");
@@ -314,8 +317,20 @@ export function QuickOrderLinksConsole() {
     return () => {
       window.clearTimeout(timeout);
       controller.abort();
+      if (activeSearchAbort.current === controller) activeSearchAbort.current = undefined;
     };
-  }, [query]);
+  }, [query, renderedSearchSequence]);
+
+  function changeSearchQuery(value: string) {
+    searchSequence.current += 1;
+    activeSearchAbort.current?.abort();
+    activeSearchAbort.current = undefined;
+    resultButtonRefs.current = [];
+    setSearchResults([]);
+    setSearchError("");
+    setSearchState(value.trim() === "" ? "idle" : "loading");
+    setQuery(value);
+  }
 
   function updateAddress(setter: typeof setShippingAddress, key: keyof AddressForm, value: string) {
     setter((current) => ({ ...current, [key]: value }));
@@ -369,8 +384,7 @@ export function QuickOrderLinksConsole() {
 
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
-      setQuery("");
-      setSearchResults([]);
+      changeSearchQuery("");
       searchInputRef.current?.focus();
     } else if (event.key === "ArrowDown" && resultButtonRefs.current[0]) {
       event.preventDefault();
@@ -391,7 +405,8 @@ export function QuickOrderLinksConsole() {
   }
 
   function resetBuilder() {
-    setQuery("");
+    changeSearchQuery("");
+    createRetry.current = undefined;
     setSelectedLines([]);
     setExpiryHours(24);
     setCustomerName("");
@@ -574,7 +589,7 @@ export function QuickOrderLinksConsole() {
                     <input
                       ref={searchInputRef}
                       value={query}
-                      onChange={(event) => setQuery(event.target.value)}
+                      onChange={(event) => changeSearchQuery(event.target.value)}
                       onKeyDown={handleSearchKeyDown}
                       placeholder="Ürün ara…"
                       maxLength={100}

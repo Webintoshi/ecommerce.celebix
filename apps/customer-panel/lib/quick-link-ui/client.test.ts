@@ -70,8 +70,9 @@ type MountedNode = {
   target: { focus(): void; focused: boolean };
 };
 
-function createHookRuntime() {
+function createHookRuntime(deferEffects = false) {
   const slots: unknown[] = [];
+  const pendingEffects: Array<() => void> = [];
   let cursor = 0;
   let dirty = true;
   let latest: ReactNode;
@@ -107,11 +108,19 @@ function createHookRuntime() {
     },
     useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
       const index = cursor++;
-      const prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void } | undefined;
+      const prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void; generation: number } | undefined;
       if (prior !== undefined && sameDeps(prior.deps, deps)) return;
-      prior?.cleanup?.();
-      const cleanup = effect();
-      slots[index] = { deps: [...deps], ...(typeof cleanup === "function" ? { cleanup } : {}) };
+      const generation = (prior?.generation ?? 0) + 1;
+      slots[index] = { deps: [...deps], cleanup: prior?.cleanup, generation };
+      const run = () => {
+        const current = slots[index] as { deps: readonly unknown[]; cleanup?: () => void; generation: number } | undefined;
+        if (current?.generation !== generation) return;
+        current.cleanup?.();
+        const cleanup = effect();
+        slots[index] = { deps: [...deps], ...(typeof cleanup === "function" ? { cleanup } : {}), generation };
+      };
+      if (deferEffects) pendingEffects.push(run);
+      else run();
     },
   } as unknown as typeof React;
   return {
@@ -127,6 +136,11 @@ function createHookRuntime() {
         if (!dirty) return latest;
       }
       throw new Error("quick_order_console_hook_flush_exhausted");
+    },
+    async flushEffects() {
+      const effects = pendingEffects.splice(0);
+      for (const effect of effects) effect();
+      await new Promise<void>((resolve) => setImmediate(resolve));
     },
   };
 }
@@ -170,7 +184,11 @@ function mountedText(node: MountedNode | string): string {
   return typeof node === "string" ? node : node.children.map(mountedText).join("");
 }
 
-async function createMountedQuickOrderConsole(api: Record<string, unknown>, clipboardWrite: (value: string) => Promise<void> = async () => {}) {
+async function createMountedQuickOrderConsole(
+  api: Record<string, unknown>,
+  clipboardWrite: (value: string) => Promise<void> = async () => {},
+  options: Readonly<{ deferEffects?: boolean }> = {},
+) {
   const output = ts.transpileModule(await source("components/orders/QuickOrderLinksConsole.tsx"), {
     compilerOptions: {
       esModuleInterop: true,
@@ -179,7 +197,7 @@ async function createMountedQuickOrderConsole(api: Record<string, unknown>, clip
       target: ts.ScriptTarget.ES2022,
     },
   }).outputText;
-  const hooks = createHookRuntime();
+  const hooks = createHookRuntime(options.deferEffects);
   const Icon = (props: Record<string, unknown>) => createElement("svg", props);
   const Wrapper = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("div", props, children);
   const shell = {
@@ -242,6 +260,9 @@ async function createMountedQuickOrderConsole(api: Record<string, unknown>, clip
       const pending = [...timers.values()];
       timers.clear();
       await Promise.all(pending.map((callback) => callback()));
+    },
+    async runEffects() {
+      await hooks.flushEffects();
     },
   };
 }
@@ -624,6 +645,47 @@ test("mounted search clears stale rows, aborts obsolete work, and keeps semantic
   assert.equal(search.target.focused, true);
 });
 
+test("query change invalidates in-flight search before deferred effect cleanup", async () => {
+  let oldSignal: AbortSignal | undefined;
+  let resolveOld: ((value: readonly unknown[]) => void) | undefined;
+  const console = await createMountedQuickOrderConsole({
+    async listLinks() { return Object.freeze({ items: Object.freeze([]) }); },
+    async searchProducts(query: string, options?: { signal?: AbortSignal }) {
+      if (query === "eski") {
+        oldSignal = options?.signal;
+        return new Promise<readonly unknown[]>((resolve) => { resolveOld = resolve; });
+      }
+      return Object.freeze([]);
+    },
+  }, async () => {}, { deferEffects: true });
+  let tree = await console.render();
+  await console.runEffects();
+  tree = await console.render();
+  let search = mountedNodes(tree).find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  (search.props.onChange as (event: unknown) => void)({ target: { value: "eski" } });
+  await console.render();
+  await console.runEffects();
+  const oldTimer = console.runTimers();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.ok(oldSignal);
+
+  tree = await console.render();
+  search = mountedNodes(tree).find((node) => node.type === "input" && node.props.placeholder === "Ürün ara…")!;
+  (search.props.onChange as (event: unknown) => void)({ target: { value: "yeni" } });
+  const abortedAtEventBoundary = oldSignal?.aborted;
+  resolveOld?.(Object.freeze([Object.freeze({
+    title: "Eski Ürün",
+    variants: Object.freeze([Object.freeze({ variantId: VARIANT_ID, title: "Standart", priceCents: 7_000 })]),
+  })]));
+  await oldTimer;
+  tree = await console.render();
+  const textContent = tree.map(mountedText).join("");
+
+  assert.equal(abortedAtEventBoundary, true, "the input event aborts obsolete work before passive effects run");
+  assert.doesNotMatch(textContent, /Eski Ürün/, "an old promise cannot publish between commit and effect cleanup");
+  assert.match(textContent, /Ürünler aranıyor/);
+});
+
 test("mounted create refreshes durable rows before clipboard and reports copy failure separately", async () => {
   const events: string[] = [];
   let listCalls = 0;
@@ -691,6 +753,42 @@ test("mounted ambiguous create retry reuses its operation identity", async () =>
 
   assert.equal(operationCalls, 1);
   assert.deepEqual(operationIds, [OPERATION_ID, OPERATION_ID]);
+  assert.match(tree.map(mountedText).join(""), /Ödeme linki oluşturuldu/);
+});
+
+test("explicit Temizle abandons ambiguous create identity before rebuilding the same intent", async () => {
+  const NEXT_OPERATION_ID = "88888888-8888-4888-8888-888888888888";
+  const operationIds: unknown[] = [];
+  let operationCalls = 0;
+  let createCalls = 0;
+  let ambiguousError: Error;
+  const console = await createMountedQuickOrderConsole({
+    newCreateOperationId() { operationCalls += 1; return operationCalls === 1 ? OPERATION_ID : NEXT_OPERATION_ID; },
+    async listLinks() { return Object.freeze({ items: Object.freeze([]) }); },
+    async searchProducts() { return Object.freeze([Object.freeze({ title: "Atlas Kupa", variants: Object.freeze([Object.freeze({ variantId: VARIANT_ID, title: "Standart", priceCents: 7_000 })]) })]); },
+    async createLink(_value: unknown, operationId: unknown) {
+      createCalls += 1;
+      operationIds.push(operationId);
+      if (createCalls === 1) throw ambiguousError;
+      return Object.freeze({ url: SHARE_URL, expiresAt: EXPIRES_AT });
+    },
+  });
+  ambiguousError = new console.ApiError("commit_unknown");
+  let tree = await fillMountedQuickOrderForm(console);
+  let form = mountedNodes(tree).find((node) => node.type === "form")!;
+  await (form.props.onSubmit as (event: unknown) => Promise<void>)({ preventDefault() {} });
+  tree = await console.render();
+  const clear = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Temizle")!;
+  (clear.props.onClick as () => void)();
+  await console.render();
+
+  tree = await fillMountedQuickOrderForm(console);
+  form = mountedNodes(tree).find((node) => node.type === "form")!;
+  await (form.props.onSubmit as (event: unknown) => Promise<void>)({ preventDefault() {} });
+  tree = await console.render();
+
+  assert.equal(operationCalls, 2);
+  assert.deepEqual(operationIds, [OPERATION_ID, NEXT_OPERATION_ID]);
   assert.match(tree.map(mountedText).join(""), /Ödeme linki oluşturuldu/);
 });
 
