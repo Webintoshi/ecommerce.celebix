@@ -146,6 +146,49 @@ test("beginAttempt uses workflow authority and canonical begin parameters", asyn
     digest,
     now,
   ]);
+  const recoveryInput = {
+    hostname: "shop.example.test",
+    redemptionDigest: digest,
+    attemptId: ids.attempt,
+    merchantOid,
+    operationId: ids.operation,
+    fingerprint: digest,
+    now,
+  };
+  const proven = repo(
+    [row("committed", begin), row("operation_replayed", begin)],
+    true,
+  );
+  assert.equal(
+    (await proven.repository.beginAttempt(recoveryInput)).outcome,
+    "replayed",
+  );
+  assert.equal(proven.client.releases[0], true);
+  assert.equal(
+    proven.client.calls.filter((call) =>
+      /checkout_begin_attempt/.test(call.text),
+    ).length,
+    1,
+  );
+  assert.equal(
+    proven.client.calls.filter((call) =>
+      /checkout_recover_attempt_operation/.test(call.text),
+    ).length,
+    1,
+  );
+  const absent = repo([row("committed", begin), row("not_found", null)], true);
+  await assert.rejects(
+    () => absent.repository.beginAttempt(recoveryInput),
+    /commit_unknown/,
+  );
+  const mismatch = repo(
+    [row("committed", begin), row("operation_mismatch", null)],
+    true,
+  );
+  await assert.rejects(
+    () => mismatch.repository.beginAttempt(recoveryInput),
+    /commit_unknown/,
+  );
 });
 test("provider-ready, initiation terminal methods and presentation use their exact functions", async () => {
   const ready = {
@@ -266,6 +309,45 @@ test("unknown callback commit performs one authority-bound recovery and stays co
       .length,
     1,
   );
+  const callbackInput = {
+    status: "success" as const,
+    merchantOid,
+    callbackDigest: digest,
+    operationId: ids.operation,
+    fingerprint: digest,
+    paymentAmount: 1234,
+    totalAmount: 1234,
+    currency: "TRY" as const,
+    paymentType: "card" as const,
+    testMode: 1 as const,
+    orderId: ids.order,
+    orderItemIds: [ids.item],
+    orderEventId: ids.event,
+    orderNumber: "ORD-1",
+    now,
+  };
+  const callbackProven = repo(
+    [
+      row("settled", { outcome: "settled", orderNumber: "ORD-1" }),
+      row("operation_replayed", { outcome: "settled", orderNumber: "ORD-1" }),
+    ],
+    true,
+  );
+  assert.deepEqual(
+    await callbackProven.repository.settleCallback(callbackInput),
+    { outcome: "replayed", orderNumber: "ORD-1" },
+  );
+  const callbackMismatch = repo(
+    [
+      row("settled", { outcome: "settled", orderNumber: "ORD-1" }),
+      row("operation_mismatch", null),
+    ],
+    true,
+  );
+  assert.deepEqual(
+    await callbackMismatch.repository.settleCallback(callbackInput),
+    { outcome: "commit_unknown" },
+  );
 });
 test("audit failure cannot mask unknown commit", async () => {
   const { repository } = repo(
@@ -327,7 +409,10 @@ test("reconciliation claims are bounded and authority-shaped", async () => {
 });
 test("reconciliation lifecycle and cleanup use bounded canonical parameters", async () => {
   const { repository } = repo([
-    row("acquired", { status: "acquired" }),
+    row("acquired", {
+      status: "acquired",
+      leaseExpiresAt: later.toISOString(),
+    }),
     row("claimed", { ...authority, leaseToken: token, attemptNumber: 1 }),
     row("settled", { orderNumber: "ORD-1" }),
     row("committed", {
@@ -416,6 +501,47 @@ test("hostile rows and driver failures expose safe payment errors", async () => 
       error instanceof CheckoutPaymentRepositoryError &&
       error.code === "unavailable" &&
       !error.message.includes("SELECT"),
+  );
+  const poolFailure = new PostgresCheckoutPaymentRepository({
+    pool: {
+      connect: async () => {
+        throw new Error("postgres password");
+      },
+    } as never,
+    role: "celebix_saas_workflow",
+    timeouts: {
+      poolCheckoutMs: 100,
+      statementMs: 100,
+      lockMs: 100,
+      idleTransactionMs: 100,
+    },
+    audit: () => undefined,
+  });
+  await assert.rejects(
+    () => poolFailure.getCallbackAuthority({ merchantOid, now }),
+    /unavailable/,
+  );
+  const queryFailure = new PostgresCheckoutPaymentRepository({
+    pool: {
+      connect: async () => ({
+        query: async () => {
+          throw new Error("SELECT secret");
+        },
+        release: () => undefined,
+      }),
+    } as never,
+    role: "celebix_saas_workflow",
+    timeouts: {
+      poolCheckoutMs: 100,
+      statementMs: 100,
+      lockMs: 100,
+      idleTransactionMs: 100,
+    },
+    audit: () => undefined,
+  });
+  await assert.rejects(
+    () => queryFailure.getCallbackAuthority({ merchantOid, now }),
+    /unavailable/,
   );
 });
 test("beginAttempt rejects noncanonical public authority", async () => {
@@ -515,9 +641,24 @@ test("reconciliation-run unknown commit recovers once only when the durable auth
     now,
     leaseExpiresAt: later,
   };
+  const missingPayload = repo([row("acquired", { status: "acquired" })]);
+  await assert.rejects(
+    () => missingPayload.repository.beginReconciliationRun(input),
+    /unavailable/,
+  );
+  const malformedPayload = repo([
+    row("acquired", { status: "acquired", leaseExpiresAt: "not-a-date" }),
+  ]);
+  await assert.rejects(
+    () => malformedPayload.repository.beginReconciliationRun(input),
+    /unavailable/,
+  );
   const proven = repo(
     [
-      row("acquired", { status: "acquired" }),
+      row("acquired", {
+        status: "acquired",
+        leaseExpiresAt: later.toISOString(),
+      }),
       row("acquired", {
         status: "acquired",
         leaseExpiresAt: later.toISOString(),
@@ -546,7 +687,13 @@ test("reconciliation-run unknown commit recovers once only when the durable auth
     1,
   );
   const absent = repo(
-    [row("acquired", { status: "acquired" }), row("not_found", null)],
+    [
+      row("acquired", {
+        status: "acquired",
+        leaseExpiresAt: later.toISOString(),
+      }),
+      row("not_found", null),
+    ],
     true,
   );
   await assert.rejects(
@@ -554,7 +701,13 @@ test("reconciliation-run unknown commit recovers once only when the durable auth
     /commit_unknown/,
   );
   const mismatch = repo(
-    [row("acquired", { status: "acquired" }), row("busy", { status: "busy" })],
+    [
+      row("acquired", {
+        status: "acquired",
+        leaseExpiresAt: later.toISOString(),
+      }),
+      row("busy", { status: "busy" }),
+    ],
     true,
   );
   await assert.rejects(

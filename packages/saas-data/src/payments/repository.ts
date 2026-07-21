@@ -159,6 +159,22 @@ function plainString(value: unknown, min = 1, max = 2_048): string {
     unavailable();
   return value;
 }
+function canonicalTimestamp(value: unknown, expected: Date): string {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/.test(value)
+  )
+    unavailable();
+  const parsed = new Date(value);
+  const millisecondText = value.replace(/(\.\d{3})\d{3}Z$/, "$1Z");
+  if (
+    !Number.isFinite(parsed.getTime()) ||
+    parsed.toISOString() !== millisecondText ||
+    parsed.getTime() !== expected.getTime()
+  )
+    unavailable();
+  return value;
+}
 function paymentAmount(value: unknown): number {
   try {
     return integer(value, 1);
@@ -636,9 +652,7 @@ export class PostgresCheckoutPaymentRepository
       (payload) => parseAuthority(payload) as CallbackAuthority,
     );
   }
-  async settleCallback(
-    input: SettleCallbackInput,
-  ): Promise<
+  async settleCallback(input: SettleCallbackInput): Promise<
     Readonly<{
       outcome: "settled" | "replayed" | "failed" | "commit_unknown";
       orderNumber?: string;
@@ -776,16 +790,14 @@ export class PostgresCheckoutPaymentRepository
       at = now(v.now),
       leaseExpiresAt = now(v.leaseExpiresAt);
     const parse = (payload: unknown, resultOutcome: string) => {
-      const p = record(
-        payload,
-        ["status"],
-        resultOutcome === "acquired" ? ["leaseExpiresAt"] : [],
-      );
-      if (
-        (resultOutcome === "acquired" && p.status !== "acquired") ||
-        (resultOutcome === "busy" && p.status !== "busy")
-      )
-        unavailable();
+      const p =
+        resultOutcome === "acquired"
+          ? record(payload, ["status", "leaseExpiresAt"])
+          : record(payload, ["status"]);
+      if (resultOutcome === "acquired") {
+        if (p.status !== "acquired") unavailable();
+        canonicalTimestamp(p.leaseExpiresAt, leaseExpiresAt);
+      } else if (resultOutcome === "busy" && p.status !== "busy") unavailable();
       return Object.freeze({ outcome: resultOutcome as "acquired" | "busy" });
     };
     const result = await write(
