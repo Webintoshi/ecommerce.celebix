@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3b2-202607220026-quick-order-runtime",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Migration 026 rollback destroys quick-order checkout runtime rows and is authorized only for isolated disposable rehearsal before any shared checkout data exists.",
+  "artifacts": [
+    {
+      "id": "202607220026_quick_order_checkout_runtime_up",
+      "direction": "up",
+      "file": "202607220026_quick_order_checkout_runtime.up.sql",
+      "sha256": "5441a5a6a81b2c835b43221eddecf890fc3b5b990ee50a206ebe0b2bf32eea63",
+      "purpose": "Add quick-order redemption, payment-attempt, inventory-reservation, callback, reconciliation and operation authority with deterministic catalog and cancellation guards."
+    },
+    {
+      "id": "202607220026_quick_order_checkout_runtime_down",
+      "direction": "down",
+      "file": "202607220026_quick_order_checkout_runtime.down.sql",
+      "sha256": "0dd96fea8b4aa38d70c62eb595bf8b5509baf5492de53c13396b50e8725aa52b",
+      "purpose": "Remove only migration 026 objects and restore the exact migration-025 cancellation and migration-018 catalog archive behavior."
+    },
+    {
+      "id": "202607220026_quick_order_checkout_runtime_assertions",
+      "direction": "verify",
+      "file": "202607220026_quick_order_checkout_runtime_assertions.sql",
+      "sha256": "90f818065249b85957a22a5ea6bcb5d3dbd679efa7d26da31b33c02bf75bc466",
+      "purpose": "Fail on checkout runtime ownership, FORCE RLS, ACL, identity, lifecycle, immutable receipt, deterministic lock or catalog guard drift."
+    }
+  ]
+}
