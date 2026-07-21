@@ -20,6 +20,8 @@ const OPENED_AT = "2026-07-21T08:10:00.000100Z";
 const PAID_AT = "2026-07-21T08:20:00.000Z";
 const UPDATED_AT = "2026-07-21T08:30:00.000Z";
 const EXPIRES_AT = "2026-07-22T08:00:00.000Z";
+const MAX_LINE_TOTAL_CENTS = QUICK_ORDER_MAX_UNIT_PRICE_CENTS * 9_999;
+const MAX_SUBTOTAL_CENTS = MAX_LINE_TOTAL_CENTS * 100;
 
 function address(overrides: Record<string, unknown> = {}) {
   return {
@@ -121,6 +123,55 @@ test("copies immutable valid list and mutation projections", () => {
   assert.equal(Object.isFrozen(mutation), true);
 });
 
+test("accepts only the exact configured expiry intervals", () => {
+  const expiresAtByHours: Readonly<Record<number, string>> = {
+    4: "2026-07-21T12:00:00.000Z",
+    12: "2026-07-21T20:00:00.000Z",
+    24: EXPIRES_AT,
+    48: "2026-07-23T08:00:00.000Z",
+    72: "2026-07-24T08:00:00.000Z",
+  };
+
+  for (const hours of QUICK_ORDER_EXPIRY_HOURS) {
+    assert.equal(parseQuickOrderLinkDetail(detail({ expiresAt: expiresAtByHours[hours] })).expiresAt, expiresAtByHours[hours]);
+  }
+  assert.throws(() => parseQuickOrderLinkDetail(detail({ expiresAt: "2026-07-21T13:00:00.000Z" })), /quick_order_contract_invalid/);
+});
+
+test("accepts the exact quantity and subtotal upper bounds", () => {
+  const maximumItem = item({
+    unitPriceCents: QUICK_ORDER_MAX_UNIT_PRICE_CENTS,
+    quantity: 9_999,
+    lineTotalCents: MAX_LINE_TOTAL_CENTS,
+  });
+  const quantityBoundary = parseQuickOrderLinkDetail(detail({
+    items: [maximumItem],
+    subtotalCents: MAX_LINE_TOTAL_CENTS,
+    shippingCents: 0,
+    discountCents: 0,
+    totalCents: MAX_LINE_TOTAL_CENTS,
+  }));
+  const maximumItems = Array.from({ length: 100 }, (_, position) => item({
+    id: `22222222-2222-4222-8222-${String(position).padStart(12, "0")}`,
+    position,
+    unitPriceCents: QUICK_ORDER_MAX_UNIT_PRICE_CENTS,
+    quantity: 9_999,
+    lineTotalCents: MAX_LINE_TOTAL_CENTS,
+  }));
+  const subtotalBoundary = parseQuickOrderLinkDetail(detail({
+    items: maximumItems,
+    itemCount: 100,
+    subtotalCents: MAX_SUBTOTAL_CENTS,
+    shippingCents: 0,
+    discountCents: 0,
+    totalCents: MAX_SUBTOTAL_CENTS,
+  }));
+
+  assert.equal(quantityBoundary.items[0].quantity, 9_999);
+  assert.equal(subtotalBoundary.subtotalCents, 7_999_200_000_000_000);
+  assert.ok(subtotalBoundary.subtotalCents > QUICK_ORDER_MAX_COMPONENT_CENTS);
+});
+
 test("parses canonical paid lifecycle values", () => {
   const parsed = parseQuickOrderLinkDetail(detail({
     status: "paid",
@@ -144,7 +195,15 @@ test("preserves opened history when an opened link is cancelled or expires", () 
 
 test("rejects forbidden keys and malformed object boundaries without mutating inputs", () => {
   const inherited = Object.create(detail()) as Record<string, unknown>;
-  const getter = Object.defineProperty({}, "id", { enumerable: true, get() { throw new Error("hostile"); } });
+  let getterCalled = false;
+  const getter = detail();
+  Object.defineProperty(getter, "providerKey", {
+    enumerable: true,
+    get() {
+      getterCalled = true;
+      throw new Error("hostile");
+    },
+  });
   const proxy = new Proxy(detail(), { ownKeys() { throw new Error("hostile"); } });
   const cases: readonly [string, unknown][] = [
     ["unknown root key", detail({ unexpected: true })],
@@ -167,6 +226,46 @@ test("rejects forbidden keys and malformed object boundaries without mutating in
   for (const [name, value] of cases) {
     assert.throws(() => parseQuickOrderLinkDetail(value), /quick_order_contract_invalid/, name);
   }
+  assert.equal(getterCalled, false);
+});
+
+test("rejects untrusted item arrays without calling attacker properties or freezing inputs", () => {
+  let mapCalled = false;
+  let indexGetterCalled = false;
+  const maliciousMap = [item()];
+  Object.defineProperty(maliciousMap, "map", {
+    value() {
+      mapCalled = true;
+      return [{ token: "secret" }];
+    },
+  });
+  const accessorIndex = [item()];
+  Object.defineProperty(accessorIndex, "0", {
+    enumerable: true,
+    get() {
+      indexGetterCalled = true;
+      return item();
+    },
+  });
+  const sparse = new Array(1);
+  const extraKey = [item()] as Array<unknown> & { unexpected?: boolean };
+  extraKey.unexpected = true;
+  const hostileProxy = new Proxy([item()], { ownKeys() { throw new Error("hostile"); } });
+  const cases: readonly [string, unknown[]][] = [
+    ["malicious map", maliciousMap],
+    ["accessor index", accessorIndex],
+    ["sparse", sparse],
+    ["extra key", extraKey],
+    ["hostile proxy", hostileProxy],
+  ];
+
+  for (const [name, items] of cases) {
+    assert.throws(() => parseQuickOrderLinkDetail(detail({ items })), /quick_order_contract_invalid/, name);
+    assert.equal(Object.isFrozen(items), false, name);
+  }
+  assert.equal(mapCalled, false);
+  assert.equal(indexGetterCalled, false);
+  assert.deepEqual(maliciousMap[0], item());
 });
 
 test("rejects noncanonical identifiers, text, e-mail, currency, provider, timestamps, and URLs", () => {
@@ -193,7 +292,7 @@ test("rejects invalid item cardinality, quantities, money, positions, and arithm
     ["zero items", { items: [] }],
     ["101 items", { items: Array.from({ length: 101 }, (_, position) => item({ id: `22222222-2222-4222-8222-${String(position).padStart(12, "0")}`, position })), itemCount: 101 }],
     ["zero quantity", { items: [item({ quantity: 0 })] }],
-    ["quantity too large", { items: [item({ quantity: 1_000 })] }],
+    ["quantity too large", { items: [item({ quantity: 10_000 })] }],
     ["unit price too large", { items: [item({ unitPriceCents: QUICK_ORDER_MAX_UNIT_PRICE_CENTS + 1 })] }],
     ["line total too large", { items: [item({ lineTotalCents: QUICK_ORDER_MAX_COMPONENT_CENTS + 1 })] }],
     ["total too large", { totalCents: QUICK_ORDER_MAX_TOTAL_CENTS + 1 }],

@@ -1,4 +1,5 @@
 import {
+  QUICK_ORDER_EXPIRY_HOURS,
   QUICK_ORDER_LINK_STATUSES,
   QUICK_ORDER_MAX_COMPONENT_CENTS,
   QUICK_ORDER_MAX_TOTAL_CENTS,
@@ -16,6 +17,8 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
+const QUICK_ORDER_MAX_SUBTOTAL_CENTS = QUICK_ORDER_MAX_UNIT_PRICE_CENTS * 9_999 * 100;
+const HOUR_MICROSECONDS = 3_600_000_000;
 
 type InputRecord = Readonly<Record<string, unknown>>;
 
@@ -38,9 +41,13 @@ function record(value: unknown): object {
   return value;
 }
 
+function ownDescriptors(value: object): Record<string, PropertyDescriptor> {
+  return Object.getOwnPropertyDescriptors(value);
+}
+
 function exact(value: unknown, required: readonly string[], optional: readonly string[] = []): InputRecord {
   const parsed = record(value);
-  const descriptors = Object.getOwnPropertyDescriptors(parsed);
+  const descriptors = ownDescriptors(parsed);
   const keys = Reflect.ownKeys(descriptors);
   const allowed = new Set([...required, ...optional]);
   if (
@@ -85,6 +92,12 @@ function timestamp(value: unknown): string {
 
 function comparableTimestamp(value: string): string {
   return value.replace(/(\.\d{3})Z$/, "$1000Z");
+}
+
+function timestampMicroseconds(value: string): number {
+  const fraction = value.match(/\.(\d{3})(\d{3})?Z$/);
+  if (!fraction) invalid();
+  return new Date(value).getTime() * 1_000 + Number(fraction[2] ?? "000");
 }
 
 function safeInteger(value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): number {
@@ -142,7 +155,7 @@ function parseItem(value: unknown, expectedPosition: number): Readonly<QuickOrde
     ["variantName", "sku", "imageUrl"],
   );
   const unitPriceCents = safeInteger(parsed.unitPriceCents, 0, QUICK_ORDER_MAX_UNIT_PRICE_CENTS);
-  const quantity = safeInteger(parsed.quantity, 1, 999);
+  const quantity = safeInteger(parsed.quantity, 1, 9_999);
   const lineTotalCents = safeInteger(parsed.lineTotalCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS);
   if (safeInteger(parsed.position, 0, 99) !== expectedPosition || lineTotalCents !== unitPriceCents * quantity) invalid();
   return freeze({
@@ -159,14 +172,28 @@ function parseItem(value: unknown, expectedPosition: number): Readonly<QuickOrde
 }
 
 function parseItems(value: unknown): readonly QuickOrderLinkItem[] {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 100) invalid();
-  return freeze(value.map((entry, position) => parseItem(entry, position))) as readonly QuickOrderLinkItem[];
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) invalid();
+  const descriptors = ownDescriptors(value);
+  const lengthDescriptor = descriptors.length;
+  if (!lengthDescriptor || !("value" in lengthDescriptor) || lengthDescriptor.enumerable) invalid();
+  const length = safeInteger(lengthDescriptor.value, 1, 100);
+  const keys = Reflect.ownKeys(descriptors);
+  if (keys.length !== length + 1) invalid();
+
+  const items: QuickOrderLinkItem[] = [];
+  for (let position = 0; position < length; position += 1) {
+    const descriptor = descriptors[String(position)];
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) invalid();
+    items.push(parseItem(descriptor.value, position));
+  }
+  return Object.freeze(items);
 }
 
 function parseList(value: InputRecord): Readonly<QuickOrderLinkListItem> {
   const createdAt = timestamp(value.createdAt);
   const expiresAt = timestamp(value.expiresAt);
-  if (comparableTimestamp(expiresAt) <= comparableTimestamp(createdAt)) invalid();
+  const expiryDifference = timestampMicroseconds(expiresAt) - timestampMicroseconds(createdAt);
+  if (expiryDifference <= 0 || !QUICK_ORDER_EXPIRY_HOURS.includes((expiryDifference / HOUR_MICROSECONDS) as never)) invalid();
   return freeze({
     id: uuid(value.id),
     customerName: string(value.customerName, 1, 200),
@@ -194,7 +221,7 @@ function parseDetail(value: unknown): Readonly<QuickOrderLinkDetail> {
   const paidAt = Object.hasOwn(parsed, "paidAt") ? timestamp(parsed.paidAt) : undefined;
   const cancelledAt = Object.hasOwn(parsed, "cancelledAt") ? timestamp(parsed.cancelledAt) : undefined;
   const orderId = Object.hasOwn(parsed, "orderId") ? uuid(parsed.orderId) : undefined;
-  const subtotalCents = safeInteger(parsed.subtotalCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS);
+  const subtotalCents = safeInteger(parsed.subtotalCents, 0, QUICK_ORDER_MAX_SUBTOTAL_CENTS);
   const shippingCents = safeInteger(parsed.shippingCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS);
   const discountCents = safeInteger(parsed.discountCents, 0, QUICK_ORDER_MAX_COMPONENT_CENTS);
   const items = parseItems(parsed.items);
@@ -202,7 +229,7 @@ function parseDetail(value: unknown): Readonly<QuickOrderLinkDetail> {
   if (
     parsed.providerKey !== "paytr" ||
     comparableTimestamp(updatedAt) < comparableTimestamp(list.createdAt) ||
-    subtotalCents !== items.reduce((sum, item) => sum + item.lineTotalCents, 0) ||
+    subtotalCents !== sumItemTotals(items) ||
     discountCents > subtotalCents + shippingCents ||
     list.totalCents !== subtotalCents + shippingCents - discountCents
   ) invalid();
@@ -239,6 +266,14 @@ function parseDetail(value: unknown): Readonly<QuickOrderLinkDetail> {
     ...(orderId === undefined ? {} : { orderId }),
     updatedAt,
   } satisfies QuickOrderLinkDetail);
+}
+
+function sumItemTotals(items: readonly QuickOrderLinkItem[]): number {
+  let total = 0;
+  for (let position = 0; position < items.length; position += 1) {
+    total += items[position]!.lineTotalCents;
+  }
+  return total;
 }
 
 export function parseQuickOrderLinkListItem(value: unknown): Readonly<QuickOrderLinkListItem> {
