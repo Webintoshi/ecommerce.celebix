@@ -37,10 +37,10 @@ The existing shell, dashboard, product, variant, media, session, and `TenantCont
 - `apps/admin/**` stays byte-for-byte unchanged and is read only through `git show fc6c5318...:<path>`.
 - The current working-tree version of `apps/admin` is not donor authority; it differs materially from the pinned donor.
 - The only browser-facing merchant application is `apps/customer-panel`.
-- No iframe, reverse proxy, `/api/admin/**` bridge, `apps/admin-shared`, Supabase client, legacy Logto admin session, or donor database adapter is introduced.
+- No donor/admin iframe, reverse proxy, `/api/admin/**` bridge, `apps/admin-shared`, Supabase client, legacy Logto admin session, or donor database adapter is introduced. A provider-owned payment iframe is permitted only when an official payment protocol requires it, only on a public checkout route, and only with exact-origin CSP, server-owned configuration, and callback-authoritative settlement; it is never a vehicle for the donor or another admin application.
 - Authority remains `__Host-celebix_panel` -> durable PostgreSQL session -> current membership/store revalidation -> server-only `TenantContext`.
 - Browser requests never provide tenant/store/principal/membership IDs or authority headers.
-- Full `TenantContext`, identity subjects, UUIDs, database configuration, secrets, or provider material never cross into client components or browser payloads.
+- Full `TenantContext`, identity subjects, tenant/store/principal/membership/plan and other authority UUIDs, database configuration, secrets, or provider material never cross into client components or browser payloads. Narrow opaque resource IDs required by a real merchant action, such as a catalog variant or quick-order link ID, may cross only in safe DTOs and are always reauthorized server-side; they are never tenant/store authority.
 - State-changing same-origin APIs require exact Origin validation and fail closed.
 - Production deployment, production data/credential mutation, and merge remain outside this implementation program.
 - No menu entry, KPI, record, send operation, integration status, or success state is fabricated.
@@ -145,7 +145,7 @@ The shared model includes:
 - `quick_order_links` and items: a server-generated token digest, bounded expiry, product/variant and customer/address snapshots, allowed payment configuration, opened/paid/cancelled lifecycle, and an optional converted order;
 - `abandoned_carts` and items: opaque public cart reference, customer/contact snapshot, money totals, lifecycle, expiry and recovery state.
 
-Quick-order links reproduce the pinned donor behavior rather than inventing a direct order-entry form. The merchant selects real products/variants and an optional real customer, while the server revalidates active catalog rows, snapshots prices and addresses, calculates totals, generates an opaque credential, stores only its digest, and constructs the public URL from the verified storefront hostname. Link redemption is implemented in the shared storefront runtime before the menu destination is activated. Browser-supplied totals and storefront hosts are never authority.
+Quick-order links reproduce the pinned donor behavior rather than inventing a direct order-entry form. In A2 the merchant selects real products/variants and enters bounded contact/address intent; the server revalidates active catalog rows and snapshots the verified catalog plus normalized contact/address values. The optional existing-customer selector is deliberately deferred to Slice B, where it must resolve through the real tenant-scoped customer repository before the server snapshots it; A2 never invents customer search or accepts a customer ID. The server calculates totals and generates an opaque credential. Raw credential bytes are never persisted: PostgreSQL receives the digest used for lookup plus a server-only A256GCM sealed envelope bound to the link/store/digest/key so authenticated create or duplicate replay can reveal the original URL without minting a replacement. The public URL is constructed only from the verified storefront hostname. Link redemption is implemented in the shared storefront runtime before the menu destination is activated. Browser-supplied totals and storefront hosts are never authority.
 
 An order is created only by a server-owned checkout/redemption transaction. It checks inventory and totals server-side and commits order, items, stock movement, operation result, quick-link conversion when applicable, and order event atomically.
 
@@ -153,7 +153,7 @@ Order transitions use an explicit state machine. Invalid transitions, stale vers
 
 ## 8. HTTP and presentation contract
 
-All new endpoints live under `/api/orders/**`, use same-origin credentials, reject private authority headers, and expose safe DTOs only. Required routes are list/create quick order, detail, status transition, payment transition, shipping update, notes, export, and abandoned-cart list/detail/archive.
+All merchant-panel endpoints live under `/api/orders/**`, use same-origin credentials, reject private authority headers, and expose safe DTOs only. Public storefront redemption/status routes and provider callback/internal reconciliation routes are narrow exceptions because they run on the verified storefront/callback authority rather than the merchant-panel origin; they must use exact paths, exact host/proxy authority, workflow-only PostgreSQL functions, and no browser tenant/store authority. Required merchant routes are list/create quick order, detail, status transition, payment transition, shipping update, notes, export, and abandoned-cart list/detail/archive.
 
 The donor markup and interaction geometry are adapted from the pinned SHA. The target keeps its `/orders` route language, current panel shell, topbar portal, drawer/dock behavior, 1025px desktop boundary, 48px targets, reduced-motion gate, and controlled empty/loading/error states.
 
