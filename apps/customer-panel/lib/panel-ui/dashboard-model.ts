@@ -77,6 +77,17 @@ export interface OrderDashboardViewModel {
   readonly asOf: string;
 }
 
+export async function loadMerchantDashboardSummaries(
+  catalog: Readonly<{ getDashboardSummary(): Promise<CatalogDashboardSummary> }>,
+  orders: Readonly<{ getDashboardSummary(): Promise<OrderDashboardSummary> }>,
+): Promise<readonly [PromiseSettledResult<CatalogDashboardSummary>, PromiseSettledResult<OrderDashboardSummary>]> {
+  const [catalogResult, orderResult] = await Promise.allSettled([
+    catalog.getDashboardSummary(),
+    orders.getDashboardSummary(),
+  ]);
+  return Object.freeze([Object.freeze(catalogResult), Object.freeze(orderResult)]);
+}
+
 export function createPanelDashboardModel(
   chrome: PanelChromeModel,
   summary?: CatalogDashboardSummary,

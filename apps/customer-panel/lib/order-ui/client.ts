@@ -16,6 +16,7 @@ import {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CURSOR = /^[A-Za-z0-9_-]{1,1024}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
+const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.]\d{3}Z$/;
 const ERROR_CODES = Object.freeze([
   "invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled",
   "order_not_found", "note_not_found", "invalid_transition", "version_conflict", "operation_replayed",
@@ -51,6 +52,11 @@ export class OrderApiError extends Error {
   }
 }
 
+function isOrderApiError(value: unknown): value is OrderApiError {
+  try { return value instanceof OrderApiError; }
+  catch { return false; }
+}
+
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type RandomUUID = () => string;
 export type OrderListResult = Readonly<{ items: readonly OrderListItem[]; nextCursor?: string }>;
@@ -69,6 +75,125 @@ function record(value: unknown): Record<string, unknown> | null {
   return prototype === Object.prototype || prototype === null ? value as Record<string, unknown> : null;
 }
 
+function invalid(): never {
+  throw new TypeError("order_client_invalid");
+}
+
+function local<T>(parser: () => T): T {
+  try { return parser(); }
+  catch { return invalid(); }
+}
+
+function exactDataObject(
+  value: unknown,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return invalid();
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return invalid();
+  const allowed = new Set([...required, ...optional]);
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== "string" || !allowed.has(key))) return invalid();
+  if (required.some((key) => !keys.includes(key))) return invalid();
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const projection: Record<string, unknown> = {};
+  for (const key of keys as string[]) {
+    const descriptor = descriptors[key];
+    if (descriptor === undefined || !("value" in descriptor) || !descriptor.enumerable) return invalid();
+    projection[key] = descriptor.value;
+  }
+  return Object.freeze(projection);
+}
+
+function text(value: unknown, min: number, max: number): string {
+  if (typeof value !== "string" || value.length < min || value.length > max || value !== value.trim() || CONTROL.test(value)) return invalid();
+  return value;
+}
+
+function optionalText(value: unknown, max: number): string | undefined {
+  return value === undefined ? undefined : text(value, 1, max);
+}
+
+function parseShippingAddress(value: unknown): Readonly<OrderAddress> {
+  const parsed = exactDataObject(value, ["recipientName", "line1", "city", "country"], ["line2", "district", "postalCode"]);
+  const country = text(parsed.country, 2, 2);
+  if (!/^[A-Z]{2}$/.test(country)) return invalid();
+  const line2 = optionalText(parsed.line2, 300);
+  const district = optionalText(parsed.district, 200);
+  const postalCode = optionalText(parsed.postalCode, 32);
+  return Object.freeze({
+    recipientName: text(parsed.recipientName, 1, 200),
+    line1: text(parsed.line1, 1, 300),
+    ...(line2 === undefined ? {} : { line2 }),
+    ...(district === undefined ? {} : { district }),
+    city: text(parsed.city, 1, 200),
+    ...(postalCode === undefined ? {} : { postalCode }),
+    country,
+  });
+}
+
+function strictTrackingUrl(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  const url = text(value, 1, 2_048);
+  const parsed = new URL(url);
+  if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" || parsed.hash !== "" || parsed.href !== url) return invalid();
+  return url;
+}
+
+function strictTimestamp(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  const timestamp = text(value, 24, 24);
+  if (!UTC_TIMESTAMP.test(timestamp) || new Date(timestamp).toISOString() !== timestamp) return invalid();
+  return timestamp;
+}
+
+function parseTracking(value: unknown): Readonly<OrderTracking> {
+  const parsed = exactDataObject(value, ["carrier", "trackingNumber"], ["trackingUrl", "shippedAt"]);
+  const trackingUrl = strictTrackingUrl(parsed.trackingUrl);
+  const shippedAt = strictTimestamp(parsed.shippedAt);
+  return Object.freeze({
+    carrier: text(parsed.carrier, 1, 100),
+    trackingNumber: text(parsed.trackingNumber, 1, 200),
+    ...(trackingUrl === undefined ? {} : { trackingUrl }),
+    ...(shippedAt === undefined ? {} : { shippedAt }),
+  });
+}
+
+function parseListInput(value: unknown) {
+  const parsed = exactDataObject(value, [], ["pageSize", "cursor", "status", "search"]);
+  const pageSize = parsed.pageSize ?? 20;
+  if (!Number.isSafeInteger(pageSize) || (pageSize as number) < 1 || (pageSize as number) > 100) return invalid();
+  if (parsed.cursor !== undefined && (typeof parsed.cursor !== "string" || !CURSOR.test(parsed.cursor))) return invalid();
+  if (parsed.status !== undefined && (typeof parsed.status !== "string" || !ORDER_STATUSES.includes(parsed.status as OrderStatus))) return invalid();
+  if (parsed.search !== undefined) text(parsed.search, 1, 200);
+  return Object.freeze({
+    pageSize: pageSize as number,
+    ...(parsed.cursor === undefined ? {} : { cursor: parsed.cursor as string }),
+    ...(parsed.status === undefined ? {} : { status: parsed.status as OrderStatus }),
+    ...(parsed.search === undefined ? {} : { search: parsed.search as string }),
+  });
+}
+
+function parseVersionedTransition(value: unknown, key: "nextStatus" | "nextPaymentStatus") {
+  const parsed = exactDataObject(value, ["expectedVersion", key]);
+  const next = parsed[key];
+  if (typeof next !== "string") return invalid();
+  if (key === "nextStatus" ? !ORDER_STATUSES.includes(next as OrderStatus) : !ORDER_PAYMENT_STATUSES.includes(next as OrderPaymentStatus)) return invalid();
+  return Object.freeze({ expectedVersion: positiveVersion(parsed.expectedVersion), next });
+}
+
+function parseShippingUpdate(value: unknown) {
+  const parsed = exactDataObject(value, ["expectedVersion", "shippingAddress"], ["tracking"]);
+  const shippingAddress = parseShippingAddress(parsed.shippingAddress);
+  const tracking = parsed.tracking === undefined ? undefined : parseTracking(parsed.tracking);
+  return Object.freeze({
+    expectedVersion: positiveVersion(parsed.expectedVersion),
+    shippingAddress,
+    ...(tracking === undefined ? {} : { tracking }),
+  });
+}
+
 function code(value: unknown): OrderApiErrorCode {
   const parsed = record(value);
   return parsed !== null && typeof parsed.code === "string" && ERROR_CODES.includes(parsed.code as OrderApiErrorCode)
@@ -77,20 +202,24 @@ function code(value: unknown): OrderApiErrorCode {
 }
 
 async function responseJson(response: Response): Promise<unknown> {
-  if (response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") {
-    throw new OrderApiError("unavailable", response.status || 503);
+  try {
+    if (response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") {
+      throw new OrderApiError("unavailable", response.status || 503);
+    }
+    return await response.json();
+  } catch (error) {
+    if (isOrderApiError(error)) throw error;
+    throw new OrderApiError("unavailable", 503);
   }
-  try { return await response.json(); }
-  catch { throw new OrderApiError("unavailable", response.status || 503); }
 }
 
-function id(value: string): string {
-  if (!UUID.test(value)) throw new TypeError("order_client_invalid");
+function id(value: unknown): string {
+  if (typeof value !== "string" || !UUID.test(value)) throw new TypeError("order_client_invalid");
   return value;
 }
 
-function positiveVersion(value: number): number {
-  if (!Number.isSafeInteger(value) || value < 1) throw new TypeError("order_client_invalid");
+function positiveVersion(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) throw new TypeError("order_client_invalid");
   return value;
 }
 
@@ -119,32 +248,40 @@ function parseMutation(value: unknown): OrderMutationResult {
 function safeParse<T>(parser: () => T): T {
   try { return parser(); }
   catch (error) {
-    if (error instanceof OrderApiError) throw error;
+    if (isOrderApiError(error)) throw error;
     throw new OrderApiError("unavailable", 503);
   }
 }
 
 export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomUUID?: RandomUUID }>) {
-  const fetchImpl = options?.fetch ?? ((input, init) => fetch(input, init));
-  const randomUUID = options?.randomUUID ?? (() => crypto.randomUUID());
+  const configured = local(() => exactDataObject(options ?? {}, [], ["fetch", "randomUUID"]));
+  if (configured.fetch !== undefined && typeof configured.fetch !== "function") invalid();
+  if (configured.randomUUID !== undefined && typeof configured.randomUUID !== "function") invalid();
+  const fetchImpl = (configured.fetch as Fetch | undefined) ?? ((input, init) => fetch(input, init));
+  const randomUUID = (configured.randomUUID as RandomUUID | undefined) ?? (() => crypto.randomUUID());
 
   async function request(path: string, init: RequestInit): Promise<unknown> {
     let response: Response;
     try { response = await fetchImpl(path, init); }
     catch { throw new OrderApiError("unavailable", 503); }
     const body = await responseJson(response);
-    if (!response.ok) throw new OrderApiError(code(body), response.status);
-    return body;
+    try {
+      if (!response.ok) throw new OrderApiError(code(body), response.status);
+      return body;
+    } catch (error) {
+      if (isOrderApiError(error)) throw error;
+      throw new OrderApiError("unavailable", 503);
+    }
   }
 
   async function mutation(path: string, method: "PATCH" | "POST", body: unknown): Promise<OrderMutationResult> {
-    const operationId = randomUUID();
-    if (!UUID.test(operationId)) throw new TypeError("order_client_invalid");
+    const operationId = local(() => randomUUID());
+    if (typeof operationId !== "string" || !UUID.test(operationId)) throw new TypeError("order_client_invalid");
     const result = await request(path, {
       method,
       credentials: "same-origin",
       headers: { "content-type": "application/json", "idempotency-key": operationId },
-      body: JSON.stringify(body),
+      body: local(() => JSON.stringify(body)),
     });
     return safeParse(() => parseMutation(result));
   }
@@ -156,19 +293,15 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
     },
 
     async listOrders(input: Readonly<{ pageSize?: number; cursor?: string; status?: OrderStatus; search?: string }> = {}): Promise<OrderListResult> {
-      const pageSize = input.pageSize ?? 20;
-      if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new TypeError("order_client_invalid");
-      if (input.cursor !== undefined && !CURSOR.test(input.cursor)) throw new TypeError("order_client_invalid");
-      if (input.status !== undefined && !ORDER_STATUSES.includes(input.status)) throw new TypeError("order_client_invalid");
-      if (input.search !== undefined && (input.search.length < 1 || input.search.length > 200 || input.search !== input.search.trim() || CONTROL.test(input.search))) {
-        throw new TypeError("order_client_invalid");
-      }
+      const parsed = local(() => parseListInput(input));
+      const { pageSize } = parsed;
       const query = new URLSearchParams({ pageSize: String(pageSize) });
-      if (input.cursor !== undefined) query.set("cursor", input.cursor);
-      if (input.status !== undefined) query.set("status", input.status);
-      if (input.search !== undefined) query.set("search", input.search);
-      const body = record(await request(`/api/orders?${query}`, { method: "GET", credentials: "same-origin", cache: "no-store" }));
+      if (parsed.cursor !== undefined) query.set("cursor", parsed.cursor);
+      if (parsed.status !== undefined) query.set("status", parsed.status);
+      if (parsed.search !== undefined) query.set("search", parsed.search);
+      const result = await request(`/api/orders?${query}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
       return safeParse(() => {
+        const body = record(result);
         if (body === null || !Array.isArray(body.items) || !["items", "items,nextCursor"].includes(Object.keys(body).sort().join(","))) {
           throw new TypeError("order_response_invalid");
         }
@@ -183,31 +316,39 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
     },
 
     async getOrder(orderId: string): Promise<Readonly<OrderDetail>> {
-      const body = await request(`/api/orders/${id(orderId)}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
+      const order = local(() => id(orderId));
+      const body = await request(`/api/orders/${order}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
       return safeParse(() => parseOrderDetail(body));
     },
 
     transitionStatus(orderId: string, input: Readonly<{ expectedVersion: number; nextStatus: OrderStatus }>) {
-      if (!ORDER_STATUSES.includes(input.nextStatus)) throw new TypeError("order_client_invalid");
-      return mutation(`/api/orders/${id(orderId)}/status`, "PATCH", { expectedVersion: positiveVersion(input.expectedVersion), nextStatus: input.nextStatus });
+      const order = local(() => id(orderId));
+      const parsed = local(() => parseVersionedTransition(input, "nextStatus"));
+      return mutation(`/api/orders/${order}/status`, "PATCH", { expectedVersion: parsed.expectedVersion, nextStatus: parsed.next });
     },
 
     transitionPayment(orderId: string, input: Readonly<{ expectedVersion: number; nextPaymentStatus: OrderPaymentStatus }>) {
-      if (!ORDER_PAYMENT_STATUSES.includes(input.nextPaymentStatus)) throw new TypeError("order_client_invalid");
-      return mutation(`/api/orders/${id(orderId)}/payment`, "PATCH", { expectedVersion: positiveVersion(input.expectedVersion), nextPaymentStatus: input.nextPaymentStatus });
+      const order = local(() => id(orderId));
+      const parsed = local(() => parseVersionedTransition(input, "nextPaymentStatus"));
+      return mutation(`/api/orders/${order}/payment`, "PATCH", { expectedVersion: parsed.expectedVersion, nextPaymentStatus: parsed.next });
     },
 
     updateShipping(orderId: string, input: Readonly<{ expectedVersion: number; shippingAddress: Readonly<OrderAddress>; tracking?: Readonly<OrderTracking> }>) {
-      return mutation(`/api/orders/${id(orderId)}/shipping`, "PATCH", { expectedVersion: positiveVersion(input.expectedVersion), shippingAddress: input.shippingAddress, ...(input.tracking === undefined ? {} : { tracking: input.tracking }) });
+      const order = local(() => id(orderId));
+      const parsed = local(() => parseShippingUpdate(input));
+      return mutation(`/api/orders/${order}/shipping`, "PATCH", parsed);
     },
 
     addNote(orderId: string, body: string) {
-      if (body.length < 1 || body.length > 2_000 || body !== body.trim() || CONTROL.test(body)) throw new TypeError("order_client_invalid");
-      return mutation(`/api/orders/${id(orderId)}/notes`, "POST", { body });
+      const order = local(() => id(orderId));
+      const note = local(() => text(body, 1, 2_000));
+      return mutation(`/api/orders/${order}/notes`, "POST", Object.freeze({ body: note }));
     },
 
     archiveNote(orderId: string, noteId: string) {
-      return mutation(`/api/orders/${id(orderId)}/notes/${id(noteId)}/archive`, "POST", {});
+      const order = local(() => id(orderId));
+      const note = local(() => id(noteId));
+      return mutation(`/api/orders/${order}/notes/${note}/archive`, "POST", Object.freeze({}));
     },
   });
 }

@@ -11,6 +11,7 @@ import styles from "./order-console.module.css";
 
 type Sort = "newest" | "oldest" | "highest" | "lowest";
 type ListState = "loading" | "loaded" | "error";
+type OrderListPage = Awaited<ReturnType<typeof orderApi.listOrders>>;
 
 const STATUS_LABELS: Readonly<Record<OrderStatus, string>> = Object.freeze({
   pending: "Oluşturuldu",
@@ -42,6 +43,35 @@ function tone(status: OrderStatus): "neutral" | "success" | "warning" | "danger"
   if (status === "cancelled" || status === "refunded") return "danger";
   if (status === "pending" || status === "preparing") return "warning";
   return "neutral";
+}
+
+export async function requestOrderListPage(
+  api: Pick<typeof orderApi, "listOrders">,
+  input: Readonly<{ cursor?: string; status: OrderStatus | "all"; search: string }>,
+): Promise<OrderListPage> {
+  return api.listOrders({
+    pageSize: 20,
+    ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+    ...(input.status === "all" ? {} : { status: input.status }),
+    ...(input.search === "" ? {} : { search: input.search }),
+  });
+}
+
+export function mergeOrderListPage(
+  current: readonly OrderListItem[],
+  result: Pick<OrderListPage, "items">,
+  append: boolean,
+): readonly OrderListItem[] {
+  return append ? Object.freeze([...current, ...result.items]) : result.items;
+}
+
+export function sortOrderListItems(items: readonly OrderListItem[], sort: Sort): readonly OrderListItem[] {
+  return Object.freeze([...items].sort((left, right) => {
+    if (sort === "oldest") return left.createdAt.localeCompare(right.createdAt);
+    if (sort === "highest") return right.totalCents - left.totalCents;
+    if (sort === "lowest") return left.totalCents - right.totalCents;
+    return right.createdAt.localeCompare(left.createdAt);
+  }));
 }
 
 export interface OrderListPresentationProps {
@@ -96,7 +126,7 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
           <thead><tr><th>Sipariş</th><th>Tarih</th><th>Müşteri</th><th>Durum</th><th>Ödeme</th><th>Ürün</th><th>Toplam</th></tr></thead>
           <tbody>{props.items.map((order) => (
             <tr key={order.id}>
-              <td><Link className={styles.orderNumber} href={`/orders/${order.id}`}>{order.orderNumber}</Link></td>
+              <td><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link></td>
               <td>{date(order.createdAt)}</td>
               <td><strong>{order.customerName}</strong><small>{order.customerEmail}</small></td>
               <td><PanelStatusBadge tone={tone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge></td>
@@ -149,9 +179,9 @@ export function OrderListConsole() {
     cursor ? setLoadingMore(true) : setState("loading");
     setError("");
     try {
-      const result = await orderApi.listOrders({ pageSize: 20, ...(cursor ? { cursor } : {}), ...(status === "all" ? {} : { status }), ...(search ? { search } : {}) });
+      const result = await requestOrderListPage(orderApi, { ...(cursor ? { cursor } : {}), status, search });
       if (request !== sequence.current) return;
-      setItems((current) => cursor ? Object.freeze([...current, ...result.items]) : result.items);
+      setItems((current) => mergeOrderListPage(current, result, cursor !== undefined));
       setNextCursor(result.nextCursor);
       setState("loaded");
     } catch (failure) {
@@ -165,12 +195,7 @@ export function OrderListConsole() {
 
   useEffect(() => { void load(); return () => { sequence.current += 1; }; }, [load]);
 
-  const sortedItems = useMemo(() => Object.freeze([...items].sort((left, right) => {
-    if (sort === "oldest") return left.createdAt.localeCompare(right.createdAt);
-    if (sort === "highest") return right.totalCents - left.totalCents;
-    if (sort === "lowest") return left.totalCents - right.totalCents;
-    return right.createdAt.localeCompare(left.createdAt);
-  })), [items, sort]);
+  const sortedItems = useMemo(() => sortOrderListItems(items, sort), [items, sort]);
 
   function submitSearch(event?: FormEvent) {
     event?.preventDefault();

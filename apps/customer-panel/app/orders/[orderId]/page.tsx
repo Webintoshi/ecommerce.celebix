@@ -12,6 +12,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   const role = access.tenantContext.membership.role;
   const capabilities: OrderUiCapabilities = Object.freeze({
     fulfill: isMerchantActionAllowed(role, "orders.fulfill"),
+    manage: isMerchantActionAllowed(role, "orders.manage"),
     payment: isMerchantActionAllowed(role, "orders.payment"),
     shipping: isMerchantActionAllowed(role, "orders.fulfill"),
     note: isMerchantActionAllowed(role, "orders.note"),

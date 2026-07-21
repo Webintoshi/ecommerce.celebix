@@ -1025,14 +1025,17 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
     combined,
     /conversion(?:Rate|Total)|dönüşüm oranı|customerTotal|previousRevenue|currentRevenue|Toshi/i,
   );
-  assert.match(view, /orderApi[.]getDashboardSummary\(\)/);
+  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
+  assert.match(model, /orders[.]getDashboardSummary\(\)/);
   assert.doesNotMatch(view, /href=[^\n]*(?:analytics|customers|carts)|provider(?:Data|Payload)|TenantContext/i);
 });
 
 test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {
   const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
+  const model = await source("lib/panel-ui/dashboard-model.ts");
   const styles = await source("components/dashboard/panel-dashboard.module.css");
-  assert.match(view, /catalogApi[.]getDashboardSummary\(\)/);
+  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
+  assert.match(model, /catalog[.]getDashboardSummary\(\)/);
   assert.match(view, /role="status"/);
   assert.match(view, /role="alert"/);
   assert.match(view, /Tekrar dene/);

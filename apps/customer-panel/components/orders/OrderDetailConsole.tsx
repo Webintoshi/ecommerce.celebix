@@ -18,6 +18,7 @@ import styles from "./order-console.module.css";
 
 export interface OrderUiCapabilities {
   readonly fulfill: boolean;
+  readonly manage: boolean;
   readonly payment: boolean;
   readonly shipping: boolean;
   readonly note: boolean;
@@ -45,6 +46,62 @@ function field(data: FormData, name: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export type OrderMutationOutcome =
+  | Readonly<{ state: "success" }>
+  | Readonly<{ state: "conflict" }>
+  | Readonly<{ state: "error"; failure: unknown }>;
+
+export async function executeOrderMutation(
+  operation: () => Promise<unknown>,
+  reload: (conflict: boolean) => Promise<unknown>,
+): Promise<OrderMutationOutcome> {
+  try {
+    await operation();
+    await reload(false);
+    return Object.freeze({ state: "success" as const });
+  } catch (failure) {
+    if (failure instanceof OrderApiError && failure.code === "version_conflict") {
+      await reload(true);
+      return Object.freeze({ state: "conflict" as const });
+    }
+    return Object.freeze({ state: "error" as const, failure });
+  }
+}
+
+export function resetNoteFormAfterSuccess(outcome: OrderMutationOutcome, form: Pick<HTMLFormElement, "reset">) {
+  if (outcome.state === "success") form.reset();
+}
+
+export function buildOrderShippingUpdate(order: OrderDetail, data: FormData) {
+  const line2 = field(data, "line2");
+  const district = field(data, "district");
+  const postalCode = field(data, "postalCode");
+  const shippingAddress: OrderAddress = Object.freeze({
+    recipientName: field(data, "recipientName"),
+    line1: field(data, "line1"),
+    ...(line2 ? { line2 } : {}),
+    ...(district ? { district } : {}),
+    city: field(data, "city"),
+    ...(postalCode ? { postalCode } : {}),
+    country: field(data, "country").toUpperCase(),
+  });
+  const carrier = field(data, "carrier");
+  const trackingNumber = field(data, "trackingNumber");
+  const trackingUrl = field(data, "trackingUrl");
+  const shippedAt = field(data, "shippedAt");
+  const tracking: OrderTracking | undefined = carrier && trackingNumber ? Object.freeze({
+    carrier,
+    trackingNumber,
+    ...(trackingUrl ? { trackingUrl } : {}),
+    ...(shippedAt ? { shippedAt } : {}),
+  }) : undefined;
+  return Object.freeze({
+    expectedVersion: order.version,
+    shippingAddress,
+    ...(tracking ? { tracking } : {}),
+  });
+}
+
 export interface OrderDetailPresentationProps {
   readonly state: DetailState;
   readonly detail?: OrderDetail;
@@ -66,6 +123,9 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
     <section className={styles.detailState}><div className={styles.errorState} role="alert"><div><h1>Sipariş açılamadı</h1><p>{props.error || "Sipariş bulunamadı."}</p></div><button type="button" onClick={props.onRetry}>Tekrar dene</button></div></section>
   );
   const order = props.detail;
+  const statusOptions = props.capabilities.manage
+    ? ORDER_STATUSES
+    : ORDER_STATUSES.filter((status) => status !== "cancelled" && status !== "refunded");
   return (
     <PanelPageShell>
       <Link className={styles.backLink} href="/orders">Siparişlere dön</Link>
@@ -82,7 +142,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
 
       {(props.capabilities.fulfill || props.capabilities.payment) ? (
         <section className={styles.operationBar} aria-label="Sipariş operasyonları">
-          {props.capabilities.fulfill ? <label><span>Sipariş durumu</span><select aria-label="Sipariş durumunu güncelle" value={order.status} disabled={props.busy !== ""} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus)}>{ORDER_STATUSES.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label> : null}
+          {props.capabilities.fulfill ? <label><span>Sipariş durumu</span><select aria-label="Sipariş durumunu güncelle" value={order.status} disabled={props.busy !== ""} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus)}>{statusOptions.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label> : null}
           {props.capabilities.payment ? <label><span>Ödeme durumu</span><select aria-label="Ödeme durumunu güncelle" value={order.paymentStatus} disabled={props.busy !== ""} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus)}>{ORDER_PAYMENT_STATUSES.map((status) => <option key={status} value={status}>{PAYMENT_LABELS[status]}</option>)}</select></label> : null}
         </section>
       ) : null}
@@ -101,12 +161,15 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
           {props.capabilities.shipping ? <form className={styles.compactForm} onSubmit={props.onShippingSubmit}>
             <label><span>Alıcı</span><input name="recipientName" required maxLength={200} defaultValue={order.shippingAddress.recipientName} /></label>
             <label className={styles.wide}><span>Adres</span><input name="line1" required maxLength={300} defaultValue={order.shippingAddress.line1} /></label>
+            <label className={styles.wide}><span>Adres devamı</span><input name="line2" maxLength={300} defaultValue={order.shippingAddress.line2 ?? ""} /></label>
             <label><span>İlçe</span><input name="district" maxLength={200} defaultValue={order.shippingAddress.district ?? ""} /></label>
             <label><span>Şehir</span><input name="city" required maxLength={200} defaultValue={order.shippingAddress.city} /></label>
             <label><span>Posta kodu</span><input name="postalCode" maxLength={32} defaultValue={order.shippingAddress.postalCode ?? ""} /></label>
             <label><span>Ülke</span><input name="country" required minLength={2} maxLength={2} defaultValue={order.shippingAddress.country} /></label>
             <label><span>Kargo firması</span><input name="carrier" maxLength={100} defaultValue={order.tracking?.carrier ?? ""} /></label>
             <label><span>Takip numarası</span><input name="trackingNumber" maxLength={200} defaultValue={order.tracking?.trackingNumber ?? ""} /></label>
+            <label className={styles.wide}><span>Takip bağlantısı</span><input name="trackingUrl" inputMode="url" maxLength={2048} defaultValue={order.tracking?.trackingUrl ?? ""} /></label>
+            <label className={styles.wide}><span>Kargoya veriliş zamanı</span><input name="shippedAt" maxLength={24} defaultValue={order.tracking?.shippedAt ?? ""} /></label>
             <button className={styles.primaryButton} type="submit" disabled={props.busy !== ""}>{props.busy === "shipping" ? "Kaydediliyor…" : "Kargo bilgilerini kaydet"}</button>
           </form> : null}
         </section>
@@ -149,17 +212,17 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
 
   useEffect(() => { void load(); }, [load]);
 
-  async function mutation(name: string, operation: () => Promise<unknown>, success: string) {
+  async function mutation(name: string, operation: () => Promise<unknown>, success: string): Promise<OrderMutationOutcome> {
     setBusy(name); setError(""); setNotice("");
-    try { await operation(); await load(); setNotice(success); }
-    catch (failure) {
-      if (failure instanceof OrderApiError && failure.code === "version_conflict") await load(true);
-      else setError(safeMessage(failure));
-    } finally { setBusy(""); }
+    const outcome = await executeOrderMutation(operation, load);
+    if (outcome.state === "success") setNotice(success);
+    else if (outcome.state === "error") setError(safeMessage(outcome.failure));
+    setBusy("");
+    return outcome;
   }
 
   function transitionStatus(nextStatus: OrderStatus) {
-    if (!detail || nextStatus === detail.status) return;
+    if (!detail || nextStatus === detail.status || (!capabilities.manage && (nextStatus === "cancelled" || nextStatus === "refunded"))) return;
     void mutation("status", () => orderApi.transitionStatus(orderId, { expectedVersion: detail.version, nextStatus }), "Sipariş durumu güncellendi.");
   }
 
@@ -172,15 +235,8 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     event.preventDefault();
     if (!detail) return;
     const data = new FormData(event.currentTarget);
-    const shippingAddress: OrderAddress = {
-      recipientName: field(data, "recipientName"), line1: field(data, "line1"), city: field(data, "city"), country: field(data, "country").toUpperCase(),
-      ...(field(data, "district") ? { district: field(data, "district") } : {}),
-      ...(field(data, "postalCode") ? { postalCode: field(data, "postalCode") } : {}),
-    };
-    const carrier = field(data, "carrier");
-    const trackingNumber = field(data, "trackingNumber");
-    const tracking: OrderTracking | undefined = carrier && trackingNumber ? { carrier, trackingNumber } : undefined;
-    void mutation("shipping", () => orderApi.updateShipping(orderId, { expectedVersion: detail.version, shippingAddress, ...(tracking ? { tracking } : {}) }), "Kargo bilgileri güncellendi.");
+    const update = buildOrderShippingUpdate(detail, data);
+    void mutation("shipping", () => orderApi.updateShipping(orderId, update), "Kargo bilgileri güncellendi.");
   }
 
   function addNote(event: FormEvent<HTMLFormElement>) {
@@ -188,7 +244,7 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     const form = event.currentTarget;
     const body = field(new FormData(form), "body");
     if (!body) return;
-    void mutation("note", () => orderApi.addNote(orderId, body), "Dahili not eklendi.").then(() => form.reset());
+    void mutation("note", () => orderApi.addNote(orderId, body), "Dahili not eklendi.").then((outcome) => resetNoteFormAfterSuccess(outcome, form));
   }
 
   function archiveNote(noteId: string) {

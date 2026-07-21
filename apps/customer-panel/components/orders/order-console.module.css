@@ -98,8 +98,15 @@ button:disabled.primaryButton,
 .desktopTable td small { display: block; }
 .desktopTable td small { max-width: 16rem; overflow: hidden; margin-top: .25rem; color: #6B7280; text-overflow: ellipsis; white-space: nowrap; }
 .desktopTable tbody tr:hover { background: #FFFCF9; }
-.orderNumber { color: #111827; font-weight: 750; }
-.orderNumber:hover { color: #B94B00; }
+.orderLink {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  color: #111827;
+  font-weight: 750;
+}
+.orderLink:hover { color: #B94B00; }
 
 .mobileCards { display: grid; gap: .75rem; padding: 1rem; }
 .orderCard { display: grid; gap: 1rem; border: 1px solid #E1E6EF; border-radius: 12px; padding: 1rem; }

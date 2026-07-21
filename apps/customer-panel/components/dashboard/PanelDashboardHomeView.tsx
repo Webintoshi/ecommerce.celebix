@@ -25,6 +25,7 @@ import { orderApi } from "@/lib/order-ui/client";
 import type { AuthoritySlice } from "@/lib/panel-ui/authority-slice";
 import {
   createMerchantDashboardViewModel,
+  loadMerchantDashboardSummaries,
   type MerchantDashboardViewModel,
 } from "@/lib/panel-ui/dashboard-model";
 import styles from "./panel-dashboard.module.css";
@@ -267,10 +268,7 @@ export function PanelDashboardHomeView() {
     const sequence = ++requestSequence.current;
     setState("loading");
     setOrdersState("loading");
-    const [catalogResult, orderResult] = await Promise.allSettled([
-      catalogApi.getDashboardSummary(),
-      orderApi.getDashboardSummary(),
-    ]);
+    const [catalogResult, orderResult] = await loadMerchantDashboardSummaries(catalogApi, orderApi);
     if (sequence !== requestSequence.current) return;
     if (catalogResult.status === "fulfilled") { setCatalog(readyCatalog(catalogResult.value)); setState("loaded"); }
     else { setCatalog(unavailableCatalog(true)); setState("error"); }
