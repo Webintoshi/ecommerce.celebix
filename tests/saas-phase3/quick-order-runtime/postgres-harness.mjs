@@ -17,7 +17,7 @@ const DATABASE = `quick_order_runtime_${TOKEN}`;
 const HISTORICAL_DATABASE = `${DATABASE}_historical`;
 const ROLLBACK_DATABASE = `${DATABASE}_rollback`;
 const PARTIAL_DATABASE = `${DATABASE}_partial`;
-const TOTAL = 48;
+const TOTAL = 49;
 const completed = [];
 const CATALOG_INVENTORY_SHA256 = "c0aeb1cc411fe6f9bac5d3501cf667f7365f4f3d4b7d7d4dd3ab311f52f1f154";
 
@@ -363,7 +363,7 @@ function seedCheckoutLink(backend, database, number, options = {}) {
     ) VALUES(
       '${link}','${STORE}','${MEMBERSHIP}','${options.provider ?? PROVIDER}','active','${digest}','key-1',${ENVELOPE},
       ${sqlLiteral(name)},${sqlLiteral(email)},${sqlLiteral(phone)},${ADDRESS},${ADDRESS},'runtime','TRY',
-      ${total},0,0,${total},'2026-07-22 10:00:00+00',1,'2026-07-21 10:00:00+00','2026-07-21 10:00:00+00'
+      ${total},0,0,${total},'${options.linkExpiresAt ?? "2026-07-22 10:00:00+00"}',1,'2026-07-21 10:00:00+00','2026-07-21 10:00:00+00'
     );
     INSERT INTO saas.quick_order_link_items(
       id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,variant_name,
@@ -615,6 +615,9 @@ async function main() {
         "202607220027_quick_order_checkout_api_up",
         "202607220027_quick_order_checkout_api_down",
         "202607220027_quick_order_checkout_api_assertions",
+        "202607220028_quick_order_redemption_expiry_authority_up",
+        "202607220028_quick_order_redemption_expiry_authority_down",
+        "202607220028_quick_order_redemption_expiry_authority_assertions",
       ]);
       for (const artifact of manifest.artifacts) assert.equal(createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex"), artifact.sha256);
       const inventory = catalogInventory(backend);
@@ -985,9 +988,11 @@ async function main() {
       }
     });
 
-    await scenario("migration 027 checkout authority applies with exact role grants", async () => {
+    await scenario("migrations 027 and 028 checkout authority apply with exact role grants", async () => {
       apply(backend, "202607220027_quick_order_checkout_api.up.sql");
       apply(backend, "202607220027_quick_order_checkout_api_assertions.sql");
+      apply(backend, "202607220028_quick_order_redemption_expiry_authority.up.sql");
+      apply(backend, "202607220028_quick_order_redemption_expiry_authority_assertions.sql");
       assert.equal(psql(backend, "SELECT has_schema_privilege('celebix_saas_workflow','saas','USAGE');"), "t");
       const workflowFunctionCount = Number(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE');"));
       assert.equal(workflowFunctionCount,24);
@@ -1130,6 +1135,21 @@ async function main() {
       const cancelledClaim=claimLink(backend,database,cancelled,225);
       psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.quick_order_links SET status='cancelled',cancelled_at='2026-07-21 12:11:00+00',version=3,updated_at='2026-07-21 12:11:00+00' WHERE id='${cancelled.link}';`,database);
       assert.deepEqual(functionResult(backend,`saas.checkout_get_redemption_status('${HOSTNAME}','${cancelledClaim.cookieDigest}','2026-07-21 12:12:00+00')`,database).payload,{kind:"unavailable"});
+    });
+
+    await scenario("near-expiry claim atomically persists the link-bounded expiry under one row lock", async () => {
+      const database=cloneDatabase(backend,"claim_near_expiry");
+      const link=seedCheckoutLink(backend,database,228,{linkExpiresAt:"2026-07-21 14:00:00+00"});
+      const claimed=claimLink(backend,database,link,228,{now:"2026-07-21 13:58:30+00",expiresAt:"2026-07-21 14:13:30+00"});
+      assert.equal(claimed.outcome,"claimed");
+      assert.equal(claimed.payload.redemptionExpiresAt,"2026-07-21T14:00:00.000000Z");
+      assert.equal(psql(backend,`SELECT expires_at='2026-07-21 14:00:00+00' AND expires_at<='2026-07-21 14:13:30+00' FROM saas.quick_order_redemption_sessions WHERE id='${claimed.redemption}';`,database),"t");
+      assert.equal(psql(backend,`SELECT status||'|'||version FROM saas.quick_order_links WHERE id='${link.link}';`,database),"opened|2");
+      const up=readFileSync(path.join(SQL,"202607220028_quick_order_redemption_expiry_authority.up.sql"),"utf8");
+      const down=readFileSync(path.join(SQL,"202607220028_quick_order_redemption_expiry_authority.down.sql"),"utf8");
+      const migration027=readFileSync(path.join(SQL,"202607220027_quick_order_checkout_api.up.sql"),"utf8");
+      assert.match(normalizedFunction(up,"quick_links_claim_redemption"),/effective_expires_at:=LEAST\(p_expires_at,current_link.expires_at\)/);
+      assert.equal(normalizedFunction(down,"quick_links_claim_redemption"),normalizedFunction(migration027,"quick_links_claim_redemption"));
     });
 
     await scenario("redemption resolution is cookie digest store and canonical-host isolated", async () => {
@@ -1573,6 +1593,7 @@ async function main() {
         INSERT INTO saas.checkout_operations(operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at)
         VALUES('${retainedOperation}','${STORE}','${ATTEMPT}','begin_attempt',repeat('1',64),'{"proof":"migration-026-retained"}'::jsonb,'2026-07-21 12:04:00+00');`,database);
       const retainedBytes=psql(backend,`SELECT operation_kind||'|'||payload_fingerprint||'|'||result_payload::text||'|'||committed_at::text FROM saas.checkout_operations WHERE operation_id='${retainedOperation}';`,database);
+      apply(backend,"202607220028_quick_order_redemption_expiry_authority.down.sql",database);
       apply(backend,"202607220027_quick_order_checkout_api.down.sql",database);
       assert.equal(psql(backend,`SELECT operation_kind||'|'||payload_fingerprint||'|'||result_payload::text||'|'||committed_at::text FROM saas.checkout_operations WHERE operation_id='${retainedOperation}';`,database),retainedBytes);
       const createDefinition="SELECT pg_get_functiondef('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)'::regprocedure);";
@@ -1587,6 +1608,8 @@ async function main() {
       apply(backend,"202607220026_quick_order_checkout_runtime_assertions.sql",database);
       apply(backend,"202607220027_quick_order_checkout_api.up.sql",database);
       apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",database);
+      apply(backend,"202607220028_quick_order_redemption_expiry_authority.up.sql",database);
+      apply(backend,"202607220028_quick_order_redemption_expiry_authority_assertions.sql",database);
       assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_begin_attempt(text,text,uuid,text,uuid,text,timestamptz)') IS NOT NULL;",database),"t");
 
       const historyDatabase=cloneDatabase(backend,"api_rollback_history");
@@ -2133,15 +2156,19 @@ async function main() {
         WHERE link.id='${link.link}';`,restoredDatabase),"paid|succeeded|1|1");
       assert.equal(functionResult(backend,`saas.checkout_get_callback_authority('${begun.merchantOid}','2026-07-21 12:14:00+00')`,restoredDatabase).outcome,"found");
       apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",restoredDatabase);
+      apply(backend,"202607220028_quick_order_redemption_expiry_authority_assertions.sql",restoredDatabase);
       rmSync(dump,{force:true});
       assert.equal(existsSync(dump),false);
 
       const rollbackDatabase=cloneDatabase(backend,"task4_api_rollback");
+      apply(backend,"202607220028_quick_order_redemption_expiry_authority.down.sql",rollbackDatabase);
       apply(backend,"202607220027_quick_order_checkout_api.down.sql",rollbackDatabase);
       assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_get_callback_authority(text,timestamptz)') IS NULL;",rollbackDatabase),"t");
       assert.equal(psql(backend,"SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE');",rollbackDatabase),"0");
       apply(backend,"202607220027_quick_order_checkout_api.up.sql",rollbackDatabase);
       apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",rollbackDatabase);
+      apply(backend,"202607220028_quick_order_redemption_expiry_authority.up.sql",rollbackDatabase);
+      apply(backend,"202607220028_quick_order_redemption_expiry_authority_assertions.sql",rollbackDatabase);
       assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_get_callback_authority(text,timestamptz)') IS NOT NULL;",rollbackDatabase),"t");
 
       const partialDatabase=`${DATABASE}_task4_partial`;

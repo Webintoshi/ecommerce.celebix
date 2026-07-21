@@ -1,9 +1,9 @@
 {
-  "bundleId": "phase3b2-202607220026-202607220027-quick-order-checkout-authority",
+  "bundleId": "phase3b2-202607220026-202607220028-quick-order-checkout-authority",
   "postgresqlMajor": 16,
   "migrationClassification": "additive",
   "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
-  "rollbackLimitations": "Migration 027 rollback is authorized only for isolated disposable rehearsal and fails closed with QUICK_ORDER_CHECKOUT_API_ROLLBACK_HISTORY_CONFLICT when provider or cleanup operation history exists; immutable receipts are never deleted. Migration 026 rollback destroys quick-order checkout runtime rows and fails closed with QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT when revoked provider history and a replacement share one store/provider key.",
+  "rollbackLimitations": "Migration 028 rollback is authorized only for isolated disposable rehearsal, restores the exact migration-027 claim body and retains all durable rows. Migration 027 rollback is authorized only for isolated disposable rehearsal and fails closed with QUICK_ORDER_CHECKOUT_API_ROLLBACK_HISTORY_CONFLICT when provider or cleanup operation history exists; immutable receipts are never deleted. Migration 026 rollback destroys quick-order checkout runtime rows and fails closed with QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT when revoked provider history and a replacement share one store/provider key.",
   "artifacts": [
     {
       "id": "202607220026_quick_order_checkout_runtime_up",
@@ -46,6 +46,27 @@
       "file": "202607220027_quick_order_checkout_api_assertions.sql",
       "sha256": "66f9b1462b845317f03e065087b247613b076fea6b0af6bb4027d29f25941ada",
       "purpose": "Fail on merchant/workflow ACL, schema usage, direct table or sequence privilege, exact settlement and reconciliation signatures, lock order, lease fencing and operation-scope drift."
+    },
+    {
+      "id": "202607220028_quick_order_redemption_expiry_authority_up",
+      "direction": "up",
+      "file": "202607220028_quick_order_redemption_expiry_authority.up.sql",
+      "sha256": "2b6438a669a24beee378e2a1bab38cd8617b70db2f375445c5f590d2c049e770",
+      "purpose": "Bind redemption expiry atomically under the exact-host link row lock to the lesser of the requested bounded maximum and persisted link expiry."
+    },
+    {
+      "id": "202607220028_quick_order_redemption_expiry_authority_down",
+      "direction": "down",
+      "file": "202607220028_quick_order_redemption_expiry_authority.down.sql",
+      "sha256": "ae7cd7eac93c422816d53809e93ea81cc805bb6a732be364423f2c78a272445b",
+      "purpose": "Restore the exact migration-027 redemption claim body without deleting or mutating durable checkout history."
+    },
+    {
+      "id": "202607220028_quick_order_redemption_expiry_authority_assertions",
+      "direction": "verify",
+      "file": "202607220028_quick_order_redemption_expiry_authority_assertions.sql",
+      "sha256": "2762c21a7215b605aba325c7b00f7c03bb28109cf6dfd5c6a1f24545570d7956",
+      "purpose": "Fail on expiry derivation order, persisted projection, owner, SECURITY DEFINER, search_path or least-privilege ACL drift."
     }
   ]
 }

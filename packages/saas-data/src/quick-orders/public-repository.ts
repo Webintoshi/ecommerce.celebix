@@ -41,8 +41,13 @@ export type ResolveRedemptionInput = Readonly<{
   now: Date;
 }>;
 
+export type ClaimRedemptionResult = Readonly<{
+  quote: QuickOrderPublicQuote;
+  expiresAt: string;
+}>;
+
 export interface PublicQuickOrderRepository {
-  claimRedemption(input: ClaimRedemptionInput): Promise<QuickOrderPublicQuote>;
+  claimRedemption(input: ClaimRedemptionInput): Promise<ClaimRedemptionResult>;
   resolveRedemption(input: ResolveRedemptionInput): Promise<QuickOrderPublicQuote>;
   getStatus(input: ResolveRedemptionInput): Promise<CheckoutState>;
   revokeRedemption(input: ResolveRedemptionInput & Readonly<{
@@ -189,7 +194,7 @@ function parseProjection(
   const expiration = timestamp(parsed.redemptionExpiresAt);
   if (
     canonicalHostname !== expectedHostname || expiration.milliseconds <= now.getTime() ||
-    (expectedExpiry !== undefined && expiration.milliseconds !== expectedExpiry.getTime())
+    (expectedExpiry !== undefined && expiration.milliseconds > expectedExpiry.getTime())
   ) unavailable();
   return Object.freeze({
     canonicalHostname,
@@ -503,7 +508,7 @@ export class PostgresPublicQuickOrderRepository implements PublicQuickOrderRepos
     this.options = validateOptions(options);
   }
 
-  claimRedemption(input: ClaimRedemptionInput): Promise<QuickOrderPublicQuote> {
+  claimRedemption(input: ClaimRedemptionInput): Promise<ClaimRedemptionResult> {
     return expose(async () => {
       const parsed = exactQuickLinkInput(input, [
         "hostname", "tokenDigest", "redemptionId", "redemptionDigest", "now", "expiresAt",
@@ -516,14 +521,15 @@ export class PostgresPublicQuickOrderRepository implements PublicQuickOrderRepos
       const expiresAt = quickLinkNow(parsed.expiresAt);
       const lifetime = expiresAt.getTime() - now.getTime();
       if (lifetime <= 0 || lifetime > MAXIMUM_REDEMPTION_MILLISECONDS) invalid();
-      return (await claim(this.options, {
+      const claimed = await claim(this.options, {
         hostname: hostnameValue,
         tokenDigest,
         redemptionId,
         redemptionDigest,
         now,
         expiresAt,
-      })).quote;
+      });
+      return Object.freeze({ quote: claimed.quote, expiresAt: claimed.redemptionExpiresAt });
     });
   }
 

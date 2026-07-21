@@ -154,10 +154,10 @@ test("claimRedemption uses the exact workflow transaction, timeout envelope, SQL
     ? [row("claimed", redemptionProjection())]
     : []);
   const result = await repository(new FakePool([client])).claimRedemption(claimInput());
-  assert.deepEqual(result, quote());
+  assert.deepEqual(result, { quote: quote(), expiresAt: "2026-07-21T08:15:00.000000Z" });
   assert.equal(Object.isFrozen(result), true);
-  assert.equal(Object.isFrozen(result.items), true);
-  assert.equal(Object.isFrozen(result.items[0]), true);
+  assert.equal(Object.isFrozen(result.quote.items), true);
+  assert.equal(Object.isFrozen(result.quote.items[0]), true);
   assert.deepEqual(client.calls.slice(0, 5).map(({ text }) => text), [
     "BEGIN ISOLATION LEVEL READ COMMITTED",
     "SELECT pg_catalog.set_config('statement_timeout', $1, true)",
@@ -170,6 +170,16 @@ test("claimRedemption uses the exact workflow transaction, timeout envelope, SQL
   assert.deepEqual(client.calls[5]!.values, [HOSTNAME, TOKEN_DIGEST, REDEMPTION_ID, REDEMPTION_DIGEST, NOW, EXPIRES_AT]);
   assert.equal(client.calls[6]!.text, "COMMIT");
   assert.deepEqual(client.releases, [undefined]);
+});
+
+test("claimRedemption accepts a row-locked persisted expiry below the requested maximum", async () => {
+  const nearExpiry = { ...redemptionProjection(), redemptionExpiresAt: "2026-07-21T08:02:00.000000Z", quote: { ...quote(), expiresAt: "2026-07-21T08:02:00.000000Z" } };
+  const client = new FakeClient((text) => text.includes("quick_links_claim_redemption") ? [row("claimed", nearExpiry)] : []);
+  assert.deepEqual(await repository(new FakePool([client])).claimRedemption(claimInput()), {
+    quote: nearExpiry.quote,
+    expiresAt: nearExpiry.redemptionExpiresAt,
+  });
+  assert.equal(functionCalls(client).length, 1);
 });
 
 test("claimRedemption controls SQL outcomes and proves unknown commits with one read-only exact-host resolve", async () => {
@@ -187,7 +197,8 @@ test("claimRedemption controls SQL outcomes and proves unknown commits with one 
   }
   for (const projection of [
     { ...redemptionProjection(), canonicalHostname: "other.example.com" },
-    { ...redemptionProjection(), redemptionExpiresAt: "2026-07-21T08:14:59.000000Z" },
+    { ...redemptionProjection(), redemptionExpiresAt: "2026-07-21T08:15:01.000000Z" },
+    { ...redemptionProjection(), redemptionExpiresAt: "2026-07-21T08:00:00.000000Z" },
   ]) {
     const mismatch = new FakeClient((text) => text.includes("quick_links_claim_redemption")
       ? [row("claimed", projection)]
@@ -203,7 +214,9 @@ test("claimRedemption controls SQL outcomes and proves unknown commits with one 
   const recovery = new FakeClient((text) => text.includes("quick_links_resolve_redemption")
     ? [row("found", redemptionProjection())]
     : []);
-  assert.deepEqual(await repository(new FakePool([write, recovery])).claimRedemption(claimInput()), quote());
+  assert.deepEqual(await repository(new FakePool([write, recovery])).claimRedemption(claimInput()), {
+    quote: quote(), expiresAt: "2026-07-21T08:15:00.000000Z",
+  });
   assert.deepEqual(write.releases, [true]);
   assert.equal(functionCalls(write).length, 1);
   assert.equal(recovery.calls[0]!.text, "BEGIN READ ONLY");

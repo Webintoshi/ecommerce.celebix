@@ -317,11 +317,12 @@ test("application configuration defines baseline security headers", async () => 
   const claimRoute = await readFile(new URL("../app/odeme/hizli/[token]/route.ts", import.meta.url), "utf8");
   const quotePage = await readFile(new URL("../app/odeme/hizli/page.tsx", import.meta.url), "utf8");
   const statusRoute = await readFile(new URL("../app/api/quick-order/status/route.ts", import.meta.url), "utf8");
-  for (const source of [claimRoute, statusRoute]) {
-    assert.match(source, /no-store/);
-    assert.match(source, /no-referrer/);
+  const routeAdapter = await readFile(new URL("./checkout/public-quick-link.ts", import.meta.url), "utf8");
+  for (const source of [claimRoute, statusRoute, routeAdapter]) {
     assert.doesNotMatch(source, /console[.]|JSON[.]stringify\([^)]*(?:token|cookie|credential)/i);
   }
+  assert.match(routeAdapter, /no-store/);
+  assert.match(routeAdapter, /no-referrer/);
   assert.match(quotePage, /index: false, follow: false/);
   assert.match(quotePage, /referrer: "no-referrer"/);
   assert.match(quotePage, /force-dynamic/);
