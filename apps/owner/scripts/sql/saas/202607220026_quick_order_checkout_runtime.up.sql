@@ -132,13 +132,15 @@ CREATE TABLE saas.checkout_payment_attempts (
     status IN ('reserved','provider_ready','initiation_unknown','succeeded','failed','expired')
   ),
   CONSTRAINT checkout_payment_attempts_provider_token_check CHECK (
-    (provider_token_digest IS NULL AND provider_token_key_id IS NULL AND sealed_provider_token IS NULL)
-    OR (
-      provider_token_digest ~ '^[a-f0-9]{64}$'
-      AND provider_token_key_id = btrim(provider_token_key_id)
-      AND char_length(provider_token_key_id) BETWEEN 1 AND 128
-      AND provider_token_key_id !~ '[[:cntrl:]]'
-      AND saas.quick_link_sealed_envelope_is_valid(sealed_provider_token, provider_token_key_id)
+    (
+      (provider_token_digest IS NULL AND provider_token_key_id IS NULL AND sealed_provider_token IS NULL)
+      OR (
+        provider_token_digest ~ '^[a-f0-9]{64}$'
+        AND provider_token_key_id = btrim(provider_token_key_id)
+        AND char_length(provider_token_key_id) BETWEEN 1 AND 128
+        AND provider_token_key_id !~ '[[:cntrl:]]'
+        AND saas.quick_link_sealed_envelope_is_valid(sealed_provider_token, provider_token_key_id)
+      )
     )
     AND ((sealed_provider_token IS NOT NULL) = (provider_ready_at IS NOT NULL))
   ),
@@ -237,11 +239,13 @@ CREATE TABLE saas.checkout_callback_receipts (
   store_id uuid NOT NULL,
   attempt_id uuid NOT NULL,
   callback_digest char(64) NOT NULL,
+  currency text NOT NULL,
   callback_status text NOT NULL,
   result_payload jsonb NOT NULL,
   received_at timestamptz NOT NULL,
   CONSTRAINT checkout_callback_receipts_id_check CHECK (id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'),
   CONSTRAINT checkout_callback_receipts_digest_check CHECK (callback_digest ~ '^[a-f0-9]{64}$'),
+  CONSTRAINT checkout_callback_receipts_currency_check CHECK (currency = 'TRY'),
   CONSTRAINT checkout_callback_receipts_status_check CHECK (callback_status IN ('success','failed')),
   CONSTRAINT checkout_callback_receipts_payload_check CHECK (jsonb_typeof(result_payload) = 'object' AND pg_column_size(result_payload) <= 32768),
   CONSTRAINT checkout_callback_receipts_received_at_check CHECK (pg_catalog.isfinite(received_at)),
@@ -303,12 +307,14 @@ CREATE TABLE saas.checkout_reconciliation_receipts (
   store_id uuid NOT NULL,
   attempt_id uuid NOT NULL,
   operation_id uuid NOT NULL,
+  currency text NOT NULL,
   outcome text NOT NULL,
   payload_fingerprint char(64) NOT NULL,
   result_payload jsonb NOT NULL,
   committed_at timestamptz NOT NULL,
   CONSTRAINT checkout_reconciliation_receipts_id_check CHECK (id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'),
   CONSTRAINT checkout_reconciliation_receipts_operation_id_check CHECK (operation_id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'),
+  CONSTRAINT checkout_reconciliation_receipts_currency_check CHECK (currency = 'TRY'),
   CONSTRAINT checkout_reconciliation_receipts_outcome_check CHECK (outcome IN ('succeeded','unknown')),
   CONSTRAINT checkout_reconciliation_receipts_fingerprint_check CHECK (payload_fingerprint ~ '^[a-f0-9]{64}$'),
   CONSTRAINT checkout_reconciliation_receipts_payload_check CHECK (jsonb_typeof(result_payload) = 'object' AND pg_column_size(result_payload) <= 32768),
@@ -486,7 +492,7 @@ END
 $function$;
 
 CREATE FUNCTION saas.guard_checkout_quick_link_live_attempt()
-RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, saas
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, saas
 AS $function$
 BEGIN
   IF (NEW.status IN ('cancelled','expired') AND OLD.status IS DISTINCT FROM NEW.status)
@@ -550,6 +556,10 @@ FOR EACH ROW EXECUTE FUNCTION saas.guard_checkout_immutable_row();
 CREATE TRIGGER checkout_reconciliation_jobs_transition BEFORE UPDATE OR DELETE ON saas.checkout_reconciliation_jobs
 FOR EACH ROW EXECUTE FUNCTION saas.guard_checkout_reconciliation_job_transition();
 CREATE TRIGGER quick_order_links_live_attempt BEFORE UPDATE OF status, expires_at ON saas.quick_order_links
+FOR EACH ROW EXECUTE FUNCTION saas.guard_checkout_quick_link_live_attempt();
+CREATE CONSTRAINT TRIGGER quick_order_links_live_attempt_commit
+AFTER UPDATE ON saas.quick_order_links
+DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION saas.guard_checkout_quick_link_live_attempt();
 CREATE TRIGGER quick_order_links_paid_immutable BEFORE UPDATE OR DELETE ON saas.quick_order_links
 FOR EACH ROW EXECUTE FUNCTION saas.guard_checkout_paid_link_mutation();

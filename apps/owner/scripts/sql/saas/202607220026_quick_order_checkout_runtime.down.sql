@@ -4,7 +4,21 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
+DO $precondition$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM saas.checkout_provider_configs
+    GROUP BY store_id,provider_key
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT';
+  END IF;
+END
+$precondition$;
+
 DROP TRIGGER product_variants_checkout_hold ON saas.product_variants;
+DROP TRIGGER quick_order_links_live_attempt_commit ON saas.quick_order_links;
 DROP TRIGGER quick_order_links_live_attempt ON saas.quick_order_links;
 DROP TRIGGER quick_order_links_paid_immutable ON saas.quick_order_links;
 DROP TRIGGER checkout_operations_immutable ON saas.checkout_operations;

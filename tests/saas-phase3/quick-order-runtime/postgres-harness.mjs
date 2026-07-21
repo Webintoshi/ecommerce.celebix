@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { accessSync, constants, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -19,6 +19,7 @@ const ROLLBACK_DATABASE = `${DATABASE}_rollback`;
 const PARTIAL_DATABASE = `${DATABASE}_partial`;
 const TOTAL = 18;
 const completed = [];
+const CATALOG_INVENTORY_SHA256 = "c0aeb1cc411fe6f9bac5d3501cf667f7365f4f3d4b7d7d4dd3ab311f52f1f154";
 
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const STORE = "10000000-0000-4000-8000-000000000001";
@@ -59,6 +60,13 @@ const runtimeTables = [
   "checkout_reconciliation_receipts", "checkout_operations",
 ];
 
+const catalogInventoryTables = [
+  ...runtimeTables,
+  "checkout_provider_configs",
+  "orders",
+  "quick_order_links",
+].sort();
+
 function executable(name) {
   for (const directory of [PG16, ...(process.env.PATH ?? "").split(path.delimiter)]) {
     if (!directory) continue;
@@ -79,19 +87,34 @@ function command(program, args, options = {}) {
   return result;
 }
 
-function startPostgres() {
+function startPostgres(options = {}) {
   assertSafeEnvironment();
   const executables = Object.fromEntries(REQUIRED_NATIVE_TOOLS.map((name) => [name, executable(name)]));
   if (Object.values(executables).some((value) => !value)) throw new Error("DISPOSABLE_DB_EXECUTION_BLOCKED");
-  const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "celebix-quick-order-runtime-"));
-  const socketDirectory = path.join("/tmp", `c3b2r-${TOKEN}`);
-  const dataDirectory = path.join(temporaryDirectory, "data");
-  const port = 20_000 + Math.floor(Math.random() * 15_000);
-  mkdirSync(socketDirectory, { mode: 0o700 });
-  const backend = { executables, temporaryDirectory, socketDirectory, dataDirectory, port, started: false };
+  const allocationToken = options.token ?? TOKEN;
+  const backend = {
+    executables,
+    temporaryDirectory: null,
+    socketDirectory: null,
+    dataDirectory: null,
+    port: 20_000 + Math.floor(Math.random() * 15_000),
+    startAttempted: false,
+    started: false,
+  };
   try {
-    command(executables.initdb, ["-D", dataDirectory, "--auth=trust", "--username=postgres", "--no-locale"]);
-    command(executables.pg_ctl, ["-D", dataDirectory, "-o", `-k ${socketDirectory} -p ${port} -h ''`, "-l", path.join(temporaryDirectory, "postgres.log"), "start"]);
+    backend.temporaryDirectory = mkdtempSync(path.join(tmpdir(), "celebix-quick-order-runtime-"));
+    options.onAllocation?.("temporary-directory", backend.temporaryDirectory);
+    if (options.failAfter === "temporary-directory") throw new Error("INJECTED_TEMPORARY_DIRECTORY_FAILURE");
+    backend.dataDirectory = path.join(backend.temporaryDirectory, "data");
+    backend.socketDirectory = path.join("/tmp", `c3b2r-${allocationToken}`);
+    mkdirSync(backend.socketDirectory, { mode: 0o700 });
+    options.onAllocation?.("socket-directory", backend.socketDirectory);
+    if (options.failAfter === "socket-directory") throw new Error("INJECTED_SOCKET_DIRECTORY_FAILURE");
+    command(executables.initdb, ["-D", backend.dataDirectory, "--auth=trust", "--username=postgres", "--no-locale"]);
+    if (options.failAfter === "initdb") throw new Error("INJECTED_INITDB_FAILURE");
+    backend.startAttempted = true;
+    command(executables.pg_ctl, ["-D", backend.dataDirectory, "-o", `-k ${backend.socketDirectory} -p ${backend.port} -h ''`, "-l", path.join(backend.temporaryDirectory, "postgres.log"), "start"]);
+    if (options.failAfter === "pg-ctl-started") throw new Error("INJECTED_PG_CTL_STARTED_FAILURE");
     backend.started = true;
     return backend;
   } catch (error) {
@@ -102,9 +125,9 @@ function startPostgres() {
 
 function stopPostgres(backend) {
   if (!backend) return;
-  if (backend.started) command(backend.executables.pg_ctl, ["-D", backend.dataDirectory, "-m", "fast", "stop"], { allowFailure: true });
-  rmSync(backend.socketDirectory, { recursive: true, force: true });
-  rmSync(backend.temporaryDirectory, { recursive: true, force: true });
+  if (backend.started || backend.startAttempted) command(backend.executables.pg_ctl, ["-D", backend.dataDirectory, "-m", "fast", "stop"], { allowFailure: true });
+  if (backend.socketDirectory) rmSync(backend.socketDirectory, { recursive: true, force: true });
+  if (backend.temporaryDirectory) rmSync(backend.temporaryDirectory, { recursive: true, force: true });
 }
 
 function psqlResult(backend, source, database = DATABASE, options = {}) {
@@ -123,19 +146,146 @@ function createDatabase(backend, database, template) {
   psql(backend, `CREATE DATABASE ${database}${template ? ` TEMPLATE ${template}` : ""};`, "postgres");
 }
 
-function psqlAsync(backend, source, database = DATABASE) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(backend.executables.psql, ["-h", backend.socketDirectory, "-p", String(backend.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], {
-      cwd: ROOT, env: { PATH: `${PG16}:${process.env.PATH ?? ""}`, LC_ALL: "C", LANG: "C" }, stdio: ["pipe", "pipe", "pipe"],
-    });
-    let stdout = ""; let stderr = "";
-    child.stdout.setEncoding("utf8"); child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.on("error", reject);
-    child.on("close", (code) => code === 0 ? resolve(stdout.trim()) : reject(new Error(stderr)));
-    child.stdin.end(source);
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function openPsqlSession(backend, database, applicationName) {
+  const child = spawn(backend.executables.psql, ["-h", backend.socketDirectory, "-p", String(backend.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], {
+    cwd: ROOT,
+    env: { PATH: `${PG16}:${process.env.PATH ?? ""}`, LC_ALL: "C", LANG: "C", PGAPPNAME: applicationName },
+    stdio: ["pipe", "pipe", "pipe"],
   });
+  let stdout = "";
+  let stderr = "";
+  let closedError = null;
+  const waiters = new Map();
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+    for (const [marker, waiter] of waiters) {
+      const markerOffset = stdout.indexOf(marker, waiter.offset);
+      if (markerOffset < 0) continue;
+      waiters.delete(marker);
+      waiter.resolve(stdout.slice(waiter.offset, markerOffset).trim());
+    }
+  });
+  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  child.on("error", (error) => {
+    closedError = error;
+    for (const waiter of waiters.values()) waiter.reject(error);
+    waiters.clear();
+  });
+  child.on("close", (code) => {
+    if (code === 0) return;
+    closedError = new Error(`interactive psql ${applicationName} failed\n${stderr}`);
+    for (const waiter of waiters.values()) waiter.reject(closedError);
+    waiters.clear();
+  });
+  let sequence = 0;
+  return {
+    applicationName,
+    execute(source) {
+      if (closedError) return Promise.reject(closedError);
+      const marker = `__CELEBIX_${applicationName}_${sequence += 1}_${randomBytes(4).toString("hex")}__`;
+      const offset = stdout.length;
+      const promise = new Promise((resolve, reject) => { waiters.set(marker, { offset, resolve, reject }); });
+      child.stdin.write(`${source}\n\\echo ${marker}\n`);
+      return promise;
+    },
+    async close() {
+      if (!child.killed && child.exitCode === null) child.stdin.end("\\q\n");
+      await new Promise((resolve) => {
+        if (child.exitCode !== null) resolve();
+        else child.once("close", resolve);
+      });
+    },
+  };
+}
+
+async function waitForBlockedSession(backend, database, applicationName) {
+  const deadline = Date.now() + 3_000;
+  while (Date.now() < deadline) {
+    const blocked = psql(backend, `SELECT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_stat_activity AS activity
+      WHERE activity.datname=${sqlLiteral(database)} AND activity.application_name=${sqlLiteral(applicationName)}
+        AND pg_catalog.cardinality(pg_catalog.pg_blocking_pids(activity.pid)) > 0
+    );`, database);
+    if (blocked === "t") return;
+    await delay(10);
+  }
+  throw new Error(`session ${applicationName} never reached an explicit PostgreSQL lock barrier`);
+}
+
+function sqlLiteral(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+function catalogInventory(backend, database = DATABASE) {
+  const tableLiterals = catalogInventoryTables.map(sqlLiteral).join(",");
+  return psql(backend, `WITH inventory AS (
+    SELECT 'column'::text AS kind, relation.relname AS table_name,
+      pg_catalog.lpad(attribute.attnum::text,4,'0')||':'||attribute.attname AS object_name,
+      pg_catalog.jsonb_build_object(
+        'ordinal',attribute.attnum,
+        'name',attribute.attname,
+        'type',pg_catalog.format_type(attribute.atttypid,attribute.atttypmod),
+        'notNull',attribute.attnotnull,
+        'default',pg_catalog.pg_get_expr(default_value.adbin,default_value.adrelid,true)
+      )::text AS definition
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+    JOIN pg_catalog.pg_attribute AS attribute ON attribute.attrelid=relation.oid
+      AND attribute.attnum>0 AND NOT attribute.attisdropped
+    LEFT JOIN pg_catalog.pg_attrdef AS default_value
+      ON default_value.adrelid=relation.oid AND default_value.adnum=attribute.attnum
+    WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY[${tableLiterals}])
+    UNION ALL
+    SELECT 'constraint',relation.relname,constraint_row.conname,
+      pg_catalog.jsonb_build_object(
+        'name',constraint_row.conname,
+        'type',constraint_row.contype,
+        'definition',pg_catalog.pg_get_constraintdef(constraint_row.oid,true)
+      )::text
+    FROM pg_catalog.pg_constraint AS constraint_row
+    JOIN pg_catalog.pg_class AS relation ON relation.oid=constraint_row.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+    WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY[${tableLiterals}])
+    UNION ALL
+    SELECT 'index',table_relation.relname,index_relation.relname,
+      pg_catalog.jsonb_build_object(
+        'name',index_relation.relname,
+        'definition',pg_catalog.pg_get_indexdef(index_relation.oid,0,true)
+      )::text
+    FROM pg_catalog.pg_index AS index_row
+    JOIN pg_catalog.pg_class AS table_relation ON table_relation.oid=index_row.indrelid
+    JOIN pg_catalog.pg_class AS index_relation ON index_relation.oid=index_row.indexrelid
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=table_relation.relnamespace
+    WHERE namespace.nspname='saas' AND table_relation.relname=ANY(ARRAY[${tableLiterals}])
+    UNION ALL
+    SELECT 'trigger',relation.relname,trigger_row.tgname,
+      pg_catalog.jsonb_build_object(
+        'name',trigger_row.tgname,
+        'definition',pg_catalog.pg_get_triggerdef(trigger_row.oid,true),
+        'constraintOid',trigger_row.tgconstraint,
+        'deferrable',trigger_row.tgdeferrable,
+        'initiallyDeferred',trigger_row.tginitdeferred
+      )::text
+    FROM pg_catalog.pg_trigger AS trigger_row
+    JOIN pg_catalog.pg_class AS relation ON relation.oid=trigger_row.tgrelid
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+    WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY[${tableLiterals}])
+      AND NOT trigger_row.tgisinternal
+  )
+  SELECT pg_catalog.string_agg(kind||E'\\t'||table_name||E'\\t'||object_name||E'\\t'||definition,E'\\n' ORDER BY kind,table_name,object_name)
+  FROM inventory;`, database);
+}
+
+function cloneDatabase(backend, suffix) {
+  const database = `${DATABASE}_${suffix}`;
+  createDatabase(backend, database, DATABASE);
+  return database;
 }
 
 async function scenario(name, run) {
@@ -181,6 +331,71 @@ function seedRuntime(backend) {
   `);
 }
 
+function cancelSql(operationId, now = "2026-07-21 12:03:00+00", expectedVersion = 1) {
+  return `SET ROLE celebix_saas_app; SELECT outcome FROM saas.quick_links_cancel(
+    '${STORE}','${PRINCIPAL}','${MEMBERSHIP}','${PLAN}','free_starter',1,
+    '${now}','${LINK}',${expectedVersion},'${operationId}',repeat('6',64)
+  );`;
+}
+
+function makeAttemptProviderReady(backend, database) {
+  psql(backend, `SET ROLE celebix_saas_owner;
+    UPDATE saas.checkout_payment_attempts SET
+      status='provider_ready',provider_ready_at='2026-07-21 12:01:00+00',
+      provider_token_digest=repeat('1',64),provider_token_key_id='key-1',sealed_provider_token=${ENVELOPE},
+      version=2,updated_at='2026-07-21 12:01:00+00'
+    WHERE id='${ATTEMPT}';`, database);
+}
+
+function makeAttemptInitiationUnknown(backend, database) {
+  psql(backend, `SET ROLE celebix_saas_owner;
+    UPDATE saas.checkout_payment_attempts SET
+      status='initiation_unknown',initiation_unknown_at='2026-07-21 12:01:00+00',
+      version=2,updated_at='2026-07-21 12:01:00+00'
+    WHERE id='${ATTEMPT}';`, database);
+}
+
+async function raceLiveAttemptAgainstCancel(backend, database, label, operationId, expectedStatus) {
+  const locker = openPsqlSession(backend, database, `${label}_attempt`);
+  const cancel = openPsqlSession(backend, database, `${label}_cancel`);
+  try {
+    await locker.execute(`BEGIN; SET ROLE celebix_saas_owner;
+      SELECT id FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE;`);
+    const cancelResult = cancel.execute(`BEGIN; ${cancelSql(operationId)} COMMIT;`);
+    await waitForBlockedSession(backend, database, cancel.applicationName);
+    await locker.execute("COMMIT;");
+    assert.equal((await cancelResult).split("\n").at(-1), "invalid_transition");
+    assert.equal(psql(backend, `SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||
+      (SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${LINK}')
+      FROM saas.quick_order_links AS link
+      JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id
+      JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id
+      WHERE link.id='${LINK}' AND attempt.id='${ATTEMPT}' AND reservation.id='${RESERVATION}';`, database),
+      `active|${expectedStatus}|held|0`);
+  } finally {
+    await Promise.all([locker.close(), cancel.close()]);
+  }
+}
+
+const SUCCESS_ORDER = "70000000-0000-4000-8000-000000000010";
+
+function settlementSql(orderId = SUCCESS_ORDER) {
+  return `
+    SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;
+    SELECT id FROM saas.product_variants WHERE store_id='${STORE}' AND product_id='${PRODUCT}' ORDER BY id FOR UPDATE;
+    SELECT id FROM saas.checkout_inventory_reservations WHERE attempt_id='${ATTEMPT}' ORDER BY variant_id FOR UPDATE;
+    INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,billing_address,quick_order_link_id,version,created_at,updated_at)
+      VALUES ('${orderId}','${STORE}','RACE-SUCCESS','quick_link','Ada','ada@example.test','TRY',10000,0,0,10000,'confirmed','completed','{}','{}','${LINK}',1,'2026-07-21 12:02:00+00','2026-07-21 12:02:00+00');
+    UPDATE saas.product_variants SET stock_quantity=stock_quantity-2,version=version+1,updated_at='2026-07-21 12:02:00+00'
+      WHERE id='${VARIANT}' AND stock_tracking;
+    UPDATE saas.checkout_inventory_reservations SET status='consumed',consumed_at='2026-07-21 12:02:00+00',version=version+1,updated_at='2026-07-21 12:02:00+00'
+      WHERE attempt_id='${ATTEMPT}';
+    UPDATE saas.checkout_payment_attempts SET status='succeeded',succeeded_at='2026-07-21 12:02:00+00',settled_order_id='${orderId}',version=version+1,updated_at='2026-07-21 12:02:00+00'
+      WHERE id='${ATTEMPT}';
+    UPDATE saas.quick_order_links SET status='paid',opened_at='2026-07-21 12:01:00+00',paid_at='2026-07-21 12:02:00+00',order_id='${orderId}',version=version+1,updated_at='2026-07-21 12:02:00+00'
+      WHERE id='${LINK}';`;
+}
+
 function normalizedFunction(source, name) {
   const start = source.indexOf(`FUNCTION saas.${name}(`);
   const body = source.indexOf("AS $function$", start);
@@ -218,8 +433,24 @@ async function main() {
       const manifest = JSON.parse(readFileSync(path.join(SQL, "phase3b2-quick-order-runtime-manifest.json"), "utf8"));
       assert.equal(manifest.artifacts.length, 3);
       for (const artifact of manifest.artifacts) assert.equal(createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex"), artifact.sha256);
-      assert.equal(psql(backend, "SELECT count(*) FROM information_schema.columns WHERE table_schema='saas' AND table_name='checkout_payment_attempts';"), "29");
-      assert.equal(psql(backend, "SELECT to_regclass('saas.orders_store_quick_order_link_key') IS NOT NULL;"), "t");
+      const inventory = catalogInventory(backend);
+      const inventoryDigest = createHash("sha256").update(inventory).digest("hex");
+      assert.equal(
+        inventoryDigest,
+        CATALOG_INVENTORY_SHA256,
+        `exact PostgreSQL 16 catalog inventory drifted (${inventory.split("\n").length} rows, actual sha256 ${inventoryDigest})\n${inventory}`,
+      );
+      for (const table of catalogInventoryTables) assert.match(inventory, new RegExp(`(?:^|\\n)column\\t${table}\\t`));
+      for (const criticalContract of [
+        "checkout_payment_attempts_amount_check",
+        "checkout_reconciliation_jobs_lease_check",
+        "checkout_callback_receipts_received_at_check",
+        "checkout_callback_receipts_currency_check",
+        "checkout_reconciliation_receipts_currency_check",
+        "checkout_provider_configs_store_provider_active_key",
+        "orders_store_quick_order_link_key",
+        "quick_order_links_live_attempt_commit",
+      ]) assert.match(inventory, new RegExp(`\\t${criticalContract}\\t`));
     });
 
     await scenario("all runtime tables are owner-owned forced-RLS deny-by-default", async () => {
@@ -278,6 +509,12 @@ async function main() {
     });
 
     await scenario("attempt snapshots and terminal transitions are immutable", async () => {
+      denied(backend, `BEGIN; SET ROLE celebix_saas_owner;
+        INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,billing_address,quick_order_link_id,version,created_at,updated_at)
+          VALUES ('70000000-0000-4000-8000-000000000098','${STORE}','NULL-TOKEN','quick_link','Ada','ada@example.test','TRY',10000,0,0,10000,'confirmed','completed','{}','{}','${LINK}',1,'2026-07-21 12:02:00+00','2026-07-21 12:02:00+00');
+        INSERT INTO saas.checkout_payment_attempts(id,store_id,quick_order_link_id,redemption_session_id,provider_config_id,provider_config_version,configuration_digest,configuration_key_id,sealed_configuration,merchant_oid,expected_subtotal_cents,expected_shipping_cents,expected_discount_cents,expected_payment_amount,currency,status,provider_token_digest,provider_token_key_id,sealed_provider_token,hold_expires_at,provider_ready_at,succeeded_at,settled_order_id,version,created_at,updated_at)
+          VALUES ('62000000-0000-4000-8000-000000000098','${STORE}','${LINK}','${REDEMPTION}','${PROVIDER}',2,repeat('d',64),'key-1',${ENVELOPE},'1123456789abcdef0123456789abcdef',10000,0,0,10000,'TRY','succeeded',NULL,NULL,NULL,'2026-07-21 12:05:00+00','2026-07-21 12:01:00+00','2026-07-21 12:02:00+00','70000000-0000-4000-8000-000000000098',1,'2026-07-21 12:00:00+00','2026-07-21 12:02:00+00');
+        ROLLBACK;`);
       denied(backend, `SET ROLE celebix_saas_owner; UPDATE saas.checkout_payment_attempts SET expected_subtotal_cents=9999,version=2,updated_at='2026-07-21 12:01:00+00' WHERE id='${ATTEMPT}';`);
       psql(backend, `BEGIN; SET ROLE celebix_saas_owner; UPDATE saas.checkout_payment_attempts SET status='expired',expired_at='2026-07-21 12:06:00+00',version=2,updated_at='2026-07-21 12:06:00+00' WHERE id='${ATTEMPT}'; ROLLBACK;`);
       denied(backend, `BEGIN; SET ROLE celebix_saas_owner; UPDATE saas.checkout_payment_attempts SET status='expired',expired_at='2026-07-21 12:06:00+00',version=2,updated_at='2026-07-21 12:06:00+00' WHERE id='${ATTEMPT}'; UPDATE saas.checkout_payment_attempts SET status='reserved',version=3,updated_at='2026-07-21 12:07:00+00' WHERE id='${ATTEMPT}';`);
@@ -303,12 +540,14 @@ async function main() {
     });
 
     await scenario("callback operation and reconciliation receipts are unique immutable and bounded", async () => {
-      psql(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_callback_receipts(id,store_id,attempt_id,callback_digest,callback_status,result_payload,received_at) VALUES ('64000000-0000-4000-8000-000000000001','${STORE}','${ATTEMPT}',repeat('a',64),'failed','{}','2026-07-21 12:01:00+00'); INSERT INTO saas.checkout_operations(operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('65000000-0000-4000-8000-000000000001','${STORE}','${ATTEMPT}','begin_attempt',repeat('b',64),'{}','2026-07-21 12:01:00+00'); INSERT INTO saas.checkout_reconciliation_receipts(id,store_id,attempt_id,operation_id,outcome,payload_fingerprint,result_payload,committed_at) VALUES ('66000000-0000-4000-8000-000000000001','${STORE}','${ATTEMPT}','67000000-0000-4000-8000-000000000001','unknown',repeat('c',64),'{}','2026-07-21 12:01:00+00');`);
+      psql(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_callback_receipts(id,store_id,attempt_id,callback_digest,currency,callback_status,result_payload,received_at) VALUES ('64000000-0000-4000-8000-000000000001','${STORE}','${ATTEMPT}',repeat('a',64),'TRY','failed','{}','2026-07-21 12:01:00+00'); INSERT INTO saas.checkout_operations(operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('65000000-0000-4000-8000-000000000001','${STORE}','${ATTEMPT}','begin_attempt',repeat('b',64),'{}','2026-07-21 12:01:00+00'); INSERT INTO saas.checkout_reconciliation_receipts(id,store_id,attempt_id,operation_id,currency,outcome,payload_fingerprint,result_payload,committed_at) VALUES ('66000000-0000-4000-8000-000000000001','${STORE}','${ATTEMPT}','67000000-0000-4000-8000-000000000001','TRY','unknown',repeat('c',64),'{}','2026-07-21 12:01:00+00');`);
       denied(backend, `SET ROLE celebix_saas_owner; UPDATE saas.checkout_callback_receipts SET result_payload='{"changed":true}' WHERE id='64000000-0000-4000-8000-000000000001';`);
       denied(backend, `SET ROLE celebix_saas_owner; UPDATE saas.checkout_operations SET result_payload='{"changed":true}' WHERE operation_id='65000000-0000-4000-8000-000000000001';`);
-      denied(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_callback_receipts(id,store_id,attempt_id,callback_digest,callback_status,result_payload,received_at) VALUES ('64000000-0000-4000-8000-000000000002','${STORE}','${ATTEMPT}',repeat('a',64),'failed','{}','2026-07-21 12:01:00+00');`);
+      denied(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_callback_receipts(id,store_id,attempt_id,callback_digest,currency,callback_status,result_payload,received_at) VALUES ('64000000-0000-4000-8000-000000000002','${STORE}','${ATTEMPT}',repeat('a',64),'TRY','failed','{}','2026-07-21 12:01:00+00');`);
+      denied(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_callback_receipts(id,store_id,attempt_id,callback_digest,currency,callback_status,result_payload,received_at) VALUES ('64000000-0000-4000-8000-000000000003','${STORE}','${ATTEMPT}',repeat('f',64),'USD','failed','{}','2026-07-21 12:01:00+00');`);
       denied(backend, `SET ROLE celebix_saas_owner; UPDATE saas.checkout_reconciliation_receipts SET outcome='succeeded' WHERE id='66000000-0000-4000-8000-000000000001';`);
-      denied(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_reconciliation_receipts(id,store_id,attempt_id,operation_id,outcome,payload_fingerprint,result_payload,committed_at) VALUES ('66000000-0000-4000-8000-000000000002','${STORE}','${ATTEMPT}','67000000-0000-4000-8000-000000000002','unknown',repeat('d',64),jsonb_build_object('oversized',repeat('x',40000)),'2026-07-21 12:01:00+00');`);
+      denied(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_reconciliation_receipts(id,store_id,attempt_id,operation_id,currency,outcome,payload_fingerprint,result_payload,committed_at) VALUES ('66000000-0000-4000-8000-000000000002','${STORE}','${ATTEMPT}','67000000-0000-4000-8000-000000000002','TRY','unknown',repeat('d',64),jsonb_build_object('oversized',repeat('x',40000)),'2026-07-21 12:01:00+00');`);
+      denied(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_reconciliation_receipts(id,store_id,attempt_id,operation_id,currency,outcome,payload_fingerprint,result_payload,committed_at) VALUES ('66000000-0000-4000-8000-000000000003','${STORE}','${ATTEMPT}','67000000-0000-4000-8000-000000000003','USD','unknown',repeat('e',64),'{}','2026-07-21 12:01:00+00');`);
       denied(backend, `SET ROLE celebix_saas_owner; UPDATE saas.checkout_reconciliation_jobs SET attempt_number=-1,updated_at='2026-07-21 11:59:00+00' WHERE attempt_id='${ATTEMPT}';`);
     });
 
@@ -320,37 +559,220 @@ async function main() {
     });
 
     await scenario("cancel and expiry guards prelock live attempts in deterministic order", async () => {
-      assert.equal(psql(backend, `SELECT count(*) FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.store_id=attempt.store_id AND reservation.attempt_id=attempt.id AND reservation.status='held' WHERE attempt.quick_order_link_id='${LINK}' AND attempt.status IN ('reserved','provider_ready','initiation_unknown');`), "1");
-      const result = psql(backend, `SET ROLE celebix_saas_app; SELECT outcome FROM saas.quick_links_cancel('${STORE}','${PRINCIPAL}','${MEMBERSHIP}','${PLAN}','free_starter',1,'2026-07-21 12:01:00+00','${LINK}',1,'90000000-0000-4000-8000-000000000001',repeat('f',64));`);
-      assert.equal(result, "invalid_transition");
-      for (const transition of [
-        `status='provider_ready',provider_ready_at='2026-07-21 12:01:00+00',provider_token_digest=repeat('1',64),provider_token_key_id='key-1',sealed_provider_token=${ENVELOPE}`,
-        `status='initiation_unknown',initiation_unknown_at='2026-07-21 12:01:00+00'`,
-      ]) {
-        const outcome = psql(backend, `BEGIN; SET ROLE celebix_saas_owner; UPDATE saas.checkout_payment_attempts SET ${transition},version=2,updated_at='2026-07-21 12:01:00+00' WHERE id='${ATTEMPT}'; SET ROLE celebix_saas_app; SELECT outcome FROM saas.quick_links_cancel('${STORE}','${PRINCIPAL}','${MEMBERSHIP}','${PLAN}','free_starter',1,'2026-07-21 12:02:00+00','${LINK}',1,'90000000-0000-4000-8000-000000000003',repeat('7',64)); ROLLBACK;`);
-        assert.equal(outcome, "invalid_transition");
+      const reservedDatabase = cloneDatabase(backend, "race_reserved");
+      await raceLiveAttemptAgainstCancel(backend, reservedDatabase, "reserved", "90000000-0000-4000-8000-000000000011", "reserved");
+
+      const providerReadyDatabase = cloneDatabase(backend, "race_provider_ready");
+      makeAttemptProviderReady(backend, providerReadyDatabase);
+      await raceLiveAttemptAgainstCancel(backend, providerReadyDatabase, "provider_ready", "90000000-0000-4000-8000-000000000012", "provider_ready");
+
+      const initiationUnknownDatabase = cloneDatabase(backend, "race_initiation_unknown");
+      makeAttemptInitiationUnknown(backend, initiationUnknownDatabase);
+      await raceLiveAttemptAgainstCancel(backend, initiationUnknownDatabase, "initiation_unknown", "90000000-0000-4000-8000-000000000013", "initiation_unknown");
+
+      const expiryDatabase = cloneDatabase(backend, "race_expiry");
+      psql(backend, `SET ROLE celebix_saas_owner;
+        UPDATE saas.checkout_payment_attempts SET status='expired',expired_at='2026-07-21 12:06:00+00',version=2,updated_at='2026-07-21 12:06:00+00' WHERE id='${ATTEMPT}';
+        UPDATE saas.checkout_inventory_reservations SET status='expired',expired_at='2026-07-21 12:06:00+00',version=2,updated_at='2026-07-21 12:06:00+00' WHERE id='${RESERVATION}';`, expiryDatabase);
+      const expiryBegin = openPsqlSession(backend, expiryDatabase, "expiry_begin");
+      const expiryUpdate = openPsqlSession(backend, expiryDatabase, "expiry_update");
+      try {
+        await expiryBegin.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;
+          INSERT INTO saas.checkout_payment_attempts SELECT
+            '62000000-0000-4000-8000-000000000019',store_id,quick_order_link_id,redemption_session_id,provider_config_id,
+            provider_config_version,configuration_digest,configuration_key_id,sealed_configuration,
+            '2123456789abcdef0123456789abcdef',expected_subtotal_cents,expected_shipping_cents,expected_discount_cents,
+            expected_payment_amount,currency,'reserved',NULL,NULL,NULL,
+            '2026-07-21 12:15:00+00',NULL,NULL,NULL,NULL,NULL,NULL,
+            1,'2026-07-21 12:10:00+00','2026-07-21 12:10:00+00' FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}';
+          INSERT INTO saas.checkout_inventory_reservations(id,store_id,attempt_id,quick_order_link_id,product_id,variant_id,quantity,stock_tracked,status,held_at,version,updated_at)
+            VALUES ('63000000-0000-4000-8000-000000000019','${STORE}','62000000-0000-4000-8000-000000000019','${LINK}','${PRODUCT}','${VARIANT_2}',1,false,'held','2026-07-21 12:10:00+00',1,'2026-07-21 12:10:00+00');`);
+        const expiryResult = expiryUpdate.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          UPDATE saas.quick_order_links SET status='expired',version=2,updated_at='2026-07-21 12:01:00+00' WHERE id='${LINK}';
+          COMMIT;`);
+        await waitForBlockedSession(backend, expiryDatabase, expiryUpdate.applicationName);
+        await expiryBegin.execute("COMMIT;");
+        await assert.rejects(expiryResult, /QUICK_LINK_HAS_LIVE_PAYMENT_ATTEMPT/);
+        assert.equal(psql(backend, `SELECT status||'|'||version FROM saas.quick_order_links WHERE id='${LINK}';`, expiryDatabase), "active|1");
+        assert.equal(psql(backend, `SELECT count(*) FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.quick_order_link_id='${LINK}' AND attempt.status='reserved' AND reservation.status='held';`, expiryDatabase), "1");
+      } finally {
+        await Promise.all([expiryBegin.close(), expiryUpdate.close()]);
       }
-      denied(backend, `SET ROLE celebix_saas_owner; UPDATE saas.quick_order_links SET status='expired',version=2,updated_at='2026-07-21 12:01:00+00' WHERE id='${LINK}';`);
-      const blocker = psqlAsync(backend, `BEGIN; SET ROLE celebix_saas_owner; SELECT 1 FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE; SELECT pg_sleep(0.2); COMMIT; SELECT 'released';`);
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      const concurrentCancel = psqlAsync(backend, `SET statement_timeout='3s'; SET ROLE celebix_saas_app; SELECT outcome FROM saas.quick_links_cancel('${STORE}','${PRINCIPAL}','${MEMBERSHIP}','${PLAN}','free_starter',1,'2026-07-21 12:02:00+00','${LINK}',1,'90000000-0000-4000-8000-000000000004',repeat('6',64));`);
-      const [, concurrentOutcome] = await Promise.all([blocker, concurrentCancel]);
-      assert.equal(concurrentOutcome, "invalid_transition");
+
+      const expiryWinsDatabase = cloneDatabase(backend, "race_expiry_wins");
+      psql(backend, `SET ROLE celebix_saas_owner;
+        UPDATE saas.checkout_payment_attempts SET status='expired',expired_at='2026-07-21 12:06:00+00',version=2,updated_at='2026-07-21 12:06:00+00' WHERE id='${ATTEMPT}';
+        UPDATE saas.checkout_inventory_reservations SET status='expired',expired_at='2026-07-21 12:06:00+00',version=2,updated_at='2026-07-21 12:06:00+00' WHERE id='${RESERVATION}';`, expiryWinsDatabase);
+      const expiryWinner = openPsqlSession(backend, expiryWinsDatabase, "expiry_winner");
+      const beginLoser = openPsqlSession(backend, expiryWinsDatabase, "begin_after_expiry");
+      try {
+        await expiryWinner.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          UPDATE saas.quick_order_links SET status='expired',version=2,updated_at='2026-07-21 12:07:00+00' WHERE id='${LINK}';`);
+        const beginResult = beginLoser.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          DO $begin$
+          DECLARE link_status text;
+          BEGIN
+            SELECT status INTO link_status FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;
+            IF link_status NOT IN ('active','opened') THEN RAISE EXCEPTION 'CHECKOUT_BEGIN_LINK_UNAVAILABLE'; END IF;
+            INSERT INTO saas.checkout_payment_attempts SELECT
+              '62000000-0000-4000-8000-000000000020',store_id,quick_order_link_id,redemption_session_id,provider_config_id,
+              provider_config_version,configuration_digest,configuration_key_id,sealed_configuration,
+              '3123456789abcdef0123456789abcdef',expected_subtotal_cents,expected_shipping_cents,expected_discount_cents,
+              expected_payment_amount,currency,'reserved',NULL,NULL,NULL,
+              '2026-07-21 12:15:00+00',NULL,NULL,NULL,NULL,NULL,NULL,
+              1,'2026-07-21 12:10:00+00','2026-07-21 12:10:00+00'
+            FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}';
+          END
+          $begin$; COMMIT;`);
+        await waitForBlockedSession(backend, expiryWinsDatabase, beginLoser.applicationName);
+        await expiryWinner.execute("COMMIT;");
+        await assert.rejects(beginResult, /CHECKOUT_BEGIN_LINK_UNAVAILABLE/);
+        assert.equal(psql(backend, `SELECT status||'|'||version||'|'||(SELECT count(*) FROM saas.checkout_payment_attempts WHERE quick_order_link_id='${LINK}' AND status='reserved')||'|'||(SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${LINK}') FROM saas.quick_order_links WHERE id='${LINK}';`, expiryWinsDatabase), "expired|2|0|0");
+      } finally {
+        await Promise.all([expiryWinner.close(), beginLoser.close()]);
+      }
+
+      const failureDatabase = cloneDatabase(backend, "race_signed_failure");
+      makeAttemptProviderReady(backend, failureDatabase);
+      const failure = openPsqlSession(backend, failureDatabase, "signed_failure");
+      const failureCancel = openPsqlSession(backend, failureDatabase, "signed_failure_cancel");
+      try {
+        await failure.execute(`BEGIN; SET ROLE celebix_saas_owner; SELECT id FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE;`);
+        const cancelResult = failureCancel.execute(`BEGIN; ${cancelSql("90000000-0000-4000-8000-000000000014")} COMMIT;`);
+        await waitForBlockedSession(backend, failureDatabase, failureCancel.applicationName);
+        await failure.execute(`UPDATE saas.checkout_payment_attempts SET status='failed',failed_at='2026-07-21 12:02:00+00',version=3,updated_at='2026-07-21 12:02:00+00' WHERE id='${ATTEMPT}';
+          UPDATE saas.checkout_inventory_reservations SET status='released',released_at='2026-07-21 12:02:00+00',version=2,updated_at='2026-07-21 12:02:00+00' WHERE attempt_id='${ATTEMPT}'; COMMIT;`);
+        assert.equal((await cancelResult).split("\n").at(-1), "committed");
+        assert.equal(psql(backend, `SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||(SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${LINK}') FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE link.id='${LINK}' AND attempt.id='${ATTEMPT}' AND reservation.id='${RESERVATION}';`, failureDatabase), "cancelled|failed|released|0");
+      } finally {
+        await Promise.all([failure.close(), failureCancel.close()]);
+      }
+
+      const failureExpiryDatabase = cloneDatabase(backend, "race_failure_expiry");
+      makeAttemptProviderReady(backend, failureExpiryDatabase);
+      const failureWinner = openPsqlSession(backend, failureExpiryDatabase, "failure_before_expiry");
+      const expiryAfterFailure = openPsqlSession(backend, failureExpiryDatabase, "expiry_after_failure");
+      try {
+        await failureWinner.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE;
+          SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;`);
+        const expiryResult = expiryAfterFailure.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;
+          UPDATE saas.quick_order_links SET status='expired',version=2,updated_at='2026-07-21 12:03:00+00' WHERE id='${LINK}';
+          COMMIT; SELECT 'expired';`);
+        await waitForBlockedSession(backend, failureExpiryDatabase, expiryAfterFailure.applicationName);
+        await failureWinner.execute(`UPDATE saas.checkout_payment_attempts SET status='failed',failed_at='2026-07-21 12:02:00+00',version=3,updated_at='2026-07-21 12:02:00+00' WHERE id='${ATTEMPT}';
+          UPDATE saas.checkout_inventory_reservations SET status='released',released_at='2026-07-21 12:02:00+00',version=2,updated_at='2026-07-21 12:02:00+00' WHERE attempt_id='${ATTEMPT}'; COMMIT;`);
+        assert.equal((await expiryResult).split("\n").at(-1), "expired");
+        assert.equal(psql(backend, `SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||(SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${LINK}')||'|'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}') FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE link.id='${LINK}' AND attempt.id='${ATTEMPT}' AND reservation.id='${RESERVATION}';`, failureExpiryDatabase), "expired|failed|released|0|6");
+      } finally {
+        await Promise.all([failureWinner.close(), expiryAfterFailure.close()]);
+      }
+
+      const expiryFirstFailureDatabase = cloneDatabase(backend, "race_expiry_first_failure");
+      makeAttemptProviderReady(backend, expiryFirstFailureDatabase);
+      const failureAfterExpiry = openPsqlSession(backend, expiryFirstFailureDatabase, "failure_after_expiry");
+      const expiryFirst = openPsqlSession(backend, expiryFirstFailureDatabase, "expiry_before_failure");
+      try {
+        await failureAfterExpiry.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE;`);
+        await expiryFirst.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;`);
+        const failureLinkLock = failureAfterExpiry.execute(`SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;`);
+        await waitForBlockedSession(backend, expiryFirstFailureDatabase, failureAfterExpiry.applicationName);
+        await assert.rejects(
+          expiryFirst.execute(`UPDATE saas.quick_order_links SET status='expired',version=2,updated_at='2026-07-21 12:03:00+00' WHERE id='${LINK}'; COMMIT;`),
+          /QUICK_LINK_HAS_LIVE_PAYMENT_ATTEMPT/,
+        );
+        await failureLinkLock;
+        await failureAfterExpiry.execute(`UPDATE saas.checkout_payment_attempts SET status='failed',failed_at='2026-07-21 12:02:00+00',version=3,updated_at='2026-07-21 12:02:00+00' WHERE id='${ATTEMPT}';
+          UPDATE saas.checkout_inventory_reservations SET status='released',released_at='2026-07-21 12:02:00+00',version=2,updated_at='2026-07-21 12:02:00+00' WHERE attempt_id='${ATTEMPT}'; COMMIT;`);
+        psql(backend, `SET ROLE celebix_saas_owner; UPDATE saas.quick_order_links SET status='expired',version=2,updated_at='2026-07-21 12:04:00+00' WHERE id='${LINK}';`, expiryFirstFailureDatabase);
+        assert.equal(psql(backend, `SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||(SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${LINK}')||'|'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}') FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE link.id='${LINK}' AND attempt.id='${ATTEMPT}' AND reservation.id='${RESERVATION}';`, expiryFirstFailureDatabase), "expired|failed|released|0|6");
+      } finally {
+        await Promise.all([failureAfterExpiry.close(), expiryFirst.close()]);
+      }
+
+      const successDatabase = cloneDatabase(backend, "race_success");
+      makeAttemptProviderReady(backend, successDatabase);
+      const success = openPsqlSession(backend, successDatabase, "success_settlement");
+      const successCancel = openPsqlSession(backend, successDatabase, "success_cancel");
+      try {
+        await success.execute(`BEGIN; SET ROLE celebix_saas_owner; SELECT id FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE;`);
+        const cancelResult = successCancel.execute(`BEGIN; ${cancelSql("90000000-0000-4000-8000-000000000015", "2026-07-21 12:03:00+00", 2)} COMMIT;`);
+        await waitForBlockedSession(backend, successDatabase, successCancel.applicationName);
+        await success.execute(`${settlementSql()} COMMIT;`);
+        assert.equal((await cancelResult).split("\n").at(-1), "invalid_transition");
+        assert.equal(psql(backend, `SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||link.order_id||'|'||attempt.settled_order_id||'|'||(SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${LINK}')||'|'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}') FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE link.id='${LINK}' AND attempt.id='${ATTEMPT}' AND reservation.id='${RESERVATION}';`, successDatabase), `paid|succeeded|consumed|${SUCCESS_ORDER}|${SUCCESS_ORDER}|1|4`);
+      } finally {
+        await Promise.all([success.close(), successCancel.close()]);
+      }
+
+      const successExpiryDatabase = cloneDatabase(backend, "race_success_expiry");
+      makeAttemptProviderReady(backend, successExpiryDatabase);
+      const successWinner = openPsqlSession(backend, successExpiryDatabase, "success_before_expiry");
+      const expiryAfterSuccess = openPsqlSession(backend, successExpiryDatabase, "expiry_after_success");
+      try {
+        await successWinner.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE;
+          SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;`);
+        const expiryResult = expiryAfterSuccess.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;
+          UPDATE saas.quick_order_links SET status='expired',version=2,updated_at='2026-07-21 12:03:00+00' WHERE id='${LINK}';
+          COMMIT;`);
+        await waitForBlockedSession(backend, successExpiryDatabase, expiryAfterSuccess.applicationName);
+        await successWinner.execute(`${settlementSql("70000000-0000-4000-8000-000000000012")} COMMIT;`);
+        await assert.rejects(expiryResult, /QUICK_LINK_(?:PAID_IMMUTABLE|TERMINAL_STATUS_IMMUTABLE)/);
+        assert.equal(psql(backend, `SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||link.order_id||'|'||attempt.settled_order_id||'|'||(SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${LINK}')||'|'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}') FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE link.id='${LINK}' AND attempt.id='${ATTEMPT}' AND reservation.id='${RESERVATION}';`, successExpiryDatabase), "paid|succeeded|consumed|70000000-0000-4000-8000-000000000012|70000000-0000-4000-8000-000000000012|1|4");
+      } finally {
+        await Promise.all([successWinner.close(), expiryAfterSuccess.close()]);
+      }
+
       const definition = psql(backend, "SELECT pg_get_functiondef('saas.quick_links_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,uuid,text)'::regprocedure);");
       assert.ok(definition.indexOf("ORDER BY attempt.id") < definition.indexOf("SELECT link.* INTO current_link"));
     });
 
     await scenario("archive and settlement lock ordering completes without deadlock", async () => {
-      psql(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_inventory_reservations(id,store_id,attempt_id,quick_order_link_id,product_id,variant_id,quantity,stock_tracked,status,held_at,version,updated_at) VALUES ('63000000-0000-4000-8000-000000000005','${STORE}','${ATTEMPT}','${LINK}','${PRODUCT}','${VARIANT_2}',999999,false,'held','2026-07-21 12:00:00+00',1,'2026-07-21 12:00:00+00');`);
-      const settle = psqlAsync(backend, `BEGIN; SET ROLE celebix_saas_owner; SELECT 1 FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE; SELECT 1 FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE; SELECT 1 FROM saas.product_variants WHERE store_id='${STORE}' AND product_id='${PRODUCT}' ORDER BY id DESC FOR UPDATE; SELECT pg_sleep(0.2); SELECT 1 FROM saas.checkout_inventory_reservations WHERE attempt_id='${ATTEMPT}' ORDER BY variant_id DESC FOR UPDATE; UPDATE saas.checkout_inventory_reservations SET status='consumed',consumed_at='2026-07-21 12:02:00+00',version=2,updated_at='2026-07-21 12:02:00+00' WHERE attempt_id='${ATTEMPT}'; COMMIT; SELECT 'settled';`);
-      await new Promise((resolve) => setTimeout(resolve, 30));
-      const archive = psqlAsync(backend, `SET statement_timeout='3s'; SET ROLE celebix_saas_app; SELECT outcome FROM saas.catalog_archive_product('${STORE}','${PRINCIPAL}','${MEMBERSHIP}','${PLAN}','free_starter',1,100,'2026-07-21 12:03:00+00','90000000-0000-4000-8000-000000000002',repeat('9',64),'${PRODUCT}',1);`);
-      const [settled, archived] = await Promise.all([settle, archive]);
-      assert.match(settled, /settled/); assert.equal(archived.split("\n").at(-1), "archived");
+      const database = cloneDatabase(backend, "race_archive");
+      makeAttemptProviderReady(backend, database);
+      psql(backend, `SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_inventory_reservations(id,store_id,attempt_id,quick_order_link_id,product_id,variant_id,quantity,stock_tracked,status,held_at,version,updated_at) VALUES ('63000000-0000-4000-8000-000000000005','${STORE}','${ATTEMPT}','${LINK}','${PRODUCT}','${VARIANT_2}',999999,false,'held','2026-07-21 12:00:00+00',1,'2026-07-21 12:00:00+00');`, database);
+      const settle = openPsqlSession(backend, database, "archive_settlement");
+      const archive = openPsqlSession(backend, database, "archive_catalog");
+      try {
+        await settle.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.checkout_payment_attempts WHERE id='${ATTEMPT}' FOR UPDATE;
+          SELECT id FROM saas.quick_order_links WHERE id='${LINK}' FOR UPDATE;
+          SELECT id FROM saas.product_variants WHERE id='${VARIANT}' FOR UPDATE;`);
+        const archiveResult = archive.execute(`BEGIN; SET lock_timeout='2s'; SET deadlock_timeout='50ms'; SET ROLE celebix_saas_app;
+          SELECT outcome FROM saas.catalog_archive_product('${STORE}','${PRINCIPAL}','${MEMBERSHIP}','${PLAN}','free_starter',1,100,'2026-07-21 12:03:00+00','90000000-0000-4000-8000-000000000016',repeat('9',64),'${PRODUCT}',1); COMMIT;`);
+        await waitForBlockedSession(backend, database, archive.applicationName);
+        await settle.execute(`SET lock_timeout='2s'; SELECT id FROM saas.product_variants WHERE id='${VARIANT_2}' FOR UPDATE;
+          SELECT id FROM saas.checkout_inventory_reservations WHERE attempt_id='${ATTEMPT}' ORDER BY variant_id FOR UPDATE;
+          ${settlementSql("70000000-0000-4000-8000-000000000011")}
+          COMMIT;`);
+        assert.equal((await archiveResult).split("\n").at(-1), "archived");
+        assert.equal(psql(backend, `SELECT product.status||'|'||string_agg(variant.status,',' ORDER BY variant.id)||'|'||attempt.status||'|'||link.status||'|'||(SELECT count(*) FROM saas.checkout_inventory_reservations WHERE attempt_id='${ATTEMPT}' AND status='consumed') FROM saas.products AS product JOIN saas.product_variants AS variant ON variant.product_id=product.id JOIN saas.checkout_payment_attempts AS attempt ON attempt.id='${ATTEMPT}' JOIN saas.quick_order_links AS link ON link.id=attempt.quick_order_link_id WHERE product.id='${PRODUCT}' GROUP BY product.status,attempt.status,link.status;`, database), "archived|archived,archived|succeeded|paid|2");
+      } finally {
+        await Promise.all([settle.close(), archive.close()]);
+      }
     });
 
     await scenario("down restores exact 025 bodies then reapply and partial-start cleanup succeeds", async () => {
       apply(backend, "202607220026_quick_order_checkout_runtime.up.sql", ROLLBACK_DATABASE);
+      psql(backend, `SET ROLE celebix_saas_owner;
+        UPDATE saas.checkout_provider_configs SET status='revoked',configuration_digest=repeat('d',64),version=2,updated_at='2026-07-21' WHERE id='${PROVIDER}';
+        INSERT INTO saas.checkout_provider_configs(id,store_id,provider_key,status,public_origin,configuration_key_id,sealed_configuration,configuration_digest,version,created_at,updated_at)
+          VALUES ('50000000-0000-4000-8000-000000000009','${STORE}','paytr','active','https://www.paytr.com','key-1',${ENVELOPE},repeat('e',64),1,'2026-07-21','2026-07-21');`, ROLLBACK_DATABASE);
+      const unsafeDown = apply(backend, "202607220026_quick_order_checkout_runtime.down.sql", ROLLBACK_DATABASE, true);
+      assert.notEqual(unsafeDown.status, 0);
+      assert.match(unsafeDown.stderr, /QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT/);
+      assert.equal(psql(backend, "SELECT to_regclass('saas.checkout_payment_attempts') IS NOT NULL;", ROLLBACK_DATABASE), "t");
+      psql(backend, `SET ROLE celebix_saas_owner;
+        ALTER TABLE saas.checkout_provider_configs DISABLE TRIGGER checkout_provider_configs_terminal;
+        DELETE FROM saas.checkout_provider_configs WHERE id='50000000-0000-4000-8000-000000000009';
+        UPDATE saas.checkout_provider_configs SET status='active',version=3,updated_at='2026-07-21 00:00:01+00' WHERE id='${PROVIDER}';
+        ALTER TABLE saas.checkout_provider_configs ENABLE TRIGGER checkout_provider_configs_terminal;`, ROLLBACK_DATABASE);
       apply(backend, "202607220026_quick_order_checkout_runtime.down.sql", ROLLBACK_DATABASE);
       const down = readFileSync(path.join(SQL, "202607220026_quick_order_checkout_runtime.down.sql"), "utf8");
       assert.equal(normalizedFunction(down, "quick_links_cancel"), normalizedFunction(readFileSync(path.join(SQL, "202607220025_quick_order_links_api.up.sql"), "utf8"), "quick_links_cancel"));
@@ -363,6 +785,20 @@ async function main() {
       psql(backend, "SET ROLE celebix_saas_owner; ALTER TABLE saas.checkout_provider_configs DROP COLUMN configuration_digest;", PARTIAL_DATABASE);
       apply(backend, "202607220026_quick_order_checkout_runtime.up.sql", PARTIAL_DATABASE);
       apply(backend, "202607220026_quick_order_checkout_runtime.down.sql", PARTIAL_DATABASE);
+
+      for (const failAfter of ["temporary-directory", "socket-directory", "initdb", "pg-ctl-started"]) {
+        const allocations = [];
+        assert.throws(
+          () => startPostgres({
+            token: `${TOKEN.slice(0, 6)}${failAfter.replaceAll("-", "").slice(0, 5)}`,
+            failAfter,
+            onAllocation: (_kind, allocationPath) => allocations.push(allocationPath),
+          }),
+          new RegExp(`INJECTED_${failAfter.replaceAll("-", "_").toUpperCase()}_FAILURE`),
+        );
+        assert.ok(allocations.length >= 1, `${failAfter} did not reach an allocation boundary`);
+        for (const allocationPath of allocations) assert.equal(existsSync(allocationPath), false, `${failAfter} leaked ${allocationPath}`);
+      }
     });
 
     assert.equal(completed.length, TOTAL);

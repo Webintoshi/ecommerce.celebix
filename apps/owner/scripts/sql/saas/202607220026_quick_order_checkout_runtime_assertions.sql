@@ -120,6 +120,56 @@ BEGIN
     RAISE EXCEPTION 'PHASE3B2_RUNTIME_ASSERTION_FAILED: provider readiness/hold drift';
   END IF;
 
+  IF NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_constraint
+      WHERE conrelid='saas.checkout_payment_attempts'::regclass
+        AND conname='checkout_payment_attempts_amount_check'
+        AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(oid),'expected_payment_amount')>0
+        AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(oid),'expected_subtotal_cents')>0
+        AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(oid),'expected_shipping_cents')>0
+        AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(oid),'expected_discount_cents')>0
+        AND pg_catalog.pg_get_constraintdef(oid) LIKE '%8500000000000000%'
+    )
+     OR NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_constraint
+      WHERE conrelid='saas.checkout_reconciliation_jobs'::regclass
+        AND conname='checkout_reconciliation_jobs_lease_check'
+        AND pg_catalog.pg_get_constraintdef(oid) LIKE '%lease_token_digest%lease_expires_at%updated_at%'
+    )
+     OR NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_constraint
+      WHERE conrelid='saas.checkout_callback_receipts'::regclass
+        AND conname='checkout_callback_receipts_received_at_check'
+        AND pg_catalog.pg_get_constraintdef(oid) LIKE '%isfinite%received_at%'
+    ) THEN
+    RAISE EXCEPTION 'PHASE3B2_RUNTIME_ASSERTION_FAILED: critical amount/lease/receipt-time contract drift';
+  END IF;
+
+  IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='saas' AND table_name='checkout_callback_receipts'
+        AND column_name='currency' AND data_type='text' AND is_nullable='NO'
+    )
+     OR NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_constraint
+      WHERE conrelid='saas.checkout_callback_receipts'::regclass
+        AND conname='checkout_callback_receipts_currency_check'
+        AND pg_catalog.pg_get_constraintdef(oid) LIKE '%currency = ''TRY''::text%'
+    )
+     OR NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='saas' AND table_name='checkout_reconciliation_receipts'
+        AND column_name='currency' AND data_type='text' AND is_nullable='NO'
+    )
+     OR NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_constraint
+      WHERE conrelid='saas.checkout_reconciliation_receipts'::regclass
+        AND conname='checkout_reconciliation_receipts_currency_check'
+        AND pg_catalog.pg_get_constraintdef(oid) LIKE '%currency = ''TRY''::text%'
+    ) THEN
+    RAISE EXCEPTION 'PHASE3B2_RUNTIME_ASSERTION_FAILED: persisted receipt TRY authority drift';
+  END IF;
+
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.checkout_inventory_reservations'::regclass
       AND conname='checkout_inventory_reservations_attempt_variant_key' AND contype='u')
      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.checkout_callback_receipts'::regclass
@@ -139,8 +189,28 @@ BEGIN
       'checkout_provider_configs_terminal','checkout_payment_attempts_transition','checkout_inventory_reservations_transition',
       'checkout_callback_receipts_immutable','checkout_reconciliation_receipts_immutable','checkout_operations_immutable',
       'quick_order_redemption_sessions_transition','checkout_reconciliation_jobs_transition',
-      'quick_order_links_live_attempt','quick_order_links_paid_immutable','product_variants_checkout_hold'
-    )) <> 11 THEN RAISE EXCEPTION 'PHASE3B2_RUNTIME_ASSERTION_FAILED: trigger drift'; END IF;
+      'quick_order_links_live_attempt','quick_order_links_live_attempt_commit',
+      'quick_order_links_paid_immutable','product_variants_checkout_hold'
+    )) <> 12 THEN RAISE EXCEPTION 'PHASE3B2_RUNTIME_ASSERTION_FAILED: trigger drift'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_trigger
+    WHERE tgrelid='saas.quick_order_links'::regclass
+      AND tgname='quick_order_links_live_attempt_commit'
+      AND NOT tgisinternal AND tgconstraint<>0 AND tgdeferrable AND tginitdeferred
+  ) THEN
+    RAISE EXCEPTION 'PHASE3B2_RUNTIME_ASSERTION_FAILED: deferred commit-time link guard drift';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc AS routine
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=routine.pronamespace
+    JOIN pg_catalog.pg_roles AS owner_role ON owner_role.oid=routine.proowner
+    WHERE namespace.nspname='saas' AND routine.proname='guard_checkout_quick_link_live_attempt'
+      AND routine.prosecdef AND owner_role.rolname='celebix_saas_owner'
+      AND NOT pg_catalog.has_function_privilege('celebix_saas_app',routine.oid,'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'PHASE3B2_RUNTIME_ASSERTION_FAILED: deferred guard execution authority drift';
+  END IF;
 
   IF pg_catalog.strpos(cancel_definition,'ORDER BY attempt.id')=0
      OR pg_catalog.strpos(cancel_definition,'FOR UPDATE')=0

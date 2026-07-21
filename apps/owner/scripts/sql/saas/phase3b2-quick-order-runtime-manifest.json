@@ -3,27 +3,27 @@
   "postgresqlMajor": 16,
   "migrationClassification": "additive",
   "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
-  "rollbackLimitations": "Migration 026 rollback destroys quick-order checkout runtime rows and is authorized only for isolated disposable rehearsal before any shared checkout data exists.",
+  "rollbackLimitations": "Migration 026 rollback destroys quick-order checkout runtime rows and is authorized only for isolated disposable rehearsal before any shared checkout data exists. Rollback fails closed with QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT when revoked provider history and a replacement share one store/provider key; operators must preserve or explicitly reconcile that history before retrying.",
   "artifacts": [
     {
       "id": "202607220026_quick_order_checkout_runtime_up",
       "direction": "up",
       "file": "202607220026_quick_order_checkout_runtime.up.sql",
-      "sha256": "5441a5a6a81b2c835b43221eddecf890fc3b5b990ee50a206ebe0b2bf32eea63",
+      "sha256": "330658de00a1513d19070daf17176c6f8a2c483e9dc7549bf006b56e7d89aba3",
       "purpose": "Add quick-order redemption, payment-attempt, inventory-reservation, callback, reconciliation and operation authority with deterministic catalog and cancellation guards."
     },
     {
       "id": "202607220026_quick_order_checkout_runtime_down",
       "direction": "down",
       "file": "202607220026_quick_order_checkout_runtime.down.sql",
-      "sha256": "0dd96fea8b4aa38d70c62eb595bf8b5509baf5492de53c13396b50e8725aa52b",
+      "sha256": "3bff69078e03907354f2bf0c2c046717ec9a91c06010ff3a338f363c03284a9b",
       "purpose": "Remove only migration 026 objects and restore the exact migration-025 cancellation and migration-018 catalog archive behavior."
     },
     {
       "id": "202607220026_quick_order_checkout_runtime_assertions",
       "direction": "verify",
       "file": "202607220026_quick_order_checkout_runtime_assertions.sql",
-      "sha256": "90f818065249b85957a22a5ea6bcb5d3dbd679efa7d26da31b33c02bf75bc466",
+      "sha256": "fe87085e2f22fe70c02a71f094213a88732e98f6ed86ae5a37b64ddd0cf1d30c",
       "purpose": "Fail on checkout runtime ownership, FORCE RLS, ACL, identity, lifecycle, immutable receipt, deterministic lock or catalog guard drift."
     }
   ]
