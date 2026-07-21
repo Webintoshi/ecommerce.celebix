@@ -30,7 +30,7 @@
       "id": "202607220027_quick_order_checkout_api_up",
       "direction": "up",
       "file": "202607220027_quick_order_checkout_api.up.sql",
-      "sha256": "8403e2ae536565a9c376f94274de01c00bca52cd675b45475c7136a773daed27",
+      "sha256": "7179d3dedc9137f0df0320af3331e857b7dc736e2bc2899d1135fa1714841c20",
       "purpose": "Add least-privilege merchant provider authority, exact-host redemption, bounded PayTR attempt initiation, atomic callback settlement, fenced reconciliation, presentation, status, cleanup and read-only operation recovery."
     },
     {
@@ -44,7 +44,7 @@
       "id": "202607220027_quick_order_checkout_api_assertions",
       "direction": "verify",
       "file": "202607220027_quick_order_checkout_api_assertions.sql",
-      "sha256": "8d5bcaf9fbdf111a91f8ae0279ad2890166d7720a6657f1e8734ee98d6aa8944",
+      "sha256": "66f9b1462b845317f03e065087b247613b076fea6b0af6bb4027d29f25941ada",
       "purpose": "Fail on merchant/workflow ACL, schema usage, direct table or sequence privilege, exact settlement and reconciliation signatures, lock order, lease fencing and operation-scope drift."
     }
   ]

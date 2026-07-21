@@ -1246,7 +1246,13 @@ BEGIN
   SELECT link.* INTO current_link FROM saas.quick_order_links AS link
     WHERE link.store_id=current_attempt.store_id AND link.id=current_attempt.quick_order_link_id FOR UPDATE OF link;
   IF NOT FOUND THEN RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN; END IF;
-  -- Shared success settlement lock order is exact: attempt -> link -> variants by id -> reservations by variant_id.
+  -- Shared success settlement lock order is exact: attempt -> link -> persisted products by id -> variants by id -> reservations by variant_id.
+  PERFORM product.id FROM saas.products AS product
+    WHERE product.store_id=current_attempt.store_id AND EXISTS(
+      SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
+      WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+        AND reservation.product_id=product.id
+    ) ORDER BY product.id FOR KEY SHARE OF product;
   PERFORM variant.id FROM saas.product_variants AS variant
     WHERE variant.store_id=current_attempt.store_id AND EXISTS(
       SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
@@ -1283,6 +1289,7 @@ BEGIN
   IF saas.quick_checkout_uuid_is_valid(p_order_id) IS DISTINCT FROM TRUE
      OR saas.quick_checkout_uuid_is_valid(p_order_event_id) IS DISTINCT FROM TRUE
      OR p_order_item_ids IS NULL OR pg_catalog.array_ndims(p_order_item_ids)<>1
+     OR pg_catalog.array_lower(p_order_item_ids,1) IS DISTINCT FROM 1
      OR pg_catalog.cardinality(p_order_item_ids)<>expected_item_count
      OR EXISTS(SELECT 1 FROM pg_catalog.unnest(p_order_item_ids) AS supplied(id)
        WHERE saas.quick_checkout_uuid_is_valid(supplied.id) IS DISTINCT FROM TRUE)

@@ -95,8 +95,11 @@ BEGIN
     WHERE procedure.oid='saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz)'::regprocedure;
   IF pg_catalog.strpos(source,'SELECT attempt.* INTO current_attempt')=0
      OR pg_catalog.strpos(source,'SELECT link.* INTO current_link')<=pg_catalog.strpos(source,'SELECT attempt.* INTO current_attempt')
-     OR pg_catalog.strpos(source,'ORDER BY variant.id FOR UPDATE')<=pg_catalog.strpos(source,'SELECT link.* INTO current_link')
+     OR pg_catalog.strpos(source,'ORDER BY product.id FOR KEY SHARE')<=pg_catalog.strpos(source,'SELECT link.* INTO current_link')
+     OR pg_catalog.strpos(source,'ORDER BY variant.id FOR UPDATE')<=pg_catalog.strpos(source,'ORDER BY product.id FOR KEY SHARE')
      OR pg_catalog.strpos(source,'ORDER BY reservation.variant_id,reservation.id FOR UPDATE')<=pg_catalog.strpos(source,'ORDER BY variant.id FOR UPDATE')
+     OR source!~'reservation[.]attempt_id=current_attempt[.]id.*reservation[.]product_id=product[.]id'
+     OR source!~'array_lower\(p_order_item_ids,1\) IS DISTINCT FROM 1'
      OR source!~'current_link[.]customer_name' OR source!~'item_record[.]product_name'
      OR source!~'actor_membership_id,event_type' OR source!~'''order_created''' THEN
     RAISE EXCEPTION 'PHASE3B2_CHECKOUT_API_ASSERTION_FAILED: settlement core drift';

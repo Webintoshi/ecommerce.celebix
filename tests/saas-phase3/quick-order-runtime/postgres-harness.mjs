@@ -220,6 +220,24 @@ async function waitForBlockedSession(backend, database, applicationName) {
   throw new Error(`session ${applicationName} never reached an explicit PostgreSQL lock barrier`);
 }
 
+function blockingApplications(backend, database, applicationName) {
+  const raw = psql(backend, `SELECT COALESCE(pg_catalog.string_agg(blocker.application_name,',' ORDER BY blocker.application_name),'')
+    FROM pg_catalog.pg_stat_activity AS activity
+    CROSS JOIN LATERAL pg_catalog.unnest(pg_catalog.pg_blocking_pids(activity.pid)) AS blocked(blocker_pid)
+    JOIN pg_catalog.pg_stat_activity AS blocker ON blocker.pid=blocked.blocker_pid
+    WHERE activity.datname=${sqlLiteral(database)} AND activity.application_name=${sqlLiteral(applicationName)};`, database);
+  return raw === "" ? [] : raw.split(",");
+}
+
+async function waitForBlockedBySession(backend, database, applicationName, blockerApplicationName) {
+  const deadline = Date.now() + 3_000;
+  while (Date.now() < deadline) {
+    if (blockingApplications(backend,database,applicationName).includes(blockerApplicationName)) return;
+    await delay(10);
+  }
+  throw new Error(`session ${applicationName} was not blocked by ${blockerApplicationName}`);
+}
+
 function sqlLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
@@ -295,6 +313,23 @@ function functionResult(backend, expression, database = DATABASE, role = "celebi
   const separator = raw.indexOf("\t");
   assert.notEqual(separator, -1, `function did not return one controlled row: ${raw}`);
   return { outcome: raw.slice(0, separator), payload: JSON.parse(raw.slice(separator + 1)) };
+}
+
+function checkoutMutationBytes(backend, database) {
+  return psql(backend, `SELECT pg_catalog.jsonb_build_object(
+    'attempts',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.checkout_payment_attempts AS row_data),
+    'callbackReceipts',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.checkout_callback_receipts AS row_data),
+    'jobs',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.attempt_id),'[]'::jsonb) FROM saas.checkout_reconciliation_jobs AS row_data),
+    'links',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.quick_order_links AS row_data),
+    'operations',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.operation_id),'[]'::jsonb) FROM saas.checkout_operations AS row_data),
+    'orderEvents',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.order_events AS row_data),
+    'orderItems',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.order_items AS row_data),
+    'orders',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.orders AS row_data),
+    'products',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.products AS row_data),
+    'reconciliationReceipts',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.checkout_reconciliation_receipts AS row_data),
+    'reservations',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.checkout_inventory_reservations AS row_data),
+    'variants',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data) ORDER BY row_data.id),'[]'::jsonb) FROM saas.product_variants AS row_data)
+  )::text;`, database);
 }
 
 function merchantAuthority(membership = MEMBERSHIP, principal = PRINCIPAL) {
@@ -1701,6 +1736,19 @@ async function main() {
           FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id
           WHERE attempt.id='${begun.attempt}';`,database),"provider_ready|held|0|0");
       }
+      const lowerBoundDatabase=cloneDatabase(backend,"callback_validation_lower_bound");
+      const lowerBoundLink=seedCheckoutLink(backend,lowerBoundDatabase,448);
+      const lowerBoundClaim=claimLink(backend,lowerBoundDatabase,lowerBoundLink,448);
+      const lowerBoundAttempt=beginAttempt(backend,lowerBoundDatabase,lowerBoundClaim,448);
+      assert.equal(markAttemptProviderReady(backend,lowerBoundDatabase,lowerBoundAttempt,548).outcome,"committed");
+      const lowerBoundBefore=checkoutMutationBytes(backend,lowerBoundDatabase);
+      const lowerBoundResult=functionResult(backend,`saas.checkout_settle_callback(
+        '${lowerBoundAttempt.merchantOid}','${fixtureDigest("callback-lower-bound")}',
+        '${fixtureUuid("d",448)}',repeat('6',64),'success',10000,10000,'TRY','card',1,NULL,NULL,
+        '${fixtureUuid("7",448)}','[0:0]={${fixtureUuid("8",448)}}'::uuid[],
+        '${fixtureUuid("9",448)}','QO-448','2026-07-21 12:13:00+00')`,lowerBoundDatabase);
+      assert.equal(lowerBoundResult.outcome,"invalid_input");
+      assert.equal(checkoutMutationBytes(backend,lowerBoundDatabase),lowerBoundBefore);
     });
 
     await scenario("singleton reconciliation run lease is recoverable busy fenced and replaceable after expiry", async () => {
@@ -1866,6 +1914,13 @@ async function main() {
       const worker=fixtureUuid("d",560);
       assert.equal(beginReconciliationRun(backend,database,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").outcome,"acquired");
       const authority=claimReconciliation(backend,database,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").payload.claims[0];
+      const lowerBoundBefore=checkoutMutationBytes(backend,database);
+      const lowerBoundResult=functionResult(backend,`saas.checkout_apply_reconciliation_success(
+        '${begun.merchantOid}','${worker}','${authority.leaseToken}','${fixtureUuid("d",567)}',repeat('7',64),
+        10000,10000,'TRY',1,'${fixtureUuid("7",567)}','[0:0]={${fixtureUuid("8",567)}}'::uuid[],
+        '${fixtureUuid("9",567)}','QO-R-567','2026-07-21 12:13:30+00')`,database);
+      assert.equal(lowerBoundResult.outcome,"invalid_input");
+      assert.equal(checkoutMutationBytes(backend,database),lowerBoundBefore);
       for (const [number,options] of [
         [562,{paymentAmount:9999,totalAmount:10000}],
         [563,{paymentAmount:10000,totalAmount:9999}],
@@ -1970,32 +2025,56 @@ async function main() {
       const claimed=claimLink(backend,database,link,580);
       const begun=beginAttempt(backend,database,claimed,580);
       assert.equal(markAttemptProviderReady(backend,database,begun,581).outcome,"committed");
+      psql(backend,`CREATE FUNCTION saas.quick_checkout_settlement_race_barrier()
+        RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $function$
+        BEGIN
+          IF pg_catalog.current_setting('celebix.test_settlement_barrier',true)='on' THEN
+            PERFORM pg_catalog.pg_advisory_xact_lock(1498934,581);
+          END IF;
+          RETURN NULL;
+        END
+        $function$;
+        CREATE TRIGGER quick_checkout_settlement_race_barrier
+          BEFORE INSERT ON saas.orders FOR EACH STATEMENT
+          EXECUTE FUNCTION saas.quick_checkout_settlement_race_barrier();`,database);
+      const barrier=openPsqlSession(backend,database,"callback_archive_barrier");
       const settle=openPsqlSession(backend,database,"callback_archive_settlement");
       const archive=openPsqlSession(backend,database,"callback_archive_catalog");
       try {
-        await archive.execute(`BEGIN; SET ROLE celebix_saas_owner;
-          SELECT id FROM saas.product_variants WHERE id='${VARIANT}' FOR UPDATE;`);
-        const settleResult=settle.execute(`BEGIN; SET lock_timeout='2s'; SET deadlock_timeout='50ms'; SET LOCAL ROLE celebix_saas_workflow;
+        await barrier.execute("SELECT pg_catalog.pg_advisory_lock(1498934,581);");
+        const settleResult=settle.execute(`SET lock_timeout='5s'; SET deadlock_timeout='50ms';
+          SET celebix.test_settlement_barrier='on'; SET ROLE celebix_saas_workflow;
           SELECT outcome FROM saas.checkout_settle_callback('${begun.merchantOid}','${fixtureDigest("archive-callback")}',
           '${fixtureUuid("d",580)}',repeat('e',64),'success',21000,21000,'TRY','card',1,NULL,NULL,
           '${fixtureUuid("7",580)}',ARRAY['${fixtureUuid("8",582)}','${fixtureUuid("8",583)}']::uuid[],
-          '${fixtureUuid("9",580)}','ARCHIVE-CB','2026-07-21 12:13:00+00'); COMMIT;`);
-        await waitForBlockedSession(backend,database,settle.applicationName);
-        await assert.rejects(archive.execute(`SET LOCAL lock_timeout='2s'; SET LOCAL ROLE celebix_saas_app;
+          '${fixtureUuid("9",580)}','ARCHIVE-CB','2026-07-21 12:13:00+00');`);
+        await waitForBlockedBySession(backend,database,settle.applicationName,barrier.applicationName);
+        const archiveResult=archive.execute(`SET lock_timeout='5s'; SET deadlock_timeout='50ms'; SET ROLE celebix_saas_app;
           SELECT outcome FROM saas.catalog_archive_product('${STORE}','${PRINCIPAL}','${MEMBERSHIP}','${PLAN}','free_starter',1,100,
-          '2026-07-21 12:14:00+00','${fixtureUuid("c",582)}',repeat('d',64),'${PRODUCT}',1);`),
-          /CATALOG_VARIANT_HAS_HELD_CHECKOUT_RESERVATION/);
-        assert.equal((await settleResult).split("\n").at(-1),"settled");
+          '2026-07-21 12:14:00+00','${fixtureUuid("c",582)}',repeat('d',64),'${PRODUCT}',1);`);
+        await waitForBlockedBySession(backend,database,archive.applicationName,settle.applicationName);
+        await barrier.execute("SELECT pg_catalog.pg_advisory_unlock(1498934,581);");
+        const [archiveOutcome,settlementOutcome]=await Promise.allSettled([archiveResult,settleResult]);
+        const raceErrors=[archiveOutcome,settlementOutcome].filter((result)=>result.status==="rejected")
+          .map((result)=>result.reason.message).join("\n");
+        assert.doesNotMatch(raceErrors,/deadlock detected/i);
+        assert.equal(settlementOutcome.status,"fulfilled");
+        assert.equal(settlementOutcome.value.split("\n").at(-1),"settled");
+        assert.equal(archiveOutcome.status,"rejected");
+        assert.match(archiveOutcome.reason.message,/CATALOG_VARIANT_HAS_HELD_CHECKOUT_RESERVATION/);
         assert.equal(psql(backend,`SELECT product.status||'|'||string_agg(variant.status,',' ORDER BY variant.id)||'|'||attempt.status||'|'||link.status||'|'||
-          (SELECT count(*) FROM saas.checkout_inventory_reservations WHERE attempt_id=attempt.id AND status='consumed')
+          (SELECT count(*) FROM saas.checkout_inventory_reservations WHERE attempt_id=attempt.id AND status='consumed')||'|'||
+          (((product.status='archived')::integer+(attempt.status='succeeded')::integer)=1)
           FROM saas.products AS product JOIN saas.product_variants AS variant ON variant.product_id=product.id
           JOIN saas.checkout_payment_attempts AS attempt ON attempt.id='${begun.attempt}'
           JOIN saas.quick_order_links AS link ON link.id=attempt.quick_order_link_id WHERE product.id='${PRODUCT}'
-          GROUP BY product.status,attempt.id,attempt.status,link.status;`,database),"active|active,active|succeeded|paid|2");
+          GROUP BY product.status,attempt.id,attempt.status,link.status;`,database),"active|active,active|succeeded|paid|2|true");
         const source=psql(backend,"SELECT prosrc FROM pg_proc WHERE oid='saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz)'::regprocedure;",database);
         assert.ok(source.indexOf("SELECT attempt.* INTO current_attempt")<source.indexOf("SELECT link.* INTO current_link"));
+        assert.ok(source.indexOf("ORDER BY product.id FOR KEY SHARE")>source.indexOf("SELECT link.* INTO current_link"));
+        assert.ok(source.indexOf("ORDER BY product.id FOR KEY SHARE")<source.indexOf("ORDER BY variant.id FOR UPDATE"));
         assert.ok(source.indexOf("ORDER BY variant.id FOR UPDATE")<source.indexOf("ORDER BY reservation.variant_id,reservation.id FOR UPDATE"));
-      } finally { await Promise.all([settle.close(),archive.close()]); }
+      } finally { await Promise.all([barrier.close(),settle.close(),archive.close()]); }
     });
 
     await scenario("callback and reconciliation unknown-commit recovery is read only exact scoped and nonduplicating", async () => {
