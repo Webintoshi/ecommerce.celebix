@@ -153,17 +153,43 @@ export class PostgresOrderRepository implements OrderRepository {
   private readonly options: PostgresOrderRepositoryOptions;
 
   constructor(options: PostgresOrderRepositoryOptions) {
-    if (
-      typeof options !== "object" || options === null ||
-      options.role !== "celebix_saas_app" ||
-      typeof options.generateId !== "function" ||
-      typeof options.audit !== "function"
-    ) throw unavailable();
-    timeout(options.timeouts?.poolCheckoutMs);
-    timeout(options.timeouts?.statementMs);
-    timeout(options.timeouts?.lockMs);
-    timeout(options.timeouts?.idleTransactionMs);
-    this.options = options;
+    try {
+      if (typeof options !== "object" || options === null || Array.isArray(options)) throw unavailable();
+      const prototype = Object.getPrototypeOf(options);
+      if (prototype !== Object.prototype && prototype !== null) throw unavailable();
+      if (Object.keys(options).sort().join(",") !== "audit,generateId,pool,role,timeouts") throw unavailable();
+      const role = options.role;
+      const pool = options.pool;
+      const generateId = options.generateId;
+      const audit = options.audit;
+      const selectedTimeouts = options.timeouts;
+      if (
+        role !== "celebix_saas_app" ||
+        typeof generateId !== "function" ||
+        typeof audit !== "function" ||
+        typeof selectedTimeouts !== "object" || selectedTimeouts === null || Array.isArray(selectedTimeouts)
+      ) throw unavailable();
+      const timeoutPrototype = Object.getPrototypeOf(selectedTimeouts);
+      if (timeoutPrototype !== Object.prototype && timeoutPrototype !== null) throw unavailable();
+      if (
+        Object.keys(selectedTimeouts).sort().join(",") !==
+        "idleTransactionMs,lockMs,poolCheckoutMs,statementMs"
+      ) throw unavailable();
+      const timeouts = Object.freeze({
+        poolCheckoutMs: selectedTimeouts.poolCheckoutMs,
+        statementMs: selectedTimeouts.statementMs,
+        lockMs: selectedTimeouts.lockMs,
+        idleTransactionMs: selectedTimeouts.idleTransactionMs,
+      });
+      timeout(timeouts.poolCheckoutMs);
+      timeout(timeouts.statementMs);
+      timeout(timeouts.lockMs);
+      timeout(timeouts.idleTransactionMs);
+      this.options = Object.freeze({ pool, role, timeouts, generateId, audit });
+    } catch (error) {
+      if (error instanceof OrderRepositoryError) throw error;
+      throw unavailable();
+    }
   }
 
   private async configure(client: PostgresClientLike): Promise<void> {

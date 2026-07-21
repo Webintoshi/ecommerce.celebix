@@ -14,12 +14,14 @@ const OTHER_STORE_ID = "99999999-9999-4999-8999-999999999999";
 const PRINCIPAL_ID = "44444444-4444-4444-8444-444444444444";
 const MEMBERSHIP_ID = "55555555-5555-4555-8555-555555555555";
 const PLAN_ID = "66666666-6666-4666-8666-666666666666";
+const DOMAIN_ID = "88888888-8888-4888-8888-888888888888";
 const ORDER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
 const NOW = new Date("2026-07-21T08:00:00.000Z");
 const PRIVATE_REQUEST_ID = "private-order-request";
 const PRIVATE_SUBJECT = "private-provider-subject";
+const PRIVATE_PROXY_SECRET = "private-proxy-secret";
 
 function tenantContext(overrides: Record<string, unknown> = {}): TenantContext {
   return {
@@ -42,6 +44,20 @@ function tenantContext(overrides: Record<string, unknown> = {}): TenantContext {
     locale: "tr-TR",
     ...overrides,
   } as TenantContext;
+}
+
+function omit(value: Record<string, unknown>, key: string): Record<string, unknown> {
+  const copy = { ...value };
+  delete copy[key];
+  return copy;
+}
+
+function deepFreeze<T>(value: T): Readonly<T> {
+  if (typeof value === "object" && value !== null && !Object.isFrozen(value)) {
+    for (const nested of Object.values(value)) deepFreeze(nested);
+    Object.freeze(value);
+  }
+  return value;
 }
 
 function listItem(overrides: Record<string, unknown> = {}) {
@@ -139,9 +155,11 @@ class FakeClient {
   readonly calls: Array<{ text: string; values: unknown[] }> = [];
   readonly releases: Array<boolean | Error | undefined> = [];
   private readonly responder: Responder;
+  private readonly releaseFailure?: unknown;
 
-  constructor(responder: Responder = () => []) {
+  constructor(responder: Responder = () => [], releaseFailure?: unknown) {
     this.responder = responder;
+    this.releaseFailure = releaseFailure;
   }
 
   async query(text: string, values: unknown[] = []) {
@@ -154,6 +172,7 @@ class FakeClient {
 
   release(destroy?: boolean | Error) {
     this.releases.push(destroy);
+    if (this.releaseFailure !== undefined) throw this.releaseFailure;
   }
 }
 
@@ -205,7 +224,12 @@ function functionCall(client: FakeClient, name: string) {
 }
 
 function orderError(code: string) {
-  return (error: unknown) => error instanceof OrderRepositoryError && error.code === code && error.message === code;
+  return (error: unknown) => (
+    error instanceof OrderRepositoryError &&
+    error.code === code &&
+    error.message === code &&
+    !String(error).includes(PRIVATE_PROXY_SECRET)
+  );
 }
 
 test("dashboard read uses the exact function signature, authority tuple, role, and transaction timeouts", async () => {
@@ -220,6 +244,8 @@ test("dashboard read uses the exact function signature, authority tuple, role, a
   const call = functionCall(client, "orders_get_dashboard_summary");
   assert.match(call.text, /\$1::uuid,\$2::uuid,\$3::uuid,\$4::uuid,\$5::text,\$6::bigint,\$7::timestamptz/);
   assert.deepEqual(call.values, [STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW]);
+  assert.notEqual(call.values[6], NOW);
+  assert.equal(Object.isFrozen(call.values[6]), true);
   assert.equal(call.values.includes(PRIVATE_REQUEST_ID), false);
   assert.equal(call.values.includes(PRIVATE_SUBJECT), false);
   assert.deepEqual(client.calls.slice(0, 5).map(({ text }) => text), [
@@ -235,6 +261,12 @@ test("dashboard read uses the exact function signature, authority tuple, role, a
 });
 
 test("TenantContext status, membership, entitlement, validity, and shape fail closed before pool use", async () => {
+  const base = tenantContext() as unknown as Record<string, unknown>;
+  const principal = base.principal as Record<string, unknown>;
+  const store = base.store as Record<string, unknown>;
+  const membership = base.membership as Record<string, unknown>;
+  const entitlements = base.entitlements as Record<string, unknown>;
+  const limits = entitlements.limits as Record<string, unknown>;
   const cases = [
     [tenantContext({ principal: null }), "unauthenticated"],
     [tenantContext({ store: { id: STORE_ID, slug: "atlas-store", status: "suspended" } }), "store_inactive"],
@@ -242,13 +274,52 @@ test("TenantContext status, membership, entitlement, validity, and shape fail cl
     [tenantContext({ entitlements: { ...tenantContext().entitlements, features: ["catalog"] } }), "feature_not_enabled"],
     [tenantContext({ entitlements: { ...tenantContext().entitlements, validUntil: NOW.toISOString() } }), "durable_authority_invalid"],
     [tenantContext({ membership: { id: "not-a-uuid", role: "store_owner", status: "active" } }), "durable_authority_invalid"],
+    [omit(base, "principal"), "unauthenticated"],
+    [omit(base, "store"), "store_inactive"],
+    [omit(base, "membership"), "membership_denied"],
+    [omit(base, "requestId"), "durable_authority_invalid"],
+    [{ ...base, principal: omit(principal, "issuer") }, "durable_authority_invalid"],
+    [{ ...base, principal: omit(principal, "subject") }, "durable_authority_invalid"],
+    [{ ...base, store: omit(store, "slug") }, "durable_authority_invalid"],
+    [omit(base, "locale"), "durable_authority_invalid"],
+    [{ ...base, privateToken: PRIVATE_PROXY_SECRET }, "durable_authority_invalid"],
+    [{ ...base, principal: { ...principal, privateToken: PRIVATE_PROXY_SECRET } }, "durable_authority_invalid"],
+    [{ ...base, store: { ...store, privateToken: PRIVATE_PROXY_SECRET } }, "durable_authority_invalid"],
+    [{ ...base, membership: { ...membership, privateToken: PRIVATE_PROXY_SECRET } }, "durable_authority_invalid"],
+    [{ ...base, entitlements: { ...entitlements, privateToken: PRIVATE_PROXY_SECRET } }, "durable_authority_invalid"],
+    [{ ...base, entitlements: { ...entitlements, limits: { ...limits, privateToken: 1 } } }, "durable_authority_invalid"],
+    [{ ...base, requestId: "" }, "durable_authority_invalid"],
+    [{ ...base, locale: "tr_tr" }, "durable_authority_invalid"],
+    [{ ...base, entitlements: { ...entitlements, features: ["catalog", "orders", "orders"] } }, "durable_authority_invalid"],
+    [{ ...base, entitlements: { ...entitlements, features: ["catalog", "orders", "private"] } }, "durable_authority_invalid"],
   ] as const;
 
   for (const [context, code] of cases) {
     const pool = new FakePool();
-    await assert.rejects(repository(pool).getDashboardSummary({ tenantContext: context, now: NOW }), orderError(code));
+    await assert.rejects(repository(pool).getDashboardSummary({ tenantContext: context as TenantContext, now: NOW }), orderError(code));
     assert.equal(pool.connects, 0);
   }
+
+  const resolvedContext = deepFreeze(tenantContext({
+    resolvedHost: {
+      schemaVersion: 1,
+      hostname: "shop.example.test",
+      domainId: DOMAIN_ID,
+      domainType: "custom",
+      storeId: STORE_ID,
+      storeSlug: "atlas-store",
+      canonicalHostname: "shop.example.test",
+      status: "active",
+      cacheVersion: 2,
+    },
+  }));
+  const resolvedClient = new FakeClient((text) => text.includes("saas.orders_get_dashboard_summary")
+    ? [{ outcome: "summarized", result_payload: summary() }]
+    : []);
+  assert.deepEqual(
+    await repository(new FakePool(resolvedClient)).getDashboardSummary({ tenantContext: resolvedContext, now: NOW }),
+    summary(),
+  );
 });
 
 test("list binds status/search/page arguments and emits a store-and-filter-bound opaque cursor", async () => {
@@ -447,6 +518,40 @@ test("unknown keys, malformed IDs, versions, filters, notes, addresses, and trac
     const promise = invoke();
     await assert.rejects(promise, orderError("invalid_input"));
   }
+
+
+  const publicInputs = [
+    { input: { tenantContext: tenantContext(), now: NOW }, call: (value: never, repo: PostgresOrderRepository) => repo.getDashboardSummary(value) },
+    { input: { tenantContext: tenantContext(), now: NOW, pageSize: 10 }, call: (value: never, repo: PostgresOrderRepository) => repo.listOrders(value) },
+    { input: { tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID }, call: (value: never, repo: PostgresOrderRepository) => repo.getOrder(value) },
+    { input: { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, expectedVersion: 4, nextStatus: "shipped" }, call: (value: never, repo: PostgresOrderRepository) => repo.transitionStatus(value) },
+    { input: { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, expectedVersion: 4, nextPaymentStatus: "refunded" }, call: (value: never, repo: PostgresOrderRepository) => repo.transitionPayment(value) },
+    { input: { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, expectedVersion: 4, shippingAddress: { recipientName: "Ada", line1: "1 Road", city: "Istanbul", country: "TR" } }, call: (value: never, repo: PostgresOrderRepository) => repo.updateShipping(value) },
+    { input: { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, body: "Gift wrap requested" }, call: (value: never, repo: PostgresOrderRepository) => repo.addNote(value) },
+    { input: { tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID, noteId: NOTE_ID }, call: (value: never, repo: PostgresOrderRepository) => repo.archiveNote(value) },
+  ];
+  for (const { input, call } of publicInputs) {
+    for (const hostile of [
+      new Proxy(input, { ownKeys: () => { throw new Error(PRIVATE_PROXY_SECRET); } }),
+      new Proxy(input, { get: (target, key, receiver) => {
+        if (key === "now") throw new Error(PRIVATE_PROXY_SECRET);
+        return Reflect.get(target, key, receiver);
+      } }),
+    ]) {
+      const pool = new FakePool();
+      await assert.rejects(call(hostile as never, repository(pool)), orderError("invalid_input"));
+      assert.equal(pool.connects, 0);
+    }
+  }
+
+  const hostileContext = new Proxy(tenantContext(), {
+    get: () => { throw new Error(PRIVATE_PROXY_SECRET); },
+  });
+  const nestedPool = new FakePool();
+  await assert.rejects(repository(nestedPool).getDashboardSummary({
+    tenantContext: hostileContext, now: NOW,
+  }), orderError("durable_authority_invalid"));
+  assert.equal(nestedPool.connects, 0);
 });
 
 test("pool checkout failures are classified without retaining driver detail", async () => {
@@ -458,20 +563,69 @@ test("pool checkout failures are classified without retaining driver detail", as
     return true;
   });
   assert.equal(pool.connects, 1);
+
+  const lateClient = new FakeClient();
+  let slowConnects = 0;
+  const slowPool = {
+    connect: () => {
+      slowConnects += 1;
+      return new Promise<FakeClient>((resolve) => setTimeout(() => resolve(lateClient), 20));
+    },
+  };
+  await assert.rejects(repository(new FakePool(), {
+    pool: slowPool,
+    timeouts: { poolCheckoutMs: 5, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
+  }).getDashboardSummary({ tenantContext: tenantContext(), now: NOW }), orderError("unavailable"));
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.equal(slowConnects, 1);
+  assert.deepEqual(lateClient.calls, []);
+  assert.deepEqual(lateClient.releases, [true]);
 });
 
-test("statement and lock failures roll back once and expose only unavailable", async () => {
-  for (const code of ["57014", "55P03"]) {
+test("BEGIN, timeout setup, role, function, read COMMIT, and rollback failures classify and release safely", async () => {
+  const stages = [
+    { stage: "BEGIN READ ONLY", releases: [true], rollbacks: 0 },
+    { stage: "SELECT pg_catalog.set_config('statement_timeout', $1, true)", releases: [undefined], rollbacks: 1 },
+    { stage: "SELECT pg_catalog.set_config('lock_timeout', $1, true)", releases: [undefined], rollbacks: 1 },
+    { stage: "SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", releases: [undefined], rollbacks: 1 },
+    { stage: "SET LOCAL ROLE celebix_saas_app", releases: [undefined], rollbacks: 1 },
+    { stage: "FUNCTION_57014", releases: [undefined], rollbacks: 1 },
+    { stage: "FUNCTION_55P03", releases: [undefined], rollbacks: 1 },
+    { stage: "COMMIT", releases: [true], rollbacks: 0 },
+  ] as const;
+  for (const { stage, releases, rollbacks } of stages) {
     const client = new FakeClient((text) => {
-      if (text.includes("saas.orders_get(")) throw Object.assign(new Error(`private ${code} detail`), { code });
+      if (text === stage || (stage.startsWith("FUNCTION_") && text.includes("saas.orders_get("))) {
+        const code = stage.startsWith("FUNCTION_") ? stage.slice("FUNCTION_".length) : undefined;
+        throw Object.assign(new Error(`${PRIVATE_PROXY_SECRET}:${stage}`), { code });
+      }
+      if (text.includes("saas.orders_get(")) return [{ outcome: "found", result_payload: detail() }];
       return [];
     });
     await assert.rejects(repository(new FakePool(client)).getOrder({
       tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
     }), orderError("unavailable"));
-    assert.equal(client.calls.filter(({ text }) => text === "ROLLBACK").length, 1);
-    assert.deepEqual(client.releases, [undefined]);
+    assert.equal(client.calls.filter(({ text }) => text === "ROLLBACK").length, rollbacks);
+    assert.deepEqual(client.releases, releases);
   }
+
+  const rollbackFailure = new FakeClient((text) => {
+    if (text.includes("saas.orders_get(") || text === "ROLLBACK") throw new Error(PRIVATE_PROXY_SECRET);
+    return [];
+  });
+  await assert.rejects(repository(new FakePool(rollbackFailure)).getOrder({
+    tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+  }), orderError("unavailable"));
+  assert.equal(rollbackFailure.calls.filter(({ text }) => text === "ROLLBACK").length, 1);
+  assert.deepEqual(rollbackFailure.releases, [true]);
+
+  const releaseFailure = new FakeClient((text) => text.includes("saas.orders_get(")
+    ? [{ outcome: "found", result_payload: detail() }]
+    : [], new Error(PRIVATE_PROXY_SECRET));
+  assert.deepEqual(await repository(new FakePool(releaseFailure)).getOrder({
+    tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID,
+  }), detail());
+  assert.deepEqual(releaseFailure.releases, [undefined]);
 });
 
 test("unknown mutation COMMIT destroys the client, emits safe audit, and performs exactly one read-only recovery", async () => {
@@ -479,7 +633,7 @@ test("unknown mutation COMMIT destroys the client, emits safe audit, and perform
     if (text.includes("saas.orders_transition_status")) return [{ outcome: "committed", result_payload: mutationProjection() }];
     if (text === "COMMIT") throw new Error("connection lost after commit");
     return [];
-  });
+  }, new Error(PRIVATE_PROXY_SECRET));
   const recovery = new FakeClient((text) => text.includes("saas.orders_recover_operation")
     ? [{ outcome: "operation_replayed", result_payload: mutationProjection() }]
     : []);
@@ -520,6 +674,39 @@ test("failed recovery never reuses or rolls back either terminal unknown-outcome
   assert.deepEqual(recovery.releases, [true]);
   assert.equal(writer.calls.some(({ text }) => text === "ROLLBACK"), false);
   assert.equal(recovery.calls.some(({ text }) => text === "ROLLBACK"), false);
+
+  for (const recoveryStage of ["BEGIN READ ONLY", "FUNCTION", "ROLLBACK"] as const) {
+    const failedWriter = new FakeClient((text) => {
+      if (text.includes("saas.orders_transition_status")) return [{ outcome: "committed", result_payload: mutationProjection() }];
+      if (text === "COMMIT") throw new Error(PRIVATE_PROXY_SECRET);
+      return [];
+    });
+    const failedRecovery = new FakeClient((text) => {
+      if (text === "BEGIN READ ONLY" && recoveryStage === "BEGIN READ ONLY") throw new Error(PRIVATE_PROXY_SECRET);
+      if (text.includes("saas.orders_recover_operation")) {
+        if (recoveryStage === "FUNCTION" || recoveryStage === "ROLLBACK") throw new Error(PRIVATE_PROXY_SECRET);
+        return [{ outcome: "operation_replayed", result_payload: mutationProjection() }];
+      }
+      if (text === "ROLLBACK" && recoveryStage === "ROLLBACK") throw new Error(PRIVATE_PROXY_SECRET);
+      return [];
+    });
+    await assert.rejects(repository(new FakePool(failedWriter, failedRecovery)).transitionStatus({
+      tenantContext: tenantContext(), now: NOW, operationId: OPERATION_ID, orderId: ORDER_ID,
+      expectedVersion: 4, nextStatus: "shipped",
+    }), orderError("unavailable"));
+    assert.deepEqual(failedWriter.releases, [true]);
+    if (recoveryStage === "BEGIN READ ONLY") {
+      assert.deepEqual(failedRecovery.releases, [true]);
+      assert.equal(failedRecovery.calls.some(({ text }) => text === "ROLLBACK"), false);
+    } else if (recoveryStage === "FUNCTION") {
+      assert.deepEqual(failedRecovery.releases, [undefined]);
+      assert.equal(failedRecovery.calls.filter(({ text }) => text === "ROLLBACK").length, 1);
+    } else {
+      assert.deepEqual(failedRecovery.releases, [true]);
+      assert.equal(failedRecovery.calls.filter(({ text }) => text === "ROLLBACK").length, 1);
+    }
+    assert.equal(failedRecovery.calls.filter(({ text }) => text.includes("orders_recover_operation")).length, recoveryStage === "BEGIN READ ONLY" ? 0 : 1);
+  }
 });
 
 test("row count, row shape, outcome, summary, detail, and mutation corruption fail closed", async () => {
@@ -527,10 +714,14 @@ test("row count, row shape, outcome, summary, detail, and mutation corruption fa
     outcome: "summarized",
     result_payload: summary(),
   }) as Row;
+  const hostileRow = new Proxy({ outcome: "summarized", result_payload: summary() }, {
+    getPrototypeOf: () => { throw new Error(PRIVATE_PROXY_SECRET); },
+  });
   const responses: Response[] = [
     { rows: [{ outcome: "summarized", result_payload: summary() }], rowCount: 0 },
     { rows: [{ outcome: "summarized", result_payload: summary(), private: STORE_ID }] },
     { rows: [unsafeRow] },
+    { rows: [hostileRow] },
     { rows: [{ outcome: "invented", result_payload: summary() }] },
     { rows: [{ outcome: "summarized", result_payload: summary({ pendingOrders: 9 }) }] },
   ];
@@ -613,4 +804,13 @@ test("the finite error vocabulary is frozen and constructor policy rejects unsaf
   assert.throws(() => repository(new FakePool(), {
     timeouts: { poolCheckoutMs: 0, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
   }), orderError("unavailable"));
+  assert.throws(() => new PostgresOrderRepository(new Proxy({} as never, {
+    get: () => { throw new Error(PRIVATE_PROXY_SECRET); },
+  })), orderError("unavailable"));
+  assert.throws(() => new PostgresOrderRepository({
+    pool: new FakePool(), role: "celebix_saas_app",
+    timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
+    generateId: () => NOTE_ID, audit: () => undefined,
+    privateToken: PRIVATE_PROXY_SECRET,
+  } as never), orderError("unavailable"));
 });
