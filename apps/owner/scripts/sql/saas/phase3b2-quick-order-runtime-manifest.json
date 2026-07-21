@@ -1,9 +1,9 @@
 {
-  "bundleId": "phase3b2-202607220026-quick-order-runtime",
+  "bundleId": "phase3b2-202607220026-202607220027-quick-order-checkout-authority",
   "postgresqlMajor": 16,
   "migrationClassification": "additive",
   "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
-  "rollbackLimitations": "Migration 026 rollback destroys quick-order checkout runtime rows and is authorized only for isolated disposable rehearsal before any shared checkout data exists. Rollback fails closed with QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT when revoked provider history and a replacement share one store/provider key; operators must preserve or explicitly reconcile that history before retrying.",
+  "rollbackLimitations": "Migration 027 rollback is authorized only for isolated disposable rehearsal and fails closed with QUICK_ORDER_CHECKOUT_API_ROLLBACK_HISTORY_CONFLICT when provider or cleanup operation history exists; immutable receipts are never deleted. Migration 026 rollback destroys quick-order checkout runtime rows and fails closed with QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT when revoked provider history and a replacement share one store/provider key.",
   "artifacts": [
     {
       "id": "202607220026_quick_order_checkout_runtime_up",
@@ -25,6 +25,27 @@
       "file": "202607220026_quick_order_checkout_runtime_assertions.sql",
       "sha256": "fe87085e2f22fe70c02a71f094213a88732e98f6ed86ae5a37b64ddd0cf1d30c",
       "purpose": "Fail on checkout runtime ownership, FORCE RLS, ACL, identity, lifecycle, immutable receipt, deterministic lock or catalog guard drift."
+    },
+    {
+      "id": "202607220027_quick_order_checkout_api_up",
+      "direction": "up",
+      "file": "202607220027_quick_order_checkout_api.up.sql",
+      "sha256": "1b4844569dc3338acb3aa025d19ec473e5f41a256bbbc7d729dd40729b1db0ef",
+      "purpose": "Add least-privilege merchant provider authority, exact-host redemption, bounded PayTR attempt initiation, presentation, status, cleanup and read-only operation recovery."
+    },
+    {
+      "id": "202607220027_quick_order_checkout_api_down",
+      "direction": "down",
+      "file": "202607220027_quick_order_checkout_api.down.sql",
+      "sha256": "b63a2c9aee214d1883a6abc2f754ae95e90371de578eacb55cfe0c90b48c645b",
+      "purpose": "Fail closed on immutable migration-027 history, remove only migration-027 surfaces and restore exact migration-025 create and duplicate bodies."
+    },
+    {
+      "id": "202607220027_quick_order_checkout_api_assertions",
+      "direction": "verify",
+      "file": "202607220027_quick_order_checkout_api_assertions.sql",
+      "sha256": "45d833c0736343a79c71ed893898e16c5be0e66dfe2b3bfca5e69d3695c933c8",
+      "purpose": "Fail on merchant/workflow ACL, schema usage, direct table privilege, function-signature, lock-order and operation-scope drift."
     }
   ]
 }

@@ -17,7 +17,7 @@ const DATABASE = `quick_order_runtime_${TOKEN}`;
 const HISTORICAL_DATABASE = `${DATABASE}_historical`;
 const ROLLBACK_DATABASE = `${DATABASE}_rollback`;
 const PARTIAL_DATABASE = `${DATABASE}_partial`;
-const TOTAL = 18;
+const TOTAL = 34;
 const completed = [];
 const CATALOG_INVENTORY_SHA256 = "c0aeb1cc411fe6f9bac5d3501cf667f7365f4f3d4b7d7d4dd3ab311f52f1f154";
 
@@ -33,6 +33,8 @@ const LINK = "60000000-0000-4000-8000-000000000001";
 const REDEMPTION = "61000000-0000-4000-8000-000000000001";
 const ATTEMPT = "62000000-0000-4000-8000-000000000001";
 const RESERVATION = "63000000-0000-4000-8000-000000000001";
+const HOSTNAME = "runtime-store.example.test";
+const ALIAS_HOSTNAME = "shop.runtime-store.example.test";
 const ADDRESS = `'{"recipientName":"Ada Lovelace","phone":"+905551110000","line1":"Test 1","city":"Istanbul","country":"TR"}'::jsonb`;
 const ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
 
@@ -288,6 +290,75 @@ function cloneDatabase(backend, suffix) {
   return database;
 }
 
+function functionResult(backend, expression, database = DATABASE, role = "celebix_saas_workflow") {
+  const raw = psql(backend, `SET ROLE ${role}; SELECT outcome||E'\\t'||COALESCE(result_payload::text,'null') FROM ${expression};`, database);
+  const separator = raw.indexOf("\t");
+  assert.notEqual(separator, -1, `function did not return one controlled row: ${raw}`);
+  return { outcome: raw.slice(0, separator), payload: JSON.parse(raw.slice(separator + 1)) };
+}
+
+function merchantAuthority(membership = MEMBERSHIP, principal = PRINCIPAL) {
+  return `'${STORE}','${principal}','${membership}','${PLAN}','free_starter',1`;
+}
+
+function fixtureUuid(prefix, number) {
+  return `${prefix}0000000-0000-4000-8000-${String(number).padStart(12, "0")}`;
+}
+
+function fixtureDigest(label) {
+  return createHash("sha256").update(`${TOKEN}:${label}`).digest("hex");
+}
+
+function seedCheckoutLink(backend, database, number, options = {}) {
+  const link = fixtureUuid("6", number);
+  const item = fixtureUuid("8", number);
+  const digest = fixtureDigest(`token:${number}`);
+  const quantity = options.quantity ?? 1;
+  const name = options.customerName ?? "Ada Lovelace";
+  const email = options.email ?? "ada@example.test";
+  const phone = options.phone ?? "+905551110000";
+  const price = options.variant === VARIANT_2 ? 11000 : 10000;
+  const variant = options.variant ?? VARIANT;
+  const total = price * quantity;
+  psql(backend, `SET ROLE celebix_saas_owner;
+    INSERT INTO saas.quick_order_links(
+      id,store_id,creating_membership_id,provider_config_id,status,token_digest,token_key_id,sealed_token,
+      customer_name,customer_email,customer_phone,shipping_address,billing_address,internal_label,currency,
+      subtotal_cents,shipping_cents,discount_cents,total_cents,expires_at,version,created_at,updated_at
+    ) VALUES(
+      '${link}','${STORE}','${MEMBERSHIP}','${options.provider ?? PROVIDER}','active','${digest}','key-1',${ENVELOPE},
+      ${sqlLiteral(name)},${sqlLiteral(email)},${sqlLiteral(phone)},${ADDRESS},${ADDRESS},'runtime','TRY',
+      ${total},0,0,${total},'2026-07-22 10:00:00+00',1,'2026-07-21 10:00:00+00','2026-07-21 10:00:00+00'
+    );
+    INSERT INTO saas.quick_order_link_items(
+      id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,variant_name,
+      unit_price_cents,quantity,line_total_cents,created_at
+    ) VALUES(
+      '${item}','${STORE}','${link}','${PRODUCT}','${variant}',0,'Runtime Product',
+      ${variant === VARIANT_2 ? "'Untracked'" : "'Tracked'"},${price},${quantity},${total},'2026-07-21 10:00:00+00'
+    );`, database);
+  return { link, item, digest };
+}
+
+function claimLink(backend, database, linkFixture, number, options = {}) {
+  const redemption = fixtureUuid("a", number);
+  const cookieDigest = fixtureDigest(`cookie:${number}`);
+  const result = functionResult(backend,
+    `saas.quick_links_claim_redemption(${sqlLiteral(options.hostname ?? HOSTNAME)},'${linkFixture.digest}','${redemption}','${cookieDigest}',` +
+      `'${options.now ?? "2026-07-21 12:10:00+00"}','${options.expiresAt ?? "2026-07-21 12:20:00+00"}')`, database);
+  return { ...result, redemption, cookieDigest };
+}
+
+function beginAttempt(backend, database, claim, number, options = {}) {
+  const attempt = fixtureUuid("b", number);
+  const operation = fixtureUuid("c", number);
+  const merchantOid = options.merchantOid ?? createHash("md5").update(`${TOKEN}:merchant:${number}`).digest("hex");
+  const result = functionResult(backend,
+    `saas.checkout_begin_attempt(${sqlLiteral(options.hostname ?? HOSTNAME)},'${claim.cookieDigest}','${attempt}',` +
+      `'${merchantOid}','${operation}',repeat('${options.fingerprint ?? "1"}',64),'${options.now ?? "2026-07-21 12:11:00+00"}')`, database);
+  return { ...result, attempt, operation, merchantOid };
+}
+
 async function scenario(name, run) {
   try { await run(); } catch (error) { process.stderr.write(`FAIL ${completed.length + 1}/${TOTAL} ${name}\n`); throw error; }
   completed.push(name); process.stdout.write(`PASS ${completed.length}/${TOTAL} ${name}\n`);
@@ -299,6 +370,11 @@ function seedBase(backend) {
       ('${PRINCIPAL}','https://identity.example.test/oidc','runtime-owner','owner@example.test',true,'2026-01-01','2026-01-01');
     INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at) VALUES
       ('${STORE}','Runtime Store','runtime-store','active','tr','TRY','default','2026-01-01','2026-01-01');
+    INSERT INTO saas.domains(id,store_id,normalized_hostname,domain_type,status,canonical,cache_version,created_at,updated_at) VALUES
+      ('11000000-0000-4000-8000-000000000001','${STORE}','${HOSTNAME}','custom','active',true,1,'2026-01-01','2026-01-01');
+    INSERT INTO saas.store_domains(id,store_id,hostname,hostname_type,status,is_primary,verified_at,created_at,updated_at,version) VALUES
+      ('12000000-0000-4000-8000-000000000001','${STORE}','${HOSTNAME}','custom_domain','active',true,'2026-01-01','2026-01-01','2026-01-01',1),
+      ('12000000-0000-4000-8000-000000000002','${STORE}','${ALIAS_HOSTNAME}','custom_domain','active',false,'2026-01-01','2026-01-01','2026-01-01',1);
     INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at) VALUES
       ('${MEMBERSHIP}','${PRINCIPAL}','${STORE}','store_owner','active','2026-01-01','2026-01-01');
     INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,valid_until,created_at,updated_at) VALUES
@@ -431,7 +507,14 @@ async function main() {
 
     await scenario("exact columns constraints indexes and manifest bytes are pinned", async () => {
       const manifest = JSON.parse(readFileSync(path.join(SQL, "phase3b2-quick-order-runtime-manifest.json"), "utf8"));
-      assert.equal(manifest.artifacts.length, 3);
+      assert.deepEqual(manifest.artifacts.map((artifact)=>artifact.id),[
+        "202607220026_quick_order_checkout_runtime_up",
+        "202607220026_quick_order_checkout_runtime_down",
+        "202607220026_quick_order_checkout_runtime_assertions",
+        "202607220027_quick_order_checkout_api_up",
+        "202607220027_quick_order_checkout_api_down",
+        "202607220027_quick_order_checkout_api_assertions",
+      ]);
       for (const artifact of manifest.artifacts) assert.equal(createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex"), artifact.sha256);
       const inventory = catalogInventory(backend);
       const inventoryDigest = createHash("sha256").update(inventory).digest("hex");
@@ -799,6 +882,636 @@ async function main() {
         assert.ok(allocations.length >= 1, `${failAfter} did not reach an allocation boundary`);
         for (const allocationPath of allocations) assert.equal(existsSync(allocationPath), false, `${failAfter} leaked ${allocationPath}`);
       }
+    });
+
+    await scenario("migration 027 checkout authority applies with exact role grants", async () => {
+      apply(backend, "202607220027_quick_order_checkout_api.up.sql");
+      apply(backend, "202607220027_quick_order_checkout_api_assertions.sql");
+      assert.equal(psql(backend, "SELECT has_schema_privilege('celebix_saas_workflow','saas','USAGE');"), "t");
+      assert.equal(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE');"), "13");
+      assert.equal(psql(backend, "SELECT to_regprocedure('saas.checkout_settle_callback(text,text,uuid,text,text,bigint,bigint,text,text,integer,text,text,uuid,uuid[],uuid,uuid,text,timestamptz)') IS NULL;"), "t");
+      denied(backend,`SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_operations(operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('${fixtureUuid("c",19)}','${STORE}','${ATTEMPT}','configure_provider',repeat('1',64),'{}','2026-07-21 12:01:00+00');`);
+      denied(backend,`SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_operations(operation_id,store_id,worker_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('${fixtureUuid("c",18)}',NULL,'${fixtureUuid("d",19)}','begin_attempt',repeat('1',64),'{}','2026-07-21 12:01:00+00');`);
+    });
+
+    await scenario("owner and admin configure rotate revoke and replace provider with exact replay", async () => {
+      const database = cloneDatabase(backend, "provider_mutations");
+      const adminPrincipal = fixtureUuid("2", 20);
+      const adminMembership = fixtureUuid("3", 20);
+      const editorPrincipal = fixtureUuid("2", 21);
+      const editorMembership = fixtureUuid("3", 21);
+      const analystPrincipal = fixtureUuid("2", 22);
+      const analystMembership = fixtureUuid("3", 22);
+      psql(backend, `SET ROLE celebix_saas_owner;
+        INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at) VALUES
+          ('${adminPrincipal}','https://identity.example.test/oidc','runtime-admin','admin@example.test',true,'2026-01-01','2026-01-01'),
+          ('${editorPrincipal}','https://identity.example.test/oidc','runtime-editor','editor@example.test',true,'2026-01-01','2026-01-01'),
+          ('${analystPrincipal}','https://identity.example.test/oidc','runtime-analyst','analyst@example.test',true,'2026-01-01','2026-01-01');
+        INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at) VALUES
+          ('${adminMembership}','${adminPrincipal}','${STORE}','admin','active','2026-01-01','2026-01-01'),
+          ('${editorMembership}','${editorPrincipal}','${STORE}','editor','active','2026-01-01','2026-01-01'),
+          ('${analystMembership}','${analystPrincipal}','${STORE}','analyst','active','2026-01-01','2026-01-01');`, database);
+      const configure = `saas.quick_links_configure_provider(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}',2,repeat('e',64),'key-1',${ENVELOPE},'${fixtureUuid("c", 20)}',repeat('2',64))`;
+      assert.equal(functionResult(backend, configure, database, "celebix_saas_app").outcome, "committed");
+      assert.equal(functionResult(backend, configure, database, "celebix_saas_app").outcome, "operation_replayed");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_recover_provider_operation(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}','${fixtureUuid("c",20)}','configure_provider',repeat('2',64))`,
+        database,"celebix_saas_app").outcome,"operation_replayed");
+      const providerRecoveryBytes=psql(backend,`SELECT count(*)||'|'||md5(string_agg(operation_id::text||result_payload::text,',' ORDER BY operation_id)) FROM saas.checkout_operations;`,database);
+      assert.equal(psql(backend,`BEGIN READ ONLY; SET LOCAL ROLE celebix_saas_app; SELECT outcome FROM saas.quick_links_recover_provider_operation(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}','${fixtureUuid("c",20)}','configure_provider',repeat('2',64)); COMMIT;`,database).split("\n").at(-1),"operation_replayed");
+      assert.equal(functionResult(backend,`saas.quick_links_recover_provider_operation(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}','${fixtureUuid("c",20)}','revoke_provider',repeat('2',64))`,database,"celebix_saas_app").outcome,"operation_mismatch");
+      assert.equal(functionResult(backend,`saas.quick_links_recover_provider_operation(${merchantAuthority()},'2026-07-21 12:12:00+00','${fixtureUuid("5",99)}','${fixtureUuid("c",20)}','configure_provider',repeat('2',64))`,database,"celebix_saas_app").outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.quick_links_recover_provider_operation(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}','${fixtureUuid("c",20)}','configure_provider',repeat('0',64))`,database,"celebix_saas_app").outcome,"operation_mismatch");
+      assert.equal(psql(backend,`SELECT count(*)||'|'||md5(string_agg(operation_id::text||result_payload::text,',' ORDER BY operation_id)) FROM saas.checkout_operations;`,database),providerRecoveryBytes);
+      assert.equal(functionResult(backend, configure.replace("repeat('2',64)", "repeat('3',64)"), database, "celebix_saas_app").outcome, "operation_mismatch");
+      const adminRotate = functionResult(backend,
+        `saas.quick_links_configure_provider(${merchantAuthority(adminMembership, adminPrincipal)},'2026-07-21 12:12:01+00','${PROVIDER}',3,repeat('f',64),'key-1',${ENVELOPE},'${fixtureUuid("c", 21)}',repeat('4',64))`,
+        database, "celebix_saas_app");
+      assert.equal(adminRotate.outcome, "committed");
+      const staleVersionBytes=psql(backend,`SELECT status||'|'||version||'|'||configuration_digest||'|'||updated_at::text||'|'||
+        (SELECT count(*) FROM saas.checkout_provider_configs WHERE store_id='${STORE}' AND provider_key='paytr' AND status='active')||'|'||
+        (SELECT count(*) FROM saas.checkout_operations) FROM saas.checkout_provider_configs WHERE id='${PROVIDER}';`,database);
+      assert.equal(functionResult(backend,
+        `saas.quick_links_configure_provider(${merchantAuthority()},'2026-07-21 12:12:02+00','${PROVIDER}',3,repeat('0',64),'key-1',${ENVELOPE},'${fixtureUuid("c",27)}',repeat('0',64))`,
+        database,"celebix_saas_app").outcome,"version_conflict");
+      assert.equal(psql(backend,`SELECT status||'|'||version||'|'||configuration_digest||'|'||updated_at::text||'|'||
+        (SELECT count(*) FROM saas.checkout_provider_configs WHERE store_id='${STORE}' AND provider_key='paytr' AND status='active')||'|'||
+        (SELECT count(*) FROM saas.checkout_operations) FROM saas.checkout_provider_configs WHERE id='${PROVIDER}';`,database),staleVersionBytes);
+      assert.equal(functionResult(backend,
+        `saas.quick_links_revoke_provider(${merchantAuthority()},'2026-07-21 12:12:02+00','${PROVIDER}',3,'${fixtureUuid("c",28)}',repeat('1',64))`,
+        database,"celebix_saas_app").outcome,"version_conflict");
+      assert.equal(psql(backend,`SELECT status||'|'||version||'|'||configuration_digest||'|'||updated_at::text||'|'||
+        (SELECT count(*) FROM saas.checkout_provider_configs WHERE store_id='${STORE}' AND provider_key='paytr' AND status='active')||'|'||
+        (SELECT count(*) FROM saas.checkout_operations) FROM saas.checkout_provider_configs WHERE id='${PROVIDER}';`,database),staleVersionBytes);
+      const editorDenied = functionResult(backend,
+        `saas.quick_links_configure_provider(${merchantAuthority(editorMembership, editorPrincipal)},'2026-07-21 12:12:02+00','${PROVIDER}',4,repeat('1',64),'key-1',${ENVELOPE},'${fixtureUuid("c", 22)}',repeat('5',64))`,
+        database, "celebix_saas_app");
+      assert.equal(editorDenied.outcome, "action_denied");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_reveal_credential(${merchantAuthority(analystMembership,analystPrincipal)},'2026-07-21 12:12:02+00','${LINK}')`,
+        database,"celebix_saas_app").outcome,"action_denied");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_revoke_provider(${merchantAuthority(analystMembership,analystPrincipal)},'2026-07-21 12:12:02+00','${PROVIDER}',4,'${fixtureUuid("c",26)}',repeat('5',64))`,
+        database,"celebix_saas_app").outcome,"action_denied");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_revoke_provider(${merchantAuthority()},'2026-07-21 12:12:03+00','${PROVIDER}',4,'${fixtureUuid("c", 23)}',repeat('6',64))`,
+        database, "celebix_saas_app").outcome, "committed");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_recover_provider_operation(${merchantAuthority()},'2026-07-21 12:12:03+00','${PROVIDER}','${fixtureUuid("c",23)}','revoke_provider',repeat('6',64))`,
+        database,"celebix_saas_app").outcome,"operation_replayed");
+      const readiness = functionResult(backend,
+        `saas.quick_links_get_provider_readiness(${merchantAuthority()},'2026-07-21 12:12:00+00')`,database,"celebix_saas_app");
+      assert.equal(readiness.payload.status, "revoked");
+      const replacement = fixtureUuid("5", 20);
+      assert.equal(functionResult(backend,
+        `saas.quick_links_configure_provider(${merchantAuthority()},'2026-07-21 12:12:04+00','${replacement}',0,repeat('7',64),'key-1',${ENVELOPE},'${fixtureUuid("c", 24)}',repeat('7',64))`,
+        database,"celebix_saas_app").outcome,"committed");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_configure_provider(${merchantAuthority()},'2026-07-21 12:12:05+00','${PROVIDER}',5,repeat('8',64),'key-1',${ENVELOPE},'${fixtureUuid("c", 25)}',repeat('8',64))`,
+        database,"celebix_saas_app").outcome,"provider_revoked");
+      // Reveal stays grouped with provider authority: it must never mint or mutate.
+      const credential = functionResult(backend,
+        `saas.quick_links_reveal_credential(${merchantAuthority()},'2026-07-21 12:12:00+00','${LINK}')`,DATABASE,"celebix_saas_app");
+      assert.equal(credential.outcome,"found");
+      assert.equal(credential.payload.storeId,STORE);
+      assert.equal(credential.payload.linkId,LINK);
+      assert.equal(credential.payload.canonicalHostname,HOSTNAME);
+      assert.equal(credential.payload.tokenDigest,"a".repeat(64));
+      assert.deepEqual(credential.payload.sealedToken,JSON.parse(ENVELOPE.match(/'([^']+)'::jsonb/)[1]));
+      const provider = functionResult(backend,
+        `saas.quick_links_reveal_provider_configuration(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}')`,DATABASE,"celebix_saas_app");
+      assert.equal(provider.outcome,"found");
+      assert.equal(provider.payload.storeId,STORE);
+      assert.equal(provider.payload.providerConfigId,PROVIDER);
+      assert.equal(provider.payload.configurationDigest,"d".repeat(64));
+      assert.equal(psql(backend,"SELECT count(*) FROM saas.quick_order_links WHERE id='"+LINK+"';"),"1");
+      assert.equal(psql(backend,"SELECT count(*) FROM saas.quick_order_link_operations;"),"0");
+
+      const providerRaceDatabase=cloneDatabase(backend,"provider_namespace_race");
+      const revokeWinner=openPsqlSession(backend,providerRaceDatabase,"provider_revoke_winner");
+      const staleReplacement=openPsqlSession(backend,providerRaceDatabase,"provider_stale_replacement");
+      const replacementId=fixtureUuid("5",299);
+      try {
+        const revokeWinnerResult=await revokeWinner.execute(`BEGIN; SET LOCAL ROLE celebix_saas_app;
+          SELECT outcome FROM saas.quick_links_revoke_provider(${merchantAuthority()},'2026-07-21 12:20:00+00','${PROVIDER}',2,'${fixtureUuid("c",290)}',repeat('a',64));`);
+        assert.equal(revokeWinnerResult.split("\n").at(-1),"committed");
+        const staleReplacementResult=staleReplacement.execute(`SET ROLE celebix_saas_app;
+          SELECT outcome FROM saas.quick_links_configure_provider(${merchantAuthority()},'2026-07-21 12:10:00+00','${replacementId}',0,repeat('b',64),'key-1',${ENVELOPE},'${fixtureUuid("c",291)}',repeat('b',64));`);
+        await waitForBlockedSession(backend,providerRaceDatabase,staleReplacement.applicationName);
+        await revokeWinner.execute("COMMIT;");
+        assert.equal((await staleReplacementResult).split("\n").at(-1),"invalid_input");
+        assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_provider_configs WHERE store_id='${STORE}' AND status='active';`,providerRaceDatabase),"0");
+        assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_provider_configs WHERE id='${replacementId}';`,providerRaceDatabase),"0");
+      } finally { await Promise.all([revokeWinner.close(),staleReplacement.close()]); }
+    });
+
+    await scenario("alias canonicalization precedes token lookup and primary claim opens exactly once", async () => {
+      const database=cloneDatabase(backend,"claim_canonical");
+      const link=seedCheckoutLink(backend,database,220);
+      const aliasClaim=claimLink(backend,database,link,220,{hostname:ALIAS_HOSTNAME});
+      assert.equal(aliasClaim.outcome,"canonicalize");
+      assert.equal(aliasClaim.payload.canonicalHostname,HOSTNAME);
+      assert.equal(psql(backend,`SELECT status||'|'||(SELECT count(*) FROM saas.quick_order_redemption_sessions WHERE quick_order_link_id='${link.link}') FROM saas.quick_order_links WHERE id='${link.link}';`,database),"active|0");
+      assert.equal(functionResult(backend,`saas.quick_links_claim_redemption('${ALIAS_HOSTNAME}',repeat('0',64),'${fixtureUuid("a",222)}',repeat('1',64),'2026-07-21 12:10:00+00','2026-07-21 12:20:00+00')`,database).outcome,"canonicalize");
+      const claimed=claimLink(backend,database,link,221);
+      assert.equal(claimed.outcome,"claimed");
+      assert.equal(claimed.payload.canonicalHostname,HOSTNAME);
+      assert.equal(claimed.payload.quote.currency,"TRY");
+      assert.equal(psql(backend,`SELECT status||'|'||version||'|'||(SELECT count(*) FROM saas.quick_order_redemption_sessions WHERE quick_order_link_id='${link.link}') FROM saas.quick_order_links WHERE id='${link.link}';`,database),"opened|2|1");
+      assert.equal(claimLink(backend,database,link,223).outcome,"claimed");
+      const expired=seedCheckoutLink(backend,database,224);
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.quick_order_links SET status='expired',version=2,updated_at='2026-07-21 12:00:00+00' WHERE id='${expired.link}';`,database);
+      assert.equal(claimLink(backend,database,expired,224).outcome,"unavailable");
+      const futureUpdated=seedCheckoutLink(backend,database,226);
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.quick_order_links SET version=2,updated_at='2026-07-21 12:11:00+00' WHERE id='${futureUpdated.link}';`,database);
+      assert.equal(claimLink(backend,database,futureUpdated,226,{now:"2026-07-21 12:10:00+00"}).outcome,"invalid_input");
+      const cancelled=seedCheckoutLink(backend,database,225);
+      const cancelledClaim=claimLink(backend,database,cancelled,225);
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.quick_order_links SET status='cancelled',cancelled_at='2026-07-21 12:11:00+00',version=3,updated_at='2026-07-21 12:11:00+00' WHERE id='${cancelled.link}';`,database);
+      assert.deepEqual(functionResult(backend,`saas.checkout_get_redemption_status('${HOSTNAME}','${cancelledClaim.cookieDigest}','2026-07-21 12:12:00+00')`,database).payload,{kind:"unavailable"});
+    });
+
+    await scenario("redemption resolution is cookie digest store and canonical-host isolated", async () => {
+      const database=cloneDatabase(backend,"resolve_isolation");
+      const link=seedCheckoutLink(backend,database,230);
+      const claimed=claimLink(backend,database,link,230);
+      assert.equal(claimed.outcome,"claimed");
+      assert.equal(functionResult(backend,`saas.quick_links_resolve_redemption('${HOSTNAME}','${claimed.cookieDigest}','2026-07-21 12:12:00+00')`,database).outcome,"found");
+      assert.equal(functionResult(backend,`saas.quick_links_resolve_redemption('${ALIAS_HOSTNAME}','${claimed.cookieDigest}','2026-07-21 12:12:00+00')`,database).outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.quick_links_resolve_redemption('${HOSTNAME}',repeat('0',64),'2026-07-21 12:12:00+00')`,database).outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.quick_links_resolve_redemption('wrong.example.test','${claimed.cookieDigest}','2026-07-21 12:12:00+00')`,database).outcome,"not_found");
+      assert.equal(psql(backend,`SELECT cookie_digest='${claimed.cookieDigest}' FROM saas.quick_order_redemption_sessions WHERE id='${claimed.redemption}';`,database),"t");
+      assert.equal(psql(backend,"SELECT string_agg(attname,',' ORDER BY attnum) FROM pg_attribute WHERE attrelid='saas.quick_order_redemption_sessions'::regclass AND attnum>0 AND NOT attisdropped;",database).includes("token"),false);
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.stores SET status='suspended',updated_at='2026-07-21 12:13:00+00' WHERE id='${STORE}';`,database);
+      assert.equal(functionResult(backend,`saas.quick_links_resolve_redemption('${HOSTNAME}','${claimed.cookieDigest}','2026-07-21 12:14:00+00')`,database).outcome,"not_found");
+      const suspendedBegin=beginAttempt(backend,database,claimed,231,{now:"2026-07-21 12:14:00+00"});
+      assert.equal(suspendedBegin.outcome,"unavailable");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE id='${suspendedBegin.attempt}';`,database),"0");
+    });
+
+    await scenario("redemption revocation is exact-host idempotent and never a cross-host operation oracle", async () => {
+      const database=cloneDatabase(backend,"revoke_redemption");
+      const link=seedCheckoutLink(backend,database,240);
+      const claimed=claimLink(backend,database,link,240);
+      const operation=fixtureUuid("c",240);
+      const expression=`saas.quick_links_revoke_redemption('${HOSTNAME}','${claimed.cookieDigest}','${operation}',repeat('a',64),'2026-07-21 12:13:00+00')`;
+      assert.equal(functionResult(backend,expression,database).outcome,"committed");
+      assert.equal(functionResult(backend,expression,database).outcome,"operation_replayed");
+      assert.equal(functionResult(backend,`saas.quick_links_recover_redemption_revoke('${HOSTNAME}','${claimed.cookieDigest}','${operation}',repeat('a',64),'2026-07-21 12:13:00+00')`,database).outcome,"operation_replayed");
+      const revokeRecoveryBytes=psql(backend,`SELECT count(*)||'|'||md5(string_agg(operation_id::text||result_payload::text,',' ORDER BY operation_id)) FROM saas.checkout_operations;`,database);
+      assert.equal(psql(backend,`BEGIN READ ONLY; SET LOCAL ROLE celebix_saas_workflow; SELECT outcome FROM saas.quick_links_recover_redemption_revoke('${HOSTNAME}','${claimed.cookieDigest}','${operation}',repeat('a',64),'2026-07-21 12:13:00+00'); COMMIT;`,database).split("\n").at(-1),"operation_replayed");
+      assert.equal(functionResult(backend,`saas.quick_links_recover_redemption_revoke('${ALIAS_HOSTNAME}','${claimed.cookieDigest}','${operation}',repeat('a',64),'2026-07-21 12:13:00+00')`,database).outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.quick_links_recover_redemption_revoke('${HOSTNAME}','${claimed.cookieDigest}','${operation}',repeat('0',64),'2026-07-21 12:13:00+00')`,database).outcome,"operation_mismatch");
+      assert.equal(functionResult(backend,`saas.quick_links_recover_redemption_revoke('${HOSTNAME}',repeat('0',64),'${operation}',repeat('a',64),'2026-07-21 12:13:00+00')`,database).outcome,"not_found");
+      assert.equal(psql(backend,`SELECT count(*)||'|'||md5(string_agg(operation_id::text||result_payload::text,',' ORDER BY operation_id)) FROM saas.checkout_operations;`,database),revokeRecoveryBytes);
+      assert.equal(functionResult(backend,expression.replace(HOSTNAME,ALIAS_HOSTNAME),database).outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.quick_links_resolve_redemption('${HOSTNAME}','${claimed.cookieDigest}','2026-07-21 12:14:00+00')`,database).outcome,"not_found");
+      assert.equal(psql(backend,`SELECT revoked_at IS NOT NULL AND consumed_at IS NULL FROM saas.quick_order_redemption_sessions WHERE id='${claimed.redemption}';`,database),"t");
+      const staleLink=seedCheckoutLink(backend,database,241);
+      const staleClaim=claimLink(backend,database,staleLink,241);
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.quick_order_redemption_sessions SET version=2,updated_at='2026-07-21 12:14:00+00' WHERE id='${staleClaim.redemption}';`,database);
+      const staleRevokeOperation=fixtureUuid("c",241);
+      assert.equal(functionResult(backend,`saas.quick_links_revoke_redemption('${HOSTNAME}','${staleClaim.cookieDigest}','${staleRevokeOperation}',repeat('b',64),'2026-07-21 12:13:00+00')`,database).outcome,"invalid_input");
+      assert.equal(psql(backend,`SELECT revoked_at IS NULL FROM saas.quick_order_redemption_sessions WHERE id='${staleClaim.redemption}';`,database),"t");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_operations WHERE operation_id='${staleRevokeOperation}';`,database),"0");
+    });
+
+    await scenario("begin attempt returns exact persisted PayTR snapshot and creates deterministic holds", async () => {
+      const database=cloneDatabase(backend,"begin_happy");
+      const link=seedCheckoutLink(backend,database,250);
+      const claimed=claimLink(backend,database,link,250);
+      const readyStatus=functionResult(backend,`saas.checkout_get_redemption_status('${HOSTNAME}','${claimed.cookieDigest}','2026-07-21 12:10:30+00')`,database);
+      assert.equal(readyStatus.outcome,"found");
+      assert.deepEqual(Object.keys(readyStatus.payload).sort(),["kind","quote"]);
+      assert.equal(readyStatus.payload.kind,"ready");
+      const begun=beginAttempt(backend,database,claimed,250);
+      assert.equal(begun.outcome,"committed");
+      assert.equal(begun.payload.currency,"TRY");
+      assert.equal(begun.payload.paymentAmount,10000);
+      assert.equal(begun.payload.customerEmail,"ada@example.test");
+      assert.equal(begun.payload.providerConfigVersion,2);
+      assert.equal(begun.payload.configurationDigest,"d".repeat(64));
+      assert.equal(begun.payload.basket.length,1);
+      const processingStatus=functionResult(backend,`saas.checkout_get_redemption_status('${HOSTNAME}','${claimed.cookieDigest}','2026-07-21 12:11:30+00')`,database);
+      assert.deepEqual(processingStatus.payload,{kind:"processing"});
+      assert.equal(psql(backend,`SELECT status||'|'||currency||'|'||(hold_expires_at-created_at)||'|'||(SELECT count(*) FROM saas.checkout_inventory_reservations WHERE attempt_id='${begun.attempt}' AND status='held') FROM saas.checkout_payment_attempts WHERE id='${begun.attempt}';`,database),"reserved|TRY|00:05:00|1");
+      assert.equal(beginAttempt(backend,database,claimed,250).outcome,"operation_replayed");
+
+      const staleProviderDatabase=cloneDatabase(backend,"begin_stale_provider");
+      const staleProviderLink=seedCheckoutLink(backend,staleProviderDatabase,252);
+      const staleProviderClaim=claimLink(backend,staleProviderDatabase,staleProviderLink,252);
+      assert.equal(functionResult(backend,`saas.quick_links_configure_provider(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}',2,repeat('7',64),'key-1',${ENVELOPE},'${fixtureUuid("c",253)}',repeat('7',64))`,staleProviderDatabase,"celebix_saas_app").outcome,"committed");
+      const staleProviderBegin=beginAttempt(backend,staleProviderDatabase,staleProviderClaim,252,{now:"2026-07-21 12:11:00+00"});
+      assert.equal(staleProviderBegin.outcome,"invalid_input");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE id='${staleProviderBegin.attempt}';`,staleProviderDatabase),"0");
+
+      const staleCatalogDatabase=cloneDatabase(backend,"begin_stale_catalog");
+      const staleCatalogLink=seedCheckoutLink(backend,staleCatalogDatabase,254,{variant:VARIANT_2});
+      const staleCatalogClaim=claimLink(backend,staleCatalogDatabase,staleCatalogLink,254);
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.product_variants SET version=version+1,updated_at='2026-07-21 12:12:00+00' WHERE id='${VARIANT_2}';`,staleCatalogDatabase);
+      const staleCatalogBegin=beginAttempt(backend,staleCatalogDatabase,staleCatalogClaim,254,{now:"2026-07-21 12:11:00+00"});
+      assert.equal(staleCatalogBegin.outcome,"invalid_input");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE id='${staleCatalogBegin.attempt}';`,staleCatalogDatabase),"0");
+    });
+
+    await scenario("persisted PayTR customer basket and money bounds fail before reservation", async () => {
+      const database=cloneDatabase(backend,"begin_bounds");
+      const longLink=seedCheckoutLink(backend,database,260,{customerName:"x".repeat(61)});
+      const longClaim=claimLink(backend,database,longLink,260);
+      const result=beginAttempt(backend,database,longClaim,260);
+      assert.equal(result.outcome,"unavailable");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE id='${result.attempt}';`,database),"0");
+      const zeroLink=seedCheckoutLink(backend,database,261);
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.quick_order_link_items SET unit_price_cents=0,line_total_cents=0 WHERE quick_order_link_id='${zeroLink.link}'; UPDATE saas.quick_order_links SET subtotal_cents=0,total_cents=0 WHERE id='${zeroLink.link}';`,database);
+      const zeroClaim=claimLink(backend,database,zeroLink,261);
+      const zeroResult=beginAttempt(backend,database,zeroClaim,261);
+      assert.equal(zeroResult.outcome,"invalid_input");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_inventory_reservations WHERE attempt_id='${zeroResult.attempt}';`,database),"0");
+
+      const invalidFixtures = [
+        { number:262, options:{email:"ada@örnek.test"}, expected:"unavailable" },
+        { number:263, options:{phone:"PAYTR-PHONE"}, expected:"unavailable" },
+      ];
+      for (const invalidFixture of invalidFixtures) {
+        const fixture=seedCheckoutLink(backend,database,invalidFixture.number,invalidFixture.options);
+        const claim=claimLink(backend,database,fixture,invalidFixture.number);
+        const rejected=beginAttempt(backend,database,claim,invalidFixture.number);
+        assert.equal(rejected.outcome,invalidFixture.expected);
+        assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE id='${rejected.attempt}';`,database),"0");
+      }
+
+      const addressLink=seedCheckoutLink(backend,database,264);
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.quick_order_links SET shipping_address=jsonb_build_object(
+        'recipientName','Ada','phone','+905551110000','line1',repeat('a',200),'line2',repeat('b',200),'city','Istanbul','country','TR'
+      ) WHERE id='${addressLink.link}';`,database);
+      const addressClaim=claimLink(backend,database,addressLink,264);
+      assert.equal(beginAttempt(backend,database,addressClaim,264).outcome,"unavailable");
+
+      const cardinalityLink=seedCheckoutLink(backend,database,265);
+      const extraItems=Array.from({length:100},(_,index)=>`(
+        '${fixtureUuid("8",265000+index)}','${STORE}','${cardinalityLink.link}','${PRODUCT}','${VARIANT_2}',${index+1},
+        'Runtime Product ${index+1}','Untracked',11000,1,11000,'2026-07-21 10:00:00+00')`).join(",");
+      psql(backend,`SET ROLE celebix_saas_owner;
+        ALTER TABLE saas.quick_order_link_items DROP CONSTRAINT quick_order_link_items_position_check;
+        INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,variant_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ${extraItems};
+        UPDATE saas.quick_order_links SET subtotal_cents=1110000,total_cents=1110000 WHERE id='${cardinalityLink.link}';`,database);
+      const cardinalityClaim=claimLink(backend,database,cardinalityLink,265);
+      assert.equal(beginAttempt(backend,database,cardinalityClaim,265).outcome,"invalid_input");
+
+      const historicalBounds=seedCheckoutLink(backend,database,266);
+      psql(backend,`SET ROLE celebix_saas_owner;
+        ALTER TABLE saas.quick_order_link_items DROP CONSTRAINT quick_order_link_items_product_name_check;
+        ALTER TABLE saas.quick_order_link_items DROP CONSTRAINT quick_order_link_items_quantity_check;
+        ALTER TABLE saas.quick_order_link_items DROP CONSTRAINT quick_order_link_items_unit_price_check;
+        ALTER TABLE saas.quick_order_link_items DROP CONSTRAINT quick_order_link_items_line_total_check;
+        UPDATE saas.quick_order_link_items SET product_name=repeat('x',201),unit_price_cents=8000000001,quantity=10000,
+          line_total_cents=80000000010000 WHERE quick_order_link_id='${historicalBounds.link}';
+        UPDATE saas.quick_order_links SET subtotal_cents=80000000010000,total_cents=80000000010000 WHERE id='${historicalBounds.link}';`,database);
+      const historicalBoundsClaim=claimLink(backend,database,historicalBounds,266);
+      assert.equal(beginAttempt(backend,database,historicalBoundsClaim,266).outcome,"invalid_input");
+
+      const basketLink=seedCheckoutLink(backend,database,267);
+      const basketItems=Array.from({length:99},(_,index)=>`(
+        '${fixtureUuid("8",267000+index)}','${STORE}','${basketLink.link}','${PRODUCT}','${VARIANT_2}',${index+1},
+        repeat('😀',200),'Untracked',11000,1,11000,'2026-07-21 10:00:00+00')`).join(",");
+      psql(backend,`SET ROLE celebix_saas_owner;
+        INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,variant_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ${basketItems};
+        UPDATE saas.quick_order_links SET subtotal_cents=1100000,total_cents=1100000 WHERE id='${basketLink.link}';`,database);
+      const basketClaim=claimLink(backend,database,basketLink,267);
+      assert.equal(beginAttempt(backend,database,basketClaim,267).outcome,"invalid_input");
+
+      const nonTryDatabase=cloneDatabase(backend,"historical_non_try_api");
+      psql(backend,`ALTER TABLE saas.quick_order_links DISABLE TRIGGER ALL;
+        ALTER TABLE saas.quick_order_links DROP CONSTRAINT quick_order_links_currency_check;
+        UPDATE saas.quick_order_links SET currency='USD' WHERE id='${LINK}';
+        ALTER TABLE saas.quick_order_links ENABLE TRIGGER ALL;`,nonTryDatabase);
+      assert.equal(functionResult(backend,
+        `saas.quick_links_reveal_credential(${merchantAuthority()},'2026-07-21 12:12:00+00','${LINK}')`,
+        nonTryDatabase,"celebix_saas_app").outcome,"quick_link_not_found");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_claim_redemption('${HOSTNAME}',repeat('a',64),'${fixtureUuid("a",268)}',repeat('b',64),'2026-07-21 12:12:00+00','2026-07-21 12:20:00+00')`,
+        nonTryDatabase).outcome,"unavailable");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_duplicate(${merchantAuthority()},'2026-07-21 12:12:00+00','${LINK}','${fixtureUuid("6",268)}',ARRAY['${fixtureUuid("8",268)}']::uuid[],repeat('c',64),'key-1',${ENVELOPE},'${fixtureUuid("9",268)}',repeat('d',64))`,
+        nonTryDatabase,"celebix_saas_app").outcome,"invalid_input");
+      psql(backend,`ALTER TABLE saas.stores DISABLE TRIGGER ALL;
+        ALTER TABLE saas.stores DROP CONSTRAINT stores_currency_check;
+        UPDATE saas.stores SET currency='USD' WHERE id='${STORE}';
+        ALTER TABLE saas.stores ENABLE TRIGGER ALL;`,nonTryDatabase);
+      assert.equal(functionResult(backend,
+        `saas.quick_links_create(${merchantAuthority()},'2026-07-21 12:12:00+00','${fixtureUuid("6",269)}',ARRAY['${fixtureUuid("8",269)}']::uuid[],ARRAY['${VARIANT}']::uuid[],ARRAY[1]::bigint[],'${PROVIDER}','Ada','ada@example.test','+905551110000',${ADDRESS},${ADDRESS},NULL,'non-try',0,0,24,repeat('e',64),'key-1',${ENVELOPE},'${fixtureUuid("9",269)}',repeat('f',64))`,
+        nonTryDatabase,"celebix_saas_app").outcome,"invalid_input");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.quick_order_links WHERE id IN ('${fixtureUuid("6",268)}','${fixtureUuid("6",269)}');`,nonTryDatabase),"0");
+    });
+
+    await scenario("merchant oid collision and one-live-attempt rule are controlled no-mutation outcomes", async () => {
+      const database=cloneDatabase(backend,"attempt_collision");
+      const firstLink=seedCheckoutLink(backend,database,270);
+      const firstClaim=claimLink(backend,database,firstLink,270);
+      const first=beginAttempt(backend,database,firstClaim,270);
+      assert.equal(first.outcome,"committed");
+      const secondLink=seedCheckoutLink(backend,database,271);
+      const secondClaim=claimLink(backend,database,secondLink,271);
+      const collision=beginAttempt(backend,database,secondClaim,271,{merchantOid:first.merchantOid});
+      assert.equal(collision.outcome,"merchant_oid_conflict");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE id='${collision.attempt}';`,database),"0");
+      const another=beginAttempt(backend,database,firstClaim,272);
+      assert.equal(another.outcome,"attempt_in_progress");
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE quick_order_link_id='${firstLink.link}';`,database),"1");
+
+      const raceLinkA=seedCheckoutLink(backend,database,273);
+      const raceClaimA=claimLink(backend,database,raceLinkA,273);
+      const raceLinkB=seedCheckoutLink(backend,database,274);
+      const raceClaimB=claimLink(backend,database,raceLinkB,274);
+      const sharedMerchantOid=createHash("md5").update(`${TOKEN}:merchant:shared-race`).digest("hex");
+      const firstRace=openPsqlSession(backend,database,"merchant_oid_first");
+      const secondRace=openPsqlSession(backend,database,"merchant_oid_second");
+      try {
+        const firstRaceResult=await firstRace.execute(`BEGIN; SET LOCAL ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_begin_attempt('${HOSTNAME}','${raceClaimA.cookieDigest}','${fixtureUuid("b",273)}','${sharedMerchantOid}','${fixtureUuid("c",273)}',repeat('3',64),'2026-07-21 12:11:00+00');`);
+        assert.equal(firstRaceResult.split("\n").at(-1),"committed");
+        const secondRaceResult=secondRace.execute(`SET ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_begin_attempt('${HOSTNAME}','${raceClaimB.cookieDigest}','${fixtureUuid("b",274)}','${sharedMerchantOid}','${fixtureUuid("c",274)}',repeat('4',64),'2026-07-21 12:11:00+00');`);
+        await waitForBlockedSession(backend,database,secondRace.applicationName);
+        await firstRace.execute("COMMIT;");
+        assert.equal((await secondRaceResult).split("\n").at(-1),"merchant_oid_conflict");
+        assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE merchant_oid='${sharedMerchantOid}';`,database),"1");
+      } finally { await Promise.all([firstRace.close(),secondRace.close()]); }
+    });
+
+    await scenario("aggregate tracked availability and untracked lifecycle rows remain distinct", async () => {
+      const database=cloneDatabase(backend,"stock_semantics");
+      const tooMany=seedCheckoutLink(backend,database,280,{quantity:5});
+      const tooManyClaim=claimLink(backend,database,tooMany,280);
+      assert.equal(beginAttempt(backend,database,tooManyClaim,280).outcome,"stock_unavailable");
+      const untracked=seedCheckoutLink(backend,database,281,{quantity:999,variant:VARIANT_2});
+      const untrackedClaim=claimLink(backend,database,untracked,281);
+      const begun=beginAttempt(backend,database,untrackedClaim,281);
+      assert.equal(begun.outcome,"committed");
+      assert.equal(psql(backend,`SELECT stock_tracked||'|'||quantity FROM saas.checkout_inventory_reservations WHERE attempt_id='${begun.attempt}';`,database),"false|999");
+      assert.equal(psql(backend,`SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT_2}';`,database),"0");
+      const toggle=psqlResult(backend,`SET ROLE celebix_saas_owner; UPDATE saas.product_variants SET stock_tracking=true,version=version+1,updated_at='2026-07-21 12:12:00+00' WHERE id='${VARIANT_2}';`,database,{allowFailure:true});
+      assert.notEqual(toggle.status,0); assert.match(toggle.stderr,/CATALOG_VARIANT_HAS_HELD_CHECKOUT_RESERVATION/);
+      // Catalog interlocks are part of the same tracked/untracked authority scenario.
+      {
+      const database=cloneDatabase(backend,"catalog_interlock_api");
+      const link=seedCheckoutLink(backend,database,290);
+      psql(backend,`SET ROLE celebix_saas_owner;
+        UPDATE saas.quick_order_link_items SET variant_id='${VARIANT_2}' WHERE quick_order_link_id='${link.link}';
+        UPDATE saas.product_variants SET status='archived',archived_at='2026-07-21 12:00:00+00',version=version+1,updated_at='2026-07-21 12:00:00+00' WHERE id='${VARIANT_2}';`,database);
+      const claimed=claimLink(backend,database,link,290);
+      assert.equal(beginAttempt(backend,database,claimed,290).outcome,"catalog_item_unavailable");
+      const source=psql(backend,"SELECT prosrc FROM pg_proc WHERE oid='saas.checkout_begin_attempt(text,text,uuid,text,uuid,text,timestamptz)'::regprocedure;",database);
+      assert.ok(source.indexOf("FOR UPDATE OF link")<source.indexOf("ORDER BY product.id,variant.id FOR UPDATE"));
+      assert.match(source,/sum\(reservation\.quantity\)/);
+      }
+    });
+
+    await scenario("attempt keeps immutable provider snapshot across later rotation and revocation", async () => {
+      const database=cloneDatabase(backend,"provider_snapshot");
+      const link=seedCheckoutLink(backend,database,300);
+      const claimed=claimLink(backend,database,link,300);
+      const begun=beginAttempt(backend,database,claimed,300);
+      const other=seedCheckoutLink(backend,database,301,{provider:PROVIDER});
+      const otherClaim=claimLink(backend,database,other,301);
+      assert.equal(begun.outcome,"committed");
+      assert.equal(functionResult(backend,`saas.quick_links_configure_provider(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}',2,repeat('9',64),'key-1',${ENVELOPE},'${fixtureUuid("c",303)}',repeat('9',64))`,database,"celebix_saas_app").outcome,"committed");
+      assert.equal(functionResult(backend,`saas.quick_links_revoke_provider(${merchantAuthority()},'2026-07-21 12:12:01+00','${PROVIDER}',3,'${fixtureUuid("c",304)}',repeat('8',64))`,database,"celebix_saas_app").outcome,"committed");
+      assert.equal(psql(backend,`SELECT provider_config_version||'|'||configuration_digest||'|'||configuration_key_id FROM saas.checkout_payment_attempts WHERE id='${begun.attempt}';`,database),`2|${"d".repeat(64)}|key-1`);
+      assert.equal(beginAttempt(backend,database,otherClaim,301).outcome,"provider_not_ready");
+    });
+
+    await scenario("concurrent initiation serializes on the link with one winner and no oversell", async () => {
+      const database=cloneDatabase(backend,"concurrent_begin");
+      const link=seedCheckoutLink(backend,database,310);
+      const claimed=claimLink(backend,database,link,310);
+      const first=openPsqlSession(backend,database,"checkout_begin_first");
+      const second=openPsqlSession(backend,database,"checkout_begin_second");
+      const attempt1=fixtureUuid("b",310),attempt2=fixtureUuid("b",311);
+      try {
+        await first.execute(`BEGIN; SET ROLE celebix_saas_owner; SELECT id FROM saas.quick_order_links WHERE id='${link.link}' FOR UPDATE;`);
+        const secondResult=second.execute(`SET ROLE celebix_saas_workflow; SELECT outcome FROM saas.checkout_begin_attempt('${HOSTNAME}','${claimed.cookieDigest}','${attempt2}','${createHash("md5").update("second").digest("hex")}','${fixtureUuid("c",311)}',repeat('2',64),'2026-07-21 12:11:00+00');`);
+        await waitForBlockedSession(backend,database,second.applicationName);
+        const firstResult=first.execute(`SET LOCAL ROLE celebix_saas_workflow; SELECT outcome FROM saas.checkout_begin_attempt('${HOSTNAME}','${claimed.cookieDigest}','${attempt1}','${createHash("md5").update("first").digest("hex")}','${fixtureUuid("c",310)}',repeat('1',64),'2026-07-21 12:11:00+00'); COMMIT;`);
+        assert.equal((await firstResult).split("\n").at(-1),"committed");
+        assert.equal((await secondResult).split("\n").at(-1),"attempt_in_progress");
+        assert.equal(psql(backend,`SELECT count(*)||'|'||(SELECT count(*) FROM saas.checkout_inventory_reservations WHERE quick_order_link_id='${link.link}' AND status='held') FROM saas.checkout_payment_attempts WHERE quick_order_link_id='${link.link}';`,database),"1|1");
+      } finally { await Promise.all([first.close(),second.close()]); }
+
+      const revokedLink=seedCheckoutLink(backend,database,312);
+      const revokedClaim=claimLink(backend,database,revokedLink,312);
+      const revoker=openPsqlSession(backend,database,"checkout_revoke_first");
+      const blockedBegin=openPsqlSession(backend,database,"checkout_begin_after_revoke");
+      try {
+        await revoker.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.quick_order_links WHERE id='${revokedLink.link}' FOR UPDATE;
+          SELECT id FROM saas.quick_order_redemption_sessions WHERE id='${revokedClaim.redemption}' FOR UPDATE;`);
+        const blockedResult=blockedBegin.execute(`SET ROLE celebix_saas_workflow; SELECT outcome FROM saas.checkout_begin_attempt(
+          '${HOSTNAME}','${revokedClaim.cookieDigest}','${fixtureUuid("b",312)}','${createHash("md5").update("revoked-race").digest("hex")}',
+          '${fixtureUuid("c",312)}',repeat('3',64),'2026-07-21 12:11:00+00');`);
+        await waitForBlockedSession(backend,database,blockedBegin.applicationName);
+        await revoker.execute(`UPDATE saas.quick_order_redemption_sessions SET revoked_at='2026-07-21 12:10:30+00',version=version+1,updated_at='2026-07-21 12:10:30+00' WHERE id='${revokedClaim.redemption}'; COMMIT;`);
+        assert.equal((await blockedResult).split("\n").at(-1),"unavailable");
+        assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_payment_attempts WHERE id='${fixtureUuid("b",312)}';`,database),"0");
+      } finally { await Promise.all([revoker.close(),blockedBegin.close()]); }
+
+      const begunFirstLink=seedCheckoutLink(backend,database,313);
+      const begunFirstClaim=claimLink(backend,database,begunFirstLink,313);
+      const beginWinner=openPsqlSession(backend,database,"checkout_begin_before_revoke");
+      const blockedRevoke=openPsqlSession(backend,database,"checkout_revoke_after_begin");
+      try {
+        const beginWinnerResult=await beginWinner.execute(`BEGIN; SET LOCAL ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_begin_attempt('${HOSTNAME}','${begunFirstClaim.cookieDigest}','${fixtureUuid("b",313)}','${createHash("md5").update("begin-first-race").digest("hex")}','${fixtureUuid("c",313)}',repeat('4',64),'2026-07-21 12:11:00+00');`);
+        assert.equal(beginWinnerResult.split("\n").at(-1),"committed");
+        const blockedRevokeResult=blockedRevoke.execute(`SET ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.quick_links_revoke_redemption('${HOSTNAME}','${begunFirstClaim.cookieDigest}','${fixtureUuid("c",314)}',repeat('5',64),'2026-07-21 12:12:00+00');`);
+        await waitForBlockedSession(backend,database,blockedRevoke.applicationName);
+        await beginWinner.execute("COMMIT;");
+        assert.equal((await blockedRevokeResult).split("\n").at(-1),"unavailable");
+        assert.equal(psql(backend,`SELECT revoked_at IS NULL FROM saas.quick_order_redemption_sessions WHERE id='${begunFirstClaim.redemption}';`,database),"t");
+      } finally { await Promise.all([beginWinner.close(),blockedRevoke.close()]); }
+
+      const authorityRaceLink=seedCheckoutLink(backend,database,315);
+      const authorityLocker=openPsqlSession(backend,database,"checkout_authority_suspender");
+      const blockedClaim=openPsqlSession(backend,database,"checkout_claim_after_suspend");
+      const authorityRedemption=fixtureUuid("a",315);
+      try {
+        await authorityLocker.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.quick_order_links WHERE id='${authorityRaceLink.link}' FOR UPDATE;`);
+        const blockedClaimResult=blockedClaim.execute(`SET ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.quick_links_claim_redemption('${HOSTNAME}','${authorityRaceLink.digest}','${authorityRedemption}',repeat('6',64),'2026-07-21 12:10:00+00','2026-07-21 12:20:00+00');`);
+        await waitForBlockedSession(backend,database,blockedClaim.applicationName);
+        await authorityLocker.execute(`UPDATE saas.stores SET status='suspended',updated_at='2026-07-21 12:09:00+00' WHERE id='${STORE}'; COMMIT;`);
+        assert.equal((await blockedClaimResult).split("\n").at(-1),"unavailable");
+        assert.equal(psql(backend,`SELECT count(*) FROM saas.quick_order_redemption_sessions WHERE id='${authorityRedemption}';`,database),"0");
+      } finally { await Promise.all([authorityLocker.close(),blockedClaim.close()]); }
+    });
+
+    await scenario("provider-ready replay presentation and recovery preserve exact sealed token authority", async () => {
+      const database=cloneDatabase(backend,"provider_ready_api");
+      const link=seedCheckoutLink(backend,database,320);
+      const claimed=claimLink(backend,database,link,320);
+      const begun=beginAttempt(backend,database,claimed,320);
+      const operation=fixtureUuid("c",321);
+      const expression=`saas.checkout_mark_provider_ready('${begun.attempt}','${operation}',repeat('3',64),${ENVELOPE},repeat('4',64),'2026-07-21 12:12:00+00')`;
+      const ready=functionResult(backend,expression,database); assert.equal(ready.outcome,"committed");
+      const replay=functionResult(backend,expression,database); assert.equal(replay.outcome,"operation_replayed");
+      assert.deepEqual(replay.payload.sealedProviderToken,ready.payload.sealedProviderToken);
+      const presentation=functionResult(backend,`saas.checkout_get_payment_presentation('${HOSTNAME}','${claimed.cookieDigest}','2026-07-21 12:13:00+00')`,database);
+      assert.equal(presentation.outcome,"found");
+      assert.deepEqual(presentation.payload.sealedProviderToken,ready.payload.sealedProviderToken);
+      assert.equal(JSON.stringify(presentation.payload).includes("sealedConfiguration"),false);
+      const recovered=functionResult(backend,`saas.checkout_recover_attempt_operation('${begun.attempt}','${operation}','provider_ready',repeat('3',64))`,database);
+      assert.equal(recovered.outcome,"operation_replayed");
+      const attemptRecoveryBytes=psql(backend,`SELECT count(*)||'|'||md5(string_agg(operation_id::text||result_payload::text,',' ORDER BY operation_id)) FROM saas.checkout_operations;`,database);
+      assert.equal(psql(backend,`BEGIN READ ONLY; SET LOCAL ROLE celebix_saas_workflow; SELECT outcome FROM saas.checkout_recover_attempt_operation('${begun.attempt}','${operation}','provider_ready',repeat('3',64)); COMMIT;`,database).split("\n").at(-1),"operation_replayed");
+      assert.equal(functionResult(backend,`saas.checkout_recover_attempt_operation('${begun.attempt}','${operation}','initiation_unknown',repeat('3',64))`,database).outcome,"operation_mismatch");
+      assert.equal(functionResult(backend,`saas.checkout_recover_attempt_operation('${fixtureUuid("b",399)}','${operation}','provider_ready',repeat('3',64))`,database).outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.checkout_recover_attempt_operation('${begun.attempt}','${operation}','provider_ready',repeat('0',64))`,database).outcome,"operation_mismatch");
+      assert.equal(psql(backend,`SELECT count(*)||'|'||md5(string_agg(operation_id::text||result_payload::text,',' ORDER BY operation_id)) FROM saas.checkout_operations;`,database),attemptRecoveryBytes);
+    });
+
+    await scenario("unknown and failed initiation preserve or release holds exactly", async () => {
+      const database=cloneDatabase(backend,"initiation_states");
+      const unknownLink=seedCheckoutLink(backend,database,330);
+      const unknownClaim=claimLink(backend,database,unknownLink,330);
+      const unknownAttempt=beginAttempt(backend,database,unknownClaim,330);
+      assert.equal(functionResult(backend,`saas.checkout_mark_initiation_unknown('${unknownAttempt.attempt}','${fixtureUuid("c",331)}',repeat('5',64),'2026-07-21 12:12:00+00')`,database).outcome,"committed");
+      assert.equal(psql(backend,`SELECT attempt.status||'|'||reservation.status||'|'||(SELECT status FROM saas.checkout_reconciliation_jobs WHERE attempt_id=attempt.id) FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id='${unknownAttempt.attempt}';`,database),"initiation_unknown|held|pending");
+      const failedLink=seedCheckoutLink(backend,database,331);
+      const failedClaim=claimLink(backend,database,failedLink,331);
+      const failedAttempt=beginAttempt(backend,database,failedClaim,332);
+      assert.equal(functionResult(backend,`saas.checkout_mark_initiation_failed('${failedAttempt.attempt}','${fixtureUuid("c",334)}',repeat('6',64),'2026-07-21 12:12:00+00')`,database).outcome,"committed");
+      assert.equal(psql(backend,`SELECT attempt.status||'|'||reservation.status FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id='${failedAttempt.attempt}';`,database),"failed|released");
+      assert.equal(functionResult(backend,`saas.checkout_mark_initiation_unknown('${ATTEMPT}','${fixtureUuid("c",333)}',repeat('7',64),'2026-07-21 12:06:00+00')`,database).outcome,"invalid_transition");
+
+      const staleLink=seedCheckoutLink(backend,database,335);
+      const staleClaim=claimLink(backend,database,staleLink,335);
+      const staleAttempt=beginAttempt(backend,database,staleClaim,335);
+      const staleBefore=psql(backend,`SELECT attempt.status||'|'||attempt.version||'|'||reservation.status||'|'||reservation.version FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id='${staleAttempt.attempt}';`,database);
+      assert.equal(functionResult(backend,`saas.checkout_mark_initiation_failed('${staleAttempt.attempt}','${fixtureUuid("c",336)}',repeat('8',64),'2026-07-21 12:10:30+00')`,database).outcome,"invalid_transition");
+      assert.equal(psql(backend,`SELECT attempt.status||'|'||attempt.version||'|'||reservation.status||'|'||reservation.version FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id='${staleAttempt.attempt}';`,database),staleBefore);
+
+      const maxLink=seedCheckoutLink(backend,database,337,{variant:VARIANT_2});
+      const maxClaim=claimLink(backend,database,maxLink,337);
+      const maxAttempt=beginAttempt(backend,database,maxClaim,337);
+      psql(backend,`SET ROLE celebix_saas_owner;
+        ALTER TABLE saas.checkout_inventory_reservations DISABLE TRIGGER checkout_inventory_reservations_transition;
+        UPDATE saas.checkout_inventory_reservations SET version=9007199254740991 WHERE attempt_id='${maxAttempt.attempt}';
+        ALTER TABLE saas.checkout_inventory_reservations ENABLE TRIGGER checkout_inventory_reservations_transition;`,database);
+      const maxBefore=psql(backend,`SELECT attempt.status||'|'||attempt.version||'|'||reservation.status||'|'||reservation.version FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id='${maxAttempt.attempt}';`,database);
+      assert.equal(functionResult(backend,`saas.checkout_mark_initiation_failed('${maxAttempt.attempt}','${fixtureUuid("c",338)}',repeat('9',64),'2026-07-21 12:12:00+00')`,database).outcome,"invalid_transition");
+      assert.equal(psql(backend,`SELECT attempt.status||'|'||attempt.version||'|'||reservation.status||'|'||reservation.version FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id='${maxAttempt.attempt}';`,database),maxBefore);
+    });
+
+    await scenario("five-minute cleanup expires only reserved holds and zero-result replay is durable", async () => {
+      const database=cloneDatabase(backend,"cleanup_api");
+      const staleLink=seedCheckoutLink(backend,database,340);
+      const staleClaim=claimLink(backend,database,staleLink,340,{now:"2026-07-21 12:00:00+00",expiresAt:"2026-07-21 12:15:00+00"});
+      const staleAttempt=beginAttempt(backend,database,staleClaim,340,{now:"2026-07-21 12:00:00+00"});
+      const worker=fixtureUuid("d",340),operation=fixtureUuid("c",342);
+      const cleanup=`saas.checkout_cleanup_pre_provider_attempts('${worker}','${operation}',repeat('8',64),'2026-07-21 12:05:00+00',10)`;
+      const cleaned=functionResult(backend,cleanup,database); assert.equal(cleaned.outcome,"committed",JSON.stringify(cleaned)); assert.equal(cleaned.payload.releasedCount,2);
+      assert.equal(psql(backend,`SELECT status||'|'||(SELECT status FROM saas.checkout_inventory_reservations WHERE attempt_id='${staleAttempt.attempt}') FROM saas.checkout_payment_attempts WHERE id='${staleAttempt.attempt}';`,database),"expired|expired");
+      assert.equal(functionResult(backend,cleanup,database).outcome,"operation_replayed");
+      assert.equal(functionResult(backend,`saas.checkout_recover_cleanup_operation('${worker}','${operation}',repeat('8',64))`,database).outcome,"operation_replayed");
+      const cleanupRecoveryBytes=psql(backend,`SELECT count(*)||'|'||md5(string_agg(operation_id::text||result_payload::text,',' ORDER BY operation_id)) FROM saas.checkout_operations;`,database);
+      assert.equal(psql(backend,`BEGIN READ ONLY; SET LOCAL ROLE celebix_saas_workflow; SELECT outcome FROM saas.checkout_recover_cleanup_operation('${worker}','${operation}',repeat('8',64)); COMMIT;`,database).split("\n").at(-1),"operation_replayed");
+      assert.equal(functionResult(backend,`saas.checkout_recover_cleanup_operation('${fixtureUuid("d",399)}','${operation}',repeat('8',64))`,database).outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.checkout_recover_cleanup_operation('${worker}','${operation}',repeat('0',64))`,database).outcome,"operation_mismatch");
+      assert.equal(psql(backend,`SELECT count(*)||'|'||md5(string_agg(operation_id::text||result_payload::text,',' ORDER BY operation_id)) FROM saas.checkout_operations;`,database),cleanupRecoveryBytes);
+      const zero=`saas.checkout_cleanup_pre_provider_attempts('${worker}','${fixtureUuid("c",341)}',repeat('9',64),'2026-07-21 12:05:01+00',10)`;
+      assert.equal(functionResult(backend,zero,database).payload.releasedCount,0);
+      assert.equal(functionResult(backend,zero,database).outcome,"operation_replayed");
+      assert.equal(psql(backend,"SELECT count(*) FROM saas.checkout_operations WHERE worker_id IS NOT NULL AND operation_kind='cleanup_attempt';",database),"2");
+
+      const cleanupMaxDatabase=cloneDatabase(backend,"cleanup_max_atomic");
+      const maxLink=seedCheckoutLink(backend,cleanupMaxDatabase,343,{variant:VARIANT_2});
+      const maxClaim=claimLink(backend,cleanupMaxDatabase,maxLink,343,{now:"2026-07-21 12:00:00+00",expiresAt:"2026-07-21 12:15:00+00"});
+      const maxAttempt=beginAttempt(backend,cleanupMaxDatabase,maxClaim,343,{now:"2026-07-21 12:00:00+00"});
+      psql(backend,`SET ROLE celebix_saas_owner;
+        ALTER TABLE saas.checkout_inventory_reservations DISABLE TRIGGER checkout_inventory_reservations_transition;
+        UPDATE saas.checkout_inventory_reservations SET version=9007199254740991 WHERE attempt_id='${maxAttempt.attempt}';
+        ALTER TABLE saas.checkout_inventory_reservations ENABLE TRIGGER checkout_inventory_reservations_transition;`,cleanupMaxDatabase);
+      const maxCleanupBefore=psql(backend,"SELECT string_agg(attempt.id||':'||attempt.status||':'||attempt.version||':'||reservation.status||':'||reservation.version,',' ORDER BY attempt.id) FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id;",cleanupMaxDatabase);
+      assert.equal(functionResult(backend,`saas.checkout_cleanup_pre_provider_attempts('${fixtureUuid("d",343)}','${fixtureUuid("c",344)}',repeat('a',64),'2026-07-21 12:05:00+00',10)`,cleanupMaxDatabase).outcome,"invalid_transition");
+      assert.equal(psql(backend,"SELECT string_agg(attempt.id||':'||attempt.status||':'||attempt.version||':'||reservation.status||':'||reservation.version,',' ORDER BY attempt.id) FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id;",cleanupMaxDatabase),maxCleanupBefore);
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_operations WHERE operation_id='${fixtureUuid("c",344)}';`,cleanupMaxDatabase),"0");
+
+      const cleanupStaleDatabase=cloneDatabase(backend,"cleanup_stale_atomic");
+      const laterLink=seedCheckoutLink(backend,cleanupStaleDatabase,345,{variant:VARIANT_2});
+      const laterClaim=claimLink(backend,cleanupStaleDatabase,laterLink,345,{now:"2026-07-21 12:00:00+00",expiresAt:"2026-07-21 12:15:00+00"});
+      const laterAttempt=beginAttempt(backend,cleanupStaleDatabase,laterClaim,345,{now:"2026-07-21 12:00:00+00"});
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.checkout_inventory_reservations
+        SET version=version+1,updated_at='2026-07-21 12:06:00+00' WHERE attempt_id='${laterAttempt.attempt}';`,cleanupStaleDatabase);
+      const staleCleanupBefore=psql(backend,`SELECT attempt.status||'|'||attempt.version||'|'||reservation.status||'|'||reservation.version||'|'||reservation.updated_at FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id='${laterAttempt.attempt}';`,cleanupStaleDatabase);
+      assert.equal(functionResult(backend,`saas.checkout_cleanup_pre_provider_attempts('${fixtureUuid("d",345)}','${fixtureUuid("c",346)}',repeat('b',64),'2026-07-21 12:05:00+00',10)`,cleanupStaleDatabase).outcome,"invalid_transition");
+      assert.equal(psql(backend,`SELECT attempt.status||'|'||attempt.version||'|'||reservation.status||'|'||reservation.version||'|'||reservation.updated_at FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id='${laterAttempt.attempt}';`,cleanupStaleDatabase),staleCleanupBefore);
+      assert.equal(psql(backend,`SELECT count(*) FROM saas.checkout_operations WHERE operation_id='${fixtureUuid("c",346)}';`,cleanupStaleDatabase),"0");
+    });
+
+    await scenario("provider-ready and initiation-unknown holds never release by elapsed time alone", async () => {
+      const database=cloneDatabase(backend,"cleanup_persistent");
+      const readyLink=seedCheckoutLink(backend,database,350);
+      const readyClaim=claimLink(backend,database,readyLink,350,{now:"2026-07-21 12:00:00+00",expiresAt:"2026-07-21 12:15:00+00"});
+      const readyAttempt=beginAttempt(backend,database,readyClaim,350,{now:"2026-07-21 12:00:00+00"});
+      assert.equal(functionResult(backend,`saas.checkout_mark_provider_ready('${readyAttempt.attempt}','${fixtureUuid("c",450)}',repeat('a',64),${ENVELOPE},repeat('b',64),'2026-07-21 12:01:00+00')`,database).outcome,"committed");
+      const unknownLink=seedCheckoutLink(backend,database,351);
+      const unknownClaim=claimLink(backend,database,unknownLink,351,{now:"2026-07-21 12:00:00+00",expiresAt:"2026-07-21 12:15:00+00"});
+      const unknownAttempt=beginAttempt(backend,database,unknownClaim,351,{now:"2026-07-21 12:00:00+00"});
+      assert.equal(functionResult(backend,`saas.checkout_mark_initiation_unknown('${unknownAttempt.attempt}','${fixtureUuid("c",451)}',repeat('c',64),'2026-07-21 12:01:00+00')`,database).outcome,"committed");
+      const cleanup=functionResult(backend,`saas.checkout_cleanup_pre_provider_attempts('${fixtureUuid("d",351)}','${fixtureUuid("c",352)}',repeat('d',64),'2026-07-21 13:00:00+00',100)`,database);
+      assert.ok(cleanup.payload.releasedCount>=1);
+      assert.equal(psql(backend,`SELECT string_agg(attempt.status||':'||reservation.status,',' ORDER BY attempt.id) FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE attempt.id IN ('${readyAttempt.attempt}','${unknownAttempt.attempt}');`,database),"provider_ready:held,initiation_unknown:held");
+    });
+
+    await scenario("migration 027 down restores exact 025 functions then 026 and 027 reapply cleanly", async () => {
+      const database=cloneDatabase(backend,"api_rollback");
+      const retainedOperation=fixtureUuid("c",390);
+      psql(backend,`SET ROLE celebix_saas_owner;
+        INSERT INTO saas.checkout_operations(operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at)
+        VALUES('${retainedOperation}','${STORE}','${ATTEMPT}','begin_attempt',repeat('1',64),'{"proof":"migration-026-retained"}'::jsonb,'2026-07-21 12:04:00+00');`,database);
+      const retainedBytes=psql(backend,`SELECT operation_kind||'|'||payload_fingerprint||'|'||result_payload::text||'|'||committed_at::text FROM saas.checkout_operations WHERE operation_id='${retainedOperation}';`,database);
+      apply(backend,"202607220027_quick_order_checkout_api.down.sql",database);
+      assert.equal(psql(backend,`SELECT operation_kind||'|'||payload_fingerprint||'|'||result_payload::text||'|'||committed_at::text FROM saas.checkout_operations WHERE operation_id='${retainedOperation}';`,database),retainedBytes);
+      const createDefinition="SELECT pg_get_functiondef('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)'::regprocedure);";
+      const duplicateDefinition="SELECT pg_get_functiondef('saas.quick_links_duplicate(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,uuid[],text,text,jsonb,uuid,text)'::regprocedure);";
+      assert.equal(psql(backend,createDefinition,database).replace(/\s+/g," ").trim(),psql(backend,createDefinition,ROLLBACK_DATABASE).replace(/\s+/g," ").trim());
+      assert.equal(psql(backend,duplicateDefinition,database).replace(/\s+/g," ").trim(),psql(backend,duplicateDefinition,ROLLBACK_DATABASE).replace(/\s+/g," ").trim());
+      assert.equal(psql(backend,"SELECT to_regprocedure('saas.quick_links_create_025(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NULL AND to_regprocedure('saas.quick_links_duplicate_025(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,uuid[],text,text,jsonb,uuid,text)') IS NULL;",database),"t");
+      assert.equal(psql(backend,"SELECT has_function_privilege('celebix_saas_app','saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)','EXECUTE') AND has_function_privilege('celebix_saas_app','saas.quick_links_duplicate(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,uuid[],text,text,jsonb,uuid,text)','EXECUTE');",database),"t");
+      assert.equal(psql(backend,"SELECT has_schema_privilege('celebix_saas_workflow','saas','USAGE');",database),"f");
+      apply(backend,"202607220026_quick_order_checkout_runtime.down.sql",database);
+      apply(backend,"202607220026_quick_order_checkout_runtime.up.sql",database);
+      apply(backend,"202607220026_quick_order_checkout_runtime_assertions.sql",database);
+      apply(backend,"202607220027_quick_order_checkout_api.up.sql",database);
+      apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",database);
+      assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_begin_attempt(text,text,uuid,text,uuid,text,timestamptz)') IS NOT NULL;",database),"t");
+
+      const historyDatabase=cloneDatabase(backend,"api_rollback_history");
+      assert.equal(functionResult(backend,
+        `saas.quick_links_configure_provider(${merchantAuthority()},'2026-07-21 12:12:00+00','${PROVIDER}',2,repeat('9',64),'key-1',${ENVELOPE},'${fixtureUuid("c",391)}',repeat('9',64))`,
+        historyDatabase,"celebix_saas_app").outcome,"committed");
+      assert.equal(functionResult(backend,
+        `saas.checkout_cleanup_pre_provider_attempts('${fixtureUuid("d",391)}','${fixtureUuid("c",392)}',repeat('8',64),'2026-07-21 12:00:01+00',1)`,
+        historyDatabase).outcome,"committed");
+      const historyDown=apply(backend,"202607220027_quick_order_checkout_api.down.sql",historyDatabase,true);
+      assert.notEqual(historyDown.status,0);
+      assert.match(historyDown.stderr,/QUICK_ORDER_CHECKOUT_API_ROLLBACK_HISTORY_CONFLICT/);
+      assert.equal(psql(backend,"SELECT count(*) FROM saas.checkout_operations WHERE provider_config_id IS NOT NULL OR worker_id IS NOT NULL;",historyDatabase),"2");
+      assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_begin_attempt(text,text,uuid,text,uuid,text,timestamptz)') IS NOT NULL;",historyDatabase),"t");
+
+      const partialApiDatabase=`${DATABASE}_api_partial_027`;
+      createDatabase(backend,partialApiDatabase,ROLLBACK_DATABASE);
+      psql(backend,"SET ROLE celebix_saas_owner; ALTER TABLE saas.checkout_operations ADD COLUMN provider_config_id uuid;",partialApiDatabase);
+      const partialApply=apply(backend,"202607220027_quick_order_checkout_api.up.sql",partialApiDatabase,true);
+      assert.notEqual(partialApply.status,0);
+      assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_begin_attempt(text,text,uuid,text,uuid,text,timestamptz)') IS NULL;",partialApiDatabase),"t");
+      assert.equal(psql(backend,"SELECT to_regprocedure('saas.quick_links_create_025(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NULL;",partialApiDatabase),"t");
+      psql(backend,"SET ROLE celebix_saas_owner; ALTER TABLE saas.checkout_operations DROP COLUMN provider_config_id;",partialApiDatabase);
+      apply(backend,"202607220027_quick_order_checkout_api.up.sql",partialApiDatabase);
+      apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",partialApiDatabase);
+      apply(backend,"202607220027_quick_order_checkout_api.down.sql",partialApiDatabase);
     });
 
     assert.equal(completed.length, TOTAL);
