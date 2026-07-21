@@ -30,21 +30,21 @@
       "id": "202607220025_quick_order_links_api_up",
       "direction": "up",
       "file": "202607220025_quick_order_links_api.up.sql",
-      "sha256": "dd4f5722c895836ad635611cce84644a9461c1a3ce8366ae4b9a9209ad3d3bdd",
+      "sha256": "1facd08e00020d1c80124723f25ee4756bc162cd02be784f954ba02f453ccf55",
       "purpose": "Add the least-privilege merchant quick-order link API and durable operation recovery."
     },
     {
       "id": "202607220025_quick_order_links_api_down",
       "direction": "down",
       "file": "202607220025_quick_order_links_api.down.sql",
-      "sha256": "769ec93e70ec07fa6b35bfe42e8bb375e5adec1e5702a6a4158883936593a500",
+      "sha256": "9500dd84143e980684891b39a09bba881dee592f6ce699be72e7de924022a788",
       "purpose": "Remove only migration 025 API functions during disposable rollback rehearsal."
     },
     {
       "id": "202607220025_quick_order_links_api_assertions",
       "direction": "verify",
       "file": "202607220025_quick_order_links_api_assertions.sql",
-      "sha256": "c03977ec874a3f104df2374473bce573ea13d355cc0bbf3c0035150d7ee4cf3d",
+      "sha256": "b5cac3ac0be7f5ccecc1733dfddb389e00fcccce5a9ba382b9c902eaabb2b108",
       "purpose": "Fail on quick-link API signature, authority, deterministic projection, recovery or ACL drift."
     }
   ]

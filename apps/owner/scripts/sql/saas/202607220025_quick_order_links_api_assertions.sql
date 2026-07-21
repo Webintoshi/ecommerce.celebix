@@ -18,6 +18,7 @@ DECLARE
   mutation_source text;
   detail_source text;
   authority_lock_source text;
+  authority_time_source text;
 BEGIN
   FOREACH checked_signature IN ARRAY ARRAY[
     'saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)',
@@ -57,13 +58,16 @@ BEGIN
     END IF;
     SELECT procedure.prosrc INTO function_source FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid=checked_function;
     IF function_source !~ 'quick_link_merchant_authority_error\('
-       OR function_source !~ 'p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now' THEN
+       OR function_source !~ 'p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now'
+       OR pg_catalog.strpos(function_source,'quick_links_authority_time_is_valid(p_now)')=0
+       OR pg_catalog.strpos(function_source,'quick_links_authority_time_is_valid(p_now)')>=pg_catalog.strpos(function_source,'quick_link_merchant_authority_error(') THEN
       RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_API_ASSERTION_FAILED: exact merchant authority call missing on %', checked_signature;
     END IF;
   END LOOP;
 
   FOREACH checked_signature IN ARRAY ARRAY[
     'saas.quick_links_json_timestamp(timestamp with time zone)',
+    'saas.quick_links_authority_time_is_valid(timestamp with time zone)',
     'saas.quick_links_mutation_projection(uuid,uuid)',
     'saas.quick_links_detail_projection(uuid,uuid,timestamp with time zone)',
     'saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)'
@@ -121,6 +125,18 @@ BEGIN
   SELECT prosrc INTO mutation_source FROM pg_catalog.pg_proc WHERE oid='saas.quick_links_mutation_projection(uuid,uuid)'::regprocedure;
   SELECT prosrc INTO detail_source FROM pg_catalog.pg_proc WHERE oid='saas.quick_links_detail_projection(uuid,uuid,timestamp with time zone)'::regprocedure;
   SELECT prosrc INTO authority_lock_source FROM pg_catalog.pg_proc WHERE oid='saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)'::regprocedure;
+  SELECT prosrc INTO authority_time_source FROM pg_catalog.pg_proc WHERE oid='saas.quick_links_authority_time_is_valid(timestamp with time zone)'::regprocedure;
+
+  IF authority_time_source !~ 'isfinite\(p_value\)'
+     OR authority_time_source !~ '0001-01-01 00:00:00\+00'
+     OR authority_time_source !~ '9999-12-28 23:59:59[.]999999\+00'
+     OR NOT EXISTS (
+       SELECT 1 FROM pg_catalog.pg_proc AS procedure
+       WHERE procedure.oid='saas.quick_links_authority_time_is_valid(timestamp with time zone)'::regprocedure
+         AND procedure.provolatile='i' AND procedure.proisstrict AND NOT procedure.prosecdef
+     ) THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_API_ASSERTION_FAILED: authority timestamp boundary drift';
+  END IF;
 
   IF pg_catalog.strpos(authority_lock_source,'FROM saas.stores')=0
      OR pg_catalog.strpos(authority_lock_source,'FROM saas.stores')>=pg_catalog.strpos(authority_lock_source,'FROM saas.memberships')
@@ -134,6 +150,7 @@ BEGIN
   END IF;
 
   IF list_source !~ 'p_page_size NOT BETWEEN 1 AND 100'
+     OR list_source !~ 'quick_links_authority_time_is_valid\(p_cursor_created_at\) IS DISTINCT FROM TRUE'
      OR list_source !~ 'link[.]created_at,link[.]id\) < \(p_cursor_created_at,p_cursor_id'
      OR list_source !~ 'ORDER BY link[.]created_at DESC, link[.]id DESC'
      OR list_source !~ 'LIMIT p_page_size \+ 1'

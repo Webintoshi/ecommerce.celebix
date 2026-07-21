@@ -14,6 +14,18 @@ AS $function$
   SELECT pg_catalog.to_char(p_value AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
 $function$;
 
+CREATE FUNCTION saas.quick_links_authority_time_is_valid(p_value timestamptz)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, saas
+AS $function$
+  SELECT pg_catalog.isfinite(p_value)
+    AND p_value >= '0001-01-01 00:00:00+00'::timestamptz
+    AND p_value <= '9999-12-28 23:59:59.999999+00'::timestamptz
+$function$;
+
 CREATE FUNCTION saas.quick_links_mutation_projection(p_store_id uuid, p_link_id uuid)
 RETURNS jsonb
 LANGUAGE sql
@@ -169,6 +181,10 @@ DECLARE
   last_created_at timestamptz;
   last_id uuid;
 BEGIN
+  IF saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
+    RETURN;
+  END IF;
   authority_error := saas.quick_link_merchant_authority_error(
     p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'quick_links.read'
   );
@@ -178,6 +194,7 @@ BEGIN
   END IF;
   IF p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
      OR (p_status IS NOT NULL AND p_status <> ALL (ARRAY['active','opened','paid','cancelled','expired']))
+     OR (p_cursor_created_at IS NOT NULL AND saas.quick_links_authority_time_is_valid(p_cursor_created_at) IS DISTINCT FROM TRUE)
      OR pg_catalog.num_nulls(p_cursor_created_at,p_cursor_id) NOT IN (0,2) THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
     RETURN;
@@ -263,6 +280,10 @@ AS $function$
 DECLARE
   authority_error text;
 BEGIN
+  IF saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
+    RETURN;
+  END IF;
   authority_error := saas.quick_link_merchant_authority_error(
     p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'quick_links.read'
   );
@@ -322,6 +343,10 @@ DECLARE
   total numeric;
   uuid_pattern constant text := '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
 BEGIN
+  IF saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
+    RETURN;
+  END IF;
   authority_error := saas.quick_link_merchant_authority_error(
     p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'quick_links.manage'
   );
@@ -562,6 +587,10 @@ DECLARE
   existing_operation saas.quick_order_link_operations%ROWTYPE;
   current_link saas.quick_order_links%ROWTYPE;
 BEGIN
+  IF saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
+    RETURN;
+  END IF;
   authority_error := saas.quick_link_merchant_authority_error(
     p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'quick_links.manage'
   );
@@ -663,6 +692,10 @@ DECLARE
   total numeric;
   uuid_pattern constant text := '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
 BEGIN
+  IF saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
+    RETURN;
+  END IF;
   authority_error := saas.quick_link_merchant_authority_error(
     p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'quick_links.manage'
   );
@@ -863,6 +896,10 @@ DECLARE
   authority_error text;
   existing_operation saas.quick_order_link_operations%ROWTYPE;
 BEGIN
+  IF saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
+    RETURN;
+  END IF;
   authority_error := saas.quick_link_merchant_authority_error(
     p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'quick_links.manage'
   );
@@ -889,6 +926,7 @@ END
 $function$;
 
 REVOKE ALL ON FUNCTION saas.quick_links_json_timestamp(timestamptz) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.quick_links_authority_time_is_valid(timestamptz) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.quick_links_mutation_projection(uuid,uuid) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.quick_links_detail_projection(uuid,uuid,timestamptz) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamptz) FROM PUBLIC,celebix_saas_app;

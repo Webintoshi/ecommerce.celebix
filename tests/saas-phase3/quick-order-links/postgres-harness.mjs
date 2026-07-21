@@ -72,6 +72,7 @@ const API_FUNCTIONS = [
   "saas.quick_links_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)",
 ];
 const AUTHORITY_LOCK_FUNCTION = "saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)";
+const AUTHORITY_TIME_FUNCTION = "saas.quick_links_authority_time_is_valid(timestamp with time zone)";
 const VALID_ADDRESS = `'{"recipientName":"Ada Lovelace","phone":"+905551110000","line1":"Test 1","city":"Istanbul","country":"TR"}'::jsonb`;
 const VALID_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
 const DUPLICATE_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"ZHVwbGljYXRlLXRva2VuLWNpcGhlcnRleHQ","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
@@ -287,7 +288,7 @@ async function waitForBackendLock(backend, pid) {
     if (psql(backend, `SELECT COALESCE(wait_event_type,'') FROM pg_stat_activity WHERE pid=${pid};`) === "Lock") return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`backend ${pid} did not wait on the authority row lock`);
+  throw new Error(`backend ${pid} did not wait on a row lock`);
 }
 
 function apply(backend, file, database = DATABASE) {
@@ -411,6 +412,54 @@ async function authorityRace(backend, { mutationSql, restoreSql, suffix, expecte
     await Promise.all([writer.close(), caller.close()]);
     psql(backend, restoreSql);
   }
+}
+
+async function catalogLockBarrier(backend, { lockedVariant, firstCall, secondCall, token }) {
+  const controller = interactivePsql(backend);
+  const first = interactivePsql(backend);
+  const second = interactivePsql(backend);
+  try {
+    controller.send(`BEGIN; SELECT 1 FROM saas.product_variants WHERE store_id='${STORE_A}' AND id='${lockedVariant}' FOR UPDATE; SELECT 'catalog-controller-ready-${token}';`);
+    await controller.waitFor(`catalog-controller-ready-${token}`);
+
+    first.send(`SELECT 'catalog-first-pid-${token}:'||pg_backend_pid();`);
+    await first.waitFor(`catalog-first-pid-${token}:`);
+    const firstPid = Number(first.output.match(new RegExp(`catalog-first-pid-${token}:(\\d+)`))?.[1]);
+    assert.ok(Number.isInteger(firstPid) && firstPid > 0, `missing first catalog pid for ${token}`);
+    first.send(`SET ROLE celebix_saas_app; SELECT outcome FROM ${firstCall}; SELECT 'catalog-first-done-${token}';`);
+    await waitForBackendLock(backend, firstPid);
+
+    second.send(`SELECT 'catalog-second-pid-${token}:'||pg_backend_pid();`);
+    await second.waitFor(`catalog-second-pid-${token}:`);
+    const secondPid = Number(second.output.match(new RegExp(`catalog-second-pid-${token}:(\\d+)`))?.[1]);
+    assert.ok(Number.isInteger(secondPid) && secondPid > 0, `missing second catalog pid for ${token}`);
+    second.send(`SET ROLE celebix_saas_app; SELECT outcome FROM ${secondCall}; SELECT 'catalog-second-done-${token}';`);
+    await waitForBackendLock(backend, secondPid);
+
+    controller.send(`COMMIT; SELECT 'catalog-controller-released-${token}';`);
+    await controller.waitFor(`catalog-controller-released-${token}`);
+    await Promise.all([
+      first.waitFor(`catalog-first-done-${token}`),
+      second.waitFor(`catalog-second-done-${token}`),
+    ]);
+    assert.match(first.output, new RegExp(`(?:^|\\n)committed\\ncatalog-first-done-${token}(?:\\n|$)`));
+    assert.match(second.output, new RegExp(`(?:^|\\n)committed\\ncatalog-second-done-${token}(?:\\n|$)`));
+    assert.doesNotMatch(`${first.errorOutput}\n${second.errorOutput}`, /deadlock|exception/i);
+  } finally {
+    if (controller.child.exitCode === null) controller.send("ROLLBACK;");
+    await Promise.all([controller.close(), first.close(), second.close()]);
+  }
+}
+
+function assertControlledInvalidInput(backend, functionCall) {
+  const result = psqlResult(backend, `SET ROLE celebix_saas_app;
+    SELECT pg_catalog.count(*)::text||':'||
+      COALESCE(pg_catalog.string_agg(call.outcome,',' ORDER BY call.outcome),'<none>')||':'||
+      pg_catalog.count(call.result_payload)::text
+    FROM ${functionCall} AS call;`, DATABASE, { allowFailure: true });
+  assert.equal(result.status, 0, result.stderr.trim());
+  assert.equal(result.stderr.trim(), "");
+  assert.equal(result.stdout.trim(), "1:invalid_input:0");
 }
 
 function databaseInventory(backend, database = DATABASE) {
@@ -927,6 +976,13 @@ async function main() {
       for (const name of ["quick_links_create", "quick_links_cancel", "quick_links_duplicate", "quick_links_recover_operation"]) assert.match(actionSources, new RegExp(`${name}:[\\s\\S]*quick_links.manage`));
       assert.equal(psql(backend, `SELECT to_regprocedure('${AUTHORITY_LOCK_FUNCTION}')::text;`), AUTHORITY_LOCK_FUNCTION);
       assert.equal(psql(backend, `SELECT has_function_privilege('public','${AUTHORITY_LOCK_FUNCTION}'::regprocedure,'EXECUTE')::text||':'||has_function_privilege('celebix_saas_app','${AUTHORITY_LOCK_FUNCTION}'::regprocedure,'EXECUTE')::text;`), "false:false");
+      assert.equal(psql(backend, `SELECT to_regprocedure('${AUTHORITY_TIME_FUNCTION}')::text;`), AUTHORITY_TIME_FUNCTION);
+      assert.equal(psql(backend, `SELECT has_function_privilege('public','${AUTHORITY_TIME_FUNCTION}'::regprocedure,'EXECUTE')::text||':'||has_function_privilege('celebix_saas_app','${AUTHORITY_TIME_FUNCTION}'::regprocedure,'EXECUTE')::text;`), "false:false");
+      assert.equal(psql(backend, `SELECT provolatile::text||':'||proisstrict::text||':'||prosecdef::text FROM pg_proc WHERE oid='${AUTHORITY_TIME_FUNCTION}'::regprocedure;`), "i:true:false");
+      const authorityTimeSource = psql(backend, `SELECT prosrc FROM pg_proc WHERE oid='${AUTHORITY_TIME_FUNCTION}'::regprocedure;`);
+      assert.match(authorityTimeSource, /isfinite\(p_value\)/);
+      assert.match(authorityTimeSource, /0001-01-01 00:00:00\+00/);
+      assert.match(authorityTimeSource, /9999-12-28 23:59:59\.999999\+00/);
       const authorityLockSource = psql(backend, `SELECT prosrc FROM pg_proc WHERE oid='${AUTHORITY_LOCK_FUNCTION}'::regprocedure;`);
       const lockPositions = ["FROM saas.stores", "FROM saas.memberships", "FROM saas.plans", "FROM saas.subscriptions", "FROM saas.plan_features"].map((needle) => authorityLockSource.indexOf(needle));
       assert.ok(lockPositions.every((position) => position >= 0));
@@ -938,6 +994,11 @@ async function main() {
         assert.match(source, /quick_links_lock_manage_authority\(/);
         assert.match(source, /saas\.quick_links\.operation:'\|\|p_store_id::text\|\|':'\|\|p_operation_id::text/);
         assert.match(source, /operation\.store_id=p_store_id[\s\S]*operation\.operation_id=p_operation_id/);
+      }
+      for (const signature of API_FUNCTIONS) {
+        const source = psql(backend, `SELECT prosrc FROM pg_proc WHERE oid='${signature}'::regprocedure;`);
+        assert.ok(source.indexOf("quick_links_authority_time_is_valid(p_now)") >= 0);
+        assert.ok(source.indexOf("quick_links_authority_time_is_valid(p_now)") < source.indexOf("quick_link_merchant_authority_error("));
       }
       for (const signature of API_FUNCTIONS.filter((entry) => /quick_links_(create|duplicate)\(/.test(entry))) {
         const source = psql(backend, `SELECT prosrc FROM pg_proc WHERE oid='${signature}'::regprocedure;`);
@@ -1062,6 +1123,36 @@ async function main() {
         duplicateCall({ link: "60000000-0000-4000-8000-000000000535", itemArraySql: "ARRAY[NULL::uuid]::uuid[]", digest: digestFor(535), operation: "90000000-0000-4000-8000-000000000535" }),
       ];
       for (const malformed of malformedDuplicates) assert.equal(apiResult(backend, malformed).outcome, "invalid_input");
+      const temporalBefore = psql(backend, "SELECT (SELECT count(*) FROM saas.quick_order_links)||':'||(SELECT count(*) FROM saas.quick_order_link_items)||':'||(SELECT count(*) FROM saas.quick_order_link_operations);");
+      for (const [index, now] of ["infinity", "-infinity", "294276-12-31 00:00:00+00"].entries()) {
+        const createSuffix = 540 + index;
+        assertControlledInvalidInput(backend, createCall({
+          auth: authorityArgs({ now }),
+          link: `60000000-0000-4000-8000-${String(createSuffix).padStart(12, "0")}`,
+          items: [`80000000-0000-4000-8000-${String(createSuffix).padStart(12, "0")}`],
+          digest: digestFor(createSuffix),
+          operation: `90000000-0000-4000-8000-${String(createSuffix).padStart(12, "0")}`,
+          fingerprint: "7",
+        }));
+        const duplicateSuffix = 550 + index;
+        assertControlledInvalidInput(backend, duplicateCall({
+          auth: authorityArgs({ now }),
+          link: `60000000-0000-4000-8000-${String(duplicateSuffix).padStart(12, "0")}`,
+          items: [`80000000-0000-4000-8000-${String(duplicateSuffix).padStart(12, "0")}`],
+          digest: digestFor(duplicateSuffix),
+          operation: `90000000-0000-4000-8000-${String(duplicateSuffix).padStart(12, "0")}`,
+          fingerprint: "7",
+        }));
+      }
+      for (const invalidCall of [
+        listCall({ auth: authorityArgs({ now: "infinity" }) }),
+        getCall({ auth: authorityArgs({ now: "infinity" }) }),
+        cancelCall({ auth: authorityArgs({ now: "infinity" }), link: LINK_A, operation: "90000000-0000-4000-8000-000000000560", fingerprint: "7" }),
+        recoverCall({ auth: authorityArgs({ now: "infinity" }), operation: OPERATION_A, kind: "create", fingerprint: "c" }),
+        listCall({ cursorCreatedAt: "infinity", cursorId: LINK_A }),
+        listCall({ cursorCreatedAt: "10000-01-01 00:00:00+00", cursorId: LINK_A }),
+      ]) assertControlledInvalidInput(backend, invalidCall);
+      assert.equal(psql(backend, "SELECT (SELECT count(*) FROM saas.quick_order_links)||':'||(SELECT count(*) FROM saas.quick_order_link_items)||':'||(SELECT count(*) FROM saas.quick_order_link_operations);"), temporalBefore);
       for (const [index, expiry] of [4, 12, 48, 72].entries()) {
         const suffix = 104 + index;
         assert.equal(apiResult(backend, createCall({ link: `60000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`, items: [`80000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`], expiry, digest: digestFor(suffix), operation: `90000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`, fingerprint: "4" })).outcome, "committed");
@@ -1173,22 +1264,18 @@ async function main() {
       assert.deepEqual(results.map((entry) => entry.stdout).sort(), ["committed", "version_conflict"]);
       assert.equal(psql(backend, "SELECT status||':'||version FROM saas.quick_order_links WHERE id='60000000-0000-4000-8000-000000000105';"), "cancelled:2");
       assert.equal(psql(backend, `SELECT count(*) FROM saas.quick_order_link_operations WHERE store_id='${STORE_A}' AND operation_id IN ('90000000-0000-4000-8000-000000000310','90000000-0000-4000-8000-000000000311');`), "1");
-      const reverseCreates = [
-        createCall({ link: "60000000-0000-4000-8000-000000000610", items: ["80000000-0000-4000-8000-000000000610", "80000000-0000-4000-8000-000000000611"], variants: [VARIANT_A, VARIANT_A2], quantities: [1, 1], digest: digestFor(610), operation: "90000000-0000-4000-8000-000000000610", fingerprint: "a" }),
-        createCall({ link: "60000000-0000-4000-8000-000000000611", items: ["80000000-0000-4000-8000-000000000612", "80000000-0000-4000-8000-000000000613"], variants: [VARIANT_A2, VARIANT_A], quantities: [1, 1], digest: digestFor(611), operation: "90000000-0000-4000-8000-000000000611", fingerprint: "b" }),
-      ];
-      const reverseCreateResults = await Promise.all(reverseCreates.map((call) => psqlAsync(backend, `SET ROLE celebix_saas_app; SELECT outcome FROM ${call};`)));
-      assert.deepEqual(reverseCreateResults.map((entry) => entry.status), [0, 0]);
-      assert.deepEqual(reverseCreateResults.map((entry) => entry.stdout), ["committed", "committed"]);
-      assert.ok(reverseCreateResults.every((entry) => !/deadlock|exception/i.test(entry.stderr)));
-      const reverseDuplicates = [
-        duplicateCall({ source: "60000000-0000-4000-8000-000000000610", link: "60000000-0000-4000-8000-000000000612", items: ["80000000-0000-4000-8000-000000000614", "80000000-0000-4000-8000-000000000615"], digest: digestFor(612), operation: "90000000-0000-4000-8000-000000000612", fingerprint: "c" }),
-        duplicateCall({ source: "60000000-0000-4000-8000-000000000611", link: "60000000-0000-4000-8000-000000000613", items: ["80000000-0000-4000-8000-000000000616", "80000000-0000-4000-8000-000000000617"], digest: digestFor(613), operation: "90000000-0000-4000-8000-000000000613", fingerprint: "d" }),
-      ];
-      const reverseDuplicateResults = await Promise.all(reverseDuplicates.map((call) => psqlAsync(backend, `SET ROLE celebix_saas_app; SELECT outcome FROM ${call};`)));
-      assert.deepEqual(reverseDuplicateResults.map((entry) => entry.status), [0, 0]);
-      assert.deepEqual(reverseDuplicateResults.map((entry) => entry.stdout), ["committed", "committed"]);
-      assert.ok(reverseDuplicateResults.every((entry) => !/deadlock|exception/i.test(entry.stderr)));
+      await catalogLockBarrier(backend, {
+        lockedVariant: VARIANT_A2,
+        firstCall: createCall({ link: "60000000-0000-4000-8000-000000000610", items: ["80000000-0000-4000-8000-000000000610", "80000000-0000-4000-8000-000000000611"], variants: [VARIANT_A2, VARIANT_A], quantities: [1, 1], digest: digestFor(610), operation: "90000000-0000-4000-8000-000000000610", fingerprint: "a" }),
+        secondCall: createCall({ link: "60000000-0000-4000-8000-000000000611", items: ["80000000-0000-4000-8000-000000000612", "80000000-0000-4000-8000-000000000613"], variants: [VARIANT_A, VARIANT_A2], quantities: [1, 1], digest: digestFor(611), operation: "90000000-0000-4000-8000-000000000611", fingerprint: "b" }),
+        token: "create",
+      });
+      await catalogLockBarrier(backend, {
+        lockedVariant: VARIANT_A2,
+        firstCall: duplicateCall({ source: "60000000-0000-4000-8000-000000000610", link: "60000000-0000-4000-8000-000000000612", items: ["80000000-0000-4000-8000-000000000614", "80000000-0000-4000-8000-000000000615"], digest: digestFor(612), operation: "90000000-0000-4000-8000-000000000612", fingerprint: "c" }),
+        secondCall: duplicateCall({ source: "60000000-0000-4000-8000-000000000611", link: "60000000-0000-4000-8000-000000000613", items: ["80000000-0000-4000-8000-000000000616", "80000000-0000-4000-8000-000000000617"], digest: digestFor(613), operation: "90000000-0000-4000-8000-000000000613", fingerprint: "d" }),
+        token: "duplicate",
+      });
     });
 
     await scenario("cancel replay precedes current-state inspection and mismatches remain stable", async () => {

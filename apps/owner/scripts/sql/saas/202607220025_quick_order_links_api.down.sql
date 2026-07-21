@@ -13,6 +13,7 @@ DROP FUNCTION saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,
 DROP FUNCTION saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamptz);
 DROP FUNCTION saas.quick_links_detail_projection(uuid,uuid,timestamptz);
 DROP FUNCTION saas.quick_links_mutation_projection(uuid,uuid);
+DROP FUNCTION saas.quick_links_authority_time_is_valid(timestamptz);
 DROP FUNCTION saas.quick_links_json_timestamp(timestamptz);
 
 COMMIT;
