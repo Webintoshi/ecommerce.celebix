@@ -2,13 +2,14 @@ import "server-only";
 
 import { randomBytes, randomUUID } from "node:crypto";
 
-import { PostgresCatalogRepository } from "@celebix/saas-data";
+import { PostgresCatalogRepository, PostgresOrderRepository } from "@celebix/saas-data";
 import pg from "pg";
 
 import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
 import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import { createPostgresPanelSessionRepository } from "../panel-session-persistence/postgres-panel-session-repository.ts";
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
+import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import {
   createApprovedStagingServerPanelAccessRuntime,
   type ServerPanelAccessRuntime,
@@ -48,6 +49,11 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.products') IS NOT NULL
         AND to_regclass('saas.product_variants') IS NOT NULL
         AND to_regclass('saas.catalog_operations') IS NOT NULL AS migrations_001_019,
+      to_regclass('saas.orders') IS NOT NULL
+        AND to_regclass('saas.order_items') IS NOT NULL
+        AND to_regclass('saas.order_events') IS NOT NULL
+        AND to_regclass('saas.order_notes') IS NOT NULL
+        AND to_regclass('saas.order_operations') IS NOT NULL AS migrations_022,
       to_regclass('saas.panel_sessions') IS NOT NULL AS sessions,
       EXISTS (
         SELECT 1 FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace
@@ -74,7 +80,17 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)') IS NOT NULL AS variant_updater,
       to_regprocedure('saas.catalog_archive_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint)') IS NOT NULL AS variant_archiver,
       to_regprocedure('saas.catalog_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_recovery,
-      to_regprocedure('saas.catalog_get_product_details(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL AS catalog_details
+      to_regprocedure('saas.catalog_get_product_details(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL AS catalog_details,
+      to_regprocedure('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)') IS NOT NULL AS merchant_action_authority,
+      to_regprocedure('saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL AS order_summary,
+      to_regprocedure('saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS order_lister,
+      to_regprocedure('saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS order_reader,
+      to_regprocedure('saas.orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL AS order_status_transition,
+      to_regprocedure('saas.orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL AS order_payment_transition,
+      to_regprocedure('saas.orders_update_shipping(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb,jsonb)') IS NOT NULL AS order_shipping_update,
+      to_regprocedure('saas.orders_add_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)') IS NOT NULL AS order_note_adder,
+      to_regprocedure('saas.orders_archive_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid)') IS NOT NULL AS order_note_archiver,
+      to_regprocedure('saas.orders_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS order_recovery
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -82,11 +98,16 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       Math.floor(Number(row.version_num) / 10_000) !== 16 ||
       row.database_name !== databaseName || row.is_superuser !== false ||
       row.identity_member !== true || row.catalog_member !== true || row.migrations_001_019 !== true ||
+      row.migrations_022 !== true ||
       row.sessions !== true || row.session_resolver !== true || row.session_rotator !== true ||
       row.session_revoker !== true || row.session_recovery !== true || row.catalog_reader !== true ||
       row.catalog_lister !== true || row.catalog_creator !== true || row.catalog_updater !== true ||
       row.catalog_archiver !== true || row.variant_creator !== true || row.variant_updater !== true ||
-      row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true
+      row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true ||
+      row.merchant_action_authority !== true || row.order_summary !== true || row.order_lister !== true ||
+      row.order_reader !== true || row.order_status_transition !== true ||
+      row.order_payment_transition !== true || row.order_shipping_update !== true ||
+      row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
 }
@@ -127,11 +148,19 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       generateId: () => randomUUID(),
       audit: () => undefined,
     });
+    const orderRepository = new PostgresOrderRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      generateId: () => randomUUID(),
+      audit: () => undefined,
+    });
     const access = createApprovedStagingServerPanelAccessRuntime(
       sessionRepository,
       config.authority.panelOrigin,
     );
     registerServerCatalogRepository(access, catalogRepository);
+    registerServerOrderRepository(access, orderRepository);
     return access;
   } catch (error) {
     await pool.end().catch(() => undefined);

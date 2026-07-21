@@ -20,6 +20,26 @@ test("exports the authenticated catalog dashboard summary route", async () => {
   assert.doesNotMatch(routeSource, /export const POST/);
 });
 
+test("exports only the exact authenticated order route methods", async () => {
+  const routes = [
+    ["../app/api/orders/summary/route.ts", "GET", "handleDefaultOrderGetDashboardSummary"],
+    ["../app/api/orders/route.ts", "GET", "handleDefaultOrderList"],
+    ["../app/api/orders/[orderId]/route.ts", "GET", "handleDefaultOrderGet"],
+    ["../app/api/orders/[orderId]/status/route.ts", "PATCH", "handleDefaultOrderTransitionStatus"],
+    ["../app/api/orders/[orderId]/payment/route.ts", "PATCH", "handleDefaultOrderTransitionPayment"],
+    ["../app/api/orders/[orderId]/shipping/route.ts", "PATCH", "handleDefaultOrderUpdateShipping"],
+    ["../app/api/orders/[orderId]/notes/route.ts", "POST", "handleDefaultOrderAddNote"],
+    ["../app/api/orders/[orderId]/notes/[noteId]/archive/route.ts", "POST", "handleDefaultOrderArchiveNote"],
+  ] as const;
+  for (const [path, method, handler] of routes) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, new RegExp(`export const ${method} = ${handler};`));
+    for (const denied of ["GET", "POST", "PUT", "PATCH", "DELETE"].filter((candidate) => candidate !== method)) {
+      assert.doesNotMatch(source, new RegExp(`export const ${denied}`));
+    }
+  }
+});
+
 test("panel origin and fixed redirects derive from the single callback authority", async () => {
   const config = await load("./config.ts");
   const source = await readFile(new URL("./config.ts", import.meta.url), "utf8");
