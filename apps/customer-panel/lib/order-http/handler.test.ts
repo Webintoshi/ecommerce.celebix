@@ -374,6 +374,30 @@ test("durable access denial maps before one repository call can occur", async ()
     assert.equal(response.status, status);
     assert.deepEqual(await body(response), { code });
   }
+  for (const result of [
+    new Proxy({ kind: "unavailable" }, {
+      get(_target, property) {
+        if (property === "kind") throw new Error("private authority getter");
+        return undefined;
+      },
+    }),
+    new Proxy({ kind: "authenticated", tenantContext: tenantContext() }, {
+      get(target, property, receiver) {
+        if (property === "tenantContext") throw new Error("private tenant getter");
+        return Reflect.get(target, property, receiver);
+      },
+    }),
+  ]) {
+    const hostileAccess = Object.freeze({
+      ...access(),
+      async resolveCredential() { return result as never; },
+    });
+    const response = await createOrderHttpHandlers(dependencies(orders, hostileAccess)).getDashboardSummary(request(SUMMARY));
+    assert.equal(response.status, 503);
+    const text = await response.text();
+    assert.equal(text, JSON.stringify({ code: "unavailable" }));
+    assert.doesNotMatch(text, /private|authority|tenant|getter/i);
+  }
   assert.equal(calls, 0);
 });
 
@@ -454,8 +478,15 @@ test("all stable repository errors map to their safe HTTP statuses", async () =>
 });
 
 test("unknown repository and runtime failures never leak SQL driver or credential details", async () => {
+  const hostileRepositoryError = new Proxy(new OrderRepositoryError("unavailable"), {
+    get(target, property, receiver) {
+      if (property === "code") throw new Error("private repository getter");
+      return Reflect.get(target, property, receiver);
+    },
+  });
   for (const dependenciesValue of [
     dependencies(repository({ async getDashboardSummary() { throw new Error("postgres SELECT secret password"); } })),
+    dependencies(repository({ async getDashboardSummary() { throw hostileRepositoryError; } })),
     { async resolveRuntime() { throw new Error("DATABASE_URL=private"); }, now() { return new Date(NOW); }, requestId() { return REQUEST_ID; } },
   ]) {
     const response = await createOrderHttpHandlers(dependenciesValue).getDashboardSummary(request(SUMMARY));

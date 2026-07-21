@@ -71,9 +71,12 @@ function error(code: string, status: number, headers?: HeadersInit): Response {
 }
 
 function repositoryError(value: unknown): Response {
-  return value instanceof OrderRepositoryError
-    ? error(value.code, ERROR_STATUS[value.code])
-    : error("unavailable", 503);
+  try {
+    if (!(value instanceof OrderRepositoryError)) return error("unavailable", 503);
+    const code = value.code;
+    if (typeof code !== "string" || !Object.hasOwn(ERROR_STATUS, code)) return error("unavailable", 503);
+    return error(code, ERROR_STATUS[code as OrderErrorCode]);
+  } catch { return error("unavailable", 503); }
 }
 
 function privateAuthorityPresent(request: Request): boolean {
@@ -89,12 +92,6 @@ function privateAuthorityPresent(request: Request): boolean {
     }
     return false;
   } catch { return true; }
-}
-
-function accessFailure(result: Exclude<ServerPanelAccessResult, AuthenticatedAccess>): Response {
-  if (result.kind === "unauthenticated") return error("unauthenticated", 401);
-  if (result.kind === "unauthorized") return error("membership_denied", 403);
-  return error("unavailable", 503);
 }
 
 function authorityFailure(
@@ -145,8 +142,14 @@ async function authorize(
       now: new Date(now),
     });
   } catch { return error("unavailable", 503); }
-  if (access.kind !== "authenticated") return accessFailure(access);
-  return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
+  try {
+    const kind = access.kind;
+    if (kind === "unauthenticated") return error("unauthenticated", 401);
+    if (kind === "unauthorized") return error("membership_denied", 403);
+    if (kind !== "authenticated") return error("unavailable", 503);
+    const tenantContext = (access as AuthenticatedAccess).tenantContext;
+    return Object.freeze({ runtime, tenantContext, now: new Date(now) });
+  } catch { return error("unavailable", 503); }
 }
 
 function isResponse(value: unknown): value is Response {
