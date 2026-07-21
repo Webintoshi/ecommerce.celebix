@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
 import {
@@ -49,6 +50,40 @@ const createBody = Object.freeze({
   shippingCents: 500,
   discountCents: 0,
   expiryHours: 24,
+});
+
+const DEFAULT_QUICK_LINK_MODULE = new URL("lib/quick-link-http/default.ts", APP).href;
+const ROUTE_WIRING_STUB = "mock:quick-link-route-wiring";
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const resolved = nextResolve(specifier, context);
+    return resolved.url === DEFAULT_QUICK_LINK_MODULE
+      ? { shortCircuit: true, url: ROUTE_WIRING_STUB }
+      : resolved;
+  },
+  load(url, context, nextLoad) {
+    if (url !== ROUTE_WIRING_STUB) return nextLoad(url, context);
+    return {
+      format: "module",
+      shortCircuit: true,
+      source: `
+        const response = (handler, request, linkId) => Response.json({
+          handler,
+          method: request.method,
+          ...(linkId === undefined ? {} : { linkId }),
+        });
+        export const handleDefaultQuickLinkList = (request) => response("list", request);
+        export const handleDefaultQuickLinkCreate = (request) => response("create", request);
+        export const handleDefaultQuickLinkActivateProvider = (request) => response("activateProvider", request);
+        export const handleDefaultQuickLinkRevokeProvider = (request) => response("revokeProvider", request);
+        export const handleDefaultQuickLinkGet = async (request, context) => response("get", request, (await context.params).linkId);
+        export const handleDefaultQuickLinkCancel = async (request, context) => response("cancel", request, (await context.params).linkId);
+        export const handleDefaultQuickLinkDuplicate = async (request, context) => response("duplicate", request, (await context.params).linkId);
+        export const handleDefaultQuickLinkRevealUrl = async (request, context) => response("revealUrl", request, (await context.params).linkId);
+      `,
+    };
+  },
 });
 
 function context(role = "store_owner") {
@@ -148,21 +183,28 @@ test("1/12 exports all eight real quick-link HTTP handlers", async () => {
   ]);
 });
 
-test("2/12 mounts only the exact route methods", async () => {
+test("2/12 invokes every mounted route export and no unsupported export", async () => {
   const routes = [
-    ["app/api/orders/quick-links/route.ts", ["GET", "POST"]],
-    ["app/api/orders/quick-links/[linkId]/route.ts", ["GET"]],
-    ["app/api/orders/quick-links/[linkId]/cancel/route.ts", ["POST"]],
-    ["app/api/orders/quick-links/[linkId]/duplicate/route.ts", ["POST"]],
-    ["app/api/orders/quick-links/[linkId]/url/route.ts", ["POST"]],
-    ["app/api/orders/quick-links/provider/activate/route.ts", ["POST"]],
-    ["app/api/orders/quick-links/provider/revoke/route.ts", ["POST"]],
+    ["app/api/orders/quick-links/route.ts", { GET: ["list", BASE], POST: ["create", BASE] }],
+    ["app/api/orders/quick-links/[linkId]/route.ts", { GET: ["get", `${BASE}/${LINK}`, LINK] }],
+    ["app/api/orders/quick-links/[linkId]/cancel/route.ts", { POST: ["cancel", `${BASE}/${LINK}/cancel`, LINK] }],
+    ["app/api/orders/quick-links/[linkId]/duplicate/route.ts", { POST: ["duplicate", `${BASE}/${LINK}/duplicate`, LINK] }],
+    ["app/api/orders/quick-links/[linkId]/url/route.ts", { POST: ["revealUrl", `${BASE}/${LINK}/url`, LINK] }],
+    ["app/api/orders/quick-links/provider/activate/route.ts", { POST: ["activateProvider", `${BASE}/provider/activate`] }],
+    ["app/api/orders/quick-links/provider/revoke/route.ts", { POST: ["revokeProvider", `${BASE}/provider/revoke`] }],
   ];
-  for (const [path, methods] of routes) {
-    const source = await readFile(new URL(path, APP), "utf8");
-    for (const method of methods) assert.match(source, new RegExp(`export const ${method}`));
-    for (const denied of ["GET", "POST", "PUT", "PATCH", "DELETE"].filter((value) => !methods.includes(value))) {
-      assert.doesNotMatch(source, new RegExp(`export const ${denied}`));
+  for (const [path, expected] of routes) {
+    const route = await import(new URL(path, APP));
+    assert.deepEqual(Object.keys(route).sort(), Object.keys(expected).sort());
+    for (const [method, [handler, requestPath, linkId]] of Object.entries(expected)) {
+      const response = await route[method](browserRequest(requestPath, { method }), {
+        params: Promise.resolve({ linkId: LINK }),
+      });
+      assert.deepEqual(await response.json(), {
+        handler,
+        method,
+        ...(linkId === undefined ? {} : { linkId }),
+      });
     }
   }
 });

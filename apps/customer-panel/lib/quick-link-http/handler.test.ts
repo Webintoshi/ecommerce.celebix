@@ -20,6 +20,8 @@ const ITEM_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const VARIANT_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const PROVIDER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const OPERATION_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+const REVOCATION_OPERATION_ID = "77777777-7777-4777-8777-777777777777";
+const REACTIVATION_OPERATION_ID = "88888888-8888-4888-8888-888888888888";
 const REQUEST_ID = "99999999-9999-4999-8999-999999999999";
 const STORE_ID = "11111111-1111-4111-8111-111111111111";
 const PRINCIPAL_ID = "22222222-2222-4222-8222-222222222222";
@@ -145,14 +147,21 @@ function fixture(options: {
   credentialExpiresAt?: string;
   hostileProviderId?: string;
   repositoryError?: QuickOrderLinkRepositoryError;
+  providerStatus?: "missing" | "active" | "disabled" | "revoked";
+  providerLifecycle?: boolean;
+  generatedIds?: string[];
 } = {}) {
   const calls: Counters = {
     session: 0, list: 0, get: 0, create: 0, cancel: 0, duplicate: 0,
     readiness: 0, reveal: 0, configure: 0, revoke: 0, ids: 0, tokens: 0,
   };
-  const generatedIds = [NEW_LINK_ID, ITEM_ID, PROVIDER_ID];
+  const generatedIds = [...(options.generatedIds ?? [NEW_LINK_ID, ITEM_ID, PROVIDER_ID])];
   let configuredInput: Record<string, unknown> | undefined;
   let revokedInput: Record<string, unknown> | undefined;
+  let providerReadiness: Record<string, unknown> = options.providerStatus === "missing"
+    ? { status: "missing" }
+    : { status: options.providerStatus ?? "active", providerConfigId: PROVIDER_ID, version: options.providerStatus === "revoked" ? 2 : 1 };
+  let originalConfiguration: Readonly<{ operationId: string; providerConfigId: string; result: Record<string, unknown> }> | undefined;
   const runtime = {
     access: {
       readiness: { mode: "approved_staging" },
@@ -173,15 +182,47 @@ function fixture(options: {
         if (options.repositoryError) throw options.repositoryError;
         assert.deepEqual((input.items as Array<Record<string, unknown>>).map(({ variantId, quantity }) => ({ variantId, quantity })), createBody.items);
         assert.equal(input.providerConfigId, PROVIDER_ID);
+        if (options.providerStatus !== undefined && options.providerStatus !== "active" && options.replay !== true) {
+          throw new QuickOrderLinkRepositoryError("provider_not_ready");
+        }
         return options.replay ? mutation(LINK_ID, true) : mutation(NEW_LINK_ID, false);
       },
       async cancel() { calls.cancel += 1; if (options.repositoryError) throw options.repositoryError; return options.hostileCancel ?? mutation(LINK_ID, false, "cancelled", 2); },
       async duplicate() { calls.duplicate += 1; if (options.repositoryError) throw options.repositoryError; return options.replay ? mutation(LINK_ID, true) : mutation(NEW_LINK_ID, false); },
     },
     privateLinks: {
-      async getProviderReadiness() { calls.readiness += 1; return { status: "active", providerConfigId: PROVIDER_ID, version: 1 }; },
-      async configureProvider(input: Record<string, unknown>) { calls.configure += 1; configuredInput = input; return { status: "active", providerConfigId: options.hostileProviderId ?? input.providerConfigId, version: 1 }; },
-      async revokeProvider(input: Record<string, unknown>) { calls.revoke += 1; revokedInput = input; return { status: "revoked", providerConfigId: input.providerConfigId, version: 2 }; },
+      async getProviderReadiness() {
+        calls.readiness += 1;
+        return providerReadiness;
+      },
+      async configureProvider(input: Record<string, unknown>) {
+        calls.configure += 1;
+        configuredInput = input;
+        if (options.providerLifecycle) {
+          const existingConfiguration = originalConfiguration;
+          if (existingConfiguration !== undefined && existingConfiguration.operationId === input.operationId) {
+            if (existingConfiguration.providerConfigId !== input.providerConfigId) {
+              throw new QuickOrderLinkRepositoryError("operation_mismatch");
+            }
+            return existingConfiguration.result;
+          }
+          if (providerReadiness.status === "revoked") throw new QuickOrderLinkRepositoryError("invalid_transition");
+          const result = { status: "active", providerConfigId: input.providerConfigId, version: 1 };
+          originalConfiguration = {
+            operationId: String(input.operationId), providerConfigId: String(input.providerConfigId), result,
+          };
+          providerReadiness = result;
+          return result;
+        }
+        return { status: "active", providerConfigId: options.hostileProviderId ?? input.providerConfigId, version: 1 };
+      },
+      async revokeProvider(input: Record<string, unknown>) {
+        calls.revoke += 1;
+        revokedInput = input;
+        const result = { status: "revoked", providerConfigId: input.providerConfigId, version: Number(input.expectedVersion) + 1 };
+        if (options.providerLifecycle) providerReadiness = result;
+        return result;
+      },
       async revealLinkCredential(input: Record<string, unknown>) {
         calls.reveal += 1;
         const id = String(input.linkId);
@@ -211,14 +252,14 @@ function fixture(options: {
   return { calls, handlers, runtime, configuredInput: () => configuredInput, revokedInput: () => revokedInput };
 }
 
-function request(path: string, options: { method?: "GET" | "POST"; body?: unknown; origin?: string; operation?: boolean; extraHeaders?: HeadersInit } = {}) {
+function request(path: string, options: { method?: "GET" | "POST"; body?: unknown; origin?: string; operation?: boolean; operationId?: string; extraHeaders?: HeadersInit } = {}) {
   const method = options.method ?? "GET";
   const headers = new Headers(options.extraHeaders);
   headers.set("cookie", COOKIE);
   if (method === "POST") {
     headers.set("origin", options.origin ?? ORIGIN);
     headers.set("content-type", "application/json");
-    if (options.operation !== false) headers.set("idempotency-key", OPERATION_ID);
+    if (options.operation !== false) headers.set("idempotency-key", options.operationId ?? OPERATION_ID);
   }
   return new Request(`http://customer-panel:3400${path}`, {
     method,
@@ -346,6 +387,27 @@ test("create generates each credential once and a replay reveals the original pe
   assert.equal(duplicateReplay.calls.reveal, 1);
 });
 
+test("create replays the persisted original after provider disable or revocation while fresh creates stay denied", async () => {
+  for (const providerStatus of ["disabled", "revoked"] as const) {
+    const replay = fixture({ providerStatus, replay: true });
+    const replayed = await replay.handlers.create(request(BASE, { method: "POST", body: createBody }));
+    assert.equal(replayed.status, 200, providerStatus);
+    assert.deepEqual(await replayed.json(), {
+      url: `https://pilot.saas-staging.celebix.site/odeme/hizli/${REPLAY_TOKEN}`,
+      expiresAt: EXPIRES,
+    });
+    assert.equal(replay.calls.create, 1, providerStatus);
+    assert.equal(replay.calls.reveal, 1, providerStatus);
+
+    const fresh = fixture({ providerStatus });
+    const denied = await fresh.handlers.create(request(BASE, { method: "POST", body: createBody }));
+    assert.equal(denied.status, 409, providerStatus);
+    assert.deepEqual(await denied.json(), { code: "provider_not_ready" });
+    assert.equal(fresh.calls.create, 1, providerStatus);
+    assert.equal(fresh.calls.reveal, 0, providerStatus);
+  }
+});
+
 test("URL reveal is POST no-store and list detail reject token-bearing or hostile repository projections", async () => {
   const revealed = fixture();
   const getDenied = await revealed.handlers.revealUrl(new Request(`http://internal${BASE}/${LINK_ID}/url`, {
@@ -420,4 +482,36 @@ test("maps conflicts and activates or revokes PayTR only from sealed server stag
   assert.deepEqual(Object.keys(provider.revokedInput()!).sort(), [
     "expectedVersion", "fingerprint", "now", "operationId", "providerConfigId", "tenantContext",
   ]);
+});
+
+test("provider activation reuses revoked identity for original replay and terminally denies fresh reactivation", async () => {
+  const provider = fixture({
+    providerStatus: "missing",
+    providerLifecycle: true,
+    generatedIds: [PROVIDER_ID, NEW_LINK_ID],
+  });
+  const activated = await provider.handlers.activateProvider(request(`${BASE}/provider/activate`, { method: "POST" }));
+  assert.equal(activated.status, 200);
+  assert.deepEqual(await activated.json(), { status: "active", version: 1 });
+  assert.equal(provider.configuredInput()!.providerConfigId, PROVIDER_ID);
+  assert.equal(provider.configuredInput()!.expectedVersion, 0);
+
+  const revoked = await provider.handlers.revokeProvider(request(`${BASE}/provider/revoke`, {
+    method: "POST", operationId: REVOCATION_OPERATION_ID,
+  }));
+  assert.equal(revoked.status, 200);
+  assert.deepEqual(await revoked.json(), { status: "revoked", version: 2 });
+
+  const replayed = await provider.handlers.activateProvider(request(`${BASE}/provider/activate`, { method: "POST" }));
+  assert.equal(replayed.status, 200);
+  assert.deepEqual(await replayed.json(), { status: "active", version: 1 });
+  assert.equal(provider.configuredInput()!.providerConfigId, PROVIDER_ID);
+  assert.equal(provider.configuredInput()!.expectedVersion, 2);
+
+  const denied = await provider.handlers.activateProvider(request(`${BASE}/provider/activate`, {
+    method: "POST", operationId: REACTIVATION_OPERATION_ID,
+  }));
+  assert.equal(denied.status, 409);
+  assert.deepEqual(await denied.json(), { code: "invalid_transition" });
+  assert.equal(provider.calls.ids, 1);
 });

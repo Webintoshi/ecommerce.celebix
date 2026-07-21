@@ -389,7 +389,7 @@ export function createQuickLinkHttpHandlers(dependencies: Dependencies) {
         const readiness = safeProvider(await authorized.runtime.privateLinks.getProviderReadiness({
           tenantContext: authorized.tenantContext, now: authorized.now,
         }));
-        if (readiness.status !== "active" || readiness.providerConfigId === undefined) return error("provider_not_ready", 409);
+        if (readiness.status === "missing" || readiness.providerConfigId === undefined) return error("provider_not_ready", 409);
         const linkId = generateUuid(dependencies);
         const itemIds = body.items.map(() => generateUuid(dependencies));
         if (new Set([linkId, ...itemIds]).size !== itemIds.length + 1) throw new TypeError("invalid");
@@ -500,7 +500,7 @@ export function createQuickLinkHttpHandlers(dependencies: Dependencies) {
         const readiness = safeProvider(await authorized.runtime.privateLinks.getProviderReadiness({
           tenantContext: authorized.tenantContext, now: authorized.now,
         }));
-        const createNew = readiness.status === "missing" || readiness.status === "revoked";
+        const createNew = readiness.status === "missing";
         const providerConfigId = createNew ? generateUuid(dependencies) : readiness.providerConfigId!;
         const expectedVersion = createNew ? 0 : readiness.version!;
         const serialized = serializeCanonicalPaytrConfiguration(authorized.runtime.paytrConfiguration);
