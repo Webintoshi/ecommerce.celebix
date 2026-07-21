@@ -219,6 +219,7 @@ function parseRevoked(value: unknown): void {
 }
 
 function throwOutcome(outcome: string): never {
+  if (outcome === "not_found") throw trustedQuickLinkError("quick_link_not_found");
   const direct = new Set<QuickOrderLinkErrorCode>([
     "invalid_input", "unauthenticated", "membership_denied", "store_inactive",
     "feature_not_enabled", "action_denied", "quick_link_not_found", "provider_not_ready",

@@ -185,7 +185,7 @@ test("claimRedemption accepts a row-locked persisted expiry below the requested 
 test("claimRedemption controls SQL outcomes and proves unknown commits with one read-only exact-host resolve", async () => {
   for (const [outcome, expected] of [
     ["canonicalize", "unavailable"],
-    ["not_found", "unavailable"],
+    ["not_found", "quick_link_not_found"],
     ["invalid_input", "invalid_input"],
     ["operation_mismatch", "operation_mismatch"],
   ] as const) {

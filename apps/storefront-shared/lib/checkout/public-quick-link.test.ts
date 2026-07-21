@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { QuickOrderLinkRepositoryError, type PublicQuickOrderRepository, type PublicStorefrontRepository } from "@celebix/saas-data";
+import { PostgresPublicQuickOrderRepository, QuickOrderLinkRepositoryError, type PublicQuickOrderRepository, type PublicStorefrontRepository } from "@celebix/saas-data";
 import {
   claimPublicQuickOrder,
   createPublicQuickOrderStatusRoute,
@@ -96,6 +96,61 @@ test("repository uncertainty fails closed as unavailable without cookie redirect
     assert.equal(response.headers.get("set-cookie"), null);
     assert.equal(fixture.calls.claim.length, 2);
   }
+});
+
+test("the real repository maps a missing token to a generic 404 without cookie redirect or retry", async () => {
+  const calls: Array<{ text: string; values: unknown[] }> = [];
+  const releases: Array<boolean | Error | undefined> = [];
+  const client = {
+    async query(text: string, values: unknown[] = []) {
+      calls.push({ text, values });
+      const rows = text.includes("saas.quick_links_claim_redemption")
+        ? [{ outcome: "not_found", result_payload: null }]
+        : [];
+      return { rows, rowCount: rows.length, command: "", oid: 0, fields: [] };
+    },
+    release(destroy?: boolean | Error) { releases.push(destroy); },
+  };
+  let connects = 0;
+  const quickOrderRepository = new PostgresPublicQuickOrderRepository({
+    pool: { async connect() { connects += 1; return client; } },
+    role: "celebix_saas_workflow",
+    timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 },
+    audit: () => undefined,
+  } as never);
+  const fixture = repositories();
+  const runtime = createCheckoutRuntime({ storefrontRepository: fixture.runtime.storefrontRepository, quickOrderRepository });
+  const direct = await claimPublicQuickOrder(
+    { trustedHostname: "shop.example.test", token, now },
+    { runtime, randomBytes: () => newCredentialBytes, randomUUID: () => "00000000-0000-4000-8000-000000000002" },
+  );
+  assert.deepEqual(direct, { kind: "denied", status: 404 });
+  assert.equal(calls.filter(({ text }) => text.includes("saas.quick_links_claim_redemption")).length, 1);
+  assert.equal(calls.at(-1)?.text, "ROLLBACK");
+  assert.deepEqual(releases, [undefined]);
+
+  const proxyToken = Buffer.alloc(32, 0x27).toString("base64url");
+  const route = createPublicQuickOrderTokenRoute({
+    selectAuthority: (headers) => selectTrustedStorefrontHostAuthority(headers, {
+      CELEBIX_DEPLOYMENT_TIER: "staging",
+      CELEBIX_STOREFRONT_PROXY_MODE: "approved_staging",
+      CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL: proxyToken,
+    }),
+    resolveRuntime: async () => runtime,
+    now: () => now,
+    randomBytes: () => newCredentialBytes,
+    randomUUID: () => "00000000-0000-4000-8000-000000000002",
+  });
+  const response = await route(new Request(`http://storefront.internal:3450/odeme/hizli/${token}`, { headers: {
+    "x-celebix-storefront-proxy": `p1.${proxyToken}`,
+    "x-forwarded-host": "shop.example.test",
+    "x-forwarded-proto": "https",
+  } }), { params: Promise.resolve({ token }) });
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get("location"), null);
+  assert.equal(response.headers.get("set-cookie"), null);
+  assert.equal(connects, 2);
+  assert.equal(calls.filter(({ text }) => text.includes("saas.quick_links_claim_redemption")).length, 2);
 });
 
 test("injectable route adapters invoke real Response behavior and deny before repositories", async () => {
