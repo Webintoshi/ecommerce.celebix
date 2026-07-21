@@ -26,12 +26,12 @@ const ORDER_ROUTE_FILES = Object.freeze([
 ]);
 
 const SQL_ARTIFACTS = Object.freeze({
-  "202607210022_order_management.up.sql": "6cf6b5da8df4e925992d8a372dd2cc7c877427365ed6968b2fcf05d3f7869143",
-  "202607210022_order_management.down.sql": "f945fe69329958da10e3e671e52fc78b23eff3401ef1362f733527e8f317053f",
-  "202607210022_order_management_assertions.sql": "0ffbac5621d8840d4ab132082094f373f17e4e99a81ba3678aa73f696d8d8971",
-  "202607210023_order_management_api.up.sql": "d46ca25dca675b74a1618c3b12fe36fe18f1a340567a409b9bdd25fba5201db1",
-  "202607210023_order_management_api.down.sql": "cdf43c91ade81ebfe0c9eb820c605d4b5aca4d24e117e5d43ab66c78f8a7e91d",
-  "202607210023_order_management_api_assertions.sql": "4c3b0a98ba74b3cedc3f6b6abdaea0d36f94205e93c63f472ce5adb54a2863db",
+  "202607210022_order_management.up.sql": "09258e0534922bedd61dafa2186e9f98a825ee4732b816d88b96340606d9bc84",
+  "202607210022_order_management.down.sql": "04ca9dbc713c1d932b86e0615cd1e0f83677bea2d0149696ebc4cebcdcbf179a",
+  "202607210022_order_management_assertions.sql": "22082520d101924b839acbd24f284ff7c460f3dff83296899749eefd86712133",
+  "202607210023_order_management_api.up.sql": "b9887c1fb739795553734c5c621ce1e0d1489874942a4d6755d15a2b0bb15ffb",
+  "202607210023_order_management_api.down.sql": "ad238fe2d6406839f2bd47350d10b71ca170d10e3bb44632cc7dac5afd76420e",
+  "202607210023_order_management_api_assertions.sql": "cbaa42a96ecf3542137912660c99c3bdd73db8dea6cb3e419062cab65d37e84b",
 });
 
 test("pins the exact donor SHA and keeps apps admin byte unchanged from implementation start", () => {
@@ -103,6 +103,23 @@ test("binds the SQL manifest to the exact approved artifact bytes", async () => 
       .digest("hex");
     assert.equal(actual, expected, file);
   }
+  const assertions = await read("apps/owner/scripts/sql/saas/202607210023_order_management_api_assertions.sql");
+  for (const pinned of [
+    "CASE WHEN p_sort=''highest'' THEN order_row[.]total_cents END DESC",
+    "CASE WHEN p_sort=''lowest'' THEN order_row[.]total_cents END ASC",
+    "CASE WHEN p_sort IN \\(''newest'',''highest''\\) THEN order_row[.]created_at END DESC",
+    "CASE WHEN p_sort IN \\(''oldest'',''lowest''\\) THEN order_row[.]created_at END ASC",
+    "CASE WHEN p_sort IN \\(''newest'',''highest''\\) THEN order_row[.]id END DESC",
+    "CASE WHEN p_sort IN \\(''oldest'',''lowest''\\) THEN order_row[.]id END ASC",
+    "CASE WHEN p_sort=''highest'' THEN candidates[.]total_cents END DESC",
+    "CASE WHEN p_sort=''lowest'' THEN candidates[.]total_cents END ASC",
+    "CASE WHEN p_sort IN \\(''newest'',''highest''\\) THEN candidates[.]created_at END DESC",
+    "CASE WHEN p_sort IN \\(''oldest'',''lowest''\\) THEN candidates[.]created_at END ASC",
+    "CASE WHEN p_sort IN \\(''newest'',''highest''\\) THEN candidates[.]id END DESC",
+    "CASE WHEN p_sort IN \\(''oldest'',''lowest''\\) THEN candidates[.]id END ASC",
+    "ORDER BY event[.]created_at,[[:space:]]*event[.]id",
+    "ORDER BY note[.]created_at,[[:space:]]*note[.]id",
+  ]) assert.equal(assertions.includes(pinned), true, `missing exact SQL drift assertion: ${pinned}`);
 });
 
 test("grants the app role function execution only and no direct order-table DML", async () => {

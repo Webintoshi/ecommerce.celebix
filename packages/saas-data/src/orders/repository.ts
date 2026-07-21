@@ -8,6 +8,7 @@ import {
   type OrderDetail,
   type OrderListItem,
   type OrderPaymentStatus,
+  type OrderSort,
   type OrderStatus,
   type TenantContext,
 } from "@celebix/saas-contracts";
@@ -37,6 +38,7 @@ import {
   orderPageSize,
   orderPaymentStatus,
   orderSearch,
+  orderSort,
   orderShipping,
   orderStatus,
   orderStatusFilter,
@@ -130,6 +132,24 @@ function safeListItem(value: unknown): OrderListItem {
 function safeDetail(value: unknown): OrderDetail {
   try { return parseOrderDetail(value); }
   catch { throw unavailable(); }
+}
+
+function compareOrderListItems(left: OrderListItem, right: OrderListItem, sort: OrderSort): number {
+  const compare = (leftValue: number | string, rightValue: number | string) =>
+    leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
+  if (sort === "highest" || sort === "lowest") {
+    const total = sort === "highest"
+      ? compare(right.totalCents, left.totalCents)
+      : compare(left.totalCents, right.totalCents);
+    if (total !== 0) return total;
+  }
+  const createdAt = sort === "newest" || sort === "highest"
+    ? compare(right.createdAt, left.createdAt)
+    : compare(left.createdAt, right.createdAt);
+  if (createdAt !== 0) return createdAt;
+  return sort === "newest" || sort === "highest"
+    ? compare(right.id, left.id)
+    : compare(left.id, right.id);
 }
 
 function authorityValues(authority: ValidatedOrderAuthority): unknown[] {
@@ -356,20 +376,21 @@ export class PostgresOrderRepository implements OrderRepository {
   }
 
   async listOrders(input: ListOrdersInput): Promise<ListOrdersResult> {
-    const exact = exactOrderInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status", "search"]);
+    const exact = exactOrderInput(input, ["tenantContext", "now", "pageSize"], ["cursor", "status", "search", "sort"]);
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
     const pageSize = orderPageSize(exact.pageSize);
     const status = orderStatusFilter(exact.status);
     const search = orderSearch(exact.search);
-    const cursor = decodeOrderCursor(exact.cursor as string | undefined, authority.storeId, status, search);
+    const sort = orderSort(exact.sort);
+    const cursor = decodeOrderCursor(exact.cursor as string | undefined, authority.storeId, status, search, sort);
     return this.read(authority, {
       text: `SELECT outcome, result_payload FROM saas.orders_list(
         $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,
-        $8::text,$9::text,$10::bigint,$11::timestamptz,$12::uuid
+        $8::text,$9::text,$10::text,$11::bigint,$12::bigint,$13::timestamptz,$14::uuid
       )`,
       values: [
-        ...authorityValues(authority), status ?? null, search ?? null, pageSize,
-        cursor?.createdAt ?? null, cursor?.id ?? null,
+        ...authorityValues(authority), status ?? null, search ?? null, sort, pageSize,
+        cursor?.totalCents ?? null, cursor?.createdAt ?? null, cursor?.id ?? null,
       ],
     }, "listed", (value) => {
       const envelope = (() => {
@@ -383,17 +404,14 @@ export class PostgresOrderRepository implements OrderRepository {
       for (let index = 1; index < items.length; index += 1) {
         const previous = items[index - 1]!;
         const current = items[index]!;
-        if (
-          previous.createdAt < current.createdAt ||
-          (previous.createdAt === current.createdAt && previous.id <= current.id)
-        ) throw unavailable();
+        if (compareOrderListItems(previous, current, sort) >= 0) throw unavailable();
       }
       if (!Object.hasOwn(envelope, "nextCursor")) return Object.freeze({ items });
       if (items.length !== pageSize || items.length === 0) throw unavailable();
       let databaseCursor;
       try { databaseCursor = parseDatabaseCursor(envelope.nextCursor, items.at(-1)!); }
       catch { throw unavailable(); }
-      return Object.freeze({ items, nextCursor: encodeOrderCursor(authority.storeId, status, search, databaseCursor) });
+      return Object.freeze({ items, nextCursor: encodeOrderCursor(authority.storeId, status, search, sort, databaseCursor) });
     });
   }
 

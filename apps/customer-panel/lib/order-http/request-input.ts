@@ -1,9 +1,11 @@
 import {
   ORDER_PAYMENT_STATUSES,
+  ORDER_SORTS,
   ORDER_STATUSES,
   parseOrderDetail,
   type OrderAddress,
   type OrderPaymentStatus,
+  type OrderSort,
   type OrderStatus,
   type OrderTracking,
 } from "@celebix/saas-contracts";
@@ -194,6 +196,7 @@ export type OrderListInput = Readonly<{
   cursor?: string;
   status?: OrderStatus;
   search?: string;
+  sort: OrderSort;
 }>;
 
 export function readOrderListInput(request: Request): Invalid | Readonly<{ kind: "valid"; value: OrderListInput }> {
@@ -206,7 +209,7 @@ export function readOrderListInput(request: Request): Invalid | Readonly<{ kind:
   ) return INVALID;
   const entries = [...url.searchParams.entries()];
   if (
-    entries.some(([key]) => !["pageSize", "cursor", "status", "search"].includes(key)) ||
+    entries.some(([key]) => !["pageSize", "cursor", "status", "search", "sort"].includes(key)) ||
     new Set(entries.map(([key]) => key)).size !== entries.length
   ) return INVALID;
   const rawPageSize = url.searchParams.get("pageSize");
@@ -216,9 +219,11 @@ export function readOrderListInput(request: Request): Invalid | Readonly<{ kind:
   const cursor = url.searchParams.get("cursor");
   const rawStatus = url.searchParams.get("status");
   const search = url.searchParams.get("search");
+  const rawSort = url.searchParams.get("sort");
   if (
     pageSize === null || (cursor !== null && !CURSOR.test(cursor)) ||
     (rawStatus !== null && !ORDER_STATUSES.includes(rawStatus as OrderStatus)) ||
+    (rawSort !== null && !ORDER_SORTS.includes(rawSort as OrderSort)) ||
     (search !== null && (
       search.length < 1 || search.length > 200 || search !== search.trim() || CONTROL.test(search)
     ))
@@ -230,6 +235,7 @@ export function readOrderListInput(request: Request): Invalid | Readonly<{ kind:
       ...(cursor === null ? {} : { cursor }),
       ...(rawStatus === null ? {} : { status: rawStatus as OrderStatus }),
       ...(search === null ? {} : { search }),
+      sort: (rawSort ?? "newest") as OrderSort,
     }),
   });
 }

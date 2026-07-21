@@ -182,7 +182,7 @@ AS $function$
         'message', event.message,
         'createdAt', saas.orders_json_timestamp(event.created_at)
       ) ORDER BY event.created_at, event.id), '[]'::jsonb)
-      FROM (SELECT * FROM saas.order_events WHERE store_id=p_store_id AND order_id=p_order_id ORDER BY created_at,id LIMIT 200) AS event
+      FROM (SELECT * FROM saas.order_events WHERE store_id=p_store_id AND order_id=p_order_id ORDER BY created_at DESC,id DESC LIMIT 200) AS event
     ),
     'notes', (
       SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
@@ -190,7 +190,7 @@ AS $function$
         'createdAt', saas.orders_json_timestamp(note.created_at),
         'updatedAt', saas.orders_json_timestamp(note.updated_at)
       ) ORDER BY note.created_at, note.id), '[]'::jsonb)
-      FROM (SELECT * FROM saas.order_notes WHERE store_id=p_store_id AND order_id=p_order_id AND archived_at IS NULL ORDER BY created_at,id LIMIT 100) AS note
+      FROM (SELECT * FROM saas.order_notes WHERE store_id=p_store_id AND order_id=p_order_id AND archived_at IS NULL ORDER BY created_at DESC,id DESC LIMIT 100) AS note
     )
   ))
   FROM saas.orders AS selected_order
@@ -231,7 +231,8 @@ $function$;
 CREATE FUNCTION saas.orders_list(
   p_store_id uuid, p_principal_id uuid, p_membership_id uuid, p_plan_id uuid,
   p_plan_code text, p_plan_version bigint, p_now timestamptz,
-  p_status text, p_search text, p_page_size bigint, p_cursor_created_at timestamptz, p_cursor_id uuid
+  p_status text, p_search text, p_sort text, p_page_size bigint,
+  p_cursor_total_cents bigint, p_cursor_created_at timestamptz, p_cursor_id uuid
 )
 RETURNS TABLE(outcome text, result_payload jsonb)
 LANGUAGE plpgsql
@@ -243,6 +244,7 @@ DECLARE
   authority_error text;
   page_items jsonb;
   has_more boolean;
+  last_total_cents bigint;
   last_created_at timestamptz;
   last_id uuid;
 BEGIN
@@ -250,8 +252,10 @@ BEGIN
   IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
   IF p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
      OR (p_status IS NOT NULL AND p_status <> ALL (ARRAY['pending','confirmed','preparing','shipped','delivered','cancelled','refunded']))
+     OR p_sort IS NULL OR p_sort <> ALL (ARRAY['newest','oldest','highest','lowest'])
      OR (p_search IS NOT NULL AND (p_search <> pg_catalog.btrim(p_search) OR pg_catalog.char_length(p_search) NOT BETWEEN 1 AND 200 OR p_search ~ '[[:cntrl:]]'))
-     OR ((p_cursor_created_at IS NULL) <> (p_cursor_id IS NULL)) THEN
+     OR (pg_catalog.num_nulls(p_cursor_total_cents,p_cursor_created_at,p_cursor_id) NOT IN (0,3))
+     OR (p_cursor_total_cents IS NOT NULL AND p_cursor_total_cents < 0) THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
   WITH candidates AS (
@@ -260,11 +264,39 @@ BEGIN
     WHERE order_row.store_id=p_store_id
       AND (p_status IS NULL OR order_row.status=p_status)
       AND (p_search IS NULL OR pg_catalog.strpos(pg_catalog.lower(pg_catalog.concat_ws(' ',order_row.order_number,order_row.customer_name,order_row.customer_email,order_row.customer_phone)),pg_catalog.lower(p_search)) > 0)
-      AND (p_cursor_created_at IS NULL OR (order_row.created_at,order_row.id) < (p_cursor_created_at,p_cursor_id))
-    ORDER BY order_row.created_at DESC,order_row.id DESC
+      AND (
+        p_cursor_created_at IS NULL
+        OR (p_sort='newest' AND (order_row.created_at,order_row.id) < (p_cursor_created_at,p_cursor_id))
+        OR (p_sort='oldest' AND (order_row.created_at,order_row.id) > (p_cursor_created_at,p_cursor_id))
+        OR (p_sort='highest' AND (order_row.total_cents,order_row.created_at,order_row.id) < (p_cursor_total_cents,p_cursor_created_at,p_cursor_id))
+        OR (p_sort='lowest' AND (order_row.total_cents,order_row.created_at,order_row.id) > (p_cursor_total_cents,p_cursor_created_at,p_cursor_id))
+      )
+    ORDER BY
+      CASE WHEN p_sort='highest' THEN order_row.total_cents END DESC,
+      CASE WHEN p_sort='lowest' THEN order_row.total_cents END ASC,
+      CASE WHEN p_sort IN ('newest','highest') THEN order_row.created_at END DESC,
+      CASE WHEN p_sort IN ('oldest','lowest') THEN order_row.created_at END ASC,
+      CASE WHEN p_sort IN ('newest','highest') THEN order_row.id END DESC,
+      CASE WHEN p_sort IN ('oldest','lowest') THEN order_row.id END ASC
     LIMIT p_page_size+1
   ), page AS (
-    SELECT * FROM candidates ORDER BY created_at DESC,id DESC LIMIT p_page_size
+    SELECT candidates.*, pg_catalog.row_number() OVER (ORDER BY
+      CASE WHEN p_sort='highest' THEN candidates.total_cents END DESC,
+      CASE WHEN p_sort='lowest' THEN candidates.total_cents END ASC,
+      CASE WHEN p_sort IN ('newest','highest') THEN candidates.created_at END DESC,
+      CASE WHEN p_sort IN ('oldest','lowest') THEN candidates.created_at END ASC,
+      CASE WHEN p_sort IN ('newest','highest') THEN candidates.id END DESC,
+      CASE WHEN p_sort IN ('oldest','lowest') THEN candidates.id END ASC
+    ) AS page_position
+    FROM candidates
+    ORDER BY
+      CASE WHEN p_sort='highest' THEN candidates.total_cents END DESC,
+      CASE WHEN p_sort='lowest' THEN candidates.total_cents END ASC,
+      CASE WHEN p_sort IN ('newest','highest') THEN candidates.created_at END DESC,
+      CASE WHEN p_sort IN ('oldest','lowest') THEN candidates.created_at END ASC,
+      CASE WHEN p_sort IN ('newest','highest') THEN candidates.id END DESC,
+      CASE WHEN p_sort IN ('oldest','lowest') THEN candidates.id END ASC
+    LIMIT p_page_size
   )
   SELECT
     COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
@@ -273,16 +305,17 @@ BEGIN
       'currency',page.currency,'totalCents',page.total_cents,'status',page.status,
       'paymentStatus',page.payment_status,
       'itemCount',(SELECT pg_catalog.count(*) FROM saas.order_items AS item WHERE item.store_id=p_store_id AND item.order_id=page.id),
-      'createdAt',saas.orders_json_timestamp(page.created_at),'updatedAt',saas.orders_json_timestamp(page.updated_at),'version',page.version
-    ) ORDER BY page.created_at DESC,page.id DESC),'[]'::jsonb),
+      'createdAt',saas.orders_cursor_timestamp(page.created_at),'updatedAt',saas.orders_cursor_timestamp(page.updated_at),'version',page.version
+    ) ORDER BY page.page_position),'[]'::jsonb),
     (SELECT pg_catalog.count(*) > p_page_size FROM candidates),
-    (SELECT tail.created_at FROM page AS tail ORDER BY tail.created_at,tail.id LIMIT 1),
-    (SELECT tail.id FROM page AS tail ORDER BY tail.created_at,tail.id LIMIT 1)
-  INTO page_items,has_more,last_created_at,last_id
+    (SELECT tail.total_cents FROM page AS tail WHERE tail.page_position=p_page_size),
+    (SELECT tail.created_at FROM page AS tail WHERE tail.page_position=p_page_size),
+    (SELECT tail.id FROM page AS tail WHERE tail.page_position=p_page_size)
+  INTO page_items,has_more,last_total_cents,last_created_at,last_id
   FROM page;
   result_payload := pg_catalog.jsonb_build_object('items',page_items);
   IF has_more THEN
-    result_payload := result_payload || pg_catalog.jsonb_build_object('nextCursor',pg_catalog.jsonb_build_object('createdAt',saas.orders_cursor_timestamp(last_created_at),'id',last_id));
+    result_payload := result_payload || pg_catalog.jsonb_build_object('nextCursor',pg_catalog.jsonb_build_object('totalCents',last_total_cents,'createdAt',saas.orders_cursor_timestamp(last_created_at),'id',last_id));
   END IF;
   RETURN QUERY SELECT 'listed'::text,result_payload;
 END
@@ -529,7 +562,7 @@ REVOKE ALL ON FUNCTION saas.orders_mutation_projection(uuid,uuid) FROM PUBLIC,ce
 REVOKE ALL ON FUNCTION saas.orders_detail_projection(uuid,uuid) FROM PUBLIC,celebix_saas_app;
 
 REVOKE ALL ON FUNCTION saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamptz) FROM PUBLIC;
-REVOKE ALL ON FUNCTION saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text,bigint,timestamptz,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text,text,bigint,bigint,timestamptz,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text) FROM PUBLIC;
@@ -539,7 +572,7 @@ REVOKE ALL ON FUNCTION saas.orders_archive_note(uuid,uuid,uuid,uuid,text,bigint,
 REVOKE ALL ON FUNCTION saas.orders_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamptz) TO celebix_saas_app;
-GRANT EXECUTE ON FUNCTION saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text,bigint,timestamptz,uuid) TO celebix_saas_app;
+GRANT EXECUTE ON FUNCTION saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text,text,bigint,bigint,timestamptz,uuid) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text) TO celebix_saas_app;

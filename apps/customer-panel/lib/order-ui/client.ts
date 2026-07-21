@@ -1,5 +1,6 @@
 import {
   ORDER_PAYMENT_STATUSES,
+  ORDER_SORTS,
   ORDER_STATUSES,
   parseOrderDashboardSummary,
   parseOrderDetail,
@@ -9,6 +10,7 @@ import {
   type OrderDetail,
   type OrderListItem,
   type OrderPaymentStatus,
+  type OrderSort,
   type OrderStatus,
   type OrderTracking,
 } from "@celebix/saas-contracts";
@@ -161,17 +163,20 @@ function parseTracking(value: unknown): Readonly<OrderTracking> {
 }
 
 function parseListInput(value: unknown) {
-  const parsed = exactDataObject(value, [], ["pageSize", "cursor", "status", "search"]);
+  const parsed = exactDataObject(value, [], ["pageSize", "cursor", "status", "search", "sort"]);
   const pageSize = parsed.pageSize ?? 20;
   if (!Number.isSafeInteger(pageSize) || (pageSize as number) < 1 || (pageSize as number) > 100) return invalid();
   if (parsed.cursor !== undefined && (typeof parsed.cursor !== "string" || !CURSOR.test(parsed.cursor))) return invalid();
   if (parsed.status !== undefined && (typeof parsed.status !== "string" || !ORDER_STATUSES.includes(parsed.status as OrderStatus))) return invalid();
   if (parsed.search !== undefined) text(parsed.search, 1, 200);
+  const sort = parsed.sort ?? "newest";
+  if (typeof sort !== "string" || !ORDER_SORTS.includes(sort as OrderSort)) return invalid();
   return Object.freeze({
     pageSize: pageSize as number,
     ...(parsed.cursor === undefined ? {} : { cursor: parsed.cursor as string }),
     ...(parsed.status === undefined ? {} : { status: parsed.status as OrderStatus }),
     ...(parsed.search === undefined ? {} : { search: parsed.search as string }),
+    sort: sort as OrderSort,
   });
 }
 
@@ -292,13 +297,14 @@ export function createOrderApiClient(options?: Readonly<{ fetch?: Fetch; randomU
       return safeParse(() => parseOrderDashboardSummary(body));
     },
 
-    async listOrders(input: Readonly<{ pageSize?: number; cursor?: string; status?: OrderStatus; search?: string }> = {}): Promise<OrderListResult> {
+    async listOrders(input: Readonly<{ pageSize?: number; cursor?: string; status?: OrderStatus; search?: string; sort?: OrderSort }> = {}): Promise<OrderListResult> {
       const parsed = local(() => parseListInput(input));
       const { pageSize } = parsed;
       const query = new URLSearchParams({ pageSize: String(pageSize) });
       if (parsed.cursor !== undefined) query.set("cursor", parsed.cursor);
       if (parsed.status !== undefined) query.set("status", parsed.status);
       if (parsed.search !== undefined) query.set("search", parsed.search);
+      query.set("sort", parsed.sort);
       const result = await request(`/api/orders?${query}`, { method: "GET", credentials: "same-origin", cache: "no-store" });
       return safeParse(() => {
         const body = record(result);

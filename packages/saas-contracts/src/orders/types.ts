@@ -11,6 +11,9 @@ export type OrderPaymentStatus = (typeof ORDER_PAYMENT_STATUSES)[number];
 export const ORDER_SOURCES = Object.freeze(["storefront", "quick_link", "marketplace", "manual_import"] as const);
 export type OrderSource = (typeof ORDER_SOURCES)[number];
 
+export const ORDER_SORTS = Object.freeze(["newest", "oldest", "highest", "lowest"] as const);
+export type OrderSort = (typeof ORDER_SORTS)[number];
+
 export interface OrderAddress {
   readonly recipientName: string;
   readonly line1: string;

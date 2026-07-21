@@ -16,7 +16,7 @@ import {
 } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
@@ -59,8 +59,13 @@ function uuid(value: unknown): string {
 function timestamp(value: unknown): string {
   if (typeof value !== "string" || !ISO_UTC.test(value)) invalid();
   const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== value) invalid();
+  const millisecondCanonical = value.replace(/(\.\d{3})\d{3}Z$/, "$1Z");
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== millisecondCanonical) invalid();
   return value;
+}
+
+function comparableTimestamp(value: string): string {
+  return value.replace(/(\.\d{3})Z$/, "$1000Z");
 }
 
 function safeInteger(value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): number {
@@ -146,7 +151,7 @@ function parseNote(value: unknown): Readonly<OrderNote> {
   const parsed = exact(value, ["id", "body", "createdAt", "updatedAt"]);
   const createdAt = timestamp(parsed.createdAt);
   const updatedAt = timestamp(parsed.updatedAt);
-  if (updatedAt < createdAt) invalid();
+  if (comparableTimestamp(updatedAt) < comparableTimestamp(createdAt)) invalid();
   return freeze({ id: uuid(parsed.id), body: string(parsed.body, 1, 2_000), createdAt, updatedAt } satisfies OrderNote);
 }
 
@@ -157,7 +162,7 @@ export function parseOrderListItem(value: unknown): Readonly<OrderListItem> {
   ]);
   const createdAt = timestamp(parsed.createdAt);
   const updatedAt = timestamp(parsed.updatedAt);
-  if (updatedAt < createdAt) invalid();
+  if (comparableTimestamp(updatedAt) < comparableTimestamp(createdAt)) invalid();
   return freeze({
     id: uuid(parsed.id),
     orderNumber: string(parsed.orderNumber, 1, 64),

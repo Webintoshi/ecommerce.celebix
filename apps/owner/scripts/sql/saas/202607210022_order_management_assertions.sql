@@ -110,6 +110,31 @@ BEGIN
     RAISE EXCEPTION 'PHASE3B1_ORDER_ASSERTION_FAILED: exact check/unique constraint drift';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'saas.stores'::regclass
+      AND conname = 'stores_id_currency_key'
+      AND contype = 'u'
+      AND pg_catalog.pg_get_constraintdef(oid) = 'UNIQUE (id, currency)'
+  )
+  OR NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'saas.orders'::regclass
+      AND conname = 'orders_store_currency_fk'
+      AND contype = 'f'
+      AND pg_catalog.pg_get_constraintdef(oid) = 'FOREIGN KEY (store_id, currency) REFERENCES saas.stores(id, currency)'
+  )
+  OR (
+    SELECT pg_catalog.count(*)
+    FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'saas.orders'::regclass
+      AND contype = 'f'
+  ) <> 1 THEN
+    RAISE EXCEPTION 'PHASE3B1_ORDER_ASSERTION_FAILED: order/store currency authority drift';
+  END IF;
+
   IF (
     SELECT pg_catalog.count(*)
     FROM pg_catalog.pg_constraint
@@ -149,6 +174,8 @@ BEGIN
   FOREACH checked_index IN ARRAY ARRAY[
     'orders_store_list_idx',
     'orders_store_status_list_idx',
+    'orders_store_total_list_idx',
+    'orders_store_status_total_list_idx',
     'order_items_order_list_idx',
     'order_events_order_list_idx',
     'order_notes_active_list_idx',

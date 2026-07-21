@@ -11,7 +11,7 @@ DROP FUNCTION saas.orders_update_shipping(uuid,uuid,uuid,uuid,text,bigint,timest
 DROP FUNCTION saas.orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text);
 DROP FUNCTION saas.orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text);
 DROP FUNCTION saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid);
-DROP FUNCTION saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text,bigint,timestamptz,uuid);
+DROP FUNCTION saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,text,text,bigint,bigint,timestamptz,uuid);
 DROP FUNCTION saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamptz);
 DROP FUNCTION saas.orders_detail_projection(uuid,uuid);
 DROP FUNCTION saas.orders_mutation_projection(uuid,uuid);

@@ -1,11 +1,13 @@
 import {
   ORDER_PAYMENT_STATUSES,
+  ORDER_SORTS,
   ORDER_STATUSES,
   PLAN_FEATURE_KEYS,
   STORE_DOMAIN_TYPES,
   parseOrderDetail,
   type OrderAddress,
   type OrderPaymentStatus,
+  type OrderSort,
   type OrderStatus,
   type OrderTracking,
   type PlanFeatureKey,
@@ -265,6 +267,12 @@ export function orderStatus(value: unknown): OrderStatus {
 
 export function orderStatusFilter(value: unknown): OrderStatus | undefined {
   return value === undefined ? undefined : orderStatus(value);
+}
+
+export function orderSort(value: unknown): OrderSort {
+  const selected = value === undefined ? "newest" : value;
+  if (typeof selected !== "string" || !ORDER_SORTS.includes(selected as OrderSort)) fail();
+  return selected as OrderSort;
 }
 
 export function orderPaymentStatus(value: unknown): OrderPaymentStatus {

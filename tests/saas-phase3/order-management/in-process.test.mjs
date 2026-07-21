@@ -167,7 +167,7 @@ test("authenticated list and detail traverse the real HTTP handlers with server 
     },
   }));
 
-  const listResponse = await api.listOrders(request(`${ORDERS}?pageSize=25&status=confirmed&search=Ada`));
+  const listResponse = await api.listOrders(request(`${ORDERS}?pageSize=25&status=confirmed&search=Ada&sort=lowest`));
   assert.equal(listResponse.status, 200);
   assert.deepEqual(await json(listResponse), { items: [listItem()], nextCursor: "next_cursor" });
   const detailResponse = await api.getOrder(request(`${ORDERS}/${ORDER_ID}`), ORDER_ID);
@@ -181,6 +181,7 @@ test("authenticated list and detail traverse the real HTTP handlers with server 
     pageSize: 25,
     status: "confirmed",
     search: "Ada",
+    sort: "lowest",
   });
   assert.deepEqual(calls[1][1], { tenantContext: tenantContext(), now: NOW, orderId: ORDER_ID });
   assert.equal(calls.every(([, input]) => input.tenantContext.store.id === STORE_ID), true);

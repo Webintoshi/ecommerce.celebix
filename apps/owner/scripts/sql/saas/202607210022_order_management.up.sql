@@ -4,9 +4,12 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
+ALTER TABLE saas.stores
+  ADD CONSTRAINT stores_id_currency_key UNIQUE (id, currency);
+
 CREATE TABLE saas.orders (
   id uuid CONSTRAINT orders_pkey PRIMARY KEY,
-  store_id uuid NOT NULL CONSTRAINT orders_store_fk REFERENCES saas.stores(id),
+  store_id uuid NOT NULL,
   order_number text NOT NULL,
   source text NOT NULL CONSTRAINT orders_source_check CHECK (source IN ('storefront','quick_link','marketplace','manual_import')),
   customer_name text NOT NULL,
@@ -24,6 +27,8 @@ CREATE TABLE saas.orders (
   version bigint NOT NULL DEFAULT 1 CONSTRAINT orders_version_check CHECK (version > 0),
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
+  CONSTRAINT orders_store_currency_fk FOREIGN KEY (store_id, currency)
+    REFERENCES saas.stores(id, currency),
   CONSTRAINT orders_store_id_id_key UNIQUE (store_id, id),
   CONSTRAINT orders_store_id_order_number_key UNIQUE (store_id, order_number)
 );
@@ -122,6 +127,10 @@ CREATE INDEX orders_store_list_idx
   ON saas.orders (store_id, created_at DESC, id DESC);
 CREATE INDEX orders_store_status_list_idx
   ON saas.orders (store_id, status, created_at DESC, id DESC);
+CREATE INDEX orders_store_total_list_idx
+  ON saas.orders (store_id, total_cents DESC, created_at DESC, id DESC);
+CREATE INDEX orders_store_status_total_list_idx
+  ON saas.orders (store_id, status, total_cents DESC, created_at DESC, id DESC);
 CREATE INDEX order_items_order_list_idx
   ON saas.order_items (store_id, order_id, position);
 CREATE INDEX order_events_order_list_idx

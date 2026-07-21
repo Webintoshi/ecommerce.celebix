@@ -39,7 +39,7 @@ const OPERATION_A = "60000000-0000-4000-8000-000000000001";
 const AUTHORITY_SIGNATURE = "saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)";
 const API_SIGNATURES = [
   "saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
-  "saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,bigint,timestamp with time zone,uuid)",
+  "saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)",
   "saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
   "saas.orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
   "saas.orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
@@ -237,6 +237,19 @@ function api(backend, functionName, extraArguments = "", authorityOptions = {}, 
   return JSON.parse(psql(backend, apiSql(functionName, extraArguments, authorityOptions), database));
 }
 
+function orderListArguments({
+  status = "NULL",
+  search = "NULL",
+  sort = "newest",
+  pageSize = 100,
+  cursor,
+} = {}) {
+  const position = cursor === undefined
+    ? "NULL,NULL,NULL"
+    : `${cursor.totalCents},'${cursor.createdAt}'::timestamptz,'${cursor.id}'::uuid`;
+  return `${status},${search},'${sort}',${pageSize},${position}`;
+}
+
 async function apiAsync(backend, functionName, extraArguments = "", authorityOptions = {}, database = DATABASE) {
   const result = await commandAsync(backend.executables.psql, [
     "-h", backend.socketDirectory, "-p", String(backend.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
@@ -296,13 +309,13 @@ function seedApi(backend, database = DATABASE) {
     DELETE FROM saas.orders WHERE order_number='constraint-fixture' AND store_id='${STORE_A}';
     UPDATE saas.orders SET shipping_address=shipping_address||'{"storeId":"${STORE_A}","principal_id":"20000000-0000-4000-8000-000000000001"}'::jsonb,created_at='2026-07-21 09:00:00.000800+00',updated_at='2026-07-21 09:00:00.000800+00' WHERE id='${ORDER_A}';
     INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,customer_phone,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at) VALUES
-      ('${ORDER_B}','${STORE_A}','ORD-0002','quick_link','Alan Turing','alan@example.test','+905551110002','TRY',20000,0,0,20000,'confirmed','completed','{"recipientName":"Alan Turing","line1":"Test 2","district":"Kadikoy","city":"Istanbul","postalCode":"34710","country":"TR"}',1,'2026-07-21 09:00:00.000800+00','2026-07-21 09:00:00.000800+00'),
-      ('${ORDER_C}','${STORE_A}','VIP-0003','marketplace','Grace Hopper','grace@example.test',NULL,'TRY',30000,0,0,30000,'delivered','completed','{"recipientName":"Grace Hopper","line1":"Test 3","city":"Ankara","country":"TR"}',1,'2026-07-21 09:00:00.000900+00','2026-07-21 09:00:00.000900+00'),
+      ('${ORDER_B}','${STORE_A}','ORD-0002','quick_link','Alan Turing','alan@example.test','+905551110002','TRY',10000,0,0,10000,'confirmed','completed','{"recipientName":"Alan Turing","line1":"Test 2","district":"Kadikoy","city":"Istanbul","postalCode":"34710","country":"TR"}',1,'2026-07-21 09:00:00.000800+00','2026-07-21 09:00:00.000800+00'),
+      ('${ORDER_C}','${STORE_A}','VIP-0003','marketplace','Grace Hopper','grace@example.test',NULL,'TRY',30000,0,0,30000,'delivered','completed','{"recipientName":"Grace Hopper","line1":"Test 3","city":"Ankara","country":"TR"}',1,'2026-07-21 09:00:00.000700+00','2026-07-21 09:00:00.000700+00'),
       ('${ORDER_D}','${STORE_A}','ORD-0004','manual_import','Margaret Hamilton','margaret@example.test',NULL,'TRY',40000,0,0,40000,'cancelled','failed','{"recipientName":"Margaret Hamilton","line1":"Test 4","city":"Izmir","country":"TR"}',1,'2026-07-19 09:00:00+00','2026-07-19 09:00:00+00'),
       ('${ORDER_OTHER}','${STORE_B}','OTHER-0001','storefront','Other Customer','other-customer@example.test',NULL,'TRY',90000,0,0,90000,'delivered','completed','{"recipientName":"Other Customer","line1":"Other 1","city":"Bursa","country":"TR"}',1,'2026-07-22 09:00:00+00','2026-07-22 09:00:00+00');
     INSERT INTO saas.order_items(id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,unit_price_cents,quantity,discount_cents,line_total_cents,created_at) VALUES
       ('43000000-0000-4000-8000-000000000001','${STORE_A}','${ORDER_A}','${PRODUCT_A}','${VARIANT_A}',0,'Atlas Mug','Default','ATLAS-A',10000,1,0,10000,'2026-07-21'),
-      ('43000000-0000-4000-8000-000000000002','${STORE_A}','${ORDER_B}','${PRODUCT_A}','${VARIANT_A}',0,'Atlas Mug','Default','ATLAS-A',10000,2,0,20000,'2026-07-21 09:00:00+00'),
+      ('43000000-0000-4000-8000-000000000002','${STORE_A}','${ORDER_B}','${PRODUCT_A}','${VARIANT_A}',0,'Atlas Mug','Default','ATLAS-A',10000,1,0,10000,'2026-07-21 09:00:00+00'),
       ('43000000-0000-4000-8000-000000000003','${STORE_A}','${ORDER_C}','${PRODUCT_A}','${VARIANT_A}',0,'Atlas Mug','Default','ATLAS-A',10000,3,0,30000,'2026-07-21 09:00:00+00');
     INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at) VALUES
       ('50000000-0000-4000-8000-000000000002','${STORE_A}','${ORDER_B}','30000000-0000-4000-8000-000000000001','order_created',NULL,'confirmed','Order imported','{}','2026-07-21 09:00:00+00'),
@@ -359,6 +372,10 @@ async function main() {
       assert.equal(psql(backend, `SELECT string_agg(conname,',' ORDER BY conname) FROM pg_constraint WHERE conrelid='saas.order_items'::regclass AND contype='c';`), "order_items_discount_cents_check,order_items_line_total_cents_check,order_items_position_check,order_items_quantity_check,order_items_unit_price_cents_check");
       assert.equal(psql(backend, `SELECT string_agg(conname,',' ORDER BY conname) FROM pg_constraint WHERE conrelid='saas.orders'::regclass AND contype='u';`), "orders_store_id_id_key,orders_store_id_order_number_key");
       assert.equal(psql(backend, `SELECT string_agg(conname,',' ORDER BY conname) FROM pg_constraint WHERE conrelid='saas.order_items'::regclass AND contype='u';`), "order_items_store_id_order_id_position_key");
+      assert.equal(psql(backend, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='saas.stores'::regclass AND conname='stores_id_currency_key';`), "UNIQUE (id, currency)");
+      assert.equal(psql(backend, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='saas.orders'::regclass AND conname='orders_store_currency_fk';`), "FOREIGN KEY (store_id, currency) REFERENCES saas.stores(id, currency)");
+      assert.equal(psql(backend, "SELECT indexdef FROM pg_indexes WHERE schemaname='saas' AND indexname='orders_store_total_list_idx';"), "CREATE INDEX orders_store_total_list_idx ON saas.orders USING btree (store_id, total_cents DESC, created_at DESC, id DESC)");
+      assert.equal(psql(backend, "SELECT indexdef FROM pg_indexes WHERE schemaname='saas' AND indexname='orders_store_status_total_list_idx';"), "CREATE INDEX orders_store_status_total_list_idx ON saas.orders USING btree (store_id, status, total_cents DESC, created_at DESC, id DESC)");
       const invalidOrders = [
         ["bad_source", "'invalid'", "'TRY'", "1", "0", "0", "1", "'pending'", "'pending'", "1"],
         ["bad_currency", "'storefront'", "'try'", "1", "0", "0", "1", "'pending'", "'pending'", "1"],
@@ -377,6 +394,9 @@ async function main() {
       }
       const constraintOrder = "82000000-0000-4000-8000-000000000001";
       psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at) VALUES ('${constraintOrder}','${STORE_A}','constraint-fixture','storefront','Test','test@example.test','TRY',1,0,0,1,'pending','pending','{}',1,'${NOW}','${NOW}'); COMMIT;`);
+      denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at) VALUES ('82000000-0000-4000-8000-000000000002','${STORE_A}','currency-mismatch','storefront','Test','test@example.test','USD',1,0,0,1,'pending','pending','{}',1,'${NOW}','${NOW}'); COMMIT;`);
+      denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.orders SET currency='USD' WHERE id='${constraintOrder}'; COMMIT;`);
+      assert.equal(psql(backend, `SELECT currency FROM saas.orders WHERE id='${constraintOrder}';`), "TRY");
       const invalidItems = [
         ["-1", "1", "1", "0", "1"],
         ["100", "1", "1", "0", "1"],
@@ -513,43 +533,79 @@ async function main() {
         assert.equal(psql(backend, `SELECT has_function_privilege('celebix_saas_app','${signature}','EXECUTE');`), "t");
         assert.equal(psql(backend, `SELECT has_function_privilege('public','${signature}','EXECUTE');`), "f");
       }
-      const result = api(backend, "orders_list", "NULL,NULL,100,NULL,NULL");
+      const result = api(backend, "orders_list", orderListArguments());
       assert.equal(result.outcome, "listed");
-      assert.deepEqual(result.result.items.map((order) => order.id), [ORDER_C, ORDER_B, ORDER_A, ORDER_D]);
+      assert.deepEqual(result.result.items.map((order) => order.id), [ORDER_B, ORDER_A, ORDER_C, ORDER_D]);
       assert.equal(Object.hasOwn(result.result, "nextCursor"), false);
     });
 
     await scenario("app-callable API exposes a happy-path order detail", async () => {
+      psql(backend, `
+        BEGIN;
+        SET LOCAL ROLE celebix_saas_owner;
+        INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,message,payload,created_at)
+        SELECT pg_catalog.md5('bounded-order-event:'||ordinal::text)::uuid,'${STORE_A}','${ORDER_A}','30000000-0000-4000-8000-000000000001','order_created','Bounded event '||ordinal::text,'{}','2026-07-22 09:00:00+00'::timestamptz+ordinal*interval '1 microsecond'
+        FROM pg_catalog.generate_series(1,201) AS ordinal;
+        INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at)
+        SELECT pg_catalog.md5('bounded-order-note:'||ordinal::text)::uuid,'${STORE_A}','${ORDER_A}','30000000-0000-4000-8000-000000000001','Bounded note '||ordinal::text,'2026-07-22 10:00:00+00'::timestamptz+ordinal*interval '1 microsecond','2026-07-22 10:00:00+00'::timestamptz+ordinal*interval '1 microsecond'
+        FROM pg_catalog.generate_series(1,100) AS ordinal;
+        COMMIT;
+      `);
+      const beforeLatestNote = api(backend, "orders_get", `'${ORDER_A}'::uuid`);
+      assert.equal(beforeLatestNote.result.notes.length, 100);
+      assert.equal(beforeLatestNote.result.notes.at(-1).body, "Bounded note 100");
+      psql(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at) VALUES (pg_catalog.md5('bounded-order-note:101')::uuid,'${STORE_A}','${ORDER_A}','30000000-0000-4000-8000-000000000001','Bounded note 101','2026-07-22 10:00:00.000101+00','2026-07-22 10:00:00.000101+00'); COMMIT;`);
       const result = api(backend, "orders_get", `'${ORDER_A}'::uuid`);
       assert.equal(result.outcome, "found");
       assert.equal(result.result.id, ORDER_A);
       assert.equal(result.result.orderNumber, "ORD-0001");
       assert.equal(result.result.itemCount, 1);
       assert.equal(result.result.items[0].id, "43000000-0000-4000-8000-000000000001");
-      assert.equal(result.result.events[0].id, EVENT_A);
-      assert.deepEqual(result.result.notes, []);
+      assert.equal(result.result.events.length, 200);
+      assert.equal(result.result.events[0].message, "Bounded event 2");
+      assert.equal(result.result.events.at(-1).message, "Bounded event 201");
+      assert.equal(result.result.events.some((event) => event.id === EVENT_A), false);
+      assert.equal(result.result.notes.length, 100);
+      assert.equal(result.result.notes[0].body, "Bounded note 2");
+      assert.equal(result.result.notes.at(-1).body, "Bounded note 101");
     });
 
-    await scenario("list cursor is bounded and deterministic for equal timestamps", async () => {
-      const first = api(backend, "orders_list", "NULL,NULL,1,NULL,NULL");
-      assert.equal(first.outcome, "listed");
-      assert.deepEqual(first.result.items.map((order) => order.id), [ORDER_C]);
-      assert.deepEqual(first.result.nextCursor, { createdAt: "2026-07-21T09:00:00.000900Z", id: ORDER_C });
-      const second = api(backend, "orders_list", `NULL,NULL,1,'${first.result.nextCursor.createdAt}'::timestamptz,'${first.result.nextCursor.id}'::uuid`);
-      assert.deepEqual(second.result.items.map((order) => order.id), [ORDER_B]);
-      assert.deepEqual(second.result.nextCursor, { createdAt: "2026-07-21T09:00:00.000800Z", id: ORDER_B });
-      const third = api(backend, "orders_list", `NULL,NULL,1,'${second.result.nextCursor.createdAt}'::timestamptz,'${second.result.nextCursor.id}'::uuid`);
-      assert.deepEqual(third.result.items.map((order) => order.id), [ORDER_A]);
-      for (const size of [0, 101]) assert.equal(api(backend, "orders_list", `NULL,NULL,${size},NULL,NULL`).outcome, "invalid_input");
+    await scenario("all global sorts paginate deterministically across ties without gaps or duplicates", async () => {
+      const expected = {
+        newest: [ORDER_B, ORDER_A, ORDER_C, ORDER_D],
+        oldest: [ORDER_D, ORDER_C, ORDER_A, ORDER_B],
+        highest: [ORDER_D, ORDER_C, ORDER_B, ORDER_A],
+        lowest: [ORDER_A, ORDER_B, ORDER_C, ORDER_D],
+      };
+      for (const sort of ["newest", "oldest", "highest", "lowest"]) {
+        const ids = [];
+        let cursor;
+        do {
+          const page = api(backend, "orders_list", orderListArguments({ sort, pageSize: 1, cursor }));
+          assert.equal(page.outcome, "listed");
+          ids.push(...page.result.items.map((order) => order.id));
+          cursor = page.result.nextCursor;
+          if (cursor !== undefined) {
+            assert.deepEqual(Object.keys(cursor).sort(), ["createdAt", "id", "totalCents"]);
+            assert.equal(page.result.items.at(-1).createdAt, cursor.createdAt, "list DTO preserves cursor microsecond precision");
+            assert.match(page.result.items.at(-1).updatedAt, /[.]\d{6}Z$/, "list DTO preserves canonical microsecond update precision");
+          }
+        } while (cursor !== undefined);
+        assert.deepEqual(ids, expected[sort]);
+        assert.equal(new Set(ids).size, ids.length);
+      }
+      for (const size of [0, 101]) assert.equal(api(backend, "orders_list", orderListArguments({ pageSize: size })).outcome, "invalid_input");
+      assert.equal(api(backend, "orders_list", orderListArguments({ sort: "unknown" })).outcome, "invalid_input");
+      assert.equal(api(backend, "orders_list", "NULL,NULL,'newest',1,10000,NULL,NULL").outcome, "invalid_input");
     });
 
     await scenario("list applies exact status and literal case-insensitive search filters", async () => {
-      const status = api(backend, "orders_list", "'delivered',NULL,100,NULL,NULL");
+      const status = api(backend, "orders_list", orderListArguments({ status: "'delivered'" }));
       assert.deepEqual(status.result.items.map((order) => order.id), [ORDER_C]);
-      const search = api(backend, "orders_list", "NULL,'gRaCe@ExAmPlE.TeSt',100,NULL,NULL");
+      const search = api(backend, "orders_list", orderListArguments({ search: "'gRaCe@ExAmPlE.TeSt'" }));
       assert.deepEqual(search.result.items.map((order) => order.id), [ORDER_C]);
-      assert.equal(api(backend, "orders_list", "'unknown',NULL,100,NULL,NULL").outcome, "invalid_input");
-      assert.deepEqual(api(backend, "orders_list", "NULL,'%',100,NULL,NULL").result.items, []);
+      assert.equal(api(backend, "orders_list", orderListArguments({ status: "'unknown'" })).outcome, "invalid_input");
+      assert.deepEqual(api(backend, "orders_list", orderListArguments({ search: "'%'" })).result.items, []);
     });
 
     await scenario("summary is store-scoped and counts only completed delivered revenue", async () => {
@@ -563,6 +619,7 @@ async function main() {
         currency: "TRY",
         asOf: NOW,
       });
+      assert.equal(psql(backend, `SELECT count(DISTINCT order_row.currency)::text||':'||min(order_row.currency)||':'||store.currency FROM saas.orders AS order_row JOIN saas.stores AS store ON store.id=order_row.store_id WHERE order_row.store_id='${STORE_A}' GROUP BY store.currency;`), "1:TRY:TRY");
     });
 
     await scenario("cross-store order detail is a stable not-found", async () => {
@@ -577,7 +634,7 @@ async function main() {
 
     await scenario("analyst authority can read list detail and summary", async () => {
       const analyst = { principal: "20000000-0000-4000-8000-000000000004", membership: "30000000-0000-4000-8000-000000000004" };
-      assert.equal(api(backend, "orders_list", "NULL,NULL,10,NULL,NULL", analyst).outcome, "listed");
+      assert.equal(api(backend, "orders_list", orderListArguments({ pageSize: 10 }), analyst).outcome, "listed");
       assert.equal(api(backend, "orders_get", `'${ORDER_A}'::uuid`, analyst).outcome, "found");
       assert.equal(api(backend, "orders_get_dashboard_summary", "", analyst).outcome, "summarized");
     });
@@ -727,7 +784,7 @@ async function main() {
     await scenario("API JSON never exposes raw private authority", async () => {
       const payloads = [
         api(backend, "orders_get_dashboard_summary"),
-        api(backend, "orders_list", "NULL,NULL,100,NULL,NULL"),
+        api(backend, "orders_list", orderListArguments()),
         api(backend, "orders_get", `'${ORDER_A}'::uuid`),
         api(backend, "orders_get", `'${ORDER_B}'::uuid`),
         api(backend, "orders_recover_operation", `'61000000-0000-4000-8000-000000000010'::uuid,repeat('a',64)`),
@@ -748,6 +805,7 @@ async function main() {
       assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['${TABLES.join("','")}']);`, ROLLBACK_DATABASE), "0");
       assert.equal(psql(backend, `SELECT to_regprocedure('${AUTHORITY_SIGNATURE}') IS NULL;`, ROLLBACK_DATABASE), "t");
       assert.equal(psql(backend, "SELECT to_regclass('saas.products')::text||':'||to_regprocedure('saas.catalog_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)')::text;", ROLLBACK_DATABASE), "saas.products:saas.catalog_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone)");
+      assert.equal(psql(backend, `SELECT count(*) FROM pg_constraint WHERE conrelid='saas.stores'::regclass AND conname='stores_id_currency_key';`, ROLLBACK_DATABASE), "0");
     });
 
     apply(backend, "202607210022_order_management.up.sql", ROLLBACK_DATABASE);
@@ -757,6 +815,7 @@ async function main() {
     await scenario("reapply restores exact 022 authority", async () => {
       assert.equal(authority(backend, {}, ROLLBACK_DATABASE), "<null>");
       assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['${TABLES.join("','")}']);`, ROLLBACK_DATABASE), "5");
+      assert.equal(psql(backend, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='saas.orders'::regclass AND conname='orders_store_currency_fk';`, ROLLBACK_DATABASE), "FOREIGN KEY (store_id, currency) REFERENCES saas.stores(id, currency)");
     });
 
     const dump = path.join(backend.temporaryDirectory, "order-management.dump");
@@ -769,6 +828,8 @@ async function main() {
       assert.equal(authority(backend, {}, RESTORE_DATABASE), "<null>");
       assert.equal(psql(backend, `SELECT count(*) FROM saas.orders WHERE id='${ORDER_A}';`, RESTORE_DATABASE), "1");
       assert.equal(api(backend, "orders_get", `'${ORDER_A}'::uuid`, {}, RESTORE_DATABASE).outcome, "found");
+      denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.orders SET currency='USD' WHERE id='${ORDER_A}'; COMMIT;`, RESTORE_DATABASE);
+      assert.equal(psql(backend, `SELECT order_row.currency||':'||store.currency FROM saas.orders AS order_row JOIN saas.stores AS store ON store.id=order_row.store_id WHERE order_row.id='${ORDER_A}';`, RESTORE_DATABASE), "TRY:TRY");
       denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; DELETE FROM saas.order_events WHERE id='${EVENT_A}'; COMMIT;`, RESTORE_DATABASE);
     });
 

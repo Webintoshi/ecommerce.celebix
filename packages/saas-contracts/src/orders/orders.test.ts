@@ -5,6 +5,7 @@ import {
   ORDER_PAYMENT_STATUSES,
   ORDER_SOURCES,
   ORDER_STATUSES,
+  ORDER_SORTS,
   parseOrderDashboardSummary,
   parseOrderDetail,
   parseOrderListItem,
@@ -126,9 +127,11 @@ test("deeply freezes every parsed order value", () => {
     ORDER_STATUSES,
     ORDER_PAYMENT_STATUSES,
     ORDER_SOURCES,
+    ORDER_SORTS,
   ]) {
     assert.equal(Object.isFrozen(value), true);
   }
+  assert.deepEqual(ORDER_SORTS, ["newest", "oldest", "highest", "lowest"]);
 });
 
 test("rejects unknown order keys", () => {
@@ -150,7 +153,13 @@ test("rejects negative and unsafe order money", () => {
 });
 
 test("rejects invalid order timestamps", () => {
+  const microsecond = listItem({
+    createdAt: "2026-07-21T08:00:00.000900Z",
+    updatedAt: "2026-07-21T09:00:00.000001Z",
+  });
+  assert.equal(parseOrderListItem(microsecond).createdAt, "2026-07-21T08:00:00.000900Z");
   assert.throws(() => parseOrderListItem(listItem({ updatedAt: "2026-07-21T09:00:00Z" })), /order_contract_invalid/);
+  assert.throws(() => parseOrderListItem(listItem({ updatedAt: "2026-07-21T09:00:00.0000Z" })), /order_contract_invalid/);
 });
 
 test("rejects private authority keys", () => {

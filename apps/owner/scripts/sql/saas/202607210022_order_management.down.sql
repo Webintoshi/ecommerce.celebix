@@ -12,5 +12,6 @@ DROP TABLE saas.order_events;
 DROP FUNCTION saas.guard_order_event_mutation();
 DROP TABLE saas.order_items;
 DROP TABLE saas.orders;
+ALTER TABLE saas.stores DROP CONSTRAINT stores_id_currency_key;
 
 COMMIT;

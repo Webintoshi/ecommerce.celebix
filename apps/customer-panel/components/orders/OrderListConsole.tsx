@@ -1,15 +1,14 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { OrderListItem, OrderStatus } from "@celebix/saas-contracts";
+import type { OrderListItem, OrderSort, OrderStatus } from "@celebix/saas-contracts";
 
 import { PanelEmptyState, PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
 import styles from "./order-console.module.css";
 
-type Sort = "newest" | "oldest" | "highest" | "lowest";
 type ListState = "loading" | "loaded" | "error";
 type OrderListPage = Awaited<ReturnType<typeof orderApi.listOrders>>;
 
@@ -47,13 +46,14 @@ function tone(status: OrderStatus): "neutral" | "success" | "warning" | "danger"
 
 export async function requestOrderListPage(
   api: Pick<typeof orderApi, "listOrders">,
-  input: Readonly<{ cursor?: string; status: OrderStatus | "all"; search: string }>,
+  input: Readonly<{ cursor?: string; status: OrderStatus | "all"; search: string; sort: OrderSort }>,
 ): Promise<OrderListPage> {
   return api.listOrders({
     pageSize: 20,
     ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
     ...(input.status === "all" ? {} : { status: input.status }),
     ...(input.search === "" ? {} : { search: input.search }),
+    sort: input.sort,
   });
 }
 
@@ -65,28 +65,19 @@ export function mergeOrderListPage(
   return append ? Object.freeze([...current, ...result.items]) : result.items;
 }
 
-export function sortOrderListItems(items: readonly OrderListItem[], sort: Sort): readonly OrderListItem[] {
-  return Object.freeze([...items].sort((left, right) => {
-    if (sort === "oldest") return left.createdAt.localeCompare(right.createdAt);
-    if (sort === "highest") return right.totalCents - left.totalCents;
-    if (sort === "lowest") return left.totalCents - right.totalCents;
-    return right.createdAt.localeCompare(left.createdAt);
-  }));
-}
-
 export interface OrderListPresentationProps {
   readonly state: ListState;
   readonly items: readonly OrderListItem[];
   readonly error: string;
   readonly search: string;
   readonly status: OrderStatus | "all";
-  readonly sort: Sort;
+  readonly sort: OrderSort;
   readonly nextCursor?: string;
   readonly loadingMore: boolean;
   readonly onRetry: () => void;
   readonly onSearchChange: (value: string) => void;
   readonly onStatusChange: (value: OrderStatus | "all") => void;
-  readonly onSortChange: (value: Sort) => void;
+  readonly onSortChange: (value: OrderSort) => void;
   readonly onLoadMore: () => void;
   readonly onSearchSubmit?: () => void;
 }
@@ -146,11 +137,11 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
     <PanelPageShell>
       <PanelPageHeader title="Siparişler" description="Sipariş, ödeme ve teslimat akışını gerçek mağaza verileriyle yönetin." />
       <section className={styles.listSurface} aria-labelledby="orders-list-title">
-        <div className={styles.surfaceHeading}><div><h2 id="orders-list-title">Tüm Siparişler</h2><p>En güncel siparişler önce gösterilir.</p></div></div>
+        <div className={styles.surfaceHeading}><div><h2 id="orders-list-title">Tüm Siparişler</h2><p>Seçtiğiniz sıralama tüm siparişlerde uygulanır.</p></div></div>
         <form className={styles.toolbar} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}>
           <label className={styles.searchField}><span className="sr-only">Sipariş ara</span><input value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş ara" maxLength={200} /><button type="submit">Ara</button></label>
           <label><span className="sr-only">Sipariş durumu</span><select value={props.status} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as Sort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option></select></label>
+          <label><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten düşüğe</option><option value="lowest">Tutar: düşükten yükseğe</option></select></label>
         </form>
         {content}
       </section>
@@ -171,7 +162,7 @@ export function OrderListConsole() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<OrderStatus | "all">("all");
-  const [sort, setSort] = useState<Sort>("newest");
+  const [sort, setSort] = useState<OrderSort>("newest");
   const sequence = useRef(0);
 
   const load = useCallback(async (cursor?: string) => {
@@ -179,7 +170,7 @@ export function OrderListConsole() {
     cursor ? setLoadingMore(true) : setState("loading");
     setError("");
     try {
-      const result = await requestOrderListPage(orderApi, { ...(cursor ? { cursor } : {}), status, search });
+      const result = await requestOrderListPage(orderApi, { ...(cursor ? { cursor } : {}), status, search, sort });
       if (request !== sequence.current) return;
       setItems((current) => mergeOrderListPage(current, result, cursor !== undefined));
       setNextCursor(result.nextCursor);
@@ -191,11 +182,9 @@ export function OrderListConsole() {
     } finally {
       if (request === sequence.current) setLoadingMore(false);
     }
-  }, [search, status]);
+  }, [search, sort, status]);
 
   useEffect(() => { void load(); return () => { sequence.current += 1; }; }, [load]);
-
-  const sortedItems = useMemo(() => sortOrderListItems(items, sort), [items, sort]);
 
   function submitSearch(event?: FormEvent) {
     event?.preventDefault();
@@ -203,5 +192,5 @@ export function OrderListConsole() {
     if (normalized.length === 0 || normalized.length <= 200) setSearch(normalized);
   }
 
-  return <OrderListPresentation state={state} items={sortedItems} error={error} search={searchInput} status={status} sort={sort} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onStatusChange={setStatus} onSortChange={setSort} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
+  return <OrderListPresentation state={state} items={items} error={error} search={searchInput} status={status} sort={sort} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onStatusChange={setStatus} onSortChange={setSort} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
 }

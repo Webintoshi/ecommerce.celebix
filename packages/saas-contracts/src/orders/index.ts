@@ -1,4 +1,4 @@
-export { ORDER_PAYMENT_STATUSES, ORDER_SOURCES, ORDER_STATUSES } from "./types.ts";
+export { ORDER_PAYMENT_STATUSES, ORDER_SOURCES, ORDER_STATUSES, ORDER_SORTS } from "./types.ts";
 export type {
   OrderAddress,
   OrderDashboardSummary,
@@ -9,6 +9,7 @@ export type {
   OrderNote,
   OrderPaymentStatus,
   OrderSource,
+  OrderSort,
   OrderStatus,
   OrderTracking,
 } from "./types.ts";

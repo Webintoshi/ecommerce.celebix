@@ -322,13 +322,13 @@ test("TenantContext status, membership, entitlement, validity, and shape fail cl
   );
 });
 
-test("list binds status/search/page arguments and emits a store-and-filter-bound opaque cursor", async () => {
+test("list binds global sort arguments and emits a store-filter-sort-and-position-bound opaque cursor", async () => {
   const cursorTimestamp = "2026-07-20T10:00:00.000000Z";
   const firstClient = new FakeClient((text) => text.includes("saas.orders_list")
-    ? [{ outcome: "listed", result_payload: { items: [listItem()], nextCursor: { createdAt: cursorTimestamp, id: ORDER_ID } } }]
+    ? [{ outcome: "listed", result_payload: { items: [listItem()], nextCursor: { totalCents: 13_000, createdAt: cursorTimestamp, id: ORDER_ID } } }]
     : []);
   const first = await repository(new FakePool(firstClient)).listOrders({
-    tenantContext: tenantContext(), now: NOW, pageSize: 1, status: "confirmed", search: "Ada",
+    tenantContext: tenantContext(), now: NOW, pageSize: 1, status: "confirmed", search: "Ada", sort: "highest",
   });
 
   assert.equal(Object.isFrozen(first), true);
@@ -339,30 +339,48 @@ test("list binds status/search/page arguments and emits a store-and-filter-bound
   const firstCall = functionCall(firstClient, "orders_list");
   assert.deepEqual(firstCall.values, [
     STORE_ID, PRINCIPAL_ID, MEMBERSHIP_ID, PLAN_ID, "merchant_growth", 3, NOW,
-    "confirmed", "Ada", 1, null, null,
+    "confirmed", "Ada", "highest", 1, null, null, null,
   ]);
 
   const secondClient = new FakeClient((text) => text.includes("saas.orders_list")
     ? [{ outcome: "listed", result_payload: { items: [] } }]
     : []);
   await repository(new FakePool(secondClient)).listOrders({
-    tenantContext: tenantContext(), now: NOW, pageSize: 1, status: "confirmed", search: "Ada", cursor: first.nextCursor,
+    tenantContext: tenantContext(), now: NOW, pageSize: 1, status: "confirmed", search: "Ada", sort: "highest", cursor: first.nextCursor,
   });
-  assert.deepEqual(functionCall(secondClient, "orders_list").values.slice(10), [cursorTimestamp, ORDER_ID]);
+  assert.deepEqual(functionCall(secondClient, "orders_list").values.slice(11), [13_000, cursorTimestamp, ORDER_ID]);
 
   const otherStore = tenantContext({ store: { id: OTHER_STORE_ID, slug: "other", status: "active" } });
   const unused = new FakePool();
   await assert.rejects(repository(unused).listOrders({
-    tenantContext: otherStore, now: NOW, pageSize: 1, status: "confirmed", search: "Ada", cursor: first.nextCursor,
+    tenantContext: otherStore, now: NOW, pageSize: 1, status: "confirmed", search: "Ada", sort: "highest", cursor: first.nextCursor,
   }), orderError("invalid_input"));
   assert.equal(unused.connects, 0);
+
+  const sortMismatch = new FakePool();
+  await assert.rejects(repository(sortMismatch).listOrders({
+    tenantContext: tenantContext(), now: NOW, pageSize: 1, status: "confirmed", search: "Ada", sort: "lowest", cursor: first.nextCursor,
+  }), orderError("invalid_input"));
+  assert.equal(sortMismatch.connects, 0);
+
+  const decoded = JSON.parse(Buffer.from(first.nextCursor!, "base64url").toString("utf8"));
+  const tampered = Buffer.from(JSON.stringify({ ...decoded, totalCents: 12_999 }), "utf8").toString("base64url");
+  const tamperedPool = new FakePool();
+  await assert.rejects(repository(tamperedPool).listOrders({
+    tenantContext: tenantContext(), now: NOW, pageSize: 1, status: "confirmed", search: "Ada", sort: "highest", cursor: tampered,
+  }), orderError("invalid_input"));
+  assert.equal(tamperedPool.connects, 0);
 });
 
 test("list rejects unordered, oversized, private, or inconsistent cursor projections", async () => {
   const malformed = [
     { items: [listItem({ createdAt: "2026-07-19T10:00:00.000Z" }), listItem({ id: NOTE_ID })] },
-    { items: [listItem()], nextCursor: { createdAt: "2026-07-20T10:00:00.000000Z", id: NOTE_ID } },
-    { items: [], nextCursor: { createdAt: "2026-07-20T10:00:00.000000Z", id: ORDER_ID } },
+    { items: [listItem()], nextCursor: { totalCents: 13_000, createdAt: "2026-07-20T10:00:00.000000Z", id: NOTE_ID } },
+    {
+      items: [listItem({ createdAt: "2026-07-20T10:00:00.000800Z" })],
+      nextCursor: { totalCents: 13_000, createdAt: "2026-07-20T10:00:00.000700Z", id: ORDER_ID },
+    },
+    { items: [], nextCursor: { totalCents: 13_000, createdAt: "2026-07-20T10:00:00.000000Z", id: ORDER_ID } },
     { items: [listItem()], storeId: STORE_ID },
     { items: [listItem(), listItem({ id: NOTE_ID })] },
   ];
@@ -373,6 +391,44 @@ test("list rejects unordered, oversized, private, or inconsistent cursor project
     await assert.rejects(repository(new FakePool(client)).listOrders({
       tenantContext: tenantContext(), now: NOW, pageSize: 1,
     }), orderError("unavailable"));
+  }
+  const orderingCases = [
+    { sort: "newest", items: [listItem({ id: NOTE_ID, createdAt: "2026-07-19T10:00:00.000Z" }), listItem()] },
+    { sort: "oldest", items: [listItem(), listItem({ id: NOTE_ID, createdAt: "2026-07-19T10:00:00.000Z" })] },
+    { sort: "highest", items: [listItem({ id: NOTE_ID, totalCents: 12_000 }), listItem()] },
+    { sort: "lowest", items: [listItem(), listItem({ id: NOTE_ID, totalCents: 12_000 })] },
+  ] as const;
+  for (const { sort, items } of orderingCases) {
+    const client = new FakeClient((text) => text.includes("saas.orders_list")
+      ? [{ outcome: "listed", result_payload: { items } }]
+      : []);
+    await assert.rejects(repository(new FakePool(client)).listOrders({
+      tenantContext: tenantContext(), now: NOW, pageSize: 2, sort,
+    }), orderError("unavailable"));
+  }
+  const lateLowId = listItem({
+    id: ORDER_ID,
+    createdAt: "2026-07-20T10:00:00.000900Z",
+    updatedAt: "2026-07-20T10:30:00.000900Z",
+  });
+  const earlyHighId = listItem({
+    id: NOTE_ID,
+    createdAt: "2026-07-20T10:00:00.000700Z",
+    updatedAt: "2026-07-20T10:30:00.000700Z",
+  });
+  for (const [sort, items] of [
+    ["newest", [lateLowId, earlyHighId]],
+    ["oldest", [earlyHighId, lateLowId]],
+    ["highest", [lateLowId, earlyHighId]],
+    ["lowest", [earlyHighId, lateLowId]],
+  ] as const) {
+    const client = new FakeClient((text) => text.includes("saas.orders_list")
+      ? [{ outcome: "listed", result_payload: { items } }]
+      : []);
+    const result = await repository(new FakePool(client)).listOrders({
+      tenantContext: tenantContext(), now: NOW, pageSize: 2, sort,
+    });
+    assert.deepEqual(result.items.map(({ id }) => id), items.map(({ id }) => id));
   }
 });
 

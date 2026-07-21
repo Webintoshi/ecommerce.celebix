@@ -362,6 +362,7 @@ test("keeps the public runtime export surface frozen", () => {
   assert.deepEqual(Object.keys(contracts).sort(), [
     "MERCHANT_ACTIONS",
     "ORDER_PAYMENT_STATUSES",
+    "ORDER_SORTS",
     "ORDER_SOURCES",
     "ORDER_STATUSES",
     "PLAN_ENTITLEMENT_STATUSES",

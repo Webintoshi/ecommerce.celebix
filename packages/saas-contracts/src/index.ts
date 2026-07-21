@@ -65,6 +65,7 @@ export {
   ORDER_PAYMENT_STATUSES,
   ORDER_SOURCES,
   ORDER_STATUSES,
+  ORDER_SORTS,
   parseOrderDashboardSummary,
   parseOrderDetail,
   parseOrderListItem,
@@ -79,6 +80,7 @@ export type {
   OrderNote,
   OrderPaymentStatus,
   OrderSource,
+  OrderSort,
   OrderStatus,
   OrderTracking,
 } from "./orders/index.ts";

@@ -205,17 +205,20 @@ test("authenticated summary forwards only server TenantContext and returns safe 
   assert.doesNotMatch(JSON.stringify(await (await handlers.getDashboardSummary(request(SUMMARY))).json()), /storeId|principalId|membershipId|issuer|subject/i);
 });
 
-test("authenticated list accepts only pageSize cursor status and search and calls once", async () => {
+test("authenticated list accepts only pageSize cursor status search and sort with a safe default", async () => {
   const calls: unknown[] = [];
   const handlers = createOrderHttpHandlers(dependencies(repository({
     async listOrders(input) { calls.push(input); return Object.freeze({ items: Object.freeze([listItem()]), nextCursor: "eyJ2IjoxfQ" }); },
   })));
-  const response = await handlers.listOrders(request(`${ORDERS}?pageSize=25&cursor=eyJ2IjoxfQ&status=confirmed&search=Ada%20Lovelace`));
+  const response = await handlers.listOrders(request(`${ORDERS}?pageSize=25&cursor=eyJ2IjoxfQ&status=confirmed&search=Ada%20Lovelace&sort=highest`));
   assert.equal(response.status, 200);
   assert.deepEqual(await body(response), { items: [listItem()], nextCursor: "eyJ2IjoxfQ" });
   assert.deepEqual(calls, [{
-    tenantContext: tenantContext(), now: NOW, pageSize: 25, cursor: "eyJ2IjoxfQ", status: "confirmed", search: "Ada Lovelace",
+    tenantContext: tenantContext(), now: NOW, pageSize: 25, cursor: "eyJ2IjoxfQ", status: "confirmed", search: "Ada Lovelace", sort: "highest",
   }]);
+  const defaultResponse = await handlers.listOrders(request(ORDERS));
+  assert.equal(defaultResponse.status, 200);
+  assert.deepEqual(calls[1], { tenantContext: tenantContext(), now: NOW, pageSize: 20, sort: "newest" });
 });
 
 test("authenticated order detail validates the path ID and calls once", async () => {
@@ -302,7 +305,7 @@ test("GET routes reject exact-path near matches, fragments, and forbidden querie
 test("list rejects unknown, duplicate, empty, malformed, and oversized query keys", async () => {
   const handlers = createOrderHttpHandlers(dependencies(repository()));
   for (const query of [
-    `storeId=${STORE_ID}`, "pageSize=10&pageSize=20", "pageSize=", "cursor=", "status=", "search=", `search=${"a".repeat(4100)}`,
+    `storeId=${STORE_ID}`, "pageSize=10&pageSize=20", "pageSize=", "cursor=", "status=", "search=", "sort=", "sort=newest&sort=oldest", `search=${"a".repeat(4100)}`,
   ]) {
     assert.equal((await handlers.listOrders(request(`${ORDERS}?${query}`))).status, 400);
   }
@@ -311,7 +314,7 @@ test("list rejects unknown, duplicate, empty, malformed, and oversized query key
 test("list validates page size cursor status and normalized bounded search", async () => {
   const handlers = createOrderHttpHandlers(dependencies(repository()));
   for (const query of [
-    "pageSize=0", "pageSize=101", "pageSize=01", "cursor=bad%2Fcursor", "status=unknown",
+    "pageSize=0", "pageSize=101", "pageSize=01", "cursor=bad%2Fcursor", "status=unknown", "sort=unknown",
     "search=%20Ada", "search=Ada%20", `search=${"a".repeat(201)}`,
   ]) {
     assert.equal((await handlers.listOrders(request(`${ORDERS}?${query}`))).status, 400);

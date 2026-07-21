@@ -94,6 +94,7 @@ function visitElements(node: ReactNode, visitor: (element: React.ReactElement<Re
 
 async function compileOrderModule(
   path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx",
+  overrides: Readonly<{ react?: typeof React; orderApi?: Record<string, unknown> }> = {},
 ) {
   const output = ts.transpileModule(await source(path), {
     compilerOptions: {
@@ -127,13 +128,13 @@ async function compileOrderModule(
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
-    if (specifier === "react") return React;
+    if (specifier === "react") return overrides.react ?? React;
     if (specifier === "next/link") return Link;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier === "@/lib/order-ui/client") return {
       OrderApiError: CompiledOrderApiError,
-      orderApi: Object.freeze({}),
+      orderApi: Object.freeze(overrides.orderApi ?? {}),
     };
     if (specifier === "@celebix/saas-contracts") return {
       ORDER_PAYMENT_STATUSES: ["pending", "processing", "completed", "failed", "refunded"],
@@ -153,6 +154,61 @@ async function compilePresentation(
   const compiled = await compileOrderModule(path);
   assert.equal(typeof compiled.exports[exportName], "function");
   return compiled.exports[exportName] as ComponentType<Record<string, unknown>>;
+}
+
+function createHookRuntime() {
+  const slots: unknown[] = [];
+  let cursor = 0;
+  let dirty = true;
+  let latest: ReactNode;
+  const sameDeps = (left: readonly unknown[] | undefined, right: readonly unknown[]) =>
+    left !== undefined && left.length === right.length && left.every((value, index) => Object.is(value, right[index]));
+  const runtime = {
+    ...React,
+    useState<T>(initial: T | (() => T)) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = typeof initial === "function" ? (initial as () => T)() : initial;
+      const set = (next: T | ((current: T) => T)) => {
+        slots[index] = typeof next === "function" ? (next as (current: T) => T)(slots[index] as T) : next;
+        dirty = true;
+      };
+      return [slots[index] as T, set] as const;
+    },
+    useRef<T>(initial: T) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = { current: initial };
+      return slots[index] as { current: T };
+    },
+    useCallback<T extends (...args: never[]) => unknown>(callback: T, deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
+      if (prior === undefined || !sameDeps(prior.deps, deps)) slots[index] = { deps: [...deps], value: callback };
+      return (slots[index] as { value: T }).value;
+    },
+    useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
+      const index = cursor++;
+      const prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void } | undefined;
+      if (prior !== undefined && sameDeps(prior.deps, deps)) return;
+      prior?.cleanup?.();
+      const cleanup = effect();
+      slots[index] = { deps: [...deps], ...(typeof cleanup === "function" ? { cleanup } : {}) };
+    },
+  } as unknown as typeof React;
+  return {
+    runtime,
+    async flush(component: () => ReactNode) {
+      for (let pass = 0; pass < 20; pass += 1) {
+        if (dirty || latest === undefined) {
+          dirty = false;
+          cursor = 0;
+          latest = component();
+        }
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (!dirty) return latest;
+      }
+      throw new Error("order_console_hook_flush_exhausted");
+    },
+  };
 }
 
 async function compileDashboardPresentation(dashboardModel: Record<string, unknown>) {
@@ -217,17 +273,20 @@ test("order client performs strict frozen same-origin summary, list, and detail 
     { totalOrders: 9, pendingOrders: 2, fulfilledOrders: 5, revenueCents: 48_500, currency: "TRY", asOf: NOW },
     { items: [item], nextCursor: "eyJ2IjoxfQ" },
     { items: [], nextCursor: undefined },
+    { items: [] },
     detail,
   ];
   const api = createOrderApiClient({ fetch: async (input, init) => { calls.push([input, init]); return json(bodies.shift()); } });
   const summary = await api.getDashboardSummary();
-  const list = await api.listOrders({ pageSize: 20, status: "confirmed", search: "Ada Lovelace" });
-  const next = await api.listOrders({ pageSize: 20, cursor: list.nextCursor, status: "confirmed", search: "Ada Lovelace" });
+  const list = await api.listOrders({ pageSize: 20, status: "confirmed", search: "Ada Lovelace", sort: "highest" });
+  const next = await api.listOrders({ pageSize: 20, cursor: list.nextCursor, status: "confirmed", search: "Ada Lovelace", sort: "highest" });
+  await api.listOrders();
   const loaded = await api.getOrder(ORDER_ID);
   assert.deepEqual(calls.map(([path]) => path), [
     "/api/orders/summary",
-    "/api/orders?pageSize=20&status=confirmed&search=Ada+Lovelace",
-    "/api/orders?pageSize=20&cursor=eyJ2IjoxfQ&status=confirmed&search=Ada+Lovelace",
+    "/api/orders?pageSize=20&status=confirmed&search=Ada+Lovelace&sort=highest",
+    "/api/orders?pageSize=20&cursor=eyJ2IjoxfQ&status=confirmed&search=Ada+Lovelace&sort=highest",
+    "/api/orders?pageSize=20&sort=newest",
     `/api/orders/${ORDER_ID}`,
   ]);
   assert.equal(calls.every(([, init]) => init?.credentials === "same-origin" && init.method === "GET"), true);
@@ -320,6 +379,7 @@ test("order client fails closed on unsafe payloads and contains no browser autho
   }
   const listGetter = Object.defineProperty({}, "search", { enumerable: true, get() { throw new Error("list getter escaped"); } });
   await assert.rejects(async () => guarded.listOrders(listGetter), { name: "TypeError", message: "order_client_invalid" });
+  await assert.rejects(async () => guarded.listOrders({ sort: "unknown" } as never), { name: "TypeError", message: "order_client_invalid" });
   await assert.rejects(async () => guarded.transitionStatus(ORDER_ID, { expectedVersion: 4, nextStatus: "confirmed", privateAuthority: ORDER_ID } as never), { name: "TypeError", message: "order_client_invalid" });
   const paymentGetter = Object.defineProperty({ expectedVersion: 4 }, "nextPaymentStatus", { enumerable: true, get() { throw new Error("payment getter escaped"); } });
   await assert.rejects(async () => guarded.transitionPayment(ORDER_ID, paymentGetter as never), { name: "TypeError", message: "order_client_invalid" });
@@ -399,18 +459,51 @@ test("order list exposes search, status, sort, and cursor pagination controls", 
     result: { items: readonly OrderListItem[] },
     append: boolean,
   ) => readonly OrderListItem[];
-  const sortOrderListItems = exports.sortOrderListItems as (items: readonly OrderListItem[], sort: string) => readonly OrderListItem[];
   const requests: unknown[] = [];
-  const result = await requestOrderListPage({
-    async listOrders(input) { requests.push(input); return { items: [item], nextCursor: "cursor_2" }; },
-  }, { cursor: "cursor_1", status: "confirmed", search: "Ada" });
-  assert.deepEqual(requests, [{ pageSize: 20, cursor: "cursor_1", status: "confirmed", search: "Ada" }]);
+  const listApi = {
+    async listOrders(input: unknown) { requests.push(input); return { items: [item], nextCursor: "cursor_2" }; },
+  };
+  const result = await requestOrderListPage(listApi, { cursor: "cursor_1", status: "confirmed", search: "Ada", sort: "highest" });
+  assert.deepEqual(requests, [{ pageSize: 20, cursor: "cursor_1", status: "confirmed", search: "Ada", sort: "highest" }]);
   assert.equal(result.nextCursor, "cursor_2");
   const older = Object.freeze({ ...item, id: ITEM_ID, orderNumber: "HMK-1041", totalCents: 20_000, createdAt: "2026-07-20T09:30:00.000Z" });
   const merged = mergeOrderListPage([older], result, true);
   assert.deepEqual(merged.map(({ orderNumber }) => orderNumber), ["HMK-1041", "HMK-1042"]);
-  assert.deepEqual(sortOrderListItems(merged, "highest").map(({ orderNumber }) => orderNumber), ["HMK-1041", "HMK-1042"]);
-  assert.deepEqual(sortOrderListItems(merged, "newest").map(({ orderNumber }) => orderNumber), ["HMK-1042", "HMK-1041"]);
+  assert.deepEqual(merged.map(({ orderNumber }) => orderNumber), ["HMK-1041", "HMK-1042"], "server page order is retained without a local re-sort");
+  assert.equal("sortOrderListItems" in exports, false);
+  const hookRuntime = createHookRuntime();
+  const statefulCalls: unknown[] = [];
+  const pages = [
+    { items: [item], nextCursor: "cursor_1" },
+    { items: [older], nextCursor: "cursor_2" },
+    { items: [older, item] },
+  ];
+  const stateful = await compileOrderModule("components/orders/OrderListConsole.tsx", {
+    react: hookRuntime.runtime,
+    orderApi: {
+      async listOrders(input: unknown) {
+        statefulCalls.push(input);
+        const page = pages.shift();
+        assert.ok(page);
+        return page;
+      },
+    },
+  });
+  const Console = stateful.exports.OrderListConsole as () => ReactNode;
+  let consoleView = await hookRuntime.flush(Console) as React.ReactElement<Record<string, unknown>>;
+  assert.deepEqual((consoleView.props.items as OrderListItem[]).map(({ orderNumber }) => orderNumber), ["HMK-1042"]);
+  (consoleView.props.onLoadMore as () => void)();
+  consoleView = await hookRuntime.flush(Console) as React.ReactElement<Record<string, unknown>>;
+  assert.deepEqual((consoleView.props.items as OrderListItem[]).map(({ orderNumber }) => orderNumber), ["HMK-1042", "HMK-1041"]);
+  (consoleView.props.onSortChange as (value: string) => void)("lowest");
+  consoleView = await hookRuntime.flush(Console) as React.ReactElement<Record<string, unknown>>;
+  assert.deepEqual(statefulCalls, [
+    { pageSize: 20, sort: "newest" },
+    { pageSize: 20, cursor: "cursor_1", sort: "newest" },
+    { pageSize: 20, sort: "lowest" },
+  ]);
+  assert.deepEqual((consoleView.props.items as OrderListItem[]).map(({ orderNumber }) => orderNumber), ["HMK-1041", "HMK-1042"], "sort refetch replaces accumulated pages and retains server order");
+  assert.equal(consoleView.props.sort, "lowest");
   assert.equal(Object.isFrozen(merged), true);
 });
 

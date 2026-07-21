@@ -4,6 +4,7 @@ import type {
   OrderDetail,
   OrderListItem,
   OrderPaymentStatus,
+  OrderSort,
   OrderStatus,
   OrderTracking,
   TenantContext,
@@ -21,6 +22,7 @@ export interface ListOrdersInput extends OrderAuthorityInput {
   readonly cursor?: string;
   readonly status?: OrderStatus;
   readonly search?: string;
+  readonly sort?: OrderSort;
 }
 
 export interface GetOrderInput extends OrderAuthorityInput {

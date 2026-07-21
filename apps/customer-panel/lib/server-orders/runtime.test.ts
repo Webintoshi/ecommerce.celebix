@@ -91,7 +91,7 @@ test("approved staging preflight gates one shared pool on exact order tables and
   }
   for (const signature of [
     "orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
-    "orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,bigint,timestamp with time zone,uuid)",
+    "orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)",
     "orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
     "orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
     "orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
