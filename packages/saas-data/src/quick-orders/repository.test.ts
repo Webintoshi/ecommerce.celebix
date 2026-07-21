@@ -52,6 +52,27 @@ function tenantContext(overrides: Record<string, unknown> = {}): TenantContext {
   } as TenantContext;
 }
 
+function omit(value: Record<string, unknown>, key: string): Record<string, unknown> {
+  const copy = { ...value };
+  delete copy[key];
+  return copy;
+}
+
+function resolvedHost(overrides: Record<string, unknown> = {}) {
+  return {
+    schemaVersion: 1,
+    hostname: "atlas.example.com",
+    domainId: "88888888-8888-4888-8888-888888888888",
+    domainType: "custom",
+    storeId: STORE_ID,
+    storeSlug: "atlas-store",
+    canonicalHostname: "atlas.example.com",
+    status: "active",
+    cacheVersion: 1,
+    ...overrides,
+  };
+}
+
 function address() {
   return {
     recipientName: "Ada Lovelace",
@@ -347,6 +368,85 @@ test("list rejects a database cursor that differs from the normalized final DTO 
   }), quickLinkError("unavailable"));
 });
 
+test("list cursor cannot be reused across stores or effective status filters", async () => {
+  const item = listItem();
+  const issuingClient = new FakeClient((text) => text.includes("saas.quick_links_list")
+    ? [{ outcome: "listed", result_payload: { items: [item], nextCursor: { createdAt: item.createdAt, id: LINK_ID } } }]
+    : []);
+  const issued = await repository(new FakePool(issuingClient)).list({
+    tenantContext: tenantContext(), now: NOW, pageSize: 1, status: "active",
+  });
+  assert.equal(typeof issued.nextCursor, "string");
+
+  const otherStore = "99999999-9999-4999-8999-999999999999";
+  for (const input of [
+    {
+      tenantContext: tenantContext({
+        store: { id: otherStore, slug: "other-store", status: "active" },
+      }),
+      now: NOW,
+      pageSize: 1,
+      status: "active" as const,
+      cursor: issued.nextCursor,
+    },
+    {
+      tenantContext: tenantContext(),
+      now: NOW,
+      pageSize: 1,
+      status: "opened" as const,
+      cursor: issued.nextCursor,
+    },
+  ]) {
+    const pool = new FakePool();
+    await assert.rejects(repository(pool).list(input), quickLinkError("invalid_input"));
+    assert.equal(pool.connects, 0);
+  }
+});
+
+test("list descriptor-copies only an exact ordinary dense array before parsing items", async (context) => {
+  const cases: Array<readonly [string, unknown]> = [];
+
+  const customMap = [listItem({ tokenDigest: TOKEN_DIGEST })];
+  Object.defineProperty(customMap, "map", {
+    configurable: true,
+    enumerable: false,
+    value: () => [listItem()],
+  });
+  cases.push(["custom map cannot hide a raw token field", customMap]);
+
+  const sparse = new Array(1);
+  cases.push(["sparse array", sparse]);
+
+  const getterItems: unknown[] = [];
+  Object.defineProperty(getterItems, "0", {
+    configurable: true,
+    enumerable: true,
+    get: () => listItem(),
+  });
+  Object.defineProperty(getterItems, "length", { value: 1 });
+  cases.push(["element getter", getterItems]);
+
+  cases.push(["transparent proxy", new Proxy([listItem()], {})]);
+
+  class ItemArray extends Array<unknown> {}
+  cases.push(["array subclass", new ItemArray(listItem())]);
+
+  const symbolItems = [listItem()];
+  Object.defineProperty(symbolItems, Symbol("private"), { enumerable: false, value: TOKEN_DIGEST });
+  cases.push(["symbol property", symbolItems]);
+
+  for (const [name, items] of cases) {
+    await context.test(name, async () => {
+      const client = new FakeClient((text) => text.includes("saas.quick_links_list")
+        ? [{ outcome: "listed", result_payload: { items } }]
+        : []);
+      await assert.rejects(repository(new FakePool(client)).list({
+        tenantContext: tenantContext(), now: NOW, pageSize: 20,
+      }), quickLinkError("unavailable"));
+    });
+  }
+});
+
 test("get uses the exact signature and returns only a deeply frozen Task 1 projection", async () => {
   const client = new FakeClient((text) => text.includes("saas.quick_links_get")
     ? [{ outcome: "found", result_payload: detail() }]
@@ -484,6 +584,65 @@ test("all input and authority validation runs before checkout and contains hosti
   assert.equal(proxyPool.connects, 0);
 });
 
+test("authority shape failures preserve their intended stable codes before checkout", async () => {
+  const base = tenantContext() as unknown as Record<string, unknown>;
+  const cases: Array<readonly [string, TenantContext, string]> = [
+    ["missing principal", omit(base, "principal") as unknown as TenantContext, "unauthenticated"],
+    ["inactive store", tenantContext({ store: { id: STORE_ID, slug: "atlas-store", status: "disabled" } }), "store_inactive"],
+    ["inactive membership", tenantContext({ membership: { id: MEMBERSHIP_ID, role: "store_owner", status: "disabled" } }), "membership_denied"],
+    ["missing checkout feature", tenantContext({
+      entitlements: { ...tenantContext().entitlements, features: ["orders"] },
+    }), "feature_not_enabled"],
+  ];
+  for (const [, authority, code] of cases) {
+    const pool = new FakePool();
+    await assert.rejects(repository(pool).list({ tenantContext: authority, now: NOW, pageSize: 20 }), quickLinkError(code));
+    assert.equal(pool.connects, 0);
+  }
+});
+
+test("nested hostile authority records fail durably without invoking accessors or checkout", async () => {
+  let getterCalls = 0;
+  const accessorPrincipal = Object.defineProperty({
+    issuer: "https://identity.example/oidc",
+    subject: PRIVATE_SUBJECT,
+  }, "id", {
+    enumerable: true,
+    get() { getterCalls += 1; throw new QuickOrderLinkRepositoryError("commit_unknown"); },
+  });
+  const symbolLimits = { products: 100, staff: 5, storageBytes: 1_024 } as Record<PropertyKey, unknown>;
+  symbolLimits[Symbol("private")] = TOKEN_DIGEST;
+  const accessorLimits = Object.defineProperty({ products: 100, staff: 5 }, "storageBytes", {
+    enumerable: true,
+    get() { getterCalls += 1; throw new QuickOrderLinkRepositoryError("commit_unknown"); },
+  });
+  const malformedTimestamp = { ...tenantContext().entitlements, validFrom: "2026-13-01T00:00:00.000Z" };
+  const invalid: TenantContext[] = [
+    tenantContext({ principal: Object.assign(Object.create({ inherited: true }), tenantContext().principal) }),
+    tenantContext({ principal: accessorPrincipal }),
+    Object.assign(tenantContext(), { [Symbol("private")]: TOKEN_DIGEST }),
+    tenantContext({ entitlements: { ...tenantContext().entitlements, limits: symbolLimits } }),
+    tenantContext({
+      entitlements: {
+        ...tenantContext().entitlements,
+        limits: Object.assign(Object.create({ inherited: true }), tenantContext().entitlements.limits),
+      },
+    }),
+    tenantContext({ entitlements: { ...tenantContext().entitlements, limits: accessorLimits } }),
+    tenantContext({ entitlements: { ...tenantContext().entitlements, features: ["orders", "checkout", "orders"] } }),
+    tenantContext({ entitlements: malformedTimestamp }),
+    tenantContext({ resolvedHost: resolvedHost({ storeId: "99999999-9999-4999-8999-999999999999" }) }),
+    tenantContext({ resolvedHost: Object.assign(Object.create({ inherited: true }), resolvedHost()) }),
+  ];
+
+  for (const authority of invalid) {
+    const pool = new FakePool();
+    await assert.rejects(repository(pool).list({ tenantContext: authority, now: NOW, pageSize: 20 }), quickLinkError("durable_authority_invalid"));
+    assert.equal(pool.connects, 0);
+  }
+  assert.equal(getterCalls, 0);
+});
+
 test("controlled outcomes rollback and expose only the finite safe repository errors", async () => {
   for (const outcome of [
     "invalid_input", "membership_denied", "store_inactive", "feature_not_enabled", "action_denied",
@@ -545,6 +704,41 @@ test("driver failures and malformed one-row outcomes map safely with correct rol
   assert.equal(readCommitFailure.calls.some(({ text }) => text === "ROLLBACK"), false);
 });
 
+test("public repository errors thrown by untrusted inputs, rows, drivers, or constructor traps are never trusted", async () => {
+  const inputPool = new FakePool();
+  await assert.rejects(repository(inputPool).create(new Proxy(createInput(), {
+    ownKeys: () => { throw new QuickOrderLinkRepositoryError("commit_unknown"); },
+  })), quickLinkError("invalid_input"));
+  assert.equal(inputPool.connects, 0);
+
+  const driver = new FakeClient((text) => {
+    if (text.includes("saas.quick_links_get")) throw new QuickOrderLinkRepositoryError("commit_unknown");
+    return [];
+  });
+  await assert.rejects(repository(new FakePool(driver)).get({
+    tenantContext: tenantContext(), now: NOW, linkId: LINK_ID,
+  }), quickLinkError("unavailable"));
+
+  const hostileRow = new Proxy({ outcome: "found", result_payload: detail() }, {
+    ownKeys: () => { throw new QuickOrderLinkRepositoryError("operation_mismatch"); },
+  });
+  const rowClient = new FakeClient((text) => text.includes("saas.quick_links_get")
+    ? { rows: [hostileRow], rowCount: 1 }
+    : []);
+  await assert.rejects(repository(new FakePool(rowClient)).get({
+    tenantContext: tenantContext(), now: NOW, linkId: LINK_ID,
+  }), quickLinkError("unavailable"));
+
+  assert.throws(() => new PostgresQuickOrderLinkRepository(new Proxy({} as never, {
+    ownKeys: () => { throw new QuickOrderLinkRepositoryError("commit_unknown"); },
+  })), quickLinkError("unavailable"));
+
+  assert.throws(
+    () => new QuickOrderLinkRepositoryError("private_invalid_code" as never),
+    (error: unknown) => error instanceof TypeError && !String(error).includes("private_invalid_code"),
+  );
+});
+
 test("known mutation COMMIT returns once, releases normally, and audit cannot alter it", async () => {
   let audits = 0;
   const client = new FakeClient((text) => text.includes("saas.quick_links_create")
@@ -579,6 +773,9 @@ test("unknown mutation COMMIT destroys the writer and performs exactly one fresh
   const result = await repository(new FakePool(writer, recovery), { audit: (event) => { audits.push(event); } }).create(createInput());
 
   assert.deepEqual(result, { ...mutation(), replayed: true });
+  for (const key of ["id", "status", "version", "expiresAt", "updatedAt"] as const) {
+    assert.equal(result[key], mutation()[key]);
+  }
   assert.equal(Object.isFrozen(result), true);
   assert.equal(writer.destroyed, true);
   assert.equal(writer.calls.some(({ text }) => text === "ROLLBACK"), false);
@@ -592,9 +789,60 @@ test("unknown mutation COMMIT destroys the writer and performs exactly one fresh
   assert.deepEqual(audits, [{ type: "quick_link_commit_unknown" }]);
 });
 
+test("unknown-COMMIT recovery must value-equal every safe field observed before COMMIT", async (context) => {
+  const observed = mutation();
+  const mismatches: Array<readonly [string, Record<string, unknown>]> = [
+    ["id", { id: NEW_LINK_ID }],
+    ["status", { status: "opened" }],
+    ["version", { version: 2 }],
+    ["expiresAt", { expiresAt: "2026-07-22T12:00:00.000000Z" }],
+    ["updatedAt", { updatedAt: "2026-07-21T08:00:00.000001Z" }],
+  ];
+
+  for (const [field, changed] of mismatches) {
+    await context.test(field, async () => {
+      const writer = new FakeClient((text) => {
+        if (text.includes("saas.quick_links_create")) return [{ outcome: "committed", result_payload: observed }];
+        if (text === "COMMIT") throw new Error(PRIVATE_DRIVER);
+        return [];
+      });
+      const recovery = new FakeClient((text) => text.includes("saas.quick_links_recover_operation")
+        ? [{ outcome: "operation_replayed", result_payload: mutation(changed) }]
+        : []);
+
+      await assert.rejects(repository(new FakePool(writer, recovery)).create(createInput()), quickLinkError("commit_unknown"));
+      assert.equal(writer.destroyed, true);
+      assert.equal(recovery.destroyed, true);
+      assert.equal(writer.calls.filter(({ text }) => text.includes("quick_links_create")).length, 1);
+      assert.equal(recovery.calls.filter(({ text }) => text.includes("quick_links_recover_operation")).length, 1);
+      assert.equal(recovery.calls.some(({ text }) => text === "COMMIT"), false);
+    });
+  }
+});
+
+test("duplicate recovery rejects a different regenerated link ID after unknown COMMIT", async () => {
+  const originalDuplicateId = "12121212-1212-4212-8212-121212121212";
+  const writer = new FakeClient((text) => {
+    if (text.includes("saas.quick_links_duplicate")) {
+      return [{ outcome: "committed", result_payload: mutation({ id: originalDuplicateId }) }];
+    }
+    if (text === "COMMIT") throw new Error(PRIVATE_DRIVER);
+    return [];
+  });
+  const recovery = new FakeClient((text) => text.includes("saas.quick_links_recover_operation")
+    ? [{ outcome: "operation_replayed", result_payload: mutation({ id: NEW_LINK_ID }) }]
+    : []);
+
+  await assert.rejects(repository(new FakePool(writer, recovery)).duplicate(duplicateInput({
+    newLinkId: originalDuplicateId,
+  })), quickLinkError("commit_unknown"));
+  assert.equal(recovery.destroyed, true);
+  assert.equal(recovery.calls.some(({ text }) => text === "COMMIT"), false);
+});
+
 test("every failed unknown-COMMIT recovery preserves commit_unknown without rollback, reuse, or a second write", async () => {
-  const scenarios: Array<"acquire" | "missing" | "multiple" | "malformed" | "mismatch" | "query" | "commit"> = [
-    "acquire", "missing", "multiple", "malformed", "mismatch", "query", "commit",
+  const scenarios: Array<"acquire" | "missing" | "multiple" | "malformed" | "sql_mismatch" | "query" | "commit"> = [
+    "acquire", "missing", "multiple", "malformed", "sql_mismatch", "query", "commit",
   ];
   for (const scenario of scenarios) {
     let writeCalls = 0;
@@ -614,7 +862,7 @@ test("every failed unknown-COMMIT recovery preserves commit_unknown without roll
         if (scenario === "missing") return [{ outcome: "quick_link_not_found", result_payload: null }];
         if (scenario === "multiple") return { rows: [{ outcome: "operation_replayed", result_payload: mutation() }], rowCount: 2 };
         if (scenario === "malformed") return [{ outcome: "operation_replayed", result_payload: mutation({ replayed: false }) }];
-        if (scenario === "mismatch") return [{ outcome: "operation_mismatch", result_payload: null }];
+        if (scenario === "sql_mismatch") return [{ outcome: "operation_mismatch", result_payload: null }];
         return [{ outcome: "operation_replayed", result_payload: mutation() }];
       }
       if (text === "COMMIT" && scenario === "commit") throw new Error(PRIVATE_DRIVER);

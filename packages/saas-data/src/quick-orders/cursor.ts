@@ -1,7 +1,7 @@
 import type { QuickOrderLinkListItem, QuickOrderLinkStatus } from "@celebix/saas-contracts";
 
 import { quickOrderFingerprint } from "./canonical.ts";
-import { QuickOrderLinkRepositoryError } from "./errors.ts";
+import { isTrustedQuickLinkError, trustedQuickLinkError } from "./errors.ts";
 import { exactQuickLinkInput, QUICK_LINK_UUID } from "./validation.ts";
 
 interface QuickLinkCursor {
@@ -20,7 +20,7 @@ export interface DatabaseQuickLinkCursor {
 const SIX_DIGIT_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
 function fail(): never {
-  throw new QuickOrderLinkRepositoryError("invalid_input");
+  throw trustedQuickLinkError("invalid_input");
 }
 
 export function normalizeQuickLinkTimestamp(value: string): string {
@@ -105,7 +105,7 @@ export function decodeQuickLinkCursor(
       id: cursor.id,
     });
   } catch (error) {
-    if (error instanceof QuickOrderLinkRepositoryError) throw error;
+    if (isTrustedQuickLinkError(error)) throw error;
     return fail();
   }
 }

@@ -1,3 +1,5 @@
+import { types as nodeTypes } from "node:util";
+
 import {
   parseQuickOrderLinkDetail,
   parseQuickOrderLinkListItem,
@@ -19,6 +21,8 @@ import {
 import {
   QUICK_LINK_ERROR_CODES,
   QuickOrderLinkRepositoryError,
+  isTrustedQuickLinkError,
+  trustedQuickLinkError,
   type QuickOrderLinkErrorCode,
 } from "./errors.ts";
 import type {
@@ -60,11 +64,11 @@ type RepositoryOptions = Readonly<PostgresQuickOrderLinkRepositoryOptions>;
 const ERROR_CODES = new Set<string>(QUICK_LINK_ERROR_CODES);
 
 function unavailable(): QuickOrderLinkRepositoryError {
-  return new QuickOrderLinkRepositoryError("unavailable");
+  return trustedQuickLinkError("unavailable");
 }
 
 function commitUnknown(): QuickOrderLinkRepositoryError {
-  return new QuickOrderLinkRepositoryError("commit_unknown");
+  return trustedQuickLinkError("commit_unknown");
 }
 
 function timeout(value: number): string {
@@ -97,7 +101,39 @@ function strictRecord(
     }
     return copy;
   } catch (error) {
-    if (error instanceof QuickOrderLinkRepositoryError) throw error;
+    if (isTrustedQuickLinkError(error)) throw error;
+    throw unavailable();
+  }
+}
+
+function strictDenseArray(value: unknown, maximum: number): readonly unknown[] {
+  try {
+    if (
+      !Array.isArray(value) ||
+      nodeTypes.isProxy(value) ||
+      Object.getPrototypeOf(value) !== Array.prototype
+    ) throw unavailable();
+    const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;
+    const lengthDescriptor = descriptors.length;
+    if (
+      !lengthDescriptor ||
+      !("value" in lengthDescriptor) ||
+      lengthDescriptor.enumerable ||
+      !Number.isSafeInteger(lengthDescriptor.value) ||
+      (lengthDescriptor.value as number) < 0 ||
+      (lengthDescriptor.value as number) > maximum
+    ) throw unavailable();
+    const length = lengthDescriptor.value as number;
+    if (Reflect.ownKeys(descriptors).length !== length + 1) throw unavailable();
+    const copy: unknown[] = new Array(length);
+    for (let index = 0; index < length; index += 1) {
+      const descriptor = descriptors[String(index)];
+      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw unavailable();
+      copy[index] = descriptor.value;
+    }
+    return Object.freeze(copy);
+  } catch (error) {
+    if (isTrustedQuickLinkError(error)) throw error;
     throw unavailable();
   }
 }
@@ -112,7 +148,7 @@ function single(result: Readonly<{ rows: unknown[]; rowCount?: number | null }>)
     if (typeof parsed.outcome !== "string" || parsed.outcome.length < 1 || parsed.outcome.length > 64) throw unavailable();
     return Object.freeze({ outcome: parsed.outcome, resultPayload: parsed.result_payload });
   } catch (error) {
-    if (error instanceof QuickOrderLinkRepositoryError) throw error;
+    if (isTrustedQuickLinkError(error)) throw error;
     throw unavailable();
   }
 }
@@ -141,6 +177,19 @@ function safeMutation(value: unknown, replayed: boolean): QuickOrderLinkMutation
   } catch {
     throw unavailable();
   }
+}
+
+function samePersistedMutation(
+  observed: QuickOrderLinkMutationResult,
+  recovered: QuickOrderLinkMutationResult,
+): boolean {
+  return (
+    recovered.id === observed.id &&
+    recovered.status === observed.status &&
+    recovered.version === observed.version &&
+    recovered.expiresAt === observed.expiresAt &&
+    recovered.updatedAt === observed.updatedAt
+  );
 }
 
 function authorityValues(authority: ValidatedQuickLinkAuthority): unknown[] {
@@ -185,7 +234,7 @@ function emitUnknownCommitAudit(options: RepositoryOptions): void {
 
 function expectedError(outcome: string): QuickOrderLinkRepositoryError | undefined {
   return ERROR_CODES.has(outcome) && !["operation_replayed", "unavailable", "commit_unknown"].includes(outcome)
-    ? new QuickOrderLinkRepositoryError(outcome as QuickOrderLinkErrorCode)
+    ? trustedQuickLinkError(outcome as QuickOrderLinkErrorCode)
     : undefined;
 }
 
@@ -228,7 +277,7 @@ async function read<T>(
   } catch (error) {
     if (began && !terminal) await rollback(client);
     else if (!began && !terminal) safeRelease(client, true);
-    if (error instanceof QuickOrderLinkRepositoryError) throw error;
+    if (isTrustedQuickLinkError(error)) throw error;
     throw unavailable();
   }
 }
@@ -240,6 +289,7 @@ async function recover(
   operation: QuickLinkOperationKind,
   fingerprint: string,
   parser: MutationParser,
+  observed: QuickOrderLinkMutationResult,
 ): Promise<QuickOrderLinkMutationResult> {
   let client: PostgresClientLike;
   try {
@@ -260,6 +310,7 @@ async function recover(
     ));
     if (recovered.outcome !== "operation_replayed") throw commitUnknown();
     const parsed = parser(recovered.resultPayload, true);
+    if (!samePersistedMutation(observed, parsed)) throw commitUnknown();
     try {
       await client.query("COMMIT");
       terminal = true;
@@ -306,12 +357,12 @@ async function mutate(
       terminal = true;
       safeRelease(client, true);
       emitUnknownCommitAudit(options);
-      return await recover(options, authority, operationId, operation, fingerprint, parser);
+      return await recover(options, authority, operationId, operation, fingerprint, parser, parsed);
     }
   } catch (error) {
     if (began && !terminal) await rollback(client);
     else if (!began && !terminal) safeRelease(client, true);
-    if (error instanceof QuickOrderLinkRepositoryError) throw error;
+    if (isTrustedQuickLinkError(error)) throw error;
     throw unavailable();
   }
 }
@@ -349,7 +400,7 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
         audit: selected.audit as PostgresQuickOrderLinkRepositoryOptions["audit"],
       });
     } catch (error) {
-      if (error instanceof QuickOrderLinkRepositoryError) throw error;
+      if (isTrustedQuickLinkError(error)) throw error;
       throw unavailable();
     }
   }
@@ -371,8 +422,12 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
       ],
     }, "listed", (value) => {
       const envelope = strictRecord(value, ["items"], ["nextCursor"]);
-      if (!Array.isArray(envelope.items) || envelope.items.length > pageSize) throw unavailable();
-      const items = Object.freeze(envelope.items.map(safeListItem));
+      const rawItems = strictDenseArray(envelope.items, pageSize);
+      const parsedItems: QuickOrderLinkListItem[] = new Array(rawItems.length);
+      for (let index = 0; index < rawItems.length; index += 1) {
+        parsedItems[index] = safeListItem(rawItems[index]);
+      }
+      const items = Object.freeze(parsedItems);
       for (let index = 1; index < items.length; index += 1) compareListOrder(items[index - 1]!, items[index]!);
       if (!Object.hasOwn(envelope, "nextCursor")) return Object.freeze({ items });
       if (items.length !== pageSize || items.length === 0) throw unavailable();
@@ -488,7 +543,7 @@ export class PostgresQuickOrderLinkRepository implements QuickOrderLinkRepositor
     const sourceLinkId = quickLinkUuid(exact.linkId);
     const operationId = quickLinkUuid(exact.operationId);
     const newLinkId = quickLinkUuid(exact.newLinkId);
-    if (newLinkId === sourceLinkId) throw new QuickOrderLinkRepositoryError("invalid_input");
+    if (newLinkId === sourceLinkId) throw trustedQuickLinkError("invalid_input");
     const newItemIds = quickLinkItemIds(exact.newItemIds);
     const tokenDigest = quickLinkDigest(exact.tokenDigest);
     const sealedToken = quickLinkSealedToken(exact.sealedToken);

@@ -11,7 +11,11 @@ import {
   type TenantContext,
 } from "@celebix/saas-contracts";
 
-import { QuickOrderLinkRepositoryError, type QuickOrderLinkErrorCode } from "./errors.ts";
+import {
+  isTrustedQuickLinkError,
+  trustedQuickLinkError,
+  type QuickOrderLinkErrorCode,
+} from "./errors.ts";
 import type { CreateQuickLinkItemInput, SealedQuickLinkToken } from "./types.ts";
 
 export const QUICK_LINK_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -30,14 +34,14 @@ const MAXIMUM_NOW = Date.parse("9999-12-28T23:59:59.999Z");
 type InputRecord = Readonly<Record<string, unknown>>;
 
 function fail(code: QuickOrderLinkErrorCode = "invalid_input"): never {
-  throw new QuickOrderLinkRepositoryError(code);
+  throw trustedQuickLinkError(code);
 }
 
 function contain<T>(operation: () => T, code: QuickOrderLinkErrorCode): T {
   try {
     return operation();
   } catch (error) {
-    if (error instanceof QuickOrderLinkRepositoryError) throw error;
+    if (isTrustedQuickLinkError(error)) throw error;
     return fail(code);
   }
 }
