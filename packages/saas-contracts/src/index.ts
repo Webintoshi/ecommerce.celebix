@@ -62,6 +62,24 @@ export type {
 export { MERCHANT_ACTIONS, isMerchantActionAllowed } from "./authorization/actions.ts";
 export type { MerchantAction } from "./authorization/actions.ts";
 export {
+  QUICK_ORDER_EXPIRY_HOURS,
+  QUICK_ORDER_LINK_STATUSES,
+  QUICK_ORDER_MAX_COMPONENT_CENTS,
+  QUICK_ORDER_MAX_TOTAL_CENTS,
+  QUICK_ORDER_MAX_UNIT_PRICE_CENTS,
+  parseQuickOrderLinkDetail,
+  parseQuickOrderLinkListItem,
+  parseQuickOrderLinkMutationResult,
+} from "./quick-orders/index.ts";
+export type {
+  QuickOrderAddress,
+  QuickOrderLinkDetail,
+  QuickOrderLinkItem,
+  QuickOrderLinkListItem,
+  QuickOrderLinkMutationResult,
+  QuickOrderLinkStatus,
+} from "./quick-orders/index.ts";
+export {
   ORDER_PAYMENT_STATUSES,
   ORDER_SOURCES,
   ORDER_STATUSES,
