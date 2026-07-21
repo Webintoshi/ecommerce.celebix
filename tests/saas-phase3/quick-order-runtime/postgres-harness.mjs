@@ -17,7 +17,7 @@ const DATABASE = `quick_order_runtime_${TOKEN}`;
 const HISTORICAL_DATABASE = `${DATABASE}_historical`;
 const ROLLBACK_DATABASE = `${DATABASE}_rollback`;
 const PARTIAL_DATABASE = `${DATABASE}_partial`;
-const TOTAL = 34;
+const TOTAL = 48;
 const completed = [];
 const CATALOG_INVENTORY_SHA256 = "c0aeb1cc411fe6f9bac5d3501cf667f7365f4f3d4b7d7d4dd3ab311f52f1f154";
 
@@ -357,6 +357,72 @@ function beginAttempt(backend, database, claim, number, options = {}) {
     `saas.checkout_begin_attempt(${sqlLiteral(options.hostname ?? HOSTNAME)},'${claim.cookieDigest}','${attempt}',` +
       `'${merchantOid}','${operation}',repeat('${options.fingerprint ?? "1"}',64),'${options.now ?? "2026-07-21 12:11:00+00"}')`, database);
   return { ...result, attempt, operation, merchantOid };
+}
+
+function markAttemptProviderReady(backend, database, begun, number, options = {}) {
+  const operation = options.operation ?? fixtureUuid("c", number);
+  const result = functionResult(backend,
+    `saas.checkout_mark_provider_ready('${begun.attempt}','${operation}',repeat('${options.fingerprint ?? "4"}',64),` +
+      `${ENVELOPE},repeat('${options.tokenDigest ?? "5"}',64),'${options.now ?? "2026-07-21 12:12:00+00"}')`, database);
+  return { ...result, operation };
+}
+
+function settleCallback(backend, database, begun, number, options = {}) {
+  const status = options.status ?? "success";
+  const callbackDigest = options.callbackDigest ?? fixtureDigest(`callback:${number}`);
+  const operation = options.operation ?? fixtureUuid("d", number);
+  const fingerprint = options.fingerprint ?? "6";
+  const order = status === "success" ? (options.order ?? fixtureUuid("7", number)) : null;
+  const orderItems = status === "success" ? (options.orderItems ?? [fixtureUuid("8", number)]) : null;
+  const event = status === "success" ? (options.event ?? fixtureUuid("9", number)) : null;
+  const expectedPaymentAmount = begun.payload?.paymentAmount ?? 10000;
+  const paymentAmount = options.paymentAmount === undefined ? expectedPaymentAmount : options.paymentAmount;
+  const totalAmount = options.totalAmount === undefined ? expectedPaymentAmount : options.totalAmount;
+  const currency = options.currency === undefined ? "TRY" : options.currency;
+  const paymentType = options.paymentType ?? "card";
+  const testMode = options.testMode === undefined ? 1 : options.testMode;
+  const failedReasonCode = options.failedReasonCode === undefined ? null : options.failedReasonCode;
+  const failedReasonMessageDigest = options.failedReasonMessageDigest === undefined
+    ? null
+    : options.failedReasonMessageDigest;
+  const sqlNullable = (value) => value === null ? "NULL" : sqlLiteral(value);
+  const result = functionResult(backend,
+    `saas.checkout_settle_callback('${begun.merchantOid}','${callbackDigest}','${operation}',repeat('${fingerprint}',64),` +
+      `'${status}',${paymentAmount === null ? "NULL" : paymentAmount},${totalAmount === null ? "NULL" : totalAmount},` +
+      `${sqlNullable(currency)},'${paymentType}',${testMode === null ? "NULL" : testMode},${sqlNullable(failedReasonCode)},` +
+      `${sqlNullable(failedReasonMessageDigest)},${order === null ? "NULL" : sqlLiteral(order)},` +
+      `${orderItems === null ? "NULL::uuid[]" : `ARRAY[${orderItems.map(sqlLiteral).join(",")}]::uuid[]`},` +
+      `${event === null ? "NULL" : sqlLiteral(event)},${status === "success" ? sqlLiteral(options.orderNumber ?? `QO-${number}`) : "NULL"},` +
+      `'${options.now ?? "2026-07-21 12:13:00+00"}')`, database);
+  return { ...result, callbackDigest, operation, order, orderItems, event };
+}
+
+function claimReconciliation(backend, database, worker, now, leaseExpiresAt, limit = 25) {
+  return functionResult(backend,
+    `saas.checkout_claim_reconciliation('${worker}','${now}','${leaseExpiresAt}',${limit})`, database);
+}
+
+function beginReconciliationRun(backend, database, worker, now = "2026-07-21 12:10:00+00", leaseExpiresAt = "2026-07-21 12:11:00+00") {
+  const runToken = createHash("sha256").update(`${TOKEN}:${database}:${worker}`).digest("base64url");
+  const runTokenDigest = createHash("sha256").update(runToken).digest("hex");
+  const result = functionResult(backend,
+    `saas.checkout_begin_reconciliation_run('${worker}','${runTokenDigest}','${now}','${leaseExpiresAt}')`, database);
+  return { ...result, runToken, runTokenDigest };
+}
+
+function applyReconciliationSuccess(backend, database, begun, claim, number, options = {}) {
+  const operation = options.operation ?? fixtureUuid("d", number);
+  const order = options.order ?? fixtureUuid("7", number);
+  const orderItems = options.orderItems ?? [fixtureUuid("8", number)];
+  const event = options.event ?? fixtureUuid("9", number);
+  const expectedPaymentAmount = begun.payload?.paymentAmount ?? 10000;
+  const result = functionResult(backend,
+    `saas.checkout_apply_reconciliation_success('${begun.merchantOid}','${options.worker ?? claim.workerId}',` +
+      `'${options.leaseToken ?? claim.leaseToken}','${operation}',repeat('${options.fingerprint ?? "7"}',64),` +
+      `${options.paymentAmount ?? expectedPaymentAmount},${options.totalAmount ?? expectedPaymentAmount},${sqlLiteral(options.currency ?? "TRY")},` +
+      `${options.testMode ?? 1},'${order}',ARRAY[${orderItems.map(sqlLiteral).join(",")}]::uuid[],'${event}',` +
+      `${sqlLiteral(options.orderNumber ?? `QO-R-${number}`)},'${options.now ?? "2026-07-21 12:13:30+00"}')`, database);
+  return { ...result, operation, order, orderItems, event };
 }
 
 async function scenario(name, run) {
@@ -888,8 +954,8 @@ async function main() {
       apply(backend, "202607220027_quick_order_checkout_api.up.sql");
       apply(backend, "202607220027_quick_order_checkout_api_assertions.sql");
       assert.equal(psql(backend, "SELECT has_schema_privilege('celebix_saas_workflow','saas','USAGE');"), "t");
-      assert.equal(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE');"), "13");
-      assert.equal(psql(backend, "SELECT to_regprocedure('saas.checkout_settle_callback(text,text,uuid,text,text,bigint,bigint,text,text,integer,text,text,uuid,uuid[],uuid,uuid,text,timestamptz)') IS NULL;"), "t");
+      const workflowFunctionCount = Number(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE');"));
+      assert.equal(workflowFunctionCount,24);
       denied(backend,`SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_operations(operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('${fixtureUuid("c",19)}','${STORE}','${ATTEMPT}','configure_provider',repeat('1',64),'{}','2026-07-21 12:01:00+00');`);
       denied(backend,`SET ROLE celebix_saas_owner; INSERT INTO saas.checkout_operations(operation_id,store_id,worker_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('${fixtureUuid("c",18)}',NULL,'${fixtureUuid("d",19)}','begin_attempt',repeat('1',64),'{}','2026-07-21 12:01:00+00');`);
     });
@@ -1512,6 +1578,504 @@ async function main() {
       apply(backend,"202607220027_quick_order_checkout_api.up.sql",partialApiDatabase);
       apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",partialApiDatabase);
       apply(backend,"202607220027_quick_order_checkout_api.down.sql",partialApiDatabase);
+    });
+
+    await scenario("callback authority is opaque and returns only the immutable attempt provider snapshot", async () => {
+      const database=cloneDatabase(backend,"callback_authority");
+      const link=seedCheckoutLink(backend,database,400);
+      const claimed=claimLink(backend,database,link,400);
+      const begun=beginAttempt(backend,database,claimed,400);
+      assert.equal(markAttemptProviderReady(backend,database,begun,401).outcome,"committed");
+      const authority=functionResult(backend,
+        `saas.checkout_get_callback_authority('${begun.merchantOid}','2026-07-21 12:13:00+00')`,database);
+      assert.equal(authority.outcome,"found");
+      assert.deepEqual(Object.keys(authority.payload).sort(),[
+        "attemptId","configurationDigest","configurationKeyId","currency","expectedPaymentAmount",
+        "merchantOid","providerConfigId","sealedConfiguration","status","storeId",
+      ]);
+      assert.equal(authority.payload.attemptId,begun.attempt);
+      assert.equal(authority.payload.status,"provider_ready");
+      assert.equal(authority.payload.configurationDigest,"d".repeat(64));
+      assert.equal(functionResult(backend,
+        `saas.checkout_get_callback_authority('${"0".repeat(32)}','2026-07-21 12:13:00+00')`,database).outcome,"not_found");
+      assert.equal(functionResult(backend,
+        "saas.checkout_get_callback_authority('INVALID','2026-07-21 12:13:00+00')",database).outcome,"invalid_input");
+    });
+
+    await scenario("successful callback atomically persists provider facts snapshots one order and one stock decrement", async () => {
+      const database=cloneDatabase(backend,"callback_success");
+      const link=seedCheckoutLink(backend,database,410);
+      const claimed=claimLink(backend,database,link,410);
+      const begun=beginAttempt(backend,database,claimed,410);
+      assert.equal(markAttemptProviderReady(backend,database,begun,411).outcome,"committed");
+      psql(backend,`SET ROLE celebix_saas_owner;
+        UPDATE saas.products SET title='Changed Product',version=version+1,updated_at='2026-07-21 12:12:30+00' WHERE id='${PRODUCT}';
+        UPDATE saas.product_variants SET title='Changed Variant',price_cents=77777,version=version+1,updated_at='2026-07-21 12:12:30+00' WHERE id='${VARIANT}';`,database);
+      const settled=settleCallback(backend,database,begun,410,{totalAmount:10500,paymentType:"eft"});
+      assert.equal(settled.outcome,"settled",JSON.stringify(settled));
+      assert.equal(settled.payload.orderNumber,"QO-410");
+      assert.equal(psql(backend,`SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||variant.stock_quantity||'|'||
+        (SELECT count(*) FROM saas.orders WHERE quick_order_link_id=link.id)||'|'||(SELECT count(*) FROM saas.order_items WHERE order_id=link.order_id)||'|'||
+        (SELECT count(*) FROM saas.order_events WHERE order_id=link.order_id AND event_type='order_created' AND actor_membership_id IS NULL)
+        FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id
+        JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id
+        JOIN saas.product_variants AS variant ON variant.id=reservation.variant_id WHERE link.id='${link.link}';`,database),
+        "paid|succeeded|consumed|5|1|1|1");
+      assert.equal(psql(backend,`SELECT ordered.source||'|'||ordered.status||'|'||ordered.payment_status||'|'||ordered.customer_name||'|'||
+        item.product_name||'|'||item.variant_name||'|'||item.unit_price_cents||'|'||item.quantity||'|'||
+        (ordered.shipping_address=(SELECT shipping_address FROM saas.quick_order_links WHERE id='${link.link}'))||'|'||
+        (ordered.billing_address=(SELECT billing_address FROM saas.quick_order_links WHERE id='${link.link}'))
+        FROM saas.orders AS ordered JOIN saas.order_items AS item ON item.order_id=ordered.id WHERE ordered.id='${settled.order}';`,database),
+        "quick_link|confirmed|completed|Ada Lovelace|Runtime Product|Tracked|10000|1|true|true");
+      assert.equal(psql(backend,`SELECT callback_status||'|'||currency||'|'||(result_payload->>'paymentAmount')||'|'||
+        (result_payload->>'totalAmount')||'|'||(result_payload->>'paymentType')||'|'||(result_payload->>'testMode')
+        FROM saas.checkout_callback_receipts WHERE attempt_id='${begun.attempt}';`,database),"success|TRY|10000|10500|eft|1");
+    });
+
+    await scenario("duplicate callback digest replays before fresh identifiers and a different terminal digest conflicts", async () => {
+      const database=cloneDatabase(backend,"callback_replay");
+      const link=seedCheckoutLink(backend,database,420);
+      const claimed=claimLink(backend,database,link,420);
+      const begun=beginAttempt(backend,database,claimed,420);
+      assert.equal(markAttemptProviderReady(backend,database,begun,421).outcome,"committed");
+      const first=settleCallback(backend,database,begun,420);
+      assert.equal(first.outcome,"settled");
+      const replay=settleCallback(backend,database,begun,422,{
+        callbackDigest:first.callbackDigest,operation:fixtureUuid("d",422),order:fixtureUuid("7",422),
+        orderItems:[fixtureUuid("8",422)],event:fixtureUuid("9",422),orderNumber:"FRESH-IDS-IGNORED",
+      });
+      assert.equal(replay.outcome,"replayed");
+      assert.equal(replay.payload.orderNumber,"QO-420");
+      const conflict=settleCallback(backend,database,begun,423,{callbackDigest:fixtureDigest("different-terminal-callback")});
+      assert.equal(conflict.outcome,"conflict");
+      assert.equal(psql(backend,`SELECT (SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${link.link}')||'|'||
+        (SELECT count(*) FROM saas.checkout_callback_receipts WHERE attempt_id='${begun.attempt}')||'|'||
+        (SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}');`,database),"1|1|5");
+    });
+
+    await scenario("signed failure accepts the exact failure shape releases holds and leaves the link retryable", async () => {
+      const database=cloneDatabase(backend,"callback_failure");
+      const link=seedCheckoutLink(backend,database,430);
+      const claimed=claimLink(backend,database,link,430);
+      const begun=beginAttempt(backend,database,claimed,430);
+      assert.equal(markAttemptProviderReady(backend,database,begun,431).outcome,"committed");
+      const failure=settleCallback(backend,database,begun,430,{
+        status:"failed",paymentAmount:null,currency:null,totalAmount:10000,paymentType:"card",
+        failedReasonCode:"declined",failedReasonMessageDigest:fixtureDigest("paytr-failure-message"),
+      });
+      assert.equal(failure.outcome,"failed");
+      assert.equal(psql(backend,`SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||
+        (SELECT count(*) FROM saas.orders WHERE quick_order_link_id=link.id)||'|'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}')
+        FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id
+        JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id WHERE link.id='${link.link}';`,database),
+        "opened|failed|released|0|6");
+      assert.equal(psql(backend,`SELECT result_payload ? 'failedReasonMessageDigest' AND NOT result_payload ? 'failedReasonMessage'
+        FROM saas.checkout_callback_receipts WHERE attempt_id='${begun.attempt}';`,database),"t");
+      const retry=beginAttempt(backend,database,claimed,432,{now:"2026-07-21 12:14:00+00"});
+      assert.equal(retry.outcome,"committed");
+      const authority=functionResult(backend,`saas.checkout_get_callback_authority('${begun.merchantOid}','2026-07-21 12:14:00+00')`,database);
+      assert.equal(authority.payload.status,"failed");
+    });
+
+    await scenario("callback protocol rejects underpayment quote currency type and staging mode drift without mutation", async () => {
+      const cases=[
+        [440,{paymentAmount:9999},"invalid_input"],
+        [441,{totalAmount:9999},"invalid_input"],
+        [442,{currency:"USD"},"invalid_input"],
+        [443,{paymentType:"cash"},"invalid_input"],
+        [444,{testMode:0},"invalid_input"],
+        [445,{testMode:null},"invalid_input"],
+        [446,{status:"failed",paymentAmount:null,currency:null,failedReasonCode:null,failedReasonMessageDigest:null},"invalid_input"],
+        [447,{paymentAmount:9007199254740992,totalAmount:9007199254740992},"invalid_input"],
+      ];
+      for (const [number,options,expected] of cases) {
+        const database=cloneDatabase(backend,`callback_validation_${number}`);
+        const link=seedCheckoutLink(backend,database,number);
+        const claimed=claimLink(backend,database,link,number);
+        const begun=beginAttempt(backend,database,claimed,number);
+        assert.equal(markAttemptProviderReady(backend,database,begun,number+100).outcome,"committed");
+        assert.equal(settleCallback(backend,database,begun,number,options).outcome,expected);
+        assert.equal(psql(backend,`SELECT attempt.status||'|'||reservation.status||'|'||
+          (SELECT count(*) FROM saas.checkout_callback_receipts WHERE attempt_id=attempt.id)||'|'||
+          (SELECT count(*) FROM saas.orders WHERE quick_order_link_id=attempt.quick_order_link_id)
+          FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id
+          WHERE attempt.id='${begun.attempt}';`,database),"provider_ready|held|0|0");
+      }
+    });
+
+    await scenario("singleton reconciliation run lease is recoverable busy fenced and replaceable after expiry", async () => {
+      const database=cloneDatabase(backend,"reconciliation_run");
+      const worker=fixtureUuid("d",450),otherWorker=fixtureUuid("d",451);
+      const runToken="a".repeat(43),otherToken="b".repeat(43);
+      const runDigest=createHash("sha256").update(runToken).digest("hex");
+      const otherDigest=createHash("sha256").update(otherToken).digest("hex");
+      const begin=`saas.checkout_begin_reconciliation_run('${worker}','${runDigest}','2026-07-21 12:10:00+00','2026-07-21 12:11:00+00')`;
+      assert.equal(functionResult(backend,begin,database).outcome,"acquired");
+      assert.equal(psql(backend,`BEGIN READ ONLY; SET LOCAL ROLE celebix_saas_workflow; SELECT outcome FROM saas.checkout_recover_reconciliation_run(
+        '${worker}','${runDigest}','2026-07-21 12:10:30+00'); COMMIT;`,database).split("\n").at(-1),"acquired");
+      assert.equal(functionResult(backend,`saas.checkout_begin_reconciliation_run('${otherWorker}','${otherDigest}',
+        '2026-07-21 12:10:30+00','2026-07-21 12:11:30+00')`,database).outcome,"busy");
+      assert.equal(functionResult(backend,`saas.checkout_finish_reconciliation_run('${worker}','${otherToken}','2026-07-21 12:10:40+00')`,database).outcome,"invalid_lease");
+      assert.equal(functionResult(backend,`saas.checkout_finish_reconciliation_run('${worker}','${runToken}','2026-07-21 12:10:40+00')`,database).outcome,"committed");
+      assert.equal(functionResult(backend,`saas.checkout_recover_reconciliation_run('${worker}','${runDigest}','2026-07-21 12:10:41+00')`,database).outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.checkout_begin_reconciliation_run('${worker}','${runDigest}',
+        '2026-07-21 12:11:00+00','2026-07-21 12:11:05+00')`,database).outcome,"acquired");
+      assert.equal(functionResult(backend,`saas.checkout_begin_reconciliation_run('${otherWorker}','${otherDigest}',
+        '2026-07-21 12:11:05+00','2026-07-21 12:12:05+00')`,database).outcome,"acquired");
+      assert.equal(claimReconciliation(backend,database,worker,"2026-07-21 12:11:06+00","2026-07-21 12:12:00+00").outcome,"run_not_owned");
+      assert.equal(claimReconciliation(backend,database,otherWorker,"2026-07-21 12:11:06+00","2026-07-21 12:12:06+00").outcome,"invalid_input");
+
+      const emptyRaceDatabase=cloneDatabase(backend,"reconciliation_run_empty_race");
+      const first=openPsqlSession(backend,emptyRaceDatabase,"reconciliation_run_first");
+      const second=openPsqlSession(backend,emptyRaceDatabase,"reconciliation_run_second");
+      try {
+        const firstResult=await first.execute(`BEGIN; SET LOCAL ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_begin_reconciliation_run('${worker}','${runDigest}',
+          '2026-07-21 12:10:00+00','2026-07-21 12:11:00+00');`);
+        assert.equal(firstResult.split("\n").at(-1),"acquired");
+        const secondResult=second.execute(`SET ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_begin_reconciliation_run('${otherWorker}','${otherDigest}',
+          '2026-07-21 12:10:00+00','2026-07-21 12:11:00+00');`);
+        await waitForBlockedSession(backend,emptyRaceDatabase,second.applicationName);
+        await first.execute("COMMIT;");
+        assert.equal((await secondResult).split("\n").at(-1),"busy");
+      } finally { await Promise.all([first.close(),second.close()]); }
+
+      const fenceDatabase=cloneDatabase(backend,"reconciliation_run_claim_fence");
+      makeAttemptProviderReady(backend,fenceDatabase);
+      const fencedRun=beginReconciliationRun(backend,fenceDatabase,worker,"2026-07-21 12:10:00+00","2026-07-21 12:11:00+00");
+      assert.equal(fencedRun.outcome,"acquired");
+      const claimant=openPsqlSession(backend,fenceDatabase,"reconciliation_claim_holds_run");
+      const finisher=openPsqlSession(backend,fenceDatabase,"reconciliation_finish_waits_for_claim");
+      try {
+        const claimed=await claimant.execute(`BEGIN; SET LOCAL ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_claim_reconciliation('${worker}','2026-07-21 12:10:01+00',
+          '2026-07-21 12:11:00+00',25);`);
+        assert.equal(claimed.split("\n").at(-1),"claimed");
+        const finishResult=finisher.execute(`SET ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_finish_reconciliation_run('${worker}','${fencedRun.runToken}',
+          '2026-07-21 12:10:02+00');`);
+        await waitForBlockedSession(backend,fenceDatabase,finisher.applicationName);
+        await claimant.execute("COMMIT;");
+        assert.equal((await finishResult).split("\n").at(-1),"committed");
+      } finally { await Promise.all([claimant.close(),finisher.close()]); }
+      const laterRun=beginReconciliationRun(backend,fenceDatabase,otherWorker,"2026-07-21 12:10:30+00","2026-07-21 12:11:30+00");
+      assert.equal(laterRun.outcome,"acquired");
+      assert.equal(claimReconciliation(backend,fenceDatabase,otherWorker,"2026-07-21 12:10:31+00","2026-07-21 12:11:30+00").payload.claims.length,0);
+      assert.equal(claimReconciliation(backend,fenceDatabase,otherWorker,"2026-07-21 12:11:00+00","2026-07-21 12:11:30+00").payload.claims.length,1);
+    });
+
+    await scenario("global reconciliation claims are bounded skip locked and persist only lease digests", async () => {
+      const database=cloneDatabase(backend,"reconciliation_claims");
+      const attempts=[];
+      for (let offset=0;offset<27;offset+=1) {
+        const number=500+offset;
+        const link=seedCheckoutLink(backend,database,number,{variant:VARIANT_2});
+        const claimed=claimLink(backend,database,link,number,{now:"2026-07-21 12:00:00+00",expiresAt:"2026-07-21 12:15:00+00"});
+        const begun=beginAttempt(backend,database,claimed,number,{now:"2026-07-21 12:01:00+00"});
+        assert.equal(markAttemptProviderReady(backend,database,begun,600+offset,{now:"2026-07-21 12:02:00+00"}).outcome,"committed");
+        attempts.push(begun);
+      }
+      const locked=openPsqlSession(backend,database,"reconciliation_skip_locked");
+      try {
+        await locked.execute(`BEGIN; SET ROLE celebix_saas_owner; SELECT id FROM saas.checkout_payment_attempts WHERE id='${attempts[0].attempt}' FOR UPDATE;`);
+        const worker=fixtureUuid("d",500);
+        assert.equal(beginReconciliationRun(backend,database,worker,"2026-07-21 12:10:00+00","2026-07-21 12:11:00+00").outcome,"acquired");
+        const claimed=claimReconciliation(backend,database,worker,"2026-07-21 12:10:00+00","2026-07-21 12:11:00+00",25);
+        assert.equal(claimed.outcome,"claimed");
+        assert.equal(claimed.payload.claims.length,25);
+        assert.equal(claimed.payload.claims.some((claim)=>claim.attemptId===attempts[0].attempt),false);
+        for (const claim of claimed.payload.claims) {
+          assert.equal(claim.workerId,worker);
+          assert.match(claim.leaseToken,/^[A-Za-z0-9_-]{43}$/);
+          assert.equal(claim.attemptNumber,1);
+          assert.equal(psql(backend,`SELECT lease_token_digest='${createHash("sha256").update(claim.leaseToken).digest("hex")}'
+            AND lease_token_digest<>${sqlLiteral(claim.leaseToken)} FROM saas.checkout_reconciliation_jobs WHERE attempt_id='${claim.attemptId}';`,database),"t");
+        }
+        await locked.execute("COMMIT;");
+        const remainder=claimReconciliation(backend,database,worker,"2026-07-21 12:10:01+00","2026-07-21 12:11:00+00",25);
+        assert.equal(remainder.payload.claims.length,2);
+      } finally { await locked.close(); }
+    });
+
+    await scenario("cookie reconciliation claim is exact hostname and redemption digest scoped", async () => {
+      const database=cloneDatabase(backend,"redemption_reconciliation_claim");
+      const link=seedCheckoutLink(backend,database,540,{variant:VARIANT_2});
+      const claimed=claimLink(backend,database,link,540);
+      const begun=beginAttempt(backend,database,claimed,540);
+      assert.equal(markAttemptProviderReady(backend,database,begun,541).outcome,"committed");
+      const worker=fixtureUuid("d",540);
+      assert.equal(functionResult(backend,`saas.checkout_claim_redemption_reconciliation('${ALIAS_HOSTNAME}',
+        '${claimed.cookieDigest}','${worker}','2026-07-21 12:13:00+00','2026-07-21 12:14:00+00')`,database).outcome,"not_found");
+      assert.equal(functionResult(backend,`saas.checkout_claim_redemption_reconciliation('${HOSTNAME}',repeat('0',64),
+        '${worker}','2026-07-21 12:13:00+00','2026-07-21 12:14:00+00')`,database).outcome,"not_found");
+      const exact=functionResult(backend,`saas.checkout_claim_redemption_reconciliation('${HOSTNAME}',
+        '${claimed.cookieDigest}','${worker}','2026-07-21 12:13:00+00','2026-07-21 12:14:00+00')`,database);
+      assert.equal(exact.outcome,"claimed");
+      assert.equal(exact.payload.attemptId,begun.attempt);
+      assert.equal(exact.payload.workerId,worker);
+      assert.equal(claimReconciliation(backend,database,fixtureUuid("d",541),"2026-07-21 12:13:01+00","2026-07-21 12:14:01+00").payload.claims.length,0);
+    });
+
+    await scenario("unknown reconciliation is lease fenced exponentially requeued and never releases a hold", async () => {
+      const database=cloneDatabase(backend,"reconciliation_unknown");
+      const link=seedCheckoutLink(backend,database,550,{variant:VARIANT_2});
+      const claimed=claimLink(backend,database,link,550);
+      const begun=beginAttempt(backend,database,claimed,550);
+      assert.equal(markAttemptProviderReady(backend,database,begun,551).outcome,"committed");
+      const worker=fixtureUuid("d",550);
+      assert.equal(beginReconciliationRun(backend,database,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").outcome,"acquired");
+      const authority=claimReconciliation(backend,database,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").payload.claims[0];
+      const operation=fixtureUuid("d",552);
+      const expression=(workerId,leaseToken)=>`saas.checkout_record_reconciliation_unknown('${begun.merchantOid}','${workerId}',
+        '${leaseToken}','${operation}',repeat('8',64),'2026-07-21 12:13:30+00','2026-07-21 12:13:00+00')`;
+      assert.equal(functionResult(backend,expression(fixtureUuid("d",999),authority.leaseToken),database).outcome,"invalid_lease");
+      assert.equal(functionResult(backend,expression(worker,authority.leaseToken),database).outcome,"committed");
+      assert.equal(functionResult(backend,expression(worker,authority.leaseToken),database).outcome,"operation_replayed");
+      assert.equal(psql(backend,`SELECT attempt.status||'|'||reservation.status||'|'||job.status||'|'||job.attempt_number||'|'||
+        (job.next_attempt_at='2026-07-21 12:13:30+00')||'|'||(SELECT count(*) FROM saas.orders WHERE quick_order_link_id=attempt.quick_order_link_id)
+        FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id
+        JOIN saas.checkout_reconciliation_jobs AS job ON job.attempt_id=attempt.id WHERE attempt.id='${begun.attempt}';`,database),
+        "provider_ready|held|pending|1|true|0");
+      const later=claimReconciliation(backend,database,worker,"2026-07-21 12:13:30+00","2026-07-21 12:14:00+00").payload.claims[0];
+      assert.equal(later.attemptNumber,2);
+      assert.equal(functionResult(backend,`saas.checkout_record_reconciliation_unknown('${begun.merchantOid}','${worker}',
+        '${authority.leaseToken}','${fixtureUuid("d",554)}',repeat('9',64),'2026-07-21 12:14:00+00','2026-07-21 12:13:31+00')`,database).outcome,"invalid_lease");
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.checkout_reconciliation_jobs SET attempt_number=11
+        WHERE attempt_id='${begun.attempt}';`,database);
+      assert.equal(functionResult(backend,`saas.checkout_record_reconciliation_unknown('${begun.merchantOid}','${worker}',
+        '${later.leaseToken}','${fixtureUuid("d",555)}',repeat('a',64),'2026-07-21 18:13:30+00','2026-07-21 12:13:30+00')`,database).outcome,"committed");
+      assert.equal(psql(backend,`SELECT status||'|'||attempt_number||'|'||(next_attempt_at-'2026-07-21 12:13:30+00'::timestamptz)
+        FROM saas.checkout_reconciliation_jobs WHERE attempt_id='${begun.attempt}';`,database),"pending|11|06:00:00");
+      psql(backend,`SET ROLE celebix_saas_owner; UPDATE saas.checkout_reconciliation_jobs
+        SET attempt_number=1000,next_attempt_at='2026-07-21 12:13:31+00',updated_at='2026-07-21 12:13:31+00'
+        WHERE attempt_id='${begun.attempt}';`,database);
+      const maxed=claimReconciliation(backend,database,worker,"2026-07-21 12:13:31+00","2026-07-21 12:14:00+00");
+      assert.equal(maxed.outcome,"claimed");
+      assert.equal(maxed.payload.claims.length,0);
+      assert.equal(psql(backend,`SELECT status||'|'||attempt_number FROM saas.checkout_reconciliation_jobs WHERE attempt_id='${begun.attempt}';`,database),"pending|1000");
+    });
+
+    await scenario("status reconciliation success shares atomic snapshot settlement and decrements tracked stock once", async () => {
+      const database=cloneDatabase(backend,"reconciliation_success");
+      const link=seedCheckoutLink(backend,database,560);
+      const claimed=claimLink(backend,database,link,560);
+      const begun=beginAttempt(backend,database,claimed,560);
+      assert.equal(functionResult(backend,`saas.checkout_mark_initiation_unknown('${begun.attempt}','${fixtureUuid("c",561)}',
+        repeat('a',64),'2026-07-21 12:12:00+00')`,database).outcome,"committed");
+      const worker=fixtureUuid("d",560);
+      assert.equal(beginReconciliationRun(backend,database,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").outcome,"acquired");
+      const authority=claimReconciliation(backend,database,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").payload.claims[0];
+      for (const [number,options] of [
+        [562,{paymentAmount:9999,totalAmount:10000}],
+        [563,{paymentAmount:10000,totalAmount:9999}],
+        [564,{currency:"TL"}],
+        [565,{testMode:0}],
+        [566,{paymentAmount:9007199254740992,totalAmount:9007199254740992}],
+      ]) {
+        assert.equal(applyReconciliationSuccess(backend,database,begun,authority,number,{worker,...options}).outcome,"invalid_input");
+      }
+      assert.equal(psql(backend,`SELECT attempt.status||'|'||reservation.status||'|'||variant.stock_quantity||'|'||job.status||'|'||
+        (SELECT count(*) FROM saas.orders WHERE quick_order_link_id=attempt.quick_order_link_id)
+        FROM saas.checkout_payment_attempts AS attempt JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id
+        JOIN saas.product_variants AS variant ON variant.id=reservation.variant_id
+        JOIN saas.checkout_reconciliation_jobs AS job ON job.attempt_id=attempt.id WHERE attempt.id='${begun.attempt}';`,database),
+        "initiation_unknown|held|6|leased|0");
+      const settled=applyReconciliationSuccess(backend,database,begun,authority,560,{worker,totalAmount:10100});
+      assert.equal(settled.outcome,"settled");
+      const replay=applyReconciliationSuccess(backend,database,begun,authority,561,{
+        worker,operation:settled.operation,fingerprint:"7",order:fixtureUuid("7",561),orderItems:[fixtureUuid("8",561)],event:fixtureUuid("9",561),
+      });
+      assert.equal(replay.outcome,"replayed");
+      assert.equal(replay.payload.orderNumber,"QO-R-560");
+      assert.equal(psql(backend,`SELECT attempt.status||'|'||link.status||'|'||reservation.status||'|'||variant.stock_quantity||'|'||job.status||'|'||
+        (SELECT count(*) FROM saas.checkout_reconciliation_receipts WHERE attempt_id=attempt.id)||'|'||
+        (SELECT count(*) FROM saas.orders WHERE quick_order_link_id=link.id)
+        FROM saas.checkout_payment_attempts AS attempt JOIN saas.quick_order_links AS link ON link.id=attempt.quick_order_link_id
+        JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id
+        JOIN saas.product_variants AS variant ON variant.id=reservation.variant_id
+        JOIN saas.checkout_reconciliation_jobs AS job ON job.attempt_id=attempt.id WHERE attempt.id='${begun.attempt}';`,database),
+        "succeeded|paid|consumed|5|completed|1|1");
+    });
+
+    await scenario("callback and status reconciliation race has one settlement winner and one quick-link order", async () => {
+      const database=cloneDatabase(backend,"callback_reconciliation_race");
+      const link=seedCheckoutLink(backend,database,570);
+      const claimed=claimLink(backend,database,link,570);
+      const begun=beginAttempt(backend,database,claimed,570);
+      assert.equal(markAttemptProviderReady(backend,database,begun,571).outcome,"committed");
+      const worker=fixtureUuid("d",570);
+      assert.equal(beginReconciliationRun(backend,database,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").outcome,"acquired");
+      const authority=claimReconciliation(backend,database,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").payload.claims[0];
+      const callback=openPsqlSession(backend,database,"callback_race_winner");
+      const reconciliation=openPsqlSession(backend,database,"reconciliation_race_loser");
+      try {
+        const callbackResult=await callback.execute(`BEGIN; SET LOCAL ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_settle_callback('${begun.merchantOid}','${fixtureDigest("race-callback")}',
+          '${fixtureUuid("d",570)}',repeat('b',64),'success',10000,10000,'TRY','card',1,NULL,NULL,
+          '${fixtureUuid("7",570)}',ARRAY['${fixtureUuid("8",570)}']::uuid[],'${fixtureUuid("9",570)}','RACE-CB','2026-07-21 12:13:10+00');`);
+        assert.equal(callbackResult.split("\n").at(-1),"settled");
+        const reconciliationResult=reconciliation.execute(`SET ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_apply_reconciliation_success('${begun.merchantOid}','${worker}','${authority.leaseToken}',
+          '${fixtureUuid("d",571)}',repeat('c',64),10000,10000,'TRY',1,'${fixtureUuid("7",571)}',
+          ARRAY['${fixtureUuid("8",571)}']::uuid[],'${fixtureUuid("9",571)}','RACE-RECON','2026-07-21 12:13:11+00');`);
+        await waitForBlockedSession(backend,database,reconciliation.applicationName);
+        await callback.execute("COMMIT;");
+        assert.equal((await reconciliationResult).split("\n").at(-1),"conflict");
+        assert.equal(psql(backend,`SELECT count(*)||'|'||min(order_number)||'|'||(SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}')
+          FROM saas.orders WHERE quick_order_link_id='${link.link}';`,database),"1|RACE-CB|5");
+      } finally { await Promise.all([callback.close(),reconciliation.close()]); }
+
+      const reconciliationFirstDatabase=cloneDatabase(backend,"reconciliation_callback_race");
+      const reconciliationFirstLink=seedCheckoutLink(backend,reconciliationFirstDatabase,575);
+      const reconciliationFirstClaim=claimLink(backend,reconciliationFirstDatabase,reconciliationFirstLink,575);
+      const reconciliationFirstAttempt=beginAttempt(backend,reconciliationFirstDatabase,reconciliationFirstClaim,575);
+      assert.equal(markAttemptProviderReady(backend,reconciliationFirstDatabase,reconciliationFirstAttempt,576).outcome,"committed");
+      const reconciliationFirstWorker=fixtureUuid("d",575);
+      assert.equal(beginReconciliationRun(backend,reconciliationFirstDatabase,reconciliationFirstWorker,
+        "2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").outcome,"acquired");
+      const reconciliationFirstAuthority=claimReconciliation(backend,reconciliationFirstDatabase,reconciliationFirstWorker,
+        "2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").payload.claims[0];
+      assert.equal(applyReconciliationSuccess(backend,reconciliationFirstDatabase,reconciliationFirstAttempt,
+        reconciliationFirstAuthority,575,{worker:reconciliationFirstWorker,totalAmount:10050}).outcome,"settled");
+      const callbackDigest=fixtureDigest("reconciliation-first-callback");
+      const authenticated=settleCallback(backend,reconciliationFirstDatabase,reconciliationFirstAttempt,576,{
+        callbackDigest,totalAmount:10050,order:fixtureUuid("7",576),orderItems:[fixtureUuid("8",576)],event:fixtureUuid("9",576),
+      });
+      assert.equal(authenticated.outcome,"replayed");
+      assert.equal(settleCallback(backend,reconciliationFirstDatabase,reconciliationFirstAttempt,577,{
+        callbackDigest,totalAmount:10050,operation:fixtureUuid("d",577),order:fixtureUuid("7",577),
+        orderItems:[fixtureUuid("8",577)],event:fixtureUuid("9",577),
+      }).outcome,"replayed");
+      assert.equal(settleCallback(backend,reconciliationFirstDatabase,reconciliationFirstAttempt,578,{
+        callbackDigest:fixtureDigest("different-after-bound-callback"),totalAmount:10050,
+      }).outcome,"conflict");
+      assert.equal(psql(backend,`SELECT (SELECT count(*) FROM saas.orders WHERE quick_order_link_id='${reconciliationFirstLink.link}')||'|'||
+        (SELECT count(*) FROM saas.checkout_callback_receipts WHERE attempt_id='${reconciliationFirstAttempt.attempt}')||'|'||
+        (SELECT count(*) FROM saas.checkout_reconciliation_receipts WHERE attempt_id='${reconciliationFirstAttempt.attempt}')||'|'||
+        (SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}');`,reconciliationFirstDatabase),"1|1|1|5");
+    });
+
+    await scenario("catalog archive and callback settlement follow deterministic locks without deadlock", async () => {
+      const database=cloneDatabase(backend,"callback_archive_race");
+      const link=seedCheckoutLink(backend,database,580);
+      psql(backend,`SET ROLE celebix_saas_owner;
+        UPDATE saas.quick_order_link_items SET position=1 WHERE quick_order_link_id='${link.link}';
+        INSERT INTO saas.quick_order_link_items(
+          id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,variant_name,
+          unit_price_cents,quantity,line_total_cents,created_at
+        ) VALUES('${fixtureUuid("8",581)}','${STORE}','${link.link}','${PRODUCT}','${VARIANT_2}',0,
+          'Runtime Product','Untracked',11000,1,11000,'2026-07-21 10:00:00+00');
+        UPDATE saas.quick_order_links SET subtotal_cents=21000,total_cents=21000 WHERE id='${link.link}';`,database);
+      const claimed=claimLink(backend,database,link,580);
+      const begun=beginAttempt(backend,database,claimed,580);
+      assert.equal(markAttemptProviderReady(backend,database,begun,581).outcome,"committed");
+      const settle=openPsqlSession(backend,database,"callback_archive_settlement");
+      const archive=openPsqlSession(backend,database,"callback_archive_catalog");
+      try {
+        await archive.execute(`BEGIN; SET ROLE celebix_saas_owner;
+          SELECT id FROM saas.product_variants WHERE id='${VARIANT}' FOR UPDATE;`);
+        const settleResult=settle.execute(`BEGIN; SET lock_timeout='2s'; SET deadlock_timeout='50ms'; SET LOCAL ROLE celebix_saas_workflow;
+          SELECT outcome FROM saas.checkout_settle_callback('${begun.merchantOid}','${fixtureDigest("archive-callback")}',
+          '${fixtureUuid("d",580)}',repeat('e',64),'success',21000,21000,'TRY','card',1,NULL,NULL,
+          '${fixtureUuid("7",580)}',ARRAY['${fixtureUuid("8",582)}','${fixtureUuid("8",583)}']::uuid[],
+          '${fixtureUuid("9",580)}','ARCHIVE-CB','2026-07-21 12:13:00+00'); COMMIT;`);
+        await waitForBlockedSession(backend,database,settle.applicationName);
+        await assert.rejects(archive.execute(`SET LOCAL lock_timeout='2s'; SET LOCAL ROLE celebix_saas_app;
+          SELECT outcome FROM saas.catalog_archive_product('${STORE}','${PRINCIPAL}','${MEMBERSHIP}','${PLAN}','free_starter',1,100,
+          '2026-07-21 12:14:00+00','${fixtureUuid("c",582)}',repeat('d',64),'${PRODUCT}',1);`),
+          /CATALOG_VARIANT_HAS_HELD_CHECKOUT_RESERVATION/);
+        assert.equal((await settleResult).split("\n").at(-1),"settled");
+        assert.equal(psql(backend,`SELECT product.status||'|'||string_agg(variant.status,',' ORDER BY variant.id)||'|'||attempt.status||'|'||link.status||'|'||
+          (SELECT count(*) FROM saas.checkout_inventory_reservations WHERE attempt_id=attempt.id AND status='consumed')
+          FROM saas.products AS product JOIN saas.product_variants AS variant ON variant.product_id=product.id
+          JOIN saas.checkout_payment_attempts AS attempt ON attempt.id='${begun.attempt}'
+          JOIN saas.quick_order_links AS link ON link.id=attempt.quick_order_link_id WHERE product.id='${PRODUCT}'
+          GROUP BY product.status,attempt.id,attempt.status,link.status;`,database),"active|active,active|succeeded|paid|2");
+        const source=psql(backend,"SELECT prosrc FROM pg_proc WHERE oid='saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz)'::regprocedure;",database);
+        assert.ok(source.indexOf("SELECT attempt.* INTO current_attempt")<source.indexOf("SELECT link.* INTO current_link"));
+        assert.ok(source.indexOf("ORDER BY variant.id FOR UPDATE")<source.indexOf("ORDER BY reservation.variant_id,reservation.id FOR UPDATE"));
+      } finally { await Promise.all([settle.close(),archive.close()]); }
+    });
+
+    await scenario("callback and reconciliation unknown-commit recovery is read only exact scoped and nonduplicating", async () => {
+      const callbackDatabase=cloneDatabase(backend,"callback_recovery");
+      const callbackLink=seedCheckoutLink(backend,callbackDatabase,590);
+      const callbackClaim=claimLink(backend,callbackDatabase,callbackLink,590);
+      const callbackAttempt=beginAttempt(backend,callbackDatabase,callbackClaim,590);
+      assert.equal(markAttemptProviderReady(backend,callbackDatabase,callbackAttempt,591).outcome,"committed");
+      const settled=settleCallback(backend,callbackDatabase,callbackAttempt,590);
+      const callbackBytes=psql(backend,`SELECT (SELECT count(*) FROM saas.checkout_operations)||'|'||
+        (SELECT count(*) FROM saas.checkout_callback_receipts)||'|'||(SELECT count(*) FROM saas.orders);`,callbackDatabase);
+      assert.equal(psql(backend,`BEGIN READ ONLY; SET LOCAL ROLE celebix_saas_workflow;
+        SELECT outcome FROM saas.checkout_recover_callback('${callbackAttempt.merchantOid}','${settled.callbackDigest}',
+        '${settled.operation}',repeat('6',64)); COMMIT;`,callbackDatabase).split("\n").at(-1),"operation_replayed");
+      assert.equal(functionResult(backend,`saas.checkout_recover_callback('${callbackAttempt.merchantOid}',repeat('0',64),
+        '${settled.operation}',repeat('6',64))`,callbackDatabase).outcome,"not_found");
+      assert.equal(psql(backend,`SELECT (SELECT count(*) FROM saas.checkout_operations)||'|'||
+        (SELECT count(*) FROM saas.checkout_callback_receipts)||'|'||(SELECT count(*) FROM saas.orders);`,callbackDatabase),callbackBytes);
+
+      const reconciliationDatabase=cloneDatabase(backend,"reconciliation_recovery");
+      const reconciliationLink=seedCheckoutLink(backend,reconciliationDatabase,591,{variant:VARIANT_2});
+      const reconciliationClaim=claimLink(backend,reconciliationDatabase,reconciliationLink,591);
+      const reconciliationAttempt=beginAttempt(backend,reconciliationDatabase,reconciliationClaim,591);
+      assert.equal(markAttemptProviderReady(backend,reconciliationDatabase,reconciliationAttempt,592).outcome,"committed");
+      const worker=fixtureUuid("d",591);
+      assert.equal(beginReconciliationRun(backend,reconciliationDatabase,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").outcome,"acquired");
+      const authority=claimReconciliation(backend,reconciliationDatabase,worker,"2026-07-21 12:13:00+00","2026-07-21 12:14:00+00").payload.claims[0];
+      const reconciled=applyReconciliationSuccess(backend,reconciliationDatabase,reconciliationAttempt,authority,591,{worker});
+      const reconciliationBytes=psql(backend,`SELECT (SELECT count(*) FROM saas.checkout_operations)||'|'||
+        (SELECT count(*) FROM saas.checkout_reconciliation_receipts)||'|'||(SELECT count(*) FROM saas.orders);`,reconciliationDatabase);
+      assert.equal(psql(backend,`BEGIN READ ONLY; SET LOCAL ROLE celebix_saas_workflow;
+        SELECT outcome FROM saas.checkout_recover_reconciliation('${reconciliationAttempt.merchantOid}','${reconciled.operation}',repeat('7',64)); COMMIT;`,reconciliationDatabase).split("\n").at(-1),"operation_replayed");
+      assert.equal(functionResult(backend,`saas.checkout_recover_reconciliation('${"0".repeat(32)}','${reconciled.operation}',repeat('7',64))`,reconciliationDatabase).outcome,"not_found");
+      assert.equal(psql(backend,`SELECT (SELECT count(*) FROM saas.checkout_operations)||'|'||
+        (SELECT count(*) FROM saas.checkout_reconciliation_receipts)||'|'||(SELECT count(*) FROM saas.orders);`,reconciliationDatabase),reconciliationBytes);
+      assert.equal(psql(backend,"SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE');",reconciliationDatabase),"24");
+      assert.equal(psql(backend,"SELECT count(*) FROM information_schema.table_privileges WHERE grantee='celebix_saas_workflow' AND table_schema='saas';",reconciliationDatabase),"0");
+    });
+
+    await scenario("backup restore rollback partial reapply and final cleanup preserve Task 4 authority", async () => {
+      const sourceDatabase=cloneDatabase(backend,"task4_backup_source");
+      const link=seedCheckoutLink(backend,sourceDatabase,600,{variant:VARIANT_2});
+      const claimed=claimLink(backend,sourceDatabase,link,600);
+      const begun=beginAttempt(backend,sourceDatabase,claimed,600);
+      assert.equal(markAttemptProviderReady(backend,sourceDatabase,begun,601).outcome,"committed");
+      const settled=settleCallback(backend,sourceDatabase,begun,600);
+      assert.equal(settled.outcome,"settled");
+      const dump=path.join(backend.temporaryDirectory,"quick-order-runtime-task4.dump");
+      const restoredDatabase=`${DATABASE}_task4_restored`;
+      command(backend.executables.pg_dump,["-h",backend.socketDirectory,"-p",String(backend.port),"-U","postgres","-d",sourceDatabase,"-Fc","-f",dump]);
+      createDatabase(backend,restoredDatabase);
+      command(backend.executables.pg_restore,["-h",backend.socketDirectory,"-p",String(backend.port),"-U","postgres","-d",restoredDatabase,"--exit-on-error",dump]);
+      assert.equal(psql(backend,`SELECT link.status||'|'||attempt.status||'|'||(SELECT count(*) FROM saas.orders WHERE quick_order_link_id=link.id)||'|'||
+        (SELECT count(*) FROM saas.checkout_callback_receipts WHERE attempt_id=attempt.id)
+        FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id
+        WHERE link.id='${link.link}';`,restoredDatabase),"paid|succeeded|1|1");
+      assert.equal(functionResult(backend,`saas.checkout_get_callback_authority('${begun.merchantOid}','2026-07-21 12:14:00+00')`,restoredDatabase).outcome,"found");
+      apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",restoredDatabase);
+      rmSync(dump,{force:true});
+      assert.equal(existsSync(dump),false);
+
+      const rollbackDatabase=cloneDatabase(backend,"task4_api_rollback");
+      apply(backend,"202607220027_quick_order_checkout_api.down.sql",rollbackDatabase);
+      assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_get_callback_authority(text,timestamptz)') IS NULL;",rollbackDatabase),"t");
+      assert.equal(psql(backend,"SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE');",rollbackDatabase),"0");
+      apply(backend,"202607220027_quick_order_checkout_api.up.sql",rollbackDatabase);
+      apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",rollbackDatabase);
+      assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_get_callback_authority(text,timestamptz)') IS NOT NULL;",rollbackDatabase),"t");
+
+      const partialDatabase=`${DATABASE}_task4_partial`;
+      createDatabase(backend,partialDatabase,ROLLBACK_DATABASE);
+      psql(backend,`SET ROLE celebix_saas_owner; CREATE FUNCTION saas.checkout_get_callback_authority(text,timestamptz)
+        RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE sql AS 'SELECT ''partial''::text,NULL::jsonb';`,partialDatabase);
+      const partialApply=apply(backend,"202607220027_quick_order_checkout_api.up.sql",partialDatabase,true);
+      assert.notEqual(partialApply.status,0);
+      assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_settle_callback(text,text,uuid,text,text,bigint,bigint,text,text,integer,text,text,uuid,uuid[],uuid,text,timestamptz)') IS NULL;",partialDatabase),"t");
+      psql(backend,"SET ROLE celebix_saas_owner; DROP FUNCTION saas.checkout_get_callback_authority(text,timestamptz);",partialDatabase);
+      apply(backend,"202607220027_quick_order_checkout_api.up.sql",partialDatabase);
+      apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",partialDatabase);
+      apply(backend,"202607220027_quick_order_checkout_api.down.sql",partialDatabase);
     });
 
     assert.equal(completed.length, TOTAL);

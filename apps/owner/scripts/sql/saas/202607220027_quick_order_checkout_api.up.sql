@@ -908,6 +908,9 @@ BEGIN
     UPDATE saas.checkout_payment_attempts SET status='provider_ready',provider_token_digest=p_provider_token_digest,
       provider_token_key_id=token_key_id,sealed_provider_token=p_sealed_provider_token,provider_ready_at=p_now,
       version=version+1,updated_at=p_now WHERE id=p_attempt_id;
+    INSERT INTO saas.checkout_reconciliation_jobs(
+      attempt_id,store_id,status,attempt_number,next_attempt_at,created_at,updated_at
+    ) VALUES(p_attempt_id,current_attempt.store_id,'pending',0,p_now,p_now,p_now);
     projection:=pg_catalog.jsonb_build_object(
       'attemptId',p_attempt_id,'status','provider_ready','providerTokenDigest',p_provider_token_digest,
       'providerTokenKeyId',token_key_id,'sealedProviderToken',p_sealed_provider_token
@@ -1184,6 +1187,735 @@ BEGIN
 END
 $function$;
 
+CREATE FUNCTION saas.quick_checkout_token_digest(p_token text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas
+AS $function$
+  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_token,'UTF8')),'hex')
+$function$;
+
+CREATE FUNCTION saas.quick_checkout_digest_matches(p_actual text,p_expected text)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,saas
+AS $function$
+DECLARE mismatch integer:=0; position integer;
+BEGIN
+  IF p_actual IS NULL OR p_expected IS NULL
+     OR p_actual!~'^[a-f0-9]{64}$' OR p_expected!~'^[a-f0-9]{64}$' THEN RETURN FALSE; END IF;
+  FOR position IN 1..64 LOOP
+    mismatch:=mismatch | (pg_catalog.ascii(pg_catalog.substr(p_actual,position,1)) #
+      pg_catalog.ascii(pg_catalog.substr(p_expected,position,1)));
+  END LOOP;
+  RETURN mismatch=0;
+END
+$function$;
+
+CREATE FUNCTION saas.quick_checkout_random_lease_token()
+RETURNS text LANGUAGE sql VOLATILE SET search_path=pg_catalog,saas
+AS $function$
+  SELECT pg_catalog.translate(pg_catalog.rtrim(pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+    pg_catalog.gen_random_uuid()::text||':'||pg_catalog.gen_random_uuid()::text||':'||
+    pg_catalog.gen_random_uuid()::text,'UTF8')),'base64'),'='),'+/','-_')
+$function$;
+
+CREATE FUNCTION saas.quick_checkout_attempt_authority_projection(p_attempt_id uuid)
+RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas
+AS $function$
+  SELECT pg_catalog.jsonb_build_object(
+    'storeId',attempt.store_id,'attemptId',attempt.id,'merchantOid',attempt.merchant_oid,
+    'providerConfigId',attempt.provider_config_id,'status',attempt.status,
+    'expectedPaymentAmount',attempt.expected_payment_amount,'currency',attempt.currency,
+    'configurationDigest',attempt.configuration_digest,'configurationKeyId',attempt.configuration_key_id,
+    'sealedConfiguration',attempt.sealed_configuration
+  )
+  FROM saas.checkout_payment_attempts AS attempt WHERE attempt.id=p_attempt_id
+$function$;
+
+CREATE FUNCTION saas.quick_checkout_settle_success_core(
+  p_attempt_id uuid,p_worker_id uuid,p_lease_token text,
+  p_order_id uuid,p_order_item_ids uuid[],p_order_event_id uuid,p_order_number text,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE current_attempt saas.checkout_payment_attempts%ROWTYPE; current_link saas.quick_order_links%ROWTYPE;
+  current_job saas.checkout_reconciliation_jobs%ROWTYPE; item_record record; item_index integer:=0;
+  expected_item_count bigint; tracked_count bigint; updated_count bigint; projection jsonb;
+BEGIN
+  SELECT attempt.* INTO current_attempt FROM saas.checkout_payment_attempts AS attempt
+    WHERE attempt.id=p_attempt_id FOR UPDATE OF attempt;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  SELECT link.* INTO current_link FROM saas.quick_order_links AS link
+    WHERE link.store_id=current_attempt.store_id AND link.id=current_attempt.quick_order_link_id FOR UPDATE OF link;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN; END IF;
+  -- Shared success settlement lock order is exact: attempt -> link -> variants by id -> reservations by variant_id.
+  PERFORM variant.id FROM saas.product_variants AS variant
+    WHERE variant.store_id=current_attempt.store_id AND EXISTS(
+      SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
+      WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+        AND reservation.variant_id=variant.id
+    ) ORDER BY variant.id FOR UPDATE OF variant;
+  PERFORM reservation.id FROM saas.checkout_inventory_reservations AS reservation
+    WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+    ORDER BY reservation.variant_id,reservation.id FOR UPDATE OF reservation;
+
+  IF current_attempt.status NOT IN ('provider_ready','initiation_unknown')
+     OR current_link.status NOT IN ('active','opened')
+     OR p_now<current_attempt.updated_at OR p_now<current_link.updated_at
+     OR current_attempt.version=9007199254740991 OR current_link.version=9007199254740991
+     OR NOT EXISTS(SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
+       WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id)
+     OR EXISTS(SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
+       WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+         AND (reservation.status<>'held' OR reservation.updated_at>p_now OR reservation.version=9007199254740991)) THEN
+    RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF p_worker_id IS NOT NULL THEN
+    SELECT job.* INTO current_job FROM saas.checkout_reconciliation_jobs AS job
+      WHERE job.attempt_id=current_attempt.id FOR UPDATE OF job;
+    IF NOT FOUND OR current_job.status<>'leased' OR current_job.worker_id IS DISTINCT FROM p_worker_id
+       OR current_job.lease_expires_at<=p_now OR p_now<current_job.updated_at
+       OR saas.quick_checkout_digest_matches(current_job.lease_token_digest,
+         saas.quick_checkout_token_digest(p_lease_token)) IS DISTINCT FROM TRUE THEN
+      RETURN QUERY SELECT 'invalid_lease'::text,NULL::jsonb; RETURN;
+    END IF;
+  END IF;
+  SELECT pg_catalog.count(*) INTO expected_item_count FROM saas.quick_order_link_items AS item
+    WHERE item.store_id=current_link.store_id AND item.quick_order_link_id=current_link.id;
+  IF saas.quick_checkout_uuid_is_valid(p_order_id) IS DISTINCT FROM TRUE
+     OR saas.quick_checkout_uuid_is_valid(p_order_event_id) IS DISTINCT FROM TRUE
+     OR p_order_item_ids IS NULL OR pg_catalog.array_ndims(p_order_item_ids)<>1
+     OR pg_catalog.cardinality(p_order_item_ids)<>expected_item_count
+     OR EXISTS(SELECT 1 FROM pg_catalog.unnest(p_order_item_ids) AS supplied(id)
+       WHERE saas.quick_checkout_uuid_is_valid(supplied.id) IS DISTINCT FROM TRUE)
+     OR (SELECT pg_catalog.count(DISTINCT supplied.id) FROM pg_catalog.unnest(p_order_item_ids) AS supplied(id))<>expected_item_count
+     OR p_order_number IS NULL OR p_order_number<>pg_catalog.btrim(p_order_number)
+     OR pg_catalog.char_length(p_order_number) NOT BETWEEN 1 AND 64 OR p_order_number~'[[:cntrl:]]' THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF EXISTS(
+    SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
+    JOIN saas.product_variants AS variant ON variant.store_id=reservation.store_id AND variant.id=reservation.variant_id
+    WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+      AND reservation.stock_tracked AND variant.stock_quantity<reservation.quantity
+  ) THEN RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN; END IF;
+
+  INSERT INTO saas.orders(
+    id,store_id,order_number,source,customer_name,customer_email,customer_phone,currency,
+    subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,
+    shipping_address,billing_address,quick_order_link_id,version,created_at,updated_at
+  ) VALUES(
+    p_order_id,current_link.store_id,p_order_number,'quick_link',current_link.customer_name,
+    current_link.customer_email,current_link.customer_phone,current_link.currency,current_link.subtotal_cents,
+    current_link.shipping_cents,current_link.discount_cents,current_link.total_cents,'confirmed','completed',
+    current_link.shipping_address,current_link.billing_address,current_link.id,1,p_now,p_now
+  );
+  FOR item_record IN
+    SELECT item.* FROM saas.quick_order_link_items AS item
+    WHERE item.store_id=current_link.store_id AND item.quick_order_link_id=current_link.id
+    ORDER BY item.position,item.id
+  LOOP
+    item_index:=item_index+1;
+    INSERT INTO saas.order_items(
+      id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,
+      unit_price_cents,quantity,discount_cents,line_total_cents,created_at
+    ) VALUES(
+      p_order_item_ids[item_index],current_link.store_id,p_order_id,item_record.product_id,item_record.variant_id,
+      item_record.position,item_record.product_name,item_record.variant_name,item_record.sku,item_record.unit_price_cents,
+      item_record.quantity,0,item_record.line_total_cents,p_now
+    );
+  END LOOP;
+  INSERT INTO saas.order_events(
+    id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at
+  ) VALUES(
+    p_order_event_id,current_link.store_id,p_order_id,NULL,'order_created',NULL,'confirmed',
+    'Quick order payment confirmed',pg_catalog.jsonb_build_object('source','quick_link'),p_now
+  );
+  UPDATE saas.checkout_inventory_reservations SET status='consumed',consumed_at=p_now,
+    version=version+1,updated_at=p_now
+    WHERE store_id=current_attempt.store_id AND attempt_id=current_attempt.id AND status='held';
+  SELECT pg_catalog.count(*) INTO tracked_count FROM saas.checkout_inventory_reservations AS reservation
+    WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+      AND reservation.stock_tracked;
+  UPDATE saas.product_variants AS variant SET stock_quantity=variant.stock_quantity-reservation.quantity,
+    version=variant.version+1,updated_at=p_now
+    FROM saas.checkout_inventory_reservations AS reservation
+    WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+      AND reservation.stock_tracked AND variant.store_id=reservation.store_id AND variant.id=reservation.variant_id;
+  GET DIAGNOSTICS updated_count=ROW_COUNT;
+  IF updated_count<>tracked_count THEN RAISE check_violation USING MESSAGE='controlled checkout stock transition'; END IF;
+  UPDATE saas.checkout_payment_attempts SET status='succeeded',succeeded_at=p_now,settled_order_id=p_order_id,
+    version=version+1,updated_at=p_now WHERE id=current_attempt.id;
+  UPDATE saas.quick_order_links SET status='paid',opened_at=COALESCE(opened_at,p_now),paid_at=p_now,order_id=p_order_id,
+    version=version+1,updated_at=p_now WHERE store_id=current_link.store_id AND id=current_link.id;
+  UPDATE saas.checkout_reconciliation_jobs SET status='completed',worker_id=NULL,lease_token_digest=NULL,
+    lease_expires_at=NULL,updated_at=p_now WHERE attempt_id=current_attempt.id AND status<>'completed';
+  projection:=pg_catalog.jsonb_build_object(
+    'outcome','settled','status','succeeded','orderId',p_order_id,'orderNumber',p_order_number
+  );
+  RETURN QUERY SELECT 'settled'::text,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_get_callback_authority(p_merchant_oid text,p_now timestamptz)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE projection jsonb;
+BEGIN
+  IF p_merchant_oid IS NULL OR p_merchant_oid!~'^[a-f0-9]{32}$'
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT saas.quick_checkout_attempt_authority_projection(attempt.id) INTO projection
+  FROM saas.checkout_payment_attempts AS attempt WHERE attempt.merchant_oid=p_merchant_oid
+    AND attempt.status IN ('provider_ready','initiation_unknown','succeeded','failed') AND attempt.updated_at<=p_now;
+  IF projection IS NULL THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'found'::text,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_settle_callback(
+  p_merchant_oid text,p_callback_digest text,p_operation_id uuid,p_fingerprint text,p_status text,
+  p_payment_amount bigint,p_total_amount bigint,p_currency text,p_payment_type text,p_test_mode integer,
+  p_failed_reason_code text,p_failed_reason_message_digest text,
+  p_order_id uuid,p_order_item_ids uuid[],p_order_event_id uuid,p_order_number text,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE current_attempt saas.checkout_payment_attempts%ROWTYPE; current_link saas.quick_order_links%ROWTYPE;
+  existing_receipt saas.checkout_callback_receipts%ROWTYPE; existing_operation saas.checkout_operations%ROWTYPE;
+  existing_reconciliation_receipt saas.checkout_reconciliation_receipts%ROWTYPE;
+  reservation_record record; settlement_outcome text; projection jsonb; provider_facts jsonb;
+BEGIN
+  IF p_merchant_oid IS NULL OR p_merchant_oid!~'^[a-f0-9]{32}$'
+     OR p_callback_digest IS NULL OR p_callback_digest!~'^[a-f0-9]{64}$'
+     OR saas.quick_checkout_uuid_is_valid(p_operation_id) IS DISTINCT FROM TRUE
+     OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+     OR p_status IS NULL OR p_status<>ALL(ARRAY['success','failed'])
+     OR p_payment_type IS NULL OR p_payment_type<>ALL(ARRAY['card','eft'])
+     OR p_test_mode IS DISTINCT FROM 1
+     OR p_total_amount IS NULL OR p_total_amount NOT BETWEEN 1 AND 9007199254740991
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE
+     OR (p_status='success' AND (
+       p_payment_amount IS NULL OR p_payment_amount NOT BETWEEN 1 AND 9007199254740991
+       OR p_total_amount<p_payment_amount OR p_currency IS DISTINCT FROM 'TRY'
+       OR p_failed_reason_code IS NOT NULL OR p_failed_reason_message_digest IS NOT NULL))
+     OR (p_status='failed' AND (
+       (p_payment_amount IS NOT NULL AND p_payment_amount NOT BETWEEN 1 AND 9007199254740991)
+       OR (p_currency IS NOT NULL AND p_currency<>'TRY')
+       OR p_failed_reason_code IS NULL OR p_failed_reason_code<>pg_catalog.btrim(p_failed_reason_code)
+       OR pg_catalog.char_length(p_failed_reason_code) NOT BETWEEN 1 AND 64 OR p_failed_reason_code~'[[:cntrl:]]'
+       OR p_failed_reason_message_digest IS NULL OR p_failed_reason_message_digest!~'^[a-f0-9]{64}$'
+       OR p_order_id IS NOT NULL OR p_order_item_ids IS NOT NULL OR p_order_event_id IS NOT NULL
+       OR p_order_number IS NOT NULL)) THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT attempt.* INTO current_attempt FROM saas.checkout_payment_attempts AS attempt
+    WHERE attempt.merchant_oid=p_merchant_oid FOR UPDATE OF attempt;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  -- Authentication happens in the route before this call. The immutable callback digest is checked
+  -- before any caller-generated order, item, or event identifier is inspected.
+  SELECT receipt.* INTO existing_receipt FROM saas.checkout_callback_receipts AS receipt
+    WHERE receipt.attempt_id=current_attempt.id AND receipt.callback_digest=p_callback_digest;
+  IF FOUND THEN RETURN QUERY SELECT 'replayed'::text,existing_receipt.result_payload; RETURN; END IF;
+  SELECT operation.* INTO existing_operation FROM saas.checkout_operations AS operation
+    WHERE operation.operation_id=p_operation_id;
+  IF FOUND THEN RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN; END IF;
+  IF EXISTS(SELECT 1 FROM saas.checkout_callback_receipts AS receipt
+    WHERE receipt.attempt_id=current_attempt.id) THEN
+    RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN;
+  END IF;
+  -- A status-query settlement may win first. A later authenticated callback with the exact
+  -- immutable success facts binds its digest durably without issuing a second settlement.
+  IF current_attempt.status='succeeded' AND p_status='success' THEN
+    SELECT receipt.* INTO existing_reconciliation_receipt FROM saas.checkout_reconciliation_receipts AS receipt
+      WHERE receipt.attempt_id=current_attempt.id AND receipt.outcome='succeeded'
+      ORDER BY receipt.committed_at,receipt.operation_id LIMIT 1;
+    IF NOT FOUND OR p_payment_amount<>current_attempt.expected_payment_amount
+       OR p_currency<>current_attempt.currency
+       OR existing_reconciliation_receipt.result_payload->>'paymentAmount'<>p_payment_amount::text
+       OR existing_reconciliation_receipt.result_payload->>'totalAmount'<>p_total_amount::text
+       OR existing_reconciliation_receipt.result_payload->>'currency'<>'TRY'
+       OR existing_reconciliation_receipt.result_payload->>'testMode'<>'1' THEN
+      RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN;
+    END IF;
+    SELECT existing_reconciliation_receipt.result_payload||pg_catalog.jsonb_build_object(
+      'paymentType',p_payment_type,'authenticatedCallback',true
+    ) INTO projection;
+    BEGIN
+      INSERT INTO saas.checkout_callback_receipts(
+        id,store_id,attempt_id,callback_digest,currency,callback_status,result_payload,received_at
+      ) VALUES(p_operation_id,current_attempt.store_id,current_attempt.id,p_callback_digest,current_attempt.currency,
+        'success',projection,p_now);
+      INSERT INTO saas.checkout_operations(
+        operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at
+      ) VALUES(p_operation_id,current_attempt.store_id,current_attempt.id,'settle_callback',p_fingerprint,projection,p_now);
+    EXCEPTION WHEN unique_violation OR check_violation OR foreign_key_violation OR numeric_value_out_of_range
+        OR datetime_field_overflow OR raise_exception THEN
+      RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+    END;
+    RETURN QUERY SELECT 'replayed'::text,projection; RETURN;
+  END IF;
+  IF current_attempt.status IN ('succeeded','failed','expired') THEN
+    RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF p_now<current_attempt.updated_at OR current_attempt.status NOT IN ('provider_ready','initiation_unknown') THEN
+    RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF p_status='success' AND (p_payment_amount<>current_attempt.expected_payment_amount
+      OR p_currency<>current_attempt.currency) THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  BEGIN
+    IF p_status='success' THEN
+      SELECT settled.outcome,settled.result_payload INTO settlement_outcome,projection
+      FROM saas.quick_checkout_settle_success_core(
+        current_attempt.id,NULL,NULL,p_order_id,p_order_item_ids,p_order_event_id,p_order_number,p_now
+      ) AS settled;
+      IF settlement_outcome<>'settled' THEN RETURN QUERY SELECT settlement_outcome,projection; RETURN; END IF;
+      provider_facts:=pg_catalog.jsonb_build_object(
+        'status','success','paymentAmount',p_payment_amount,'totalAmount',p_total_amount,
+        'currency','TRY','paymentType',p_payment_type,'testMode',1
+      );
+    ELSE
+      SELECT link.* INTO current_link FROM saas.quick_order_links AS link
+        WHERE link.store_id=current_attempt.store_id AND link.id=current_attempt.quick_order_link_id FOR UPDATE OF link;
+      PERFORM variant.id FROM saas.product_variants AS variant
+        WHERE variant.store_id=current_attempt.store_id AND EXISTS(
+          SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
+          WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+            AND reservation.variant_id=variant.id
+        ) ORDER BY variant.id FOR UPDATE OF variant;
+      PERFORM reservation.id FROM saas.checkout_inventory_reservations AS reservation
+        WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+        ORDER BY reservation.variant_id,reservation.id FOR UPDATE OF reservation;
+      IF current_attempt.version=9007199254740991
+         OR NOT EXISTS(SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
+           WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id)
+         OR EXISTS(SELECT 1 FROM saas.checkout_inventory_reservations AS reservation
+           WHERE reservation.store_id=current_attempt.store_id AND reservation.attempt_id=current_attempt.id
+             AND (reservation.status<>'held' OR reservation.updated_at>p_now OR reservation.version=9007199254740991)) THEN
+        RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN;
+      END IF;
+      UPDATE saas.checkout_inventory_reservations SET status='released',released_at=p_now,
+        version=version+1,updated_at=p_now
+        WHERE store_id=current_attempt.store_id AND attempt_id=current_attempt.id AND status='held';
+      UPDATE saas.checkout_payment_attempts SET status='failed',failed_at=p_now,version=version+1,updated_at=p_now
+        WHERE id=current_attempt.id;
+      UPDATE saas.checkout_reconciliation_jobs SET status='completed',worker_id=NULL,lease_token_digest=NULL,
+        lease_expires_at=NULL,updated_at=p_now WHERE attempt_id=current_attempt.id AND status<>'completed';
+      projection:=pg_catalog.jsonb_build_object('outcome','failed','status','failed');
+      provider_facts:=pg_catalog.jsonb_build_object(
+        'status','failed','totalAmount',p_total_amount,'paymentType',p_payment_type,'testMode',1,
+        'failedReasonCode',p_failed_reason_code,'failedReasonMessageDigest',p_failed_reason_message_digest
+      );
+      settlement_outcome:='failed';
+    END IF;
+    projection:=projection||provider_facts;
+    INSERT INTO saas.checkout_callback_receipts(
+      id,store_id,attempt_id,callback_digest,currency,callback_status,result_payload,received_at
+    ) VALUES(p_operation_id,current_attempt.store_id,current_attempt.id,p_callback_digest,current_attempt.currency,
+      p_status,projection,p_now);
+    INSERT INTO saas.checkout_operations(
+      operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at
+    ) VALUES(p_operation_id,current_attempt.store_id,current_attempt.id,'settle_callback',p_fingerprint,projection,p_now);
+  EXCEPTION WHEN unique_violation OR check_violation OR foreign_key_violation OR numeric_value_out_of_range
+      OR datetime_field_overflow OR array_subscript_error OR raise_exception THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END;
+  RETURN QUERY SELECT settlement_outcome,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_recover_callback(
+  p_merchant_oid text,p_callback_digest text,p_operation_id uuid,p_fingerprint text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE existing_receipt saas.checkout_callback_receipts%ROWTYPE; existing_operation saas.checkout_operations%ROWTYPE;
+  resolved_attempt_id uuid;
+BEGIN
+  IF p_merchant_oid IS NULL OR p_merchant_oid!~'^[a-f0-9]{32}$'
+     OR p_callback_digest IS NULL OR p_callback_digest!~'^[a-f0-9]{64}$'
+     OR saas.quick_checkout_uuid_is_valid(p_operation_id) IS DISTINCT FROM TRUE
+     OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT attempt.id INTO resolved_attempt_id FROM saas.checkout_payment_attempts AS attempt
+    WHERE attempt.merchant_oid=p_merchant_oid;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  SELECT receipt.* INTO existing_receipt FROM saas.checkout_callback_receipts AS receipt
+    WHERE receipt.attempt_id=resolved_attempt_id AND receipt.callback_digest=p_callback_digest;
+  SELECT operation.* INTO existing_operation FROM saas.checkout_operations AS operation
+    WHERE operation.operation_id=p_operation_id AND operation.attempt_id=resolved_attempt_id;
+  IF existing_receipt.id IS NULL OR existing_operation.operation_id IS NULL THEN
+    RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF existing_operation.operation_kind<>'settle_callback'
+     OR existing_operation.payload_fingerprint<>p_fingerprint OR existing_receipt.id<>p_operation_id THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END IF;
+  RETURN QUERY SELECT 'operation_replayed'::text,existing_operation.result_payload;
+END
+$function$;
+
+CREATE FUNCTION saas.quick_checkout_reconciliation_projection(
+  p_attempt_id uuid,p_worker_id uuid,p_lease_token text,p_attempt_number integer
+)
+RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas
+AS $function$
+  SELECT saas.quick_checkout_attempt_authority_projection(p_attempt_id)||pg_catalog.jsonb_build_object(
+    'workerId',p_worker_id,'leaseToken',p_lease_token,'attemptNumber',p_attempt_number
+  )
+$function$;
+
+CREATE FUNCTION saas.checkout_begin_reconciliation_run(
+  p_worker_id uuid,p_run_token_digest text,p_now timestamptz,p_lease_expires_at timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE current_run saas.checkout_reconciliation_run%ROWTYPE; projection jsonb; inserted_count bigint:=0;
+BEGIN
+  IF saas.quick_checkout_uuid_is_valid(p_worker_id) IS DISTINCT FROM TRUE
+     OR p_run_token_digest IS NULL OR p_run_token_digest!~'^[a-f0-9]{64}$'
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE
+     OR saas.quick_links_authority_time_is_valid(p_lease_expires_at) IS DISTINCT FROM TRUE
+     OR p_lease_expires_at<p_now+interval '5 seconds' OR p_lease_expires_at>p_now+interval '60 seconds' THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  BEGIN
+    INSERT INTO saas.checkout_reconciliation_run(
+      singleton,worker_id,run_token_digest,lease_expires_at,started_at,updated_at
+    ) VALUES(TRUE,p_worker_id,p_run_token_digest,p_lease_expires_at,p_now,p_now)
+    ON CONFLICT (singleton) DO NOTHING;
+    GET DIAGNOSTICS inserted_count=ROW_COUNT;
+    IF inserted_count=0 THEN
+      SELECT run.* INTO current_run FROM saas.checkout_reconciliation_run AS run
+        WHERE run.singleton FOR UPDATE OF run;
+      IF current_run.lease_expires_at>p_now THEN
+        RETURN QUERY SELECT 'busy'::text,pg_catalog.jsonb_build_object('status','busy'); RETURN;
+      END IF;
+      UPDATE saas.checkout_reconciliation_run SET worker_id=p_worker_id,run_token_digest=p_run_token_digest,
+        lease_expires_at=p_lease_expires_at,started_at=p_now,updated_at=p_now WHERE singleton;
+    END IF;
+    projection:=pg_catalog.jsonb_build_object('status','acquired',
+      'leaseExpiresAt',saas.quick_links_json_timestamp(p_lease_expires_at));
+  EXCEPTION WHEN unique_violation OR check_violation OR numeric_value_out_of_range OR datetime_field_overflow THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END;
+  RETURN QUERY SELECT 'acquired'::text,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_recover_reconciliation_run(
+  p_worker_id uuid,p_run_token_digest text,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE projection jsonb;
+BEGIN
+  IF saas.quick_checkout_uuid_is_valid(p_worker_id) IS DISTINCT FROM TRUE
+     OR p_run_token_digest IS NULL OR p_run_token_digest!~'^[a-f0-9]{64}$'
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT pg_catalog.jsonb_build_object('status','acquired',
+    'leaseExpiresAt',saas.quick_links_json_timestamp(run.lease_expires_at)) INTO projection
+  FROM saas.checkout_reconciliation_run AS run WHERE run.singleton AND run.worker_id=p_worker_id
+    AND run.lease_expires_at>p_now
+    AND saas.quick_checkout_digest_matches(run.run_token_digest,p_run_token_digest);
+  IF projection IS NULL THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  RETURN QUERY SELECT 'acquired'::text,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_finish_reconciliation_run(
+  p_worker_id uuid,p_run_token text,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE current_run saas.checkout_reconciliation_run%ROWTYPE;
+BEGIN
+  IF saas.quick_checkout_uuid_is_valid(p_worker_id) IS DISTINCT FROM TRUE
+     OR p_run_token IS NULL OR p_run_token!~'^[A-Za-z0-9_-]{43}$'
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT run.* INTO current_run FROM saas.checkout_reconciliation_run AS run
+    WHERE run.singleton FOR UPDATE OF run;
+  IF NOT FOUND OR current_run.worker_id IS DISTINCT FROM p_worker_id OR current_run.lease_expires_at<=p_now
+     OR saas.quick_checkout_digest_matches(current_run.run_token_digest,
+       saas.quick_checkout_token_digest(p_run_token)) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_lease'::text,NULL::jsonb; RETURN;
+  END IF;
+  DELETE FROM saas.checkout_reconciliation_run WHERE singleton;
+  RETURN QUERY SELECT 'committed'::text,pg_catalog.jsonb_build_object('status','finished');
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_claim_reconciliation(
+  p_worker_id uuid,p_now timestamptz,p_lease_expires_at timestamptz,p_claim_limit bigint
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE candidate record; current_run saas.checkout_reconciliation_run%ROWTYPE;
+  lease_token text; projection jsonb; claims jsonb:='[]'::jsonb;
+BEGIN
+  IF saas.quick_checkout_uuid_is_valid(p_worker_id) IS DISTINCT FROM TRUE
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE
+     OR saas.quick_links_authority_time_is_valid(p_lease_expires_at) IS DISTINCT FROM TRUE
+     OR p_lease_expires_at<p_now+interval '5 seconds' OR p_lease_expires_at>p_now+interval '60 seconds'
+     OR p_claim_limit IS NULL OR p_claim_limit NOT BETWEEN 1 AND 25 THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT run.* INTO current_run FROM saas.checkout_reconciliation_run AS run
+    WHERE run.singleton FOR UPDATE OF run;
+  IF NOT FOUND OR current_run.worker_id IS DISTINCT FROM p_worker_id OR current_run.lease_expires_at<=p_now THEN
+    RETURN QUERY SELECT 'run_not_owned'::text,pg_catalog.jsonb_build_object('claims','[]'::jsonb); RETURN;
+  END IF;
+  IF p_lease_expires_at>current_run.lease_expires_at THEN
+    RETURN QUERY SELECT 'invalid_input'::text,pg_catalog.jsonb_build_object('claims','[]'::jsonb); RETURN;
+  END IF;
+  FOR candidate IN
+    SELECT attempt.id,job.attempt_number FROM saas.checkout_payment_attempts AS attempt
+    JOIN saas.checkout_reconciliation_jobs AS job ON job.store_id=attempt.store_id AND job.attempt_id=attempt.id
+    WHERE attempt.status IN ('provider_ready','initiation_unknown') AND attempt.updated_at<=p_now
+      AND job.next_attempt_at<=p_now AND job.updated_at<=p_now
+      AND job.attempt_number<1000
+      AND (job.status='pending' OR (job.status='leased' AND job.lease_expires_at<=p_now))
+    ORDER BY job.next_attempt_at,attempt.id FOR UPDATE OF attempt SKIP LOCKED LIMIT p_claim_limit
+  LOOP
+    lease_token:=saas.quick_checkout_random_lease_token();
+    UPDATE saas.checkout_reconciliation_jobs SET status='leased',attempt_number=attempt_number+1,
+      worker_id=p_worker_id,lease_token_digest=saas.quick_checkout_token_digest(lease_token),
+      lease_expires_at=p_lease_expires_at,updated_at=p_now
+      WHERE attempt_id=candidate.id AND (status='pending' OR (status='leased' AND lease_expires_at<=p_now));
+    IF FOUND THEN
+      projection:=saas.quick_checkout_reconciliation_projection(
+        candidate.id,p_worker_id,lease_token,candidate.attempt_number+1
+      );
+      claims:=claims||pg_catalog.jsonb_build_array(projection);
+    END IF;
+  END LOOP;
+  RETURN QUERY SELECT 'claimed'::text,pg_catalog.jsonb_build_object('claims',claims);
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_claim_redemption_reconciliation(
+  p_hostname text,p_redemption_digest text,p_worker_id uuid,p_now timestamptz,p_lease_expires_at timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE candidate record; lease_token text; projection jsonb;
+BEGIN
+  IF saas.quick_checkout_hostname_is_valid(p_hostname) IS DISTINCT FROM TRUE
+     OR p_redemption_digest IS NULL OR p_redemption_digest!~'^[a-f0-9]{64}$'
+     OR saas.quick_checkout_uuid_is_valid(p_worker_id) IS DISTINCT FROM TRUE
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE
+     OR saas.quick_links_authority_time_is_valid(p_lease_expires_at) IS DISTINCT FROM TRUE
+     OR p_lease_expires_at<p_now+interval '5 seconds' OR p_lease_expires_at>p_now+interval '60 seconds' THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT attempt.id,job.attempt_number INTO candidate
+  FROM saas.store_domains AS domain
+  JOIN saas.stores AS store ON store.id=domain.store_id AND store.status='active'
+  JOIN saas.quick_order_redemption_sessions AS session ON session.store_id=domain.store_id
+    AND session.cookie_digest=p_redemption_digest AND session.revoked_at IS NULL AND session.expires_at>p_now
+  JOIN saas.checkout_payment_attempts AS attempt ON attempt.store_id=session.store_id
+    AND attempt.redemption_session_id=session.id AND attempt.quick_order_link_id=session.quick_order_link_id
+  JOIN saas.checkout_reconciliation_jobs AS job ON job.store_id=attempt.store_id AND job.attempt_id=attempt.id
+  WHERE domain.hostname=p_hostname AND domain.status='active' AND domain.is_primary AND domain.verified_at<=p_now
+    AND attempt.status IN ('provider_ready','initiation_unknown') AND attempt.updated_at<=p_now
+    AND job.next_attempt_at<=p_now AND job.updated_at<=p_now AND job.attempt_number<1000
+    AND (job.status='pending' OR (job.status='leased' AND job.lease_expires_at<=p_now))
+  ORDER BY attempt.created_at DESC,attempt.id DESC FOR UPDATE OF attempt SKIP LOCKED LIMIT 1;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  lease_token:=saas.quick_checkout_random_lease_token();
+  UPDATE saas.checkout_reconciliation_jobs SET status='leased',attempt_number=attempt_number+1,
+    worker_id=p_worker_id,lease_token_digest=saas.quick_checkout_token_digest(lease_token),
+    lease_expires_at=p_lease_expires_at,updated_at=p_now WHERE attempt_id=candidate.id
+    AND (status='pending' OR (status='leased' AND lease_expires_at<=p_now));
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  projection:=saas.quick_checkout_reconciliation_projection(
+    candidate.id,p_worker_id,lease_token,candidate.attempt_number+1
+  );
+  RETURN QUERY SELECT 'claimed'::text,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_apply_reconciliation_success(
+  p_merchant_oid text,p_worker_id uuid,p_lease_token text,p_operation_id uuid,p_fingerprint text,
+  p_payment_amount bigint,p_total_amount bigint,p_currency text,p_test_mode integer,
+  p_order_id uuid,p_order_item_ids uuid[],p_order_event_id uuid,p_order_number text,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE current_attempt saas.checkout_payment_attempts%ROWTYPE; existing_operation saas.checkout_operations%ROWTYPE;
+  settlement_outcome text; projection jsonb; provider_facts jsonb;
+BEGIN
+  IF p_merchant_oid IS NULL OR p_merchant_oid!~'^[a-f0-9]{32}$'
+     OR saas.quick_checkout_uuid_is_valid(p_worker_id) IS DISTINCT FROM TRUE
+     OR p_lease_token IS NULL OR p_lease_token!~'^[A-Za-z0-9_-]{43}$'
+     OR saas.quick_checkout_uuid_is_valid(p_operation_id) IS DISTINCT FROM TRUE
+     OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+     OR p_payment_amount IS NULL OR p_payment_amount NOT BETWEEN 1 AND 9007199254740991
+     OR p_total_amount IS NULL OR p_total_amount NOT BETWEEN 1 AND 9007199254740991
+     OR p_total_amount<p_payment_amount OR p_currency IS DISTINCT FROM 'TRY' OR p_test_mode IS DISTINCT FROM 1
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT attempt.* INTO current_attempt FROM saas.checkout_payment_attempts AS attempt
+    WHERE attempt.merchant_oid=p_merchant_oid FOR UPDATE OF attempt;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  SELECT operation.* INTO existing_operation FROM saas.checkout_operations AS operation
+    WHERE operation.operation_id=p_operation_id;
+  IF FOUND THEN
+    IF existing_operation.attempt_id=current_attempt.id AND existing_operation.operation_kind='reconcile_success'
+       AND existing_operation.payload_fingerprint=p_fingerprint THEN
+      RETURN QUERY SELECT 'replayed'::text,existing_operation.result_payload;
+    ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF; RETURN;
+  END IF;
+  IF current_attempt.status IN ('succeeded','failed','expired') THEN
+    RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF current_attempt.status NOT IN ('provider_ready','initiation_unknown')
+     OR p_payment_amount<>current_attempt.expected_payment_amount OR p_currency<>current_attempt.currency THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  BEGIN
+    SELECT settled.outcome,settled.result_payload INTO settlement_outcome,projection
+    FROM saas.quick_checkout_settle_success_core(
+      current_attempt.id,p_worker_id,p_lease_token,p_order_id,p_order_item_ids,p_order_event_id,p_order_number,p_now
+    ) AS settled;
+    IF settlement_outcome<>'settled' THEN RETURN QUERY SELECT settlement_outcome,projection; RETURN; END IF;
+    provider_facts:=pg_catalog.jsonb_build_object(
+      'status','success','paymentAmount',p_payment_amount,'totalAmount',p_total_amount,
+      'currency','TRY','testMode',1
+    );
+    projection:=projection||provider_facts;
+    INSERT INTO saas.checkout_reconciliation_receipts(
+      id,store_id,attempt_id,operation_id,currency,outcome,payload_fingerprint,result_payload,committed_at
+    ) VALUES(
+      p_operation_id,current_attempt.store_id,current_attempt.id,p_operation_id,current_attempt.currency,
+      'succeeded',p_fingerprint,projection,p_now
+    );
+    INSERT INTO saas.checkout_operations(
+      operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at
+    ) VALUES(p_operation_id,current_attempt.store_id,current_attempt.id,'reconcile_success',p_fingerprint,projection,p_now);
+  EXCEPTION WHEN unique_violation OR check_violation OR foreign_key_violation OR numeric_value_out_of_range
+      OR datetime_field_overflow OR array_subscript_error OR raise_exception THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END;
+  RETURN QUERY SELECT 'settled'::text,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_record_reconciliation_unknown(
+  p_merchant_oid text,p_worker_id uuid,p_lease_token text,p_operation_id uuid,p_fingerprint text,
+  p_next_attempt_at timestamptz,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE current_attempt saas.checkout_payment_attempts%ROWTYPE; current_job saas.checkout_reconciliation_jobs%ROWTYPE;
+  existing_operation saas.checkout_operations%ROWTYPE; expected_next_attempt_at timestamptz; projection jsonb;
+BEGIN
+  IF p_merchant_oid IS NULL OR p_merchant_oid!~'^[a-f0-9]{32}$'
+     OR saas.quick_checkout_uuid_is_valid(p_worker_id) IS DISTINCT FROM TRUE
+     OR p_lease_token IS NULL OR p_lease_token!~'^[A-Za-z0-9_-]{43}$'
+     OR saas.quick_checkout_uuid_is_valid(p_operation_id) IS DISTINCT FROM TRUE
+     OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$'
+     OR saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE
+     OR saas.quick_links_authority_time_is_valid(p_next_attempt_at) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT attempt.* INTO current_attempt FROM saas.checkout_payment_attempts AS attempt
+    WHERE attempt.merchant_oid=p_merchant_oid FOR UPDATE OF attempt;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  SELECT operation.* INTO existing_operation FROM saas.checkout_operations AS operation
+    WHERE operation.operation_id=p_operation_id;
+  IF FOUND THEN
+    IF existing_operation.attempt_id=current_attempt.id AND existing_operation.operation_kind='reconcile_unknown'
+       AND existing_operation.payload_fingerprint=p_fingerprint THEN
+      RETURN QUERY SELECT 'operation_replayed'::text,existing_operation.result_payload;
+    ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF; RETURN;
+  END IF;
+  IF current_attempt.status NOT IN ('provider_ready','initiation_unknown') THEN
+    RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT job.* INTO current_job FROM saas.checkout_reconciliation_jobs AS job
+    WHERE job.attempt_id=current_attempt.id FOR UPDATE OF job;
+  IF NOT FOUND OR current_job.status<>'leased' OR current_job.worker_id IS DISTINCT FROM p_worker_id
+     OR current_job.lease_expires_at<=p_now OR p_now<current_job.updated_at
+     OR saas.quick_checkout_digest_matches(current_job.lease_token_digest,
+       saas.quick_checkout_token_digest(p_lease_token)) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_lease'::text,NULL::jsonb; RETURN;
+  END IF;
+  expected_next_attempt_at:=p_now+CASE WHEN current_job.attempt_number>=11 THEN interval '6 hours'
+    ELSE interval '30 seconds'*pg_catalog.power(2::double precision,(current_job.attempt_number-1)::double precision) END;
+  IF p_next_attempt_at<>expected_next_attempt_at OR p_next_attempt_at>p_now+interval '6 hours' THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  BEGIN
+    UPDATE saas.checkout_reconciliation_jobs SET status='pending',next_attempt_at=p_next_attempt_at,
+      worker_id=NULL,lease_token_digest=NULL,lease_expires_at=NULL,updated_at=p_now
+      WHERE attempt_id=current_attempt.id;
+    projection:=pg_catalog.jsonb_build_object(
+      'outcome','unknown','status','unknown','nextAttemptAt',saas.quick_links_json_timestamp(p_next_attempt_at)
+    );
+    INSERT INTO saas.checkout_reconciliation_receipts(
+      id,store_id,attempt_id,operation_id,currency,outcome,payload_fingerprint,result_payload,committed_at
+    ) VALUES(
+      p_operation_id,current_attempt.store_id,current_attempt.id,p_operation_id,current_attempt.currency,
+      'unknown',p_fingerprint,projection,p_now
+    );
+    INSERT INTO saas.checkout_operations(
+      operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at
+    ) VALUES(p_operation_id,current_attempt.store_id,current_attempt.id,'reconcile_unknown',p_fingerprint,projection,p_now);
+  EXCEPTION WHEN unique_violation OR check_violation OR foreign_key_violation OR numeric_value_out_of_range
+      OR datetime_field_overflow OR raise_exception THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END;
+  RETURN QUERY SELECT 'committed'::text,projection;
+END
+$function$;
+
+CREATE FUNCTION saas.checkout_recover_reconciliation(
+  p_merchant_oid text,p_operation_id uuid,p_fingerprint text
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas
+AS $function$
+DECLARE existing_operation saas.checkout_operations%ROWTYPE; resolved_attempt_id uuid;
+BEGIN
+  IF p_merchant_oid IS NULL OR p_merchant_oid!~'^[a-f0-9]{32}$'
+     OR saas.quick_checkout_uuid_is_valid(p_operation_id) IS DISTINCT FROM TRUE
+     OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  SELECT attempt.id INTO resolved_attempt_id FROM saas.checkout_payment_attempts AS attempt
+    WHERE attempt.merchant_oid=p_merchant_oid;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  SELECT operation.* INTO existing_operation FROM saas.checkout_operations AS operation
+    WHERE operation.operation_id=p_operation_id AND operation.attempt_id=resolved_attempt_id;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text,NULL::jsonb; RETURN; END IF;
+  IF existing_operation.operation_kind<>ALL(ARRAY['reconcile_success','reconcile_unknown'])
+     OR existing_operation.payload_fingerprint<>p_fingerprint
+     OR NOT EXISTS(SELECT 1 FROM saas.checkout_reconciliation_receipts AS receipt
+       WHERE receipt.attempt_id=resolved_attempt_id AND receipt.operation_id=p_operation_id) THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END IF;
+  RETURN QUERY SELECT 'operation_replayed'::text,existing_operation.result_payload;
+END
+$function$;
+
 REVOKE ALL ON FUNCTION saas.quick_links_create_025(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.quick_links_duplicate_025(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,uuid[],text,text,jsonb,uuid,text) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.quick_checkout_hostname_is_valid(text) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
@@ -1193,6 +1925,12 @@ REVOKE ALL ON FUNCTION saas.quick_checkout_manage_authority_error(uuid,uuid,uuid
 REVOKE ALL ON FUNCTION saas.quick_checkout_public_quote(uuid,uuid) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
 REVOKE ALL ON FUNCTION saas.quick_checkout_customer_snapshot_is_valid(saas.quick_order_links) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
 REVOKE ALL ON FUNCTION saas.quick_checkout_mark_attempt_without_token(uuid,uuid,text,timestamptz,text) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
+REVOKE ALL ON FUNCTION saas.quick_checkout_token_digest(text) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
+REVOKE ALL ON FUNCTION saas.quick_checkout_digest_matches(text,text) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
+REVOKE ALL ON FUNCTION saas.quick_checkout_random_lease_token() FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
+REVOKE ALL ON FUNCTION saas.quick_checkout_attempt_authority_projection(uuid) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
+REVOKE ALL ON FUNCTION saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
+REVOKE ALL ON FUNCTION saas.quick_checkout_reconciliation_projection(uuid,uuid,text,integer) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow;
 
 REVOKE ALL ON FUNCTION saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.quick_links_duplicate(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid,uuid[],text,text,jsonb,uuid,text) FROM PUBLIC;
@@ -1226,6 +1964,17 @@ REVOKE ALL ON FUNCTION saas.checkout_recover_cleanup_operation(uuid,uuid,text) F
 REVOKE ALL ON FUNCTION saas.checkout_get_payment_presentation(text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.checkout_get_redemption_status(text,text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.checkout_recover_attempt_operation(uuid,uuid,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_get_callback_authority(text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_settle_callback(text,text,uuid,text,text,bigint,bigint,text,text,integer,text,text,uuid,uuid[],uuid,text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_begin_reconciliation_run(uuid,text,timestamptz,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_claim_reconciliation(uuid,timestamptz,timestamptz,bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_claim_redemption_reconciliation(text,text,uuid,timestamptz,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_apply_reconciliation_success(text,uuid,text,uuid,text,bigint,bigint,text,integer,uuid,uuid[],uuid,text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_record_reconciliation_unknown(text,uuid,text,uuid,text,timestamptz,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_finish_reconciliation_run(uuid,text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_recover_callback(text,text,uuid,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_recover_reconciliation(text,uuid,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION saas.checkout_recover_reconciliation_run(uuid,text,timestamptz) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION saas.quick_links_claim_redemption(text,text,uuid,text,timestamptz,timestamptz) TO celebix_saas_workflow;
 GRANT EXECUTE ON FUNCTION saas.quick_links_resolve_redemption(text,text,timestamptz) TO celebix_saas_workflow;
 GRANT EXECUTE ON FUNCTION saas.quick_links_revoke_redemption(text,text,uuid,text,timestamptz) TO celebix_saas_workflow;
@@ -1239,5 +1988,16 @@ GRANT EXECUTE ON FUNCTION saas.checkout_recover_cleanup_operation(uuid,uuid,text
 GRANT EXECUTE ON FUNCTION saas.checkout_get_payment_presentation(text,text,timestamptz) TO celebix_saas_workflow;
 GRANT EXECUTE ON FUNCTION saas.checkout_get_redemption_status(text,text,timestamptz) TO celebix_saas_workflow;
 GRANT EXECUTE ON FUNCTION saas.checkout_recover_attempt_operation(uuid,uuid,text,text) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_get_callback_authority(text,timestamptz) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_settle_callback(text,text,uuid,text,text,bigint,bigint,text,text,integer,text,text,uuid,uuid[],uuid,text,timestamptz) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_begin_reconciliation_run(uuid,text,timestamptz,timestamptz) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_claim_reconciliation(uuid,timestamptz,timestamptz,bigint) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_claim_redemption_reconciliation(text,text,uuid,timestamptz,timestamptz) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_apply_reconciliation_success(text,uuid,text,uuid,text,bigint,bigint,text,integer,uuid,uuid[],uuid,text,timestamptz) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_record_reconciliation_unknown(text,uuid,text,uuid,text,timestamptz,timestamptz) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_finish_reconciliation_run(uuid,text,timestamptz) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_recover_callback(text,text,uuid,text) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_recover_reconciliation(text,uuid,text) TO celebix_saas_workflow;
+GRANT EXECUTE ON FUNCTION saas.checkout_recover_reconciliation_run(uuid,text,timestamptz) TO celebix_saas_workflow;
 
 COMMIT;

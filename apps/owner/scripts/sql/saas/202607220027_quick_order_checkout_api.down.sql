@@ -15,6 +15,24 @@ $rollback_guard$;
 
 REVOKE USAGE ON SCHEMA saas FROM celebix_saas_workflow;
 
+DROP FUNCTION saas.checkout_recover_reconciliation(text,uuid,text);
+DROP FUNCTION saas.checkout_recover_callback(text,text,uuid,text);
+DROP FUNCTION saas.checkout_record_reconciliation_unknown(text,uuid,text,uuid,text,timestamptz,timestamptz);
+DROP FUNCTION saas.checkout_apply_reconciliation_success(text,uuid,text,uuid,text,bigint,bigint,text,integer,uuid,uuid[],uuid,text,timestamptz);
+DROP FUNCTION saas.checkout_claim_redemption_reconciliation(text,text,uuid,timestamptz,timestamptz);
+DROP FUNCTION saas.checkout_claim_reconciliation(uuid,timestamptz,timestamptz,bigint);
+DROP FUNCTION saas.checkout_finish_reconciliation_run(uuid,text,timestamptz);
+DROP FUNCTION saas.checkout_recover_reconciliation_run(uuid,text,timestamptz);
+DROP FUNCTION saas.checkout_begin_reconciliation_run(uuid,text,timestamptz,timestamptz);
+DROP FUNCTION saas.checkout_settle_callback(text,text,uuid,text,text,bigint,bigint,text,text,integer,text,text,uuid,uuid[],uuid,text,timestamptz);
+DROP FUNCTION saas.checkout_get_callback_authority(text,timestamptz);
+DROP FUNCTION saas.quick_checkout_reconciliation_projection(uuid,uuid,text,integer);
+DROP FUNCTION saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamptz);
+DROP FUNCTION saas.quick_checkout_attempt_authority_projection(uuid);
+DROP FUNCTION saas.quick_checkout_random_lease_token();
+DROP FUNCTION saas.quick_checkout_digest_matches(text,text);
+DROP FUNCTION saas.quick_checkout_token_digest(text);
+
 DROP FUNCTION saas.checkout_recover_attempt_operation(uuid,uuid,text,text);
 DROP FUNCTION saas.checkout_get_redemption_status(text,text,timestamptz);
 DROP FUNCTION saas.checkout_get_payment_presentation(text,text,timestamptz);
