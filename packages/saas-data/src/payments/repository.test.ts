@@ -394,6 +394,12 @@ test("unknown callback commit performs one authority-bound recovery and stays co
       .length,
     1,
   );
+  assert.equal(client.releases[0], true);
+  assert.deepEqual(
+    client.calls.find((call) => /checkout_recover_callback/.test(call.text))
+      ?.values,
+    [merchantOid, digest, ids.operation, digest],
+  );
   const callbackInput = {
     status: "success" as const,
     merchantOid,
@@ -893,6 +899,13 @@ test("reconciliation-run unknown commit recovers once only when the durable auth
       .length,
     1,
   );
+  assert.equal(proven.client.releases[0], true);
+  assert.deepEqual(
+    proven.client.calls.find((call) =>
+      /checkout_recover_reconciliation_run/.test(call.text),
+    )?.values,
+    [ids.worker, digest, now],
+  );
   const absent = repo(
     [
       row("acquired", {
@@ -985,7 +998,7 @@ test("cleanup bounds and success callback public inputs reject before SQL", asyn
   );
   assert.equal(client.calls.length, 0);
 });
-test("repository construction rejects the app role", () => {
+test("repository construction rejects the app role", async () => {
   assert.throws(
     () =>
       new PostgresCheckoutPaymentRepository({
@@ -1001,4 +1014,328 @@ test("repository construction rejects the app role", () => {
       }),
     /unavailable/,
   );
+  await assertNormalPaymentSqlMatrix();
 });
+async function assertNormalPaymentSqlMatrix(): Promise<void> {
+  const ready = {
+    attemptId: ids.attempt,
+    status: "provider_ready",
+    providerTokenDigest: digest,
+    providerTokenKeyId: "key-1",
+    sealedProviderToken: envelope,
+  };
+  const presentation = {
+    attemptId: ids.attempt,
+    storeId: ids.store,
+    merchantOid,
+    providerTokenDigest: digest,
+    providerTokenKeyId: "key-1",
+    sealedProviderToken: envelope,
+  };
+  const callback = {
+    status: "success" as const,
+    merchantOid,
+    callbackDigest: digest,
+    operationId: ids.operation,
+    fingerprint: digest,
+    paymentAmount: 1234,
+    totalAmount: 1234,
+    currency: "TRY" as const,
+    paymentType: "card" as const,
+    testMode: 1 as const,
+    orderId: ids.order,
+    orderItemIds: [ids.item],
+    orderEventId: ids.event,
+    orderNumber: "ORD-1",
+    now,
+  };
+  const authorityClaim = { ...authority, leaseToken: token, attemptNumber: 1 };
+  const cases: Array<
+    Readonly<{
+      name: string;
+      mode: string;
+      sql: string;
+      values: readonly unknown[];
+      answer: Result;
+      invoke: (
+        repository: PostgresCheckoutPaymentRepository,
+      ) => Promise<unknown>;
+    }>
+  > = [
+    {
+      name: "begin",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_begin_attempt($1::text,$2::text,$3::uuid,$4::text,$5::uuid,$6::text,$7::timestamptz)",
+      values: [
+        "shop.example.test",
+        digest,
+        ids.attempt,
+        merchantOid,
+        ids.operation,
+        digest,
+        now,
+      ],
+      answer: row("committed", begin),
+      invoke: (repository) =>
+        repository.beginAttempt({
+          hostname: "shop.example.test",
+          redemptionDigest: digest,
+          attemptId: ids.attempt,
+          merchantOid,
+          operationId: ids.operation,
+          fingerprint: digest,
+          now,
+        }),
+    },
+    {
+      name: "provider-ready",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_mark_provider_ready($1::uuid,$2::uuid,$3::text,$4::jsonb,$5::text,$6::timestamptz)",
+      values: [
+        ids.attempt,
+        ids.operation,
+        digest,
+        JSON.stringify(envelope),
+        digest,
+        now,
+      ],
+      answer: row("committed", ready),
+      invoke: (repository) =>
+        repository.markProviderReady({
+          attemptId: ids.attempt,
+          operationId: ids.operation,
+          fingerprint: digest,
+          providerTokenDigest: digest,
+          sealedProviderToken: envelope,
+          now,
+        }),
+    },
+    {
+      name: "initiation-unknown",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_mark_initiation_unknown($1::uuid,$2::uuid,$3::text,$4::timestamptz)",
+      values: [ids.attempt, ids.operation, digest, now],
+      answer: row("committed", { status: "initiation_unknown" }),
+      invoke: (repository) =>
+        repository.markInitiationUnknown({
+          attemptId: ids.attempt,
+          operationId: ids.operation,
+          fingerprint: digest,
+          now,
+        }),
+    },
+    {
+      name: "initiation-failed",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_mark_initiation_failed($1::uuid,$2::uuid,$3::text,$4::timestamptz)",
+      values: [ids.attempt, ids.operation, digest, now],
+      answer: row("committed", { status: "failed" }),
+      invoke: (repository) =>
+        repository.markInitiationFailed({
+          attemptId: ids.attempt,
+          operationId: ids.operation,
+          fingerprint: digest,
+          now,
+        }),
+    },
+    {
+      name: "presentation",
+      mode: "BEGIN READ ONLY",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_get_payment_presentation($1::text,$2::text,$3::timestamptz)",
+      values: ["shop.example.test", digest, now],
+      answer: row("found", presentation),
+      invoke: (repository) =>
+        repository.getPaymentPresentation({
+          hostname: "shop.example.test",
+          redemptionDigest: digest,
+          now,
+        }),
+    },
+    {
+      name: "callback-authority",
+      mode: "BEGIN READ ONLY",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_get_callback_authority($1::text,$2::timestamptz)",
+      values: [merchantOid, now],
+      answer: row("found", authority),
+      invoke: (repository) =>
+        repository.getCallbackAuthority({ merchantOid, now }),
+    },
+    {
+      name: "settle-callback",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_settle_callback($1::text,$2::text,$3::uuid,$4::text,$5::text,$6::bigint,$7::bigint,$8::text,$9::text,$10::integer,$11::text,$12::text,$13::uuid,$14::uuid[],$15::uuid,$16::text,$17::timestamptz)",
+      values: [
+        merchantOid,
+        digest,
+        ids.operation,
+        digest,
+        "success",
+        1234,
+        1234,
+        "TRY",
+        "card",
+        1,
+        null,
+        null,
+        ids.order,
+        [ids.item],
+        ids.event,
+        "ORD-1",
+        now,
+      ],
+      answer: row("settled", { outcome: "settled", orderNumber: "ORD-1" }),
+      invoke: (repository) => repository.settleCallback(callback),
+    },
+    {
+      name: "begin-run",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_begin_reconciliation_run($1::uuid,$2::text,$3::timestamptz,$4::timestamptz)",
+      values: [ids.worker, digest, now, later],
+      answer: row("acquired", {
+        status: "acquired",
+        leaseExpiresAt: later.toISOString(),
+      }),
+      invoke: (repository) =>
+        repository.beginReconciliationRun({
+          workerId: ids.worker,
+          runTokenDigest: digest,
+          now,
+          leaseExpiresAt: later,
+        }),
+    },
+    {
+      name: "global-claim",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_claim_reconciliation($1::uuid,$2::timestamptz,$3::timestamptz,$4::bigint)",
+      values: [ids.worker, now, later, 1],
+      answer: row("claimed", { claims: [authorityClaim] }),
+      invoke: (repository) =>
+        repository.claimReconciliation({
+          workerId: ids.worker,
+          now,
+          leaseExpiresAt: later,
+          limit: 1,
+        }),
+    },
+    {
+      name: "redemption-claim",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_claim_redemption_reconciliation($1::text,$2::text,$3::uuid,$4::timestamptz,$5::timestamptz)",
+      values: ["shop.example.test", digest, ids.worker, now, later],
+      answer: row("claimed", authorityClaim),
+      invoke: (repository) =>
+        repository.claimRedemptionReconciliation({
+          hostname: "shop.example.test",
+          redemptionDigest: digest,
+          workerId: ids.worker,
+          now,
+          leaseExpiresAt: later,
+        }),
+    },
+    {
+      name: "reconciliation-success",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_apply_reconciliation_success($1::text,$2::uuid,$3::text,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::text,$9::integer,$10::uuid,$11::uuid[],$12::uuid,$13::text,$14::timestamptz)",
+      values: [
+        merchantOid,
+        ids.worker,
+        token,
+        ids.operation,
+        digest,
+        1234,
+        1234,
+        "TRY",
+        1,
+        ids.order,
+        [ids.item],
+        ids.event,
+        "ORD-1",
+        now,
+      ],
+      answer: row("settled", { orderNumber: "ORD-1" }),
+      invoke: (repository) =>
+        repository.applyReconciliationSuccess({
+          merchantOid,
+          workerId: ids.worker,
+          leaseToken: token,
+          operationId: ids.operation,
+          fingerprint: digest,
+          paymentAmount: 1234,
+          totalAmount: 1234,
+          currency: "TRY",
+          testMode: 1,
+          orderId: ids.order,
+          orderItemIds: [ids.item],
+          orderEventId: ids.event,
+          orderNumber: "ORD-1",
+          now,
+        }),
+    },
+    {
+      name: "reconciliation-unknown",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_record_reconciliation_unknown($1::text,$2::uuid,$3::text,$4::uuid,$5::text,$6::timestamptz,$7::timestamptz)",
+      values: [
+        merchantOid,
+        ids.worker,
+        token,
+        ids.operation,
+        digest,
+        later,
+        now,
+      ],
+      answer: row("committed", {
+        outcome: "unknown",
+        status: "unknown",
+        nextAttemptAt: later.toISOString(),
+      }),
+      invoke: (repository) =>
+        repository.recordReconciliationUnknown({
+          merchantOid,
+          workerId: ids.worker,
+          leaseToken: token,
+          operationId: ids.operation,
+          fingerprint: digest,
+          nextAttemptAt: later,
+          now,
+        }),
+    },
+    {
+      name: "finish-run",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_finish_reconciliation_run($1::uuid,$2::text,$3::timestamptz)",
+      values: [ids.worker, token, now],
+      answer: row("committed", { status: "finished" }),
+      invoke: (repository) =>
+        repository.finishReconciliationRun({
+          workerId: ids.worker,
+          runToken: token,
+          now,
+        }),
+    },
+    {
+      name: "cleanup",
+      mode: "BEGIN ISOLATION LEVEL READ COMMITTED",
+      sql: "SELECT outcome, result_payload FROM saas.checkout_cleanup_pre_provider_attempts($1::uuid,$2::uuid,$3::text,$4::timestamptz,$5::bigint)",
+      values: [ids.worker, ids.operation, digest, now, 2],
+      answer: row("committed", { releasedCount: 2 }),
+      invoke: (repository) =>
+        repository.cleanupPreProviderAttempts({
+          workerId: ids.worker,
+          operationId: ids.operation,
+          fingerprint: digest,
+          now,
+          limit: 2,
+        }),
+    },
+  ];
+  for (const entry of cases) {
+    const current = repo([entry.answer]);
+    await entry.invoke(current.repository);
+    assert.equal(current.client.calls[0]?.text, entry.mode, entry.name);
+    const query = current.client.calls.find((call) => call.text === entry.sql);
+    assert.deepEqual(query?.values, entry.values, entry.name);
+    assert.equal(current.client.calls.at(-1)?.text, "COMMIT", entry.name);
+    assert.deepEqual(current.client.releases, [false], entry.name);
+  }
+}
