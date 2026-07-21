@@ -34,6 +34,15 @@ export * from "./storefront/index.ts";
 export * from "./media/index.ts";
 export * from "./orders/index.ts";
 export * from "./quick-orders/index.ts";
+export { CHECKOUT_PAYMENT_ERROR_CODES, CheckoutPaymentRepositoryError, PostgresCheckoutPaymentRepository } from "./payments/index.ts";
+export type {
+  ApplyReconciliationSuccessInput, BeginAttemptInput, BeginAttemptResult, CallbackAuthority,
+  CheckoutPaymentAuditEvent, CheckoutPaymentErrorCode, CheckoutPaymentRepository,
+  ClaimReconciliationInput, CleanupPreProviderAttemptsInput, MarkInitiationFailedInput,
+  MarkProviderReadyInput, PaymentPresentationAuthority, PostgresCheckoutPaymentRepositoryOptions,
+  ProviderReadyResult, ReconciliationAuthority, ReconciliationRunInput,
+  RecordReconciliationUnknownInput, SettleCallbackInput,
+} from "./payments/index.ts";
 export {
   SaaSDataCorruptionError,
   SaaSDataLockTimeoutError,

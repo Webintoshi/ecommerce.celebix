@@ -1,0 +1,8 @@
+export const CHECKOUT_PAYMENT_ERROR_CODES = Object.freeze(["invalid_input", "unavailable", "commit_unknown", "attempt_not_found", "attempt_in_progress", "provider_not_ready", "catalog_item_unavailable", "stock_unavailable", "invalid_transition", "operation_mismatch", "invalid_lease", "run_not_owned"] as const);
+export type CheckoutPaymentErrorCode = (typeof CHECKOUT_PAYMENT_ERROR_CODES)[number];
+const codes = new Set<string>(CHECKOUT_PAYMENT_ERROR_CODES);
+export class CheckoutPaymentRepositoryError extends Error { readonly code: CheckoutPaymentErrorCode; constructor(code: CheckoutPaymentErrorCode) { if (!codes.has(code)) throw new TypeError("checkout_payment_error_code_invalid"); super(code); this.code = code; Object.defineProperties(this, { code: { enumerable: true, writable: false }, message: { enumerable: false, writable: false }, name: { enumerable: false, writable: false, value: "CheckoutPaymentRepositoryError" } }); Object.freeze(this); } }
+class TrustedCheckoutPaymentRepositoryError extends CheckoutPaymentRepositoryError {}
+export function trustedCheckoutPaymentError(code: CheckoutPaymentErrorCode): CheckoutPaymentRepositoryError { return new TrustedCheckoutPaymentRepositoryError(code); }
+export function isTrustedCheckoutPaymentError(value: unknown): value is CheckoutPaymentRepositoryError { return value instanceof TrustedCheckoutPaymentRepositoryError; }
+export function exposeCheckoutPaymentError(value: unknown, fallback: CheckoutPaymentErrorCode = "unavailable"): CheckoutPaymentRepositoryError { return new CheckoutPaymentRepositoryError(isTrustedCheckoutPaymentError(value) ? value.code : fallback); }
