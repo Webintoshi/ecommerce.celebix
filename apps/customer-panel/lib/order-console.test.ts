@@ -450,9 +450,14 @@ test("order detail renders immutable items, events, and merchant notes", async (
   assert.match(html, new RegExp(`value="${NOW.replaceAll(".", "[.]")}"`));
 });
 
-test("order detail wires status and payment controls to safe client mutations", async () => {
+test("order detail offers only authorized SQL 023 status and payment transitions", async () => {
   const { exports } = await compileOrderModule("components/orders/OrderDetailConsole.tsx");
   const Presentation = exports.OrderDetailPresentation as ComponentType<Record<string, unknown>>;
+  const statusOptions = exports.getAuthorizedOrderStatusOptions as (
+    current: string,
+    capabilities: { fulfill: boolean; manage: boolean },
+  ) => readonly string[];
+  const paymentOptions = exports.getAuthorizedOrderPaymentOptions as (current: string, allowed: boolean) => readonly string[];
   const selected: string[] = [];
   const common = {
     detail, state: "loaded", error: "", notice: "", busy: "",
@@ -461,14 +466,53 @@ test("order detail wires status and payment controls to safe client mutations", 
     onPaymentChange(value: string) { selected.push(`payment:${value}`); },
     onShippingSubmit() {}, onNoteSubmit() {}, onNoteArchive() {},
   };
+  const values = (html: string, label: string) => {
+    const select = html.match(new RegExp(`<select aria-label="${label}"[\\s\\S]*?<\\/select>`))?.[0] ?? "";
+    return [...select.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
+  };
+  const orderCases = [
+    ["pending", { fulfill: true, manage: false }, ["pending", "confirmed"]],
+    ["pending", { fulfill: false, manage: true }, ["pending", "cancelled"]],
+    ["confirmed", { fulfill: true, manage: true }, ["confirmed", "preparing", "cancelled"]],
+    ["preparing", { fulfill: true, manage: true }, ["preparing", "shipped", "cancelled"]],
+    ["shipped", { fulfill: true, manage: false }, ["shipped", "delivered"]],
+    ["delivered", { fulfill: true, manage: false }, []],
+    ["delivered", { fulfill: false, manage: true }, ["delivered", "refunded"]],
+    ["cancelled", { fulfill: true, manage: true }, []],
+    ["refunded", { fulfill: true, manage: true }, []],
+  ] as const;
+  for (const [status, capability, expected] of orderCases) {
+    assert.deepEqual(statusOptions(status, capability), expected);
+    const html = renderToStaticMarkup(createElement(Presentation, {
+      ...common,
+      detail: Object.freeze({ ...detail, status }),
+      capabilities: { ...capability, payment: false, shipping: false, note: false },
+    }));
+    assert.deepEqual(values(html, "Sipariş durumunu güncelle"), expected);
+    if (expected.length === 0) assert.doesNotMatch(html, /aria-label="Sipariş operasyonları"/);
+  }
+  const paymentCases = [
+    ["pending", ["pending", "processing", "failed"]],
+    ["processing", ["processing", "completed", "failed"]],
+    ["failed", ["failed", "processing"]],
+    ["completed", ["completed", "refunded"]],
+    ["refunded", []],
+  ] as const;
+  for (const [paymentStatus, expected] of paymentCases) {
+    assert.deepEqual(paymentOptions(paymentStatus, true), expected);
+    const html = renderToStaticMarkup(createElement(Presentation, {
+      ...common,
+      detail: Object.freeze({ ...detail, paymentStatus }),
+      capabilities: { fulfill: false, manage: false, payment: true, shipping: false, note: false },
+    }));
+    assert.deepEqual(values(html, "Ödeme durumunu güncelle"), expected);
+    if (expected.length === 0) assert.doesNotMatch(html, /aria-label="Sipariş operasyonları"/);
+  }
+  assert.deepEqual(paymentOptions("pending", false), []);
   const editorHtml = renderToStaticMarkup(createElement(Presentation, {
     ...common,
     capabilities: { fulfill: true, manage: false, payment: true, shipping: true, note: true },
   }));
-  assert.match(editorHtml, /Sipariş durumunu güncelle/);
-  assert.match(editorHtml, /Ödeme durumunu güncelle/);
-  const editorStatusSelect = editorHtml.match(/<select aria-label="Sipariş durumunu güncelle"[\s\S]*?<\/select>/)?.[0] ?? "";
-  assert.doesNotMatch(editorStatusSelect, /value="cancelled"|value="refunded"/);
   const editorTree = (Presentation as (props: Record<string, unknown>) => ReactNode)({
     ...common,
     capabilities: { fulfill: true, manage: false, payment: true, shipping: true, note: true },
@@ -476,17 +520,12 @@ test("order detail wires status and payment controls to safe client mutations", 
   visitElements(editorTree, (element) => {
     const label = element.props["aria-label"];
     const onChange = element.props.onChange as ((event: { target: { value: string } }) => void) | undefined;
-    if (label === "Sipariş durumunu güncelle") onChange?.({ target: { value: "shipped" } });
-    if (label === "Ödeme durumunu güncelle") onChange?.({ target: { value: "processing" } });
+    if (label === "Sipariş durumunu güncelle") onChange?.({ target: { value: "preparing" } });
+    if (label === "Ödeme durumunu güncelle") onChange?.({ target: { value: "refunded" } });
   });
-  assert.deepEqual(selected, ["status:shipped", "payment:processing"]);
-  const ownerHtml = renderToStaticMarkup(createElement(Presentation, {
-    ...common,
-    capabilities: { fulfill: true, manage: true, payment: true, shipping: true, note: true },
-  }));
-  const ownerStatusSelect = ownerHtml.match(/<select aria-label="Sipariş durumunu güncelle"[\s\S]*?<\/select>/)?.[0] ?? "";
-  assert.match(ownerStatusSelect, /<option value="cancelled">İptal<\/option>/);
-  assert.match(ownerStatusSelect, /<option value="refunded">İade<\/option>/);
+  assert.deepEqual(selected, ["status:preparing", "payment:refunded"]);
+  assert.deepEqual(values(editorHtml, "Sipariş durumunu güncelle"), ["confirmed", "preparing"]);
+  assert.deepEqual(values(editorHtml, "Ödeme durumunu güncelle"), ["completed", "refunded"]);
   const executeOrderMutation = exports.executeOrderMutation as (
     operation: () => Promise<unknown>,
     reload: (conflict: boolean) => Promise<unknown>,

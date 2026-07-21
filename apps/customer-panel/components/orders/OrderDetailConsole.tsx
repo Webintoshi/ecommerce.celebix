@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
-  ORDER_PAYMENT_STATUSES,
-  ORDER_STATUSES,
   type OrderAddress,
   type OrderDetail,
   type OrderPaymentStatus,
@@ -32,6 +30,45 @@ const STATUS_LABELS: Readonly<Record<OrderStatus, string>> = Object.freeze({
 const PAYMENT_LABELS: Readonly<Record<OrderPaymentStatus, string>> = Object.freeze({
   pending: "Ödeme bekleniyor", processing: "İşleniyor", completed: "Başarılı", failed: "Başarısız", refunded: "İade edildi",
 });
+
+export function getAuthorizedOrderStatusOptions(
+  current: OrderStatus,
+  capabilities: Pick<OrderUiCapabilities, "fulfill" | "manage">,
+): readonly OrderStatus[] {
+  const next: OrderStatus[] = [];
+  if (current === "pending") {
+    if (capabilities.fulfill) next.push("confirmed");
+    if (capabilities.manage) next.push("cancelled");
+  } else if (current === "confirmed") {
+    if (capabilities.fulfill) next.push("preparing");
+    if (capabilities.manage) next.push("cancelled");
+  } else if (current === "preparing") {
+    if (capabilities.fulfill) next.push("shipped");
+    if (capabilities.manage) next.push("cancelled");
+  } else if (current === "shipped" && capabilities.fulfill) {
+    next.push("delivered");
+  } else if (current === "delivered" && capabilities.manage) {
+    next.push("refunded");
+  }
+  return next.length === 0 ? Object.freeze([]) : Object.freeze([current, ...next]);
+}
+
+export function getAuthorizedOrderPaymentOptions(
+  current: OrderPaymentStatus,
+  allowed: boolean,
+): readonly OrderPaymentStatus[] {
+  if (!allowed) return Object.freeze([]);
+  const next: readonly OrderPaymentStatus[] = current === "pending"
+    ? ["processing", "failed"]
+    : current === "processing"
+      ? ["completed", "failed"]
+      : current === "failed"
+        ? ["processing"]
+        : current === "completed"
+          ? ["refunded"]
+          : [];
+  return next.length === 0 ? Object.freeze([]) : Object.freeze([current, ...next]);
+}
 
 function money(cents: number, currency: string) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency }).format(cents / 100);
@@ -123,9 +160,8 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
     <section className={styles.detailState}><div className={styles.errorState} role="alert"><div><h1>Sipariş açılamadı</h1><p>{props.error || "Sipariş bulunamadı."}</p></div><button type="button" onClick={props.onRetry}>Tekrar dene</button></div></section>
   );
   const order = props.detail;
-  const statusOptions = props.capabilities.manage
-    ? ORDER_STATUSES
-    : ORDER_STATUSES.filter((status) => status !== "cancelled" && status !== "refunded");
+  const statusOptions = getAuthorizedOrderStatusOptions(order.status, props.capabilities);
+  const paymentOptions = getAuthorizedOrderPaymentOptions(order.paymentStatus, props.capabilities.payment);
   return (
     <PanelPageShell>
       <Link className={styles.backLink} href="/orders">Siparişlere dön</Link>
@@ -140,10 +176,10 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         <div><span>Sipariş toplamı</span><strong>{money(order.totalCents, order.currency)}</strong></div>
       </section>
 
-      {(props.capabilities.fulfill || props.capabilities.payment) ? (
+      {(statusOptions.length > 0 || paymentOptions.length > 0) ? (
         <section className={styles.operationBar} aria-label="Sipariş operasyonları">
-          {props.capabilities.fulfill ? <label><span>Sipariş durumu</span><select aria-label="Sipariş durumunu güncelle" value={order.status} disabled={props.busy !== ""} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus)}>{statusOptions.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label> : null}
-          {props.capabilities.payment ? <label><span>Ödeme durumu</span><select aria-label="Ödeme durumunu güncelle" value={order.paymentStatus} disabled={props.busy !== ""} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus)}>{ORDER_PAYMENT_STATUSES.map((status) => <option key={status} value={status}>{PAYMENT_LABELS[status]}</option>)}</select></label> : null}
+          {statusOptions.length > 0 ? <label><span>Sipariş durumu</span><select aria-label="Sipariş durumunu güncelle" value={order.status} disabled={props.busy !== ""} onChange={(event) => props.onStatusChange(event.target.value as OrderStatus)}>{statusOptions.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label> : null}
+          {paymentOptions.length > 0 ? <label><span>Ödeme durumu</span><select aria-label="Ödeme durumunu güncelle" value={order.paymentStatus} disabled={props.busy !== ""} onChange={(event) => props.onPaymentChange(event.target.value as OrderPaymentStatus)}>{paymentOptions.map((status) => <option key={status} value={status}>{PAYMENT_LABELS[status]}</option>)}</select></label> : null}
         </section>
       ) : null}
 
@@ -222,12 +258,12 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
   }
 
   function transitionStatus(nextStatus: OrderStatus) {
-    if (!detail || nextStatus === detail.status || (!capabilities.manage && (nextStatus === "cancelled" || nextStatus === "refunded"))) return;
+    if (!detail || nextStatus === detail.status || !getAuthorizedOrderStatusOptions(detail.status, capabilities).includes(nextStatus)) return;
     void mutation("status", () => orderApi.transitionStatus(orderId, { expectedVersion: detail.version, nextStatus }), "Sipariş durumu güncellendi.");
   }
 
   function transitionPayment(nextPaymentStatus: OrderPaymentStatus) {
-    if (!detail || nextPaymentStatus === detail.paymentStatus) return;
+    if (!detail || nextPaymentStatus === detail.paymentStatus || !getAuthorizedOrderPaymentOptions(detail.paymentStatus, capabilities.payment).includes(nextPaymentStatus)) return;
     void mutation("payment", () => orderApi.transitionPayment(orderId, { expectedVersion: detail.version, nextPaymentStatus }), "Ödeme durumu güncellendi.");
   }
 
