@@ -339,15 +339,18 @@ BEGIN
     IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
     IF existing.operation_kind='transition_status' AND existing.payload_fingerprint=p_fingerprint THEN RETURN QUERY SELECT 'operation_replayed'::text,existing.result_payload; ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF; RETURN;
   END IF;
-  IF EXISTS (SELECT 1 FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id) THEN RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN; END IF;
   SELECT order_row.* INTO current_order FROM saas.orders AS order_row WHERE order_row.store_id=p_store_id AND order_row.id=p_order_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'order_not_found'::text,NULL::jsonb; RETURN; END IF;
   IF current_order.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict'::text,NULL::jsonb; RETURN; END IF;
   IF NOT ((current_order.status='pending' AND p_next_status IN ('confirmed','cancelled')) OR (current_order.status='confirmed' AND p_next_status IN ('preparing','cancelled')) OR (current_order.status='preparing' AND p_next_status IN ('shipped','cancelled')) OR (current_order.status='shipped' AND p_next_status='delivered') OR (current_order.status='delivered' AND p_next_status='refunded')) THEN RETURN QUERY SELECT 'invalid_transition'::text,NULL::jsonb; RETURN; END IF;
-  UPDATE saas.orders SET status=p_next_status,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
-  INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'status_transition',current_order.status,p_next_status,'Order status changed to '||p_next_status,pg_catalog.jsonb_build_object('from',current_order.status,'to',p_next_status),p_now);
-  projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
-  INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'transition_status',p_fingerprint,projection,p_now);
+  BEGIN
+    UPDATE saas.orders SET status=p_next_status,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
+    INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'status_transition',current_order.status,p_next_status,'Order status changed to '||p_next_status,pg_catalog.jsonb_build_object('from',current_order.status,'to',p_next_status),p_now);
+    projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
+    INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'transition_status',p_fingerprint,projection,p_now);
+  EXCEPTION WHEN unique_violation THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END;
   RETURN QUERY SELECT 'committed'::text,projection;
 END
 $function$;
@@ -370,15 +373,18 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.orders.operation:'||p_operation_id::text,0));
   SELECT operation.* INTO existing FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id AND operation.store_id=p_store_id FOR UPDATE;
   IF FOUND THEN IF existing.operation_kind='transition_payment' AND existing.payload_fingerprint=p_fingerprint THEN RETURN QUERY SELECT 'operation_replayed'::text,existing.result_payload; ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF; RETURN; END IF;
-  IF EXISTS (SELECT 1 FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id) THEN RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN; END IF;
   SELECT order_row.* INTO current_order FROM saas.orders AS order_row WHERE order_row.store_id=p_store_id AND order_row.id=p_order_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'order_not_found'::text,NULL::jsonb; RETURN; END IF;
   IF current_order.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict'::text,NULL::jsonb; RETURN; END IF;
   IF NOT ((current_order.payment_status='pending' AND p_next_payment_status IN ('processing','failed')) OR (current_order.payment_status='processing' AND p_next_payment_status IN ('completed','failed')) OR (current_order.payment_status='failed' AND p_next_payment_status='processing') OR (current_order.payment_status='completed' AND p_next_payment_status='refunded')) THEN RETURN QUERY SELECT 'invalid_transition'::text,NULL::jsonb; RETURN; END IF;
-  UPDATE saas.orders SET payment_status=p_next_payment_status,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
-  INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'payment_transition',current_order.payment_status,p_next_payment_status,'Order payment changed to '||p_next_payment_status,pg_catalog.jsonb_build_object('from',current_order.payment_status,'to',p_next_payment_status),p_now);
-  projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
-  INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'transition_payment',p_fingerprint,projection,p_now);
+  BEGIN
+    UPDATE saas.orders SET payment_status=p_next_payment_status,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
+    INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'payment_transition',current_order.payment_status,p_next_payment_status,'Order payment changed to '||p_next_payment_status,pg_catalog.jsonb_build_object('from',current_order.payment_status,'to',p_next_payment_status),p_now);
+    projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
+    INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'transition_payment',p_fingerprint,projection,p_now);
+  EXCEPTION WHEN unique_violation THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END;
   RETURN QUERY SELECT 'committed'::text,projection;
 END
 $function$;
@@ -401,14 +407,17 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.orders.operation:'||p_operation_id::text,0));
   SELECT operation.* INTO existing FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id AND operation.store_id=p_store_id FOR UPDATE;
   IF FOUND THEN IF existing.operation_kind='update_shipping' AND existing.payload_fingerprint=p_fingerprint THEN RETURN QUERY SELECT 'operation_replayed'::text,existing.result_payload; ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF; RETURN; END IF;
-  IF EXISTS (SELECT 1 FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id) THEN RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN; END IF;
   SELECT order_row.* INTO current_order FROM saas.orders AS order_row WHERE order_row.store_id=p_store_id AND order_row.id=p_order_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'order_not_found'::text,NULL::jsonb; RETURN; END IF;
   IF current_order.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict'::text,NULL::jsonb; RETURN; END IF;
-  UPDATE saas.orders SET shipping_address=p_shipping_address,tracking=p_tracking,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
-  INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'shipping_updated','Order shipping updated',pg_catalog.jsonb_build_object('hasTracking',p_tracking IS NOT NULL),p_now);
-  projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
-  INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'update_shipping',p_fingerprint,projection,p_now);
+  BEGIN
+    UPDATE saas.orders SET shipping_address=p_shipping_address,tracking=p_tracking,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
+    INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'shipping_updated','Order shipping updated',pg_catalog.jsonb_build_object('hasTracking',p_tracking IS NOT NULL),p_now);
+    projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
+    INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'update_shipping',p_fingerprint,projection,p_now);
+  EXCEPTION WHEN unique_violation THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END;
   RETURN QUERY SELECT 'committed'::text,projection;
 END
 $function$;
@@ -431,15 +440,18 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.orders.operation:'||p_operation_id::text,0));
   SELECT operation.* INTO existing FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id AND operation.store_id=p_store_id FOR UPDATE;
   IF FOUND THEN IF existing.operation_kind='add_note' AND existing.payload_fingerprint=p_fingerprint THEN RETURN QUERY SELECT 'operation_replayed'::text,existing.result_payload; ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF; RETURN; END IF;
-  IF EXISTS (SELECT 1 FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id) THEN RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN; END IF;
   SELECT order_row.* INTO current_order FROM saas.orders AS order_row WHERE order_row.store_id=p_store_id AND order_row.id=p_order_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'order_not_found'::text,NULL::jsonb; RETURN; END IF;
   IF EXISTS (SELECT 1 FROM saas.order_notes AS note WHERE note.id=p_note_id) THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
-  INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at) VALUES (p_note_id,p_store_id,p_order_id,p_membership_id,p_body,p_now,p_now);
-  UPDATE saas.orders SET version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
-  INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'note_added','Order note added',pg_catalog.jsonb_build_object('noteId',p_note_id),p_now);
-  projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
-  INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'add_note',p_fingerprint,projection,p_now);
+  BEGIN
+    INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at) VALUES (p_note_id,p_store_id,p_order_id,p_membership_id,p_body,p_now,p_now);
+    UPDATE saas.orders SET version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
+    INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'note_added','Order note added',pg_catalog.jsonb_build_object('noteId',p_note_id),p_now);
+    projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
+    INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'add_note',p_fingerprint,projection,p_now);
+  EXCEPTION WHEN unique_violation THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END;
   RETURN QUERY SELECT 'committed'::text,projection;
 END
 $function$;
@@ -462,15 +474,18 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.orders.operation:'||p_operation_id::text,0));
   SELECT operation.* INTO existing FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id AND operation.store_id=p_store_id FOR UPDATE;
   IF FOUND THEN IF existing.operation_kind='archive_note' AND existing.payload_fingerprint=p_fingerprint THEN RETURN QUERY SELECT 'operation_replayed'::text,existing.result_payload; ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; END IF; RETURN; END IF;
-  IF EXISTS (SELECT 1 FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id) THEN RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN; END IF;
   SELECT order_row.* INTO current_order FROM saas.orders AS order_row WHERE order_row.store_id=p_store_id AND order_row.id=p_order_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'order_not_found'::text,NULL::jsonb; RETURN; END IF;
-  UPDATE saas.order_notes SET archived_at=p_now,updated_at=p_now WHERE store_id=p_store_id AND order_id=p_order_id AND id=p_note_id AND archived_at IS NULL;
-  IF NOT FOUND THEN RETURN QUERY SELECT 'note_not_found'::text,NULL::jsonb; RETURN; END IF;
-  UPDATE saas.orders SET version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
-  INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'note_archived','Order note archived',pg_catalog.jsonb_build_object('noteId',p_note_id),p_now);
-  projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
-  INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'archive_note',p_fingerprint,projection,p_now);
+  BEGIN
+    UPDATE saas.order_notes SET archived_at=p_now,updated_at=p_now WHERE store_id=p_store_id AND order_id=p_order_id AND id=p_note_id AND archived_at IS NULL;
+    IF NOT FOUND THEN RETURN QUERY SELECT 'note_not_found'::text,NULL::jsonb; RETURN; END IF;
+    UPDATE saas.orders SET version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_order_id;
+    INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,message,payload,created_at) VALUES (pg_catalog.md5('saas.order.event:'||p_operation_id::text)::uuid,p_store_id,p_order_id,p_membership_id,'note_archived','Order note archived',pg_catalog.jsonb_build_object('noteId',p_note_id),p_now);
+    projection:=saas.orders_mutation_projection(p_store_id,p_order_id);
+    INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES (p_operation_id,p_store_id,p_order_id,'archive_note',p_fingerprint,projection,p_now);
+  EXCEPTION WHEN unique_violation THEN
+    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  END;
   RETURN QUERY SELECT 'committed'::text,projection;
 END
 $function$;
@@ -491,7 +506,7 @@ BEGIN
   IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
   IF p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint !~ '^[a-f0-9]{64}$' THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
   SELECT operation.* INTO existing FROM saas.order_operations AS operation WHERE operation.operation_id=p_operation_id AND operation.store_id=p_store_id;
-  IF NOT FOUND THEN RETURN QUERY SELECT 'operation_not_found'::text,NULL::jsonb; RETURN; END IF;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'unavailable'::text,NULL::jsonb; RETURN; END IF;
   required_action:=CASE
     WHEN existing.operation_kind='transition_status' AND existing.result_payload->>'status' IN ('cancelled','refunded') THEN 'orders.manage'
     WHEN existing.operation_kind='transition_status' THEN 'orders.fulfill'

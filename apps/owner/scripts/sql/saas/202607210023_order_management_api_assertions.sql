@@ -116,7 +116,17 @@ BEGIN
          AND procedure.proname IN ('orders_transition_status','orders_transition_payment','orders_update_shipping','orders_add_note','orders_archive_note')
          AND procedure.prosrc ~ 'operation[.]operation_id=p_operation_id AND operation[.]store_id=p_store_id FOR UPDATE'
      ) <> 5
+     OR (
+       SELECT pg_catalog.count(*)
+       FROM pg_catalog.pg_proc AS procedure
+       JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=procedure.pronamespace
+       WHERE namespace.nspname='saas'
+         AND procedure.proname IN ('orders_transition_status','orders_transition_payment','orders_update_shipping','orders_add_note','orders_archive_note')
+         AND procedure.prosrc ~ 'EXCEPTION WHEN unique_violation THEN'
+         AND procedure.prosrc !~ 'IF EXISTS \(SELECT 1 FROM saas[.]order_operations'
+     ) <> 5
      OR (SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid='saas.orders_tracking_valid(jsonb)'::regprocedure) !~ 'orders_json_timestamp\(checked_shipped_at\)'
+     OR (SELECT procedure.prosrc FROM pg_catalog.pg_proc AS procedure WHERE procedure.oid='saas.orders_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)'::regprocedure) !~ 'RETURN QUERY SELECT ''unavailable''::text,NULL::jsonb'
   THEN
     RAISE EXCEPTION 'PHASE3B1_ORDER_API_ASSERTION_FAILED: bounded replay/canonical input drift';
   END IF;

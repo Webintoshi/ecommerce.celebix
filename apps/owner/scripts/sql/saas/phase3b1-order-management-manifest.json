@@ -30,7 +30,7 @@
       "id": "202607210023_order_management_api_up",
       "direction": "up",
       "file": "202607210023_order_management_api.up.sql",
-      "sha256": "88b13f767eb18ec3d21b74ea048ab6cbac1377afcb835c2288cb9121e2eab94b",
+      "sha256": "d46ca25dca675b74a1618c3b12fe36fe18f1a340567a409b9bdd25fba5201db1",
       "purpose": "Add bounded store-scoped order reads and replay-safe versioned mutations behind the exact merchant authority helper."
     },
     {
@@ -44,7 +44,7 @@
       "id": "202607210023_order_management_api_assertions",
       "direction": "verify",
       "file": "202607210023_order_management_api_assertions.sql",
-      "sha256": "0a788f228ada1f0888a201983a1ed97c3ad14d7a534d5ee3699c4ac147909a7c",
+      "sha256": "4c3b0a98ba74b3cedc3f6b6abdaea0d36f94205e93c63f472ce5adb54a2863db",
       "purpose": "Fail on order API signature, owner, definer, volatility, search path, ACL, authority-call or deterministic-read drift."
     }
   ]

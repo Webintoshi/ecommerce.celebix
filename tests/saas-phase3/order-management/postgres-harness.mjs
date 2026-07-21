@@ -568,6 +568,11 @@ async function main() {
     await scenario("cross-store order detail is a stable not-found", async () => {
       const result = api(backend, "orders_get", `'${ORDER_OTHER}'::uuid`);
       assert.deepEqual(result, { outcome: "order_not_found", result: null });
+      const missingOrder = "40000000-0000-4000-8000-000000000099";
+      const foreignOperation = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000019'::uuid,repeat('3',64),'${missingOrder}'::uuid,1,'confirmed'`);
+      const absentOperation = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000020'::uuid,repeat('4',64),'${missingOrder}'::uuid,1,'confirmed'`);
+      assert.deepEqual(foreignOperation, { outcome: "order_not_found", result: null });
+      assert.deepEqual(absentOperation, foreignOperation);
     });
 
     await scenario("analyst authority can read list detail and summary", async () => {
@@ -618,6 +623,10 @@ async function main() {
     await scenario("stale versions are denied before mutation", async () => {
       const result = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000006'::uuid,repeat('6',64),'${ORDER_B}'::uuid,1,'shipped'`);
       assert.deepEqual(result, { outcome: "version_conflict", result: null });
+      const foreignOperation = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000019'::uuid,repeat('3',64),'${ORDER_B}'::uuid,1,'shipped'`);
+      const absentOperation = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000020'::uuid,repeat('4',64),'${ORDER_B}'::uuid,1,'shipped'`);
+      assert.deepEqual(foreignOperation, { outcome: "version_conflict", result: null });
+      assert.deepEqual(absentOperation, foreignOperation);
       assert.equal(psql(backend, `SELECT status||':'||version FROM saas.orders WHERE id='${ORDER_B}';`), "preparing:2");
     });
 
@@ -636,8 +645,15 @@ async function main() {
       assert.deepEqual(result, { outcome: "operation_mismatch", result: null });
       assert.equal(psql(backend, `SELECT payload_fingerprint FROM saas.order_operations WHERE operation_id='61000000-0000-4000-8000-000000000007';`), "7".repeat(64));
       const editor = { principal: "20000000-0000-4000-8000-000000000003", membership: "30000000-0000-4000-8000-000000000003" };
-      const foreignOperation = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000019'::uuid,repeat('3',64),'${ORDER_A}'::uuid,2,'confirmed'`, editor);
-      assert.deepEqual(foreignOperation, { outcome: "operation_mismatch", result: null });
+      const foreignInvalid = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000019'::uuid,repeat('3',64),'${ORDER_A}'::uuid,2,'confirmed'`, editor);
+      const absentInvalid = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000020'::uuid,repeat('4',64),'${ORDER_A}'::uuid,2,'confirmed'`, editor);
+      assert.deepEqual(foreignInvalid, { outcome: "invalid_transition", result: null });
+      assert.deepEqual(absentInvalid, foreignInvalid);
+      const eventsBeforeConflict = psql(backend, `SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_A}';`);
+      const foreignValidConflict = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000019'::uuid,repeat('3',64),'${ORDER_A}'::uuid,2,'cancelled'`);
+      assert.deepEqual(foreignValidConflict, { outcome: "operation_mismatch", result: null });
+      assert.equal(psql(backend, `SELECT status||':'||version FROM saas.orders WHERE id='${ORDER_A}';`), "confirmed:2");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_A}';`), eventsBeforeConflict);
       const cancelled = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000017'::uuid,repeat('1',64),'${ORDER_A}'::uuid,2,'cancelled'`);
       assert.equal(cancelled.outcome, "committed");
       const forgedReplay = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000017'::uuid,repeat('1',64),'${ORDER_A}'::uuid,2,'confirmed'`, editor);
@@ -694,7 +710,7 @@ async function main() {
       assert.equal(recovered.outcome, "operation_replayed");
       assert.equal(recovered.result.version, 4);
       assert.deepEqual(api(backend, "orders_recover_operation", `'61000000-0000-4000-8000-000000000010'::uuid,repeat('f',64)`), { outcome: "operation_mismatch", result: null });
-      assert.deepEqual(api(backend, "orders_recover_operation", `'61000000-0000-4000-8000-000000000099'::uuid,repeat('f',64)`), { outcome: "operation_not_found", result: null });
+      assert.deepEqual(api(backend, "orders_recover_operation", `'61000000-0000-4000-8000-000000000099'::uuid,repeat('f',64)`), { outcome: "unavailable", result: null });
       assert.equal(psql(backend, `SELECT version||':'||(SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_B}') FROM saas.orders WHERE id='${ORDER_B}';`), before);
     });
 
