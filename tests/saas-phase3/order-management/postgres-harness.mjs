@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { accessSync, constants, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,13 +19,17 @@ const TOKEN = randomBytes(6).toString("hex");
 const DATABASE = `order_management_${TOKEN}`;
 const RESTORE_DATABASE = `${DATABASE}_restore`;
 const ROLLBACK_DATABASE = `${DATABASE}_rollback`;
-const TOTAL = 18;
+const TOTAL = 40;
 const completed = [];
 const NOW = "2026-07-21T10:00:00.000Z";
 const PLAN = "00000000-0000-4000-8000-000000000001";
 const STORE_A = "10000000-0000-4000-8000-000000000001";
 const STORE_B = "10000000-0000-4000-8000-000000000002";
 const ORDER_A = "40000000-0000-4000-8000-000000000001";
+const ORDER_B = "40000000-0000-4000-8000-000000000002";
+const ORDER_C = "40000000-0000-4000-8000-000000000003";
+const ORDER_D = "40000000-0000-4000-8000-000000000004";
+const ORDER_OTHER = "40000000-0000-4000-8000-000000000005";
 const PRODUCT_A = "41000000-0000-4000-8000-000000000001";
 const PRODUCT_B = "41000000-0000-4000-8000-000000000002";
 const VARIANT_A = "42000000-0000-4000-8000-000000000001";
@@ -33,6 +37,17 @@ const VARIANT_B = "42000000-0000-4000-8000-000000000002";
 const EVENT_A = "50000000-0000-4000-8000-000000000001";
 const OPERATION_A = "60000000-0000-4000-8000-000000000001";
 const AUTHORITY_SIGNATURE = "saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)";
+const API_SIGNATURES = [
+  "saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
+  "saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,bigint,timestamp with time zone,uuid)",
+  "saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+  "saas.orders_transition_status(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+  "saas.orders_transition_payment(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+  "saas.orders_update_shipping(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,jsonb,jsonb)",
+  "saas.orders_add_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)",
+  "saas.orders_archive_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid)",
+  "saas.orders_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+];
 const TABLES = ["orders", "order_items", "order_events", "order_notes", "order_operations"];
 const migrations = [
   "202607110001_roles.up.sql",
@@ -61,6 +76,8 @@ const migrations = [
   "202607200021_catalog_dashboard_summary_assertions.sql",
   "202607210022_order_management.up.sql",
   "202607210022_order_management_assertions.sql",
+  "202607210023_order_management_api.up.sql",
+  "202607210023_order_management_api_assertions.sql",
 ];
 
 function executable(name) {
@@ -90,6 +107,31 @@ function command(program, args, options = {}) {
     throw new Error(`disposable command failed: ${path.basename(program)}\n${String(result.stderr ?? "").trim()}`);
   }
   return result;
+}
+
+function commandAsync(program, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(program, args, {
+      cwd: ROOT,
+      env: { PATH: `${PG16}:${process.env.PATH ?? ""}`, LC_ALL: "C", LANG: "C" },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (status) => {
+      if (!options.allowFailure && status !== 0) {
+        reject(new Error(`disposable command failed: ${path.basename(program)}\n${stderr.trim()}`));
+        return;
+      }
+      resolve({ status, stdout, stderr });
+    });
+    child.stdin.end(options.input);
+  });
 }
 
 function startPostgres(options = {}) {
@@ -174,6 +216,35 @@ function authority(backend, options = {}, database = DATABASE) {
   return psql(backend, authoritySql(options, database), database);
 }
 
+function authorityArguments({
+  store = STORE_A,
+  principal = "20000000-0000-4000-8000-000000000001",
+  membership = "30000000-0000-4000-8000-000000000001",
+  plan = PLAN,
+  planCode = "free_starter",
+  planVersion = 1,
+  now = NOW,
+} = {}) {
+  return `'${store}'::uuid,'${principal}'::uuid,'${membership}'::uuid,'${plan}'::uuid,'${planCode}',${planVersion},'${now}'::timestamptz`;
+}
+
+function apiSql(functionName, extraArguments = "", authorityOptions = {}) {
+  const separator = extraArguments.length > 0 ? "," : "";
+  return `SET ROLE celebix_saas_app; SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)::text FROM saas.${functionName}(${authorityArguments(authorityOptions)}${separator}${extraArguments});`;
+}
+
+function api(backend, functionName, extraArguments = "", authorityOptions = {}, database = DATABASE) {
+  return JSON.parse(psql(backend, apiSql(functionName, extraArguments, authorityOptions), database));
+}
+
+async function apiAsync(backend, functionName, extraArguments = "", authorityOptions = {}, database = DATABASE) {
+  const result = await commandAsync(backend.executables.psql, [
+    "-h", backend.socketDirectory, "-p", String(backend.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+    "-U", "postgres", "-d", database,
+  ], { input: apiSql(functionName, extraArguments, authorityOptions) });
+  return JSON.parse(result.stdout.trim());
+}
+
 function denied(backend, source, database = DATABASE) {
   const result = psqlResult(backend, source, database, { allowFailure: true });
   assert.notEqual(result.status, 0, "statement unexpectedly succeeded");
@@ -218,6 +289,33 @@ function seed(backend, database = DATABASE) {
   `, database);
 }
 
+function seedApi(backend, database = DATABASE) {
+  psql(backend, `
+    BEGIN;
+    SET LOCAL ROLE celebix_saas_owner;
+    DELETE FROM saas.orders WHERE order_number='constraint-fixture' AND store_id='${STORE_A}';
+    UPDATE saas.orders SET shipping_address=shipping_address||'{"storeId":"${STORE_A}","principal_id":"20000000-0000-4000-8000-000000000001"}'::jsonb,created_at='2026-07-21 09:00:00.000800+00',updated_at='2026-07-21 09:00:00.000800+00' WHERE id='${ORDER_A}';
+    INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,customer_phone,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at) VALUES
+      ('${ORDER_B}','${STORE_A}','ORD-0002','quick_link','Alan Turing','alan@example.test','+905551110002','TRY',20000,0,0,20000,'confirmed','completed','{"recipientName":"Alan Turing","line1":"Test 2","district":"Kadikoy","city":"Istanbul","postalCode":"34710","country":"TR"}',1,'2026-07-21 09:00:00.000800+00','2026-07-21 09:00:00.000800+00'),
+      ('${ORDER_C}','${STORE_A}','VIP-0003','marketplace','Grace Hopper','grace@example.test',NULL,'TRY',30000,0,0,30000,'delivered','completed','{"recipientName":"Grace Hopper","line1":"Test 3","city":"Ankara","country":"TR"}',1,'2026-07-21 09:00:00.000900+00','2026-07-21 09:00:00.000900+00'),
+      ('${ORDER_D}','${STORE_A}','ORD-0004','manual_import','Margaret Hamilton','margaret@example.test',NULL,'TRY',40000,0,0,40000,'cancelled','failed','{"recipientName":"Margaret Hamilton","line1":"Test 4","city":"Izmir","country":"TR"}',1,'2026-07-19 09:00:00+00','2026-07-19 09:00:00+00'),
+      ('${ORDER_OTHER}','${STORE_B}','OTHER-0001','storefront','Other Customer','other-customer@example.test',NULL,'TRY',90000,0,0,90000,'delivered','completed','{"recipientName":"Other Customer","line1":"Other 1","city":"Bursa","country":"TR"}',1,'2026-07-22 09:00:00+00','2026-07-22 09:00:00+00');
+    INSERT INTO saas.order_items(id,store_id,order_id,product_id,variant_id,position,product_name,variant_name,sku,unit_price_cents,quantity,discount_cents,line_total_cents,created_at) VALUES
+      ('43000000-0000-4000-8000-000000000001','${STORE_A}','${ORDER_A}','${PRODUCT_A}','${VARIANT_A}',0,'Atlas Mug','Default','ATLAS-A',10000,1,0,10000,'2026-07-21'),
+      ('43000000-0000-4000-8000-000000000002','${STORE_A}','${ORDER_B}','${PRODUCT_A}','${VARIANT_A}',0,'Atlas Mug','Default','ATLAS-A',10000,2,0,20000,'2026-07-21 09:00:00+00'),
+      ('43000000-0000-4000-8000-000000000003','${STORE_A}','${ORDER_C}','${PRODUCT_A}','${VARIANT_A}',0,'Atlas Mug','Default','ATLAS-A',10000,3,0,30000,'2026-07-21 09:00:00+00');
+    INSERT INTO saas.order_events(id,store_id,order_id,actor_membership_id,event_type,from_value,to_value,message,payload,created_at) VALUES
+      ('50000000-0000-4000-8000-000000000002','${STORE_A}','${ORDER_B}','30000000-0000-4000-8000-000000000001','order_created',NULL,'confirmed','Order imported','{}','2026-07-21 09:00:00+00'),
+      ('50000000-0000-4000-8000-000000000003','${STORE_A}','${ORDER_C}','30000000-0000-4000-8000-000000000001','order_created',NULL,'delivered','Order delivered','{}','2026-07-21 09:00:00+00');
+    INSERT INTO saas.order_notes(id,store_id,order_id,author_membership_id,body,created_at,updated_at)
+    SELECT pg_catalog.md5('mature-order-note:'||ordinal::text)::uuid,'${STORE_A}','${ORDER_C}','30000000-0000-4000-8000-000000000001',pg_catalog.repeat('x',2000),'2026-07-21 09:00:00+00'::timestamptz+ordinal*interval '1 microsecond','2026-07-21 09:00:00+00'::timestamptz+ordinal*interval '1 microsecond'
+    FROM pg_catalog.generate_series(1,20) AS ordinal;
+    INSERT INTO saas.order_operations(operation_id,store_id,order_id,operation_kind,payload_fingerprint,result_payload,committed_at)
+    VALUES ('61000000-0000-4000-8000-000000000019','${STORE_B}','${ORDER_OTHER}','transition_payment',repeat('3',64),'{"id":"${ORDER_OTHER}","status":"delivered","paymentStatus":"completed","version":1,"updatedAt":"2026-07-22T09:00:00.000Z"}','2026-07-22 09:00:00+00');
+    COMMIT;
+  `, database);
+}
+
 async function main() {
   let backend = startPostgres();
   let cleanupPaths;
@@ -233,10 +331,15 @@ async function main() {
     await scenario("manifest binds exact 022 artifact bytes", async () => {
       const manifest = JSON.parse(readFileSync(path.join(SQL, "phase3b1-order-management-manifest.json"), "utf8"));
       assert.equal(manifest.postgresqlMajor, 16);
-      assert.deepEqual(manifest.artifacts.map((artifact) => artifact.file), [
+      assert.deepEqual(manifest.artifacts.slice(0, 3).map((artifact) => artifact.file), [
         "202607210022_order_management.up.sql",
         "202607210022_order_management.down.sql",
         "202607210022_order_management_assertions.sql",
+      ]);
+      assert.deepEqual(manifest.artifacts.slice(3).map((artifact) => artifact.file), [
+        "202607210023_order_management_api.up.sql",
+        "202607210023_order_management_api.down.sql",
+        "202607210023_order_management_api_assertions.sql",
       ]);
       for (const artifact of manifest.artifacts) {
         assert.equal(artifact.sha256, createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex"));
@@ -402,7 +505,228 @@ async function main() {
       assert.equal(psql(backend, `SELECT payload_fingerprint||':'||(result_payload->>'outcome') FROM saas.order_operations WHERE operation_id='${OPERATION_A}';`), `${"a".repeat(64)}:committed`);
     });
 
+    seedApi(backend);
+
+    await scenario("app-callable API exposes a happy-path deterministic order list", async () => {
+      for (const signature of API_SIGNATURES) {
+        assert.equal(psql(backend, `SELECT to_regprocedure('${signature}')::text;`), signature);
+        assert.equal(psql(backend, `SELECT has_function_privilege('celebix_saas_app','${signature}','EXECUTE');`), "t");
+        assert.equal(psql(backend, `SELECT has_function_privilege('public','${signature}','EXECUTE');`), "f");
+      }
+      const result = api(backend, "orders_list", "NULL,NULL,100,NULL,NULL");
+      assert.equal(result.outcome, "listed");
+      assert.deepEqual(result.result.items.map((order) => order.id), [ORDER_C, ORDER_B, ORDER_A, ORDER_D]);
+      assert.equal(Object.hasOwn(result.result, "nextCursor"), false);
+    });
+
+    await scenario("app-callable API exposes a happy-path order detail", async () => {
+      const result = api(backend, "orders_get", `'${ORDER_A}'::uuid`);
+      assert.equal(result.outcome, "found");
+      assert.equal(result.result.id, ORDER_A);
+      assert.equal(result.result.orderNumber, "ORD-0001");
+      assert.equal(result.result.itemCount, 1);
+      assert.equal(result.result.items[0].id, "43000000-0000-4000-8000-000000000001");
+      assert.equal(result.result.events[0].id, EVENT_A);
+      assert.deepEqual(result.result.notes, []);
+    });
+
+    await scenario("list cursor is bounded and deterministic for equal timestamps", async () => {
+      const first = api(backend, "orders_list", "NULL,NULL,1,NULL,NULL");
+      assert.equal(first.outcome, "listed");
+      assert.deepEqual(first.result.items.map((order) => order.id), [ORDER_C]);
+      assert.deepEqual(first.result.nextCursor, { createdAt: "2026-07-21T09:00:00.000900Z", id: ORDER_C });
+      const second = api(backend, "orders_list", `NULL,NULL,1,'${first.result.nextCursor.createdAt}'::timestamptz,'${first.result.nextCursor.id}'::uuid`);
+      assert.deepEqual(second.result.items.map((order) => order.id), [ORDER_B]);
+      assert.deepEqual(second.result.nextCursor, { createdAt: "2026-07-21T09:00:00.000800Z", id: ORDER_B });
+      const third = api(backend, "orders_list", `NULL,NULL,1,'${second.result.nextCursor.createdAt}'::timestamptz,'${second.result.nextCursor.id}'::uuid`);
+      assert.deepEqual(third.result.items.map((order) => order.id), [ORDER_A]);
+      for (const size of [0, 101]) assert.equal(api(backend, "orders_list", `NULL,NULL,${size},NULL,NULL`).outcome, "invalid_input");
+    });
+
+    await scenario("list applies exact status and literal case-insensitive search filters", async () => {
+      const status = api(backend, "orders_list", "'delivered',NULL,100,NULL,NULL");
+      assert.deepEqual(status.result.items.map((order) => order.id), [ORDER_C]);
+      const search = api(backend, "orders_list", "NULL,'gRaCe@ExAmPlE.TeSt',100,NULL,NULL");
+      assert.deepEqual(search.result.items.map((order) => order.id), [ORDER_C]);
+      assert.equal(api(backend, "orders_list", "'unknown',NULL,100,NULL,NULL").outcome, "invalid_input");
+      assert.deepEqual(api(backend, "orders_list", "NULL,'%',100,NULL,NULL").result.items, []);
+    });
+
+    await scenario("summary is store-scoped and counts only completed delivered revenue", async () => {
+      const result = api(backend, "orders_get_dashboard_summary");
+      assert.equal(result.outcome, "summarized");
+      assert.deepEqual(result.result, {
+        totalOrders: 4,
+        pendingOrders: 1,
+        fulfilledOrders: 1,
+        revenueCents: 30000,
+        currency: "TRY",
+        asOf: NOW,
+      });
+    });
+
+    await scenario("cross-store order detail is a stable not-found", async () => {
+      const result = api(backend, "orders_get", `'${ORDER_OTHER}'::uuid`);
+      assert.deepEqual(result, { outcome: "order_not_found", result: null });
+    });
+
+    await scenario("analyst authority can read list detail and summary", async () => {
+      const analyst = { principal: "20000000-0000-4000-8000-000000000004", membership: "30000000-0000-4000-8000-000000000004" };
+      assert.equal(api(backend, "orders_list", "NULL,NULL,10,NULL,NULL", analyst).outcome, "listed");
+      assert.equal(api(backend, "orders_get", `'${ORDER_A}'::uuid`, analyst).outcome, "found");
+      assert.equal(api(backend, "orders_get_dashboard_summary", "", analyst).outcome, "summarized");
+    });
+
+    await scenario("analyst payment mutation is denied without side effects", async () => {
+      const analyst = { principal: "20000000-0000-4000-8000-000000000004", membership: "30000000-0000-4000-8000-000000000004" };
+      const result = api(backend, "orders_transition_payment", `'61000000-0000-4000-8000-000000000001'::uuid,repeat('1',64),'${ORDER_A}'::uuid,1,'processing'`, analyst);
+      assert.deepEqual(result, { outcome: "membership_denied", result: null });
+      assert.equal(psql(backend, `SELECT payment_status||':'||version FROM saas.orders WHERE id='${ORDER_A}';`), "pending:1");
+    });
+
+    await scenario("editor payment mutation is denied without side effects", async () => {
+      const editor = { principal: "20000000-0000-4000-8000-000000000003", membership: "30000000-0000-4000-8000-000000000003" };
+      const result = api(backend, "orders_transition_payment", `'61000000-0000-4000-8000-000000000002'::uuid,repeat('2',64),'${ORDER_A}'::uuid,1,'processing'`, editor);
+      assert.deepEqual(result, { outcome: "membership_denied", result: null });
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.order_operations WHERE operation_id='61000000-0000-4000-8000-000000000002';`), "0");
+    });
+
+    await scenario("editor fulfillment performs one versioned status transition", async () => {
+      const editor = { principal: "20000000-0000-4000-8000-000000000003", membership: "30000000-0000-4000-8000-000000000003" };
+      const result = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000003'::uuid,repeat('3',64),'${ORDER_B}'::uuid,1,'preparing'`, editor);
+      assert.equal(result.outcome, "committed");
+      assert.equal(result.result.status, "preparing");
+      assert.equal(result.result.version, 2);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_B}' AND event_type='status_transition';`), "1");
+      const cancellation = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000015'::uuid,repeat('f',64),'${ORDER_B}'::uuid,2,'cancelled'`, editor);
+      assert.deepEqual(cancellation, { outcome: "membership_denied", result: null });
+      assert.equal(psql(backend, `SELECT status||':'||version FROM saas.orders WHERE id='${ORDER_B}';`), "preparing:2");
+    });
+
+    await scenario("status state machine denies terminal transitions", async () => {
+      const result = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000004'::uuid,repeat('4',64),'${ORDER_D}'::uuid,1,'delivered'`);
+      assert.deepEqual(result, { outcome: "invalid_transition", result: null });
+      assert.equal(psql(backend, `SELECT status||':'||version FROM saas.orders WHERE id='${ORDER_D}';`), "cancelled:1");
+    });
+
+    await scenario("payment state machine denies skipped transitions", async () => {
+      const result = api(backend, "orders_transition_payment", `'61000000-0000-4000-8000-000000000005'::uuid,repeat('5',64),'${ORDER_A}'::uuid,1,'completed'`);
+      assert.deepEqual(result, { outcome: "invalid_transition", result: null });
+      assert.equal(psql(backend, `SELECT payment_status||':'||version FROM saas.orders WHERE id='${ORDER_A}';`), "pending:1");
+    });
+
+    await scenario("stale versions are denied before mutation", async () => {
+      const result = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000006'::uuid,repeat('6',64),'${ORDER_B}'::uuid,1,'shipped'`);
+      assert.deepEqual(result, { outcome: "version_conflict", result: null });
+      assert.equal(psql(backend, `SELECT status||':'||version FROM saas.orders WHERE id='${ORDER_B}';`), "preparing:2");
+    });
+
+    await scenario("same operation and fingerprint replays the immutable result", async () => {
+      const args = `'61000000-0000-4000-8000-000000000007'::uuid,repeat('7',64),'${ORDER_A}'::uuid,1,'confirmed'`;
+      const committed = api(backend, "orders_transition_status", args);
+      const replayed = api(backend, "orders_transition_status", args);
+      assert.equal(committed.outcome, "committed");
+      assert.equal(replayed.outcome, "operation_replayed");
+      assert.deepEqual(replayed.result, committed.result);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_A}' AND event_type='status_transition';`), "1");
+    });
+
+    await scenario("operation fingerprint mismatch fails closed", async () => {
+      const result = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000007'::uuid,repeat('8',64),'${ORDER_A}'::uuid,1,'confirmed'`);
+      assert.deepEqual(result, { outcome: "operation_mismatch", result: null });
+      assert.equal(psql(backend, `SELECT payload_fingerprint FROM saas.order_operations WHERE operation_id='61000000-0000-4000-8000-000000000007';`), "7".repeat(64));
+      const editor = { principal: "20000000-0000-4000-8000-000000000003", membership: "30000000-0000-4000-8000-000000000003" };
+      const foreignOperation = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000019'::uuid,repeat('3',64),'${ORDER_A}'::uuid,2,'confirmed'`, editor);
+      assert.deepEqual(foreignOperation, { outcome: "operation_mismatch", result: null });
+      const cancelled = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000017'::uuid,repeat('1',64),'${ORDER_A}'::uuid,2,'cancelled'`);
+      assert.equal(cancelled.outcome, "committed");
+      const forgedReplay = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000017'::uuid,repeat('1',64),'${ORDER_A}'::uuid,2,'confirmed'`, editor);
+      assert.deepEqual(forgedReplay, { outcome: "membership_denied", result: null });
+    });
+
+    await scenario("concurrent same-version transitions have exactly one winner", async () => {
+      const calls = [
+        apiAsync(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000008'::uuid,repeat('8',64),'${ORDER_B}'::uuid,2,'shipped'`),
+        apiAsync(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000009'::uuid,repeat('9',64),'${ORDER_B}'::uuid,2,'shipped'`),
+      ];
+      const results = await Promise.all(calls);
+      assert.deepEqual(results.map((result) => result.outcome).sort(), ["committed", "version_conflict"]);
+      assert.equal(psql(backend, `SELECT status||':'||version FROM saas.orders WHERE id='${ORDER_B}';`), "shipped:3");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_B}' AND event_type='status_transition' AND to_value='shipped';`), "1");
+    });
+
+    await scenario("shipping update validates and returns the new safe projection", async () => {
+      const result = api(backend, "orders_update_shipping", `'61000000-0000-4000-8000-000000000010'::uuid,repeat('a',64),'${ORDER_B}'::uuid,3,'{"recipientName":"Alan Turing","line1":"New 2","city":"Istanbul","country":"TR"}'::jsonb,'{"carrier":"HemenKargo","trackingNumber":"TRACK-2","trackingUrl":"https://tracking.example.test/TRACK-2","shippedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`);
+      assert.equal(result.outcome, "committed");
+      assert.deepEqual(Object.keys(result.result).sort(), ["id", "paymentStatus", "status", "updatedAt", "version"]);
+      assert.equal(result.result.version, 4);
+      const detail = api(backend, "orders_get", `'${ORDER_B}'::uuid`);
+      assert.equal(detail.result.shippingAddress.line1, "New 2");
+      assert.equal(detail.result.tracking.trackingNumber, "TRACK-2");
+    });
+
+    await scenario("notes add and archive atomically update detail and audit", async () => {
+      const noteId = "62000000-0000-4000-8000-000000000001";
+      const added = api(backend, "orders_add_note", `'61000000-0000-4000-8000-000000000011'::uuid,repeat('b',64),'${noteId}'::uuid,'${ORDER_B}'::uuid,'Pack with care'`);
+      assert.equal(added.outcome, "committed");
+      assert.equal(added.result.version, 5);
+      assert.equal(api(backend, "orders_get", `'${ORDER_B}'::uuid`).result.notes[0].id, noteId);
+      const archived = api(backend, "orders_archive_note", `'61000000-0000-4000-8000-000000000012'::uuid,repeat('c',64),'${ORDER_B}'::uuid,'${noteId}'::uuid`);
+      assert.equal(archived.outcome, "committed");
+      assert.equal(archived.result.version, 6);
+      assert.deepEqual(api(backend, "orders_get", `'${ORDER_B}'::uuid`).result.notes, []);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_B}' AND event_type IN ('note_added','note_archived');`), "2");
+    });
+
+    await scenario("invalid address or tracking JSON is rejected without a version change", async () => {
+      const badAddress = api(backend, "orders_update_shipping", `'61000000-0000-4000-8000-000000000013'::uuid,repeat('d',64),'${ORDER_B}'::uuid,6,'{"recipientName":"Alan","line1":"Test","city":"Istanbul","country":"tr"}'::jsonb,NULL`);
+      assert.equal(badAddress.outcome, "invalid_input");
+      const badTracking = api(backend, "orders_update_shipping", `'61000000-0000-4000-8000-000000000014'::uuid,repeat('e',64),'${ORDER_B}'::uuid,6,'{"recipientName":"Alan","line1":"Test","city":"Istanbul","country":"TR"}'::jsonb,'{"carrier":"Kargo","trackingNumber":"X","private":"leak"}'::jsonb`);
+      assert.equal(badTracking.outcome, "invalid_input");
+      const impossibleShippedAt = api(backend, "orders_update_shipping", `'61000000-0000-4000-8000-000000000018'::uuid,repeat('2',64),'${ORDER_B}'::uuid,6,'{"recipientName":"Alan","line1":"Test","city":"Istanbul","country":"TR"}'::jsonb,'{"carrier":"Kargo","trackingNumber":"X","shippedAt":"2026-02-30T10:00:00.000Z"}'::jsonb`);
+      assert.equal(impossibleShippedAt.outcome, "invalid_input");
+      assert.equal(psql(backend, `SELECT version FROM saas.orders WHERE id='${ORDER_B}';`), "6");
+    });
+
+    await scenario("operation recovery is read-only replay or stable mismatch", async () => {
+      const before = psql(backend, `SELECT version||':'||(SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_B}') FROM saas.orders WHERE id='${ORDER_B}';`);
+      const recovered = JSON.parse(psql(backend, `BEGIN TRANSACTION READ ONLY; ${apiSql("orders_recover_operation", `'61000000-0000-4000-8000-000000000010'::uuid,repeat('a',64)`)} COMMIT;`));
+      assert.equal(recovered.outcome, "operation_replayed");
+      assert.equal(recovered.result.version, 4);
+      assert.deepEqual(api(backend, "orders_recover_operation", `'61000000-0000-4000-8000-000000000010'::uuid,repeat('f',64)`), { outcome: "operation_mismatch", result: null });
+      assert.deepEqual(api(backend, "orders_recover_operation", `'61000000-0000-4000-8000-000000000099'::uuid,repeat('f',64)`), { outcome: "operation_not_found", result: null });
+      assert.equal(psql(backend, `SELECT version||':'||(SELECT count(*) FROM saas.order_events WHERE order_id='${ORDER_B}') FROM saas.orders WHERE id='${ORDER_B}';`), before);
+    });
+
+    await scenario("committed API result payloads remain immutable", async () => {
+      const mature = api(backend, "orders_transition_status", `'61000000-0000-4000-8000-000000000016'::uuid,repeat('0',64),'${ORDER_C}'::uuid,1,'refunded'`);
+      assert.equal(mature.outcome, "committed");
+      assert.equal(mature.result.version, 2);
+      assert.equal(psql(backend, `SELECT pg_column_size(result_payload)<=32768 FROM saas.order_operations WHERE operation_id='61000000-0000-4000-8000-000000000016';`), "t");
+      denied(backend, "BEGIN; SET LOCAL ROLE celebix_saas_owner; UPDATE saas.order_operations SET result_payload='{}' WHERE operation_id='61000000-0000-4000-8000-000000000010'; COMMIT;");
+      const recovered = api(backend, "orders_recover_operation", `'61000000-0000-4000-8000-000000000010'::uuid,repeat('a',64)`);
+      assert.equal(recovered.result.version, 4);
+    });
+
+    await scenario("API JSON never exposes raw private authority", async () => {
+      const payloads = [
+        api(backend, "orders_get_dashboard_summary"),
+        api(backend, "orders_list", "NULL,NULL,100,NULL,NULL"),
+        api(backend, "orders_get", `'${ORDER_A}'::uuid`),
+        api(backend, "orders_get", `'${ORDER_B}'::uuid`),
+        api(backend, "orders_recover_operation", `'61000000-0000-4000-8000-000000000010'::uuid,repeat('a',64)`),
+      ];
+      const serialized = JSON.stringify(payloads);
+      for (const forbidden of ["storeId", "store_id", "principalId", "principal_id", "membershipId", "membership_id", STORE_A, "20000000-0000-4000-8000-000000000001", "30000000-0000-4000-8000-000000000001"]) {
+        assert.equal(serialized.includes(forbidden), false, `private authority leaked: ${forbidden}`);
+      }
+    });
+
     createDatabase(backend, ROLLBACK_DATABASE, DATABASE);
+    apply(backend, "202607210023_order_management_api.down.sql", ROLLBACK_DATABASE);
+    assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['${TABLES.join("','")}']);`, ROLLBACK_DATABASE), "5");
+    assert.equal(psql(backend, `SELECT to_regprocedure('${AUTHORITY_SIGNATURE}')::text;`, ROLLBACK_DATABASE), AUTHORITY_SIGNATURE);
+    assert.equal(psql(backend, `SELECT count(*) FROM unnest(ARRAY[${API_SIGNATURES.map((signature) => `'${signature}'`).join(",")}]) AS signature(value) WHERE to_regprocedure(signature.value) IS NOT NULL;`, ROLLBACK_DATABASE), "0");
     apply(backend, "202607210022_order_management.down.sql", ROLLBACK_DATABASE);
     await scenario("disposable rollback removes only 022 objects", async () => {
       assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['${TABLES.join("','")}']);`, ROLLBACK_DATABASE), "0");
@@ -412,6 +736,8 @@ async function main() {
 
     apply(backend, "202607210022_order_management.up.sql", ROLLBACK_DATABASE);
     apply(backend, "202607210022_order_management_assertions.sql", ROLLBACK_DATABASE);
+    apply(backend, "202607210023_order_management_api.up.sql", ROLLBACK_DATABASE);
+    apply(backend, "202607210023_order_management_api_assertions.sql", ROLLBACK_DATABASE);
     await scenario("reapply restores exact 022 authority", async () => {
       assert.equal(authority(backend, {}, ROLLBACK_DATABASE), "<null>");
       assert.equal(psql(backend, `SELECT count(*) FROM pg_class AS relation JOIN pg_namespace AS namespace ON namespace.oid=relation.relnamespace WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['${TABLES.join("','")}']);`, ROLLBACK_DATABASE), "5");
@@ -423,8 +749,10 @@ async function main() {
     command(backend.executables.pg_restore, ["-h", backend.socketDirectory, "-p", String(backend.port), "-U", "postgres", "-d", RESTORE_DATABASE, dump]);
     await scenario("backup restore preserves schema data authority and assertions", async () => {
       apply(backend, "202607210022_order_management_assertions.sql", RESTORE_DATABASE);
+      apply(backend, "202607210023_order_management_api_assertions.sql", RESTORE_DATABASE);
       assert.equal(authority(backend, {}, RESTORE_DATABASE), "<null>");
       assert.equal(psql(backend, `SELECT count(*) FROM saas.orders WHERE id='${ORDER_A}';`, RESTORE_DATABASE), "1");
+      assert.equal(api(backend, "orders_get", `'${ORDER_A}'::uuid`, {}, RESTORE_DATABASE).outcome, "found");
       denied(backend, `BEGIN; SET LOCAL ROLE celebix_saas_owner; DELETE FROM saas.order_events WHERE id='${EVENT_A}'; COMMIT;`, RESTORE_DATABASE);
     });
 

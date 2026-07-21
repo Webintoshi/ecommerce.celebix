@@ -3,7 +3,7 @@
   "postgresqlMajor": 16,
   "migrationClassification": "additive",
   "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
-  "rollbackLimitations": "The down migration destroys order data and removes only migration 022 objects; it is for disposable rehearsal only.",
+  "rollbackLimitations": "Migration 023 rollback removes only order API functions; migration 022 rollback destroys order data and is for disposable rehearsal only.",
   "artifacts": [
     {
       "id": "202607210022_order_management_up",
@@ -25,6 +25,27 @@
       "file": "202607210022_order_management_assertions.sql",
       "sha256": "0ffbac5621d8840d4ab132082094f373f17e4e99a81ba3678aa73f696d8d8971",
       "purpose": "Fail on owner, RLS, constraints, tenant FKs, ACL, immutability or action-authority drift."
+    },
+    {
+      "id": "202607210023_order_management_api_up",
+      "direction": "up",
+      "file": "202607210023_order_management_api.up.sql",
+      "sha256": "88b13f767eb18ec3d21b74ea048ab6cbac1377afcb835c2288cb9121e2eab94b",
+      "purpose": "Add bounded store-scoped order reads and replay-safe versioned mutations behind the exact merchant authority helper."
+    },
+    {
+      "id": "202607210023_order_management_api_down",
+      "direction": "down",
+      "file": "202607210023_order_management_api.down.sql",
+      "sha256": "cdf43c91ade81ebfe0c9eb820c605d4b5aca4d24e117e5d43ab66c78f8a7e91d",
+      "purpose": "Remove only migration 023 order API functions during disposable rollback rehearsal."
+    },
+    {
+      "id": "202607210023_order_management_api_assertions",
+      "direction": "verify",
+      "file": "202607210023_order_management_api_assertions.sql",
+      "sha256": "0a788f228ada1f0888a201983a1ed97c3ad14d7a534d5ee3699c4ac147909a7c",
+      "purpose": "Fail on order API signature, owner, definer, volatility, search path, ACL, authority-call or deterministic-read drift."
     }
   ]
 }
