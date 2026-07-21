@@ -795,6 +795,14 @@ test("escaped repository errors are fresh sealed public values and cannot transf
     () => repository(new FakePool()).cancel({
       tenantContext: tenantContext(), now: NOW, linkId: LINK_ID, operationId: OPERATION_ID, expectedVersion: 0,
     }),
+    () => repository(new FakePool()).cancel({
+      tenantContext: tenantContext(), now: NOW, linkId: LINK_ID, operationId: OPERATION_ID,
+      expectedVersion: Number.MAX_SAFE_INTEGER + 1,
+    }),
+    () => repository(new FakePool()).cancel({
+      tenantContext: tenantContext(), now: NOW, linkId: LINK_ID, operationId: OPERATION_ID,
+      expectedVersion: "9223372036854775807" as never,
+    }),
     () => repository(new FakePool()).duplicate(duplicateInput({ newLinkId: LINK_ID })),
   ];
   const exposedInputErrors: QuickOrderLinkRepositoryError[] = [];

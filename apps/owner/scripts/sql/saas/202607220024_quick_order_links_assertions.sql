@@ -17,6 +17,7 @@ DECLARE
   operation_result_definition text := pg_catalog.pg_get_functiondef('saas.quick_link_operation_result_is_valid(jsonb,uuid)'::regprocedure);
   image_function regprocedure := 'saas.quick_link_canonical_image_url(uuid,uuid,uuid)'::regprocedure;
   image_definition text := pg_catalog.pg_get_functiondef(image_function);
+  lifecycle_guard_definition text := pg_catalog.pg_get_functiondef('saas.guard_quick_link_terminal_lifecycle()'::regprocedure);
   provider_guard_definition text := pg_catalog.pg_get_functiondef('saas.guard_quick_link_provider_authority()'::regprocedure);
   authority_function regprocedure := 'saas.quick_link_merchant_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)'::regprocedure;
   authority_definition text := pg_catalog.pg_get_functiondef(authority_function);
@@ -186,7 +187,7 @@ BEGIN
     )
     AND constraint_record.contype IN ('p','u','c');
 
-  IF constraint_catalog_fingerprint <> 'aac6d9e1e3125e33043ae0649e799507' THEN
+  IF constraint_catalog_fingerprint <> 'be45f017b7adcf8ccc5498331dbc39c3' THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact check/unique definitions drift: %', constraint_catalog_fingerprint;
   END IF;
 
@@ -235,6 +236,26 @@ BEGIN
          AND pg_catalog.pg_get_constraintdef(oid) = 'CHECK (((quantity >= 1) AND (quantity <= 9999)))'
      ) THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: item arithmetic bounds drift: %', constraint_definition;
+  END IF;
+
+  SELECT pg_catalog.pg_get_constraintdef(oid)
+    INTO constraint_definition
+  FROM pg_catalog.pg_constraint
+  WHERE conrelid = 'saas.quick_order_links'::regclass
+    AND conname = 'quick_order_links_version_check';
+  IF constraint_definition !~ 'version >= 1'
+     OR constraint_definition !~ '9007199254740991' THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: link safe-version bound drift';
+  END IF;
+
+  SELECT pg_catalog.pg_get_constraintdef(oid)
+    INTO constraint_definition
+  FROM pg_catalog.pg_constraint
+  WHERE conrelid = 'saas.checkout_provider_configs'::regclass
+    AND conname = 'checkout_provider_configs_version_check';
+  IF constraint_definition !~ 'version >= 1'
+     OR constraint_definition !~ '9007199254740991' THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: provider safe-version bound drift';
   END IF;
 
   SELECT pg_catalog.pg_get_constraintdef(oid)
@@ -369,8 +390,8 @@ BEGIN
      OR pg_catalog.strpos(operation_result_definition, 'jsonb_object_keys(candidate)') = 0
      OR pg_catalog.strpos(operation_result_definition, 'candidate->>''id'' = expected_link_id::text') = 0
      OR pg_catalog.strpos(operation_result_definition, 'active'',''opened'',''paid'',''cancelled'',''expired') = 0
-     OR pg_catalog.strpos(operation_result_definition, '^[1-9][0-9]{0,18}$') = 0
-     OR pg_catalog.strpos(operation_result_definition, '9223372036854775807') = 0
+     OR pg_catalog.strpos(operation_result_definition, '^[1-9][0-9]{0,15}$') = 0
+     OR pg_catalog.strpos(operation_result_definition, '9007199254740991') = 0
      OR pg_catalog.strpos(operation_result_definition, 'quick_link_timestamp_is_canonical(candidate->>''expiresAt'')') = 0
      OR pg_catalog.strpos(operation_result_definition, 'quick_link_timestamp_is_canonical(candidate->>''updatedAt'')') = 0 THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact operation result descriptor drift';
@@ -490,6 +511,22 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_catalog.pg_trigger
+    WHERE tgrelid = 'saas.quick_order_links'::regclass
+      AND tgname = 'quick_order_links_terminal_lifecycle'
+      AND NOT tgisinternal
+      AND (tgtype & 2) = 2
+      AND (tgtype & 16) = 16
+      AND tgfoid = 'saas.guard_quick_link_terminal_lifecycle()'::regprocedure
+  )
+  OR pg_catalog.strpos(lifecycle_guard_definition, 'OLD.status IN (''paid'',''cancelled'',''expired'')') = 0
+  OR pg_catalog.strpos(lifecycle_guard_definition, 'NEW.status IS DISTINCT FROM OLD.status') = 0
+  OR pg_catalog.strpos(lifecycle_guard_definition, 'QUICK_LINK_TERMINAL_STATUS_IMMUTABLE') = 0 THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: terminal lifecycle immutability drift';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_trigger
     WHERE tgrelid = 'saas.quick_order_link_operations'::regclass
       AND tgname = 'quick_order_link_operations_immutable'
       AND NOT tgisinternal
@@ -525,6 +562,7 @@ BEGIN
     'saas.quick_link_sealed_envelope_is_valid(jsonb,text)'::regprocedure,
     image_function,
     'saas.quick_link_operation_result_is_valid(jsonb,uuid)'::regprocedure,
+    'saas.guard_quick_link_terminal_lifecycle()'::regprocedure,
     'saas.guard_quick_link_provider_authority()'::regprocedure,
     'saas.guard_quick_link_operation_mutation()'::regprocedure,
     authority_function

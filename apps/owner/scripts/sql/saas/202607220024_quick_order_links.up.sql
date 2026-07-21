@@ -213,10 +213,10 @@ AS $function$
     AND pg_catalog.jsonb_typeof(candidate->'status') = 'string'
     AND candidate->>'status' IN ('active','opened','paid','cancelled','expired')
     AND pg_catalog.jsonb_typeof(candidate->'version') = 'number'
-    AND candidate->>'version' ~ '^[1-9][0-9]{0,18}$'
+    AND candidate->>'version' ~ '^[1-9][0-9]{0,15}$'
     AND (
-      pg_catalog.char_length(candidate->>'version') < 19
-      OR candidate->>'version' <= '9223372036854775807'
+      pg_catalog.char_length(candidate->>'version') < 16
+      OR candidate->>'version' <= '9007199254740991'
     )
     AND pg_catalog.jsonb_typeof(candidate->'expiresAt') = 'string'
     AND saas.quick_link_timestamp_is_canonical(candidate->>'expiresAt')
@@ -256,7 +256,9 @@ CREATE TABLE saas.checkout_provider_configs (
     AND configuration_key_id !~ '[[:cntrl:]]'
   ),
   sealed_configuration jsonb NOT NULL,
-  version bigint NOT NULL DEFAULT 1 CONSTRAINT checkout_provider_configs_version_check CHECK (version > 0),
+  version bigint NOT NULL DEFAULT 1 CONSTRAINT checkout_provider_configs_version_check CHECK (
+    version BETWEEN 1 AND 9007199254740991
+  ),
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   CONSTRAINT checkout_provider_configs_sealed_check CHECK (
@@ -356,7 +358,9 @@ CREATE TABLE saas.quick_order_links (
   paid_at timestamptz,
   cancelled_at timestamptz,
   order_id uuid,
-  version bigint NOT NULL DEFAULT 1 CONSTRAINT quick_order_links_version_check CHECK (version > 0),
+  version bigint NOT NULL DEFAULT 1 CONSTRAINT quick_order_links_version_check CHECK (
+    version BETWEEN 1 AND 9007199254740991
+  ),
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   CONSTRAINT quick_order_links_sealed_token_check CHECK (
@@ -390,6 +394,24 @@ CREATE TABLE saas.quick_order_links (
   CONSTRAINT quick_order_links_order_store_fk FOREIGN KEY (store_id, order_id)
     REFERENCES saas.orders(store_id, id)
 );
+
+CREATE FUNCTION saas.guard_quick_link_terminal_lifecycle()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, saas
+AS $function$
+BEGIN
+  IF OLD.status IN ('paid','cancelled','expired')
+     AND NEW.status IS DISTINCT FROM OLD.status THEN
+    RAISE EXCEPTION 'QUICK_LINK_TERMINAL_STATUS_IMMUTABLE';
+  END IF;
+  RETURN NEW;
+END
+$function$;
+
+CREATE TRIGGER quick_order_links_terminal_lifecycle
+BEFORE UPDATE OF status ON saas.quick_order_links
+FOR EACH ROW EXECUTE FUNCTION saas.guard_quick_link_terminal_lifecycle();
 
 CREATE FUNCTION saas.guard_quick_link_provider_authority()
 RETURNS trigger
@@ -607,6 +629,7 @@ REVOKE ALL ON saas.checkout_provider_configs FROM PUBLIC, celebix_saas_app;
 REVOKE ALL ON saas.quick_order_links FROM PUBLIC, celebix_saas_app;
 REVOKE ALL ON saas.quick_order_link_items FROM PUBLIC, celebix_saas_app;
 REVOKE ALL ON saas.quick_order_link_operations FROM PUBLIC, celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.guard_quick_link_terminal_lifecycle() FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.guard_quick_link_provider_authority() FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.guard_quick_link_operation_mutation() FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.quick_link_merchant_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text) FROM PUBLIC;

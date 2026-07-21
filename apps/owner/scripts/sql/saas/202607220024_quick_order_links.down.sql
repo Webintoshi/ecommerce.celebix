@@ -19,10 +19,12 @@ DROP FUNCTION saas.quick_link_timestamp_is_canonical(text);
 DROP INDEX saas.quick_order_link_items_link_position_idx;
 DROP TABLE saas.quick_order_link_items;
 
+DROP TRIGGER quick_order_links_terminal_lifecycle ON saas.quick_order_links;
 DROP TRIGGER quick_order_links_provider_authority ON saas.quick_order_links;
 DROP INDEX saas.quick_order_links_token_digest_idx;
 DROP INDEX saas.quick_order_links_store_status_expiry_idx;
 DROP TABLE saas.quick_order_links;
+DROP FUNCTION saas.guard_quick_link_terminal_lifecycle();
 DROP FUNCTION saas.guard_quick_link_provider_authority();
 
 DROP INDEX saas.checkout_provider_configs_store_status_idx;

@@ -586,6 +586,7 @@ DECLARE
   authority_error text;
   existing_operation saas.quick_order_link_operations%ROWTYPE;
   current_link saas.quick_order_links%ROWTYPE;
+  uuid_pattern constant text := '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
 BEGIN
   IF saas.quick_links_authority_time_is_valid(p_now) IS DISTINCT FROM TRUE THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
@@ -600,7 +601,10 @@ BEGIN
       AND membership.principal_id=p_principal_id AND membership.status='active'
   ) THEN authority_error := 'action_denied'; END IF;
   IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
-  IF p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint !~ '^[a-f0-9]{64}$' THEN
+  IF p_operation_id IS NULL OR p_operation_id::text !~ uuid_pattern
+     OR p_link_id IS NULL OR p_link_id::text !~ uuid_pattern
+     OR p_expected_version IS NULL OR p_expected_version NOT BETWEEN 1 AND 9007199254740991
+     OR p_fingerprint IS NULL OR p_fingerprint !~ '^[a-f0-9]{64}$' THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
 
@@ -628,13 +632,12 @@ BEGIN
     END IF;
     RETURN;
   END IF;
-  IF p_link_id IS NULL OR p_expected_version IS NULL OR p_expected_version<1 THEN
-    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
-  END IF;
   SELECT link.* INTO current_link FROM saas.quick_order_links AS link
   WHERE link.store_id=p_store_id AND link.id=p_link_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'quick_link_not_found'::text,NULL::jsonb; RETURN; END IF;
+  IF p_now<current_link.updated_at THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
   IF current_link.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict'::text,NULL::jsonb; RETURN; END IF;
+  IF current_link.version=9007199254740991 THEN RETURN QUERY SELECT 'version_conflict'::text,NULL::jsonb; RETURN; END IF;
   IF current_link.status NOT IN ('active','opened') OR current_link.expires_at<=p_now THEN
     RETURN QUERY SELECT 'invalid_transition'::text,NULL::jsonb; RETURN;
   END IF;
@@ -645,8 +648,10 @@ BEGIN
     INSERT INTO saas.quick_order_link_operations(
       operation_id,store_id,quick_order_link_id,operation_kind,payload_fingerprint,result_payload,committed_at
     ) VALUES (p_operation_id,p_store_id,p_link_id,'cancel',p_fingerprint,result_payload,p_now);
-  EXCEPTION WHEN unique_violation OR check_violation OR foreign_key_violation THEN
-    RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb; RETURN;
+  EXCEPTION
+    WHEN unique_violation OR check_violation OR foreign_key_violation
+      OR numeric_value_out_of_range OR datetime_field_overflow THEN
+      RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END;
   RETURN QUERY SELECT 'committed'::text,result_payload;
 END

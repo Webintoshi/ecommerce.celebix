@@ -338,6 +338,16 @@ test("controlled and hostile failures expose only stable finite repository outco
     assert.equal(client.calls.some(({ text }) => text === "ROLLBACK"), true);
   }
 
+  const maxVersionClient = fakeResult("quick_links_cancel", "version_conflict", null);
+  await assert.rejects(repository(maxVersionClient).cancel({
+    tenantContext: tenantContext(),
+    now: NOW,
+    linkId: LINK_ID,
+    operationId: OPERATION_ID,
+    expectedVersion: Number.MAX_SAFE_INTEGER,
+  }), quickLinkError("version_conflict"));
+  assert.equal(functionCall(maxVersionClient, "quick_links_cancel").values[8], Number.MAX_SAFE_INTEGER);
+
   const malformed = fakeResult("quick_links_list", "listed", {
     items: [{ ...listItem(), tokenDigest: TOKEN_DIGEST }],
   });

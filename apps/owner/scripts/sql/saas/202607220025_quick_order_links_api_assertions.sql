@@ -194,12 +194,22 @@ BEGIN
 
   IF cancel_source !~ 'pg_advisory_xact_lock'
      OR cancel_source !~ 'quick_links_lock_manage_authority\('
+     OR cancel_source !~ 'p_operation_id::text !~ uuid_pattern'
+     OR cancel_source !~ 'p_link_id::text !~ uuid_pattern'
+     OR cancel_source !~ 'p_expected_version NOT BETWEEN 1 AND 9007199254740991'
+     OR pg_catalog.strpos(cancel_source,'p_operation_id::text !~ uuid_pattern')>=pg_catalog.strpos(cancel_source,'quick_links_lock_manage_authority(')
+     OR pg_catalog.strpos(cancel_source,'p_link_id::text !~ uuid_pattern')>=pg_catalog.strpos(cancel_source,'pg_advisory_xact_lock')
      OR cancel_source !~ 'saas[.]quick_links[.]operation:''[|][|]p_store_id::text[|][|]'':''[|][|]p_operation_id::text'
      OR cancel_source !~ 'WHERE operation[.]store_id=p_store_id[[:space:]]+AND operation[.]operation_id=p_operation_id'
      OR cancel_source !~ 'FOR UPDATE'
+     OR cancel_source !~ 'p_now<current_link[.]updated_at'
      OR cancel_source !~ 'current_link[.]version<>p_expected_version'
+     OR cancel_source !~ 'current_link[.]version=9007199254740991'
      OR cancel_source !~ 'current_link[.]status NOT IN \(''active'',''opened''\) OR current_link[.]expires_at<=p_now'
      OR cancel_source !~ 'status=''cancelled'',cancelled_at=p_now,version=version\+1,updated_at=p_now'
+     OR cancel_source !~ 'numeric_value_out_of_range OR datetime_field_overflow'
+     OR cancel_source !~ 'RETURN QUERY SELECT ''invalid_input''::text,NULL::jsonb'
+     OR (SELECT pg_catalog.count(*) FROM pg_catalog.regexp_matches(cancel_source,'''operation_mismatch''','g')) <> 1
      OR cancel_source ~ 'RAISE EXCEPTION'
      OR duplicate_source !~ 'p_now\+interval ''24 hours'''
      OR duplicate_source !~ 'p_token_digest=source_link[.]token_digest OR p_sealed_token=source_link[.]sealed_token'

@@ -121,6 +121,27 @@ test("copies immutable valid list and mutation projections", () => {
   assert.deepEqual(list, listItem());
   assert.equal(Object.isFrozen(list), true);
   assert.equal(Object.isFrozen(mutation), true);
+
+  assert.equal(parseQuickOrderLinkListItem(listItem({ version: Number.MAX_SAFE_INTEGER })).version, Number.MAX_SAFE_INTEGER);
+  assert.equal(parseQuickOrderLinkMutationResult({
+    id: LINK_ID,
+    status: "cancelled",
+    version: Number.MAX_SAFE_INTEGER,
+    expiresAt: EXPIRES_AT,
+    updatedAt: UPDATED_AT,
+    replayed: false,
+  }).version, Number.MAX_SAFE_INTEGER);
+  for (const version of [Number.MAX_SAFE_INTEGER + 1, "9223372036854775807"]) {
+    assert.throws(() => parseQuickOrderLinkListItem(listItem({ version })), /quick_order_contract_invalid/);
+    assert.throws(() => parseQuickOrderLinkMutationResult({
+      id: LINK_ID,
+      status: "cancelled",
+      version,
+      expiresAt: EXPIRES_AT,
+      updatedAt: UPDATED_AT,
+      replayed: false,
+    }), /quick_order_contract_invalid/);
+  }
 });
 
 test("accepts only the exact configured expiry intervals", () => {

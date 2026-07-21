@@ -9,28 +9,28 @@
       "id": "202607220024_quick_order_links_up",
       "direction": "up",
       "file": "202607220024_quick_order_links.up.sql",
-      "sha256": "e4f53eeafe638f34e414f03a07918edeaefd1f0876a12539ca9a450fcaed95be",
+      "sha256": "519cda0360940c97dd1a63457fd6f27c0e8262de22176e3a893c1db2725e988a",
       "purpose": "Add store-scoped checkout configuration and quick-order link persistence with forced RLS."
     },
     {
       "id": "202607220024_quick_order_links_down",
       "direction": "down",
       "file": "202607220024_quick_order_links.down.sql",
-      "sha256": "cae1763cec8b93e4cb5c559a741b2766e92b9c57cb2145e8e04e52b99c7d2527",
+      "sha256": "53cb4665061ae58aeb1dc49555396e14ffffe940f7fd5c841e241c0ad2c9b519",
       "purpose": "Remove only migration 024 quick-order link objects during disposable rollback rehearsal."
     },
     {
       "id": "202607220024_quick_order_links_assertions",
       "direction": "verify",
       "file": "202607220024_quick_order_links_assertions.sql",
-      "sha256": "f8e537e983d9c944e98f7083f7e6fd0b4c7d888ff22b18a9517f519ac290d746",
+      "sha256": "56336b5ac7b145a59c26cd79477680178f54a9b60656fc118b33425c864dd216",
       "purpose": "Fail on quick-link catalog, constraint, tenant-FK, ACL, RLS, immutability, secret-envelope or authority drift."
     },
     {
       "id": "202607220025_quick_order_links_api_up",
       "direction": "up",
       "file": "202607220025_quick_order_links_api.up.sql",
-      "sha256": "1facd08e00020d1c80124723f25ee4756bc162cd02be784f954ba02f453ccf55",
+      "sha256": "5e087e542a47840783ca0bdc851e8a7d8b8069ee01c3f5849b16773138094da9",
       "purpose": "Add the least-privilege merchant quick-order link API and durable operation recovery."
     },
     {
@@ -44,7 +44,7 @@
       "id": "202607220025_quick_order_links_api_assertions",
       "direction": "verify",
       "file": "202607220025_quick_order_links_api_assertions.sql",
-      "sha256": "b5cac3ac0be7f5ccecc1733dfddb389e00fcccce5a9ba382b9c902eaabb2b108",
+      "sha256": "8d41750948ff907319fca63a01cefcb4cdacd3b853ac8f1166b5a372ec9b13de",
       "purpose": "Fail on quick-link API signature, authority, deterministic projection, recovery or ACL drift."
     }
   ]

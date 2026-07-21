@@ -59,6 +59,7 @@ const FUNCTIONS = [
   "saas.quick_link_sealed_envelope_is_valid(jsonb,text)",
   "saas.quick_link_canonical_image_url(uuid,uuid,uuid)",
   "saas.quick_link_operation_result_is_valid(jsonb,uuid)",
+  "saas.guard_quick_link_terminal_lifecycle()",
   "saas.guard_quick_link_provider_authority()",
   "saas.guard_quick_link_operation_mutation()",
   "saas.quick_link_merchant_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)",
@@ -451,7 +452,7 @@ async function catalogLockBarrier(backend, { lockedVariant, firstCall, secondCal
   }
 }
 
-function assertControlledInvalidInput(backend, functionCall) {
+function assertControlledOutcome(backend, functionCall, expectedOutcome) {
   const result = psqlResult(backend, `SET ROLE celebix_saas_app;
     SELECT pg_catalog.count(*)::text||':'||
       COALESCE(pg_catalog.string_agg(call.outcome,',' ORDER BY call.outcome),'<none>')||':'||
@@ -459,7 +460,20 @@ function assertControlledInvalidInput(backend, functionCall) {
     FROM ${functionCall} AS call;`, DATABASE, { allowFailure: true });
   assert.equal(result.status, 0, result.stderr.trim());
   assert.equal(result.stderr.trim(), "");
-  assert.equal(result.stdout.trim(), "1:invalid_input:0");
+  assert.equal(result.stdout.trim(), `1:${expectedOutcome}:0`);
+}
+
+function assertControlledInvalidInput(backend, functionCall) {
+  assertControlledOutcome(backend, functionCall, "invalid_input");
+}
+
+function controlledApiResult(backend, functionCall) {
+  const result = psqlResult(backend, `SET ROLE celebix_saas_app;
+    SELECT pg_catalog.jsonb_build_object('outcome',call.outcome,'result',call.result_payload)
+    FROM ${functionCall} AS call;`, DATABASE, { allowFailure: true });
+  assert.equal(result.status, 0, result.stderr.trim());
+  assert.equal(result.stderr.trim(), "");
+  return JSON.parse(result.stdout.trim());
 }
 
 function databaseInventory(backend, database = DATABASE) {
@@ -568,8 +582,9 @@ function linkValues({
   order = "NULL",
   created = "2026-07-21 10:00:00+00",
   updated = "2026-07-21 10:00:00+00",
+  version = 1,
 } = {}) {
-  return `('${id}'::uuid,'${store}'::uuid,'${membership}'::uuid,'${provider}'::uuid,'${status}',repeat('${digest ?? "a"}',64),'key-1',${VALID_ENVELOPE},'Ada Lovelace','ada@example.test','+905551110000',${VALID_ADDRESS},${VALID_ADDRESS},NULL,'VIP','${currency}',${subtotal},${shipping},${discount},${total},'${expires}'::timestamptz,${opened},${paid},${cancelled},${order},1,'${created}'::timestamptz,'${updated}'::timestamptz)`;
+  return `('${id}'::uuid,'${store}'::uuid,'${membership}'::uuid,'${provider}'::uuid,'${status}',repeat('${digest ?? "a"}',64),'key-1',${VALID_ENVELOPE},'Ada Lovelace','ada@example.test','+905551110000',${VALID_ADDRESS},${VALID_ADDRESS},NULL,'VIP','${currency}',${subtotal},${shipping},${discount},${total},'${expires}'::timestamptz,${opened},${paid},${cancelled},${order},${version},'${created}'::timestamptz,'${updated}'::timestamptz)`;
 }
 
 function insertLinkSql(options) {
@@ -782,6 +797,7 @@ async function main() {
       const insertOperation = (id, kind, payload) => `INSERT INTO saas.quick_order_link_operations(operation_id,store_id,quick_order_link_id,operation_kind,payload_fingerprint,result_payload,committed_at) VALUES ('${id}','${STORE_A}','${LINK_A}','${kind}',repeat('d',64),${payload},'2026-07-21');`;
       psql(backend, insertOperation("90000000-0000-4000-8000-000000000011", "cancel", VALID_RESULT));
       psql(backend, insertOperation("90000000-0000-4000-8000-000000000012", "duplicate", `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.123456Z","updatedAt":"2026-07-21T10:00:00.654321Z"}'::jsonb`));
+      psql(backend, insertOperation("90000000-0000-4000-8000-000000000013", "create", `'{"id":"${LINK_A}","status":"active","version":9007199254740991,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`));
       const invalidResults = [
         `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z"}'::jsonb`,
         `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z","extra":true}'::jsonb`,
@@ -793,6 +809,8 @@ async function main() {
         `'{"id":"${LINK_A}","status":"active","version":"1","expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
         `'{"id":"${LINK_A}","status":"active","version":0,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
         `'{"id":"${LINK_A}","status":"active","version":1.5,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":9007199254740992,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
+        `'{"id":"${LINK_A}","status":"active","version":9223372036854775807,"expiresAt":"2026-07-22T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
         `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-07-22T10:00:00Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
         `'{"id":"${LINK_A}","status":"active","version":1,"expiresAt":"2026-02-30T10:00:00.000Z","updatedAt":"2026-07-21T10:00:00.000Z"}'::jsonb`,
       ];
@@ -854,6 +872,26 @@ async function main() {
       denied(backend, insertLinkSql({ id: "60000000-0000-4000-8000-000000000031", expires: "2026-07-21 18:00:00+00", digest: "2" }));
       denied(backend, insertLinkSql({ id: "60000000-0000-4000-8000-000000000032", status: "paid", digest: "3", opened: "'2026-07-21 11:00:00+00'", paid: "'2026-07-21 10:30:00+00'", order: `'${ORDER_A}'::uuid`, updated: "2026-07-21 11:00:00+00" }));
       denied(backend, insertLinkSql({ id: "60000000-0000-4000-8000-000000000033", status: "cancelled", digest: "4", cancelled: "'2026-07-21 12:00:00+00'", updated: "2026-07-21 11:00:00+00" }));
+
+      const terminalLinks = [
+        { id: "60000000-0000-4000-8000-000000000034", status: "paid", digest: "5", opened: "'2026-07-21 10:10:00+00'", paid: "'2026-07-21 10:20:00+00'", order: `'${ORDER_A}'::uuid`, updated: "2026-07-21 10:20:00+00" },
+        { id: "60000000-0000-4000-8000-000000000035", status: "cancelled", digest: "6", cancelled: "'2026-07-21 10:20:00+00'", updated: "2026-07-21 10:20:00+00" },
+        { id: "60000000-0000-4000-8000-000000000036", status: "expired", digest: "7" },
+      ];
+      for (const terminal of terminalLinks) {
+        psql(backend, insertLinkSql(terminal));
+        for (const target of ["active", "opened"]) {
+          const lifecycleShape = target === "active"
+            ? "opened_at=NULL,paid_at=NULL,cancelled_at=NULL,order_id=NULL"
+            : "opened_at='2026-07-21 10:10:00+00',paid_at=NULL,cancelled_at=NULL,order_id=NULL";
+          assert.match(
+            denied(backend, `UPDATE saas.quick_order_links SET status='${target}',${lifecycleShape},updated_at='2026-07-21 10:20:00+00' WHERE id='${terminal.id}';`).stderr,
+            /QUICK_LINK_TERMINAL_STATUS_IMMUTABLE/,
+          );
+          assert.equal(psql(backend, `SELECT status FROM saas.quick_order_links WHERE id='${terminal.id}';`), terminal.status);
+        }
+      }
+      psql(backend, `DELETE FROM saas.quick_order_links WHERE id IN (${terminalLinks.map(({ id }) => `'${id}'::uuid`).join(",")});`);
     });
 
     await scenario("persisted total and line arithmetic is bounded and exact", async () => {
@@ -870,6 +908,14 @@ async function main() {
       const hugeItem = denied(backend, `INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,unit_price_cents,quantity,line_total_cents,created_at) VALUES ('80000000-0000-4000-8000-000000000022','${STORE_A}','${LINK_A}','${PRODUCT_A}','${VARIANT_A}',2,'Huge',9223372036854775807,9999,9223372036854775807,'2026-07-21');`);
       assert.doesNotMatch(hugeItem.stderr, /bigint out of range|value out of range/i);
       assert.match(hugeItem.stderr, /quick_order_link_items_(unit_price|line_total)_check/);
+
+      psql(backend, `UPDATE saas.quick_order_links SET version=9007199254740991 WHERE id='${LINK_A}'; UPDATE saas.checkout_provider_configs SET version=9007199254740991 WHERE id='${PROVIDER_A}';`);
+      assert.equal(psql(backend, `SELECT link.version||':'||provider.version FROM saas.quick_order_links AS link JOIN saas.checkout_provider_configs AS provider ON provider.id=link.provider_config_id WHERE link.id='${LINK_A}';`), "9007199254740991:9007199254740991");
+      for (const version of [9007199254740992n, 9223372036854775807n]) {
+        assert.match(denied(backend, `UPDATE saas.quick_order_links SET version=${version} WHERE id='${LINK_A}';`).stderr, /quick_order_links_version_check/);
+        assert.match(denied(backend, `UPDATE saas.checkout_provider_configs SET version=${version} WHERE id='${PROVIDER_A}';`).stderr, /checkout_provider_configs_version_check/);
+      }
+      psql(backend, `UPDATE saas.quick_order_links SET version=1 WHERE id='${LINK_A}'; UPDATE saas.checkout_provider_configs SET version=1 WHERE id='${PROVIDER_A}';`);
     });
 
     await scenario("forced RLS denies cross-store visibility even after a temporary grant", async () => {
@@ -1252,8 +1298,46 @@ async function main() {
       assert.deepEqual({ status: cancelled.result.status, version: cancelled.result.version }, { status: "cancelled", version: 2 });
       psql(backend, "UPDATE saas.quick_order_links SET status='opened',opened_at='2026-07-21 12:30:00.123456+00',updated_at='2026-07-21 12:30:00.123456+00' WHERE id='60000000-0000-4000-8000-000000000104';");
       assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000104", operation: "90000000-0000-4000-8000-000000000301", fingerprint: "c", now: "2026-07-21 13:00:00.123456+00" })).outcome, "committed");
-      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000104", version: 1, operation: "90000000-0000-4000-8000-000000000302", fingerprint: "d" })).outcome, "version_conflict");
-      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000104", version: 2, operation: "90000000-0000-4000-8000-000000000303", fingerprint: "e" })).outcome, "invalid_transition");
+      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000104", version: 1, operation: "90000000-0000-4000-8000-000000000302", fingerprint: "d", now: "2026-07-21 13:00:00.123456+00" })).outcome, "version_conflict");
+      assert.equal(apiResult(backend, cancelCall({ link: "60000000-0000-4000-8000-000000000104", version: 2, operation: "90000000-0000-4000-8000-000000000303", fingerprint: "e", now: "2026-07-21 13:00:00.123456+00" })).outcome, "invalid_transition");
+
+      const exactBoundLink = "60000000-0000-4000-8000-000000000370";
+      const exactBoundOperation = "90000000-0000-4000-8000-000000000370";
+      psql(backend, insertLinkSql({ id: exactBoundLink, digest: "8", version: 9007199254740990n }));
+      const exactBound = controlledApiResult(backend, cancelCall({
+        link: exactBoundLink,
+        version: 9007199254740990n,
+        operation: exactBoundOperation,
+        fingerprint: "7",
+      }));
+      assert.deepEqual({ outcome: exactBound.outcome, status: exactBound.result.status, version: exactBound.result.version }, {
+        outcome: "committed",
+        status: "cancelled",
+        version: Number.MAX_SAFE_INTEGER,
+      });
+
+      const maxSafeLink = "60000000-0000-4000-8000-000000000371";
+      psql(backend, insertLinkSql({ id: maxSafeLink, digest: "9", version: 9007199254740991n }));
+      const stableBefore = psql(backend, `SELECT status||':'||version||':'||updated_at::text FROM saas.quick_order_links WHERE id='${maxSafeLink}';`);
+      const operationCountBefore = psql(backend, `SELECT count(*) FROM saas.quick_order_link_operations WHERE store_id='${STORE_A}';`);
+      assertControlledOutcome(backend, cancelCall({ link: maxSafeLink, version: 9007199254740991n, operation: "90000000-0000-4000-8000-000000000371", fingerprint: "8" }), "version_conflict");
+      assertControlledInvalidInput(backend, cancelCall({ link: maxSafeLink, version: 9007199254740992n, operation: "90000000-0000-4000-8000-000000000372", fingerprint: "9" }));
+      assertControlledInvalidInput(backend, cancelCall({ link: maxSafeLink, version: 9223372036854775807n, operation: "90000000-0000-4000-8000-000000000373", fingerprint: "a" }));
+      assert.equal(psql(backend, `SELECT status||':'||version||':'||updated_at::text FROM saas.quick_order_links WHERE id='${maxSafeLink}';`), stableBefore);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.quick_order_link_operations WHERE store_id='${STORE_A}';`), operationCountBefore);
+
+      const invalidOperationId = "90000000-0000-0000-8000-000000000374";
+      const invalidLinkId = "60000000-0000-0000-8000-000000000375";
+      assertControlledInvalidInput(backend, cancelCall({ link: maxSafeLink, version: 9007199254740991n, operation: invalidOperationId, fingerprint: "b" }));
+      assertControlledInvalidInput(backend, cancelCall({ link: invalidLinkId, version: 1, operation: "90000000-0000-4000-8000-000000000375", fingerprint: "c" }));
+
+      const retrogradeLink = "60000000-0000-4000-8000-000000000376";
+      const retrogradeOperation = "90000000-0000-4000-8000-000000000376";
+      psql(backend, insertLinkSql({ id: retrogradeLink, digest: "0", updated: "2026-07-21 12:30:00+00" }));
+      const retrogradeBefore = psql(backend, `SELECT status||':'||version||':'||updated_at::text FROM saas.quick_order_links WHERE id='${retrogradeLink}';`);
+      assertControlledInvalidInput(backend, cancelCall({ link: retrogradeLink, operation: retrogradeOperation, fingerprint: "d", now: "2026-07-21 12:00:00+00" }));
+      assert.equal(psql(backend, `SELECT status||':'||version||':'||updated_at::text FROM saas.quick_order_links WHERE id='${retrogradeLink}';`), retrogradeBefore);
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.quick_order_link_operations WHERE store_id='${STORE_A}' AND operation_id IN ('${invalidOperationId}','90000000-0000-4000-8000-000000000375','${retrogradeOperation}');`), "0");
     });
 
     await scenario("concurrent same-version cancels have exactly one winner", async () => {
