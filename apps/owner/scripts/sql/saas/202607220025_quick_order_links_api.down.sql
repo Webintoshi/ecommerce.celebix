@@ -10,6 +10,7 @@ DROP FUNCTION saas.quick_links_cancel(uuid,uuid,uuid,uuid,text,bigint,timestampt
 DROP FUNCTION saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text);
 DROP FUNCTION saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid);
 DROP FUNCTION saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,bigint,timestamptz,uuid);
+DROP FUNCTION saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamptz);
 DROP FUNCTION saas.quick_links_detail_projection(uuid,uuid,timestamptz);
 DROP FUNCTION saas.quick_links_mutation_projection(uuid,uuid);
 DROP FUNCTION saas.quick_links_json_timestamp(timestamptz);

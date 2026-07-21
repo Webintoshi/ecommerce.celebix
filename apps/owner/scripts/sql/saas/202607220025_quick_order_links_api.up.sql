@@ -104,6 +104,53 @@ AS $function$
     AND link.id = p_link_id
 $function$;
 
+CREATE FUNCTION saas.quick_links_lock_manage_authority(
+  p_store_id uuid, p_principal_id uuid, p_membership_id uuid, p_plan_id uuid,
+  p_plan_code text, p_plan_version bigint, p_now timestamptz
+)
+RETURNS text
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = pg_catalog, saas
+AS $function$
+BEGIN
+  PERFORM 1
+  FROM saas.stores AS store
+  WHERE store.id=p_store_id
+  ORDER BY store.id
+  FOR SHARE;
+
+  PERFORM 1
+  FROM saas.memberships AS membership
+  WHERE membership.id=p_membership_id
+  ORDER BY membership.id
+  FOR SHARE;
+
+  PERFORM 1
+  FROM saas.plans AS plan
+  WHERE plan.id=p_plan_id
+  ORDER BY plan.id
+  FOR SHARE;
+
+  PERFORM 1
+  FROM saas.subscriptions AS subscription
+  WHERE subscription.store_id=p_store_id
+  ORDER BY subscription.id
+  FOR SHARE;
+
+  PERFORM 1
+  FROM saas.plan_features AS feature
+  WHERE feature.plan_id=p_plan_id
+    AND feature.feature_key IN ('orders','checkout')
+  ORDER BY feature.feature_ordinal,feature.feature_key
+  FOR SHARE;
+
+  RETURN saas.quick_link_merchant_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'quick_links.manage'
+  );
+END
+$function$;
+
 CREATE FUNCTION saas.quick_links_list(
   p_store_id uuid, p_principal_id uuid, p_membership_id uuid, p_plan_id uuid,
   p_plan_code text, p_plan_version bigint, p_now timestamptz,
@@ -261,8 +308,8 @@ DECLARE
   variant_name text;
   variant_sku text;
   variant_price bigint;
-  variant_stock_tracking boolean;
-  variant_stock_quantity bigint;
+  requested_variant_count bigint;
+  locked_variant_count bigint;
   product_ids uuid[] := ARRAY[]::uuid[];
   product_names text[] := ARRAY[]::text[];
   variant_names text[] := ARRAY[]::text[];
@@ -295,15 +342,25 @@ BEGIN
     RETURN;
   END IF;
 
+  authority_error := saas.quick_links_lock_manage_authority(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now
+  );
+  IF authority_error = 'membership_denied' AND EXISTS (
+    SELECT 1 FROM saas.memberships AS membership
+    WHERE membership.id=p_membership_id AND membership.store_id=p_store_id
+      AND membership.principal_id=p_principal_id AND membership.status='active'
+  ) THEN authority_error := 'action_denied'; END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+
   PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('saas.quick_links.operation:'||p_operation_id::text,0)
+    pg_catalog.hashtextextended('saas.quick_links.operation:'||p_store_id::text||':'||p_operation_id::text,0)
   );
   SELECT operation.* INTO existing_operation
   FROM saas.quick_order_link_operations AS operation
-  WHERE operation.operation_id = p_operation_id;
+  WHERE operation.store_id=p_store_id
+    AND operation.operation_id=p_operation_id;
   IF FOUND THEN
-    IF existing_operation.store_id=p_store_id
-       AND existing_operation.operation_kind='create'
+    IF existing_operation.operation_kind='create'
        AND existing_operation.payload_fingerprint=p_fingerprint THEN
       RETURN QUERY SELECT 'operation_replayed'::text,existing_operation.result_payload;
     ELSE
@@ -317,11 +374,6 @@ BEGIN
      OR pg_catalog.cardinality(p_item_ids) NOT BETWEEN 1 AND 100
      OR pg_catalog.cardinality(p_item_ids) <> pg_catalog.cardinality(p_variant_ids)
      OR pg_catalog.cardinality(p_item_ids) <> pg_catalog.cardinality(p_quantities)
-     OR pg_catalog.array_position(p_item_ids,NULL) IS NOT NULL
-     OR pg_catalog.array_position(p_variant_ids,NULL) IS NOT NULL
-     OR pg_catalog.array_position(p_quantities,NULL) IS NOT NULL
-     OR EXISTS (SELECT 1 FROM pg_catalog.unnest(p_item_ids) AS supplied(id) WHERE supplied.id::text !~ uuid_pattern)
-     OR (SELECT pg_catalog.count(DISTINCT supplied.id) FROM pg_catalog.unnest(p_item_ids) AS supplied(id)) <> pg_catalog.cardinality(p_item_ids)
      OR p_provider_config_id IS NULL
      OR p_customer_name IS NULL OR p_customer_name<>pg_catalog.btrim(p_customer_name)
      OR pg_catalog.char_length(p_customer_name) NOT BETWEEN 1 AND 200 OR p_customer_name ~ '[[:cntrl:]]'
@@ -329,8 +381,8 @@ BEGIN
      OR pg_catalog.char_length(p_customer_email) NOT BETWEEN 3 AND 320 OR p_customer_email ~ '[[:cntrl:]]'
      OR p_customer_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
      OR (p_customer_phone IS NOT NULL AND (p_customer_phone<>pg_catalog.btrim(p_customer_phone) OR pg_catalog.char_length(p_customer_phone) NOT BETWEEN 3 AND 32 OR p_customer_phone ~ '[[:cntrl:]]'))
-     OR NOT saas.quick_link_address_is_valid(p_shipping_address)
-     OR NOT saas.quick_link_address_is_valid(p_billing_address)
+     OR saas.quick_link_address_is_valid(p_shipping_address) IS DISTINCT FROM TRUE
+     OR saas.quick_link_address_is_valid(p_billing_address) IS DISTINCT FROM TRUE
      OR (p_customer_note IS NOT NULL AND (p_customer_note<>pg_catalog.btrim(p_customer_note) OR pg_catalog.char_length(p_customer_note) NOT BETWEEN 1 AND 2000 OR p_customer_note ~ '[[:cntrl:]]'))
      OR (p_internal_label IS NOT NULL AND (p_internal_label<>pg_catalog.btrim(p_internal_label) OR pg_catalog.char_length(p_internal_label) NOT BETWEEN 1 AND 200 OR p_internal_label ~ '[[:cntrl:]]'))
      OR p_shipping_cents IS NULL OR p_shipping_cents NOT BETWEEN 0 AND 500000000000000
@@ -339,7 +391,27 @@ BEGIN
      OR p_token_digest IS NULL OR p_token_digest !~ '^[a-f0-9]{64}$'
      OR p_token_key_id IS NULL OR p_token_key_id<>pg_catalog.btrim(p_token_key_id)
      OR pg_catalog.char_length(p_token_key_id) NOT BETWEEN 1 AND 128 OR p_token_key_id ~ '[[:cntrl:]]'
-     OR NOT saas.quick_link_sealed_envelope_is_valid(p_sealed_token,p_token_key_id)
+     OR saas.quick_link_sealed_envelope_is_valid(p_sealed_token,p_token_key_id) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
+    RETURN;
+  END IF;
+  IF pg_catalog.array_ndims(p_item_ids) IS DISTINCT FROM 1
+     OR pg_catalog.array_lower(p_item_ids,1) IS DISTINCT FROM 1
+     OR pg_catalog.array_upper(p_item_ids,1) IS DISTINCT FROM pg_catalog.cardinality(p_item_ids)
+     OR pg_catalog.array_ndims(p_variant_ids) IS DISTINCT FROM 1
+     OR pg_catalog.array_lower(p_variant_ids,1) IS DISTINCT FROM 1
+     OR pg_catalog.array_upper(p_variant_ids,1) IS DISTINCT FROM pg_catalog.cardinality(p_variant_ids)
+     OR pg_catalog.array_ndims(p_quantities) IS DISTINCT FROM 1
+     OR pg_catalog.array_lower(p_quantities,1) IS DISTINCT FROM 1
+     OR pg_catalog.array_upper(p_quantities,1) IS DISTINCT FROM pg_catalog.cardinality(p_quantities) THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
+    RETURN;
+  END IF;
+  IF pg_catalog.array_position(p_item_ids,NULL) IS NOT NULL
+     OR pg_catalog.array_position(p_variant_ids,NULL) IS NOT NULL
+     OR pg_catalog.array_position(p_quantities,NULL) IS NOT NULL
+     OR EXISTS (SELECT 1 FROM pg_catalog.unnest(p_item_ids) AS supplied(id) WHERE supplied.id::text !~ uuid_pattern)
+     OR (SELECT pg_catalog.count(DISTINCT supplied.id) FROM pg_catalog.unnest(p_item_ids) AS supplied(id)) <> pg_catalog.cardinality(p_item_ids)
      OR EXISTS (SELECT 1 FROM pg_catalog.unnest(p_quantities) AS supplied(quantity) WHERE supplied.quantity NOT BETWEEN 1 AND 9999) THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
     RETURN;
@@ -360,27 +432,58 @@ BEGIN
   FROM saas.stores AS store
   WHERE store.id=p_store_id AND store.status='active';
 
+  SELECT pg_catalog.count(DISTINCT supplied.variant_id)
+  INTO requested_variant_count
+  FROM pg_catalog.unnest(p_variant_ids) AS supplied(variant_id);
+  PERFORM 1
+  FROM (
+    SELECT DISTINCT supplied.variant_id
+    FROM pg_catalog.unnest(p_variant_ids) AS supplied(variant_id)
+  ) AS requested
+  JOIN saas.product_variants AS variant
+    ON variant.store_id=p_store_id AND variant.id=requested.variant_id AND variant.status='active'
+  JOIN saas.products AS product
+    ON product.store_id=variant.store_id AND product.id=variant.product_id AND product.status='active'
+  ORDER BY product.id,variant.id
+  FOR UPDATE OF product,variant;
+  GET DIAGNOSTICS locked_variant_count = ROW_COUNT;
+  IF locked_variant_count<>requested_variant_count THEN
+    RETURN QUERY SELECT 'catalog_item_unavailable'::text,NULL::jsonb;
+    RETURN;
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      SELECT requested.variant_id,pg_catalog.sum(requested.quantity::numeric) AS requested_quantity
+      FROM ROWS FROM (
+        pg_catalog.unnest(p_variant_ids),
+        pg_catalog.unnest(p_quantities)
+      ) AS requested(variant_id,quantity)
+      GROUP BY requested.variant_id
+    ) AS grouped_request
+    JOIN saas.product_variants AS variant
+      ON variant.store_id=p_store_id AND variant.id=grouped_request.variant_id
+    WHERE variant.stock_tracking
+      AND grouped_request.requested_quantity>variant.stock_quantity::numeric
+  ) THEN
+    RETURN QUERY SELECT 'stock_unavailable'::text,NULL::jsonb;
+    RETURN;
+  END IF;
+
   FOR item_position IN 1..pg_catalog.cardinality(p_variant_ids) LOOP
-    SELECT product.id,product.title,variant.title,variant.sku,variant.price_cents,
-      variant.stock_tracking,variant.stock_quantity
-    INTO product_id,product_name,variant_name,variant_sku,variant_price,
-      variant_stock_tracking,variant_stock_quantity
+    SELECT product.id,product.title,variant.title,variant.sku,variant.price_cents
+    INTO product_id,product_name,variant_name,variant_sku,variant_price
     FROM saas.product_variants AS variant
     JOIN saas.products AS product
       ON product.store_id=variant.store_id AND product.id=variant.product_id
     WHERE variant.store_id=p_store_id AND variant.id=p_variant_ids[item_position]
-      AND variant.status='active' AND product.status='active'
-    FOR UPDATE OF product,variant;
+      AND variant.status='active' AND product.status='active';
     IF NOT FOUND THEN
       RETURN QUERY SELECT 'catalog_item_unavailable'::text,NULL::jsonb;
       RETURN;
     END IF;
     IF variant_price NOT BETWEEN 0 AND 8000000000 THEN
       RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb;
-      RETURN;
-    END IF;
-    IF variant_stock_tracking AND variant_stock_quantity < p_quantities[item_position] THEN
-      RETURN QUERY SELECT 'stock_unavailable'::text,NULL::jsonb;
       RETURN;
     END IF;
     line_total := variant_price::numeric * p_quantities[item_position]::numeric;
@@ -471,11 +574,25 @@ BEGIN
   IF p_operation_id IS NULL OR p_fingerprint IS NULL OR p_fingerprint !~ '^[a-f0-9]{64}$' THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.quick_links.operation:'||p_operation_id::text,0));
+
+  authority_error := saas.quick_links_lock_manage_authority(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now
+  );
+  IF authority_error = 'membership_denied' AND EXISTS (
+    SELECT 1 FROM saas.memberships AS membership
+    WHERE membership.id=p_membership_id AND membership.store_id=p_store_id
+      AND membership.principal_id=p_principal_id AND membership.status='active'
+  ) THEN authority_error := 'action_denied'; END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('saas.quick_links.operation:'||p_store_id::text||':'||p_operation_id::text,0)
+  );
   SELECT operation.* INTO existing_operation FROM saas.quick_order_link_operations AS operation
-  WHERE operation.operation_id=p_operation_id;
+  WHERE operation.store_id=p_store_id
+    AND operation.operation_id=p_operation_id;
   IF FOUND THEN
-    IF existing_operation.store_id=p_store_id AND existing_operation.operation_kind='cancel'
+    IF existing_operation.operation_kind='cancel'
        AND existing_operation.payload_fingerprint=p_fingerprint THEN
       RETURN QUERY SELECT 'operation_replayed'::text,existing_operation.result_payload;
     ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb;
@@ -530,8 +647,8 @@ DECLARE
   variant_name text;
   variant_sku text;
   variant_price bigint;
-  variant_stock_tracking boolean;
-  variant_stock_quantity bigint;
+  requested_variant_count bigint;
+  locked_variant_count bigint;
   product_ids uuid[] := ARRAY[]::uuid[];
   variant_ids uuid[] := ARRAY[]::uuid[];
   quantities bigint[] := ARRAY[]::bigint[];
@@ -559,11 +676,25 @@ BEGIN
      OR p_fingerprint IS NULL OR p_fingerprint !~ '^[a-f0-9]{64}$' THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.quick_links.operation:'||p_operation_id::text,0));
+
+  authority_error := saas.quick_links_lock_manage_authority(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now
+  );
+  IF authority_error = 'membership_denied' AND EXISTS (
+    SELECT 1 FROM saas.memberships AS membership
+    WHERE membership.id=p_membership_id AND membership.store_id=p_store_id
+      AND membership.principal_id=p_principal_id AND membership.status='active'
+  ) THEN authority_error := 'action_denied'; END IF;
+  IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('saas.quick_links.operation:'||p_store_id::text||':'||p_operation_id::text,0)
+  );
   SELECT operation.* INTO existing_operation FROM saas.quick_order_link_operations AS operation
-  WHERE operation.operation_id=p_operation_id;
+  WHERE operation.store_id=p_store_id
+    AND operation.operation_id=p_operation_id;
   IF FOUND THEN
-    IF existing_operation.store_id=p_store_id AND existing_operation.operation_kind='duplicate'
+    IF existing_operation.operation_kind='duplicate'
        AND existing_operation.payload_fingerprint=p_fingerprint THEN
       RETURN QUERY SELECT 'operation_replayed'::text,existing_operation.result_payload;
     ELSE RETURN QUERY SELECT 'operation_mismatch'::text,NULL::jsonb;
@@ -572,13 +703,20 @@ BEGIN
   END IF;
   IF p_source_link_id IS NULL OR p_link_id IS NULL OR p_link_id::text !~ uuid_pattern
      OR p_item_ids IS NULL OR pg_catalog.cardinality(p_item_ids) NOT BETWEEN 1 AND 100
-     OR pg_catalog.array_position(p_item_ids,NULL) IS NOT NULL
-     OR EXISTS (SELECT 1 FROM pg_catalog.unnest(p_item_ids) AS supplied(id) WHERE supplied.id::text !~ uuid_pattern)
-     OR (SELECT pg_catalog.count(DISTINCT supplied.id) FROM pg_catalog.unnest(p_item_ids) AS supplied(id)) <> pg_catalog.cardinality(p_item_ids)
      OR p_token_digest IS NULL OR p_token_digest !~ '^[a-f0-9]{64}$'
      OR p_token_key_id IS NULL OR p_token_key_id<>pg_catalog.btrim(p_token_key_id)
      OR pg_catalog.char_length(p_token_key_id) NOT BETWEEN 1 AND 128 OR p_token_key_id ~ '[[:cntrl:]]'
-     OR NOT saas.quick_link_sealed_envelope_is_valid(p_sealed_token,p_token_key_id) THEN
+     OR saas.quick_link_sealed_envelope_is_valid(p_sealed_token,p_token_key_id) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF pg_catalog.array_ndims(p_item_ids) IS DISTINCT FROM 1
+     OR pg_catalog.array_lower(p_item_ids,1) IS DISTINCT FROM 1
+     OR pg_catalog.array_upper(p_item_ids,1) IS DISTINCT FROM pg_catalog.cardinality(p_item_ids) THEN
+    RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF pg_catalog.array_position(p_item_ids,NULL) IS NOT NULL
+     OR EXISTS (SELECT 1 FROM pg_catalog.unnest(p_item_ids) AS supplied(id) WHERE supplied.id::text !~ uuid_pattern)
+     OR (SELECT pg_catalog.count(DISTINCT supplied.id) FROM pg_catalog.unnest(p_item_ids) AS supplied(id)) <> pg_catalog.cardinality(p_item_ids) THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
   SELECT link.* INTO source_link FROM saas.quick_order_links AS link
@@ -600,26 +738,60 @@ BEGIN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
 
+  SELECT pg_catalog.count(*)
+  INTO requested_variant_count
+  FROM (
+    SELECT DISTINCT item.product_id,item.variant_id
+    FROM saas.quick_order_link_items AS item
+    WHERE item.store_id=p_store_id AND item.quick_order_link_id=p_source_link_id
+  ) AS requested;
+  PERFORM 1
+  FROM (
+    SELECT DISTINCT item.product_id,item.variant_id
+    FROM saas.quick_order_link_items AS item
+    WHERE item.store_id=p_store_id AND item.quick_order_link_id=p_source_link_id
+  ) AS requested
+  JOIN saas.product_variants AS variant
+    ON variant.store_id=p_store_id AND variant.id=requested.variant_id
+   AND variant.product_id=requested.product_id AND variant.status='active'
+  JOIN saas.products AS product
+    ON product.store_id=variant.store_id AND product.id=requested.product_id AND product.status='active'
+  ORDER BY product.id,variant.id
+  FOR UPDATE OF product,variant;
+  GET DIAGNOSTICS locked_variant_count = ROW_COUNT;
+  IF locked_variant_count<>requested_variant_count THEN
+    RETURN QUERY SELECT 'catalog_item_unavailable'::text,NULL::jsonb; RETURN;
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      SELECT item.variant_id,pg_catalog.sum(item.quantity::numeric) AS requested_quantity
+      FROM saas.quick_order_link_items AS item
+      WHERE item.store_id=p_store_id AND item.quick_order_link_id=p_source_link_id
+      GROUP BY item.variant_id
+    ) AS grouped_request
+    JOIN saas.product_variants AS variant
+      ON variant.store_id=p_store_id AND variant.id=grouped_request.variant_id
+    WHERE variant.stock_tracking
+      AND grouped_request.requested_quantity>variant.stock_quantity::numeric
+  ) THEN
+    RETURN QUERY SELECT 'stock_unavailable'::text,NULL::jsonb; RETURN;
+  END IF;
+
   FOR source_item IN
     SELECT item.* FROM saas.quick_order_link_items AS item
     WHERE item.store_id=p_store_id AND item.quick_order_link_id=p_source_link_id
     ORDER BY item.position,item.id
   LOOP
     item_position := item_position + 1;
-    SELECT product.id,product.title,variant.title,variant.sku,variant.price_cents,
-      variant.stock_tracking,variant.stock_quantity
-    INTO product_id,product_name,variant_name,variant_sku,variant_price,
-      variant_stock_tracking,variant_stock_quantity
+    SELECT product.id,product.title,variant.title,variant.sku,variant.price_cents
+    INTO product_id,product_name,variant_name,variant_sku,variant_price
     FROM saas.product_variants AS variant
     JOIN saas.products AS product ON product.store_id=variant.store_id AND product.id=variant.product_id
     WHERE variant.store_id=p_store_id AND variant.id=source_item.variant_id
-      AND product.id=source_item.product_id AND variant.status='active' AND product.status='active'
-    FOR UPDATE OF product,variant;
+      AND product.id=source_item.product_id AND variant.status='active' AND product.status='active';
     IF NOT FOUND THEN RETURN QUERY SELECT 'catalog_item_unavailable'::text,NULL::jsonb; RETURN; END IF;
     IF variant_price NOT BETWEEN 0 AND 8000000000 THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
-    IF variant_stock_tracking AND variant_stock_quantity<source_item.quantity THEN
-      RETURN QUERY SELECT 'stock_unavailable'::text,NULL::jsonb; RETURN;
-    END IF;
     line_total := variant_price::numeric * source_item.quantity::numeric;
     IF line_total NOT BETWEEN 0 AND 79992000000000 THEN RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN; END IF;
     subtotal := subtotal + line_total;
@@ -719,6 +891,7 @@ $function$;
 REVOKE ALL ON FUNCTION saas.quick_links_json_timestamp(timestamptz) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.quick_links_mutation_projection(uuid,uuid) FROM PUBLIC,celebix_saas_app;
 REVOKE ALL ON FUNCTION saas.quick_links_detail_projection(uuid,uuid,timestamptz) FROM PUBLIC,celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamptz) FROM PUBLIC,celebix_saas_app;
 
 REVOKE ALL ON FUNCTION saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,bigint,timestamptz,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid) FROM PUBLIC;

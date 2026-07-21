@@ -476,8 +476,7 @@ CREATE TABLE saas.quick_order_link_items (
 );
 
 CREATE TABLE saas.quick_order_link_operations (
-  operation_id uuid CONSTRAINT quick_order_link_operations_pkey PRIMARY KEY
-    CONSTRAINT quick_order_link_operations_operation_id_check CHECK (
+  operation_id uuid CONSTRAINT quick_order_link_operations_operation_id_check CHECK (
       operation_id::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
     ),
   store_id uuid NOT NULL,
@@ -495,7 +494,7 @@ CREATE TABLE saas.quick_order_link_operations (
     saas.quick_link_operation_result_is_valid(result_payload, quick_order_link_id)
   ),
   committed_at timestamptz NOT NULL,
-  CONSTRAINT quick_order_link_operations_store_id_key UNIQUE (store_id, operation_id),
+  CONSTRAINT quick_order_link_operations_pkey PRIMARY KEY (store_id, operation_id),
   CONSTRAINT quick_order_link_operations_link_store_fk FOREIGN KEY (store_id, quick_order_link_id)
     REFERENCES saas.quick_order_links(store_id, id)
 );

@@ -17,6 +17,7 @@ DECLARE
   recovery_source text;
   mutation_source text;
   detail_source text;
+  authority_lock_source text;
 BEGIN
   FOREACH checked_signature IN ARRAY ARRAY[
     'saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)',
@@ -64,7 +65,8 @@ BEGIN
   FOREACH checked_signature IN ARRAY ARRAY[
     'saas.quick_links_json_timestamp(timestamp with time zone)',
     'saas.quick_links_mutation_projection(uuid,uuid)',
-    'saas.quick_links_detail_projection(uuid,uuid,timestamp with time zone)'
+    'saas.quick_links_detail_projection(uuid,uuid,timestamp with time zone)',
+    'saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)'
   ] LOOP
     checked_function := pg_catalog.to_regprocedure(checked_signature);
     IF checked_function IS NULL OR NOT EXISTS (
@@ -118,6 +120,18 @@ BEGIN
   SELECT prosrc INTO recovery_source FROM pg_catalog.pg_proc WHERE oid='saas.quick_links_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text)'::regprocedure;
   SELECT prosrc INTO mutation_source FROM pg_catalog.pg_proc WHERE oid='saas.quick_links_mutation_projection(uuid,uuid)'::regprocedure;
   SELECT prosrc INTO detail_source FROM pg_catalog.pg_proc WHERE oid='saas.quick_links_detail_projection(uuid,uuid,timestamp with time zone)'::regprocedure;
+  SELECT prosrc INTO authority_lock_source FROM pg_catalog.pg_proc WHERE oid='saas.quick_links_lock_manage_authority(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)'::regprocedure;
+
+  IF pg_catalog.strpos(authority_lock_source,'FROM saas.stores')=0
+     OR pg_catalog.strpos(authority_lock_source,'FROM saas.stores')>=pg_catalog.strpos(authority_lock_source,'FROM saas.memberships')
+     OR pg_catalog.strpos(authority_lock_source,'FROM saas.memberships')>=pg_catalog.strpos(authority_lock_source,'FROM saas.plans')
+     OR pg_catalog.strpos(authority_lock_source,'FROM saas.plans')>=pg_catalog.strpos(authority_lock_source,'FROM saas.subscriptions')
+     OR pg_catalog.strpos(authority_lock_source,'FROM saas.subscriptions')>=pg_catalog.strpos(authority_lock_source,'FROM saas.plan_features')
+     OR authority_lock_source !~ 'ORDER BY feature[.]feature_ordinal,feature[.]feature_key[[:space:]]+FOR SHARE'
+     OR authority_lock_source !~ 'quick_link_merchant_authority_error\('
+     OR authority_lock_source !~ '''quick_links[.]manage''' THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_API_ASSERTION_FAILED: locked manage-authority order drift';
+  END IF;
 
   IF list_source !~ 'p_page_size NOT BETWEEN 1 AND 100'
      OR list_source !~ 'link[.]created_at,link[.]id\) < \(p_cursor_created_at,p_cursor_id'
@@ -133,14 +147,26 @@ BEGIN
   END IF;
 
   IF create_source !~ 'pg_advisory_xact_lock'
-     OR pg_catalog.strpos(create_source,'WHERE operation.operation_id = p_operation_id') >= pg_catalog.strpos(create_source,'IF p_link_id IS NULL')
+     OR create_source !~ 'quick_links_lock_manage_authority\('
+     OR create_source !~ 'saas[.]quick_links[.]operation:''[|][|]p_store_id::text[|][|]'':''[|][|]p_operation_id::text'
+     OR create_source !~ 'WHERE operation[.]store_id=p_store_id[[:space:]]+AND operation[.]operation_id=p_operation_id'
+     OR pg_catalog.strpos(create_source,'WHERE operation.store_id=p_store_id') >= pg_catalog.strpos(create_source,'IF p_link_id IS NULL')
      OR create_source !~ 'FOR UPDATE OF product,variant'
+     OR create_source !~ 'ORDER BY product[.]id,variant[.]id[[:space:]]+FOR UPDATE OF product,variant'
      OR create_source !~ 'FOR SHARE OF provider,store'
      OR create_source !~ 'variant[.]store_id=p_store_id'
      OR create_source !~ 'variant[.]status=''active'' AND product[.]status=''active'''
      OR create_source !~ 'quick_link_canonical_image_url\(p_store_id,product_id,p_variant_ids\[item_position\]\)'
      OR create_source !~ 'provider[.]status=''active'' AND provider[.]provider_key=''paytr'''
      OR create_source !~ 'variant_price::numeric \* p_quantities\[item_position\]::numeric'
+     OR create_source !~ 'array_ndims\(p_item_ids\) IS DISTINCT FROM 1'
+     OR create_source !~ 'array_ndims\(p_variant_ids\) IS DISTINCT FROM 1'
+     OR create_source !~ 'array_ndims\(p_quantities\) IS DISTINCT FROM 1'
+     OR create_source !~ 'quick_link_address_is_valid\(p_shipping_address\) IS DISTINCT FROM TRUE'
+     OR create_source !~ 'quick_link_address_is_valid\(p_billing_address\) IS DISTINCT FROM TRUE'
+     OR create_source !~ 'quick_link_sealed_envelope_is_valid\(p_sealed_token,p_token_key_id\) IS DISTINCT FROM TRUE'
+     OR create_source !~ 'sum\(requested[.]quantity::numeric\) AS requested_quantity'
+     OR create_source !~ 'requested_quantity>variant[.]stock_quantity::numeric'
      OR create_source !~ 'subtotal \+ p_shipping_cents::numeric - p_discount_cents::numeric'
      OR create_source !~ '7999200000000000'
      OR create_source !~ '8500000000000000'
@@ -150,6 +176,9 @@ BEGIN
   END IF;
 
   IF cancel_source !~ 'pg_advisory_xact_lock'
+     OR cancel_source !~ 'quick_links_lock_manage_authority\('
+     OR cancel_source !~ 'saas[.]quick_links[.]operation:''[|][|]p_store_id::text[|][|]'':''[|][|]p_operation_id::text'
+     OR cancel_source !~ 'WHERE operation[.]store_id=p_store_id[[:space:]]+AND operation[.]operation_id=p_operation_id'
      OR cancel_source !~ 'FOR UPDATE'
      OR cancel_source !~ 'current_link[.]version<>p_expected_version'
      OR cancel_source !~ 'current_link[.]status NOT IN \(''active'',''opened''\) OR current_link[.]expires_at<=p_now'
@@ -157,11 +186,18 @@ BEGIN
      OR cancel_source ~ 'RAISE EXCEPTION'
      OR duplicate_source !~ 'p_now\+interval ''24 hours'''
      OR duplicate_source !~ 'p_token_digest=source_link[.]token_digest OR p_sealed_token=source_link[.]sealed_token'
+     OR duplicate_source !~ 'quick_links_lock_manage_authority\('
+     OR duplicate_source !~ 'saas[.]quick_links[.]operation:''[|][|]p_store_id::text[|][|]'':''[|][|]p_operation_id::text'
+     OR duplicate_source !~ 'WHERE operation[.]store_id=p_store_id[[:space:]]+AND operation[.]operation_id=p_operation_id'
      OR duplicate_source !~ 'FOR UPDATE OF product,variant'
+     OR duplicate_source !~ 'ORDER BY product[.]id,variant[.]id[[:space:]]+FOR UPDATE OF product,variant'
      OR duplicate_source !~ 'FOR SHARE OF provider,store'
      OR duplicate_source !~ 'quick_link_canonical_image_url\(p_store_id,product_id,source_item[.]variant_id\)'
-     OR duplicate_source !~ 'variant_stock_quantity<source_item[.]quantity'
-     OR pg_catalog.strpos(duplicate_source,'WHERE operation.operation_id=p_operation_id') >= pg_catalog.strpos(duplicate_source,'IF p_source_link_id IS NULL')
+     OR duplicate_source !~ 'array_ndims\(p_item_ids\) IS DISTINCT FROM 1'
+     OR duplicate_source !~ 'quick_link_sealed_envelope_is_valid\(p_sealed_token,p_token_key_id\) IS DISTINCT FROM TRUE'
+     OR duplicate_source !~ 'sum\(item[.]quantity::numeric\) AS requested_quantity'
+     OR duplicate_source !~ 'requested_quantity>variant[.]stock_quantity::numeric'
+     OR pg_catalog.strpos(duplicate_source,'WHERE operation.store_id=p_store_id') >= pg_catalog.strpos(duplicate_source,'IF p_source_link_id IS NULL')
      OR duplicate_source ~ 'RAISE EXCEPTION' THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_API_ASSERTION_FAILED: cancel/duplicate state or replay drift';
   END IF;

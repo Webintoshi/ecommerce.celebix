@@ -132,8 +132,21 @@ BEGIN
       'saas.quick_order_link_operations'::regclass
     ])
       AND contype IN ('p','u','c')
-  ) <> 53 THEN
+  ) <> 52 THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact check/unique count drift';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_constraint
+    WHERE conrelid='saas.quick_order_link_operations'::regclass
+      AND conname='quick_order_link_operations_pkey'
+      AND pg_catalog.pg_get_constraintdef(oid)='PRIMARY KEY (store_id, operation_id)'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_catalog.pg_constraint
+    WHERE conrelid='saas.quick_order_link_operations'::regclass
+      AND conname='quick_order_link_operations_store_id_key'
+  ) THEN
+    RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: composite operation identity drift';
   END IF;
 
   IF (
@@ -173,7 +186,7 @@ BEGIN
     )
     AND constraint_record.contype IN ('p','u','c');
 
-  IF constraint_catalog_fingerprint <> '62e7db41be486158bd3271b4dc6b24ea' THEN
+  IF constraint_catalog_fingerprint <> 'aac6d9e1e3125e33043ae0649e799507' THEN
     RAISE EXCEPTION 'PHASE3B2_QUICK_LINK_ASSERTION_FAILED: exact check/unique definitions drift: %', constraint_catalog_fingerprint;
   END IF;
 
