@@ -56,7 +56,7 @@ function callbackUrl(value: unknown): string {
     return invalid();
   }
   if (
-    parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash ||
+    parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash || raw.includes("?") || raw.includes("#") ||
     parsed.hostname !== parsed.hostname.toLowerCase() || parsed.pathname !== "/api/payments/paytr/callback" || parsed.toString() !== raw
   ) invalid();
   return raw;

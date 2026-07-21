@@ -3,6 +3,7 @@ import {
   createDecipheriv,
   createHash,
   randomBytes as nodeRandomBytes,
+  timingSafeEqual,
 } from "node:crypto";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -10,6 +11,9 @@ const DIGEST = /^[a-f0-9]{64}$/;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const PURPOSES = new Set(["link-token", "provider-config", "provider-token"] as const);
+const TYPED_ARRAY_VALUES = Uint8Array.prototype.values;
+const TYPED_ARRAY_ITERATOR_NEXT = Object.getPrototypeOf(TYPED_ARRAY_VALUES.call(new Uint8Array()))
+  .next as (this: IterableIterator<number>) => IteratorResult<number>;
 
 export type SealedEnvelope = Readonly<{
   algorithm: "A256GCM";
@@ -100,34 +104,70 @@ function purpose(value: unknown): Purpose {
 function canonicalBase64url(value: unknown, bytesMinimum: number, bytesMaximum: number, exactBytes?: number): string {
   if (typeof value !== "string" || !BASE64URL.test(value)) invalid();
   const decoded = Buffer.from(value, "base64url");
-  if (decoded.toString("base64url") !== value || decoded.byteLength < bytesMinimum || decoded.byteLength > bytesMaximum || (exactBytes !== undefined && decoded.byteLength !== exactBytes)) invalid();
-  return value;
+  try {
+    if (decoded.toString("base64url") !== value || decoded.byteLength < bytesMinimum || decoded.byteLength > bytesMaximum || (exactBytes !== undefined && decoded.byteLength !== exactBytes)) invalid();
+    return value;
+  } finally {
+    decoded.fill(0);
+  }
 }
 
 function copyKey(value: unknown): Buffer {
-  if (!(value instanceof Uint8Array)) invalid();
-  const view = Buffer.from(value.buffer, value.byteOffset, value.byteLength);
-  if (view.byteLength !== 32) invalid();
-  return Buffer.from(view);
+  if (typeof value !== "object" || value === null) invalid();
+  const iterator = Reflect.apply(TYPED_ARRAY_VALUES, value, []) as IterableIterator<number>;
+  const copy = Buffer.alloc(32);
+  let retained = false;
+  try {
+    for (let index = 0; index < 32; index += 1) {
+      const step = Reflect.apply(TYPED_ARRAY_ITERATOR_NEXT, iterator, []) as IteratorResult<number>;
+      if (step.done || !Number.isInteger(step.value) || step.value < 0 || step.value > 255) invalid();
+      copy[index] = step.value;
+    }
+    const overflow = Reflect.apply(TYPED_ARRAY_ITERATOR_NEXT, iterator, []) as IteratorResult<number>;
+    if (!overflow.done) invalid();
+    retained = true;
+    return copy;
+  } finally {
+    if (!retained) copy.fill(0);
+  }
 }
 
-function selectKeys(value: unknown): Readonly<{ activeKeyId: string; byId: ReadonlyMap<string, Buffer> }> {
+type SelectedKeys = Readonly<{ activeKeyId: string; byId: Map<string, Buffer> }>;
+
+function zeroKeys(selected: SelectedKeys | undefined): void {
+  if (selected === undefined) return;
+  for (const key of selected.byId.values()) key.fill(0);
+  selected.byId.clear();
+}
+
+function selectKeys(value: unknown): SelectedKeys {
   const parsed = exact(value, ["activeKeyId", "keys"]);
   const activeKeyId = keyId(parsed.activeKeyId);
   const entries = denseArray(parsed.keys, 1, 64);
   const byId = new Map<string, Buffer>();
-  const byteValues = new Set<string>();
-  for (const entry of entries) {
-    const selected = exact(entry, ["keyId", "key"]);
-    const selectedId = keyId(selected.keyId);
-    const selectedKey = copyKey(selected.key);
-    const encodedKey = selectedKey.toString("hex");
-    if (byId.has(selectedId) || byteValues.has(encodedKey)) invalid();
-    byId.set(selectedId, selectedKey);
-    byteValues.add(encodedKey);
+  const selected = { activeKeyId, byId };
+  try {
+    for (const entry of entries) {
+      const parsedEntry = exact(entry, ["keyId", "key"]);
+      const selectedId = keyId(parsedEntry.keyId);
+      const selectedKey = copyKey(parsedEntry.key);
+      let retained = false;
+      try {
+        let duplicateBytes = false;
+        for (const existing of byId.values()) duplicateBytes = timingSafeEqual(existing, selectedKey) || duplicateBytes;
+        if (byId.has(selectedId) || duplicateBytes) invalid();
+        byId.set(selectedId, selectedKey);
+        retained = true;
+      } finally {
+        if (!retained) selectedKey.fill(0);
+      }
+    }
+    if (!byId.has(activeKeyId)) invalid();
+    return selected;
+  } catch (error) {
+    zeroKeys(selected);
+    throw error;
   }
-  if (!byId.has(activeKeyId)) invalid();
-  return { activeKeyId, byId };
 }
 
 function aad(input: Readonly<{ purpose: Purpose; storeId: string; objectId: string; digest: string }>, selectedEnvelopeKeyId: string): Buffer {
@@ -152,10 +192,18 @@ function envelope(value: unknown): SealedEnvelope {
 
 export function generateQuickLinkToken(randomBytes: (size: number) => Buffer = nodeRandomBytes): string {
   return guarded(() => {
-    if (typeof randomBytes !== "function") invalid();
-    const generated = randomBytes(32);
-    if (!Buffer.isBuffer(generated) || generated.byteLength !== 32) invalid();
-    return Buffer.from(generated).toString("base64url");
+    let generated: Buffer | undefined;
+    let copy: Buffer | undefined;
+    try {
+      if (typeof randomBytes !== "function") invalid();
+      generated = randomBytes(32);
+      if (!Buffer.isBuffer(generated) || generated.byteLength !== 32) invalid();
+      copy = Buffer.from(generated);
+      return copy.toString("base64url");
+    } finally {
+      copy?.fill(0);
+      if (Buffer.isBuffer(generated)) generated.fill(0);
+    }
   });
 }
 
@@ -172,32 +220,39 @@ export function sealQuickLinkSecret(input: Readonly<{
   keyring: QuickLinkKeyring;
 }>): SealedEnvelope {
   return guarded(() => {
-    const parsed = exact(input, ["plaintext", "purpose", "storeId", "objectId", "digest", "keyring"]);
-    if (typeof parsed.plaintext !== "string") invalid();
-    const plaintext = Buffer.from(parsed.plaintext, "utf8");
-    if (plaintext.byteLength < 1 || plaintext.byteLength > 6_144) invalid();
-    const authority = {
-      purpose: purpose(parsed.purpose),
-      storeId: uuid(parsed.storeId),
-      objectId: uuid(parsed.objectId),
-      digest: digest(parsed.digest),
-    };
-    const selected = selectKeys(parsed.keyring);
-    const key = selected.byId.get(selected.activeKeyId);
-    if (key === undefined) invalid();
-    const iv = nodeRandomBytes(12);
-    const cipher = createCipheriv("aes-256-gcm", Buffer.from(key), iv);
-    cipher.setAAD(aad(authority, selected.activeKeyId));
-    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    return Object.freeze({
-      algorithm: "A256GCM",
-      ciphertext: ciphertext.toString("base64url"),
-      iv: iv.toString("base64url"),
-      keyId: selected.activeKeyId,
-      tag: tag.toString("base64url"),
-      version: 1,
-    });
+    let plaintext: Buffer | undefined;
+    let selected: SelectedKeys | undefined;
+    try {
+      const parsed = exact(input, ["plaintext", "purpose", "storeId", "objectId", "digest", "keyring"]);
+      if (typeof parsed.plaintext !== "string") invalid();
+      plaintext = Buffer.from(parsed.plaintext, "utf8");
+      if (plaintext.byteLength < 1 || plaintext.byteLength > 6_144) invalid();
+      const authority = {
+        purpose: purpose(parsed.purpose),
+        storeId: uuid(parsed.storeId),
+        objectId: uuid(parsed.objectId),
+        digest: digest(parsed.digest),
+      };
+      selected = selectKeys(parsed.keyring);
+      const key = selected.byId.get(selected.activeKeyId);
+      if (key === undefined) invalid();
+      const iv = nodeRandomBytes(12);
+      const cipher = createCipheriv("aes-256-gcm", key, iv);
+      cipher.setAAD(aad(authority, selected.activeKeyId));
+      const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+      const tag = cipher.getAuthTag();
+      return Object.freeze({
+        algorithm: "A256GCM",
+        ciphertext: ciphertext.toString("base64url"),
+        iv: iv.toString("base64url"),
+        keyId: selected.activeKeyId,
+        tag: tag.toString("base64url"),
+        version: 1,
+      });
+    } finally {
+      plaintext?.fill(0);
+      zeroKeys(selected);
+    }
   });
 }
 
@@ -210,26 +265,37 @@ export function openQuickLinkSecret(input: Readonly<{
   keyring: QuickLinkKeyring;
 }>): string {
   return guarded(() => {
-    const parsed = exact(input, ["envelope", "purpose", "storeId", "objectId", "digest", "keyring"]);
-    const selectedEnvelope = envelope(parsed.envelope);
-    const authority = {
-      purpose: purpose(parsed.purpose),
-      storeId: uuid(parsed.storeId),
-      objectId: uuid(parsed.objectId),
-      digest: digest(parsed.digest),
-    };
-    const selected = selectKeys(parsed.keyring);
-    const key = selected.byId.get(selectedEnvelope.keyId);
-    if (key === undefined) invalid();
-    const decipher = createDecipheriv("aes-256-gcm", Buffer.from(key), Buffer.from(selectedEnvelope.iv, "base64url"));
-    decipher.setAAD(aad(authority, selectedEnvelope.keyId));
-    decipher.setAuthTag(Buffer.from(selectedEnvelope.tag, "base64url"));
-    const plaintext = Buffer.concat([
-      decipher.update(Buffer.from(selectedEnvelope.ciphertext, "base64url")),
-      decipher.final(),
-    ]);
-    const decoded = plaintext.toString("utf8");
-    if (!Buffer.from(decoded, "utf8").equals(plaintext)) invalid();
-    return decoded;
+    let selected: SelectedKeys | undefined;
+    let plaintext: Buffer | undefined;
+    let roundtrip: Buffer | undefined;
+    const plaintextParts: Buffer[] = [];
+    try {
+      const parsed = exact(input, ["envelope", "purpose", "storeId", "objectId", "digest", "keyring"]);
+      const selectedEnvelope = envelope(parsed.envelope);
+      const authority = {
+        purpose: purpose(parsed.purpose),
+        storeId: uuid(parsed.storeId),
+        objectId: uuid(parsed.objectId),
+        digest: digest(parsed.digest),
+      };
+      selected = selectKeys(parsed.keyring);
+      const key = selected.byId.get(selectedEnvelope.keyId);
+      if (key === undefined) invalid();
+      const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(selectedEnvelope.iv, "base64url"));
+      decipher.setAAD(aad(authority, selectedEnvelope.keyId));
+      decipher.setAuthTag(Buffer.from(selectedEnvelope.tag, "base64url"));
+      plaintextParts.push(decipher.update(Buffer.from(selectedEnvelope.ciphertext, "base64url")));
+      plaintextParts.push(decipher.final());
+      plaintext = Buffer.concat(plaintextParts);
+      const decoded = plaintext.toString("utf8");
+      roundtrip = Buffer.from(decoded, "utf8");
+      if (!roundtrip.equals(plaintext)) invalid();
+      return decoded;
+    } finally {
+      roundtrip?.fill(0);
+      plaintext?.fill(0);
+      for (const part of plaintextParts) part.fill(0);
+      zeroKeys(selected);
+    }
   });
 }

@@ -620,11 +620,26 @@ test("quick order public quote allows only active or opened and omits all recipi
 });
 
 test("quick order merchant URL copies a canonical token-bearing HTTPS URL", () => {
+  const token = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE";
   const input = {
-    url: `https://atlas.example.test/odeme/hizli/${Buffer.alloc(32, 0x41).toString("base64url")}`,
+    url: `https://atlas.example.test/odeme/hizli/${token}`,
     expiresAt: EXPIRES_AT,
   };
-  const parsed = parseQuickOrderMerchantUrl(input);
+  const bufferDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Buffer");
+  assert.equal(Reflect.deleteProperty(globalThis, "Buffer"), true);
+  let parsed;
+  try {
+    parsed = parseQuickOrderMerchantUrl(input);
+    for (const tail of "AEIMQUYcgkosw048") {
+      const canonicalToken = `${token.slice(0, -1)}${tail}`;
+      assert.equal(
+        parseQuickOrderMerchantUrl({ ...input, url: `https://atlas.example.test/odeme/hizli/${canonicalToken}` }).url,
+        `https://atlas.example.test/odeme/hizli/${canonicalToken}`,
+      );
+    }
+  } finally {
+    if (bufferDescriptor !== undefined) Object.defineProperty(globalThis, "Buffer", bufferDescriptor);
+  }
   assert.deepEqual(parsed, input);
   assert.notEqual(parsed, input);
   assert.equal(Object.isFrozen(parsed), true);
@@ -632,7 +647,7 @@ test("quick order merchant URL copies a canonical token-bearing HTTPS URL", () =
 });
 
 test("quick order merchant URL rejects noncanonical locations and private side fields", () => {
-  const token = Buffer.alloc(32, 0x41).toString("base64url");
+  const token = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE";
   const valid = `https://atlas.example.test/odeme/hizli/${token}`;
   for (const value of [
     { url: valid },
@@ -640,6 +655,8 @@ test("quick order merchant URL rejects noncanonical locations and private side f
     { url: `http://atlas.example.test/odeme/hizli/${token}`, expiresAt: EXPIRES_AT },
     { url: `https://ATLAS.example.test/odeme/hizli/${token}`, expiresAt: EXPIRES_AT },
     { url: `${valid}?token=x`, expiresAt: EXPIRES_AT },
+    { url: `${valid}?`, expiresAt: EXPIRES_AT },
+    { url: `${valid}#`, expiresAt: EXPIRES_AT },
     { url: `https://atlas.example.test:443/odeme/hizli/${token}`, expiresAt: EXPIRES_AT },
     { url: `https://user@atlas.example.test/odeme/hizli/${token}`, expiresAt: EXPIRES_AT },
     { url: `https://atlas.example.test/odeme/hizli/${token}=`, expiresAt: EXPIRES_AT },

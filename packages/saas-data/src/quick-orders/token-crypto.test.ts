@@ -47,23 +47,53 @@ function open(envelope: SealedEnvelope, overrides: Record<string, unknown> = {})
   } as Parameters<typeof openQuickLinkSecret>[0]);
 }
 
+function observeZeroization<T>(operation: () => T): Readonly<{
+  result?: T;
+  error?: unknown;
+  wipes: readonly Readonly<{ before: Buffer; target: Buffer }>[];
+}> {
+  const owner = Buffer.prototype as unknown as { fill: (value: unknown, ...args: readonly unknown[]) => Buffer };
+  const original = owner.fill;
+  const wipes: Array<Readonly<{ before: Buffer; target: Buffer }>> = [];
+  owner.fill = function observedFill(this: Buffer, value: unknown, ...args: readonly unknown[]): Buffer {
+    const before = Buffer.from(this);
+    const result = Reflect.apply(original, this, [value, ...args]);
+    if (value === 0) wipes.push({ before, target: this });
+    return result;
+  };
+  try {
+    return { result: operation(), wipes };
+  } catch (error) {
+    return { error, wipes };
+  } finally {
+    owner.fill = original;
+  }
+}
+
+function assertWiped(wipes: readonly Readonly<{ before: Buffer; target: Buffer }>[], secret: Uint8Array): void {
+  const match = wipes.find(({ before }) => before.equals(secret));
+  assert.ok(match, "expected secret buffer to be zeroized");
+  assert.equal(match.target.every((byte) => byte === 0), true);
+}
+
 test("quick link crypto generates exactly 32 random canonical base64url bytes", () => {
   const calls: number[] = [];
+  const source = Buffer.alloc(32, 0x41);
   const token = generateQuickLinkToken((size) => {
     calls.push(size);
-    return Buffer.alloc(size, 0x41);
+    return source;
   });
   assert.deepEqual(calls, [32]);
   assert.equal(token, TOKEN);
   assert.equal(Buffer.from(token, "base64url").byteLength, 32);
   assert.equal(Buffer.from(token, "base64url").toString("base64url"), token);
-  for (const producer of [
-    () => Buffer.alloc(31),
-    () => Buffer.alloc(33),
-    () => "not-bytes" as unknown as Buffer,
-  ]) {
-    assert.throws(() => generateQuickLinkToken(producer), /quick_link_crypto_invalid/);
+  assert.equal(source.every((byte) => byte === 0), true);
+  for (const size of [31, 33]) {
+    const invalidSource = Buffer.alloc(size, 0x42);
+    assert.throws(() => generateQuickLinkToken(() => invalidSource), /quick_link_crypto_invalid/);
+    assert.equal(invalidSource.every((byte) => byte === 0), true);
   }
+  assert.throws(() => generateQuickLinkToken(() => "not-bytes" as unknown as Buffer), /quick_link_crypto_invalid/);
 });
 
 test("quick link crypto digests only canonical 32-byte tokens to lowercase SHA-256", () => {
@@ -99,6 +129,18 @@ test("quick link crypto rejects invalid 31-byte and 33-byte key material", () =>
   for (const key of [new Uint8Array(31), new Uint8Array(33)]) {
     assert.throws(() => seal({ keyring: keyring("active-v1", [{ keyId: "active-v1", key }]) }), /quick_link_crypto_invalid/);
   }
+  let getterCalled = 0;
+  class KeySubclass extends Uint8Array {}
+  const accessorKey = new KeySubclass(32).fill(0x11);
+  for (const property of ["buffer", "byteLength", "byteOffset", "length", "values"] as const) Object.defineProperty(accessorKey, property, {
+    get() {
+      getterCalled += 1;
+      throw new Error("hostile");
+    },
+  });
+  const envelope = seal({ keyring: keyring("active-v1", [{ keyId: "active-v1", key: accessorKey }]) });
+  assert.equal(open(envelope, { keyring: keyring("active-v1", [{ keyId: "active-v1", key: Buffer.alloc(32, 0x11) }]) }), TOKEN);
+  assert.equal(getterCalled, 0);
 });
 
 test("quick link crypto rejects duplicate IDs missing active keys and duplicate bytes", () => {
@@ -142,6 +184,10 @@ test("quick link crypto rejects changed ciphertext tag and IV", () => {
   ]) {
     assert.throws(() => open(changed), /quick_link_crypto_invalid/);
   }
+  const failed = observeZeroization(() => open({ ...envelope, tag: flip(envelope.tag) }));
+  assert.match(String(failed.error), /quick_link_crypto_invalid/);
+  assertWiped(failed.wipes, ACTIVE_KEY);
+  assertWiped(failed.wipes, Buffer.from(TOKEN, "utf8"));
 });
 
 test("quick link crypto rejects noncanonical exact-key and hostile inputs without invoking getters", () => {
@@ -196,12 +242,20 @@ test("quick link crypto copies key bytes and leaves every caller input mutable a
     keyring: mutableKeyring,
   };
   const before = new Uint8Array(mutableKey);
-  const envelope = sealQuickLinkSecret(input);
+  const sealed = observeZeroization(() => sealQuickLinkSecret(input));
+  assert.equal(sealed.error, undefined);
+  const envelope = sealed.result!;
+  assertWiped(sealed.wipes, mutableKey);
+  assertWiped(sealed.wipes, Buffer.from(TOKEN, "utf8"));
   assert.deepEqual(mutableKey, before);
   assert.equal(Object.isFrozen(input), false);
   assert.equal(Object.isFrozen(mutableKeyring), false);
   assert.equal(Object.isFrozen(mutableKey), false);
-  assert.equal(open(envelope, { keyring: mutableKeyring }), TOKEN);
+  const opened = observeZeroization(() => open(envelope, { keyring: mutableKeyring }));
+  assert.equal(opened.error, undefined);
+  assert.equal(opened.result, TOKEN);
+  assertWiped(opened.wipes, mutableKey);
+  assertWiped(opened.wipes, Buffer.from(TOKEN, "utf8"));
 });
 
 test("quick link crypto re-encryption preserves the original raw token", () => {

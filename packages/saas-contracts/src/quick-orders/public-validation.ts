@@ -7,7 +7,7 @@ import type { CheckoutState, QuickOrderMerchantUrl, QuickOrderPublicQuote } from
 
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
-const TOKEN = /^[A-Za-z0-9_-]{43}$/;
+const TOKEN = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/;
 
 type InputRecord = Readonly<Record<string, unknown>>;
 
@@ -136,7 +136,10 @@ export function parseQuickOrderMerchantUrl(value: unknown): Readonly<QuickOrderM
     const url = new URL(raw);
     const parts = url.pathname.split("/");
     const token = parts[3];
-    if (parts.length !== 4 || parts[1] !== "odeme" || parts[2] !== "hizli" || token === undefined || !TOKEN.test(token) || Buffer.from(token, "base64url").toString("base64url") !== token || url.search) invalid();
+    if (
+      parts.length !== 4 || parts[1] !== "odeme" || parts[2] !== "hizli" || token === undefined || !TOKEN.test(token) ||
+      raw.includes("?") || raw.includes("#")
+    ) invalid();
     return Object.freeze({ url: raw, expiresAt: timestamp(parsed.expiresAt) });
   });
 }

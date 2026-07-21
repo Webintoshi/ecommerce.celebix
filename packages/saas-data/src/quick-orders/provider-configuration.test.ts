@@ -103,6 +103,8 @@ test("PayTR configuration accepts only the exact canonical HTTPS callback route"
     "https://pay.example.test/api/payments/paytr/callback/",
     "https://pay.example.test/api/payments/paytr/callback?x=1",
     "https://pay.example.test/api/payments/paytr/callback#x",
+    "https://pay.example.test/api/payments/paytr/callback?",
+    "https://pay.example.test/api/payments/paytr/callback#",
     "https://pay.example.test/api/payments/paytr/%63allback",
     "https://pay.example.test/other",
   ]) {
