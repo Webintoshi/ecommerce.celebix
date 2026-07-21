@@ -1,11 +1,12 @@
 "use client";
 
-import { Home, Package, Plus, Settings, type LucideIcon } from "lucide-react";
+import { Home, Package, Plus, Settings, ShoppingBag, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   isPanelNavigationPathActive,
   PANEL_NAVIGATION,
+  PANEL_ORDER_NAVIGATION,
   type PanelNavigationHref,
   type PanelNavigationIcon,
   type PanelNavigationItem,
@@ -14,14 +15,19 @@ import styles from "./panel-shell.module.css";
 
 const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   home: Home,
+  orders: ShoppingBag,
   products: Package,
   "add-product": Plus,
   setup: Settings,
 });
 
+const NAVIGATION: readonly PanelNavigationItem[] = PANEL_ORDER_NAVIGATION === undefined
+  ? PANEL_NAVIGATION
+  : Object.freeze([PANEL_NAVIGATION[0]!, PANEL_ORDER_NAVIGATION, ...PANEL_NAVIGATION.slice(1)]);
+
 function getCurrentNavigationHref(pathname: string): PanelNavigationHref | undefined {
   let currentHref: PanelNavigationHref | undefined;
-  for (const item of PANEL_NAVIGATION) {
+  for (const item of NAVIGATION) {
     const links = item.children?.length ? item.children : [item];
     for (const link of links) {
       if (
@@ -59,11 +65,11 @@ export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
   const currentHref = getCurrentNavigationHref(pathname);
   return (
     <nav className={styles.navigation} aria-label={mode === "drawer" ? "Mobil panel menüsü" : "Panel menüsü"}>
-      {PANEL_NAVIGATION.map((item) => item.children?.length ? (
+      {NAVIGATION.map((item) => item.children?.length ? (
         <section className={styles.navigationGroup} key={item.key}>
           <div className={`${styles.navigationGroupLabel} ${isPanelNavigationPathActive(pathname, item.href) ? styles.navigationGroupActive : ""}`}>
             <span className={styles.activeRail} aria-hidden="true" />
-            <span className={styles.iconBox}><Package aria-hidden="true" /></span>
+            <span className={styles.iconBox}>{(() => { const Icon = ICONS[item.icon]; return <Icon aria-hidden="true" />; })()}</span>
             <span className={styles.navigationLabel}>{item.label}</span>
           </div>
           <div className={styles.navigationChildren}>

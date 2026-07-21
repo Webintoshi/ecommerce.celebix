@@ -9,6 +9,7 @@ import {
   getPanelRoutePresentation,
   isPanelNavigationPathActive,
   PANEL_NAVIGATION,
+  PANEL_ORDER_NAVIGATION,
 } from "./panel-ui/navigation.ts";
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
 import { readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
@@ -330,12 +331,12 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "lucide-react") {
-      return { Home: Icon, Package: Icon, Plus: Icon, Settings: Icon };
+      return { Home: Icon, Package: Icon, Plus: Icon, Settings: Icon, ShoppingBag: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
     if (specifier === "@/lib/panel-ui/navigation") {
-      return { isPanelNavigationPathActive, PANEL_NAVIGATION };
+      return { isPanelNavigationPathActive, PANEL_NAVIGATION, PANEL_ORDER_NAVIGATION };
     }
     if (specifier === "./panel-shell.module.css") {
       const styles = new Proxy({}, {
@@ -460,6 +461,9 @@ async function renderPanelDashboard(
     }
     if (specifier === "@/lib/catalog-ui/client") {
       return { catalogApi: { getDashboardSummary: async () => undefined } };
+    }
+    if (specifier === "@/lib/order-ui/client") {
+      return { orderApi: { getDashboardSummary: async () => undefined } };
     }
     if (specifier === "@/lib/panel-ui/dashboard-model") {
       return { createMerchantDashboardViewModel };
@@ -616,6 +620,8 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
       ["/products", "Ürün kataloğu"],
       ["/products/new", "Yeni ürün oluştur"],
       ["/products/product-123", "Ürün ayrıntısı"],
+      ["/orders", "Siparişler"],
+      ["/orders/order-123", "Sipariş ayrıntısı"],
       ["/setup", "Kurulum durumu"],
     ] as const) {
       renderRoute(nextPathname);
@@ -999,7 +1005,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
   }
 });
 
-test("dashboard renders only the safe chrome model and truthful working actions", async () => {
+test("dashboard renders safe chrome, catalog, and durable order facts with truthful working actions", async () => {
   const page = await source("app/(panel)/page.tsx");
   const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
   const model = await source("lib/panel-ui/dashboard-model.ts");
@@ -1017,9 +1023,10 @@ test("dashboard renders only the safe chrome model and truthful working actions"
   assert.doesNotMatch(view, /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
   assert.doesNotMatch(
     combined,
-    /revenue|ciro|orderTotal|sipariş toplamı|conversion(?:Rate|Total)|dönüşüm oranı|customerTotal|previousRevenue|currentRevenue|Toshi/i,
+    /conversion(?:Rate|Total)|dönüşüm oranı|customerTotal|previousRevenue|currentRevenue|Toshi/i,
   );
-  assert.doesNotMatch(view, /href=[^\n]*(?:orders|analytics|customers|carts)|provider(?:Data|Payload)|TenantContext/i);
+  assert.match(view, /orderApi[.]getDashboardSummary\(\)/);
+  assert.doesNotMatch(view, /href=[^\n]*(?:analytics|customers|carts)|provider(?:Data|Payload)|TenantContext/i);
 });
 
 test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {

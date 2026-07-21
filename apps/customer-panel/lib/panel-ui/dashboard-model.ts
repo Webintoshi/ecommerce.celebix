@@ -1,5 +1,6 @@
 import type { PanelChromeModel } from "./chrome-model.ts";
 import type { CatalogDashboardSummary } from "../catalog-ui/client.ts";
+import type { OrderDashboardSummary } from "@celebix/saas-contracts";
 import {
   readyAuthority,
   unsupportedAuthority,
@@ -60,11 +61,20 @@ export interface MerchantDashboardViewModel {
   readonly description: string;
   readonly chromeCards: readonly PanelDashboardCard[];
   readonly catalog: AuthoritySlice<CatalogDashboardViewModel>;
-  readonly orders: AuthoritySlice<never>;
+  readonly orders: AuthoritySlice<OrderDashboardViewModel>;
   readonly analytics: AuthoritySlice<never>;
   readonly customers: AuthoritySlice<never>;
   readonly carts: AuthoritySlice<never>;
   readonly actions: readonly PanelDashboardAction[];
+}
+
+export interface OrderDashboardViewModel {
+  readonly totalOrders: number;
+  readonly pendingOrders: number;
+  readonly fulfilledOrders: number;
+  readonly revenueCents: number;
+  readonly currency: string;
+  readonly asOf: string;
 }
 
 export function createPanelDashboardModel(
@@ -182,17 +192,28 @@ function createCatalogDashboardViewModel(summary: CatalogDashboardSummary): Cata
 export function createMerchantDashboardViewModel(
   chrome: PanelChromeModel,
   catalog: AuthoritySlice<CatalogDashboardSummary>,
+  orders: AuthoritySlice<OrderDashboardSummary> = unsupportedAuthority("orders"),
 ): MerchantDashboardViewModel {
   const legacy = createPanelDashboardModel(chrome);
   const catalogView = catalog.state === "ready"
     ? readyAuthority(createCatalogDashboardViewModel(catalog.value), catalog.asOf)
     : catalog;
+  const orderView = orders.state === "ready"
+    ? readyAuthority(Object.freeze({
+      totalOrders: orders.value.totalOrders,
+      pendingOrders: orders.value.pendingOrders,
+      fulfilledOrders: orders.value.fulfilledOrders,
+      revenueCents: orders.value.revenueCents,
+      currency: orders.value.currency,
+      asOf: orders.value.asOf,
+    }), orders.value.asOf)
+    : orders;
   return Object.freeze({
     title: legacy.title,
     description: legacy.description,
     chromeCards: legacy.cards,
     catalog: catalogView,
-    orders: unsupportedAuthority("orders"),
+    orders: orderView,
     analytics: unsupportedAuthority("analytics"),
     customers: unsupportedAuthority("customers"),
     carts: unsupportedAuthority("carts"),
