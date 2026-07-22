@@ -1,0 +1,12 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DROP FUNCTION saas.abandoned_carts_convert(text,text,uuid,timestamptz);
+DROP FUNCTION saas.abandoned_carts_mark_stale(timestamptz,timestamptz);
+DROP FUNCTION saas.abandoned_carts_capture(text,uuid,text,timestamptz,jsonb,jsonb);
+DROP FUNCTION saas.abandoned_cart_capture_projection(uuid,uuid);
+DROP FUNCTION saas.abandoned_cart_capture_customer_valid(jsonb);
+DROP FUNCTION saas.abandoned_cart_capture_items_valid(uuid,jsonb);
+DROP FUNCTION saas.abandoned_cart_capture_store(text,timestamptz);
+ALTER TABLE saas.abandoned_carts DROP CONSTRAINT abandoned_carts_recovered_order_store_fk;
+ALTER TABLE saas.abandoned_carts DROP COLUMN recovered_order_id;
+COMMIT;

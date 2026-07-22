@@ -1,9 +1,9 @@
 {
-  "bundleId": "phase3b3-202607220030-031-abandoned-carts",
+  "bundleId": "phase3b3-202607220030-032-abandoned-carts",
   "postgresqlMajor": 16,
   "migrationClassification": "additive",
   "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
-  "rollbackLimitations": "Migration 031 rollback removes only merchant API functions and restores the prior order-action authority; migration 030 refuses persisted cart history.",
+  "rollbackLimitations": "Migration 032 rollback removes workflow capture functions and recovered-order binding; migration 031 restores prior action authority; migration 030 refuses persisted cart history.",
   "artifacts": [
     {
       "id": "202607220030_abandoned_carts_up",
@@ -46,6 +46,27 @@
       "file": "202607220031_abandoned_cart_api_assertions.sql",
       "sha256": "cf49b374a055bb42784c6d631c4a7a6559d7262b5bd96ef08faecb039ae18437",
       "purpose": "Fail on API signature, definer, search-path, ACL, action, store-binding, recovery or concurrency drift."
+    },
+    {
+      "id": "202607220032_abandoned_cart_capture_up",
+      "direction": "up",
+      "file": "202607220032_abandoned_cart_capture.up.sql",
+      "sha256": "328c435f9b864e3799808c6dcdabb1d46b91bbe206eeea1efb19399c9e690af7",
+      "purpose": "Add trusted-host workflow capture, stale lifecycle and exact persisted-order conversion authority."
+    },
+    {
+      "id": "202607220032_abandoned_cart_capture_down",
+      "direction": "down",
+      "file": "202607220032_abandoned_cart_capture.down.sql",
+      "sha256": "4adb5870e0a4dc5f07981e03686c615b0181cea4d7e3f52252132b907e3b285d",
+      "purpose": "Remove only migration-032 workflow functions and recovered-order binding."
+    },
+    {
+      "id": "202607220032_abandoned_cart_capture_assertions",
+      "direction": "verify",
+      "file": "202607220032_abandoned_cart_capture_assertions.sql",
+      "sha256": "9c65e5b556c2702c8e97cc7fcffe7ed708aea9ffdfb44ee86da53646694eb44d",
+      "purpose": "Fail on workflow ACL, trusted-host, catalog price, concurrency or order/store binding drift."
     }
   ]
 }

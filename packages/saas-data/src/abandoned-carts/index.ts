@@ -11,3 +11,20 @@ export type {
   MutateAbandonedCartInput,
   PostgresAbandonedCartRepositoryOptions,
 } from "./types.ts";
+export {
+  PUBLIC_ABANDONED_CART_ERROR_CODES,
+  PublicAbandonedCartRepositoryError,
+} from "./public-errors.ts";
+export type { PublicAbandonedCartErrorCode } from "./public-errors.ts";
+export { PostgresPublicAbandonedCartRepository } from "./public-repository.ts";
+export type {
+  CapturePublicAbandonedCartInput,
+  ConvertPublicAbandonedCartInput,
+  MarkStaleAbandonedCartsInput,
+  MarkStaleAbandonedCartsResult,
+  PublicAbandonedCartCustomerInput,
+  PublicAbandonedCartItemInput,
+  PublicAbandonedCartRepository,
+  PublicAbandonedCartRepositoryOptions,
+  PublicAbandonedCartResult,
+} from "./public-types.ts";

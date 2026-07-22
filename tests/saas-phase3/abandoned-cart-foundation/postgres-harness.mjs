@@ -15,7 +15,7 @@ const PG16 = "/Users/Celebix/.codex/tmp/postgresql-16.14-install/bin";
 const TOKEN = randomBytes(6).toString("hex");
 const DATABASE = `abandoned_cart_${TOKEN}`;
 const RESTORE_DATABASE = `${DATABASE}_restore`;
-const TOTAL = 23;
+const TOTAL = 28;
 const completed = [];
 const STORE_A = "10000000-0000-4000-8000-000000000001";
 const STORE_B = "10000000-0000-4000-8000-000000000002";
@@ -38,6 +38,8 @@ const MEMBERSHIP_OWNER = "30000000-0000-4000-8000-000000000001";
 const MEMBERSHIP_EDITOR = "30000000-0000-4000-8000-000000000002";
 const MEMBERSHIP_ANALYST = "30000000-0000-4000-8000-000000000003";
 const NOW = "2026-07-22T14:00:00.000Z";
+const CAPTURE_ORDER = "40000000-0000-4000-8000-000000000001";
+const CAPTURE_HOST = "cart-store-a.example.test";
 
 const priorMigrations = [
   "202607110001_roles.up.sql", "202607110002_foundation.up.sql", "202607110003_free_starter.seed.sql",
@@ -163,6 +165,10 @@ function api(backend, functionName, extraArguments = "", authority = {}, databas
   return JSON.parse(psql(backend, apiSql(functionName, extraArguments, authority), database));
 }
 
+function workflowApi(backend, functionName, argumentsSql, database = DATABASE) {
+  return JSON.parse(psql(backend, `SET ROLE celebix_saas_workflow; SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload)::text FROM saas.${functionName}(${argumentsSql});`, database));
+}
+
 async function apiAsync(backend, functionName, extraArguments = "", authority = {}) {
   const result = await commandAsync(backend.executables.psql, [
     "-h", backend.socketDirectory, "-p", String(backend.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
@@ -193,12 +199,17 @@ function seed(backend, database = DATABASE) {
       ('${MEMBERSHIP_ANALYST}','${PRINCIPAL_ANALYST}','${STORE_A}','analyst','active','2026-01-01','2026-01-01');
     INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at)
     VALUES ('70000000-0000-4000-8000-000000000001','${STORE_A}','${PLAN}','free_starter',1,'active','2026-01-01','2026-01-01','2026-01-01');
+    INSERT INTO saas.store_domains(id,store_id,hostname,hostname_type,status,is_primary,verified_at,created_at,updated_at,version) VALUES
+      ('80000000-0000-4000-8000-000000000001','${STORE_A}','${CAPTURE_HOST}','custom_domain','active',true,'2026-01-01','2026-01-01','2026-01-01',1),
+      ('80000000-0000-4000-8000-000000000002','${STORE_B}','cart-store-b.example.test','custom_domain','active',true,'2026-01-01','2026-01-01','2026-01-01',1);
     INSERT INTO saas.products(id,store_id,slug,title,status,currency,version,created_at,updated_at) VALUES
       ('${PRODUCT_A}','${STORE_A}','cart-product-a','Cart Product A','active','TRY',1,'2026-01-01','2026-01-01'),
       ('${PRODUCT_B}','${STORE_B}','cart-product-b','Cart Product B','active','TRY',1,'2026-01-01','2026-01-01');
     INSERT INTO saas.product_variants(id,product_id,store_id,title,price_cents,stock_tracking,stock_quantity,status,attributes,version,created_at,updated_at) VALUES
       ('${VARIANT_A}','${PRODUCT_A}','${STORE_A}','Default',12500,false,0,'active','{}',1,'2026-01-01','2026-01-01'),
       ('${VARIANT_B}','${PRODUCT_B}','${STORE_B}','Default',12500,false,0,'active','{}',1,'2026-01-01','2026-01-01');
+    INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,version,created_at,updated_at)
+    VALUES ('${CAPTURE_ORDER}','${STORE_A}','CAPTURE-1','storefront','Ada Lovelace','ada@example.test','TRY',12500,0,0,12500,'confirmed','completed','{"recipientName":"Ada Lovelace","line1":"Test 1","city":"Istanbul","country":"TR"}',1,'2026-07-22','2026-07-22');
     INSERT INTO saas.abandoned_carts(id,store_id,public_cart_digest,status,customer_name,customer_email,currency,subtotal_cents,discount_cents,total_cents,checkout_started_at,last_activity_at,abandoned_at,version,created_at,updated_at)
     VALUES
       ('${CART_A}','${STORE_A}',repeat('a',64),'abandoned','Ada Lovelace','ada@example.test','TRY',12500,500,12000,'2026-07-22 11:00+00','2026-07-22 12:00+00','2026-07-22 12:00+00',1,'2026-07-22 11:00+00','2026-07-22 12:00+00'),
@@ -221,15 +232,17 @@ async function main() {
     apply(backend, "202607220030_abandoned_carts_assertions.sql");
     apply(backend, "202607220031_abandoned_cart_api.up.sql");
     apply(backend, "202607220031_abandoned_cart_api_assertions.sql");
+    apply(backend, "202607220032_abandoned_cart_capture.up.sql");
+    apply(backend, "202607220032_abandoned_cart_capture_assertions.sql");
 
-    await scenario("PostgreSQL 16 applies migrations 001-031", () => {
+    await scenario("PostgreSQL 16 applies migrations 001-032", () => {
       assert.match(psql(backend, "SHOW server_version;"), /^16\./);
     });
 
     await scenario("phase3b3 manifest pins exact migration checksums", () => {
       const manifest = JSON.parse(readFileSync(path.join(SQL, "phase3b3-abandoned-cart-manifest.json"), "utf8"));
       assert.equal(manifest.postgresqlMajor, 16);
-      assert.equal(manifest.artifacts.length, 6);
+      assert.equal(manifest.artifacts.length, 9);
       for (const artifact of manifest.artifacts) {
         const digest = createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex");
         assert.equal(digest, artifact.sha256);
@@ -348,6 +361,44 @@ async function main() {
       assert.equal(api(backend, "abandoned_carts_recover_operation", `'${OPERATION_B}'::uuid,repeat('0',64)`).outcome, "operation_mismatch");
     });
 
+    await scenario("workflow capture derives exact catalog snapshots and money from trusted host", () => {
+      const digest = "2".repeat(64);
+      const cart = "71000000-0000-4000-8000-000000000010";
+      const result = workflowApi(backend, "abandoned_carts_capture", `'${CAPTURE_HOST}','${cart}'::uuid,'${digest}','2026-07-22T15:00:00.000Z'::timestamptz,'{"name":"Ada Lovelace","email":"ada@example.test"}'::jsonb,'[{"productId":"${PRODUCT_A}","variantId":"${VARIANT_A}","quantity":2}]'::jsonb`);
+      assert.equal(result.outcome, "captured");
+      assert.deepEqual(result.result, { id: cart, status: "active", currency: "TRY", totalCents: 25000, itemCount: 1, version: 1, updatedAt: "2026-07-22T15:00:00.000Z" });
+      assert.equal(psql(backend, `SELECT unit_price_cents||':'||quantity||':'||line_total_cents FROM saas.abandoned_cart_items WHERE cart_id='${cart}';`), "12500:2:25000");
+      assert.equal(psql(backend, `SELECT count(*) FROM saas.abandoned_carts WHERE public_cart_digest='${digest}' AND store_id='${STORE_A}';`), "1");
+    });
+
+    await scenario("wrong host foreign catalog and browser-shaped values fail closed", () => {
+      const base = `'71000000-0000-4000-8000-000000000011'::uuid,repeat('3',64),'2026-07-22T15:00:00.000Z'::timestamptz,'{}'::jsonb`;
+      assert.equal(workflowApi(backend, "abandoned_carts_capture", `'missing.example.test',${base},'[{"productId":"${PRODUCT_A}","variantId":"${VARIANT_A}","quantity":1}]'::jsonb`).outcome, "not_found");
+      assert.equal(workflowApi(backend, "abandoned_carts_capture", `'${CAPTURE_HOST}',${base},'[{"productId":"${PRODUCT_B}","variantId":"${VARIANT_B}","quantity":1}]'::jsonb`).outcome, "catalog_item_unavailable");
+      assert.equal(workflowApi(backend, "abandoned_carts_capture", `'${CAPTURE_HOST}',${base},'[{"productId":"${PRODUCT_A}","variantId":"${VARIANT_A}","quantity":1,"unitPriceCents":1}]'::jsonb`).outcome, "catalog_item_unavailable");
+    });
+
+    await scenario("stale workflow transitions only old active carts with durable timestamps", () => {
+      const result = workflowApi(backend, "abandoned_carts_mark_stale", `'2026-07-22T16:00:00.000Z'::timestamptz,'2026-07-22T15:30:00.000Z'::timestamptz`);
+      assert.equal(result.outcome, "committed");
+      assert.ok(result.result.affected >= 1);
+      assert.equal(psql(backend, `SELECT status FROM saas.abandoned_carts WHERE public_cart_digest=${"'"}${"2".repeat(64)}${"'"};`), "abandoned");
+    });
+
+    await scenario("checkout conversion binds the cart to an exact same-store persisted order", () => {
+      const digest = "2".repeat(64);
+      const result = workflowApi(backend, "abandoned_carts_convert", `'${CAPTURE_HOST}','${digest}','${CAPTURE_ORDER}'::uuid,'2026-07-22T16:05:00.000Z'::timestamptz`);
+      assert.equal(result.outcome, "committed");
+      assert.equal(result.result.status, "recovered");
+      assert.equal(psql(backend, `SELECT recovered_order_id::text FROM saas.abandoned_carts WHERE public_cart_digest='${digest}';`), CAPTURE_ORDER);
+      assert.equal(workflowApi(backend, "abandoned_carts_convert", `'cart-store-b.example.test','${digest}','${CAPTURE_ORDER}'::uuid,'2026-07-22T16:06:00.000Z'::timestamptz`).outcome, "invalid_input");
+    });
+
+    await scenario("capture functions are workflow-only and raw credentials never enter PostgreSQL", () => {
+      assert.equal(psql(backend, `SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND p.proname IN ('abandoned_carts_capture','abandoned_carts_mark_stale','abandoned_carts_convert') AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE') AND NOT has_function_privilege('celebix_saas_app',p.oid,'EXECUTE');`), "3");
+      assert.equal(psql(backend, `SELECT count(*) FROM information_schema.columns WHERE table_schema='saas' AND table_name LIKE 'abandoned_cart%' AND column_name ~ '(credential|token|cookie|secret)' AND column_name<>'public_cart_digest';`), "0");
+    });
+
     await scenario("backup and restore preserve cart authority", () => {
       const dump = command(backend.executables.pg_dump, ["-h", backend.socketDirectory, "-p", String(backend.port), "-U", "postgres", "-d", DATABASE], { binary: true }).stdout;
       psql(backend, `CREATE DATABASE ${RESTORE_DATABASE};`, "postgres");
@@ -355,14 +406,16 @@ async function main() {
       assert.equal(psql(backend, `SELECT count(*) FROM saas.abandoned_carts WHERE id='${CART_A}';`, RESTORE_DATABASE), "1");
       apply(backend, "202607220030_abandoned_carts_assertions.sql", RESTORE_DATABASE);
       apply(backend, "202607220031_abandoned_cart_api_assertions.sql", RESTORE_DATABASE);
+      apply(backend, "202607220032_abandoned_cart_capture_assertions.sql", RESTORE_DATABASE);
     });
 
     await scenario("rollback refuses to destroy persisted cart history", () => {
       assert.match(String(denied(backend, readFileSync(path.join(SQL, "202607220030_abandoned_carts.down.sql"), "utf8")).stderr), /ABANDONED_CART_DOWN_HISTORY_CONFLICT/);
     });
 
-    await scenario("clean rollback removes only migration-030 and 031 objects", () => {
+    await scenario("clean rollback removes only migration-030 through 032 objects", () => {
       psql(backend, "SET ROLE celebix_saas_owner; TRUNCATE saas.abandoned_cart_operations, saas.abandoned_cart_items, saas.abandoned_carts;");
+      apply(backend, "202607220032_abandoned_cart_capture.down.sql");
       apply(backend, "202607220031_abandoned_cart_api.down.sql");
       apply(backend, "202607220030_abandoned_carts.down.sql");
       assert.equal(psql(backend, "SELECT to_regclass('saas.abandoned_carts') IS NULL;"), "t");
@@ -370,11 +423,13 @@ async function main() {
       assert.equal(psql(backend, "SELECT to_regprocedure('saas.abandoned_carts_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NULL;"), "t");
     });
 
-    await scenario("migrations 030 and 031 reapply after rollback", () => {
+    await scenario("migrations 030 through 032 reapply after rollback", () => {
       apply(backend, "202607220030_abandoned_carts.up.sql");
       apply(backend, "202607220030_abandoned_carts_assertions.sql");
       apply(backend, "202607220031_abandoned_cart_api.up.sql");
       apply(backend, "202607220031_abandoned_cart_api_assertions.sql");
+      apply(backend, "202607220032_abandoned_cart_capture.up.sql");
+      apply(backend, "202607220032_abandoned_cart_capture_assertions.sql");
       assert.equal(psql(backend, "SELECT to_regclass('saas.abandoned_carts') IS NOT NULL;"), "t");
     });
 
