@@ -1,6 +1,7 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 DROP FUNCTION saas.customers_export(uuid,uuid,uuid,uuid,text,bigint,timestamptz);
+DROP FUNCTION saas.customers_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text);
 DROP FUNCTION saas.customer_set_taxonomy(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,text,uuid[]);
 DROP FUNCTION saas.customer_taxonomy_upsert(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,text,uuid,text,text,bigint);
 DROP FUNCTION saas.customer_segments_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz);

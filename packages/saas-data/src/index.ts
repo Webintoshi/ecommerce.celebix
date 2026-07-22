@@ -42,6 +42,7 @@ export * from "./media/index.ts";
 export * from "./orders/index.ts";
 export * from "./quick-orders/index.ts";
 export * from "./abandoned-carts/index.ts";
+export * from "./customers/index.ts";
 export {
   CHECKOUT_PAYMENT_ERROR_CODES,
   CheckoutPaymentRepositoryError,

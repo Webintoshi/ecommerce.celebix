@@ -11,6 +11,7 @@ DO $f$ DECLARE signature text; BEGIN
     'customer_taxonomy_upsert(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,text,uuid,text,text,bigint)',
     'customer_set_taxonomy(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,text,uuid[])',
     'customers_export(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)'
+    ,'customers_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)'
   ] LOOP
     IF pg_catalog.to_regprocedure('saas.'||signature) IS NULL THEN RAISE EXCEPTION 'CUSTOMER_API_SIGNATURE_MISSING:%',signature; END IF;
     IF NOT pg_catalog.has_function_privilege('celebix_saas_app','saas.'||signature,'EXECUTE') THEN RAISE EXCEPTION 'CUSTOMER_API_GRANT_MISSING:%',signature; END IF;

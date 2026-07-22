@@ -8,8 +8,8 @@
     { "id": "202607220033_customer_management_up", "direction": "up", "file": "202607220033_customer_management.up.sql", "sha256": "d32c11eaf95ed653096ea7a5ca28259835cc441e1804b01469f5830871a2ac71" },
     { "id": "202607220033_customer_management_down", "direction": "down", "file": "202607220033_customer_management.down.sql", "sha256": "aad74a1e1b4ae9e9ba37d38dbc72848da4bad985925957e439a26b55e5acc950" },
     { "id": "202607220033_customer_management_assertions", "direction": "verify", "file": "202607220033_customer_management_assertions.sql", "sha256": "1ff2544375c952fac9bce6279f456b0d39b71c50d7392aac31d60d91f5cfec61" },
-    { "id": "202607220034_customer_management_api_up", "direction": "up", "file": "202607220034_customer_management_api.up.sql", "sha256": "c9fd41aec88b827973a13e90f655d2d77c35bef75c6d1795fceec21b1e2e2de4" },
-    { "id": "202607220034_customer_management_api_down", "direction": "down", "file": "202607220034_customer_management_api.down.sql", "sha256": "9ffe561847c1c2130f0ab268da450caf1e9a187eeade06e6ef3e637199c17433" },
-    { "id": "202607220034_customer_management_api_assertions", "direction": "verify", "file": "202607220034_customer_management_api_assertions.sql", "sha256": "40bbd49d75185e9844675aeb5d4731dfb96a1f3950fe12f21d1a18e3d38aba05" }
+    { "id": "202607220034_customer_management_api_up", "direction": "up", "file": "202607220034_customer_management_api.up.sql", "sha256": "c8bd93e6b4d558d062895389841fe96e9670e3fcf4133771245d0ef3ed946508" },
+    { "id": "202607220034_customer_management_api_down", "direction": "down", "file": "202607220034_customer_management_api.down.sql", "sha256": "37108fda228a8abb89a43b93626684656b4ba22064f791c8376c91ac7b54c18f" },
+    { "id": "202607220034_customer_management_api_assertions", "direction": "verify", "file": "202607220034_customer_management_api_assertions.sql", "sha256": "01a901f48f1b45d03ec63d47356d9f5eb07d0c31346c4609eb45b485b920c957" }
   ]
 }

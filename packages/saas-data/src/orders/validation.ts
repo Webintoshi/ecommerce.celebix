@@ -193,9 +193,10 @@ export interface ValidatedOrderAuthority {
   readonly now: Date;
 }
 
-export function orderAuthority(context: TenantContext, currentTime: Date): ValidatedOrderAuthority {
+export function merchantAuthority(context: TenantContext, currentTime: Date, requiredFeature: PlanFeatureKey): ValidatedOrderAuthority {
   const now = trustedOrderNow(currentTime);
   return contain(() => {
+    if (!FEATURES.has(requiredFeature)) fail("durable_authority_invalid");
     const unsafeRoot = object(context, "durable_authority_invalid");
     if (!Object.hasOwn(unsafeRoot, "principal")) fail("unauthenticated");
     if (!Object.hasOwn(unsafeRoot, "store")) fail("store_inactive");
@@ -241,7 +242,7 @@ export function orderAuthority(context: TenantContext, currentTime: Date): Valid
       : undefined;
     if (
       entitlements.status !== "active" ||
-      !features.includes("orders")
+      !features.includes(requiredFeature)
     ) fail("feature_not_enabled");
     if (
       now < new Date(validFrom) ||
@@ -253,6 +254,10 @@ export function orderAuthority(context: TenantContext, currentTime: Date): Valid
 
     return Object.freeze({ storeId, principalId, membershipId, planId, planCode, planVersion, now });
   }, "durable_authority_invalid");
+}
+
+export function orderAuthority(context: TenantContext, currentTime: Date): ValidatedOrderAuthority {
+  return merchantAuthority(context, currentTime, "orders");
 }
 
 export function orderPageSize(value: unknown): number {
