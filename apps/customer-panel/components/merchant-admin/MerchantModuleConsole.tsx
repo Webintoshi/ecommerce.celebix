@@ -1,33 +1,435 @@
 "use client";
-import{useCallback,useEffect,useState,type FormEvent}from"react";import type{MerchantAdminEvent,MerchantAdminJson,MerchantAdminRecord,MerchantAdminRecordKind}from"@celebix/saas-contracts";import{PanelEmptyState,PanelPageHeader,PanelPageShell}from"@/components/panel/PanelPageShell";import{MerchantAdminApiError,merchantAdminApi}from"@/lib/merchant-admin-ui/client";import styles from"./merchant-module-console.module.css";
-type Field=Readonly<{key:string;label:string;type?:"text"|"number"|"textarea"|"boolean"|"email"|"url";placeholder?:string}>;type Meta=Readonly<{title:string;description:string;singular:string;fields:readonly Field[];notice?:string}>;
-const META:Readonly<Record<MerchantAdminRecordKind,Meta>>=Object.freeze({
- discount:{title:"İndirimler",singular:"indirim",description:"Kupon, sepet koşulu, kullanım sınırı ve yayın durumunu yönetin.",fields:[{key:"code",label:"Kupon kodu"},{key:"discountType",label:"İndirim türü",placeholder:"percent veya fixed"},{key:"value",label:"İndirim değeri",type:"number"},{key:"minimumOrderCents",label:"Minimum sepet (kuruş)",type:"number"},{key:"usageLimit",label:"Kullanım sınırı",type:"number"}]},
- lucky_wheel:{title:"Şans Çarkı",singular:"çark kampanyası",description:"Çark görünümü, katılım koşulları ve ödül havuzunu kalıcı olarak yönetin.",fields:[{key:"campaignMessage",label:"Kampanya mesajı"},{key:"terms",label:"Koşullar",type:"textarea"},{key:"dailySpinLimit",label:"Günlük çevirme sınırı",type:"number"},{key:"prizeLabels",label:"Ödüller",type:"textarea",placeholder:"Her satıra bir ödül"}]},
- email_campaign:{title:"E-posta Kampanyaları",singular:"e-posta kampanyası",description:"İzinli hedef kitle için kampanya taslağı ve yayın planını yönetin.",fields:[{key:"subject",label:"Konu"},{key:"audience",label:"İzinli hedef kitle"},{key:"content",label:"İçerik",type:"textarea"},{key:"scheduledAt",label:"Planlanan zaman"}]},
- phone_campaign:{title:"Telefon Kampanyaları",singular:"telefon kampanyası",description:"İzinli telefon kitlesi için arama kampanyası taslaklarını yönetin.",notice:"Sağlayıcı adaptörü ve teslimat kaydı olmadan arama başlatılmaz.",fields:[{key:"audience",label:"İzinli hedef kitle"},{key:"script",label:"Arama metni",type:"textarea"},{key:"scheduledAt",label:"Planlanan zaman"}]},
- whatsapp_campaign:{title:"WhatsApp Kampanyaları",singular:"WhatsApp kampanyası",description:"İzinli WhatsApp kitlesi için mesaj taslaklarını yönetin.",notice:"Sağlayıcı adaptörü ve teslimat kaydı olmadan mesaj iletilmez.",fields:[{key:"audience",label:"İzinli hedef kitle"},{key:"message",label:"Mesaj",type:"textarea"},{key:"scheduledAt",label:"Planlanan zaman"}]},
- blog_post:{title:"Blog",singular:"blog yazısı",description:"Yerelleştirilmiş blog yazılarını taslak veya yayında yönetin.",fields:[{key:"slug",label:"URL anahtarı"},{key:"locale",label:"Dil",placeholder:"tr-TR"},{key:"excerpt",label:"Özet",type:"textarea"},{key:"body",label:"İçerik",type:"textarea"},{key:"published",label:"Yayında",type:"boolean"}]},
- page:{title:"Sayfalar",singular:"sayfa",description:"Mağazanın kalıcı içerik sayfalarını yönetin.",fields:[{key:"slug",label:"URL anahtarı"},{key:"locale",label:"Dil"},{key:"body",label:"İçerik",type:"textarea"},{key:"published",label:"Yayında",type:"boolean"}]},
- policy:{title:"Politikalar",singular:"politika",description:"Mesafeli satış, gizlilik ve iade politikası sürümlerini yönetin.",fields:[{key:"policyType",label:"Politika türü"},{key:"locale",label:"Dil"},{key:"body",label:"Politika metni",type:"textarea"},{key:"effectiveAt",label:"Yürürlük zamanı"}]},
- marketplace_connection:{title:"Pazar Yerleri",singular:"pazar yeri bağlantısı",description:"Pazar yeri hesap eşlemesi ve senkronizasyon tercihlerini yönetin.",notice:"Dış ağ bağlantısı varsayılan olarak kapalıdır; gizli sağlayıcı anahtarları bu ekranda tutulmaz.",fields:[{key:"provider",label:"Pazar yeri"},{key:"merchantReference",label:"Mağaza referansı"},{key:"syncEnabled",label:"Senkronizasyon isteği",type:"boolean"}]},
- general_setting:{title:"Genel Ayarlar",singular:"genel ayar profili",description:"Mağaza görünen adı, destek adresi ve saat dilimini yönetin.",fields:[{key:"storeDisplayName",label:"Mağaza adı"},{key:"supportEmail",label:"Destek e-postası",type:"email"},{key:"timezone",label:"Saat dilimi",placeholder:"Europe/Istanbul"}]},
- language_setting:{title:"Dil Ayarları",singular:"dil profili",description:"Varsayılan ve etkin mağaza dillerini yönetin.",fields:[{key:"defaultLocale",label:"Varsayılan dil"},{key:"enabledLocales",label:"Etkin diller",type:"textarea",placeholder:"Her satıra bir dil"}]},
- payment_setting:{title:"Ödeme Ayarları",singular:"ödeme profili",description:"Müşteriye sunulan ödeme yöntemlerinin görünümünü yönetin.",notice:"Sağlayıcı kimlik bilgileri uygulama ortamında kalır ve bu ekranda alınmaz.",fields:[{key:"enabledMethods",label:"Etkin yöntemler",type:"textarea"},{key:"cashOnDelivery",label:"Kapıda ödeme",type:"boolean"}]},
- shipping_setting:{title:"Kargo Ayarları",singular:"kargo profili",description:"Teslimat bölgeleri ve ücretsiz kargo eşiğini yönetin.",fields:[{key:"regions",label:"Teslimat bölgeleri",type:"textarea"},{key:"freeShippingThresholdCents",label:"Ücretsiz kargo eşiği (kuruş)",type:"number"},{key:"estimatedDays",label:"Tahmini gün",type:"number"}]},
- administrator_invite:{title:"Yöneticiler",singular:"yönetici daveti",description:"Mağaza ekip davetlerini rol bazında yönetin.",fields:[{key:"email",label:"E-posta",type:"email"},{key:"role",label:"Rol",placeholder:"admin, editor veya analyst"},{key:"expiresAt",label:"Son geçerlilik"}]},
- accounting_profile:{title:"Muhasebe",singular:"muhasebe profili",description:"Fatura kimliği ve mali işletme bilgilerini yönetin.",fields:[{key:"legalName",label:"Ticari unvan"},{key:"taxOffice",label:"Vergi dairesi"},{key:"taxNumber",label:"Vergi numarası"},{key:"invoiceEmail",label:"Fatura e-postası",type:"email"}]},
- invoice_integration:{title:"Fatura Entegrasyonu",singular:"fatura entegrasyonu",description:"Fatura sağlayıcısı hesap eşlemesini ve durumunu yönetin.",notice:"Gizli sağlayıcı anahtarları bu ekranda alınmaz; dış ağ işlemi varsayılan olarak kapalıdır.",fields:[{key:"provider",label:"Sağlayıcı"},{key:"accountReference",label:"Hesap referansı"},{key:"enabled",label:"Etkinleştirme isteği",type:"boolean"}]},
- seo_control:{title:"SEO Kontrol",singular:"SEO profili",description:"Mağaza arama görünürlüğü ve varsayılan meta alanlarını yönetin.",fields:[{key:"metaTitle",label:"Meta başlık"},{key:"metaDescription",label:"Meta açıklama",type:"textarea"},{key:"allowIndex",label:"İndekslemeye izin ver",type:"boolean"}]},
- sitemap:{title:"Site Haritası",singular:"site haritası profili",description:"Site haritasına dahil edilen içerik ailelerini yönetin.",fields:[{key:"includeProducts",label:"Ürünleri dahil et",type:"boolean"},{key:"includeContent",label:"İçerikleri dahil et",type:"boolean"},{key:"changeFrequency",label:"Güncelleme sıklığı"}]},
- social_preview:{title:"Sosyal Önizleme",singular:"sosyal önizleme",description:"Paylaşım başlığı, açıklaması ve görselini yönetin.",fields:[{key:"title",label:"Başlık"},{key:"description",label:"Açıklama",type:"textarea"},{key:"imageUrl",label:"Görsel URL",type:"url"}]},
- code_integration:{title:"Kod Entegrasyonları",singular:"kod entegrasyonu",description:"Kamuya açık doğrulama ve ölçüm kimliklerini yönetin.",notice:"Çalıştırılabilir kod veya gizli anahtar kabul edilmez.",fields:[{key:"provider",label:"Servis"},{key:"publicIdentifier",label:"Kamuya açık kimlik"},{key:"enabled",label:"Etkin",type:"boolean"}]},
- indexing_request:{title:"Hızlı İndeksleme",singular:"indeksleme isteği",description:"İndekslenmesi istenen güvenli URL kümelerini taslak olarak yönetin.",notice:"İmzalı sağlayıcı işi bağlanmadan dış indeksleme çağrısı yapılmaz.",fields:[{key:"urls",label:"URL listesi",type:"textarea"},{key:"reason",label:"İstek nedeni",type:"textarea"}]},
-});
-function value(record:MerchantAdminRecord|null,key:string){const current=record?.config[key];return typeof current==="string"||typeof current==="number"?String(current):Array.isArray(current)?current.join("\n"):""}
-function config(fields:readonly Field[],data:FormData):Readonly<Record<string,MerchantAdminJson>>{const entries:Record<string,MerchantAdminJson>={};for(const field of fields){if(field.type==="boolean"){entries[field.key]=data.get(field.key)==="on";continue}const raw=String(data.get(field.key)??"").trim();if(!raw)continue;if(field.type==="number"){const number=Number(raw);if(!Number.isSafeInteger(number)||number<0)throw new TypeError("invalid_number");entries[field.key]=number}else if(field.type==="textarea"&&field.key.endsWith("s"))entries[field.key]=Object.freeze(raw.split(/\r?\n/).map((entry)=>entry.trim()).filter(Boolean).slice(0,100));else entries[field.key]=raw}return Object.freeze(entries)}
-function statusLabel(status:MerchantAdminRecord["status"]){return status==="active"?"Aktif":status==="draft"?"Taslak":"Arşivlendi"}
-export function MerchantModuleConsole({kind,canManage,createFirst=false}:{kind:MerchantAdminRecordKind;canManage:boolean;createFirst?:boolean}){const meta=META[kind],[items,setItems]=useState<readonly MerchantAdminRecord[]>([]),[events,setEvents]=useState<readonly MerchantAdminEvent[]>([]),[editing,setEditing]=useState<MerchantAdminRecord|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");const load=useCallback(async()=>{setLoading(true);setError("");try{const[records,audit]=await Promise.all([merchantAdminApi.records(kind),merchantAdminApi.events(kind)]);setItems(records);setEvents(audit)}catch(caught){setError(caught instanceof MerchantAdminApiError?caught.message:`${meta.title} yüklenemedi.`)}finally{setLoading(false)}},[kind,meta.title]);useEffect(()=>{void load()},[load]);
- async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,data=new FormData(form);setBusy(true);setError("");setMessage("");try{await merchantAdminApi.save(kind,{...(editing?{recordId:editing.id,expectedVersion:editing.version}:{}),name:String(data.get("name")??"").trim(),config:config(meta.fields,data),status:data.get("status")==="active"?"active":"draft"});setMessage("Kayıt kalıcı olarak kaydedildi.");setEditing(null);form.reset();await load()}catch(caught){setError(caught instanceof MerchantAdminApiError?caught.message:"Kayıt tamamlanamadı.")}finally{setBusy(false)}}
- async function archive(record:MerchantAdminRecord){setBusy(true);setError("");try{await merchantAdminApi.archive(kind,record.id,record.version);if(editing?.id===record.id)setEditing(null);await load()}catch(caught){setError(caught instanceof MerchantAdminApiError?caught.message:"Kayıt arşivlenemedi.")}finally{setBusy(false)}}
- return <PanelPageShell><PanelPageHeader title={meta.title} description={meta.description}/><section className={styles.surface}>{meta.notice?<p className={styles.notice}>{meta.notice}</p>:null}{canManage?<form key={editing?.id??(createFirst?"create-first":"new")}className={styles.form}onSubmit={submit}><label>Ad<input autoFocus={createFirst}name="name"required maxLength={160}defaultValue={editing?.name}/></label><label>Yayın durumu<select name="status"defaultValue={editing?.status??"draft"}><option value="draft">Taslak</option><option value="active">Aktif</option></select></label>{meta.fields.map((field)=><label className={field.type==="textarea"?styles.wide:undefined}key={field.key}>{field.label}{field.type==="textarea"?<textarea name={field.key}maxLength={4000}placeholder={field.placeholder}defaultValue={value(editing,field.key)}/>:field.type==="boolean"?<input name={field.key}type="checkbox"defaultChecked={editing?.config[field.key]===true}/>:<input name={field.key}type={field.type??"text"}min={field.type==="number"?0:undefined}step={field.type==="number"?1:undefined}maxLength={field.type==="number"?undefined:1000}placeholder={field.placeholder}defaultValue={value(editing,field.key)}/>}</label>)}<div className={`${styles.wide} ${styles.actions}`}><button className={styles.primary}disabled={busy}>{busy?"Kaydediliyor…":editing?"Değişiklikleri kaydet":`${meta.singular[0]?.toLocaleUpperCase("tr-TR")}${meta.singular.slice(1)} oluştur`}</button>{editing?<button className={styles.button}type="button"onClick={()=>setEditing(null)}>Vazgeç</button>:null}</div></form>:null}{message?<p className={styles.success}role="status">{message}</p>:null}{error?<p className={styles.error}role="alert">{error}</p>:null}{loading?<div className={styles.state}role="status">{meta.title} yükleniyor…</div>:items.length===0?<PanelEmptyState title={`Henüz ${meta.singular} yok`}description="İlk kalıcı kayıt oluşturulduğunda burada görünecek."/>:<div className={styles.list}>{items.map((record)=><article className={styles.item}key={record.id}><div><h2>{record.name}</h2><p>{statusLabel(record.status)} · v{record.version}</p><small>{Object.entries(record.config).slice(0,3).map(([key,current])=>`${key}: ${Array.isArray(current)?current.join(", "):String(current)}`).join(" · ")||"Ek yapılandırma yok"}</small></div>{canManage?<div className={styles.actions}><button className={styles.button}disabled={busy}onClick={()=>setEditing(record)}>Düzenle</button><button className={styles.danger}disabled={busy}onClick={()=>void archive(record)}>Arşivle</button></div>:null}</article>)}</div>}<details className={styles.audit}><summary>İşlem geçmişi ({events.length})</summary>{events.length?<ol>{events.map((event)=><li key={event.id}>{event.eventKind} · {new Date(event.occurredAt).toLocaleString("tr-TR")}</li>)}</ol>:<p>Henüz kalıcı işlem kaydı yok.</p>}</details></section></PanelPageShell>}
+
+import type {
+  MerchantAdminEvent,
+  MerchantAdminJson,
+  MerchantAdminRecord,
+  MerchantAdminRecordKind,
+} from "@celebix/saas-contracts";
+import {
+  Archive,
+  DatabaseZap,
+  Pencil,
+  Plus,
+  RefreshCcw,
+  Search,
+  ShieldCheck,
+  X,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
+
+import {
+  PanelDataTable,
+  PanelEmptyState,
+  PanelMetricCard,
+  PanelPageHeader,
+  PanelPageShell,
+  PanelStatusBadge,
+  PanelToolbar,
+} from "@/components/panel/PanelPageShell";
+import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
+import {
+  buildMerchantModuleSummary,
+  formatMerchantAdminConfig,
+  getMerchantModuleDefinition,
+  type MerchantModuleFieldDefinition,
+  type MerchantModuleStatusFilter,
+} from "@/lib/merchant-admin-ui/presentation";
+
+import styles from "./merchant-module-console.module.css";
+
+function inputValue(record: MerchantAdminRecord | null, key: string) {
+  const current = record?.config[key];
+  if (typeof current === "string" || typeof current === "number") return String(current);
+  return Array.isArray(current) ? current.join("\n") : "";
+}
+
+function parseFormConfig(
+  fields: readonly MerchantModuleFieldDefinition[],
+  data: FormData,
+): Readonly<Record<string, MerchantAdminJson>> {
+  const entries: Record<string, MerchantAdminJson> = {};
+  for (const field of fields) {
+    if (field.type === "boolean") {
+      entries[field.key] = data.get(field.key) === "on";
+      continue;
+    }
+    const raw = String(data.get(field.key) ?? "").trim();
+    if (!raw) continue;
+    if (field.type === "number") {
+      const number = Number(raw);
+      if (!Number.isSafeInteger(number) || number < 0) throw new TypeError("invalid_number");
+      entries[field.key] = number;
+    } else if (field.type === "textarea" && field.key.endsWith("s")) {
+      entries[field.key] = Object.freeze(
+        raw.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean).slice(0, 100),
+      );
+    } else {
+      entries[field.key] = raw;
+    }
+  }
+  return Object.freeze(entries);
+}
+
+function statusPresentation(status: MerchantAdminRecord["status"]) {
+  if (status === "active") return Object.freeze({ label: "Aktif", tone: "success" as const });
+  if (status === "draft") return Object.freeze({ label: "Taslak", tone: "warning" as const });
+  return Object.freeze({ label: "Arşivlendi", tone: "neutral" as const });
+}
+
+function eventLabel(event: MerchantAdminEvent) {
+  const labels: Readonly<Record<MerchantAdminEvent["eventKind"], string>> = Object.freeze({
+    archived: "Arşivlendi",
+    coupon_used: "Kupon kullanıldı",
+    delivery_attempt: "Teslimat denemesi",
+    indexing_job: "İndeksleme işi",
+    invoice_reconciled: "Fatura uzlaştırıldı",
+    saved: "Kaydedildi",
+    sync_job: "Senkronizasyon işi",
+    wheel_spin: "Çark çevrildi",
+  });
+  return labels[event.eventKind];
+}
+
+function ConfigSummary({ record }: { record: MerchantAdminRecord }) {
+  const definition = getMerchantModuleDefinition(record.kind);
+  const values = formatMerchantAdminConfig(definition, record.config).slice(0, 3);
+  return values.length ? (
+    <dl className={styles.configSummary}>
+      {values.map(({ label, value }) => (
+        <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+      ))}
+    </dl>
+  ) : <span className={styles.muted}>Ek yapılandırma yok</span>;
+}
+
+export function MerchantModuleConsole({
+  kind,
+  canManage,
+  createFirst = false,
+}: {
+  kind: MerchantAdminRecordKind;
+  canManage: boolean;
+  createFirst?: boolean;
+}) {
+  const definition = getMerchantModuleDefinition(kind);
+  const [items, setItems] = useState<readonly MerchantAdminRecord[]>([]);
+  const [events, setEvents] = useState<readonly MerchantAdminEvent[]>([]);
+  const [editing, setEditing] = useState<MerchantAdminRecord | null>(null);
+  const [editorOpen, setEditorOpen] = useState(createFirst && canManage);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<MerchantModuleStatusFilter>("all");
+  const editorTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const editorRef = useRef<HTMLElement | null>(null);
+
+  const summary = useMemo(
+    () => buildMerchantModuleSummary(items, query, statusFilter),
+    [items, query, statusFilter],
+  );
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [records, audit] = await Promise.all([
+        merchantAdminApi.records(kind),
+        merchantAdminApi.events(kind),
+      ]);
+      setItems(records);
+      setEvents(audit);
+    } catch (caught) {
+      setError(
+        caught instanceof MerchantAdminApiError
+          ? caught.message
+          : `${definition.title} yüklenemedi.`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [definition.title, kind]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setEditing(null);
+    queueMicrotask(() => editorTriggerRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    if (!editorOpen) return;
+    closeButtonRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeEditor();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const surface = editorRef.current;
+      const focusable = surface?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!surface || !focusable?.length) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !surface.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !surface.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [closeEditor, editorOpen]);
+
+  function openCreate(event: MouseEvent<HTMLButtonElement>) {
+    editorTriggerRef.current = event.currentTarget;
+    setEditing(null);
+    setEditorOpen(true);
+  }
+
+  function openEdit(record: MerchantAdminRecord, event: MouseEvent<HTMLButtonElement>) {
+    editorTriggerRef.current = event.currentTarget;
+    setEditing(record);
+    setEditorOpen(true);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await merchantAdminApi.save(kind, {
+        ...(editing ? { recordId: editing.id, expectedVersion: editing.version } : {}),
+        name: String(data.get("name") ?? "").trim(),
+        config: parseFormConfig(definition.fields, data),
+        status: data.get("status") === "active" ? "active" : "draft",
+      });
+      setMessage("Kayıt kalıcı olarak kaydedildi.");
+      closeEditor();
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(caught instanceof MerchantAdminApiError ? caught.message : "Kayıt tamamlanamadı.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function archiveRecord(record: MerchantAdminRecord) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await merchantAdminApi.archive(kind, record.id, record.version);
+      if (editing?.id === record.id) closeEditor();
+      setMessage("Kayıt arşivlendi.");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof MerchantAdminApiError ? caught.message : "Kayıt arşivlenemedi.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const createLabel = `${definition.singular[0]?.toLocaleUpperCase("tr-TR")}${definition.singular.slice(1)} oluştur`;
+
+  return (
+    <PanelPageShell>
+      <PanelPageHeader
+        title={definition.title}
+        description={definition.description}
+        actions={(
+          <div className={styles.headerActions}>
+            <button type="button" className={styles.button} disabled={loading} onClick={() => void load()}>
+              <RefreshCcw aria-hidden="true" /> Yenile
+            </button>
+            {canManage ? (
+              <button type="button" className={styles.primary} onClick={openCreate}>
+                <Plus aria-hidden="true" /> Yeni kayıt
+              </button>
+            ) : null}
+          </div>
+        )}
+      />
+
+      <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
+        <PanelMetricCard label="Toplam kayıt" value={summary.total.toLocaleString("tr-TR")} detail="Kalıcı kayıt" />
+        <PanelMetricCard label="Aktif" value={summary.active.toLocaleString("tr-TR")} detail="Yayında" />
+        <PanelMetricCard label="Taslak" value={summary.draft.toLocaleString("tr-TR")} detail="Çalışma halinde" />
+        <PanelMetricCard label="Arşiv" value={summary.archived.toLocaleString("tr-TR")} detail="Salt-okunur geçmiş" />
+      </section>
+
+      {definition.execution === "provider_required" ? (
+        <aside className={styles.providerNotice} aria-label="Sağlayıcı durumu">
+          <ShieldCheck aria-hidden="true" />
+          <div>
+            <strong>Harici çalıştırma kapalı</strong>
+            <p>{definition.notice}</p>
+          </div>
+        </aside>
+      ) : definition.notice ? <p className={styles.notice}>{definition.notice}</p> : null}
+
+      {message ? <p className={styles.success} role="status">{message}</p> : null}
+      {error ? <p className={styles.error} role="alert">{error}</p> : null}
+
+      <section className={styles.surface}>
+        <PanelToolbar>
+          <label className={styles.search}>
+            <Search aria-hidden="true" />
+            <span className={styles.srOnly}>Kayıt ara</span>
+            <input
+              aria-label="Kayıt ara"
+              type="search"
+              value={query}
+              maxLength={160}
+              placeholder={`${definition.title} içinde ara`}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <label className={styles.filter}>
+            <span>Durum</span>
+            <select
+              aria-label="Durum filtresi"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as MerchantModuleStatusFilter)}
+            >
+              <option value="all">Tümü</option>
+              <option value="active">Aktif</option>
+              <option value="draft">Taslak</option>
+              <option value="archived">Arşiv</option>
+            </select>
+          </label>
+        </PanelToolbar>
+
+        {loading ? (
+          <div className={styles.state} role="status">{definition.title} yükleniyor…</div>
+        ) : summary.visible.length === 0 ? (
+          <PanelEmptyState
+            title={items.length ? "Filtreyle eşleşen kayıt yok" : `Henüz ${definition.singular} yok`}
+            description={items.length ? "Arama veya durum filtresini değiştirin." : "İlk kalıcı kayıt oluşturulduğunda burada görünecek."}
+            action={canManage && !items.length ? (
+              <button type="button" className={styles.primary} onClick={openCreate}>{createLabel}</button>
+            ) : undefined}
+          />
+        ) : (
+          <>
+            <div className={styles.desktopTable}>
+              <PanelDataTable label={`${definition.title} kayıtları`}>
+                <thead><tr><th>Ad</th><th>Durum</th><th>Yapılandırma</th><th>Güncelleme</th><th><span className={styles.srOnly}>İşlemler</span></th></tr></thead>
+                <tbody>
+                  {summary.visible.map((record) => {
+                    const status = statusPresentation(record.status);
+                    return (
+                      <tr key={record.id}>
+                        <td><strong>{record.name}</strong><small>v{record.version}</small></td>
+                        <td><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></td>
+                        <td><ConfigSummary record={record} /></td>
+                        <td><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleString("tr-TR")}</time></td>
+                        <td>
+                          {canManage ? (
+                            <div className={styles.rowActions}>
+                              <button type="button" className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /></button>
+                              <button type="button" className={styles.iconDanger} aria-label={`${record.name} kaydını arşivle`} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /></button>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </PanelDataTable>
+            </div>
+
+            <div className={styles.mobileCards}>
+              {summary.visible.map((record) => {
+                const status = statusPresentation(record.status);
+                return (
+                  <article className={styles.mobileCard} key={record.id}>
+                    <header><div><h2>{record.name}</h2><small>v{record.version}</small></div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></header>
+                    <ConfigSummary record={record} />
+                    {canManage ? (
+                      <div className={styles.rowActions}>
+                        <button type="button" className={styles.button} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /> Düzenle</button>
+                        <button type="button" className={styles.danger} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /> Arşivle</button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <details className={styles.audit}>
+          <summary><DatabaseZap aria-hidden="true" /> İşlem geçmişi ({events.length})</summary>
+          {events.length ? (
+            <ol>{events.map((event) => <li key={event.id}><strong>{eventLabel(event)}</strong><time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString("tr-TR")}</time></li>)}</ol>
+          ) : <p>Henüz kalıcı işlem kaydı yok.</p>}
+        </details>
+      </section>
+
+      {editorOpen ? (
+        <div className={styles.editorLayer}>
+          <button type="button" className={styles.editorBackdrop} aria-label="Düzenleyiciyi kapat" onClick={closeEditor} />
+          <section ref={editorRef} className={styles.editor} role="dialog" aria-modal="true" aria-labelledby="merchant-module-editor-title">
+            <header>
+              <div><span>{definition.title}</span><h2 id="merchant-module-editor-title">{editing ? "Kaydı düzenle" : createLabel}</h2></div>
+              <button ref={closeButtonRef} type="button" className={styles.iconButton} aria-label="Düzenleyiciyi kapat" onClick={closeEditor}><X aria-hidden="true" /></button>
+            </header>
+            <form key={editing?.id ?? "new"} className={styles.form} onSubmit={submit}>
+              <label>Ad<input autoFocus={!editing} name="name" required maxLength={160} defaultValue={editing?.name} /></label>
+              <label>Yayın durumu<select name="status" defaultValue={editing?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">Aktif</option></select></label>
+              {definition.fields.map((field) => (
+                <label className={field.type === "textarea" ? styles.wide : undefined} key={field.key}>
+                  {field.label}
+                  {field.type === "textarea" ? (
+                    <textarea name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
+                  ) : field.type === "boolean" ? (
+                    <span className={styles.switchField}><input name={field.key} type="checkbox" defaultChecked={editing?.config[field.key] === true} /><span>Etkin</span></span>
+                  ) : (
+                    <input name={field.key} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
+                  )}
+                </label>
+              ))}
+              <div className={`${styles.wide} ${styles.actions}`}>
+                <button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : editing ? "Değişiklikleri kaydet" : createLabel}</button>
+                <button className={styles.button} type="button" disabled={busy} onClick={closeEditor}>Vazgeç</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+    </PanelPageShell>
+  );
+}

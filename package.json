@@ -16,6 +16,7 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test:saas-phase1": "node --experimental-transform-types --test tests/saas-phase1/*.test.ts",
+    "test:saas-phase3:current": "node --experimental-transform-types --test tests/saas-phase3/*/in-process.test.mjs tests/saas-phase3/hemenaku-admin-presentation/*.test.mjs tests/saas-phase3/pilot-storefront/ui-static.test.mjs",
     "create:store": "node ./scripts/create-store.mjs",
     "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs",
     "migrate:selfhosted-owner-db": "node ./apps/owner/scripts/migrate-owner-db-selfhosted.mjs"

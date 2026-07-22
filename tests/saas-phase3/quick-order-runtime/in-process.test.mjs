@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { registerHooks } from "node:module";
 import { createServer } from "node:net";
@@ -296,15 +296,21 @@ test("11/12 list and detail project no token or private TenantContext fields", a
   }
 });
 
-test("12/12 provider activation and revocation remain server-owned and navigation activates the reviewed route", async () => {
+test("12/13 provider activation and revocation remain server-owned and navigation keeps the reviewed order routes exact", async () => {
   const { handlers, calls } = await harness();
   assert.equal((await handlers.activateProvider(browserRequest(`${BASE}/provider/activate`, { method: "POST" }))).status, 200);
   assert.equal((await handlers.revokeProvider(browserRequest(`${BASE}/provider/revoke`, { method: "POST" }))).status, 200);
   assert.equal(calls.configure, 1);
   assert.equal(calls.revoke, 1);
-  const navigation = await readFile(new URL("lib/panel-ui/navigation.ts", APP), "utf8");
-  assert.match(navigation, /label: "Hızlı Siparişler", href: "\/orders\/quick-links"/);
-  assert.doesNotMatch(navigation, /abandoned-carts|Terkedilen Sepetler/i);
+  const navigation = await import(new URL("lib/panel-ui/navigation.ts", APP));
+  const orders = navigation.PANEL_NAVIGATION.find(({ key }) => key === "orders");
+  assert.deepEqual(orders?.children?.map(({ label, href }) => ({ label, href })), [
+    { label: "Tüm Siparişler", href: "/orders" },
+    { label: "Hızlı Siparişler", href: "/orders/quick-links" },
+    { label: "Terk Edilen Sepetler", href: "/orders/abandoned-carts" },
+  ]);
+  assert.equal(navigation.isPanelNavigationPathActive("/orders/quick-links", "/orders/quick-links"), true);
+  assert.equal(navigation.isPanelNavigationPathActive("/orders/quick-links-evil", "/orders/quick-links"), false);
 });
 
 test("13/13 signed storefront authority drives token-free checkout and iframe presentation in process", async () => {
