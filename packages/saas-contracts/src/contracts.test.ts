@@ -360,6 +360,8 @@ test("unknown error codes are not part of the frozen success or authorization su
 
 test("keeps the public runtime export surface frozen", () => {
   assert.deepEqual(Object.keys(contracts).sort(), [
+    "ABANDONED_CART_SORTS",
+    "ABANDONED_CART_STATUSES",
     "MERCHANT_ACTIONS",
     "ORDER_PAYMENT_STATUSES",
     "ORDER_SORTS",
@@ -388,6 +390,10 @@ test("keeps the public runtime export surface frozen", () => {
     "isPlanFeatureEnabled",
     "isPlanFeatureKey",
     "isPlanLimitKey",
+    "parseAbandonedCartDetail",
+    "parseAbandonedCartListItem",
+    "parseAbandonedCartMutationResult",
+    "parseAbandonedCartSummary",
     "parseOrderDashboardSummary",
     "parseOrderDetail",
     "parseOrderListItem",
@@ -408,6 +414,9 @@ test("contract sources import no runtime application code", async () => {
     "catalog/types.ts",
     "catalog/validation.ts",
     "authorization/actions.ts",
+    "abandoned-carts/index.ts",
+    "abandoned-carts/types.ts",
+    "abandoned-carts/validation.ts",
     "orders/index.ts",
     "orders/types.ts",
     "orders/validation.ts",

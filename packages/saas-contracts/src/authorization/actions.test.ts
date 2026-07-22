@@ -17,6 +17,11 @@ const cases = [
   ["editor", "quick_links.manage", false],
   ["editor", "quick_links.read", true],
   ["analyst", "quick_links.read", true],
+  ["store_owner", "carts.manage", true],
+  ["admin", "carts.manage", true],
+  ["editor", "carts.manage", false],
+  ["editor", "carts.read", true],
+  ["analyst", "carts.read", true],
 ] as const;
 
 test("enforces the exact merchant order action matrix", () => {
@@ -38,6 +43,8 @@ test("exports the exact immutable merchant action list", () => {
     "orders.note",
     "quick_links.read",
     "quick_links.manage",
+    "carts.read",
+    "carts.manage",
   ]);
   assert.equal(Object.isFrozen(MERCHANT_ACTIONS), true);
 });

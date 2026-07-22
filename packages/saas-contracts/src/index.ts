@@ -88,6 +88,23 @@ export {
   parseOrderDetail,
   parseOrderListItem,
 } from "./orders/index.ts";
+export {
+  ABANDONED_CART_SORTS,
+  ABANDONED_CART_STATUSES,
+  parseAbandonedCartDetail,
+  parseAbandonedCartListItem,
+  parseAbandonedCartMutationResult,
+  parseAbandonedCartSummary,
+} from "./abandoned-carts/index.ts";
+export type {
+  AbandonedCartDetail,
+  AbandonedCartItem,
+  AbandonedCartListItem,
+  AbandonedCartMutationResult,
+  AbandonedCartSort,
+  AbandonedCartStatus,
+  AbandonedCartSummary,
+} from "./abandoned-carts/index.ts";
 export type {
   OrderAddress,
   OrderDashboardSummary,
