@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CatalogAdminJson, CatalogAdminResource, CatalogAdminResourceKind, Product } from "@celebix/saas-contracts";
 
@@ -61,16 +61,22 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = requestSequence.current + 1;
+    requestSequence.current = sequence;
     setLoading(true);
     setError("");
     setResource(undefined);
+    setProducts([]);
+    setBusy(false);
     try {
       const [resources, catalog] = await Promise.all([
         catalogAdminApi.resources(kind),
         kind === "collection" || kind === "brand" ? catalogApi.listProducts() : Promise.resolve({ items: [] as readonly Product[] }),
       ]);
+      if (requestSequence.current !== sequence) return;
       if (resourceId !== undefined) {
         const selected = selectCatalogResourceForEdit(resources, kind, resourceId);
         if (selected === undefined) {
@@ -81,17 +87,22 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       }
       setProducts(catalog.items);
     } catch (caught) {
-      setError(safeError(caught));
+      if (requestSequence.current === sequence) setError(safeError(caught));
     } finally {
-      setLoading(false);
+      if (requestSequence.current === sequence) setLoading(false);
     }
-  }, [kind, resourceId]);
+  }, [kind, requestSequence, resourceId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestSequence.current += 1; };
+  }, [load, requestSequence]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canManage || (resourceId !== undefined && resource === undefined)) return;
+    if (!canManage || busy) return;
+    if (resourceId === undefined ? resource !== undefined : resource === undefined || resource.id !== resourceId || resource.kind !== kind) return;
+    const sequence = requestSequence.current;
     const data = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
@@ -104,12 +115,14 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
         config: config(kind, data),
         productIds: data.getAll("productId").map(String),
       });
-      router.push(`/products/${route.segment}`);
-      router.refresh();
+      if (requestSequence.current === sequence) {
+        router.push(`/products/${route.segment}`);
+        router.refresh();
+      }
     } catch (caught) {
-      setError(caught instanceof TypeError && caught.message === "catalog_resource_form_invalid" ? "Gönderilen katalog bilgileri geçersiz." : safeError(caught));
+      if (requestSequence.current === sequence) setError(caught instanceof TypeError && caught.message === "catalog_resource_form_invalid" ? "Gönderilen katalog bilgileri geçersiz." : safeError(caught));
     } finally {
-      setBusy(false);
+      if (requestSequence.current === sequence) setBusy(false);
     }
   }
 
