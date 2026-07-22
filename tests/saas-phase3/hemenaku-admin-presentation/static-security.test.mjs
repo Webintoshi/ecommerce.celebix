@@ -6,7 +6,11 @@ import test from "node:test";
 const BASE = "6563a1428434e1974f50af3ffb843eb4067f686a";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const ROOT = new URL("../../../", import.meta.url);
-const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
+const git = (...args) => execFileSync("git", args, {
+  cwd: ROOT,
+  encoding: "utf8",
+  maxBuffer: 64 * 1024 * 1024,
+}).trim();
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
 const readBytes = (path) => readFile(new URL(path, ROOT));
 
@@ -49,18 +53,20 @@ test("exports donor-compatible page primitives and truthful dashboard geometry",
   const styles = await read("apps/customer-panel/components/dashboard/panel-dashboard.module.css");
   assert.match(dashboard, /createMerchantDashboardViewModel/);
   assert.match(dashboard, /<ResponsiveContainer width="100%" height=\{280\}>/);
-  assert.match(dashboard, /<BarChart data=\{dashboard[.]catalog[.]value[.]chart\} accessibilityLayer>/);
+  assert.match(dashboard, /<BarChart[\s\S]*?data=\{dashboard[.]catalog[.]value[.]chart\}[\s\S]*?accessibilityLayer/);
   assert.match(dashboard, /<YAxis allowDecimals=\{false\} \/>/);
   assert.match(dashboard, /<Bar dataKey="value" fill="#FF6A00" radius=\{\[8, 8, 0, 0\]\} \/>/);
   assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length >= 2, true);
-  assert.match(dashboard, /Analiz, müşteri ve sepet verileri bu panelde henüz desteklenmiyor[.]/);
-  for (const capability of ["analytics", "customers", "carts"]) {
-    assert.match(model, new RegExp(`unsupportedAuthority\\(\"${capability}\"\\)`));
-  }
-  assert.match(model, /orders:\s*AuthoritySlice<OrderDashboardSummary>\s*=\s*unsupportedAuthority\("orders"\)/);
+  assert.match(model, /analytics:\s*unsupportedAuthority\("analytics"\)/);
+  assert.match(model, /loadMerchantDashboardSummaries/);
+  assert.match(dashboard, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
+  assert.match(dashboard, /abandonedCartApi[.]getSummary/);
+  assert.match(dashboard, /customerApi[.]summary/);
   assert.match(dashboard, /dashboard\.orders\.value\.totalOrders/);
+  assert.match(dashboard, /dashboard\.carts\.value\.abandoned/);
+  assert.match(dashboard, /dashboard\.customers\.value\.active/);
   assert.doesNotMatch(dashboard, /LineChart|AreaChart|dataKey="(?:revenue|orders|customers|conversion)"/i);
-  assert.doesNotMatch(dashboard, /href=[^\n]*(?:analytics|customers|carts|quick|abandoned)/i);
+  assert.doesNotMatch(dashboard, /href=[^\n]*analytics/i);
   assert.doesNotMatch(dashboard, /TenantContext|storeId|tenantId|principal|membershipId|planId|requestId/);
   assert.match(styles, /[.]metricTabs\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
 });
