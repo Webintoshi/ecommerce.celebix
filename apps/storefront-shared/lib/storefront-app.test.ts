@@ -459,3 +459,12 @@ test("checkout sources contain no raw secret, provider log, off-origin redirect,
     assert.doesNotMatch(source, /Response[.]json\([^)]*(?:token|sealed)|Location[^\n]+paytr[.]com/i, file);
   }
 });
+
+test("the token-free iframe route remains a server-only PayTR boundary", async () => {
+  const runtime = await readFile(new URL("./checkout/runtime.ts", import.meta.url), "utf8");
+  const proxy = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
+  assert.match(runtime, /<iframe src="https:\/\/www[.]paytr[.]com\/odeme\/guvenli\/\$\{token\}"/);
+  assert.doesNotMatch(runtime, /Response[.]json\([^)]*(?:token|sealed)|Location[^\n]+paytr[.]com/i);
+  assert.match(proxy, /frame-src https:\/\/www[.]paytr[.]com/);
+  assert.doesNotMatch(proxy, /frame-src\s+(?:\*|https:(?:\s|$)|'self'(?:\s|$)|[^;\n]*unsafe-inline)/i);
+});

@@ -1780,3 +1780,12 @@ test("effective small shell text colors meet AA without weakening orange brand o
   }
   assertSmallShellContrast(css);
 });
+
+test("quick-order builder keeps private authority out of client props and advertises accessible drawer controls", async () => {
+  const consoleSource = await source("components/orders/QuickOrderLinksConsole.tsx");
+  const css = await source("components/orders/quick-order-links.module.css");
+  assert.doesNotMatch(consoleSource, /(?:tenantId|storeId|principalId|membershipId|planId|tokenDigest|sealedToken|providerConfigId)\b/);
+  assert.match(consoleSource, /aria-(?:label|live|modal)|role="dialog"/);
+  assert.match(consoleSource, /onKeyDown|Escape/);
+  assert.match(css, /min-(?:height|width):\s*48px/);
+});

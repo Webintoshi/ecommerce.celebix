@@ -248,3 +248,24 @@ test("quick-order console is directly routable behind panel access but absent fr
   assert.doesNotMatch(page, /<QuickOrderLinksConsole[^>]+(?:tenant|store|membership|provider|token)/i);
   assert.doesNotMatch(navigation, /quick-links|hızlı sipariş|ödeme linki/i);
 });
+
+test("quick-order routes expose only the reviewed merchant methods and never activate panel navigation", async () => {
+  const routes = [
+    ["../app/api/orders/quick-links/route.ts", ["GET", "POST"]],
+    ["../app/api/orders/quick-links/[linkId]/route.ts", ["GET"]],
+    ["../app/api/orders/quick-links/[linkId]/cancel/route.ts", ["POST"]],
+    ["../app/api/orders/quick-links/[linkId]/duplicate/route.ts", ["POST"]],
+    ["../app/api/orders/quick-links/[linkId]/url/route.ts", ["POST"]],
+    ["../app/api/orders/quick-links/provider/activate/route.ts", ["POST"]],
+    ["../app/api/orders/quick-links/provider/revoke/route.ts", ["POST"]],
+  ] as const;
+  for (const [file, methods] of routes) {
+    const source = await readFile(new URL(file, import.meta.url), "utf8");
+    for (const method of methods) assert.match(source, new RegExp(`export const ${method} = handleDefaultQuickLink`));
+    for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"].filter((candidate) => !(methods as readonly string[]).includes(candidate))) {
+      assert.doesNotMatch(source, new RegExp(`export const ${method} =`));
+    }
+  }
+  const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(navigation, /quick-links|hızlı sipariş|ödeme linki/i);
+});
