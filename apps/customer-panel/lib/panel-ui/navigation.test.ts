@@ -17,6 +17,7 @@ test("contains every and only currently working merchant destination", () => {
     "/",
     "/orders",
     "/orders/quick-links",
+    "/orders/abandoned-carts",
     "/products",
     "/products/new",
     "/setup",
@@ -52,6 +53,12 @@ test("navigation exposes no disabled donor destination", () => {
   assert.doesNotMatch(hrefs, /admin|customers|analytics|marketing|discount|settings/i);
 });
 
+test("selects only the exact abandoned-cart child", () => {
+  assert.equal(isPanelNavigationPathActive("/orders/abandoned-carts", "/orders/abandoned-carts"), true);
+  assert.equal(isPanelNavigationPathActive("/orders/abandoned-carts/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "/orders/abandoned-carts"), true);
+  for (const pathname of ["/orders/abandoned-carts-evil", "/orders%2Fabandoned-carts", "/orders/abandoned-carts?x=1", "/orders//abandoned-carts"]) assert.equal(isPanelNavigationPathActive(pathname, "/orders/abandoned-carts"), false);
+});
+
 test("matches root only at root", () => {
   assert.equal(isPanelNavigationPathActive("/", "/"), true);
   assert.equal(isPanelNavigationPathActive("/setup", "/"), false);
@@ -85,9 +92,9 @@ test("returns immutable navigation and state", () => {
 
 test("maps every supported route to truthful fallback topbar chrome", () => {
   assert.deepEqual(
-    ["/", "/orders", "/orders/quick-links", "/orders/order-123", "/products", "/products/new", "/products/product-123", "/setup"]
+    ["/", "/orders", "/orders/quick-links", "/orders/abandoned-carts", "/orders/abandoned-carts/cart-123", "/orders/order-123", "/products", "/products/new", "/products/product-123", "/setup"]
       .map((pathname) => getPanelRoutePresentation(pathname).title),
-    ["Özet", "Siparişler", "Hızlı Siparişler", "Sipariş ayrıntısı", "Ürün kataloğu", "Yeni ürün oluştur", "Ürün ayrıntısı", "Kurulum durumu"],
+    ["Özet", "Siparişler", "Hızlı Siparişler", "Terk Edilen Sepetler", "Sepet ayrıntısı", "Sipariş ayrıntısı", "Ürün kataloğu", "Yeni ürün oluştur", "Ürün ayrıntısı", "Kurulum durumu"],
   );
 });
 

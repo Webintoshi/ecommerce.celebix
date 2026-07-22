@@ -330,7 +330,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "lucide-react") {
-      return { Home: Icon, Link2: Icon, Package: Icon, Plus: Icon, Settings: Icon, ShoppingBag: Icon };
+      return { Home: Icon, Link2: Icon, Package: Icon, Plus: Icon, Settings: Icon, ShoppingBag: Icon, ShoppingCart: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
@@ -463,6 +463,9 @@ async function renderPanelDashboard(
     }
     if (specifier === "@/lib/order-ui/client") {
       return { orderApi: { getDashboardSummary: async () => undefined } };
+    }
+    if (specifier === "@/lib/abandoned-cart-ui/client") {
+      return { abandonedCartApi: { getSummary: async () => undefined } };
     }
     if (specifier === "@/lib/panel-ui/dashboard-model") {
       return { createMerchantDashboardViewModel };
@@ -1038,7 +1041,7 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
   );
   assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
-  assert.doesNotMatch(view, /href=[^\n]*(?:analytics|customers|carts)|provider(?:Data|Payload)|TenantContext/i);
+  assert.doesNotMatch(view, /href=[^\n]*(?:analytics|customers)|provider(?:Data|Payload)|TenantContext/i);
 });
 
 test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {
@@ -1127,7 +1130,7 @@ test("dashboard presentation renders exact ready catalog data and only real merc
   assert.match(html, /data-chart-values="4,3,1,2,7"/);
   assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 2);
   assert.equal((html.match(/<button[^>]*disabled=""[^>]*aria-disabled="true"/g) ?? []).length, 2);
-  for (const href of ["/orders", "/orders/quick-links", "/products", "/products/new", "/setup"]) {
+  for (const href of ["/orders", "/orders/quick-links", "/orders/abandoned-carts", "/products", "/products/new", "/setup"]) {
     assert.match(html, new RegExp(`href="${href.replaceAll("/", "\\/")}"`));
   }
   assert.doesNotMatch(html, /unsupported-dashboard-title|Desteklenmiyor|Kullanılamıyor|\/api\/admin/);

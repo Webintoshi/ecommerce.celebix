@@ -239,6 +239,7 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
     if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel() { return {}; } };
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({}) };
     if (specifier === "@/lib/order-ui/client") return { orderApi: Object.freeze({}) };
+    if (specifier === "@/lib/abandoned-cart-ui/client") return { abandonedCartApi: Object.freeze({}) };
     if (specifier === "@/lib/panel-ui/dashboard-model") return dashboardModel;
     if (specifier === "./panel-dashboard.module.css") return styles;
     throw new Error(`unexpected_dashboard_import:${specifier}`);
@@ -699,12 +700,13 @@ test("order detail hides every mutation control when server-projected capabiliti
   assert.match(html, /Keten Gömlek/);
 });
 
-test("orders navigation exposes both genuine children with exact activation and safe route titles", async () => {
+test("orders navigation exposes every genuine child with exact activation and safe route titles", async () => {
   const navigation = await import("./panel-ui/navigation.ts");
   const orders = navigation.PANEL_NAVIGATION.find(({ key }) => key === "orders");
   assert.deepEqual(orders?.children?.map(({ label, href }) => [label, href]), [
     ["Tüm Siparişler", "/orders"],
     ["Hızlı Siparişler", "/orders/quick-links"],
+    ["Terk Edilen Sepetler", "/orders/abandoned-carts"],
   ]);
   assert.equal(navigation.isPanelNavigationPathActive("/orders", "/orders"), true);
   assert.equal(navigation.isPanelNavigationPathActive(`/orders/${ORDER_ID}`, "/orders"), true);
@@ -713,8 +715,8 @@ test("orders navigation exposes both genuine children with exact activation and 
   }
   assert.equal(navigation.getPanelRoutePresentation("/orders").title, "Siparişler");
   assert.equal(navigation.getPanelRoutePresentation("/orders/quick-links").title, "Hızlı Siparişler");
+  assert.equal(navigation.getPanelRoutePresentation("/orders/abandoned-carts").title, "Terk Edilen Sepetler");
   assert.equal(navigation.getPanelRoutePresentation(`/orders/${ORDER_ID}`).title, "Sipariş ayrıntısı");
-  assert.doesNotMatch(JSON.stringify(orders), /abandoned|terk/i);
 });
 
 test("dashboard and order pages expose only durable order facts without private authority or fake routes", async () => {
@@ -765,5 +767,5 @@ test("dashboard and order pages expose only durable order facts without private 
   assert.match(model, /unsupportedAuthority\("carts"\)/);
   assert.match(listPage, /OrderListConsole/);
   assert.match(detailPage, /OrderDetailConsole/);
-  assert.doesNotMatch(combined, /TenantContext[^\n]*(?:prop|client)|storeId|principalId|membershipId|\/api\/admin|abandoned-carts/i);
+  assert.doesNotMatch(combined, /TenantContext[^\n]*(?:prop|client)|storeId|principalId|membershipId|\/api\/admin/i);
 });

@@ -1,8 +1,8 @@
-export type PanelNavigationHref = "/" | "/orders" | "/orders/quick-links" | "/products" | "/products/new" | "/setup";
-export type PanelNavigationIcon = "home" | "orders" | "quick-orders" | "products" | "add-product" | "setup";
+export type PanelNavigationHref = "/" | "/orders" | "/orders/quick-links" | "/orders/abandoned-carts" | "/products" | "/products/new" | "/setup";
+export type PanelNavigationIcon = "home" | "orders" | "quick-orders" | "abandoned-carts" | "products" | "add-product" | "setup";
 
 export interface PanelNavigationItem {
-  readonly key: "summary" | "orders" | "all-orders" | "quick-orders" | "catalog" | "products" | "new-product" | "setup";
+  readonly key: "summary" | "orders" | "all-orders" | "quick-orders" | "abandoned-carts" | "catalog" | "products" | "new-product" | "setup";
   readonly label: string;
   readonly href: PanelNavigationHref;
   readonly icon: PanelNavigationIcon;
@@ -14,6 +14,8 @@ export interface PanelRoutePresentation {
     | "Özet"
     | "Siparişler"
     | "Hızlı Siparişler"
+    | "Terk Edilen Sepetler"
+    | "Sepet ayrıntısı"
     | "Sipariş ayrıntısı"
     | "Ürün kataloğu"
     | "Yeni ürün oluştur"
@@ -25,6 +27,8 @@ export const PANEL_ROUTE_PRESENTATIONS = Object.freeze({
   summary: Object.freeze({ title: "Özet" as const }),
   orders: Object.freeze({ title: "Siparişler" as const }),
   quickOrders: Object.freeze({ title: "Hızlı Siparişler" as const }),
+  abandonedCarts: Object.freeze({ title: "Terk Edilen Sepetler" as const }),
+  abandonedCartDetail: Object.freeze({ title: "Sepet ayrıntısı" as const }),
   orderDetail: Object.freeze({ title: "Sipariş ayrıntısı" as const }),
   products: Object.freeze({ title: "Ürün kataloğu" as const }),
   newProduct: Object.freeze({ title: "Yeni ürün oluştur" as const }),
@@ -40,6 +44,7 @@ const CATALOG_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
 const ORDER_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
   Object.freeze({ key: "all-orders", label: "Tüm Siparişler", href: "/orders", icon: "orders" }),
   Object.freeze({ key: "quick-orders", label: "Hızlı Siparişler", href: "/orders/quick-links", icon: "quick-orders" }),
+  Object.freeze({ key: "abandoned-carts", label: "Terk Edilen Sepetler", href: "/orders/abandoned-carts", icon: "abandoned-carts" }),
 ]);
 
 export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
@@ -79,6 +84,8 @@ export function getPanelRoutePresentation(pathname: string): PanelRoutePresentat
   }
   if (pathname === "/orders") return PANEL_ROUTE_PRESENTATIONS.orders;
   if (pathname === "/orders/quick-links") return PANEL_ROUTE_PRESENTATIONS.quickOrders;
+  if (pathname === "/orders/abandoned-carts") return PANEL_ROUTE_PRESENTATIONS.abandonedCarts;
+  if (pathname.startsWith("/orders/abandoned-carts/") && !pathname.slice("/orders/abandoned-carts/".length).includes("/")) return PANEL_ROUTE_PRESENTATIONS.abandonedCartDetail;
   if (pathname === "/products") return PANEL_ROUTE_PRESENTATIONS.products;
   if (pathname === "/products/new") return PANEL_ROUTE_PRESENTATIONS.newProduct;
   if (pathname === "/setup") return PANEL_ROUTE_PRESENTATIONS.setup;

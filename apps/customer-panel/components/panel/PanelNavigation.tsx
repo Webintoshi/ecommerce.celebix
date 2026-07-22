@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Link2, Package, Plus, Settings, ShoppingBag, type LucideIcon } from "lucide-react";
+import { Home, Link2, Package, Plus, Settings, ShoppingBag, ShoppingCart, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   home: Home,
   orders: ShoppingBag,
   "quick-orders": Link2,
+  "abandoned-carts": ShoppingCart,
   products: Package,
   "add-product": Plus,
   setup: Settings,

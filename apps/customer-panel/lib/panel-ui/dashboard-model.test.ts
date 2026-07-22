@@ -38,6 +38,7 @@ test("offers every and only working merchant action", () => {
   assert.deepEqual(createPanelDashboardModel(chrome).actions.map((action) => action.href), [
     "/orders",
     "/orders/quick-links",
+    "/orders/abandoned-carts",
     "/products",
     "/products/new",
     "/setup",
@@ -47,7 +48,7 @@ test("offers every and only working merchant action", () => {
 test("emits no fake commerce KPI or deferred module", () => {
   assert.doesNotMatch(
     JSON.stringify(createPanelDashboardModel(chrome)),
-    /revenue|ciro|conversion|dönüşüm|visitor|sepet|customer|analytics|stok toplamı/i,
+    /revenue|ciro|conversion|dönüşüm|visitor|customer|analytics|stok toplamı/i,
   );
 });
 
@@ -153,4 +154,18 @@ test("keeps dashboard slices deeply frozen", () => {
 test("maps catalog failure to controlled retry state", () => {
   const model = createMerchantDashboardViewModel(chrome, unavailableAuthority(true));
   assert.deepEqual(model.catalog, { state: "unavailable", retryable: true });
+});
+
+test("maps only durable abandoned-cart summary facts without inventing a recovery rate", () => {
+  const cartSummary = { abandoned: 3, recovered: 2, lostValueCents: 15_000, recoveredValueCents: 8_000, currency: "TRY", asOf: "2026-07-22T16:00:00.000Z" };
+  const model = createMerchantDashboardViewModel(
+    chrome,
+    unavailableAuthority(true),
+    undefined,
+    readyAuthority(cartSummary, cartSummary.asOf),
+  );
+  assert.deepEqual(model.carts, { state: "ready", value: cartSummary, asOf: cartSummary.asOf });
+  assert.doesNotMatch(JSON.stringify(model.carts), /rate|oran|conversion/i);
+  assert.equal(Object.isFrozen(model.carts), true);
+  assert.equal(model.carts.state === "ready" && Object.isFrozen(model.carts.value), true);
 });

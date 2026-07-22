@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { OrderDashboardSummary } from "@celebix/saas-contracts";
+import type { AbandonedCartSummary, OrderDashboardSummary } from "@celebix/saas-contracts";
 
 import {
   PanelActionButton,
@@ -22,6 +22,7 @@ import {
 import { usePanelChromeModel } from "@/components/panel/PanelLayoutClient";
 import { catalogApi, type CatalogDashboardSummary } from "@/lib/catalog-ui/client";
 import { orderApi } from "@/lib/order-ui/client";
+import { abandonedCartApi } from "@/lib/abandoned-cart-ui/client";
 import type { AuthoritySlice } from "@/lib/panel-ui/authority-slice";
 import {
   createMerchantDashboardViewModel,
@@ -40,6 +41,12 @@ const unavailableOrders = (retryable: boolean): AuthoritySlice<OrderDashboardSum
   Object.freeze({ state: "unavailable", retryable });
 
 const readyOrders = (value: OrderDashboardSummary): AuthoritySlice<OrderDashboardSummary> =>
+  Object.freeze({ state: "ready", value, asOf: value.asOf });
+
+const unavailableCarts = (retryable: boolean): AuthoritySlice<AbandonedCartSummary> =>
+  Object.freeze({ state: "unavailable", retryable });
+
+const readyCarts = (value: AbandonedCartSummary): AuthoritySlice<AbandonedCartSummary> =>
   Object.freeze({ state: "ready", value, asOf: value.asOf });
 
 function orderMoney(cents: number, currency: string) {
@@ -73,13 +80,16 @@ export function PanelDashboardPresentation({
   onRefresh,
   state,
   ordersState,
+  cartsState,
 }: {
   dashboard: MerchantDashboardViewModel;
   onRefresh: () => void;
   state: "loading" | "loaded" | "error";
   ordersState?: "loading" | "loaded" | "error" | "unsupported";
+  cartsState?: "loading" | "loaded" | "error" | "unsupported";
 }) {
   const activeOrdersState = ordersState ?? (dashboard.orders.state === "ready" ? "loaded" : "unsupported");
+  const activeCartsState = cartsState ?? (dashboard.carts.state === "ready" ? "loaded" : "unsupported");
   return (
     <PanelPageShell>
       <PanelPageHeader
@@ -217,6 +227,26 @@ export function PanelDashboardPresentation({
         </section>
       ) : null}
 
+      {activeCartsState === "loading" ? (
+        <section className={styles.catalogSurface} role="status" aria-label="Terk edilen sepet özeti yükleniyor"><div className={styles.metricTabs}>{Array.from({ length: 4 }, (_, index) => <article className={styles.skeletonCard} aria-hidden="true" key={index}><span className={styles.skeletonLine} /><span className={styles.skeletonLine} /></article>)}</div></section>
+      ) : null}
+
+      {activeCartsState === "error" && dashboard.carts.state === "unavailable" ? (
+        <div className={styles.errorState} role="alert"><div><h2>Terk edilen sepet özeti yüklenemedi</h2><p>Doğrulanmış sepet verileri şu anda kullanılamıyor.</p></div><DashboardRefreshButton label="Tekrar dene" onRefresh={onRefresh} state="error" /></div>
+      ) : null}
+
+      {activeCartsState === "loaded" && dashboard.carts.state === "ready" ? (
+        <section className={styles.catalogSurface} aria-labelledby="cart-summary-title">
+          <div className={styles.chartPanel}><div className={styles.sectionHeader}><div><h2 id="cart-summary-title">Terk edilen sepet özeti</h2><p>Son doğrulama: {new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(dashboard.carts.value.asOf))}</p></div><PanelActionButton href="/orders/abandoned-carts">Sepetleri incele</PanelActionButton></div></div>
+          <div className={styles.metricTabs} role="list" aria-label="Terk edilen sepet metrikleri">
+            <article className={styles.metricTab} role="listitem"><p>Terk edilen</p><strong>{dashboard.carts.value.abandoned.toLocaleString("tr-TR")}</strong><span>Takip bekleyen sepet</span></article>
+            <article className={styles.metricTab} role="listitem"><p>Kurtarılan</p><strong>{dashboard.carts.value.recovered.toLocaleString("tr-TR")}</strong><span>Kalıcı kurtarma kaydı</span></article>
+            <article className={styles.metricTab} role="listitem"><p>Kayıp değer</p><strong>{orderMoney(dashboard.carts.value.lostValueCents, dashboard.carts.value.currency)}</strong><span>Terk edilmiş sepet toplamı</span></article>
+            <article className={styles.metricTab} role="listitem"><p>Kurtarılan değer</p><strong>{orderMoney(dashboard.carts.value.recoveredValueCents, dashboard.carts.value.currency)}</strong><span>Kanıtlanmış kurtarma toplamı</span></article>
+          </div>
+        </section>
+      ) : null}
+
       <PanelPanel title="Hızlı işlemler">
         <div className={styles.actionRail}>
           {dashboard.actions.map((action) => (
@@ -236,17 +266,27 @@ export function PanelDashboardHomeView() {
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
   const [orders, setOrders] = useState<AuthoritySlice<OrderDashboardSummary>>(() => unavailableOrders(false));
   const [ordersState, setOrdersState] = useState<"loading" | "loaded" | "error">("loading");
+  const [carts, setCarts] = useState<AuthoritySlice<AbandonedCartSummary>>(() => unavailableCarts(false));
+  const [cartsState, setCartsState] = useState<"loading" | "loaded" | "error">("loading");
   const requestSequence = useRef(0);
   const load = useCallback(async () => {
     const sequence = ++requestSequence.current;
     setState("loading");
     setOrdersState("loading");
-    const [catalogResult, orderResult] = await loadMerchantDashboardSummaries(catalogApi, orderApi);
+    setCartsState("loading");
+    const [baseResults, cartResults] = await Promise.all([
+      loadMerchantDashboardSummaries(catalogApi, orderApi),
+      Promise.allSettled([abandonedCartApi.getSummary()]),
+    ]);
+    const [catalogResult, orderResult] = baseResults;
+    const [cartResult] = cartResults;
     if (sequence !== requestSequence.current) return;
     if (catalogResult.status === "fulfilled") { setCatalog(readyCatalog(catalogResult.value)); setState("loaded"); }
     else { setCatalog(unavailableCatalog(true)); setState("error"); }
     if (orderResult.status === "fulfilled") { setOrders(readyOrders(orderResult.value)); setOrdersState("loaded"); }
     else { setOrders(unavailableOrders(true)); setOrdersState("error"); }
+    if (cartResult?.status === "fulfilled") { setCarts(readyCarts(cartResult.value)); setCartsState("loaded"); }
+    else { setCarts(unavailableCarts(true)); setCartsState("error"); }
   }, []);
 
   useEffect(() => {
@@ -254,13 +294,14 @@ export function PanelDashboardHomeView() {
     return () => { requestSequence.current += 1; };
   }, [load]);
 
-  const dashboard = createMerchantDashboardViewModel(chrome, catalog, orders);
+  const dashboard = createMerchantDashboardViewModel(chrome, catalog, orders, carts);
   return (
     <PanelDashboardPresentation
       dashboard={dashboard}
       onRefresh={() => { void load(); }}
       state={state}
       ordersState={ordersState}
+      cartsState={cartsState}
     />
   );
 }

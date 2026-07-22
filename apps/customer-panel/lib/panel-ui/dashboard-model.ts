@@ -1,6 +1,6 @@
 import type { PanelChromeModel } from "./chrome-model.ts";
 import type { CatalogDashboardSummary } from "../catalog-ui/client.ts";
-import type { OrderDashboardSummary } from "@celebix/saas-contracts";
+import type { AbandonedCartSummary, OrderDashboardSummary } from "@celebix/saas-contracts";
 import {
   readyAuthority,
   unsupportedAuthority,
@@ -17,7 +17,7 @@ export interface PanelDashboardCard {
 
 export interface PanelDashboardAction {
   readonly label: string;
-  readonly href: "/orders" | "/orders/quick-links" | "/products" | "/products/new" | "/setup";
+  readonly href: "/orders" | "/orders/quick-links" | "/orders/abandoned-carts" | "/products" | "/products/new" | "/setup";
 }
 
 export interface PanelDashboardCatalogCard {
@@ -64,7 +64,7 @@ export interface MerchantDashboardViewModel {
   readonly orders: AuthoritySlice<OrderDashboardViewModel>;
   readonly analytics: AuthoritySlice<never>;
   readonly customers: AuthoritySlice<never>;
-  readonly carts: AuthoritySlice<never>;
+  readonly carts: AuthoritySlice<AbandonedCartSummary>;
   readonly actions: readonly PanelDashboardAction[];
 }
 
@@ -111,6 +111,7 @@ export function createPanelDashboardModel(
   const actions = Object.freeze([
     Object.freeze({ label: "Siparişleri yönet", href: "/orders" as const }),
     Object.freeze({ label: "Hızlı sipariş oluştur", href: "/orders/quick-links" as const }),
+    Object.freeze({ label: "Terk edilen sepetleri yönet", href: "/orders/abandoned-carts" as const }),
     Object.freeze({ label: "Ürünleri yönet", href: "/products" as const }),
     Object.freeze({ label: "Yeni ürün ekle", href: "/products/new" as const }),
     Object.freeze({ label: "Kurulumu gözden geçir", href: "/setup" as const }),
@@ -206,6 +207,7 @@ export function createMerchantDashboardViewModel(
   chrome: PanelChromeModel,
   catalog: AuthoritySlice<CatalogDashboardSummary>,
   orders: AuthoritySlice<OrderDashboardSummary> = unsupportedAuthority("orders"),
+  carts: AuthoritySlice<AbandonedCartSummary> = unsupportedAuthority("carts"),
 ): MerchantDashboardViewModel {
   const legacy = createPanelDashboardModel(chrome);
   const catalogView = catalog.state === "ready"
@@ -229,7 +231,7 @@ export function createMerchantDashboardViewModel(
     orders: orderView,
     analytics: unsupportedAuthority("analytics"),
     customers: unsupportedAuthority("customers"),
-    carts: unsupportedAuthority("carts"),
+    carts: carts.state === "ready" ? readyAuthority(carts.value, carts.value.asOf) : carts,
     actions: legacy.actions,
   });
 }

@@ -40,6 +40,21 @@ test("exports only the exact authenticated order route methods", async () => {
   }
 });
 
+test("exports only the exact authenticated abandoned-cart route methods", async () => {
+  const routes = [
+    ["../app/api/orders/abandoned-carts/summary/route.ts", "GET", "handleDefaultAbandonedCartSummary"],
+    ["../app/api/orders/abandoned-carts/route.ts", "GET", "handleDefaultAbandonedCartList"],
+    ["../app/api/orders/abandoned-carts/[cartId]/route.ts", "GET", "handleDefaultAbandonedCartGet"],
+    ["../app/api/orders/abandoned-carts/[cartId]/recovered/route.ts", "POST", "handleDefaultAbandonedCartRecovered"],
+    ["../app/api/orders/abandoned-carts/[cartId]/archive/route.ts", "POST", "handleDefaultAbandonedCartArchive"],
+  ] as const;
+  for (const [path, method, handler] of routes) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, new RegExp(`export const ${method} = ${handler};`));
+    for (const denied of ["GET", "POST", "PUT", "PATCH", "DELETE"].filter((candidate) => candidate !== method)) assert.doesNotMatch(source, new RegExp(`export const ${denied}`));
+  }
+});
+
 test("panel origin and fixed redirects derive from the single callback authority", async () => {
   const config = await load("./config.ts");
   const source = await readFile(new URL("./config.ts", import.meta.url), "utf8");
