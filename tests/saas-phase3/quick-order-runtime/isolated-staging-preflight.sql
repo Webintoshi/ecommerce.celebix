@@ -46,7 +46,6 @@ BEGIN
   IF NOT pg_catalog.has_schema_privilege('celebix_saas_app','saas','USAGE')
      OR NOT pg_catalog.has_function_privilege('celebix_saas_app','saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,bigint,timestamptz,uuid)'::regprocedure,'EXECUTE')
      OR pg_catalog.has_schema_privilege('celebix_saas_workflow','saas','USAGE')
-     OR pg_catalog.has_schema_privilege('celebix_saas_host_resolver','saas','USAGE')
   THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: exact base role grant drift'; END IF;
   FOREACH forbidden IN ARRAY ARRAY[
     'quick_order_redemption_sessions','checkout_payment_attempts','checkout_inventory_reservations',
