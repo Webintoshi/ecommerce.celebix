@@ -108,9 +108,14 @@ export {
 export {
   MERCHANT_ADMIN_RECORD_KINDS,
   MERCHANT_ADMIN_EVENT_KINDS,
+  MERCHANT_ADMIN_PROVIDER_ACTIONS,
+  MERCHANT_ADMIN_PROVIDER_JOB_STATUSES,
+  MERCHANT_ADMIN_PROVIDER_RECORD_KINDS,
   parseMerchantAdminConfig,
   parseMerchantAdminEvent,
   parseMerchantAdminMutationResult,
+  parseMerchantAdminProviderJob,
+  parseMerchantAdminProviderJobMutationResult,
   parseMerchantAdminRecord,
 } from "./merchant-admin/index.ts";
 export type {
@@ -118,6 +123,11 @@ export type {
   MerchantAdminEvent,
   MerchantAdminEventKind,
   MerchantAdminMutationResult,
+  MerchantAdminProviderAction,
+  MerchantAdminProviderJob,
+  MerchantAdminProviderJobMutationResult,
+  MerchantAdminProviderJobStatus,
+  MerchantAdminProviderRecordKind,
   MerchantAdminRecord,
   MerchantAdminRecordKind,
   MerchantAdminRecordStatus,

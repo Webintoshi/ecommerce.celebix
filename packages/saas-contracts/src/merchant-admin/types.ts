@@ -15,3 +15,37 @@ export interface MerchantAdminMutationResult { readonly id: string; readonly kin
 export const MERCHANT_ADMIN_EVENT_KINDS = Object.freeze(["saved", "archived", "coupon_used", "wheel_spin", "delivery_attempt", "sync_job", "invoice_reconciled", "indexing_job"] as const);
 export type MerchantAdminEventKind = (typeof MERCHANT_ADMIN_EVENT_KINDS)[number];
 export interface MerchantAdminEvent { readonly id: string; readonly recordId: string; readonly recordKind: MerchantAdminRecordKind; readonly eventKind: MerchantAdminEventKind; readonly summary: Readonly<Record<string, MerchantAdminJson>>; readonly occurredAt: string }
+
+export const MERCHANT_ADMIN_PROVIDER_ACTIONS = Object.freeze([
+  "delivery", "synchronization", "reconciliation", "indexing",
+] as const);
+export type MerchantAdminProviderAction = (typeof MERCHANT_ADMIN_PROVIDER_ACTIONS)[number];
+export const MERCHANT_ADMIN_PROVIDER_RECORD_KINDS = Object.freeze([
+  "email_campaign", "phone_campaign", "whatsapp_campaign",
+  "marketplace_connection", "invoice_integration", "indexing_request",
+] as const satisfies readonly MerchantAdminRecordKind[]);
+export type MerchantAdminProviderRecordKind = (typeof MERCHANT_ADMIN_PROVIDER_RECORD_KINDS)[number];
+export const MERCHANT_ADMIN_PROVIDER_JOB_STATUSES = Object.freeze([
+  "awaiting_provider_activation", "cancelled",
+] as const);
+export type MerchantAdminProviderJobStatus = (typeof MERCHANT_ADMIN_PROVIDER_JOB_STATUSES)[number];
+export interface MerchantAdminProviderJob {
+  readonly id: string;
+  readonly recordId: string;
+  readonly recordKind: MerchantAdminProviderRecordKind;
+  readonly action: MerchantAdminProviderAction;
+  readonly status: MerchantAdminProviderJobStatus;
+  readonly version: number;
+  readonly requestedAt: string;
+  readonly updatedAt: string;
+}
+export interface MerchantAdminProviderJobMutationResult {
+  readonly id: string;
+  readonly recordId: string;
+  readonly recordKind: MerchantAdminProviderRecordKind;
+  readonly action: MerchantAdminProviderAction;
+  readonly status: MerchantAdminProviderJobStatus;
+  readonly version: number;
+  readonly updatedAt: string;
+  readonly replayed: boolean;
+}
