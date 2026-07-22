@@ -13,6 +13,10 @@ const MIGRATIONS = Object.freeze([
   "202607220028_quick_order_redemption_expiry_authority",
   "202607220029_quick_order_settlement_authority",
 ]);
+const RUNTIME_MANIFEST = `${SQL_ROOT}/phase3b2-quick-order-runtime-manifest.json`;
+const REQUIRED_RUNTIME_ARTIFACTS = Object.freeze(MIGRATIONS.flatMap((migration) => [
+  `${migration}.up.sql`, `${migration}.down.sql`, `${migration}_assertions.sql`,
+]));
 const UNSAFE_AUTHORITY = /(?:production|prod|live|main)/i;
 
 function fail(message) {
@@ -49,12 +53,14 @@ function verifySourceArtifacts(deps, sourceSha) {
   const manifests = git(deps, ["ls-tree", "-r", "--name-only", sourceSha, "--", SQL_ROOT])
     .split("\n").filter((file) => file.endsWith("-manifest.json"));
   if (manifests.length === 0) fail("source SHA has no immutable migration manifests");
+  let runtimeManifest;
   for (const manifestPath of manifests) {
     const sourceManifest = sourceArtifact(deps, sourceSha, manifestPath);
     const localManifest = String(deps.readFile(path.join(deps.cwd, manifestPath)));
     if (localManifest !== sourceManifest) fail("local manifest bytes do not match source SHA");
     let manifest;
     try { manifest = JSON.parse(sourceManifest); } catch { fail("source manifest is invalid JSON"); }
+    if (manifestPath === RUNTIME_MANIFEST) runtimeManifest = manifest;
     if (!Array.isArray(manifest.artifacts)) fail("source manifest artifacts are invalid");
     for (const artifact of manifest.artifacts) {
       if (typeof artifact?.file !== "string" || !/^[a-f0-9]{64}$/.test(artifact?.sha256 ?? "")) fail("source manifest artifact is invalid");
@@ -64,6 +70,7 @@ function verifySourceArtifacts(deps, sourceSha) {
       if (local !== source || createHash("sha256").update(local).digest("hex") !== artifact.sha256) fail("local migration artifact bytes do not match source SHA");
     }
   }
+  if (!runtimeManifest || [...runtimeManifest.artifacts ?? []].map((artifact) => artifact.file).sort().join("\n") !== [...REQUIRED_RUNTIME_ARTIFACTS].sort().join("\n")) fail("source SHA does not contain the exact 026-029 artifact set");
 }
 
 function databaseConnection(env) {
@@ -121,6 +128,8 @@ export function runIsolatedStaging(argv, supplied = {}) {
   const environment = databaseConnection(deps.env);
   const connection = { deps, environment };
   assertEnvironment(deps.env, connection);
+  psqlFile(deps, environment, path.join(deps.cwd, SQL_ROOT, "202607220024_quick_order_links_assertions.sql"));
+  psqlFile(deps, environment, path.join(deps.cwd, SQL_ROOT, "202607220025_quick_order_links_api_assertions.sql"));
   psqlFile(deps, environment, PRECHECK);
   const backupDirectory = deps.mkdtemp(path.join(tmpdir(), "celebix-isolated-staging-"));
   deps.mkdir(backupDirectory, { recursive: true, mode: 0o700 });

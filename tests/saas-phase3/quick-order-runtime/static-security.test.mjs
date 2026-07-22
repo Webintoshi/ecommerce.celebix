@@ -35,6 +35,12 @@ test("pins donor, admin immutability, current 026-029 manifest bytes and least-p
   const manifest = JSON.parse(await read(MANIFEST));
   assert.equal(manifest.postgresqlMajor, 16);
   assert.equal(manifest.artifacts.length, 12);
+  assert.deepEqual(manifest.artifacts.map(({ file }) => file).sort(), [
+    "202607220026_quick_order_checkout_runtime.up.sql", "202607220026_quick_order_checkout_runtime.down.sql", "202607220026_quick_order_checkout_runtime_assertions.sql",
+    "202607220027_quick_order_checkout_api.up.sql", "202607220027_quick_order_checkout_api.down.sql", "202607220027_quick_order_checkout_api_assertions.sql",
+    "202607220028_quick_order_redemption_expiry_authority.up.sql", "202607220028_quick_order_redemption_expiry_authority.down.sql", "202607220028_quick_order_redemption_expiry_authority_assertions.sql",
+    "202607220029_quick_order_settlement_authority.up.sql", "202607220029_quick_order_settlement_authority.down.sql", "202607220029_quick_order_settlement_authority_assertions.sql",
+  ].sort());
   for (const artifact of manifest.artifacts) {
     assert.match(artifact.file, /^20260722002[6-9]_quick_order_/);
     const source = await read(`${SQL}${artifact.file}`);

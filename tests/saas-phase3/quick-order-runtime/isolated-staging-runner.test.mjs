@@ -7,12 +7,14 @@ const runner = await import("./isolated-staging-runner.mjs");
 
 const SHA = "a".repeat(40);
 const MANIFEST = "apps/owner/scripts/sql/saas/phase3b2-quick-order-runtime-manifest.json";
-const ARTIFACT = "apps/owner/scripts/sql/saas/202607220026_quick_order_checkout_runtime.up.sql";
+const ARTIFACTS = ["202607220026_quick_order_checkout_runtime","202607220027_quick_order_checkout_api","202607220028_quick_order_redemption_expiry_authority","202607220029_quick_order_settlement_authority"].flatMap((name) => [
+  `${name}.up.sql`, `${name}.down.sql`, `${name}_assertions.sql`,
+]);
 
 function dependencies(overrides = {}) {
   const calls = [];
-  const artifact = "SELECT 1;\n";
-  const manifest = JSON.stringify({ artifacts: [{ file: ARTIFACT.slice("apps/owner/scripts/sql/saas/".length), sha256: createHash("sha256").update(artifact).digest("hex") }] });
+  const artifacts = Object.fromEntries(ARTIFACTS.map((file) => [file, `SELECT ${JSON.stringify(file)};\n`]));
+  const manifest = JSON.stringify({ artifacts: ARTIFACTS.map((file) => ({ file, sha256: createHash("sha256").update(artifacts[file]).digest("hex") })) });
   return {
     calls,
     env: {
@@ -24,7 +26,9 @@ function dependencies(overrides = {}) {
     cwd: "/safe/repository",
     readFile(path) {
       if (path.endsWith(MANIFEST)) return manifest;
-      if (path.endsWith(ARTIFACT)) return artifact;
+      const file = ARTIFACTS.find((candidate) => path.endsWith(candidate));
+      if (file) return artifacts[file];
+      if (path.endsWith("202607220024_quick_order_links_assertions.sql") || path.endsWith("202607220025_quick_order_links_api_assertions.sql")) return "SELECT 1;";
       if (path.endsWith("isolated-staging-preflight.sql")) return "SELECT 1;";
       throw new Error(`unexpected read ${path}`);
     },
@@ -35,7 +39,11 @@ function dependencies(overrides = {}) {
       calls.push(["git", args]);
       if (args[0] === "rev-parse") return SHA;
       if (args[0] === "ls-tree") return MANIFEST;
-      if (args[0] === "show") return args[1].endsWith(MANIFEST) ? manifest : artifact;
+      if (args[0] === "show") {
+        if (args[1].endsWith(MANIFEST)) return manifest;
+        const file = ARTIFACTS.find((candidate) => args[1].endsWith(candidate));
+        if (file) return artifacts[file];
+      }
       throw new Error(`unexpected git ${args.join(" ")}`);
     },
     spawn(command, args, options) {
@@ -73,6 +81,13 @@ test("apply verifies local and source manifest bytes, then preflights, backs up,
   const sql = processes.filter(([, command]) => command === "psql").slice(1).map(([, , args]) => args.join(" ")).join("\n");
   assert.match(sql, /isolated-staging-preflight[.]sql/);
   for (const migration of ["026_quick_order_checkout_runtime", "027_quick_order_checkout_api", "028_quick_order_redemption_expiry_authority", "029_quick_order_settlement_authority"]) assert.match(sql, new RegExp(migration));
+  const sequence = processes.map(([, command, args]) => `${command}:${args.join(" ")}`);
+  const at = (fragment) => sequence.findIndex((entry) => entry.includes(fragment));
+  assert.ok(at("isolated-staging-preflight.sql") < at("pg_dump:-Fc"));
+  assert.ok(at("pg_dump:-Fc") < at("026_quick_order_checkout_runtime.up.sql"));
+  assert.ok(at("026_quick_order_checkout_runtime.up.sql") < at("027_quick_order_checkout_api.up.sql"));
+  assert.ok(at("027_quick_order_checkout_api.up.sql") < at("028_quick_order_redemption_expiry_authority.up.sql"));
+  assert.ok(at("028_quick_order_redemption_expiry_authority.up.sql") < at("029_quick_order_settlement_authority.up.sql"));
   assert.ok(processes.findIndex(([, command]) => command === "pg_dump") < processes.findIndex(([, command, args]) => command === "psql" && args.join(" ").includes("026_quick_order_checkout_runtime.up.sql")), "custom backup precedes every DDL migration");
   for (const process of processes.filter(([, command, args]) => command === "psql" && /20260722002[6-9]_quick_order_.*[.]up[.]sql/.test(args.join(" ")))) assert.equal(process[2].includes("--single-transaction"), true);
   assert.equal(deps.calls.some(([kind, value]) => kind === "mkdir" && value === "/safe/backup"), true);
