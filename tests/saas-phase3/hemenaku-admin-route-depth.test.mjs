@@ -27,6 +27,7 @@ const routeDepthPages = Object.freeze([
   "apps/customer-panel/app/content/blog/[recordId]/edit/page.tsx",
   "apps/customer-panel/app/content/pages/new/page.tsx",
   "apps/customer-panel/app/content/pages/[recordId]/edit/page.tsx",
+  "apps/customer-panel/app/content/policies/new/page.tsx",
   "apps/customer-panel/app/content/policies/[recordId]/edit/page.tsx",
   "apps/customer-panel/app/settings/payment/new/page.tsx",
   "apps/customer-panel/app/settings/payment/[recordId]/edit/page.tsx",
@@ -57,12 +58,27 @@ function read(path) {
   return readFile(new URL(path, ROOT), "utf8");
 }
 
+function assertExecutedServerAccess(source, file) {
+  const routeStart = source.indexOf("export default async function");
+  const accessCall = source.indexOf("requireServerPanelAccess()", routeStart);
+  const firstReturn = source.indexOf("return ", routeStart);
+  const routeBeforeRendering = source.slice(routeStart, firstReturn);
+
+  assert.ok(routeStart >= 0, `${file} must export an async server page`);
+  assert.ok(accessCall > routeStart && accessCall < firstReturn, `${file} must call server access before rendering`);
+  assert.match(
+    routeBeforeRendering,
+    /await\s+(?:requireServerPanelAccess\(\)|Promise\.all\(\[[\s\S]*?requireServerPanelAccess\(\)[\s\S]*?\]\))/,
+    `${file} must await server access before rendering`,
+  );
+}
+
 test("route-depth pages remain authority-safe and server-gated", async () => {
-  assert.equal(routeDepthPages.length, 23);
+  assert.equal(routeDepthPages.length, 24);
 
   for (const file of routeDepthPages) {
     const source = await read(file);
-    assert.match(source, /requireServerPanelAccess/);
+    assertExecutedServerAccess(source, file);
     assert.doesNotMatch(source, forbiddenBrowserAuthority);
     assert.doesNotMatch(source, /(?:tenantContext|access)\s*=\s*\{[^}]*\}/);
   }
@@ -74,15 +90,46 @@ test("route-depth pages remain authority-safe and server-gated", async () => {
   }
 });
 
-test("route-depth mutations receive an explicit server-derived capability", async () => {
-  const mutatingPages = routeDepthPages.filter((file) => !file.endsWith("/print/page.tsx") && !file.endsWith("/preview/page.tsx"));
+test("route-depth mutations receive a concrete server-derived capability or server rejection", async () => {
+  const capabilityBoundRoutes = [
+    ["apps/customer-panel/app/content/page.tsx", "MerchantFamilyOverview", "content.manage"],
+    ["apps/customer-panel/app/settings/page.tsx", "MerchantFamilyOverview", "configuration.manage"],
+    ["apps/customer-panel/app/products/collections/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/collections/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/brands/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/brands/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/attributes/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/attributes/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/extras/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/extras/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/definitions/new/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/products/definitions/[resourceId]/edit/page.tsx", "CatalogResourceEditor", "catalog_admin.manage"],
+    ["apps/customer-panel/app/discounts/[recordId]/edit/page.tsx", "MerchantRecordEditor", "promotions.manage"],
+    ["apps/customer-panel/app/content/blog/new/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/content/blog/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/content/pages/new/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/content/pages/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/content/policies/new/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/content/policies/[recordId]/edit/page.tsx", "MerchantRecordEditor", "content.manage"],
+    ["apps/customer-panel/app/settings/payment/new/page.tsx", "MerchantRecordEditor", "configuration.manage"],
+    ["apps/customer-panel/app/settings/payment/[recordId]/edit/page.tsx", "MerchantRecordEditor", "configuration.manage"],
+  ];
 
-  for (const file of mutatingPages) {
+  for (const [file, component, action] of capabilityBoundRoutes) {
     const source = await read(file);
-    const passesCapabilityToTheClient = /canManage=\{isMerchantActionAllowed\(/.test(source);
-    const rejectsBeforeRenderingTheClient = /const canManage = isMerchantActionAllowed\([\s\S]*?if \(!canManage\) return <p role="alert">/.test(source);
-    assert.equal(passesCapabilityToTheClient || rejectsBeforeRenderingTheClient, true, file);
+    assert.match(source, /const \{ tenantContext \} = await requireServerPanelAccess\(\);/, file);
+    assert.match(
+      source,
+      new RegExp(`<${component}\\b[^>]*\\bcanManage=\\{isMerchantActionAllowed\\(tenantContext\\.membership\\.role, "${action.replace(".", "\\.")}"\\)\\}`),
+      file,
+    );
   }
+
+  const customerEdit = await read("apps/customer-panel/app/customers/[customerId]/edit/page.tsx");
+  assert.match(customerEdit, /const \[\{ customerId \}, access\] = await Promise\.all\(\[params, requireServerPanelAccess\(\)\]\);/);
+  assert.match(customerEdit, /const canManage = isMerchantActionAllowed\(access\.tenantContext\.membership\.role, "customers\.manage"\);/);
+  assert.match(customerEdit, /if \(!canManage\) return <p role="alert">/);
+  assert.match(customerEdit, /return <CustomerEditConsole customerId=\{customerId\} \/>;/);
 });
 
 test("route-depth source keeps finite route bindings and canonical editor targets", async () => {
