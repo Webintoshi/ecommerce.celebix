@@ -128,9 +128,10 @@ export function runIsolatedStaging(argv, supplied = {}) {
   const environment = databaseConnection(deps.env);
   const connection = { deps, environment };
   assertEnvironment(deps.env, connection);
-  psqlFile(deps, environment, path.join(deps.cwd, SQL_ROOT, "202607220024_quick_order_links_assertions.sql"));
-  psqlFile(deps, environment, path.join(deps.cwd, SQL_ROOT, "202607220025_quick_order_links_api_assertions.sql"));
-  psqlFile(deps, environment, PRECHECK);
+  const readOnlyEnvironment = Object.freeze({ ...environment, PGOPTIONS: "-c default_transaction_read_only=on" });
+  psqlFile(deps, readOnlyEnvironment, path.join(deps.cwd, SQL_ROOT, "202607220024_quick_order_links_assertions.sql"));
+  psqlFile(deps, readOnlyEnvironment, path.join(deps.cwd, SQL_ROOT, "202607220025_quick_order_links_api_assertions.sql"));
+  psqlFile(deps, readOnlyEnvironment, PRECHECK);
   const backupDirectory = deps.mkdtemp(path.join(tmpdir(), "celebix-isolated-staging-"));
   deps.mkdir(backupDirectory, { recursive: true, mode: 0o700 });
   deps.chmod(backupDirectory, 0o700);

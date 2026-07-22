@@ -9,6 +9,8 @@ const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const ROOT = new URL("../../../", import.meta.url);
 const SQL = "apps/owner/scripts/sql/saas/";
 const MANIFEST = `${SQL}phase3b2-quick-order-runtime-manifest.json`;
+const EXPECTED_CHANGED_FILE_COUNT = 120;
+const EXPECTED_CHANGED_FILE_SHA256 = "f0a797a3eaf93034d7c7fe2c928b215cc9646cf230c5854398a998cf4660fd80";
 const read = (file) => readFile(new URL(file, ROOT), "utf8");
 
 function git(args) {
@@ -27,6 +29,11 @@ function addedLines() {
     }
     return !testFixture && line.startsWith("+") && !line.startsWith("+++");
   });
+}
+
+function changedFiles() {
+  return git(["diff", "--name-only", `${BASE}...HEAD`, "--", ":!docs/**"])
+    .trim().split("\n").filter(Boolean).sort();
 }
 
 test("pins donor, admin immutability, current 026-029 manifest bytes and least-privilege roles", async () => {
@@ -51,6 +58,14 @@ test("pins donor, admin immutability, current 026-029 manifest bytes and least-p
   assert.match(combined, /GRANT EXECUTE ON FUNCTION[\s\S]*TO celebix_saas_app/i);
   assert.match(combined, /GRANT EXECUTE ON FUNCTION[\s\S]*TO celebix_saas_workflow/i);
   assert.doesNotMatch(combined, /GRANT\s+(?:ALL|SELECT|INSERT|UPDATE|DELETE)\b[\s\S]*\bTO\s+celebix_saas_(?:app|workflow|host_resolver)/i);
+  assert.doesNotMatch(combined, /GRANT EXECUTE ON FUNCTION[^;]+TO celebix_saas_host_resolver/i,
+    "checkout functions remain app/workflow-only; host resolver receives no payment authority");
+});
+
+test("changed production scope is the exact reviewed Task 1 through Task 12 allowlist", () => {
+  const files = changedFiles();
+  assert.equal(files.length, EXPECTED_CHANGED_FILE_COUNT);
+  assert.equal(createHash("sha256").update(`${files.join("\n")}\n`).digest("hex"), EXPECTED_CHANGED_FILE_SHA256);
 });
 
 test("added implementation content has no credentials, private browser authority, unsafe CSP, activated navigation, or test network", async () => {
@@ -61,23 +76,41 @@ test("added implementation content has no credentials, private browser authority
     /(?:merchant[_-]?(?:key|salt)|client_secret|service_role_key)\s*[:=]\s*["'][^"']+/i,
     /@supabase|\/api\/admin\/|legacy[-_ ]admin/i,
     /frame-src\s+(?:\*|https:(?:\s|$)|'self'(?:\s|$)|[^;\n]*unsafe-inline)/i,
+    /(?:raw|plain(?:text)?|unsealed)[_-]?(?:link|redemption|provider|callback|session)[_-]?(?:token|credential|secret)\s*[:=]\s*["'][^"']+/i,
+    /(?:token|callback|session|provider)[_-]?(?:digest|sealed|credential)\s*[:=]\s*["'][A-Za-z0-9_./+=-]{16,}["']/i,
   ];
   for (const pattern of forbidden) assert.equal(pattern.test(added), false, `forbidden material pattern ${pattern}`);
   const navigation = await read("apps/customer-panel/lib/panel-ui/navigation.ts");
   assert.doesNotMatch(navigation, /quick[-_ ]?(?:order|link)|hızlı\s+sipariş/i);
-  const runtimeTests = [
-    "tests/saas-phase3/quick-order-runtime/isolated-staging-runner.test.mjs",
-    "tests/saas-phase3/quick-order-runtime/static-security.test.mjs",
-  ];
-  for (const file of runtimeTests) {
+  const changedTests = changedFiles().filter((file) => file.startsWith("tests/") || /[.]test[.]/.test(file));
+  const localNetworkFixtures = new Set([
+    "tests/saas-phase3/quick-order-runtime/in-process.test.mjs",
+    "tests/saas-phase3/quick-order-runtime/reconcile-cli.test.mjs",
+  ]);
+  for (const file of changedTests) {
     const source = await read(file);
-    assert.doesNotMatch(source, /\b(?:fetch|httpRequest|httpsRequest|createConnection)\s*\(/i, `external test I/O: ${file}`);
+    if (file === "tests/saas-phase3/quick-order-runtime/static-security.test.mjs") continue;
+    const networkPrimitive = /from\s+["']node:(?:http|https|net|tls|dgram|dns)["']|\b(?:globalThis[.])?fetch\s*\(|\b(?:axios|got|undici|WebSocket)\b|createConnection\s*\(/i;
+    if (networkPrimitive.test(source)) {
+      assert.equal(localNetworkFixtures.has(file), true, `unapproved test network primitive: ${file}`);
+      assert.match(source, /127[.]0[.]0[.]1/);
+      const listeners = [...source.matchAll(/\blisten\(([^\n]*)/g)].map((match) => match[1]);
+      assert.equal(listeners.length > 0, true);
+      for (const listener of listeners) assert.match(listener, /^0,\s*["']127[.]0[.]0[.]1["']/);
+    }
   }
   const browserAndRsc = await Promise.all([
     read("apps/customer-panel/components/orders/QuickOrderLinksConsole.tsx"),
+    read("apps/customer-panel/app/orders/quick-links/page.tsx"),
+    read("apps/storefront-shared/app/odeme/hizli/[token]/route.ts"),
     read("apps/storefront-shared/app/odeme/hizli/page.tsx"),
+    read("apps/storefront-shared/app/odeme/hizli/sonuc/page.tsx"),
+    read("apps/storefront-shared/app/odeme/hizli/odeme/route.ts"),
+    read("apps/storefront-shared/app/api/quick-order/checkout/route.ts"),
+    read("apps/storefront-shared/app/api/quick-order/status/route.ts"),
+    read("apps/storefront-shared/app/api/payments/paytr/callback/route.ts"),
   ]);
-  assert.doesNotMatch(browserAndRsc.join("\n"), /\b(?:tenantId|storeId|principalId|membershipId|planId|tokenDigest|sealedToken|providerTokenDigest|callbackDigest|session(?:Id|Credential)?)\b/);
+  assert.doesNotMatch(browserAndRsc.join("\n"), /\b(?:tenantId|storeId|principalId|membershipId|planId|providerConfigId|quickOrderLinkId|tokenDigest|sealedToken|redemptionToken|providerToken|providerTokenDigest|callbackDigest|callbackCredential|session(?:Id|Credential|Token)?)\b/);
   const hostAuthority = await read("apps/storefront-shared/lib/trusted-host-authority.ts");
   assert.match(hostAuthority, /selectTrustedStorefrontHostAuthority/);
 });

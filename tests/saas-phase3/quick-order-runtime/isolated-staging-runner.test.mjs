@@ -78,7 +78,8 @@ test("apply verifies local and source manifest bytes, then preflights, backs up,
   const processes = deps.calls.filter(([kind]) => kind === "spawn");
   assert.equal(processes[0][1], "psql");
   assert.equal(processes.some(([, command]) => command === "pg_dump"), true);
-  const sql = processes.filter(([, command]) => command === "psql").slice(1).map(([, , args]) => args.join(" ")).join("\n");
+  const sqlProcesses = processes.filter(([, command]) => command === "psql").slice(1);
+  const sql = sqlProcesses.map(([, , args]) => args.join(" ")).join("\n");
   assert.match(sql, /isolated-staging-preflight[.]sql/);
   for (const migration of ["026_quick_order_checkout_runtime", "027_quick_order_checkout_api", "028_quick_order_redemption_expiry_authority", "029_quick_order_settlement_authority"]) assert.match(sql, new RegExp(migration));
   const sequence = processes.map(([, command, args]) => `${command}:${args.join(" ")}`);
@@ -88,10 +89,19 @@ test("apply verifies local and source manifest bytes, then preflights, backs up,
   assert.ok(at("026_quick_order_checkout_runtime.up.sql") < at("027_quick_order_checkout_api.up.sql"));
   assert.ok(at("027_quick_order_checkout_api.up.sql") < at("028_quick_order_redemption_expiry_authority.up.sql"));
   assert.ok(at("028_quick_order_redemption_expiry_authority.up.sql") < at("029_quick_order_settlement_authority.up.sql"));
+  assert.deepEqual(sqlProcesses.map(([, , args]) => args.at(-1).split("/").at(-1)), [
+    "202607220024_quick_order_links_assertions.sql",
+    "202607220025_quick_order_links_api_assertions.sql",
+    "isolated-staging-preflight.sql",
+    ...ARTIFACTS.filter((file) => file.endsWith(".up.sql")),
+    ...ARTIFACTS.filter((file) => file.endsWith("_assertions.sql")),
+  ]);
+  for (const process of sqlProcesses.slice(0, 3)) assert.equal(process[3].env.PGOPTIONS, "-c default_transaction_read_only=on");
+  for (const process of sqlProcesses.slice(3)) assert.equal("PGOPTIONS" in process[3].env, false);
   assert.ok(processes.findIndex(([, command]) => command === "pg_dump") < processes.findIndex(([, command, args]) => command === "psql" && args.join(" ").includes("026_quick_order_checkout_runtime.up.sql")), "custom backup precedes every DDL migration");
   for (const process of processes.filter(([, command, args]) => command === "psql" && /20260722002[6-9]_quick_order_.*[.]up[.]sql/.test(args.join(" ")))) assert.equal(process[2].includes("--single-transaction"), true);
-  assert.equal(deps.calls.some(([kind, value]) => kind === "mkdir" && value === "/safe/backup"), true);
-  assert.equal(deps.calls.some(([kind, value]) => kind === "chmod" && value === "/safe/backup"), true);
+  assert.equal(deps.calls.some(([kind, value, options]) => kind === "mkdir" && value === "/safe/backup" && options.mode === 0o700), true);
+  assert.equal(deps.calls.some(([kind, value, mode]) => kind === "chmod" && value === "/safe/backup" && mode === 0o700), true);
   assert.equal(deps.calls.some(([kind, value, mode]) => kind === "chmod" && value.endsWith("before-quick-order-runtime.dump") && mode === 0o600), true);
   assert.equal(JSON.stringify(deps.calls).includes("unsafe@"), false, "connection material must not be recorded or rendered");
   assert.equal(processes[0][3].env.PATH, "/safe/postgresql-16/bin", "database child must retain executable PATH");
@@ -110,6 +120,8 @@ test("apply rejects incompatible server sentinel before preflight and never expo
 
 test("read-only preflight requires the immutable quick-order operation relation by its exact name", async () => {
   const preflight = await readFile(new URL("./isolated-staging-preflight.sql", import.meta.url), "utf8");
+  assert.match(preflight, /'saas[.]plans'/);
+  assert.doesNotMatch(preflight, /'saas[.]plan_versions'/);
   assert.match(preflight, /'saas[.]quick_order_link_operations'/);
   assert.doesNotMatch(preflight, /'saas[.]quick_link_operations'/);
 });

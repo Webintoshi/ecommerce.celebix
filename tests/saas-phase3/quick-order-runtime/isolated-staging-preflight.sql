@@ -7,11 +7,12 @@ DECLARE
   missing text;
   forbidden text;
   base_relation text;
+  role_record record;
 BEGIN
   FOREACH missing IN ARRAY ARRAY[
-    'saas.stores','saas.store_domains','saas.memberships','saas.plan_versions',
+    'saas.stores','saas.store_domains','saas.memberships','saas.plans','saas.subscriptions','saas.plan_features',
     'saas.products','saas.product_variants','saas.orders','saas.order_items',
-    'saas.quick_order_links','saas.checkout_provider_configs','saas.quick_order_link_operations'
+    'saas.quick_order_links','saas.quick_order_link_items','saas.checkout_provider_configs','saas.quick_order_link_operations'
   ] LOOP
     IF to_regclass(missing) IS NULL THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: missing current base relation'; END IF;
   END LOOP;
@@ -30,6 +31,31 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='celebix_saas_workflow')
      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='celebix_saas_host_resolver')
   THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: required base role absent'; END IF;
+  FOR role_record IN
+    SELECT * FROM (VALUES
+      ('celebix_saas_owner', false, false, true),
+      ('celebix_saas_app', false, false, false),
+      ('celebix_saas_workflow', false, false, false),
+      ('celebix_saas_host_resolver', false, false, false)
+    ) AS expected(role_name, can_login, inherits_roles, bypasses_rls)
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_roles AS actual
+      WHERE actual.rolname=role_record.role_name
+        AND actual.rolcanlogin=role_record.can_login
+        AND actual.rolinherit=role_record.inherits_roles
+        AND actual.rolbypassrls=role_record.bypasses_rls
+        AND NOT actual.rolsuper AND NOT actual.rolcreatedb AND NOT actual.rolcreaterole
+        AND NOT actual.rolreplication
+    ) THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: exact base role attributes drift'; END IF;
+  END LOOP;
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_auth_members AS membership
+    JOIN pg_catalog.pg_roles AS granted_role ON granted_role.oid=membership.roleid
+    JOIN pg_catalog.pg_roles AS member_role ON member_role.oid=membership.member
+    WHERE granted_role.rolname IN ('celebix_saas_app','celebix_saas_workflow','celebix_saas_host_resolver')
+       OR member_role.rolname IN ('celebix_saas_app','celebix_saas_workflow','celebix_saas_host_resolver')
+  ) THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: application role membership drift'; END IF;
   FOREACH base_relation IN ARRAY ARRAY['checkout_provider_configs','quick_order_links','quick_order_link_items','quick_order_link_operations'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace JOIN pg_catalog.pg_roles r ON r.oid=c.relowner
       WHERE n.nspname='saas' AND c.relname=base_relation AND c.relrowsecurity AND c.relforcerowsecurity AND r.rolname='celebix_saas_owner')
@@ -54,10 +80,11 @@ BEGIN
   ] LOOP
     IF to_regclass('saas.' || forbidden) IS NOT NULL THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: post-base object present'; END IF;
   END LOOP;
-  IF EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND (p.proname LIKE 'checkout_%' OR p.proname LIKE 'quick_checkout_%' OR p.proname IN (
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND (p.proname LIKE 'checkout_%' OR p.proname LIKE 'quick_checkout_%' OR p.proname LIKE 'guard_checkout_%' OR p.proname IN (
     'quick_links_claim_redemption','quick_links_configure_provider','quick_links_get_provider_readiness','quick_links_recover_provider_operation',
     'quick_links_recover_redemption_revoke','quick_links_resolve_redemption','quick_links_reveal_credential',
-    'quick_links_reveal_provider_configuration','quick_links_revoke_provider','quick_links_revoke_redemption'
+    'quick_links_reveal_provider_configuration','quick_links_revoke_provider','quick_links_revoke_redemption',
+    'quick_links_create_025','quick_links_duplicate_025'
   ))) THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: 026-029 function surface present'; END IF;
 END
 $preflight$;
