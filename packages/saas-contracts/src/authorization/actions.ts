@@ -18,6 +18,19 @@ export const MERCHANT_ACTIONS = Object.freeze([
   "catalog_admin.archive",
   "catalog_admin.import",
   "catalog_admin.moderate",
+  "promotions.read",
+  "promotions.manage",
+  "promotions.archive",
+  "content.read",
+  "content.manage",
+  "content.archive",
+  "marketing.read",
+  "marketing.manage",
+  "configuration.read",
+  "configuration.manage",
+  "configuration.archive",
+  "integrations.read",
+  "integrations.manage",
 ] as const);
 
 export type MerchantAction = (typeof MERCHANT_ACTIONS)[number];
@@ -37,6 +50,12 @@ const ROLE_ACTIONS: Readonly<
     "customers.manage",
     "catalog_admin.read",
     "catalog_admin.manage",
+    "promotions.read",
+    "content.read",
+    "content.manage",
+    "marketing.read",
+    "configuration.read",
+    "integrations.read",
   ]),
   analyst: new Set<MerchantAction>([
     "orders.read",
@@ -44,6 +63,11 @@ const ROLE_ACTIONS: Readonly<
     "carts.read",
     "customers.read",
     "catalog_admin.read",
+    "promotions.read",
+    "content.read",
+    "marketing.read",
+    "configuration.read",
+    "integrations.read",
   ]),
 });
 

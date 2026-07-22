@@ -105,6 +105,23 @@ export {
   parseCatalogAdminResource,
   parseProductReview,
 } from "./catalog-admin/index.ts";
+export {
+  MERCHANT_ADMIN_RECORD_KINDS,
+  MERCHANT_ADMIN_EVENT_KINDS,
+  parseMerchantAdminConfig,
+  parseMerchantAdminEvent,
+  parseMerchantAdminMutationResult,
+  parseMerchantAdminRecord,
+} from "./merchant-admin/index.ts";
+export type {
+  MerchantAdminJson,
+  MerchantAdminEvent,
+  MerchantAdminEventKind,
+  MerchantAdminMutationResult,
+  MerchantAdminRecord,
+  MerchantAdminRecordKind,
+  MerchantAdminRecordStatus,
+} from "./merchant-admin/index.ts";
 export type {
   CatalogAdminImportJob,
   CatalogAdminJson,
