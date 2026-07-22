@@ -701,6 +701,22 @@ test("order detail hides every mutation control when server-projected capabiliti
   assert.match(html, /Keten Gömlek/);
 });
 
+test("order print route projects immutable order snapshots without panel authority", async () => {
+  const view = await source("components/orders/OrderPrintView.tsx");
+  const page = await source("app/orders/[orderId]/print/page.tsx");
+  assert.match(view, /export function OrderPrintView/);
+  assert.match(view, /orderApi[.]getOrder\(orderId\)/);
+  assert.match(view, /Sipariş #\{order[.]orderNumber\}/);
+  assert.match(view, /window[.]print\(\)/);
+  assert.match(view, /function OrderSnapshotTable/);
+  assert.match(page, /requireServerPanelAccess\(\)/);
+  assert.match(page, /<OrderPrintView orderId=\{orderId\} \/>/);
+  assert.doesNotMatch(
+    view,
+    /tenantId|storeId|principalId|membershipId|planId|__Host-celebix_panel|document[.]cookie|localStorage|sessionStorage/i,
+  );
+});
+
 test("orders navigation exposes every genuine child with exact activation and safe route titles", async () => {
   const navigation = await import("./panel-ui/navigation.ts");
   const orders = navigation.PANEL_NAVIGATION.find(({ key }) => key === "orders");

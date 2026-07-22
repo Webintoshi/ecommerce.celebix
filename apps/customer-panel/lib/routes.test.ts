@@ -264,6 +264,16 @@ test("quick-order console is directly routable behind panel access and linked by
   assert.match(navigation, /label:\s*"Hızlı Siparişler"[\s\S]{0,120}href:\s*"\/orders\/quick-links"/);
 });
 
+test("order print and customer edit pages remain server-authorized route depth", async () => {
+  const printPage = await readFile(new URL("../app/orders/[orderId]/print/page.tsx", import.meta.url), "utf8");
+  const customerEditPage = await readFile(new URL("../app/customers/[customerId]/edit/page.tsx", import.meta.url), "utf8");
+  assert.match(printPage, /requireServerPanelAccess\(\)/);
+  assert.match(printPage, /<OrderPrintView orderId=\{orderId\} \/>/);
+  assert.match(customerEditPage, /requireServerPanelAccess\(\)/);
+  assert.match(customerEditPage, /customers[.]manage/);
+  assert.match(customerEditPage, /<CustomerEditConsole customerId=\{customerId\} \/>/);
+});
+
 test("content and settings family hubs render behind server panel access", async () => {
   for (const file of ["../app/content/page.tsx", "../app/settings/page.tsx"]) {
     const page = await readFile(new URL(file, import.meta.url), "utf8");

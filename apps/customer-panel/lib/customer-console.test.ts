@@ -61,6 +61,24 @@ test("customer console exposes truthful loaded empty error export and responsive
   assert.match(styles, /prefers-reduced-motion/);
 });
 
+test("customer edit route sends the loaded version and leaves stale conflicts visible", async () => {
+  const editor = await source("components/customers/CustomerEditConsole.tsx");
+  const detail = await source("components/customers/CustomerDetailConsole.tsx");
+  const page = await source("app/customers/[customerId]/edit/page.tsx");
+  assert.match(editor, /export function CustomerEditConsole/);
+  assert.match(editor, /customerApi[.]get\(customerId\)/);
+  assert.match(editor, /customerApi[.]update\(customerId/);
+  assert.match(editor, /expectedVersion:\s*customer[.]version/);
+  assert.match(editor, /version_conflict/);
+  assert.match(editor, /sizden önce güncellendi/i);
+  assert.match(editor, /router[.]push\(`\/customers\/\$\{result[.]id\}`\)/);
+  assert.match(detail, /href=\{`\/customers\/\$\{encodeURIComponent\(data[.]id\)\}\/edit`\}/);
+  assert.match(page, /requireServerPanelAccess\(\)/);
+  assert.match(page, /customers[.]manage/);
+  assert.match(page, /<CustomerEditConsole customerId=\{customerId\} \/>/);
+  assert.doesNotMatch(editor, /tenantId|storeId|principalId|membershipId|planId|document[.]cookie|localStorage|sessionStorage/i);
+});
+
 test("customer route files expose only the reviewed methods", async () => {
   const routes = [
     ["app/api/customers/summary/route.ts", { GET: "handleCustomerSummary" }],

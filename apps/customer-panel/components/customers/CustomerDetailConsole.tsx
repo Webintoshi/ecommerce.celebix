@@ -181,11 +181,14 @@ export function CustomerDetailConsole({
         title={data.displayName}
         description="İletişim, izin, adres, not ve müşteri gruplarını yönetin."
         actions={
-          <PanelStatusBadge
-            tone={data.status === "active" ? "success" : "neutral"}
-          >
-            {data.status === "active" ? "Aktif" : "Arşiv"}
-          </PanelStatusBadge>
+          <>
+            <PanelStatusBadge
+              tone={data.status === "active" ? "success" : "neutral"}
+            >
+              {data.status === "active" ? "Aktif" : "Arşiv"}
+            </PanelStatusBadge>
+            {canManage && data.status === "active" ? <Link className={styles.button} href={`/customers/${encodeURIComponent(data.id)}/edit`}>Düzenle</Link> : null}
+          </>
         }
       />
       {notice ? (
