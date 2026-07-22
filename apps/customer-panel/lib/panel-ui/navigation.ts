@@ -9,6 +9,13 @@ export type PanelNavigationHref =
   | "/customers/new"
   | "/products"
   | "/products/new"
+  | "/products/collections"
+  | "/products/brands"
+  | "/products/attributes"
+  | "/products/extras"
+  | "/products/reviews"
+  | "/products/definitions"
+  | "/products/bulk-upload"
   | "/setup";
 export type PanelNavigationIcon =
   | "home"
@@ -21,6 +28,13 @@ export type PanelNavigationIcon =
   | "add-customer"
   | "products"
   | "add-product"
+  | "collections"
+  | "brands"
+  | "attributes"
+  | "extras"
+  | "reviews"
+  | "definitions"
+  | "bulk-upload"
   | "setup";
 
 export interface PanelNavigationItem {
@@ -38,6 +52,13 @@ export interface PanelNavigationItem {
     | "catalog"
     | "products"
     | "new-product"
+    | "collections"
+    | "brands"
+    | "attributes"
+    | "extras"
+    | "reviews"
+    | "definitions"
+    | "bulk-upload"
     | "setup";
   readonly label: string;
   readonly href: PanelNavigationHref;
@@ -61,6 +82,13 @@ export interface PanelRoutePresentation {
     | "Ürün kataloğu"
     | "Yeni ürün oluştur"
     | "Ürün ayrıntısı"
+    | "Koleksiyonlar"
+    | "Markalar"
+    | "Nitelikler"
+    | "Ekstralar"
+    | "Yorumlar"
+    | "Tanımlamalar"
+    | "Toplu Yükle"
     | "Kurulum durumu";
 }
 
@@ -79,6 +107,13 @@ export const PANEL_ROUTE_PRESENTATIONS = Object.freeze({
   products: Object.freeze({ title: "Ürün kataloğu" as const }),
   newProduct: Object.freeze({ title: "Yeni ürün oluştur" as const }),
   productDetail: Object.freeze({ title: "Ürün ayrıntısı" as const }),
+  collections: Object.freeze({ title: "Koleksiyonlar" as const }),
+  brands: Object.freeze({ title: "Markalar" as const }),
+  attributes: Object.freeze({ title: "Nitelikler" as const }),
+  extras: Object.freeze({ title: "Ekstralar" as const }),
+  reviews: Object.freeze({ title: "Yorumlar" as const }),
+  definitions: Object.freeze({ title: "Tanımlamalar" as const }),
+  bulkUpload: Object.freeze({ title: "Toplu Yükle" as const }),
   setup: Object.freeze({ title: "Kurulum durumu" as const }),
 });
 
@@ -95,6 +130,13 @@ const CATALOG_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
     href: "/products/new",
     icon: "add-product",
   }),
+  Object.freeze({ key: "collections", label: "Koleksiyonlar", href: "/products/collections", icon: "collections" }),
+  Object.freeze({ key: "brands", label: "Markalar", href: "/products/brands", icon: "brands" }),
+  Object.freeze({ key: "attributes", label: "Nitelikler", href: "/products/attributes", icon: "attributes" }),
+  Object.freeze({ key: "extras", label: "Ekstralar", href: "/products/extras", icon: "extras" }),
+  Object.freeze({ key: "reviews", label: "Yorumlar", href: "/products/reviews", icon: "reviews" }),
+  Object.freeze({ key: "definitions", label: "Tanımlamalar", href: "/products/definitions", icon: "definitions" }),
+  Object.freeze({ key: "bulk-upload", label: "Toplu Yükle", href: "/products/bulk-upload", icon: "bulk-upload" }),
 ]);
 
 const ORDER_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
@@ -197,6 +239,13 @@ export function isPanelNavigationPathActive(
     href === "/customers/tags" ||
     href === "/customers/new" ||
     href === "/products/new" ||
+    href === "/products/collections" ||
+    href === "/products/brands" ||
+    href === "/products/attributes" ||
+    href === "/products/extras" ||
+    href === "/products/reviews" ||
+    href === "/products/definitions" ||
+    href === "/products/bulk-upload" ||
     href === "/setup"
   ) {
     return pathname === href;
@@ -240,6 +289,13 @@ export function getPanelRoutePresentation(
     return PANEL_ROUTE_PRESENTATIONS.customerDetail;
   if (pathname === "/products") return PANEL_ROUTE_PRESENTATIONS.products;
   if (pathname === "/products/new") return PANEL_ROUTE_PRESENTATIONS.newProduct;
+  if (pathname === "/products/collections") return PANEL_ROUTE_PRESENTATIONS.collections;
+  if (pathname === "/products/brands") return PANEL_ROUTE_PRESENTATIONS.brands;
+  if (pathname === "/products/attributes") return PANEL_ROUTE_PRESENTATIONS.attributes;
+  if (pathname === "/products/extras") return PANEL_ROUTE_PRESENTATIONS.extras;
+  if (pathname === "/products/reviews") return PANEL_ROUTE_PRESENTATIONS.reviews;
+  if (pathname === "/products/definitions") return PANEL_ROUTE_PRESENTATIONS.definitions;
+  if (pathname === "/products/bulk-upload") return PANEL_ROUTE_PRESENTATIONS.bulkUpload;
   if (pathname === "/setup") return PANEL_ROUTE_PRESENTATIONS.setup;
 
   const productDetail = pathname.startsWith("/products/")

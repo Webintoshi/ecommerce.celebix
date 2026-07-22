@@ -26,6 +26,13 @@ test("contains every and only currently working merchant destination", () => {
       "/customers/new",
       "/products",
       "/products/new",
+      "/products/collections",
+      "/products/brands",
+      "/products/attributes",
+      "/products/extras",
+      "/products/reviews",
+      "/products/definitions",
+      "/products/bulk-upload",
       "/setup",
     ],
   );
@@ -66,9 +73,9 @@ test("navigation never activates a query fragment or encoded near match", () => 
   }
 });
 
-test("navigation exposes no disabled donor destination", () => {
-  const hrefs = JSON.stringify(PANEL_NAVIGATION);
-  assert.doesNotMatch(hrefs, /admin|analytics|marketing|discount|settings/i);
+test("navigation exposes every genuine catalog administration destination", () => {
+  const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Toplu Yükle"]);
 });
 
 test("selects only the exact abandoned-cart child", () => {
@@ -107,7 +114,7 @@ test("contains no deferred module label or href", () => {
   const text = JSON.stringify(PANEL_NAVIGATION);
   assert.doesNotMatch(
     text,
-    /marketing|cms|muhasebe|seo|toshi|notification|admin/i,
+    /marketing|cms|muhasebe|seo|toshi|notification/i,
   );
 });
 
@@ -180,6 +187,13 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "/customers/customer-123",
       "/products",
       "/products/new",
+      "/products/collections",
+      "/products/brands",
+      "/products/attributes",
+      "/products/extras",
+      "/products/reviews",
+      "/products/definitions",
+      "/products/bulk-upload",
       "/products/product-123",
       "/setup",
     ].map((pathname) => getPanelRoutePresentation(pathname).title),
@@ -197,6 +211,13 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "Müşteri ayrıntısı",
       "Ürün kataloğu",
       "Yeni ürün oluştur",
+      "Koleksiyonlar",
+      "Markalar",
+      "Nitelikler",
+      "Ekstralar",
+      "Yorumlar",
+      "Tanımlamalar",
+      "Toplu Yükle",
       "Ürün ayrıntısı",
       "Kurulum durumu",
     ],
