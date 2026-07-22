@@ -93,7 +93,7 @@ function visitElements(node: ReactNode, visitor: (element: React.ReactElement<Re
 }
 
 async function compileOrderModule(
-  path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx",
+  path: "components/orders/OrderListConsole.tsx" | "components/orders/OrderDetailConsole.tsx" | "components/orders/OrderPrintView.tsx",
   overrides: Readonly<{ react?: typeof React; orderApi?: Record<string, unknown> }> = {},
 ) {
   const output = ts.transpileModule(await source(path), {
@@ -196,7 +196,8 @@ function createHookRuntime() {
   } as unknown as typeof React;
   return {
     runtime,
-    async flush(component: () => ReactNode) {
+    async flush(component: () => ReactNode, force = false) {
+      if (force) dirty = true;
       for (let pass = 0; pass < 20; pass += 1) {
         if (dirty || latest === undefined) {
           dirty = false;
@@ -715,6 +716,37 @@ test("order print route projects immutable order snapshots without panel authori
     view,
     /tenantId|storeId|principalId|membershipId|planId|__Host-celebix_panel|document[.]cookie|localStorage|sessionStorage/i,
   );
+});
+
+test("order print clears the previously loaded snapshot while a new route is loading", async () => {
+  const orderB = Object.freeze({ ...detail, id: ITEM_ID, orderNumber: "HMK-1043", customerName: "Grace Hopper" });
+  let selectedOrderId = ORDER_ID;
+  let resolveOrderB: ((value: OrderDetail) => void) | undefined;
+  const hookRuntime = createHookRuntime();
+  const { exports } = await compileOrderModule("components/orders/OrderPrintView.tsx", {
+    react: hookRuntime.runtime,
+    orderApi: {
+      async getOrder(id: string) {
+        if (id === ORDER_ID) return detail;
+        return new Promise<OrderDetail>((resolve) => { resolveOrderB = resolve; });
+      },
+    },
+  });
+  const View = exports.OrderPrintView as (props: { orderId: string }) => ReactNode;
+  const Console = () => View({ orderId: selectedOrderId });
+  let view = await hookRuntime.flush(Console);
+  assert.match(renderToStaticMarkup(view), /HMK-1042/);
+
+  selectedOrderId = ITEM_ID;
+  view = await hookRuntime.flush(Console, true);
+  assert.doesNotMatch(renderToStaticMarkup(view), /HMK-1042|Ada Lovelace/);
+  assert.match(renderToStaticMarkup(view), /Sipariş hazırlanıyor/);
+
+  resolveOrderB?.(orderB);
+  view = await hookRuntime.flush(Console);
+  const html = renderToStaticMarkup(view);
+  assert.match(html, /HMK-1043|Grace Hopper/);
+  assert.doesNotMatch(html, /tenantId|storeId|principalId|membershipId|planId|__Host-celebix_panel/i);
 });
 
 test("orders navigation exposes every genuine child with exact activation and safe route titles", async () => {

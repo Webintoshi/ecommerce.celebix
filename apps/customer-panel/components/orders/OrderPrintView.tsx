@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { OrderDetail } from "@celebix/saas-contracts";
 
 import { OrderApiError, orderApi } from "@/lib/order-ui/client";
@@ -43,18 +43,22 @@ function OrderSnapshotTable({ order }: Readonly<{ order: OrderDetail }>) {
 export function OrderPrintView({ orderId }: Readonly<{ orderId: string }>) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [error, setError] = useState("");
+  const requestSequence = useRef(0);
 
   useEffect(() => {
-    let current = true;
+    const sequence = requestSequence.current + 1;
+    requestSequence.current = sequence;
+    setOrder(null);
+    setError("");
     void orderApi.getOrder(orderId).then(
-      (result) => { if (current) setOrder(result); },
-      (caught: unknown) => { if (current) setError(message(caught)); },
+      (result) => { if (requestSequence.current === sequence && result.id === orderId) setOrder(result); },
+      (caught: unknown) => { if (requestSequence.current === sequence) setError(message(caught)); },
     );
-    return () => { current = false; };
-  }, [orderId]);
+    return () => { if (requestSequence.current === sequence) requestSequence.current += 1; };
+  }, [orderId, requestSequence]);
 
   if (error) return <main className={styles.printPage}><p role="alert">{error}</p></main>;
-  if (!order) return <main className={styles.printPage}><p role="status">Sipariş hazırlanıyor…</p></main>;
+  if (!order || order.id !== orderId) return <main className={styles.printPage}><p role="status">Sipariş hazırlanıyor…</p></main>;
   return (
     <main className={styles.printPage}>
       <div className={styles.printActions}><button type="button" onClick={() => window.print()}>Yazdır</button></div>

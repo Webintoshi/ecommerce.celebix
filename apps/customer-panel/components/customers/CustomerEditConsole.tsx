@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerDetail } from "@celebix/saas-contracts";
 
@@ -33,18 +33,31 @@ export function CustomerEditConsole({ customerId }: Readonly<{ customerId: strin
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = requestSequence.current + 1;
+    requestSequence.current = sequence;
+    setCustomer(null);
     setError("");
-    try { setCustomer(await customerApi.get(customerId)); }
-    catch (caught) { setError(message(caught)); }
-  }, [customerId]);
+    setBusy(false);
+    try {
+      const result = await customerApi.get(customerId);
+      if (requestSequence.current === sequence && result.id === customerId) setCustomer(result);
+    } catch (caught) {
+      if (requestSequence.current === sequence) setError(message(caught));
+    }
+  }, [customerId, requestSequence]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestSequence.current += 1; };
+  }, [load, requestSequence]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!customer) return;
+    if (!customer || customer.id !== customerId || busy) return;
+    const sequence = requestSequence.current;
     const form = new FormData(event.currentTarget);
     const firstName = String(form.get("firstName") ?? "").trim();
     const lastName = String(form.get("lastName") ?? "").trim();
@@ -66,14 +79,14 @@ export function CustomerEditConsole({ customerId }: Readonly<{ customerId: strin
         consents: formConsents,
         expectedVersion: customer.version,
       });
-      router.push(`/customers/${result.id}`);
+      if (requestSequence.current === sequence) router.push(`/customers/${result.id}`);
     } catch (caught) {
-      setError(caught instanceof CustomerApiError && caught.code === "version_conflict" ? "Bu müşteri sizden önce güncellendi. En güncel kaydı yükleyip tekrar deneyin." : message(caught));
-    } finally { setBusy(false); }
+      if (requestSequence.current === sequence) setError(caught instanceof CustomerApiError && caught.code === "version_conflict" ? "Bu müşteri sizden önce güncellendi. En güncel kaydı yükleyip tekrar deneyin." : message(caught));
+    } finally { if (requestSequence.current === sequence) setBusy(false); }
   }
 
-  if (error && !customer) return <PanelPageShell><p className={styles.error} role="alert">{error}</p><button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></PanelPageShell>;
-  if (!customer) return <PanelPageShell><p className={styles.state} role="status">Müşteri hazırlanıyor…</p></PanelPageShell>;
+  if (error && (!customer || customer.id !== customerId)) return <PanelPageShell><p className={styles.error} role="alert">{error}</p><button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></PanelPageShell>;
+  if (!customer || customer.id !== customerId) return <PanelPageShell><p className={styles.state} role="status">Müşteri hazırlanıyor…</p></PanelPageShell>;
   return (
     <PanelPageShell>
       <Link className={styles.back} href={`/customers/${encodeURIComponent(customer.id)}`}>← Müşteri ayrıntılarına dön</Link>
