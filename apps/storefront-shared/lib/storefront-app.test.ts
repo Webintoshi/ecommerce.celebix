@@ -360,6 +360,50 @@ test("proxy owns exact checkout form and PayTR iframe CSP while every near-match
   assert.doesNotMatch(proxy, /form-action 'self'|form-action https:(?:[;'\s])|form-action \*|frame-src \*/);
 });
 
+test("proxy grants PayTR frame authority only after cookie-bound provider-ready preflight", async () => {
+  type Factory = (dependencies: Readonly<{
+    selectAuthority: (headers: Headers) => Readonly<{ kind: "trusted"; hostname: string }>;
+    resolveMediaOrigin: () => string;
+    authorizePaytrIframe: (input: Readonly<{ hostname: string; cookieHeader: string | null; now: Date }>) => Promise<boolean>;
+    now: () => Date;
+  }>) => (request: import("next/server.js").NextRequest) => Promise<import("next/server.js").NextResponse>;
+  const proxyModule = await import("../proxy.ts") as unknown as { createStorefrontProxy?: Factory };
+  assert.equal(typeof proxyModule.createStorefrontProxy, "function");
+  const calls: Array<Readonly<{ hostname: string; cookieHeader: string | null }>> = [];
+  const handler = proxyModule.createStorefrontProxy!({
+    selectAuthority: () => ({ kind: "trusted", hostname: "pilot.saas-staging.celebix.site" }),
+    resolveMediaOrigin: () => "https://media.saas-staging.celebix.site",
+    authorizePaytrIframe: async ({ hostname, cookieHeader }) => {
+      calls.push({ hostname, cookieHeader });
+      return cookieHeader === "__Host-celebix_quick=ready";
+    },
+    now: () => new Date("2026-07-21T12:00:00.000Z"),
+  });
+  const { NextRequest } = await import("next/server.js");
+  const request = (target: string, cookie?: string) => new NextRequest(`https://internal.example${target}`, {
+    headers: cookie ? { cookie } : undefined,
+  });
+  const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
+  const ready = await handler(request("/odeme/hizli/odeme", "__Host-celebix_quick=ready"));
+  assert.equal(ready.headers.get("content-security-policy"), exactCsp);
+  for (const denied of [
+    request("/odeme/hizli/odeme"),
+    request("/odeme/hizli/odeme", "__Host-celebix_quick=wrong"),
+    request("/odeme/hizli/odeme?x=1", "__Host-celebix_quick=ready"),
+    request("/odeme/hizli/odeme/", "__Host-celebix_quick=ready"),
+  ]) {
+    const response = await handler(denied);
+    const csp = response.headers.get("content-security-policy");
+    assert.match(csp ?? "", /form-action 'none'/);
+    assert.doesNotMatch(csp ?? "", /frame-src https:\/\/www[.]paytr[.]com/);
+  }
+  assert.deepEqual(calls, [
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=ready" },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: null },
+    { hostname: "pilot.saas-staging.celebix.site", cookieHeader: "__Host-celebix_quick=wrong" },
+  ]);
+});
+
 test("checkout sources contain no raw secret, provider log, off-origin redirect, or browser token serialization", async () => {
   const appRoot = path.resolve(import.meta.dirname, "..");
   const checkoutFiles = (await sourceFiles(appRoot)).filter((file) =>

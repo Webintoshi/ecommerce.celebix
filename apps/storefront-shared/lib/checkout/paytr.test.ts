@@ -8,6 +8,8 @@ import {
   openQuickLinkSecret,
   sealQuickLinkSecret,
   serializeCanonicalPaytrConfiguration,
+  type CheckoutPaymentRepository,
+  type PublicQuickOrderRepository,
 } from "@celebix/saas-data";
 
 import { digestRedemptionCredential } from "./redemption-cookie.ts";
@@ -142,6 +144,26 @@ test("PayTR iframe initiation contains provider rejection and ambiguous failures
   }
 });
 
+test("PayTR response reader cancels an unannounced body at the 4097th byte", { concurrency: false }, async () => {
+  let pulls = 0;
+  let cancelled = false;
+  const oversized = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls += 1;
+      if (pulls <= 4) controller.enqueue(new Uint8Array(2_048).fill(0x78));
+      else controller.close();
+    },
+    cancel() { cancelled = true; },
+  });
+  const result = await withFetch(async () => new Response(oversized, {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  }), () => paytr.queryPaytrStatus!({ configuration, merchantOid, signal: new AbortController().signal }));
+  assert.deepEqual(result, { status: "unknown" });
+  assert.equal(cancelled, true);
+  assert.ok(pulls < 5, `reader consumed the entire ${pulls}-chunk body`);
+});
+
 test("PayTR status query validates the complete documented success vocabulary and projects cents only", { concurrency: false }, async () => {
   let observed: Readonly<{ url: string; init: RequestInit; body: string }> | undefined;
   const rich = JSON.stringify({
@@ -213,30 +235,36 @@ function paymentFixture(status: "reserved" | "provider_ready" | "initiation_unkn
   const providerToken = "28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa";
   const providerTokenDigest = createHash("sha256").update(providerToken).digest("hex");
   const sealedProviderToken = sealQuickLinkSecret({ plaintext: providerToken, purpose: "provider-token", storeId: STORE_ID, objectId: ATTEMPT_ID, digest: providerTokenDigest, keyring });
-  const paymentRepository = {
-    async beginAttempt() {
+  let currentStatus: "reserved" | "provider_ready" | "initiation_unknown" | "failed" = status;
+  let selectedAttemptId = ATTEMPT_ID;
+  let selectedMerchantOid = merchantOid;
+  const paymentRepository: Pick<CheckoutPaymentRepository,
+    "beginAttempt" | "markProviderReady" | "markInitiationUnknown" | "markInitiationFailed" | "getPaymentPresentation"> = {
+    async beginAttempt(input?: Readonly<{ attemptId: string; merchantOid: string }>) {
       calls.begin += 1;
+      selectedAttemptId = input?.attemptId ?? ATTEMPT_ID;
+      selectedMerchantOid = input?.merchantOid ?? merchantOid;
       return {
-        outcome, status, storeId: STORE_ID, attemptId: ATTEMPT_ID, merchantOid, currency: "TRY" as const,
+        outcome, status, storeId: STORE_ID, attemptId: selectedAttemptId, merchantOid: selectedMerchantOid, currency: "TRY" as const,
         paymentAmount: 3_600, customerEmail: "ada@example.com", customerName: "Ada Lovelace",
         customerPhone: "+905551112233", customerAddress: "Örnek 1 İstanbul",
         basket: [{ name: "Örnek ürün", unitPriceCents: 1_800, quantity: 2 }], providerConfigId: PROVIDER_ID,
         configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration,
       };
     },
-    async markProviderReady() { calls.ready += 1; return { attemptId: ATTEMPT_ID, status: "provider_ready" as const, replayed: false, providerTokenDigest, sealedProviderToken }; },
-    async markInitiationUnknown() { calls.unknown += 1; },
-    async markInitiationFailed() { calls.failed += 1; },
-    async getPaymentPresentation() { calls.presentation += 1; return { attemptId: ATTEMPT_ID, storeId: STORE_ID, merchantOid, providerTokenDigest, sealedProviderToken }; },
-    async getCallbackAuthority() { throw new Error("unused"); }, async settleCallback() { throw new Error("unused"); },
-    async beginReconciliationRun() { throw new Error("unused"); }, async claimReconciliation() { throw new Error("unused"); },
-    async claimRedemptionReconciliation() { throw new Error("unused"); }, async applyReconciliationSuccess() { throw new Error("unused"); },
-    async recordReconciliationUnknown() { throw new Error("unused"); }, async finishReconciliationRun() { throw new Error("unused"); },
-    async cleanupPreProviderAttempts() { throw new Error("unused"); },
+    async markProviderReady(input?: ReadyInput) { calls.ready += 1; currentStatus = "provider_ready"; return { attemptId: input?.attemptId ?? selectedAttemptId, status: "provider_ready" as const, replayed: false,
+      providerTokenDigest: input?.providerTokenDigest ?? providerTokenDigest, sealedProviderToken: input?.sealedProviderToken ?? sealedProviderToken }; },
+    async markInitiationUnknown() { calls.unknown += 1; currentStatus = "initiation_unknown"; },
+    async markInitiationFailed() { calls.failed += 1; currentStatus = "failed"; },
+    async getPaymentPresentation() {
+      calls.presentation += 1;
+      if (currentStatus !== "provider_ready") throw new CheckoutPaymentRepositoryError("unavailable");
+      return { attemptId: selectedAttemptId, storeId: STORE_ID, merchantOid: selectedMerchantOid, providerTokenDigest, sealedProviderToken };
+    },
   };
-  const quickOrderRepository = {
+  const quickOrderRepository: PublicQuickOrderRepository = {
     async claimRedemption() { throw new Error("unused"); }, async resolveRedemption() { throw new Error("unused"); },
-    async getStatus() { calls.status += 1; return { kind: "paid" as const, orderNumber: "CBX-2026-000001" }; },
+    async getStatus() { calls.status += 1; return currentStatus === "failed" ? { kind: "failed" as const } : { kind: "processing" as const }; },
     async revokeRedemption() { throw new Error("unused"); },
   };
   const storefrontRepository = { async getPublicStorefront() { throw new Error("unused"); }, async listPublicProducts() { throw new Error("unused"); }, async getPublicProductBySlug() { throw new Error("unused"); }, async listPublicProductMedia() { throw new Error("unused"); } };
@@ -261,12 +289,144 @@ function checkoutHandler(fixture = paymentFixture(), providerStatus: "success" |
     handler: runtimeModule.createQuickOrderCheckoutRoute!({
       selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
       resolveRuntime: async () => fixture.runtime,
-      now: () => new Date("2026-07-21T12:00:00.000Z"), randomUUID: () => ATTEMPT_ID,
-      randomMerchantOid: () => merchantOid,
+      now: () => new Date("2026-07-21T12:00:00.000Z"),
       initiate: async () => { fixture.calls.provider += 1; return providerStatus === "success" ? { status: "success" as const, token: fixture.providerToken } : { status: providerStatus }; },
     }),
   };
 }
+
+type BeginInput = Parameters<CheckoutPaymentRepository["beginAttempt"]>[0];
+type ReadyInput = Parameters<CheckoutPaymentRepository["markProviderReady"]>[0];
+type FinalInput = Parameters<CheckoutPaymentRepository["markInitiationUnknown"]>[0];
+
+function sqlSemanticFixture() {
+  const fixture = paymentFixture();
+  const operations = new Map<string, Readonly<{ kind: string; attemptId: string; fingerprint: string }>>();
+  const inputs = { begin: [] as BeginInput[], ready: [] as ReadyInput[], unknown: [] as FinalInput[], failed: [] as FinalInput[] };
+  let state: "none" | "reserved" | "provider_ready" | "initiation_unknown" | "failed" = "none";
+  const reserved = (input: BeginInput, outcome: "created" | "replayed") => ({
+    outcome, status: "reserved" as const, storeId: STORE_ID, attemptId: input.attemptId, merchantOid: input.merchantOid,
+    currency: "TRY" as const, paymentAmount: 3_600, customerEmail: "ada@example.com", customerName: "Ada Lovelace",
+    customerPhone: "+905551112233", customerAddress: "Örnek 1 İstanbul",
+    basket: [{ name: "Örnek ürün", unitPriceCents: 1_800, quantity: 2 }], providerConfigId: PROVIDER_ID,
+    configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration,
+  });
+  const accept = (kind: string, input: Readonly<{ attemptId: string; operationId: string; fingerprint: string }>) => {
+    const prior = operations.get(input.operationId);
+    if (prior !== undefined) {
+      if (prior.kind !== kind || prior.attemptId !== input.attemptId || prior.fingerprint !== input.fingerprint) {
+        throw new CheckoutPaymentRepositoryError("operation_mismatch");
+      }
+      return false;
+    }
+    operations.set(input.operationId, Object.freeze({ kind, attemptId: input.attemptId, fingerprint: input.fingerprint }));
+    return true;
+  };
+  fixture.paymentRepository.beginAttempt = async (input: BeginInput) => {
+    fixture.calls.begin += 1; inputs.begin.push(input);
+    const created = accept("begin_attempt", input);
+    if (!created) return reserved(input, "replayed");
+    if (state !== "none") throw new CheckoutPaymentRepositoryError("attempt_in_progress");
+    state = "reserved";
+    return reserved(input, "created");
+  };
+  fixture.paymentRepository.markProviderReady = async (input: ReadyInput) => {
+    fixture.calls.ready += 1; inputs.ready.push(input); accept("provider_ready", input);
+    if (state !== "reserved") throw new CheckoutPaymentRepositoryError("invalid_transition");
+    state = "provider_ready";
+    return { attemptId: input.attemptId, status: "provider_ready" as const, replayed: false,
+      providerTokenDigest: input.providerTokenDigest, sealedProviderToken: input.sealedProviderToken };
+  };
+  fixture.paymentRepository.markInitiationUnknown = async (input: FinalInput) => {
+    fixture.calls.unknown += 1; inputs.unknown.push(input); accept("initiation_unknown", input);
+    if (state !== "reserved") throw new CheckoutPaymentRepositoryError("invalid_transition");
+    state = "initiation_unknown";
+  };
+  fixture.paymentRepository.markInitiationFailed = async (input: FinalInput) => {
+    fixture.calls.failed += 1; inputs.failed.push(input); accept("initiation_failed", input);
+    if (state !== "reserved") throw new CheckoutPaymentRepositoryError("invalid_transition");
+    state = "failed";
+  };
+  fixture.paymentRepository.getPaymentPresentation = async () => {
+    fixture.calls.presentation += 1;
+    if (state !== "provider_ready") throw new CheckoutPaymentRepositoryError("unavailable");
+    const ready = inputs.ready.at(-1)!;
+    return { attemptId: ready.attemptId, storeId: STORE_ID, merchantOid: inputs.begin[0]!.merchantOid,
+      providerTokenDigest: ready.providerTokenDigest, sealedProviderToken: ready.sealedProviderToken };
+  };
+  fixture.runtime.checkout.quickOrderRepository.getStatus = async () => {
+    fixture.calls.status += 1;
+    return state === "failed" ? { kind: "failed" as const } : { kind: "processing" as const };
+  };
+  return { ...fixture, inputs, operations, state: () => state };
+}
+
+test("checkout uses stable replay identities and globally unique phase operations", async () => {
+  const fixture = sqlSemanticFixture();
+  const selected = checkoutHandler(fixture);
+  const first = await selected.handler(checkoutRequest());
+  assert.equal(first.status, 303);
+  assert.equal(first.headers.get("location"), "/odeme/hizli/odeme");
+  const replay = await selected.handler(checkoutRequest());
+  assert.equal(replay.status, 303);
+  assert.equal(replay.headers.get("location"), "/odeme/hizli/odeme");
+  assert.equal(fixture.calls.provider, 1);
+  assert.equal(fixture.inputs.begin.length, 2);
+  for (const field of ["attemptId", "merchantOid", "operationId", "fingerprint"] as const) {
+    assert.equal(fixture.inputs.begin[0]![field], fixture.inputs.begin[1]![field], field);
+  }
+  const begin = fixture.inputs.begin[0]!;
+  const ready = fixture.inputs.ready[0]!;
+  assert.notEqual(begin.operationId, OPERATION_ID);
+  assert.notEqual(ready.operationId, OPERATION_ID);
+  assert.notEqual(begin.operationId, ready.operationId);
+  assert.notEqual(begin.fingerprint, ready.fingerprint);
+  assert.equal(ready.attemptId, begin.attemptId);
+  assert.match(begin.attemptId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.match(begin.merchantOid, /^[a-f0-9]{32}$/);
+  assert.equal(fixture.operations.size, 2);
+});
+
+test("checkout derives distinct deterministic unknown and failed phase authorities", async () => {
+  const unknown = sqlSemanticFixture();
+  const rejected = sqlSemanticFixture();
+  assert.equal((await checkoutHandler(unknown, "unknown").handler(checkoutRequest())).status, 202);
+  assert.equal((await checkoutHandler(rejected, "rejected").handler(checkoutRequest())).status, 502);
+  const unknownBegin = unknown.inputs.begin[0]!; const unknownFinal = unknown.inputs.unknown[0]!;
+  const failedBegin = rejected.inputs.begin[0]!; const failedFinal = rejected.inputs.failed[0]!;
+  assert.equal(unknownBegin.attemptId, failedBegin.attemptId);
+  assert.equal(unknownBegin.merchantOid, failedBegin.merchantOid);
+  assert.equal(unknownBegin.operationId, failedBegin.operationId);
+  assert.notEqual(unknownFinal.operationId, unknownBegin.operationId);
+  assert.notEqual(failedFinal.operationId, failedBegin.operationId);
+  assert.notEqual(unknownFinal.operationId, failedFinal.operationId);
+  assert.notEqual(unknownFinal.fingerprint, failedFinal.fingerprint);
+});
+
+test("checkout cancels an unannounced streamed form above 128 bytes before repository access", async () => {
+  let pulls = 0;
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls += 1;
+      if (pulls <= 2) controller.enqueue(new Uint8Array(100).fill(0x61));
+      else controller.close();
+    },
+    cancel() { cancelled = true; },
+  });
+  const selected = checkoutHandler();
+  const request = new Request(`https://${HOSTNAME}/api/quick-order/checkout`, {
+    method: "POST", duplex: "half", body,
+    headers: { origin: `https://${HOSTNAME}`, "content-type": "application/x-www-form-urlencoded",
+      cookie: `__Host-celebix_quick=${CREDENTIAL}`, "x-forwarded-for": "8.8.8.8" },
+  } as RequestInit & { duplex: "half" });
+  const response = await selected.handler(request);
+  assert.equal(response.status, 400);
+  assert.equal(cancelled, true);
+  assert.ok(pulls <= 2, `reader pulled ${pulls} chunks`);
+  assert.equal(selected.fixture.calls.begin, 0);
+  assert.equal(selected.fixture.calls.provider, 0);
+});
 
 test("checkout native form reserves once, calls PayTR once outside begin, seals readiness, and 303s same-origin", async () => {
   const selected = checkoutHandler();
@@ -308,7 +468,7 @@ test("checkout rejects malformed authority, body, cookie and client IP before re
 
 test("checkout replay, concurrent, unknown and duplicate merchant outcomes never re-initiate", async () => {
   for (const [status, expectedStatus, location] of [
-    ["provider_ready", 303, "/odeme/hizli/odeme"], ["reserved", 409, null], ["initiation_unknown", 202, null],
+    ["provider_ready", 303, "/odeme/hizli/odeme"], ["reserved", 202, null], ["initiation_unknown", 202, null],
   ] as const) {
     const selected = checkoutHandler(paymentFixture(status, "replayed"));
     const response = await selected.handler(checkoutRequest());
@@ -328,6 +488,7 @@ test("checkout replay, concurrent, unknown and duplicate merchant outcomes never
 test("checkout terminal conflict renders the persisted public state without re-initiation", async () => {
   const terminal = paymentFixture();
   terminal.paymentRepository.beginAttempt = async () => { terminal.calls.begin += 1; throw new CheckoutPaymentRepositoryError("invalid_transition"); };
+  terminal.runtime.checkout.quickOrderRepository.getStatus = async () => { terminal.calls.status += 1; return { kind: "paid" as const, orderNumber: "CBX-2026-000001" }; };
   const selected = checkoutHandler(terminal);
   const response = await selected.handler(checkoutRequest());
   assert.equal(response.status, 200);
@@ -353,10 +514,10 @@ test("checkout releases proven rejection and records ambiguous initiation withou
 
 test("checkout withholds Location when persisted provider readiness does not match the attempt", async () => {
   const mismatch = paymentFixture();
-  mismatch.paymentRepository.markProviderReady = async () => {
+  mismatch.paymentRepository.markProviderReady = async (input) => {
     mismatch.calls.ready += 1;
     return { attemptId: "55555555-5555-4555-8555-555555555555", status: "provider_ready" as const, replayed: false,
-      providerTokenDigest: "a".repeat(64), sealedProviderToken: (await mismatch.paymentRepository.getPaymentPresentation()).sealedProviderToken };
+      providerTokenDigest: "a".repeat(64), sealedProviderToken: input.sealedProviderToken };
   };
   const selected = checkoutHandler(mismatch);
   const response = await selected.handler(checkoutRequest());
@@ -366,7 +527,7 @@ test("checkout withholds Location when persisted provider readiness does not mat
 });
 
 test("iframe route opens the current sealed token server-side into one inert, non-RSC document", async () => {
-  const fixture = paymentFixture();
+  const fixture = paymentFixture("provider_ready");
   assert.equal(typeof runtimeModule.createQuickOrderIframeRoute, "function");
   const handler = runtimeModule.createQuickOrderIframeRoute!({
     selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
@@ -387,7 +548,10 @@ test("iframe route opens the current sealed token server-side into one inert, no
   assert.doesNotMatch(body, /<script|<style|style=|__next|self.__next_f|application\/json|sealed|merchant_oid/i);
   assert.equal(body.split(fixture.providerToken).length - 1, 1);
   assert.equal(fixture.calls.presentation, 1);
-  assert.equal(openQuickLinkSecret({ envelope: (await fixture.paymentRepository.getPaymentPresentation()).sealedProviderToken, purpose: "provider-token", storeId: STORE_ID, objectId: ATTEMPT_ID, digest: createHash("sha256").update(fixture.providerToken).digest("hex"), keyring }), fixture.providerToken);
+  assert.equal(openQuickLinkSecret({ envelope: (await fixture.paymentRepository.getPaymentPresentation({ hostname: HOSTNAME,
+    redemptionDigest: digestRedemptionCredential(CREDENTIAL), now: new Date("2026-07-21T12:00:00.000Z") })).sealedProviderToken,
+    purpose: "provider-token", storeId: STORE_ID, objectId: ATTEMPT_ID,
+    digest: createHash("sha256").update(fixture.providerToken).digest("hex"), keyring }), fixture.providerToken);
 });
 
 test("iframe route denies near-match/query/missing cookie without token or presentation access", async () => {

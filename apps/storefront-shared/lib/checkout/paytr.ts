@@ -235,14 +235,40 @@ async function responseJson(response: Response): Promise<unknown> {
   if (contentType === null || !/^application\/json(?:; charset=utf-8)?$/i.test(contentType)) invalid();
   const length = response.headers.get("content-length");
   if (length !== null && (!/^(?:0|[1-9][0-9]{0,4})$/.test(length) || Number(length) > MAX_RESPONSE_BYTES)) invalid();
-  const bytes = Buffer.from(await response.arrayBuffer());
+  const bytes = Buffer.from(await boundedStream(response.body, MAX_RESPONSE_BYTES));
   try {
     if (bytes.byteLength < 2 || bytes.byteLength > MAX_RESPONSE_BYTES) invalid();
-    const text = bytes.toString("utf8");
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     if (!Buffer.from(text, "utf8").equals(bytes) || duplicateJsonKeys(text)) invalid();
     return JSON.parse(text) as unknown;
   } finally {
     bytes.fill(0);
+  }
+}
+
+async function boundedStream(stream: ReadableStream<Uint8Array> | null, maximumBytes: number): Promise<Uint8Array> {
+  if (stream === null) invalid();
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const selected = await reader.read();
+      if (selected.done) break;
+      if (!(selected.value instanceof Uint8Array)) invalid();
+      total += selected.value.byteLength;
+      if (total > maximumBytes) {
+        try { await reader.cancel(); } catch { /* rejection remains opaque */ }
+        invalid();
+      }
+      chunks.push(selected.value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return bytes;
+  } finally {
+    reader.releaseLock();
   }
 }
 

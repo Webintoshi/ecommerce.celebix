@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
 import { registerHooks } from "node:module";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { spawn } from "node:child_process";
 import test from "node:test";
 
 import {
@@ -335,7 +340,7 @@ test("13/13 signed storefront authority drives token-free checkout and iframe pr
   const checkout = runtimeModule.createQuickOrderCheckoutRoute({
     selectAuthority: authority, resolveRuntime: async () => paymentRuntime,
     initiate: async () => { calls.provider += 1; return { status: "unknown" }; },
-    now: () => new Date("2026-07-21T12:00:00.000Z"), randomUUID: () => attemptId, randomMerchantOid: () => merchantOid,
+    now: () => new Date("2026-07-21T12:00:00.000Z"),
   });
   const headers = {
     "x-celebix-storefront-proxy": `p1.${proxyToken}`, "x-forwarded-host": hostname,
@@ -358,4 +363,122 @@ test("13/13 signed storefront authority drives token-free checkout and iframe pr
   assert.match(html, new RegExp(`https://www[.]paytr[.]com/odeme/guvenli/${providerToken}`));
   assert.equal(html.split(providerToken).length - 1, 1);
   assert.equal(calls.presentation, 1);
+});
+
+function childResult(command, arguments_, options) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, arguments_, options);
+    let output = "";
+    child.stdout?.on("data", (chunk) => { output = `${output}${String(chunk)}`.slice(-20_000); });
+    child.stderr?.on("data", (chunk) => { output = `${output}${String(chunk)}`.slice(-20_000); });
+    child.once("error", reject);
+    child.once("exit", (code, signal) => resolve({ code, signal, output }));
+  });
+}
+
+async function availablePort() {
+  const server = createServer();
+  await new Promise((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  await new Promise((resolve) => server.close(resolve));
+  return address.port;
+}
+
+function rawHttp(port, target, headers) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({ hostname: "127.0.0.1", port, path: target, headers }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.once("end", () => resolve({ status: response.statusCode, rawHeaders: response.rawHeaders,
+        headers: response.headers, body: Buffer.concat(chunks).toString("utf8") }));
+    });
+    request.once("error", reject); request.end();
+  });
+}
+
+test("14/14 production server emits one success-aware iframe CSP with no token serialization", { timeout: 90_000 }, async () => {
+  const storefrontRoot = path.resolve(new URL("../../../apps/storefront-shared/", import.meta.url).pathname);
+  const fixture = await mkdtemp(path.join(storefrontRoot, ".paytr-csp-production-"));
+  const routeRoot = path.join(fixture, "app", "odeme", "hizli", "odeme");
+  const proxyToken = Buffer.alloc(32, 0x41).toString("base64url");
+  const providerToken = "28cc613c3d7633cfa4ed0956fdf901e05cf9d9cc0c2ef8db54fa";
+  const readyCookie = "__Host-celebix_quick=ready";
+  const exactCsp = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; frame-src https://www.paytr.com";
+  let server;
+  try {
+    await mkdir(routeRoot, { recursive: true });
+    await writeFile(path.join(fixture, "package.json"), JSON.stringify({ private: true, type: "module",
+      dependencies: { next: "16.2.1", react: "19.2.3", "react-dom": "19.2.3" } }), "utf8");
+    await writeFile(path.join(fixture, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", lib: ["dom", "dom.iterable", "esnext"],
+      allowJs: true, skipLibCheck: true, strict: true, noEmit: true, esModuleInterop: true, module: "esnext",
+      moduleResolution: "bundler", resolveJsonModule: true, isolatedModules: true, jsx: "react-jsx",
+      incremental: true, allowImportingTsExtensions: true }, include: ["**/*.ts", "**/*.tsx", ".next/types/**/*.ts"] }), "utf8");
+    await writeFile(path.join(fixture, "next.config.ts"), `
+      import type { NextConfig } from "next";
+      const config: NextConfig={poweredByHeader:false,async headers(){return [{source:"/:path*",headers:[
+        {key:"Content-Security-Policy",value:"default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"},
+        {key:"Referrer-Policy",value:"no-referrer"},{key:"X-Content-Type-Options",value:"nosniff"},{key:"X-Frame-Options",value:"DENY"},
+      ]}]}};
+      export default config;
+    `, "utf8");
+    await writeFile(path.join(fixture, "app", "layout.tsx"), "export default function Layout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }\n", "utf8");
+    await writeFile(path.join(routeRoot, "route.ts"), `
+      const TOKEN=${JSON.stringify(providerToken)};
+      export function GET(request: Request) {
+        const target=new URL(request.url);
+        if (target.pathname!=="/odeme/hizli/odeme" || target.search || request.headers.get("cookie")!==${JSON.stringify(readyCookie)}) return new Response("Not found",{status:404});
+        return new Response('<!doctype html><html><body><iframe src="https://www.paytr.com/odeme/guvenli/'+TOKEN+'" width="100%" height="720" scrolling="yes" frameborder="0" title="PayTR güvenli ödeme"></iframe></body></html>',{headers:{"content-type":"text/html; charset=utf-8"}});
+      }
+    `, "utf8");
+    await writeFile(path.join(fixture, "proxy.ts"), `
+      import { createStorefrontProxy } from "../proxy.ts";
+      import { selectTrustedStorefrontHostAuthority } from "../lib/trusted-host-authority.ts";
+      const source=Object.freeze({CELEBIX_DEPLOYMENT_TIER:"staging",CELEBIX_STOREFRONT_PROXY_MODE:"approved_staging",CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL:${JSON.stringify(proxyToken)}});
+      export const proxy=createStorefrontProxy({
+        selectAuthority:(headers)=>selectTrustedStorefrontHostAuthority(headers,source),
+        resolveMediaOrigin:()=>"https://media.saas-staging.celebix.site",
+        authorizePaytrIframe:async ({cookieHeader})=>cookieHeader===${JSON.stringify(readyCookie)},
+        now:()=>new Date("2026-07-21T12:00:00.000Z"),
+      });
+      export const config={matcher:["/((?!_next/static|_next/image|favicon.ico).*)"]};
+    `, "utf8");
+    const nextBin = path.join(path.resolve(new URL("../../../", import.meta.url).pathname), "node_modules", "next", "dist", "bin", "next");
+    const built = await childResult(process.execPath, [nextBin, "build"], { cwd: fixture, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" }, stdio: ["ignore", "pipe", "pipe"] });
+    assert.equal(built.code, 0, built.output);
+    const port = await availablePort();
+    server = spawn(process.execPath, [nextBin, "start", "-p", String(port)], { cwd: fixture,
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" }, stdio: ["ignore", "pipe", "pipe"] });
+    let serverOutput = "";
+    server.stdout.on("data", (chunk) => { serverOutput = `${serverOutput}${String(chunk)}`.slice(-10_000); });
+    server.stderr.on("data", (chunk) => { serverOutput = `${serverOutput}${String(chunk)}`.slice(-10_000); });
+    const signed = { "x-celebix-storefront-proxy": `p1.${proxyToken}`, "x-forwarded-host": "pilot.saas-staging.celebix.site", "x-forwarded-proto": "https" };
+    let ready;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try { ready = await rawHttp(port, "/odeme/hizli/odeme", { ...signed, cookie: readyCookie }); break; }
+      catch { await new Promise((resolve) => setTimeout(resolve, 50)); }
+    }
+    assert.ok(ready, serverOutput);
+    const cspHeaders = (response) => response.rawHeaders.filter((_, index) => index % 2 === 0 && response.rawHeaders[index].toLowerCase() === "content-security-policy");
+    assert.equal(ready.status, 200);
+    assert.equal(cspHeaders(ready).length, 1);
+    assert.equal(ready.headers["content-security-policy"], exactCsp);
+    assert.equal(ready.body.split(providerToken).length - 1, 1);
+    assert.doesNotMatch(ready.body, /self[.]__next_f|application\/json|<script|sealed|merchant_oid/i);
+    for (const [target, cookie] of [["/odeme/hizli/odeme", undefined], ["/odeme/hizli/odeme", "__Host-celebix_quick=wrong"],
+      ["/odeme/hizli/odeme?x=1", readyCookie], ["/odeme/hizli/ODeme", readyCookie]]) {
+      const denied = await rawHttp(port, target, { ...signed, ...(cookie ? { cookie } : {}) });
+      assert.equal(cspHeaders(denied).length, 1, target);
+      assert.match(denied.headers["content-security-policy"] ?? "", /form-action 'none'/, target);
+      assert.doesNotMatch(denied.headers["content-security-policy"] ?? "", /frame-src https:\/\/www[.]paytr[.]com/, target);
+      assert.equal(denied.body.includes(providerToken), false);
+    }
+  } finally {
+    if (server && server.exitCode === null) {
+      server.kill("SIGTERM");
+      await Promise.race([new Promise((resolve) => server.once("exit", resolve)), new Promise((resolve) => setTimeout(resolve, 2_000))]);
+      if (server.exitCode === null) server.kill("SIGKILL");
+    }
+    await rm(fixture, { recursive: true, force: true });
+  }
 });

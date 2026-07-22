@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import {
   CheckoutPaymentRepositoryError,
   PostgresCheckoutPaymentRepository,
@@ -75,8 +75,6 @@ type PaymentRouteDependencies = Readonly<{
   selectAuthority: (headers: Headers) => HostAuthority;
   resolveRuntime: () => Promise<CheckoutPaymentRuntime | null>;
   now?: () => Date;
-  randomUUID?: () => string;
-  randomMerchantOid?: () => string;
   initiate?: (input: Parameters<typeof requestPaytrIframeToken>[0]) => Promise<PaytrIframeTokenResult>;
 }>;
 
@@ -99,7 +97,31 @@ function validNow(value: unknown): value is Date {
 }
 
 function fingerprint(hostname: string, redemptionDigest: string, operationId: string): string {
-  return createHash("sha256").update(JSON.stringify(["celebix-paytr-initiation", 1, hostname, redemptionDigest, operationId]), "utf8").digest("hex");
+  return digestParts("intent", hostname, redemptionDigest, operationId);
+}
+
+function digestParts(kind: string, ...parts: readonly string[]): string {
+  return createHash("sha256").update(JSON.stringify(["celebix-paytr-checkout", 1, kind, ...parts]), "utf8").digest("hex");
+}
+
+function uuidFromDigest(digest: string): string {
+  const bytes = Buffer.from(digest.slice(0, 32), "hex");
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  bytes.fill(0);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function intentAuthority(hostname: string, redemptionDigest: string, intentId: string) {
+  const intent = fingerprint(hostname, redemptionDigest, intentId);
+  const attemptId = uuidFromDigest(digestParts("attempt", intent));
+  const merchantOid = digestParts("merchant-oid", intent).slice(0, 32);
+  const phase = (kind: "begin_attempt" | "provider_ready" | "initiation_unknown" | "initiation_failed", payload = "") => Object.freeze({
+    operationId: uuidFromDigest(digestParts("operation", kind, intent)),
+    fingerprint: digestParts("fingerprint", kind, intent, attemptId, merchantOid, payload),
+  });
+  return Object.freeze({ attemptId, merchantOid, phase });
 }
 
 function paytrBasket(items: readonly Readonly<{ name: string; unitPriceCents: number; quantity: number }>[]): string {
@@ -118,11 +140,39 @@ async function operationId(request: Request): Promise<string | null> {
   const contentLength = request.headers.get("content-length");
   if (contentLength !== null && (!/^(?:0|[1-9][0-9]{0,2})$/.test(contentLength) || Number(contentLength) > 128)) return null;
   let body: string;
-  try { body = await request.text(); } catch { return null; }
-  if (body.length < 1 || Buffer.byteLength(body, "utf8") > 128) return null;
+  try {
+    const bytes = await boundedRequestBody(request.body, 128);
+    body = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    if (!Buffer.from(body, "utf8").equals(bytes)) return null;
+  } catch { return null; }
+  if (body.length < 1) return null;
   const prefix = "operation_id=";
   const selected = body.startsWith(prefix) ? body.slice(prefix.length) : "";
   return UUID.test(selected) && body === `${prefix}${selected}` ? selected : null;
+}
+
+async function boundedRequestBody(stream: ReadableStream<Uint8Array> | null, maximumBytes: number): Promise<Uint8Array> {
+  if (stream === null) invalid();
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const selected = await reader.read();
+      if (selected.done) break;
+      if (!(selected.value instanceof Uint8Array)) invalid();
+      total += selected.value.byteLength;
+      if (total > maximumBytes) {
+        try { await reader.cancel(); } catch { /* invalid request remains invalid */ }
+        invalid();
+      }
+      chunks.push(selected.value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return bytes;
+  } finally { reader.releaseLock(); }
 }
 
 function trustedRequestTarget(request: Request, hostname: string, pathname: string, method: "GET" | "POST"): URL | null {
@@ -171,14 +221,16 @@ export function createQuickOrderCheckoutRoute(dependencies: PaymentRouteDependen
     if (runtime === null) return routeText(503, "Checkout unavailable");
     const now = (dependencies.now ?? (() => new Date()))();
     if (!validNow(now)) return routeText(503, "Checkout unavailable");
-    const attemptId = (dependencies.randomUUID ?? randomUUID)();
-    const oid = (dependencies.randomMerchantOid ?? (() => randomBytes(16).toString("hex")))();
-    if (!UUID.test(attemptId) || !MERCHANT_OID.test(oid)) return routeText(503, "Checkout unavailable");
     const redemptionDigest = digestRedemptionCredential(cookie.credential);
-    const selectedFingerprint = fingerprint(authority.hostname, redemptionDigest, operation);
+    const intent = intentAuthority(authority.hostname, redemptionDigest, operation);
+    const attemptId = intent.attemptId;
+    const oid = intent.merchantOid;
+    const beginAuthority = intent.phase("begin_attempt");
+    if (!UUID.test(attemptId) || !MERCHANT_OID.test(oid)) return routeText(503, "Checkout unavailable");
     let begun;
     try {
-      begun = await runtime.paymentRepository.beginAttempt({ hostname: authority.hostname, redemptionDigest, attemptId, merchantOid: oid, operationId: operation, fingerprint: selectedFingerprint, now: new Date(now) });
+      begun = await runtime.paymentRepository.beginAttempt({ hostname: authority.hostname, redemptionDigest, attemptId, merchantOid: oid,
+        operationId: beginAuthority.operationId, fingerprint: beginAuthority.fingerprint, now: new Date(now) });
     } catch (error) {
       if (error instanceof CheckoutPaymentRepositoryError && (error.code === "invalid_transition" || error.code === "provider_not_ready")) {
         return persistedCheckoutState(runtime, authority.hostname, redemptionDigest, now);
@@ -188,6 +240,13 @@ export function createQuickOrderCheckoutRoute(dependencies: PaymentRouteDependen
     if (begun.outcome !== "created" || begun.status !== "reserved") {
       if (begun.status === "provider_ready") return new Response(null, { status: 303, headers: { ...ROUTE_HEADERS, Location: "/odeme/hizli/odeme" } });
       if (begun.status === "initiation_unknown") return routeText(202, "Payment initiation is processing");
+      if (begun.outcome === "replayed") {
+        try {
+          const presentation = await runtime.paymentRepository.getPaymentPresentation({ hostname: authority.hostname, redemptionDigest, now: new Date(now) });
+          if (presentation.attemptId !== attemptId || presentation.merchantOid !== oid) return routeText(503, "Checkout unavailable");
+          return new Response(null, { status: 303, headers: { ...ROUTE_HEADERS, Location: "/odeme/hizli/odeme" } });
+        } catch { return persistedCheckoutState(runtime, authority.hostname, redemptionDigest, now); }
+      }
       return routeText(409, "Checkout already in progress");
     }
     if (begun.attemptId !== attemptId || begun.merchantOid !== oid || begun.currency !== "TRY") return routeText(503, "Checkout unavailable");
@@ -205,20 +264,22 @@ export function createQuickOrderCheckoutRoute(dependencies: PaymentRouteDependen
       userAddress: begun.customerAddress, userPhone: begun.customerPhone, successUrl: resultUrl, failureUrl: resultUrl,
       noInstallment: 0, maxInstallment: 0, signal,
     });
-    const transition = { attemptId: begun.attemptId, operationId: operation, fingerprint: selectedFingerprint, now: new Date(now) };
     if (initiated.status === "rejected") {
-      try { await runtime.paymentRepository.markInitiationFailed(transition); } catch { return routeText(503, "Checkout unavailable"); }
+      const failed = intent.phase("initiation_failed");
+      try { await runtime.paymentRepository.markInitiationFailed({ attemptId: begun.attemptId, ...failed, now: new Date(now) }); } catch { return routeText(503, "Checkout unavailable"); }
       return routeText(502, "Payment provider rejected initiation");
     }
     if (initiated.status === "unknown") {
-      try { await runtime.paymentRepository.markInitiationUnknown(transition); } catch { return routeText(503, "Checkout unavailable"); }
+      const unknown = intent.phase("initiation_unknown");
+      try { await runtime.paymentRepository.markInitiationUnknown({ attemptId: begun.attemptId, ...unknown, now: new Date(now) }); } catch { return routeText(503, "Checkout unavailable"); }
       return routeText(202, "Payment initiation is processing");
     }
     if (!PROVIDER_TOKEN.test(initiated.token)) return routeText(503, "Checkout unavailable");
     const providerTokenDigest = createHash("sha256").update(initiated.token, "utf8").digest("hex");
     const sealedProviderToken = sealQuickLinkSecret({ plaintext: initiated.token, purpose: "provider-token", storeId: begun.storeId, objectId: begun.attemptId, digest: providerTokenDigest, keyring: runtime.keyring });
     try {
-      const ready = await runtime.paymentRepository.markProviderReady({ ...transition, providerTokenDigest, sealedProviderToken });
+      const readyAuthority = intent.phase("provider_ready", providerTokenDigest);
+      const ready = await runtime.paymentRepository.markProviderReady({ attemptId: begun.attemptId, ...readyAuthority, providerTokenDigest, sealedProviderToken, now: new Date(now) });
       if (ready.attemptId !== begun.attemptId || ready.status !== "provider_ready" || ready.providerTokenDigest !== providerTokenDigest) {
         return routeText(503, "Checkout unavailable");
       }
