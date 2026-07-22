@@ -28,6 +28,11 @@ const cases = [
   ["editor", "customers.archive", false],
   ["analyst", "customers.read", true],
   ["analyst", "customers.manage", false],
+  ["store_owner", "catalog_admin.import", true],
+  ["admin", "catalog_admin.moderate", true],
+  ["editor", "catalog_admin.manage", true],
+  ["editor", "catalog_admin.archive", false],
+  ["analyst", "catalog_admin.read", true],
 ] as const;
 
 test("enforces the exact merchant order action matrix", () => {
@@ -37,7 +42,10 @@ test("enforces the exact merchant order action matrix", () => {
 });
 
 test("denies unknown merchant actions", () => {
-  assert.equal(isMerchantActionAllowed("store_owner", "orders.delete" as never), false);
+  assert.equal(
+    isMerchantActionAllowed("store_owner", "orders.delete" as never),
+    false,
+  );
 });
 
 test("exports the exact immutable merchant action list", () => {
@@ -54,6 +62,11 @@ test("exports the exact immutable merchant action list", () => {
     "customers.read",
     "customers.manage",
     "customers.archive",
+    "catalog_admin.read",
+    "catalog_admin.manage",
+    "catalog_admin.archive",
+    "catalog_admin.import",
+    "catalog_admin.moderate",
   ]);
   assert.equal(Object.isFrozen(MERCHANT_ACTIONS), true);
 });

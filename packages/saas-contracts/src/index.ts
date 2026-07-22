@@ -50,7 +50,12 @@ export type {
 
 export { SAAS_ERROR_CODES } from "./errors.ts";
 export type { SaaSContractError, SaaSErrorCode } from "./errors.ts";
-export { PRODUCT_STATUSES, VARIANT_STATUSES, parseProduct, parseProductVariant } from "./catalog/index.ts";
+export {
+  PRODUCT_STATUSES,
+  VARIANT_STATUSES,
+  parseProduct,
+  parseProductVariant,
+} from "./catalog/index.ts";
 export type {
   Product,
   ProductId,
@@ -59,7 +64,10 @@ export type {
   ProductVariantId,
   VariantStatus,
 } from "./catalog/index.ts";
-export { MERCHANT_ACTIONS, isMerchantActionAllowed } from "./authorization/actions.ts";
+export {
+  MERCHANT_ACTIONS,
+  isMerchantActionAllowed,
+} from "./authorization/actions.ts";
 export type { MerchantAction } from "./authorization/actions.ts";
 export {
   QUICK_ORDER_EXPIRY_HOURS,
@@ -88,6 +96,26 @@ export {
   parseOrderDetail,
   parseOrderListItem,
 } from "./orders/index.ts";
+export {
+  CATALOG_ADMIN_RESOURCE_KINDS,
+  CATALOG_IMPORT_STATUSES,
+  PRODUCT_REVIEW_STATUSES,
+  parseCatalogAdminImportJob,
+  parseCatalogAdminMutationResult,
+  parseCatalogAdminResource,
+  parseProductReview,
+} from "./catalog-admin/index.ts";
+export type {
+  CatalogAdminImportJob,
+  CatalogAdminJson,
+  CatalogAdminMutationResult,
+  CatalogAdminResource,
+  CatalogAdminResourceKind,
+  CatalogAdminResourceStatus,
+  CatalogImportStatus,
+  ProductReview,
+  ProductReviewStatus,
+} from "./catalog-admin/index.ts";
 export {
   ABANDONED_CART_SORTS,
   ABANDONED_CART_STATUSES,
