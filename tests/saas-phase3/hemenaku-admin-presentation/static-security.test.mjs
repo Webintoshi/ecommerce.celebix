@@ -89,7 +89,7 @@ test("client presentation contains no private authority or donor runtime", async
   const files = git("diff", "--name-only", `${BASE}...HEAD`).split("\n").filter((path) =>
     /apps\/customer-panel\/.+\.(ts|tsx)$/.test(path) &&
     !/\.test\.[cm]?[jt]sx?$/.test(path) &&
-    (path.includes("/components/") || path.includes("/catalog-ui/") || path.includes("/order-ui/") || path.includes("/panel-ui/")),
+    (path.includes("/components/") || path.includes("/catalog-ui/") || path.includes("/order-ui/") || path.includes("/panel-ui/") || path.includes("/merchant-admin-ui/")),
   );
   const source = (await Promise.all(files.map(read))).join("\n");
   assert.doesNotMatch(source, /@supabase|getAdminAuthContext|getBrowserSupabaseClient|STORE_RUNTIME|store-info-context|\/api\/admin\//i);

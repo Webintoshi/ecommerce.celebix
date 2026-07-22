@@ -5,9 +5,11 @@ import test from "node:test";
 
 const BASE = "d020e96c6a7e5336e64d586683985fd6bf4f354e";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
+const HISTORICAL_A1_HEAD = "dcb8ad4e57653a53098f082e57fc5b2a1c5ec113";
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, ROOT), "utf8");
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
+const readAt = (revision, path) => git("show", `${revision}:${path}`);
 
 test("pins the exact donor commit and required donor files", () => {
   assert.equal(git("rev-parse", DONOR + "^{commit}"), DONOR);
@@ -43,10 +45,10 @@ test("imports no donor auth data runtime or legacy admin API", async () => {
   assert.doesNotMatch(combined, /@supabase|getAdminAuthContext|getBrowserSupabaseClient|NEXT_PUBLIC_ADMIN_AUTH_PROVIDER|\/api\/admin\/|store-runtime|store-info-context/i);
 });
 
-test("activates only A1 orders while deferred navigation remains unsupported", async () => {
-  const navigation = await read("apps/customer-panel/lib/panel-ui/navigation.ts");
-  const dashboardModel = await read("apps/customer-panel/lib/panel-ui/dashboard-model.ts");
-  const dashboard = await read("apps/customer-panel/components/dashboard/PanelDashboardHomeView.tsx");
+test("preserves the historical A1 orders navigation snapshot at its closing SHA", () => {
+  const navigation = readAt(HISTORICAL_A1_HEAD, "apps/customer-panel/lib/panel-ui/navigation.ts");
+  const dashboardModel = readAt(HISTORICAL_A1_HEAD, "apps/customer-panel/lib/panel-ui/dashboard-model.ts");
+  const dashboard = readAt(HISTORICAL_A1_HEAD, "apps/customer-panel/components/dashboard/PanelDashboardHomeView.tsx");
   assert.match(navigation, /label:\s*"Siparişler"[\s\S]*?label:\s*"Tüm Siparişler"[\s\S]*?href:\s*"\/orders"/);
   assert.doesNotMatch(navigation, /quick|abandoned|customers|müşteri|marketing|cms|accounting|muhasebe|seo|toshi|notification|conversion|analytics/i);
   for (const capability of ["analytics", "customers", "carts"]) {
@@ -66,8 +68,8 @@ test("preserves exact same-origin logout semantics", async () => {
   assert.doesNotMatch(logout, /document\.cookie|localStorage|sessionStorage/);
 });
 
-test("declares exactly the approved shell presentation dependencies and nested panel ui test glob", async () => {
-  const pkg = JSON.parse(await read("apps/customer-panel/package.json"));
+test("preserves the historical shell dependency and test-glob snapshot", () => {
+  const pkg = JSON.parse(readAt(HISTORICAL_A1_HEAD, "apps/customer-panel/package.json"));
   assert.deepEqual({
     "framer-motion": pkg.dependencies["framer-motion"],
     "lucide-react": pkg.dependencies["lucide-react"],

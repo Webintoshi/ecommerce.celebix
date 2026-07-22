@@ -1,0 +1,2 @@
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="154" height="39" viewBox="0 0 154 39"><rect width="154" height="39" rx="8" fill="#2A2A2A"/><text x="12" y="26" fill="#FAF9F9" font-family="Arial" font-size="20" font-weight="700">CELEBIX</text><circle cx="142" cy="20" r="6" fill="#FF6A00"/></svg>`;
+export function GET() { return new Response(SVG, { headers: { "content-type": "image/svg+xml", "cache-control": "no-store" } }); }
