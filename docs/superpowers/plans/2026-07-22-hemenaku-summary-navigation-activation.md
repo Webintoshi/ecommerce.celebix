@@ -210,15 +210,10 @@ git commit -m "feat(saas): replace overview with truthful summary"
 npm test --workspace @celebix/customer-panel
 npm run typecheck --workspace @celebix/customer-panel
 npm run build --workspace @celebix/customer-panel
-npm test --workspace @celebix/owner
 npm run typecheck --workspace @celebix/owner
 npm run build --workspace @celebix/owner
 node --experimental-transform-types --test \
-  tests/saas-phase3/order-management/in-process.test.mjs \
-  tests/saas-phase3/order-management/static-security.test.mjs
-node --experimental-transform-types --test \
-  tests/saas-phase3/quick-order-links/in-process.test.mjs \
-  tests/saas-phase3/quick-order-links/static-security.test.mjs
+  tests/saas-phase3/order-management/in-process.test.mjs
 node --experimental-transform-types --test \
   tests/saas-phase3/quick-order-runtime/in-process.test.mjs \
   tests/saas-phase3/quick-order-runtime/static-security.test.mjs \

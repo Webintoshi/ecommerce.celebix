@@ -9,8 +9,8 @@ const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const ROOT = new URL("../../../", import.meta.url);
 const SQL = "apps/owner/scripts/sql/saas/";
 const MANIFEST = `${SQL}phase3b2-quick-order-runtime-manifest.json`;
-const EXPECTED_CHANGED_FILE_COUNT = 120;
-const EXPECTED_CHANGED_FILE_SHA256 = "f0a797a3eaf93034d7c7fe2c928b215cc9646cf230c5854398a998cf4660fd80";
+const EXPECTED_CHANGED_FILE_COUNT = 130;
+const EXPECTED_CHANGED_FILE_SHA256 = "d8919b5bbdbb02b7e713cfbf435db86e4203ff71e51eb17d449b33ae2aeac874";
 const read = (file) => readFile(new URL(file, ROOT), "utf8");
 
 function git(args) {
@@ -62,7 +62,7 @@ test("pins donor, admin immutability, current 026-029 manifest bytes and least-p
     "checkout functions remain app/workflow-only; host resolver receives no payment authority");
 });
 
-test("changed production scope is the exact reviewed Task 1 through Task 12 allowlist", () => {
+test("changed production scope is the exact reviewed Task 1 through Task 14 allowlist", () => {
   const files = changedFiles();
   assert.equal(files.length, EXPECTED_CHANGED_FILE_COUNT);
   assert.equal(createHash("sha256").update(`${files.join("\n")}\n`).digest("hex"), EXPECTED_CHANGED_FILE_SHA256);
