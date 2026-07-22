@@ -96,6 +96,31 @@ export {
   parseAbandonedCartMutationResult,
   parseAbandonedCartSummary,
 } from "./abandoned-carts/index.ts";
+export {
+  CUSTOMER_CONSENT_CHANNELS,
+  CUSTOMER_STATUSES,
+  parseCustomerDetail,
+  parseCustomerListItem,
+  parseCustomerMutationResult,
+  parseCustomerSegment,
+  parseCustomerSummary,
+  parseCustomerTag,
+} from "./customers/index.ts";
+export type {
+  CustomerAddress,
+  CustomerConsent,
+  CustomerConsentChannel,
+  CustomerConsentStatus,
+  CustomerDetail,
+  CustomerListItem,
+  CustomerMutationResult,
+  CustomerSegment,
+  CustomerSegmentRef,
+  CustomerStatus,
+  CustomerSummary,
+  CustomerTag,
+  CustomerTagRef,
+} from "./customers/index.ts";
 export type {
   AbandonedCartDetail,
   AbandonedCartItem,
