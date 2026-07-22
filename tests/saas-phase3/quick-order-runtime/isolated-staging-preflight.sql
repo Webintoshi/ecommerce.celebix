@@ -72,6 +72,7 @@ BEGIN
   IF NOT pg_catalog.has_schema_privilege('celebix_saas_app','saas','USAGE')
      OR NOT pg_catalog.has_function_privilege('celebix_saas_app','saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,bigint,timestamptz,uuid)'::regprocedure,'EXECUTE')
      OR pg_catalog.has_schema_privilege('celebix_saas_workflow','saas','USAGE')
+     OR NOT pg_catalog.has_schema_privilege('celebix_saas_host_resolver','saas','USAGE')
   THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: exact base role grant drift'; END IF;
   FOREACH forbidden IN ARRAY ARRAY[
     'quick_order_redemption_sessions','checkout_payment_attempts','checkout_inventory_reservations',
@@ -80,6 +81,31 @@ BEGIN
   ] LOOP
     IF to_regclass('saas.' || forbidden) IS NOT NULL THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: post-base object present'; END IF;
   END LOOP;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='saas' AND (
+      (table_name='checkout_provider_configs' AND column_name='configuration_digest')
+      OR (table_name='orders' AND column_name IN ('quick_order_link_id','billing_address'))
+    )
+  ) OR EXISTS (
+    SELECT 1 FROM pg_catalog.pg_constraint
+    WHERE conname IN (
+      'checkout_provider_configs_configuration_digest_check',
+      'quick_order_links_store_id_currency_runtime_key',
+      'quick_order_links_store_id_provider_currency_runtime_key',
+      'orders_quick_link_source_check','orders_quick_link_store_fk','orders_quick_link_currency_store_fk',
+      'orders_store_id_quick_link_id_runtime_key'
+    )
+  ) OR to_regclass('saas.checkout_provider_configs_store_provider_active_key') IS NOT NULL
+     OR to_regclass('saas.orders_store_quick_order_link_key') IS NOT NULL
+     OR EXISTS (
+       SELECT 1 FROM pg_catalog.pg_trigger
+       WHERE NOT tgisinternal AND tgname IN (
+         'checkout_provider_configs_terminal','quick_order_links_live_attempt','quick_order_links_live_attempt_commit',
+         'quick_order_links_paid_immutable','product_variants_checkout_hold'
+       )
+     )
+  THEN RAISE EXCEPTION 'ISOLATED_STAGING_PREFLIGHT_FAILED: partial 026 existing-table artifact present'; END IF;
   IF EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND (p.proname LIKE 'checkout_%' OR p.proname LIKE 'quick_checkout_%' OR p.proname LIKE 'guard_checkout_%' OR p.proname IN (
     'quick_links_claim_redemption','quick_links_configure_provider','quick_links_get_provider_readiness','quick_links_recover_provider_operation',
     'quick_links_recover_redemption_revoke','quick_links_resolve_redemption','quick_links_reveal_credential',

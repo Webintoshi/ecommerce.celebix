@@ -28,7 +28,8 @@ function dependencies(overrides = {}) {
       if (path.endsWith(MANIFEST)) return manifest;
       const file = ARTIFACTS.find((candidate) => path.endsWith(candidate));
       if (file) return artifacts[file];
-      if (path.endsWith("202607220024_quick_order_links_assertions.sql") || path.endsWith("202607220025_quick_order_links_api_assertions.sql")) return "SELECT 1;";
+      if (path.endsWith("202607210022_order_management_assertions.sql") || path.endsWith("202607210023_order_management_api_assertions.sql")
+          || path.endsWith("202607220024_quick_order_links_assertions.sql") || path.endsWith("202607220025_quick_order_links_api_assertions.sql")) return "SELECT 1;";
       if (path.endsWith("isolated-staging-preflight.sql")) return "SELECT 1;";
       throw new Error(`unexpected read ${path}`);
     },
@@ -90,14 +91,16 @@ test("apply verifies local and source manifest bytes, then preflights, backs up,
   assert.ok(at("027_quick_order_checkout_api.up.sql") < at("028_quick_order_redemption_expiry_authority.up.sql"));
   assert.ok(at("028_quick_order_redemption_expiry_authority.up.sql") < at("029_quick_order_settlement_authority.up.sql"));
   assert.deepEqual(sqlProcesses.map(([, , args]) => args.at(-1).split("/").at(-1)), [
+    "202607210022_order_management_assertions.sql",
+    "202607210023_order_management_api_assertions.sql",
     "202607220024_quick_order_links_assertions.sql",
     "202607220025_quick_order_links_api_assertions.sql",
     "isolated-staging-preflight.sql",
     ...ARTIFACTS.filter((file) => file.endsWith(".up.sql")),
     ...ARTIFACTS.filter((file) => file.endsWith("_assertions.sql")),
   ]);
-  for (const process of sqlProcesses.slice(0, 3)) assert.equal(process[3].env.PGOPTIONS, "-c default_transaction_read_only=on");
-  for (const process of sqlProcesses.slice(3)) assert.equal("PGOPTIONS" in process[3].env, false);
+  for (const process of sqlProcesses.slice(0, 5)) assert.equal(process[3].env.PGOPTIONS, "-c default_transaction_read_only=on");
+  for (const process of sqlProcesses.slice(5)) assert.equal("PGOPTIONS" in process[3].env, false);
   assert.ok(processes.findIndex(([, command]) => command === "pg_dump") < processes.findIndex(([, command, args]) => command === "psql" && args.join(" ").includes("026_quick_order_checkout_runtime.up.sql")), "custom backup precedes every DDL migration");
   for (const process of processes.filter(([, command, args]) => command === "psql" && /20260722002[6-9]_quick_order_.*[.]up[.]sql/.test(args.join(" ")))) assert.equal(process[2].includes("--single-transaction"), true);
   assert.equal(deps.calls.some(([kind, value, options]) => kind === "mkdir" && value === "/safe/backup" && options.mode === 0o700), true);

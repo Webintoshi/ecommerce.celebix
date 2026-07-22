@@ -129,6 +129,8 @@ export function runIsolatedStaging(argv, supplied = {}) {
   const connection = { deps, environment };
   assertEnvironment(deps.env, connection);
   const readOnlyEnvironment = Object.freeze({ ...environment, PGOPTIONS: "-c default_transaction_read_only=on" });
+  psqlFile(deps, readOnlyEnvironment, path.join(deps.cwd, SQL_ROOT, "202607210022_order_management_assertions.sql"));
+  psqlFile(deps, readOnlyEnvironment, path.join(deps.cwd, SQL_ROOT, "202607210023_order_management_api_assertions.sql"));
   psqlFile(deps, readOnlyEnvironment, path.join(deps.cwd, SQL_ROOT, "202607220024_quick_order_links_assertions.sql"));
   psqlFile(deps, readOnlyEnvironment, path.join(deps.cwd, SQL_ROOT, "202607220025_quick_order_links_api_assertions.sql"));
   psqlFile(deps, readOnlyEnvironment, PRECHECK);

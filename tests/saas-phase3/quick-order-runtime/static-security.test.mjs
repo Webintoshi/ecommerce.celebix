@@ -97,10 +97,17 @@ test("added implementation content has no credentials, private browser authority
       const listeners = [...source.matchAll(/\blisten\(([^\n]*)/g)].map((match) => match[1]);
       assert.equal(listeners.length > 0, true);
       for (const listener of listeners) assert.match(listener, /^0,\s*["']127[.]0[.]0[.]1["']/);
+      assert.doesNotMatch(source, /\b(?:globalThis[.])?fetch\s*\(|\b(?:axios|got|undici|WebSocket)\b|createConnection\s*\(/i);
+      if (/\bhttpRequest\s*\(/.test(source)) {
+        const destinations = [...source.matchAll(/\bhttpRequest\s*\(\s*\{([^}]*)\}/g)].map((match) => match[1]);
+        assert.equal(destinations.length, 1);
+        assert.match(destinations[0], /hostname:\s*["']127[.]0[.]0[.]1["']/);
+      }
     }
   }
   const browserAndRsc = await Promise.all([
     read("apps/customer-panel/components/orders/QuickOrderLinksConsole.tsx"),
+    read("apps/customer-panel/lib/quick-link-ui/client.ts"),
     read("apps/customer-panel/app/orders/quick-links/page.tsx"),
     read("apps/storefront-shared/app/odeme/hizli/[token]/route.ts"),
     read("apps/storefront-shared/app/odeme/hizli/page.tsx"),
