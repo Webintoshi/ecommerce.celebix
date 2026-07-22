@@ -28,6 +28,13 @@ export interface PanelDashboardAction {
     | "/customers"
     | "/products"
     | "/products/new"
+    | "/discounts"
+    | "/marketing"
+    | "/content/blog"
+    | "/marketplaces"
+    | "/settings/general"
+    | "/accounting"
+    | "/seo"
     | "/setup";
 }
 
@@ -161,6 +168,13 @@ export function createPanelDashboardModel(
     Object.freeze({ label: "Müşterileri yönet", href: "/customers" as const }),
     Object.freeze({ label: "Ürünleri yönet", href: "/products" as const }),
     Object.freeze({ label: "Yeni ürün ekle", href: "/products/new" as const }),
+    Object.freeze({ label: "İndirimleri yönet", href: "/discounts" as const }),
+    Object.freeze({ label: "Pazarlamayı yönet", href: "/marketing" as const }),
+    Object.freeze({ label: "İçerikleri yönet", href: "/content/blog" as const }),
+    Object.freeze({ label: "Pazar yerlerini yönet", href: "/marketplaces" as const }),
+    Object.freeze({ label: "Mağaza ayarları", href: "/settings/general" as const }),
+    Object.freeze({ label: "Muhasebeyi yönet", href: "/accounting" as const }),
+    Object.freeze({ label: "SEO'yu yönet", href: "/seo" as const }),
     Object.freeze({ label: "Kurulumu gözden geçir", href: "/setup" as const }),
   ]);
   const catalogCards =

@@ -33,12 +33,35 @@ test("contains every and only currently working merchant destination", () => {
       "/products/reviews",
       "/products/definitions",
       "/products/bulk-upload",
+      "/discounts",
+      "/discounts/new",
+      "/discounts/lucky-wheel",
+      "/marketing",
+      "/marketing/email",
+      "/marketing/phone",
+      "/marketing/whatsapp",
+      "/content/blog",
+      "/content/pages",
+      "/content/policies",
+      "/marketplaces",
+      "/settings/general",
+      "/settings/language",
+      "/settings/payment",
+      "/settings/shipping",
+      "/settings/administrators",
+      "/accounting",
+      "/accounting/invoicing-integration",
+      "/seo",
+      "/seo/sitemap",
+      "/seo/social-preview",
+      "/seo/code-integrations",
+      "/seo/fast-indexing",
       "/setup",
     ],
   );
   assert.deepEqual(
     PANEL_NAVIGATION.map(({ label }) => label),
-    ["Özet", "Siparişler", "Müşteriler", "Ürünler", "Kurulum"],
+    ["Özet", "Siparişler", "Müşteriler", "Ürünler", "İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO", "Kurulum"],
   );
 });
 
@@ -110,12 +133,9 @@ test("matches root only at root", () => {
   assert.equal(isPanelNavigationPathActive("/setup", "/"), false);
 });
 
-test("contains no deferred module label or href", () => {
-  const text = JSON.stringify(PANEL_NAVIGATION);
-  assert.doesNotMatch(
-    text,
-    /marketing|cms|muhasebe|seo|toshi|notification/i,
-  );
+test("contains every completed merchant administration family", () => {
+  const labels = JSON.stringify(PANEL_NAVIGATION);
+  for (const label of ["İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO"]) assert.match(labels, new RegExp(label));
 });
 
 test("selects only exact customer children and safe detail descendants", () => {

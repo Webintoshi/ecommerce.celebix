@@ -330,7 +330,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "lucide-react") {
-      return { BadgeCheck: Icon, Home: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Package: Icon, PieChart: Icon, Plus: Icon, Puzzle: Icon, Settings: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Tags: Icon, Upload: Icon, UserPlus: Icon, Users: Icon };
+      return { BadgeCheck: Icon, BadgePercent: Icon, Calculator: Icon, CirclePlus: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Phone: Icon, PieChart: Icon, Plus: Icon, Puzzle: Icon, ReceiptText: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, UserPlus: Icon, Users: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };

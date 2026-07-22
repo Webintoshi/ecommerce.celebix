@@ -50,6 +50,13 @@ test("offers every and only working merchant action", () => {
       "/customers",
       "/products",
       "/products/new",
+      "/discounts",
+      "/marketing",
+      "/content/blog",
+      "/marketplaces",
+      "/settings/general",
+      "/accounting",
+      "/seo",
       "/setup",
     ],
   );
