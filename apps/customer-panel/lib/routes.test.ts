@@ -261,7 +261,7 @@ test("quick-order console is directly routable behind panel access and linked by
   assert.match(page, /createPanelChromeModel\(access\.tenantContext\)/);
   assert.match(page, /<QuickOrderLinksConsole\s*\/>/);
   assert.doesNotMatch(page, /<QuickOrderLinksConsole[^>]+(?:tenant|store|membership|provider|token)/i);
-  assert.match(navigation, /label: "Hızlı Siparişler", href: "\/orders\/quick-links"/);
+  assert.match(navigation, /label:\s*"Hızlı Siparişler"[\s\S]{0,120}href:\s*"\/orders\/quick-links"/);
 });
 
 test("quick-order routes expose only the reviewed merchant methods and activate exact panel navigation", async () => {
@@ -282,6 +282,6 @@ test("quick-order routes expose only the reviewed merchant methods and activate 
     }
   }
   const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
-  assert.match(navigation, /label: "Hızlı Siparişler", href: "\/orders\/quick-links"/);
+  assert.match(navigation, /label:\s*"Hızlı Siparişler"[\s\S]{0,120}href:\s*"\/orders\/quick-links"/);
   assert.doesNotMatch(navigation, /ödeme linki/i);
 });

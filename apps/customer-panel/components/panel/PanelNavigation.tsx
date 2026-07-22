@@ -1,6 +1,19 @@
 "use client";
 
-import { Home, Link2, Package, Plus, Settings, ShoppingBag, ShoppingCart, type LucideIcon } from "lucide-react";
+import {
+  Home,
+  Link2,
+  Package,
+  PieChart,
+  Plus,
+  Settings,
+  ShoppingBag,
+  ShoppingCart,
+  Tags,
+  UserPlus,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,6 +30,10 @@ const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   orders: ShoppingBag,
   "quick-orders": Link2,
   "abandoned-carts": ShoppingCart,
+  customers: Users,
+  segments: PieChart,
+  tags: Tags,
+  "add-customer": UserPlus,
   products: Package,
   "add-product": Plus,
   setup: Settings,
@@ -24,14 +41,16 @@ const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
 
 const NAVIGATION: readonly PanelNavigationItem[] = PANEL_NAVIGATION;
 
-function getCurrentNavigationHref(pathname: string): PanelNavigationHref | undefined {
+function getCurrentNavigationHref(
+  pathname: string,
+): PanelNavigationHref | undefined {
   let currentHref: PanelNavigationHref | undefined;
   for (const item of NAVIGATION) {
     const links = item.children?.length ? item.children : [item];
     for (const link of links) {
       if (
-        isPanelNavigationPathActive(pathname, link.href)
-        && (!currentHref || link.href.length > currentHref.length)
+        isPanelNavigationPathActive(pathname, link.href) &&
+        (!currentHref || link.href.length > currentHref.length)
       ) {
         currentHref = link.href;
       }
@@ -40,7 +59,10 @@ function getCurrentNavigationHref(pathname: string): PanelNavigationHref | undef
   return currentHref;
 }
 
-function NavigationLink({ item, currentHref }: {
+function NavigationLink({
+  item,
+  currentHref,
+}: {
   item: PanelNavigationItem;
   currentHref: PanelNavigationHref | undefined;
 }) {
@@ -53,7 +75,9 @@ function NavigationLink({ item, currentHref }: {
       aria-current={active ? "page" : undefined}
     >
       <span className={styles.activeRail} aria-hidden="true" />
-      <span className={styles.iconBox}><Icon aria-hidden="true" /></span>
+      <span className={styles.iconBox}>
+        <Icon aria-hidden="true" />
+      </span>
       <span className={styles.navigationLabel}>{item.label}</span>
     </Link>
   );
@@ -63,19 +87,43 @@ export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
   const pathname = usePathname() ?? "";
   const currentHref = getCurrentNavigationHref(pathname);
   return (
-    <nav className={styles.navigation} aria-label={mode === "drawer" ? "Mobil panel menüsü" : "Panel menüsü"}>
-      {NAVIGATION.map((item) => item.children?.length ? (
-        <section className={styles.navigationGroup} key={item.key}>
-          <div className={`${styles.navigationGroupLabel} ${isPanelNavigationPathActive(pathname, item.href) ? styles.navigationGroupActive : ""}`}>
-            <span className={styles.activeRail} aria-hidden="true" />
-            <span className={styles.iconBox}>{(() => { const Icon = ICONS[item.icon]; return <Icon aria-hidden="true" />; })()}</span>
-            <span className={styles.navigationLabel}>{item.label}</span>
-          </div>
-          <div className={styles.navigationChildren}>
-            {item.children.map((child) => <NavigationLink key={child.key} item={child} currentHref={currentHref} />)}
-          </div>
-        </section>
-      ) : <NavigationLink key={item.key} item={item} currentHref={currentHref} />)}
+    <nav
+      className={styles.navigation}
+      aria-label={mode === "drawer" ? "Mobil panel menüsü" : "Panel menüsü"}
+    >
+      {NAVIGATION.map((item) =>
+        item.children?.length ? (
+          <section className={styles.navigationGroup} key={item.key}>
+            <div
+              className={`${styles.navigationGroupLabel} ${isPanelNavigationPathActive(pathname, item.href) ? styles.navigationGroupActive : ""}`}
+            >
+              <span className={styles.activeRail} aria-hidden="true" />
+              <span className={styles.iconBox}>
+                {(() => {
+                  const Icon = ICONS[item.icon];
+                  return <Icon aria-hidden="true" />;
+                })()}
+              </span>
+              <span className={styles.navigationLabel}>{item.label}</span>
+            </div>
+            <div className={styles.navigationChildren}>
+              {item.children.map((child) => (
+                <NavigationLink
+                  key={child.key}
+                  item={child}
+                  currentHref={currentHref}
+                />
+              ))}
+            </div>
+          </section>
+        ) : (
+          <NavigationLink
+            key={item.key}
+            item={item}
+            currentHref={currentHref}
+          />
+        ),
+      )}
     </nav>
   );
 }

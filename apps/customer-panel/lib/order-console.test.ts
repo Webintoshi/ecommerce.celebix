@@ -240,6 +240,7 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({}) };
     if (specifier === "@/lib/order-ui/client") return { orderApi: Object.freeze({}) };
     if (specifier === "@/lib/abandoned-cart-ui/client") return { abandonedCartApi: Object.freeze({}) };
+    if (specifier === "@/lib/customer-ui/client") return { customerApi: Object.freeze({}) };
     if (specifier === "@/lib/panel-ui/dashboard-model") return dashboardModel;
     if (specifier === "./panel-dashboard.module.css") return styles;
     throw new Error(`unexpected_dashboard_import:${specifier}`);
@@ -762,9 +763,9 @@ test("dashboard and order pages expose only durable order facts without private 
   assert.match(model, /pendingOrders/);
   assert.match(model, /fulfilledOrders/);
   assert.match(model, /revenueCents/);
-  assert.match(model, /unsupportedAuthority\("analytics"\)/);
-  assert.match(model, /unsupportedAuthority\("customers"\)/);
-  assert.match(model, /unsupportedAuthority\("carts"\)/);
+  assert.match(model, /unsupportedAuthority\(\s*"analytics"/);
+  assert.match(model, /unsupportedAuthority\(\s*"customers"/);
+  assert.match(model, /unsupportedAuthority\(\s*"carts"/);
   assert.match(listPage, /OrderListConsole/);
   assert.match(detailPage, /OrderDetailConsole/);
   assert.doesNotMatch(combined, /TenantContext[^\n]*(?:prop|client)|storeId|principalId|membershipId|\/api\/admin/i);

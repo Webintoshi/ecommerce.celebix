@@ -1,8 +1,44 @@
-export type PanelNavigationHref = "/" | "/orders" | "/orders/quick-links" | "/orders/abandoned-carts" | "/products" | "/products/new" | "/setup";
-export type PanelNavigationIcon = "home" | "orders" | "quick-orders" | "abandoned-carts" | "products" | "add-product" | "setup";
+export type PanelNavigationHref =
+  | "/"
+  | "/orders"
+  | "/orders/quick-links"
+  | "/orders/abandoned-carts"
+  | "/customers"
+  | "/customers/segments"
+  | "/customers/tags"
+  | "/customers/new"
+  | "/products"
+  | "/products/new"
+  | "/setup";
+export type PanelNavigationIcon =
+  | "home"
+  | "orders"
+  | "quick-orders"
+  | "abandoned-carts"
+  | "customers"
+  | "segments"
+  | "tags"
+  | "add-customer"
+  | "products"
+  | "add-product"
+  | "setup";
 
 export interface PanelNavigationItem {
-  readonly key: "summary" | "orders" | "all-orders" | "quick-orders" | "abandoned-carts" | "catalog" | "products" | "new-product" | "setup";
+  readonly key:
+    | "summary"
+    | "orders"
+    | "all-orders"
+    | "quick-orders"
+    | "abandoned-carts"
+    | "customers"
+    | "all-customers"
+    | "customer-segments"
+    | "customer-tags"
+    | "new-customer"
+    | "catalog"
+    | "products"
+    | "new-product"
+    | "setup";
   readonly label: string;
   readonly href: PanelNavigationHref;
   readonly icon: PanelNavigationIcon;
@@ -17,6 +53,11 @@ export interface PanelRoutePresentation {
     | "Terk Edilen Sepetler"
     | "Sepet ayrıntısı"
     | "Sipariş ayrıntısı"
+    | "Müşteriler"
+    | "Segmentler"
+    | "Etiketler"
+    | "Yeni müşteri"
+    | "Müşteri ayrıntısı"
     | "Ürün kataloğu"
     | "Yeni ürün oluştur"
     | "Ürün ayrıntısı"
@@ -30,6 +71,11 @@ export const PANEL_ROUTE_PRESENTATIONS = Object.freeze({
   abandonedCarts: Object.freeze({ title: "Terk Edilen Sepetler" as const }),
   abandonedCartDetail: Object.freeze({ title: "Sepet ayrıntısı" as const }),
   orderDetail: Object.freeze({ title: "Sipariş ayrıntısı" as const }),
+  customers: Object.freeze({ title: "Müşteriler" as const }),
+  customerSegments: Object.freeze({ title: "Segmentler" as const }),
+  customerTags: Object.freeze({ title: "Etiketler" as const }),
+  newCustomer: Object.freeze({ title: "Yeni müşteri" as const }),
+  customerDetail: Object.freeze({ title: "Müşteri ayrıntısı" as const }),
   products: Object.freeze({ title: "Ürün kataloğu" as const }),
   newProduct: Object.freeze({ title: "Yeni ürün oluştur" as const }),
   productDetail: Object.freeze({ title: "Ürün ayrıntısı" as const }),
@@ -37,14 +83,66 @@ export const PANEL_ROUTE_PRESENTATIONS = Object.freeze({
 });
 
 const CATALOG_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
-  Object.freeze({ key: "products", label: "Tüm ürünler", href: "/products", icon: "products" }),
-  Object.freeze({ key: "new-product", label: "Yeni ürün", href: "/products/new", icon: "add-product" }),
+  Object.freeze({
+    key: "products",
+    label: "Tüm ürünler",
+    href: "/products",
+    icon: "products",
+  }),
+  Object.freeze({
+    key: "new-product",
+    label: "Yeni ürün",
+    href: "/products/new",
+    icon: "add-product",
+  }),
 ]);
 
 const ORDER_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
-  Object.freeze({ key: "all-orders", label: "Tüm Siparişler", href: "/orders", icon: "orders" }),
-  Object.freeze({ key: "quick-orders", label: "Hızlı Siparişler", href: "/orders/quick-links", icon: "quick-orders" }),
-  Object.freeze({ key: "abandoned-carts", label: "Terk Edilen Sepetler", href: "/orders/abandoned-carts", icon: "abandoned-carts" }),
+  Object.freeze({
+    key: "all-orders",
+    label: "Tüm Siparişler",
+    href: "/orders",
+    icon: "orders",
+  }),
+  Object.freeze({
+    key: "quick-orders",
+    label: "Hızlı Siparişler",
+    href: "/orders/quick-links",
+    icon: "quick-orders",
+  }),
+  Object.freeze({
+    key: "abandoned-carts",
+    label: "Terk Edilen Sepetler",
+    href: "/orders/abandoned-carts",
+    icon: "abandoned-carts",
+  }),
+]);
+
+const CUSTOMER_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
+  Object.freeze({
+    key: "all-customers",
+    label: "Tüm Müşteriler",
+    href: "/customers",
+    icon: "customers",
+  }),
+  Object.freeze({
+    key: "customer-segments",
+    label: "Segmentler",
+    href: "/customers/segments",
+    icon: "segments",
+  }),
+  Object.freeze({
+    key: "customer-tags",
+    label: "Etiketler",
+    href: "/customers/tags",
+    icon: "tags",
+  }),
+  Object.freeze({
+    key: "new-customer",
+    label: "Yeni Müşteri",
+    href: "/customers/new",
+    icon: "add-customer",
+  }),
 ]);
 
 export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
@@ -57,35 +155,89 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
     children: ORDER_CHILDREN,
   }),
   Object.freeze({
+    key: "customers",
+    label: "Müşteriler",
+    href: "/customers",
+    icon: "customers",
+    children: CUSTOMER_CHILDREN,
+  }),
+  Object.freeze({
     key: "catalog",
     label: "Ürünler",
     href: "/products",
     icon: "products",
     children: CATALOG_CHILDREN,
   }),
-  Object.freeze({ key: "setup", label: "Kurulum", href: "/setup", icon: "setup" }),
+  Object.freeze({
+    key: "setup",
+    label: "Kurulum",
+    href: "/setup",
+    icon: "setup",
+  }),
 ]);
 
-export function isPanelNavigationPathActive(pathname: string, href: PanelNavigationHref): boolean {
-  if (!pathname.startsWith("/") || pathname.includes("?") || pathname.includes("#") || pathname.includes("%") || pathname.includes("//")) {
+export function isPanelNavigationPathActive(
+  pathname: string,
+  href: PanelNavigationHref,
+): boolean {
+  if (
+    !pathname.startsWith("/") ||
+    pathname.includes("?") ||
+    pathname.includes("#") ||
+    pathname.includes("%") ||
+    pathname.includes("//")
+  ) {
     return false;
   }
 
   if (href === "/") return pathname === "/";
-  if (href === "/orders/quick-links" || href === "/products/new" || href === "/setup") {
+  if (
+    href === "/orders/quick-links" ||
+    href === "/customers/segments" ||
+    href === "/customers/tags" ||
+    href === "/customers/new" ||
+    href === "/products/new" ||
+    href === "/setup"
+  ) {
     return pathname === href;
   }
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function getPanelRoutePresentation(pathname: string): PanelRoutePresentation {
-  if (!pathname.startsWith("/") || pathname.includes("?") || pathname.includes("#") || pathname.includes("%") || pathname.includes("//")) {
+export function getPanelRoutePresentation(
+  pathname: string,
+): PanelRoutePresentation {
+  if (
+    !pathname.startsWith("/") ||
+    pathname.includes("?") ||
+    pathname.includes("#") ||
+    pathname.includes("%") ||
+    pathname.includes("//")
+  ) {
     return PANEL_ROUTE_PRESENTATIONS.summary;
   }
   if (pathname === "/orders") return PANEL_ROUTE_PRESENTATIONS.orders;
-  if (pathname === "/orders/quick-links") return PANEL_ROUTE_PRESENTATIONS.quickOrders;
-  if (pathname === "/orders/abandoned-carts") return PANEL_ROUTE_PRESENTATIONS.abandonedCarts;
-  if (pathname.startsWith("/orders/abandoned-carts/") && !pathname.slice("/orders/abandoned-carts/".length).includes("/")) return PANEL_ROUTE_PRESENTATIONS.abandonedCartDetail;
+  if (pathname === "/orders/quick-links")
+    return PANEL_ROUTE_PRESENTATIONS.quickOrders;
+  if (pathname === "/orders/abandoned-carts")
+    return PANEL_ROUTE_PRESENTATIONS.abandonedCarts;
+  if (
+    pathname.startsWith("/orders/abandoned-carts/") &&
+    !pathname.slice("/orders/abandoned-carts/".length).includes("/")
+  )
+    return PANEL_ROUTE_PRESENTATIONS.abandonedCartDetail;
+  if (pathname === "/customers") return PANEL_ROUTE_PRESENTATIONS.customers;
+  if (pathname === "/customers/segments")
+    return PANEL_ROUTE_PRESENTATIONS.customerSegments;
+  if (pathname === "/customers/tags")
+    return PANEL_ROUTE_PRESENTATIONS.customerTags;
+  if (pathname === "/customers/new")
+    return PANEL_ROUTE_PRESENTATIONS.newCustomer;
+  if (
+    pathname.startsWith("/customers/") &&
+    !pathname.slice("/customers/".length).includes("/")
+  )
+    return PANEL_ROUTE_PRESENTATIONS.customerDetail;
   if (pathname === "/products") return PANEL_ROUTE_PRESENTATIONS.products;
   if (pathname === "/products/new") return PANEL_ROUTE_PRESENTATIONS.newProduct;
   if (pathname === "/setup") return PANEL_ROUTE_PRESENTATIONS.setup;

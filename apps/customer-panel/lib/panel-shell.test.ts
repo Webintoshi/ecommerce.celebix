@@ -330,7 +330,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "lucide-react") {
-      return { Home: Icon, Link2: Icon, Package: Icon, Plus: Icon, Settings: Icon, ShoppingBag: Icon, ShoppingCart: Icon };
+      return { Home: Icon, Link2: Icon, Package: Icon, PieChart: Icon, Plus: Icon, Settings: Icon, ShoppingBag: Icon, ShoppingCart: Icon, Tags: Icon, UserPlus: Icon, Users: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
@@ -466,6 +466,9 @@ async function renderPanelDashboard(
     }
     if (specifier === "@/lib/abandoned-cart-ui/client") {
       return { abandonedCartApi: { getSummary: async () => undefined } };
+    }
+    if (specifier === "@/lib/customer-ui/client") {
+      return { customerApi: { summary: async () => undefined } };
     }
     if (specifier === "@/lib/panel-ui/dashboard-model") {
       return { createMerchantDashboardViewModel };
@@ -1032,7 +1035,7 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
   assert.match(combined, /\/products\/new/);
   assert.match(combined, /\/setup/);
   for (const capability of ["orders", "analytics", "customers", "carts"]) {
-    assert.match(model, new RegExp(`unsupportedAuthority\\(\"${capability}\"\\)`));
+    assert.match(model, new RegExp(`unsupportedAuthority\\(\\s*\"${capability}\"`));
   }
   assert.doesNotMatch(view, /TenantContext|principal|issuer|subject|storeId|membershipId|planId|domainId|requestId/);
   assert.doesNotMatch(
@@ -1041,7 +1044,7 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
   );
   assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
-  assert.doesNotMatch(view, /href=[^\n]*(?:analytics|customers)|provider(?:Data|Payload)|TenantContext/i);
+  assert.doesNotMatch(view, /href=[^\n]*analytics|provider(?:Data|Payload)|TenantContext/i);
 });
 
 test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {
