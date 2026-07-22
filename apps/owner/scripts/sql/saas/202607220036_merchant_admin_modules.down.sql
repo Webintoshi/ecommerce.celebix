@@ -11,6 +11,7 @@ DROP FUNCTION saas.merchant_admin_mutation_projection(uuid,text,text,bigint,time
 DROP FUNCTION saas.merchant_admin_projection(uuid,uuid);
 DROP FUNCTION saas.merchant_admin_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,boolean);
 DROP FUNCTION saas.merchant_admin_required_action(text,boolean);
+DROP FUNCTION saas.merchant_admin_config_valid(text,jsonb);
 DROP FUNCTION saas.merchant_admin_timestamp(timestamptz);
 DROP TABLE saas.merchant_admin_events;
 DROP TABLE saas.merchant_admin_operations;

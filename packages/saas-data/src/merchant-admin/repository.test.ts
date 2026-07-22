@@ -30,6 +30,7 @@ test("saves and archives with exact versioned authority",async()=>{
 
 test("rejects secret-bearing config before SQL",async()=>{
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"marketplace_connection",name:"Pazar",config:{apiSecret:"never"},status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"discount",name:"Yaz",config:{unexpectedField:"never"},status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
 test("unknown commit destroys writer and performs one read-only recovery",async()=>{

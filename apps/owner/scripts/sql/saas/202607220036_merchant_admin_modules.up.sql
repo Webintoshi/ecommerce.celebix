@@ -59,6 +59,33 @@ CREATE FUNCTION saas.merchant_admin_required_action(p_kind text,p_mutation boole
   WHEN p_kind IN('blog_post','page','policy') THEN CASE WHEN p_mutation THEN 'content.manage' ELSE 'content.read' END
   WHEN p_kind IN('general_setting','language_setting','payment_setting','shipping_setting','administrator_invite') THEN CASE WHEN p_mutation THEN 'configuration.manage' ELSE 'configuration.read' END
   ELSE CASE WHEN p_mutation THEN 'integrations.manage' ELSE 'integrations.read' END END $f$;
+CREATE FUNCTION saas.merchant_admin_config_valid(p_kind text,p_config jsonb) RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
+ SELECT pg_catalog.jsonb_typeof(p_config)='object' AND pg_catalog.pg_column_size(p_config)<=16384 AND NOT EXISTS(
+  SELECT 1 FROM pg_catalog.jsonb_object_keys(p_config) AS field(key) WHERE CASE p_kind
+   WHEN 'discount' THEN key NOT IN('code','discountType','value','minimumOrderCents','usageLimit')
+   WHEN 'lucky_wheel' THEN key NOT IN('campaignMessage','terms','dailySpinLimit','prizeLabels')
+   WHEN 'email_campaign' THEN key NOT IN('subject','audience','content','scheduledAt')
+   WHEN 'phone_campaign' THEN key NOT IN('audience','script','scheduledAt')
+   WHEN 'whatsapp_campaign' THEN key NOT IN('audience','message','scheduledAt')
+   WHEN 'blog_post' THEN key NOT IN('slug','locale','excerpt','body','published')
+   WHEN 'page' THEN key NOT IN('slug','locale','body','published')
+   WHEN 'policy' THEN key NOT IN('policyType','locale','body','effectiveAt')
+   WHEN 'marketplace_connection' THEN key NOT IN('provider','merchantReference','syncEnabled')
+   WHEN 'general_setting' THEN key NOT IN('storeDisplayName','supportEmail','timezone')
+   WHEN 'language_setting' THEN key NOT IN('defaultLocale','enabledLocales')
+   WHEN 'payment_setting' THEN key NOT IN('enabledMethods','cashOnDelivery')
+   WHEN 'shipping_setting' THEN key NOT IN('regions','freeShippingThresholdCents','estimatedDays')
+   WHEN 'administrator_invite' THEN key NOT IN('email','role','expiresAt')
+   WHEN 'accounting_profile' THEN key NOT IN('legalName','taxOffice','taxNumber','invoiceEmail')
+   WHEN 'invoice_integration' THEN key NOT IN('provider','accountReference','enabled')
+   WHEN 'seo_control' THEN key NOT IN('metaTitle','metaDescription','allowIndex')
+   WHEN 'sitemap' THEN key NOT IN('includeProducts','includeContent','changeFrequency')
+   WHEN 'social_preview' THEN key NOT IN('title','description','imageUrl')
+   WHEN 'code_integration' THEN key NOT IN('provider','publicIdentifier','enabled')
+   WHEN 'indexing_request' THEN key NOT IN('urls','reason')
+   ELSE true END
+ )
+$f$;
 CREATE FUNCTION saas.merchant_admin_authority_error(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_kind text,p_mutation boolean)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$ SELECT saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog',saas.merchant_admin_required_action(p_kind,p_mutation)) $f$;
 CREATE FUNCTION saas.merchant_admin_projection(p_store_id uuid,p_id uuid) RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
@@ -84,7 +111,7 @@ CREATE FUNCTION saas.merchant_admin_save(p_store_id uuid,p_principal_id uuid,p_m
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE e text; op saas.merchant_admin_operations%ROWTYPE; current_record saas.merchant_admin_records%ROWTYPE; result jsonb; projection jsonb;
 BEGIN
- IF p_fingerprint!~'^[a-f0-9]{64}$' OR p_name IS NULL OR p_name<>pg_catalog.btrim(p_name) OR pg_catalog.char_length(p_name) NOT BETWEEN 1 AND 160 OR p_name~'[[:cntrl:]]' OR pg_catalog.jsonb_typeof(p_config)<>'object' OR pg_catalog.pg_column_size(p_config)>16384 OR p_status NOT IN('draft','active') THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ IF p_fingerprint!~'^[a-f0-9]{64}$' OR p_name IS NULL OR p_name<>pg_catalog.btrim(p_name) OR pg_catalog.char_length(p_name) NOT BETWEEN 1 AND 160 OR p_name~'[[:cntrl:]]' OR NOT saas.merchant_admin_config_valid(p_kind,p_config) OR p_status NOT IN('draft','active') THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
  e:=saas.merchant_admin_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_kind,true); IF e IS NOT NULL THEN RETURN QUERY SELECT e,NULL::jsonb; RETURN; END IF;
  SELECT * INTO op FROM saas.merchant_admin_operations WHERE operation_id=p_operation_id AND store_id=p_store_id; IF FOUND THEN IF op.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',op.result_payload; END IF; RETURN; END IF;
  SELECT * INTO current_record FROM saas.merchant_admin_records WHERE store_id=p_store_id AND id=p_record_id FOR UPDATE;
@@ -117,7 +144,7 @@ RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas A
  BEGIN INSERT INTO saas.merchant_admin_events VALUES(p_event_id,p_store_id,p_record_id,r.record_kind,p_event_kind,p_summary,p_occurred_at); EXCEPTION WHEN unique_violation THEN RETURN 'event_replayed'; END; RETURN 'recorded';
 END $f$;
 
-REVOKE ALL ON FUNCTION saas.guard_merchant_admin_immutable(),saas.merchant_admin_timestamp(timestamptz),saas.merchant_admin_required_action(text,boolean),saas.merchant_admin_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,boolean),saas.merchant_admin_projection(uuid,uuid),saas.merchant_admin_mutation_projection(uuid,text,text,bigint,timestamptz),saas.merchant_admin_event_projection(uuid,uuid),saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,jsonb,text),saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint),saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),saas.merchant_admin_record_event(uuid,uuid,uuid,text,jsonb,timestamptz) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
+REVOKE ALL ON FUNCTION saas.guard_merchant_admin_immutable(),saas.merchant_admin_timestamp(timestamptz),saas.merchant_admin_required_action(text,boolean),saas.merchant_admin_config_valid(text,jsonb),saas.merchant_admin_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,boolean),saas.merchant_admin_projection(uuid,uuid),saas.merchant_admin_mutation_projection(uuid,text,text,bigint,timestamptz),saas.merchant_admin_event_projection(uuid,uuid),saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,jsonb,text),saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint),saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),saas.merchant_admin_record_event(uuid,uuid,uuid,text,jsonb,timestamptz) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
 GRANT EXECUTE ON FUNCTION saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,jsonb,text),saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint),saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.merchant_admin_record_event(uuid,uuid,uuid,text,jsonb,timestamptz) TO celebix_saas_workflow;
 COMMIT;
