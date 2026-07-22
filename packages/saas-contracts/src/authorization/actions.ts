@@ -1,6 +1,7 @@
 import type { StoreMembershipRole } from "../types.ts";
 
 export const MERCHANT_ACTIONS = Object.freeze([
+  "analytics.read",
   "orders.read",
   "orders.manage",
   "orders.fulfill",
@@ -41,6 +42,7 @@ const ROLE_ACTIONS: Readonly<
   store_owner: new Set(MERCHANT_ACTIONS),
   admin: new Set(MERCHANT_ACTIONS),
   editor: new Set<MerchantAction>([
+    "analytics.read",
     "orders.read",
     "orders.fulfill",
     "orders.note",
@@ -58,6 +60,7 @@ const ROLE_ACTIONS: Readonly<
     "integrations.read",
   ]),
   analyst: new Set<MerchantAction>([
+    "analytics.read",
     "orders.read",
     "quick_links.read",
     "carts.read",

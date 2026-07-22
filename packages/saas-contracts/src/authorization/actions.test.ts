@@ -54,6 +54,7 @@ test("denies unknown merchant actions", () => {
 
 test("exports the exact immutable merchant action list", () => {
   assert.deepEqual(MERCHANT_ACTIONS, [
+    "analytics.read",
     "orders.read",
     "orders.manage",
     "orders.fulfill",
@@ -92,4 +93,11 @@ test("cannot mutate the frozen merchant action root value", () => {
   assert.throws(() => {
     (MERCHANT_ACTIONS as unknown as string[]).push("orders.delete");
   }, TypeError);
+});
+
+test("analytics is readable by every merchant role and never mutable", () => {
+  for (const role of ["store_owner", "admin", "editor", "analyst"] as const) {
+    assert.equal(isMerchantActionAllowed(role, "analytics.read" as never), true);
+  }
+  assert.equal(MERCHANT_ACTIONS.some((action) => action.startsWith("analytics.") && action !== "analytics.read"), false);
 });

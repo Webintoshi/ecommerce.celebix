@@ -362,6 +362,7 @@ test("keeps the public runtime export surface frozen", () => {
   assert.deepEqual(Object.keys(contracts).sort(), [
     "ABANDONED_CART_SORTS",
     "ABANDONED_CART_STATUSES",
+    "ANALYTICS_PERIODS",
     "CATALOG_ADMIN_RESOURCE_KINDS",
     "CATALOG_IMPORT_STATUSES",
     "CUSTOMER_CONSENT_CHANNELS",
@@ -404,6 +405,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseAbandonedCartListItem",
     "parseAbandonedCartMutationResult",
     "parseAbandonedCartSummary",
+    "parseAnalyticsDashboard",
     "parseCatalogAdminImportJob",
     "parseCatalogAdminMutationResult",
     "parseCatalogAdminResource",
