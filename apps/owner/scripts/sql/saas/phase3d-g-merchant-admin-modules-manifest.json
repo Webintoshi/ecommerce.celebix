@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3d-g-202607220036-merchant-admin-modules",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Rollback removes durable merchant module configuration, audit events and operation proofs, and is authorized only for disposable rehearsal.",
+  "artifacts": [
+    {
+      "id": "202607220036_merchant_admin_modules_up",
+      "direction": "up",
+      "file": "202607220036_merchant_admin_modules.up.sql",
+      "sha256": "64a0f498fd31eceb16903b1cee2092a6aebf722bae2d96e6ba0897811a54c2c4",
+      "purpose": "Add forced-RLS tenant-scoped merchant configuration, immutable audit events and replay-safe APIs for the remaining admin modules."
+    },
+    {
+      "id": "202607220036_merchant_admin_modules_down",
+      "direction": "down",
+      "file": "202607220036_merchant_admin_modules.down.sql",
+      "sha256": "284c318d44aaa6d32bbce936986b336e2af3b2e14e85b7821c4fe0bf37d49432",
+      "purpose": "Remove only migration-036 merchant module objects and restore the prior merchant action authority during disposable rollback rehearsal."
+    },
+    {
+      "id": "202607220036_merchant_admin_modules_assertions",
+      "direction": "verify",
+      "file": "202607220036_merchant_admin_modules_assertions.sql",
+      "sha256": "751b8c6d593f7cd1cf96025fc5e8f18fa3119ade890d4e62460aea6dc7ea159b",
+      "purpose": "Fail on FORCE RLS, direct DML, API signature, workflow separation or grant drift."
+    }
+  ]
+}
