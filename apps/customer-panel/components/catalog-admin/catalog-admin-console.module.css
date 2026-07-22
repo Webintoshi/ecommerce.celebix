@@ -22,6 +22,10 @@
 .error { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
 .notice { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; }
 .state { display: grid; min-height: 12rem; place-items: center; padding: 1.25rem; color: #6b7280; text-align: center; }
+.preview { display: grid; gap: .85rem; padding: 1.25rem; }
+.preview h2,.preview h3,.preview p,.preview ul { margin: 0; }
+.preview ul { display: grid; gap: .5rem; padding-left: 1.25rem; }
+.preview output { font-weight: 800; }
 .review { display: grid; gap: .75rem; }
 .reviewMeta { display: flex; flex-wrap: wrap; gap: .75rem; color: #6b7280; font-size: .76rem; }
 .review textarea { width: 100%; min-height: 72px; border: 1px solid #d8dee8; border-radius: 8px; padding: .75rem; font: inherit; }

@@ -274,6 +274,24 @@ test("order print and customer edit pages remain server-authorized route depth",
   assert.match(customerEditPage, /<CustomerEditConsole customerId=\{customerId\} \/>/);
 });
 
+test("catalog subresource pages lock resource kinds in server-authorized routes", async () => {
+  const cases = [
+    ["collections", "collection"], ["brands", "brand"], ["attributes", "attribute"],
+    ["extras", "extra"], ["definitions", "definition"],
+  ] as const;
+  for (const [segment, kind] of cases) {
+    for (const suffix of ["new/page.tsx", "[resourceId]/edit/page.tsx"]) {
+      const page = await readFile(new URL(`../app/products/${segment}/${suffix}`, import.meta.url), "utf8");
+      assert.match(page, /requireServerPanelAccess\(\)/);
+      assert.match(page, new RegExp(`kind=["']${kind}["']`));
+      assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+    }
+  }
+  const preview = await readFile(new URL("../app/products/extras/[resourceId]/preview/page.tsx", import.meta.url), "utf8");
+  assert.match(preview, /requireServerPanelAccess\(\)/);
+  assert.match(preview, /<CatalogExtraPreview resourceId=\{resourceId\}/);
+});
+
 test("content and settings family hubs render behind server panel access", async () => {
   for (const file of ["../app/content/page.tsx", "../app/settings/page.tsx"]) {
     const page = await readFile(new URL(file, import.meta.url), "utf8");
