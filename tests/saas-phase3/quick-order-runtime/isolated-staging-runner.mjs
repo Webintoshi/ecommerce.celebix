@@ -76,6 +76,7 @@ function databaseConnection(env) {
   if (!/^postgres(?:ql)?:$/.test(parsed.protocol) || database !== configured) fail("database is not the exact configured staging database");
   if ([parsed.hostname, database, configured, env.CELEBIX_RUNTIME_MODE, env.CELEBIX_DEPLOYMENT_TIER].some((value) => UNSAFE_AUTHORITY.test(value ?? ""))) fail("unsafe authority sentinel");
   return Object.freeze({
+    PATH: env.PATH ?? "",
     PGHOST: parsed.hostname,
     PGPORT: parsed.port || "5432",
     PGUSER: decodeURIComponent(parsed.username),
@@ -116,10 +117,10 @@ export function runIsolatedStaging(argv, supplied = {}) {
     ...supplied,
   };
   if (git(deps, ["rev-parse", "HEAD"]) !== options.sourceSha) fail("source SHA is not local HEAD");
+  verifySourceArtifacts(deps, options.sourceSha);
   const environment = databaseConnection(deps.env);
   const connection = { deps, environment };
   assertEnvironment(deps.env, connection);
-  verifySourceArtifacts(deps, options.sourceSha);
   psqlFile(deps, environment, PRECHECK);
   const backupDirectory = deps.mkdtemp(path.join(tmpdir(), "celebix-isolated-staging-"));
   deps.mkdir(backupDirectory, { recursive: true, mode: 0o700 });

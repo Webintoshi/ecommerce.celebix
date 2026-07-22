@@ -59,8 +59,21 @@ test("added implementation content has no credentials, private browser authority
   for (const pattern of forbidden) assert.equal(pattern.test(added), false, `forbidden material pattern ${pattern}`);
   const navigation = await read("apps/customer-panel/lib/panel-ui/navigation.ts");
   assert.doesNotMatch(navigation, /quick[-_ ]?(?:order|link)|hızlı\s+sipariş/i);
-  const testDiff = git(["diff", "--name-only", `${BASE}...HEAD`, "--", "tests"]);
-  assert.doesNotMatch(testDiff, /(?:playwright|fetch\(|https?:\/\/)/i);
+  const runtimeTests = [
+    "tests/saas-phase3/quick-order-runtime/isolated-staging-runner.test.mjs",
+    "tests/saas-phase3/quick-order-runtime/static-security.test.mjs",
+  ];
+  for (const file of runtimeTests) {
+    const source = await read(file);
+    assert.doesNotMatch(source, /\b(?:fetch|httpRequest|httpsRequest|createConnection)\s*\(/i, `external test I/O: ${file}`);
+  }
+  const browserAndRsc = await Promise.all([
+    read("apps/customer-panel/components/orders/QuickOrderLinksConsole.tsx"),
+    read("apps/storefront-shared/app/odeme/hizli/page.tsx"),
+  ]);
+  assert.doesNotMatch(browserAndRsc.join("\n"), /\b(?:tenantId|storeId|principalId|membershipId|planId|tokenDigest|sealedToken|providerTokenDigest|callbackDigest|session(?:Id|Credential)?)\b/);
+  const hostAuthority = await read("apps/storefront-shared/lib/trusted-host-authority.ts");
+  assert.match(hostAuthority, /selectTrustedStorefrontHostAuthority/);
 });
 
 test("PayTR iframe emits its provider token exactly once after the exact secure origin", async () => {

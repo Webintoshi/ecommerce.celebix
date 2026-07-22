@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const runner = await import("./isolated-staging-runner.mjs");
@@ -62,7 +63,8 @@ test("apply refuses unsafe authority before connection or backup", () => {
 });
 
 test("apply verifies local and source manifest bytes, then preflights, backs up, migrates 026 through 029 and asserts", () => {
-  const deps = dependencies();
+  const base = dependencies();
+  const deps = dependencies({ env: { ...base.env, PATH: "/safe/postgresql-16/bin" } });
   const result = runner.runIsolatedStaging(["--source-sha", SHA, "--apply"], deps);
   assert.deepEqual(result, { mode: "applied", sourceSha: SHA });
   const processes = deps.calls.filter(([kind]) => kind === "spawn");
@@ -74,6 +76,8 @@ test("apply verifies local and source manifest bytes, then preflights, backs up,
   assert.equal(deps.calls.some(([kind, value]) => kind === "mkdir" && value === "/safe/backup"), true);
   assert.equal(deps.calls.some(([kind, value]) => kind === "chmod" && value === "/safe/backup"), true);
   assert.equal(JSON.stringify(deps.calls).includes("unsafe@"), false, "connection material must not be recorded or rendered");
+  assert.equal(processes[0][3].env.PATH, "/safe/postgresql-16/bin", "database child must retain executable PATH");
+  assert.ok(deps.calls.findIndex(([kind, args]) => kind === "git" && args[0] === "ls-tree") < deps.calls.findIndex(([kind]) => kind === "spawn"), "source artifacts are checked before the first database connection");
 });
 
 test("apply rejects incompatible server sentinel before preflight and never exposes its connection string", () => {
@@ -84,4 +88,10 @@ test("apply rejects incompatible server sentinel before preflight and never expo
   } });
   assert.throws(() => runner.runIsolatedStaging(["--source-sha", SHA, "--apply"], deps), /server sentinel/i);
   assert.equal(deps.calls.filter(([kind]) => kind === "spawn").length, 1);
+});
+
+test("read-only preflight requires the immutable quick-order operation relation by its exact name", async () => {
+  const preflight = await readFile(new URL("./isolated-staging-preflight.sql", import.meta.url), "utf8");
+  assert.match(preflight, /'saas[.]quick_order_link_operations'/);
+  assert.doesNotMatch(preflight, /'saas[.]quick_link_operations'/);
 });
