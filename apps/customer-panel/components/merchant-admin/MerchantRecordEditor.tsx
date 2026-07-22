@@ -78,10 +78,13 @@ export function MerchantRecordEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
+  const activeSubmission = useRef<number | undefined>();
+  const submissionSequence = useRef(0);
 
   const load = useCallback(async () => {
     const sequence = requestSequence.current + 1;
     requestSequence.current = sequence;
+    activeSubmission.current = undefined;
     setLoading(true);
     setBusy(false);
     setError("");
@@ -111,9 +114,12 @@ export function MerchantRecordEditor({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canManage || busy) return;
+    if (!canManage || busy || activeSubmission.current !== undefined) return;
     if (recordId === undefined ? record !== undefined : record === undefined || record.id !== recordId || record.kind !== kind) return;
     const sequence = requestSequence.current;
+    const submission = submissionSequence.current + 1;
+    submissionSequence.current = submission;
+    activeSubmission.current = submission;
     const data = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
@@ -131,7 +137,10 @@ export function MerchantRecordEditor({
     } catch (caught) {
       if (requestSequence.current === sequence) setError(safeError(caught));
     } finally {
-      if (requestSequence.current === sequence) setBusy(false);
+      if (activeSubmission.current === submission) {
+        activeSubmission.current = undefined;
+        if (requestSequence.current === sequence) setBusy(false);
+      }
     }
   }
 

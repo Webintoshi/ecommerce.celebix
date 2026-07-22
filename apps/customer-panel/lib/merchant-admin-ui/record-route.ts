@@ -15,8 +15,8 @@ const ROUTES = Object.freeze({
 } as const satisfies Readonly<Record<string, MerchantRecordRouteDefinition>>);
 
 export function getMerchantRecordRouteDefinition(routeKey: string): MerchantRecordRouteDefinition {
+  if (!Object.hasOwn(ROUTES, routeKey)) throw new TypeError("merchant_record_route_invalid");
   const result = ROUTES[routeKey as keyof typeof ROUTES];
-  if (!result) throw new TypeError("merchant_record_route_invalid");
   return result;
 }
 
