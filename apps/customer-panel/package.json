@@ -8,7 +8,7 @@
     "build": "next build --webpack",
     "start": "next start --port 3400",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-transform-types --test lib/*.test.ts lib/panel-ui/*.test.ts lib/server-quick-links/*.test.ts lib/quick-link-http/*.test.ts lib/quick-link-ui/*.test.ts lib/server-abandoned-carts/*.test.ts lib/abandoned-cart-http/*.test.ts lib/abandoned-cart-ui/*.test.ts lib/server-customers/*.test.ts lib/customer-http/*.test.ts lib/customer-ui/*.test.ts lib/server-catalog-admin/*.test.ts lib/catalog-admin-http/*.test.ts lib/catalog-admin-ui/*.test.ts"
+    "test": "node --experimental-transform-types --test lib/*.test.ts lib/panel-ui/*.test.ts lib/server-quick-links/*.test.ts lib/quick-link-http/*.test.ts lib/quick-link-ui/*.test.ts lib/server-abandoned-carts/*.test.ts lib/abandoned-cart-http/*.test.ts lib/abandoned-cart-ui/*.test.ts lib/server-customers/*.test.ts lib/customer-http/*.test.ts lib/customer-ui/*.test.ts lib/server-catalog-admin/*.test.ts lib/catalog-admin-http/*.test.ts lib/catalog-admin-ui/*.test.ts lib/server-merchant-admin/*.test.ts lib/merchant-admin-http/*.test.ts lib/merchant-admin-ui/*.test.ts"
   },
   "dependencies": {
     "@celebix/saas-contracts": "0.1.0",
