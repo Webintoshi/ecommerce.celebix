@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3b3-202607220030-abandoned-carts",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Migration 030 rollback refuses persisted cart history and removes only abandoned-cart persistence objects in disposable rehearsal.",
+  "artifacts": [
+    {
+      "id": "202607220030_abandoned_carts_up",
+      "direction": "up",
+      "file": "202607220030_abandoned_carts.up.sql",
+      "sha256": "f8848e7f009cc87eeed53cc7cf911915f65a7e43f6a583c043cb2dbe07ab65c6",
+      "purpose": "Add forced-RLS store-scoped abandoned carts, immutable item snapshots and operation history."
+    },
+    {
+      "id": "202607220030_abandoned_carts_down",
+      "direction": "down",
+      "file": "202607220030_abandoned_carts.down.sql",
+      "sha256": "b8252bf92fffb5daec01ca86b3f941a0ac293eab28e82d75fd74273e668ee9bb",
+      "purpose": "Fail closed on persisted history and remove only migration-030 objects during disposable rollback."
+    },
+    {
+      "id": "202607220030_abandoned_carts_assertions",
+      "direction": "verify",
+      "file": "202607220030_abandoned_carts_assertions.sql",
+      "sha256": "734f6d5dbef520ec5c5678fbfdef2a7748b9fbf1c80a35397581606b52587a35",
+      "purpose": "Fail on owner, FORCE RLS, tenant FK, constraints, ACL, policy, index or immutability drift."
+    }
+  ]
+}
