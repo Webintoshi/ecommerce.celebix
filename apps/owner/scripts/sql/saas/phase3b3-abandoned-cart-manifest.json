@@ -1,9 +1,9 @@
 {
-  "bundleId": "phase3b3-202607220030-abandoned-carts",
+  "bundleId": "phase3b3-202607220030-031-abandoned-carts",
   "postgresqlMajor": 16,
   "migrationClassification": "additive",
   "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
-  "rollbackLimitations": "Migration 030 rollback refuses persisted cart history and removes only abandoned-cart persistence objects in disposable rehearsal.",
+  "rollbackLimitations": "Migration 031 rollback removes only merchant API functions and restores the prior order-action authority; migration 030 refuses persisted cart history.",
   "artifacts": [
     {
       "id": "202607220030_abandoned_carts_up",
@@ -25,6 +25,27 @@
       "file": "202607220030_abandoned_carts_assertions.sql",
       "sha256": "734f6d5dbef520ec5c5678fbfdef2a7748b9fbf1c80a35397581606b52587a35",
       "purpose": "Fail on owner, FORCE RLS, tenant FK, constraints, ACL, policy, index or immutability drift."
+    },
+    {
+      "id": "202607220031_abandoned_cart_api_up",
+      "direction": "up",
+      "file": "202607220031_abandoned_cart_api.up.sql",
+      "sha256": "1ba4a5c97bb0085ab5be1073181c99576611cccf8787e197933fa380843666d8",
+      "purpose": "Add bounded cart reads and replay-safe versioned mutations behind durable merchant authority."
+    },
+    {
+      "id": "202607220031_abandoned_cart_api_down",
+      "direction": "down",
+      "file": "202607220031_abandoned_cart_api.down.sql",
+      "sha256": "e935aff44ba3cd2ca6e1ffaf96571ab7798a294dadf370fcf462f6a664d716ca",
+      "purpose": "Remove only migration-031 API objects and restore the prior merchant order action authority."
+    },
+    {
+      "id": "202607220031_abandoned_cart_api_assertions",
+      "direction": "verify",
+      "file": "202607220031_abandoned_cart_api_assertions.sql",
+      "sha256": "cf49b374a055bb42784c6d631c4a7a6559d7262b5bd96ef08faecb039ae18437",
+      "purpose": "Fail on API signature, definer, search-path, ACL, action, store-binding, recovery or concurrency drift."
     }
   ]
 }
