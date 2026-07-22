@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -41,6 +42,7 @@ import {
   PanelToolbar,
 } from "@/components/panel/PanelPageShell";
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
+import { createRouteFor, editRouteFor } from "@/lib/merchant-admin-ui/record-route";
 import {
   buildMerchantModuleSummary,
   buildProviderWorkflowState,
@@ -342,6 +344,7 @@ export function MerchantModuleConsole({
   }
 
   const createLabel = `${definition.singular[0]?.toLocaleUpperCase("tr-TR")}${definition.singular.slice(1)} oluştur`;
+  const createRoute = createRouteFor(definition.kind);
 
   return (
     <PanelPageShell>
@@ -353,7 +356,11 @@ export function MerchantModuleConsole({
             <button type="button" className={styles.button} disabled={loading} onClick={() => void load()}>
               <RefreshCcw aria-hidden="true" /> Yenile
             </button>
-            {canManage ? (
+            {canManage ? createRoute ? (
+              <Link href={createRoute} className={styles.primary}>
+                <Plus aria-hidden="true" /> Yeni kayıt
+              </Link>
+            ) : (
               <button type="button" className={styles.primary} onClick={openCreate}>
                 <Plus aria-hidden="true" /> Yeni kayıt
               </button>
@@ -417,9 +424,9 @@ export function MerchantModuleConsole({
           <PanelEmptyState
             title={items.length ? "Filtreyle eşleşen kayıt yok" : `Henüz ${definition.singular} yok`}
             description={items.length ? "Arama veya durum filtresini değiştirin." : "İlk kalıcı kayıt oluşturulduğunda burada görünecek."}
-            action={canManage && !items.length ? (
-              <button type="button" className={styles.primary} onClick={openCreate}>{createLabel}</button>
-            ) : undefined}
+            action={canManage && !items.length ? createRoute ? (
+              <Link href={createRoute} className={styles.primary}>{createLabel}</Link>
+            ) : <button type="button" className={styles.primary} onClick={openCreate}>{createLabel}</button> : undefined}
           />
         ) : (
           <>
@@ -429,6 +436,7 @@ export function MerchantModuleConsole({
                 <tbody>
                   {summary.visible.map((record) => {
                     const status = statusPresentation(record.status);
+                    const editRoute = editRouteFor(definition.kind, record.id);
                     return (
                       <tr key={record.id}>
                         <td><strong>{record.name}</strong><small>v{record.version}</small></td>
@@ -438,7 +446,7 @@ export function MerchantModuleConsole({
                         <td>
                           {canManage ? (
                             <div className={styles.rowActions}>
-                              <button type="button" className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /></button>
+                              {editRoute ? <Link href={editRoute} className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`}><Pencil aria-hidden="true" /></Link> : <button type="button" className={styles.iconButton} aria-label={`${record.name} kaydını düzenle`} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /></button>}
                               <button type="button" className={styles.iconDanger} aria-label={`${record.name} kaydını arşivle`} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /></button>
                             </div>
                           ) : null}
@@ -453,6 +461,7 @@ export function MerchantModuleConsole({
             <div className={styles.mobileCards}>
               {summary.visible.map((record) => {
                 const status = statusPresentation(record.status);
+                const editRoute = editRouteFor(definition.kind, record.id);
                 return (
                   <article className={styles.mobileCard} key={record.id}>
                     <header><div><h2>{record.name}</h2><small>v{record.version}</small></div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></header>
@@ -460,7 +469,7 @@ export function MerchantModuleConsole({
                     {providerControls(record)}
                     {canManage ? (
                       <div className={styles.rowActions}>
-                        <button type="button" className={styles.button} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /> Düzenle</button>
+                        {editRoute ? <Link href={editRoute} className={styles.button}><Pencil aria-hidden="true" /> Düzenle</Link> : <button type="button" className={styles.button} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /> Düzenle</button>}
                         <button type="button" className={styles.danger} disabled={busy || record.status === "archived"} onClick={() => void archiveRecord(record)}><Archive aria-hidden="true" /> Arşivle</button>
                       </div>
                     ) : null}

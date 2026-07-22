@@ -292,6 +292,26 @@ test("catalog subresource pages lock resource kinds in server-authorized routes"
   assert.match(preview, /<CatalogExtraPreview resourceId=\{resourceId\}/);
 });
 
+test("merchant record route-depth pages expose only fixed server-authorized editor kinds", async () => {
+  const cases = [
+    ["../app/discounts/[recordId]/edit/page.tsx", "discount"],
+    ["../app/content/blog/new/page.tsx", "blog_post"],
+    ["../app/content/blog/[recordId]/edit/page.tsx", "blog_post"],
+    ["../app/content/pages/new/page.tsx", "page"],
+    ["../app/content/pages/[recordId]/edit/page.tsx", "page"],
+    ["../app/content/policies/new/page.tsx", "policy"],
+    ["../app/content/policies/[recordId]/edit/page.tsx", "policy"],
+    ["../app/settings/payment/new/page.tsx", "payment_setting"],
+    ["../app/settings/payment/[recordId]/edit/page.tsx", "payment_setting"],
+  ] as const;
+  for (const [path, kind] of cases) {
+    const page = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(page, /requireServerPanelAccess\(\)/);
+    assert.match(page, new RegExp(`kind=["']${kind}["']`));
+    assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+});
+
 test("content and settings family hubs render behind server panel access", async () => {
   for (const file of ["../app/content/page.tsx", "../app/settings/page.tsx"]) {
     const page = await readFile(new URL(file, import.meta.url), "utf8");
