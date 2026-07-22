@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { types as nodeTypes } from "node:util";
 
@@ -11,12 +11,12 @@ export type PaytrConfiguration = CanonicalPaytrConfiguration;
 
 export type PaytrCallback =
   | Readonly<{
-      status: "success"; merchantOid: string; hash: string;
+      status: "success"; merchantOid: string;
       totalAmount: number; paymentAmount: number; paymentType: "card" | "eft";
       currency: "TRY"; testMode: 1;
     }>
   | Readonly<{
-      status: "failed"; merchantOid: string; hash: string; totalAmount: number;
+      status: "failed"; merchantOid: string; totalAmount: number;
       paymentType: "card" | "eft"; failedReasonCode: string;
       failedReasonMessageDigest: string; testMode: 1;
     }>;
@@ -153,6 +153,48 @@ export function verifyPaytrCallback(input: Readonly<{
   } catch {
     return false;
   }
+}
+
+export function authenticatePaytrCallback(input: Readonly<{
+  configuration: PaytrConfiguration;
+  form: string;
+  expectedPaymentAmount: number;
+}>): PaytrCallback | null {
+  try {
+    const expectedPaymentAmount = positiveInteger(input.expectedPaymentAmount);
+    if (typeof input.form !== "string" || input.form.length < 1 || input.form.length > 2_048) return null;
+    const params = new URLSearchParams(input.form);
+    const entries = [...params.entries()];
+    if (new URLSearchParams(entries).toString() !== input.form || new Set(entries.map(([key]) => key)).size !== entries.length) return null;
+    const status = params.get("status");
+    if (status !== "success" && status !== "failed") return null;
+    const successFields = ["merchant_oid", "status", "total_amount", "hash", "payment_type", "test_mode"];
+    const fields = status === "success" ? successFields : [...successFields, "failed_reason_code", "failed_reason_msg"];
+    if (entries.length !== fields.length || fields.some((field) => !params.has(field)) ||
+        entries.some(([field]) => !fields.includes(field))) return null;
+    const oid = params.get("merchant_oid");
+    const rawTotalAmount = params.get("total_amount");
+    const providedHash = params.get("hash");
+    const paymentType = params.get("payment_type");
+    if (oid === null || rawTotalAmount === null || providedHash === null ||
+        (paymentType !== "card" && paymentType !== "eft") || params.get("test_mode") !== "1" ||
+        !/^[1-9][0-9]{0,15}$/.test(rawTotalAmount)) return null;
+    const totalAmount = Number(rawTotalAmount);
+    if (!Number.isSafeInteger(totalAmount) || !verifyPaytrCallback({ configuration: input.configuration,
+      merchantOid: oid, status, totalAmount: rawTotalAmount, providedHash })) return null;
+    if (status === "success") {
+      if (totalAmount < expectedPaymentAmount) return null;
+      return Object.freeze({ status, merchantOid: oid, totalAmount, paymentAmount: expectedPaymentAmount,
+        paymentType, currency: "TRY", testMode: 1 });
+    }
+    const failedReasonCode = params.get("failed_reason_code");
+    const failedReasonMessage = params.get("failed_reason_msg");
+    if (failedReasonCode === null || failedReasonMessage === null) return null;
+    boundedString(failedReasonCode, 1, 64);
+    boundedString(failedReasonMessage, 1, 512);
+    return Object.freeze({ status, merchantOid: oid, totalAmount, paymentType, testMode: 1,
+      failedReasonCode, failedReasonMessageDigest: createHash("sha256").update(failedReasonMessage, "utf8").digest("hex") });
+  } catch { return null; }
 }
 
 export function createPaytrStatusToken(configurationValue: PaytrConfiguration, merchantOidValue: string): string {
@@ -337,8 +379,10 @@ export async function requestPaytrIframeToken(input: Readonly<{
 function exactReturnUrl(value: unknown): string {
   const raw = boundedString(value, 1, 400);
   const parsed = new URL(raw);
-  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash ||
-      parsed.pathname !== "/odeme/hizli/sonuc" || parsed.hostname !== parsed.hostname.toLowerCase() || parsed.toString() !== raw) invalid();
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port || parsed.hash ||
+      parsed.pathname !== "/odeme/hizli/sonuc" ||
+      (parsed.search !== "?durum=basarili" && parsed.search !== "?durum=basarisiz") ||
+      parsed.hostname !== parsed.hostname.toLowerCase() || parsed.toString() !== raw) invalid();
   return raw;
 }
 
@@ -410,7 +454,10 @@ export async function queryPaytrStatus(input: Readonly<{
     if (parsed.status !== "success" || (parsed.currency !== "TL" && parsed.currency !== "TRY") || parsed.test_mode !== "1") invalid();
     dateTime(parsed.payment_date);
     optionalMetadata(parsed);
-    return Object.freeze({ status: "success", paymentAmount: majorAmount(parsed.payment_amount), totalAmount: majorAmount(parsed.payment_total), currency: "TRY", testMode: 1 });
+    const paymentAmount = majorAmount(parsed.payment_amount);
+    const totalAmount = majorAmount(parsed.payment_total);
+    if (paymentAmount < 1 || totalAmount < paymentAmount) invalid();
+    return Object.freeze({ status: "success", paymentAmount, totalAmount, currency: "TRY", testMode: 1 });
   } catch {
     return Object.freeze({ status: "unknown" });
   }

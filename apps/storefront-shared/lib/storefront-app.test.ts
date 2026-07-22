@@ -285,6 +285,9 @@ async function sourceFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map(async (entry) => {
     const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory() && (entry.name === ".next" || entry.name === "node_modules" || entry.name.startsWith(".paytr-csp-production-"))) {
+      return [];
+    }
     if (entry.isDirectory()) return sourceFiles(absolute);
     return /\.(?:ts|tsx|json)$/.test(entry.name) && !entry.name.endsWith(".test.ts") ? [absolute] : [];
   }));
@@ -360,6 +363,47 @@ test("proxy owns exact checkout form and PayTR iframe CSP while every near-match
   assert.doesNotMatch(proxy, /form-action 'self'|form-action https:(?:[;'\s])|form-action \*|frame-src \*/);
 });
 
+test("exact signed PayTR callback bypasses presentation dependencies while near matches remain unavailable", async () => {
+  type Factory = (dependencies: Readonly<{
+    selectAuthority: (headers: Headers) => Readonly<{ kind: string; hostname?: string }>;
+    resolveMediaOrigin: () => string;
+    authorizePaytrIframe: () => Promise<boolean>;
+    now: () => Date;
+  }>) => (request: import("next/server.js").NextRequest) => Promise<import("next/server.js").NextResponse>;
+  const { createStorefrontProxy } = await import("../proxy.ts") as unknown as { createStorefrontProxy: Factory };
+  const { NextRequest } = await import("next/server.js");
+  let mediaCalls = 0;
+  const handler = createStorefrontProxy({
+    selectAuthority: (headers) => headers.get("x-auth") === "ok"
+      ? { kind: "trusted", hostname: "pilot.saas-staging.celebix.site" }
+      : { kind: "invalid" },
+    resolveMediaOrigin() { mediaCalls += 1; throw new Error("presentation unavailable"); },
+    authorizePaytrIframe: async () => false,
+    now: () => new Date("2026-07-21T12:00:00.000Z"),
+  });
+  const exact = await handler(new NextRequest("https://internal.example/api/payments/paytr/callback", {
+    method: "POST", headers: { "x-auth": "ok" },
+  }));
+  assert.equal(exact.status, 200);
+  assert.equal(exact.headers.get("x-middleware-next"), "1");
+  assert.match(exact.headers.get("content-security-policy") ?? "", /default-src 'none'/);
+  assert.equal(mediaCalls, 0);
+  for (const request of [
+    new NextRequest("https://internal.example/api/payments/paytr/callback?x=1", { method: "POST", headers: { "x-auth": "ok" } }),
+    new NextRequest("https://internal.example/api/payments/paytr/callback/", { method: "POST", headers: { "x-auth": "ok" } }),
+    new NextRequest("https://internal.example/api/payments/paytr/callback", { method: "GET", headers: { "x-auth": "ok" } }),
+    new NextRequest("https://internal.example/api/payments/paytr/callback", { method: "POST" }),
+  ]) assert.equal((await handler(request)).status, 503);
+});
+
+test("callback route is one server-owned plain response adapter with no browser or secret authority", async () => {
+  const route = await readFile(new URL("../app/api/payments/paytr/callback/route.ts", import.meta.url), "utf8");
+  assert.match(route, /createPaytrCallbackRoute/);
+  assert.match(route, /selectTrustedStorefrontHostAuthority/);
+  assert.match(route, /resolveDefaultCheckoutPaymentRuntime/);
+  assert.doesNotMatch(route, /GET|Origin|cookie|merchantKey|merchantSalt|Response[.]json|console[.]/i);
+});
+
 test("proxy grants PayTR frame authority only after cookie-bound provider-ready preflight", async () => {
   type Factory = (dependencies: Readonly<{
     selectAuthority: (headers: Headers) => Readonly<{ kind: "trusted"; hostname: string }>;
@@ -407,7 +451,7 @@ test("proxy grants PayTR frame authority only after cookie-bound provider-ready 
 test("checkout sources contain no raw secret, provider log, off-origin redirect, or browser token serialization", async () => {
   const appRoot = path.resolve(import.meta.dirname, "..");
   const checkoutFiles = (await sourceFiles(appRoot)).filter((file) =>
-    !file.includes(`${path.sep}.next${path.sep}`) && /(?:lib\/checkout|app\/odeme\/hizli|app\/api\/quick-order\/checkout|proxy[.]ts)/.test(file),
+    !file.includes(`${path.sep}.next${path.sep}`) && /(?:lib\/checkout|scripts\/reconcile-quick-orders|app\/odeme\/hizli|app\/api\/(?:quick-order\/checkout|payments\/paytr\/callback)|proxy[.]ts)/.test(file),
   );
   for (const file of checkoutFiles) {
     const source = await readFile(file, "utf8");

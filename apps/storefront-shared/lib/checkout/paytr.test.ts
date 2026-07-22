@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
 import {
@@ -65,6 +65,61 @@ test("PayTR callback and status HMACs match the documented byte order", () => {
   }
 });
 
+test("PayTR authenticates only the exact bounded callback vocabulary and strict collected amount", () => {
+  assert.equal(typeof paytr.authenticatePaytrCallback, "function");
+  const success = new URLSearchParams({
+    merchant_oid: merchantOid,
+    status: "success",
+    total_amount: "3601",
+    hash: createHmac("sha256", configuration.merchantKey)
+      .update(`${merchantOid}${configuration.merchantSalt}success3601`, "utf8").digest("base64"),
+    payment_type: "card",
+    test_mode: "1",
+  }).toString();
+  assert.deepEqual(paytr.authenticatePaytrCallback!({
+    configuration,
+    form: success,
+    expectedPaymentAmount: 3_600,
+  }), {
+    status: "success", merchantOid, totalAmount: 3_601, paymentAmount: 3_600,
+    paymentType: "card", currency: "TRY", testMode: 1,
+  });
+
+  const failedReasonMessage = "provider detail must never be persisted";
+  const failed = new URLSearchParams({
+    merchant_oid: merchantOid,
+    status: "failed",
+    total_amount: "3600",
+    hash: createHmac("sha256", configuration.merchantKey)
+      .update(`${merchantOid}${configuration.merchantSalt}failed3600`, "utf8").digest("base64"),
+    payment_type: "eft",
+    test_mode: "1",
+    failed_reason_code: "12",
+    failed_reason_msg: failedReasonMessage,
+  }).toString();
+  assert.deepEqual(paytr.authenticatePaytrCallback!({
+    configuration,
+    form: failed,
+    expectedPaymentAmount: 3_600,
+  }), {
+    status: "failed", merchantOid, totalAmount: 3_600, paymentType: "eft", testMode: 1,
+    failedReasonCode: "12",
+    failedReasonMessageDigest: createHash("sha256").update(failedReasonMessage, "utf8").digest("hex"),
+  });
+
+  for (const form of [
+    success.replace("total_amount=3601", "total_amount=3599"),
+    `${success}&merchant_oid=${merchantOid}`,
+    `${success}&unknown=1`,
+    success.replace("payment_type=card", "payment_type=wallet"),
+    success.replace("test_mode=1", "test_mode=0"),
+    success.replace("status=success", "status=pending"),
+    success.replace("total_amount=3601", "total_amount=9007199254740992"),
+  ]) {
+    assert.equal(paytr.authenticatePaytrCallback!({ configuration, form, expectedPaymentAmount: 3_600 }), null, form);
+  }
+});
+
 async function withFetch<T>(implementation: typeof fetch, operation: () => Promise<T>): Promise<T> {
   const original = globalThis.fetch;
   globalThis.fetch = implementation;
@@ -90,8 +145,8 @@ test("PayTR iframe initiation sends one exact manual-redirect form POST", { conc
     userName: "Ada Lovelace",
     userAddress: "Örnek 1 İstanbul",
     userPhone: "+905551112233",
-    successUrl: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc",
-    failureUrl: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc",
+    successUrl: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc?durum=basarili",
+    failureUrl: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc?durum=basarisiz",
     noInstallment: 0,
     maxInstallment: 0,
     signal: new AbortController().signal,
@@ -112,8 +167,8 @@ test("PayTR iframe initiation sends one exact manual-redirect form POST", { conc
     payment_amount: "3600", paytr_token: "GgNqUVAdw+xF+ISBw/2efKnwdab+iYhaXb/NMUCXz8U=", user_basket: userBasket,
     debug_on: "0", no_installment: "0", max_installment: "0", user_name: "Ada Lovelace",
     user_address: "Örnek 1 İstanbul", user_phone: "+905551112233",
-    merchant_ok_url: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc",
-    merchant_fail_url: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc",
+    merchant_ok_url: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc?durum=basarili",
+    merchant_fail_url: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc?durum=basarisiz",
     timeout_limit: "30", currency: "TL", test_mode: "1",
   });
 });
@@ -122,8 +177,8 @@ test("PayTR iframe initiation contains provider rejection and ambiguous failures
   const input = {
     configuration, userIp: "8.8.8.8", merchantOid, email: "ada@example.com", paymentAmount: 3_600,
     userBasket, userName: "Ada Lovelace", userAddress: "Örnek 1 İstanbul", userPhone: "+905551112233",
-    successUrl: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc",
-    failureUrl: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc", noInstallment: 0 as const,
+    successUrl: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc?durum=basarili",
+    failureUrl: "https://pilot.saas-staging.celebix.site/odeme/hizli/sonuc?durum=basarisiz", noInstallment: 0 as const,
     maxInstallment: 0, signal: new AbortController().signal,
   };
   let calls = 0;
@@ -192,6 +247,7 @@ test("PayTR status query rejects noncanonical money, hostile objects, and unknow
     assert.deepEqual(result, { status: "unknown" }, value);
   }
   for (const body of [
+    JSON.stringify({ ...valid, payment_amount: "11.26", payment_total: "11.25" }),
     JSON.stringify({ ...valid, unknown: "x" }),
     '{"status":"success","status":"error","payment_amount":"1.00","payment_total":"1.00","payment_date":"2026-07-21 12:30:45","currency":"TL","test_mode":"1"}',
     JSON.stringify({ ...valid, returns: [{ return_amount: "1.00", hostile: "x" }] }),
@@ -228,6 +284,116 @@ const configurationDigest = digestCanonicalPaytrConfiguration(serializedConfigur
 const sealedConfiguration = sealQuickLinkSecret({
   plaintext: serializedConfiguration, purpose: "provider-config", storeId: STORE_ID,
   objectId: PROVIDER_ID, digest: configurationDigest, keyring,
+});
+
+function callbackRequest(status: "success" | "failed" = "success", overrides: Record<string, string> = {}): Request {
+  const totalAmount = overrides.total_amount ?? "3600";
+  const selected = {
+    merchant_oid: merchantOid,
+    status,
+    total_amount: totalAmount,
+    hash: createHmac("sha256", configuration.merchantKey)
+      .update(`${merchantOid}${configuration.merchantSalt}${status}${totalAmount}`, "utf8").digest("base64"),
+    payment_type: "card",
+    test_mode: "1",
+    ...(status === "failed" ? { failed_reason_code: "12", failed_reason_msg: "sensitive provider message" } : {}),
+    ...overrides,
+  };
+  return new Request(configuration.callbackUrl, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(selected).toString(),
+  });
+}
+
+test("callback verifies sealed merchant authority before exact plain OK settlement", async () => {
+  assert.equal(typeof runtimeModule.createPaytrCallbackRoute, "function");
+  const calls = { authority: 0, settle: [] as Array<Record<string, unknown>> };
+  const handler = runtimeModule.createPaytrCallbackRoute!({
+    selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+    resolveRuntime: async () => ({
+      keyring,
+      paymentRepository: {
+        async getCallbackAuthority() {
+          calls.authority += 1;
+          return { storeId: STORE_ID, attemptId: ATTEMPT_ID, merchantOid, providerConfigId: PROVIDER_ID,
+            status: "provider_ready" as const, expectedPaymentAmount: 3_600, currency: "TRY" as const,
+            configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration };
+        },
+        async settleCallback(input: Record<string, unknown>) { calls.settle.push(input); return { outcome: "settled" as const, orderNumber: "QO-safe" }; },
+      },
+    }),
+    now: () => new Date("2026-07-21T12:00:00.000Z"),
+  });
+  const response = await handler(callbackRequest());
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "OK");
+  assert.equal(response.headers.get("content-type"), "text/plain; charset=utf-8");
+  assert.equal(calls.authority, 1);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.settle[0]?.merchantOid, merchantOid);
+  assert.equal(calls.settle[0]?.paymentAmount, 3_600);
+  assert.equal(calls.settle[0]?.totalAmount, 3_600);
+  assert.equal(calls.settle[0]?.currency, "TRY");
+  assert.equal(calls.settle[0]?.paymentType, "card");
+  assert.equal(calls.settle[0]?.testMode, 1);
+  assert.match(String(calls.settle[0]?.callbackDigest), /^[a-f0-9]{64}$/);
+  assert.match(String(calls.settle[0]?.operationId), /^[a-f0-9-]{36}$/);
+  assert.match(String(calls.settle[0]?.fingerprint), /^[a-f0-9]{64}$/);
+  assert.equal("hash" in calls.settle[0]!, false);
+  assert.equal("merchantKey" in calls.settle[0]!, false);
+});
+
+test("callback maps only unresolved commit to retry and accepts replay or signed failure as exact OK", async () => {
+  for (const [outcome, expectedStatus, expectedBody, callbackStatus] of [
+    ["replayed", 200, "OK", "success"],
+    ["failed", 200, "OK", "failed"],
+    ["commit_unknown", 503, "RETRY", "success"],
+  ] as const) {
+    const settlements: Array<Record<string, unknown>> = [];
+    const handler = runtimeModule.createPaytrCallbackRoute!({
+      selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
+      resolveRuntime: async () => ({ keyring, paymentRepository: {
+        async getCallbackAuthority() { return { storeId: STORE_ID, attemptId: ATTEMPT_ID, merchantOid,
+          providerConfigId: PROVIDER_ID, status: "provider_ready" as const, expectedPaymentAmount: 3_600,
+          currency: "TRY" as const, configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration }; },
+        async settleCallback(input: Record<string, unknown>) { settlements.push(input); return { outcome }; },
+      } }),
+      now: () => new Date("2026-07-21T12:00:00.000Z"),
+    });
+    const response = await handler(callbackRequest(callbackStatus));
+    assert.equal(response.status, expectedStatus, outcome);
+    assert.equal(await response.text(), expectedBody, outcome);
+    if (callbackStatus === "failed") {
+      assert.match(String(settlements[0]?.failedReasonMessageDigest), /^[a-f0-9]{64}$/);
+      assert.equal("failedReasonMessage" in settlements[0]!, false);
+    }
+  }
+});
+
+test("callback rejects invalid HMAC, underpayment, external host mismatch, and browser authority before settlement", async () => {
+  let settlements = 0;
+  const handler = runtimeModule.createPaytrCallbackRoute!({
+    selectAuthority: (headers: Headers) => headers.has("origin")
+      ? ({ kind: "invalid" as const })
+      : ({ kind: "trusted" as const, hostname: HOSTNAME }),
+    resolveRuntime: async () => ({ keyring, paymentRepository: {
+      async getCallbackAuthority() { return { storeId: STORE_ID, attemptId: ATTEMPT_ID, merchantOid,
+        providerConfigId: PROVIDER_ID, status: "provider_ready" as const, expectedPaymentAmount: 3_600,
+        currency: "TRY" as const, configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration }; },
+      async settleCallback() { settlements += 1; return { outcome: "settled" as const }; },
+    } }),
+    now: () => new Date("2026-07-21T12:00:00.000Z"),
+  });
+  const badHash = callbackRequest("success", { hash: Buffer.alloc(32, 0x31).toString("base64") });
+  const underpaid = callbackRequest("success", { total_amount: "3599" });
+  const browser = callbackRequest(); browser.headers.set("origin", `https://${HOSTNAME}`);
+  for (const selected of [badHash, underpaid, browser]) {
+    const response = await handler(selected);
+    assert.equal(response.status, 400);
+    assert.notEqual(await response.text(), "OK");
+  }
+  assert.equal(settlements, 0);
 });
 
 function paymentFixture(status: "reserved" | "provider_ready" | "initiation_unknown" = "reserved", outcome: "created" | "replayed" = "created") {

@@ -51,6 +51,16 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
   return async (request: NextRequest): Promise<NextResponse> => {
     const authority = dependencies.selectAuthority(request.headers);
     if (authority.kind !== "trusted") return unavailable();
+    const pathname = request.nextUrl.pathname;
+    const exactTarget = request.nextUrl.search === "" && request.nextUrl.hash === "";
+    const callbackPath = pathname === "/api/payments/paytr/callback";
+    if (callbackPath && exactTarget && request.method === "POST") {
+      const callback = NextResponse.next();
+      callback.headers.set("content-security-policy", FALLBACK_CSP);
+      for (const [name, value] of Object.entries(SECURITY_HEADERS)) callback.headers.set(name, value);
+      return callback;
+    }
+    if (callbackPath || pathname.startsWith("/api/payments/paytr/callback/")) return unavailable();
     let mediaOrigin: string;
     try {
       mediaOrigin = dependencies.resolveMediaOrigin();
@@ -58,8 +68,6 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const nonce = randomBytes(18).toString("base64");
     const requestHeaders = new Headers(request.headers); requestHeaders.set("x-nonce", nonce);
     const response = NextResponse.next({ request: { headers: requestHeaders } });
-    const pathname = request.nextUrl.pathname;
-    const exactTarget = request.nextUrl.search === "" && request.nextUrl.hash === "";
     const defaultCsp = `default-src 'none'; script-src 'nonce-${nonce}' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data: ${mediaOrigin}; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; connect-src 'none'`;
     let iframeAuthorized = false;
     if (exactTarget && pathname === "/odeme/hizli/odeme") {

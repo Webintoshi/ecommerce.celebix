@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes as secureRandomBytes, randomUUID as secureRandomUUID, timingSafeEqual } from "node:crypto";
 import {
   CheckoutPaymentRepositoryError,
   PostgresCheckoutPaymentRepository,
@@ -7,6 +7,7 @@ import {
   parseCanonicalPaytrConfiguration,
   sealQuickLinkSecret,
   type CheckoutPaymentRepository,
+  type ReconciliationAuthority,
   type PublicQuickOrderRepository,
   type PublicStorefrontRepository,
   type QuickLinkKeyring,
@@ -14,7 +15,9 @@ import {
 import pg from "pg";
 
 import { parseCheckoutRuntimeConfig } from "./config.ts";
-import { requestPaytrIframeToken, type PaytrIframeTokenResult } from "./paytr.ts";
+import { readExactPaytrCallbackRequest } from "./callback-authority.ts";
+import { authenticatePaytrCallback, queryPaytrStatus, requestPaytrIframeToken,
+  type PaytrIframeTokenResult } from "./paytr.ts";
 import { digestRedemptionCredential, parseRedemptionCookie } from "./redemption-cookie.ts";
 import { parseTrustedClientIp } from "./trusted-client-ip.ts";
 
@@ -66,6 +69,11 @@ export type CheckoutPaymentInfrastructureRuntime = Readonly<{
   keyring: QuickLinkKeyring;
 }>;
 
+type DefaultCheckoutPaymentInfrastructureRuntime = Readonly<{
+  paymentRepository: CheckoutPaymentRepository;
+  keyring: QuickLinkKeyring;
+}>;
+
 export type CheckoutPaymentRuntime = CheckoutPaymentInfrastructureRuntime & Readonly<{
   checkout: CheckoutRuntime;
 }>;
@@ -111,6 +119,34 @@ function uuidFromDigest(digest: string): string {
   const hex = bytes.toString("hex");
   bytes.fill(0);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function paymentSettlementIdentity(attemptId: string) {
+  const authority = digestParts("settlement", attemptId);
+  return Object.freeze({
+    orderId: uuidFromDigest(digestParts("order", authority)),
+    orderItemIds: Object.freeze([uuidFromDigest(digestParts("order-item", authority, "0"))]),
+    orderEventId: uuidFromDigest(digestParts("order-event", authority)),
+    orderNumber: `QO-${authority.slice(0, 20).toUpperCase()}`,
+  });
+}
+
+function phaseAuthority(kind: string, ...parts: readonly string[]) {
+  const selected = digestParts(kind, ...parts);
+  return Object.freeze({
+    operationId: uuidFromDigest(digestParts("operation", kind, selected)),
+    fingerprint: digestParts("fingerprint", kind, selected),
+  });
+}
+
+function openPaytrConfiguration(authority: Readonly<{
+  storeId: string; providerConfigId: string; configurationDigest: string;
+  sealedConfiguration: Parameters<typeof openQuickLinkSecret>[0]["envelope"];
+}>, keyring: QuickLinkKeyring) {
+  const serialized = openQuickLinkSecret({ envelope: authority.sealedConfiguration, purpose: "provider-config",
+    storeId: authority.storeId, objectId: authority.providerConfigId, digest: authority.configurationDigest, keyring });
+  if (digestCanonicalPaytrConfiguration(serialized) !== authority.configurationDigest) invalid();
+  return parseCanonicalPaytrConfiguration(serialized);
 }
 
 function intentAuthority(hostname: string, redemptionDigest: string, intentId: string) {
@@ -252,16 +288,15 @@ export function createQuickOrderCheckoutRoute(dependencies: PaymentRouteDependen
     if (begun.attemptId !== attemptId || begun.merchantOid !== oid || begun.currency !== "TRY") return routeText(503, "Checkout unavailable");
     let selectedConfiguration;
     try {
-      const serialized = openQuickLinkSecret({ envelope: begun.sealedConfiguration, purpose: "provider-config", storeId: begun.storeId, objectId: begun.providerConfigId, digest: begun.configurationDigest, keyring: runtime.keyring });
-      if (digestCanonicalPaytrConfiguration(serialized) !== begun.configurationDigest) return routeText(503, "Checkout unavailable");
-      selectedConfiguration = parseCanonicalPaytrConfiguration(serialized);
+      selectedConfiguration = openPaytrConfiguration(begun, runtime.keyring);
     } catch { return routeText(503, "Checkout unavailable"); }
-    const resultUrl = `https://${authority.hostname}/odeme/hizli/sonuc`;
+    const successUrl = `https://${authority.hostname}/odeme/hizli/sonuc?durum=basarili`;
+    const failureUrl = `https://${authority.hostname}/odeme/hizli/sonuc?durum=basarisiz`;
     const signal = AbortSignal.timeout(20_000);
     const initiated = await (dependencies.initiate ?? requestPaytrIframeToken)({
       configuration: selectedConfiguration, userIp: ip, merchantOid: begun.merchantOid, email: begun.customerEmail,
       paymentAmount: begun.paymentAmount, userBasket: paytrBasket(begun.basket), userName: begun.customerName,
-      userAddress: begun.customerAddress, userPhone: begun.customerPhone, successUrl: resultUrl, failureUrl: resultUrl,
+      userAddress: begun.customerAddress, userPhone: begun.customerPhone, successUrl, failureUrl,
       noInstallment: 0, maxInstallment: 0, signal,
     });
     if (initiated.status === "rejected") {
@@ -319,9 +354,188 @@ export function createQuickOrderIframeRoute(dependencies: Readonly<{
   };
 }
 
+type CallbackRepository = Pick<CheckoutPaymentRepository, "getCallbackAuthority" | "settleCallback">;
+
+export function createPaytrCallbackRoute(dependencies: Readonly<{
+  selectAuthority: (headers: Headers) => HostAuthority;
+  resolveRuntime: () => Promise<Readonly<{ paymentRepository: CallbackRepository; keyring: QuickLinkKeyring }> | null>;
+  now?: () => Date;
+}>) {
+  const callbackResponse = (status: number, text: "OK" | "INVALID" | "RETRY") => routeText(status, text);
+  return async (request: Request): Promise<Response> => {
+    const authority = dependencies.selectAuthority(request.headers);
+    if (authority.kind !== "trusted" || !("hostname" in authority) || !validHostname(authority.hostname)) {
+      return callbackResponse(400, "INVALID");
+    }
+    const externalCallbackUrl = `https://${authority.hostname}/api/payments/paytr/callback`;
+    const callback = await readExactPaytrCallbackRequest({ request, trustedHostname: authority.hostname,
+      configuredCallbackUrl: externalCallbackUrl });
+    if (callback === null) return callbackResponse(400, "INVALID");
+    const now = (dependencies.now ?? (() => new Date()))();
+    if (!validNow(now)) return callbackResponse(400, "INVALID");
+    const runtime = await dependencies.resolveRuntime();
+    if (runtime === null) return callbackResponse(400, "INVALID");
+    try {
+      const selectedAuthority = await runtime.paymentRepository.getCallbackAuthority({ merchantOid: callback.merchantOid, now: new Date(now) });
+      if (selectedAuthority.merchantOid !== callback.merchantOid || selectedAuthority.currency !== "TRY") return callbackResponse(400, "INVALID");
+      const selectedConfiguration = openPaytrConfiguration(selectedAuthority, runtime.keyring);
+      if (selectedConfiguration.callbackUrl !== externalCallbackUrl) return callbackResponse(400, "INVALID");
+      const authenticated = authenticatePaytrCallback({ configuration: selectedConfiguration, form: callback.form,
+        expectedPaymentAmount: selectedAuthority.expectedPaymentAmount });
+      if (authenticated === null || authenticated.merchantOid !== selectedAuthority.merchantOid) return callbackResponse(400, "INVALID");
+      const operation = phaseAuthority("callback", selectedAuthority.attemptId, callback.callbackDigest);
+      const facts = digestParts("callback-facts", callback.callbackDigest, authenticated.status,
+        String(authenticated.totalAmount), authenticated.paymentType,
+        authenticated.status === "success" ? String(authenticated.paymentAmount) : authenticated.failedReasonCode,
+        authenticated.status === "failed" ? authenticated.failedReasonMessageDigest : "TRY");
+      const result = await runtime.paymentRepository.settleCallback(authenticated.status === "success"
+        ? { ...authenticated, merchantOid: selectedAuthority.merchantOid, callbackDigest: callback.callbackDigest,
+            operationId: operation.operationId, fingerprint: facts, ...paymentSettlementIdentity(selectedAuthority.attemptId), now: new Date(now) }
+        : { ...authenticated, merchantOid: selectedAuthority.merchantOid, callbackDigest: callback.callbackDigest,
+            operationId: operation.operationId, fingerprint: facts, now: new Date(now) });
+      if (result.outcome === "commit_unknown") return callbackResponse(503, "RETRY");
+      return result.outcome === "settled" || result.outcome === "replayed" || result.outcome === "failed"
+        ? callbackResponse(200, "OK") : callbackResponse(400, "INVALID");
+    } catch { return callbackResponse(400, "INVALID"); }
+  };
+}
+
+type ReconciliationRepository = Pick<CheckoutPaymentRepository,
+  "beginReconciliationRun" | "cleanupPreProviderAttempts" | "claimReconciliation" |
+  "applyReconciliationSuccess" | "recordReconciliationUnknown" | "finishReconciliationRun">;
+
+export type QuickOrderReconciliationResult = Readonly<{
+  status: "busy" | "completed" | "failed";
+  claimed: number;
+  settled: number;
+  unknown: number;
+  failures: number;
+}>;
+
+type ReconciliationDependencies = Readonly<{
+  paymentRepository: ReconciliationRepository;
+  keyring: QuickLinkKeyring;
+  now?: () => Date;
+  monotonicNow?: () => number;
+  randomUUID?: () => string;
+  randomBytes?: (size: number) => Uint8Array;
+  createDeadlineSignal?: (milliseconds: number) => AbortSignal;
+  queryStatus?: typeof queryPaytrStatus;
+}>;
+
+function unknownBackoff(attemptNumber: number): number {
+  return Math.min(21_600, 30 * (2 ** Math.min(10, attemptNumber - 1)));
+}
+
+function safePositiveInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) > 0;
+}
+
+export async function runQuickOrderReconciliation(dependencies: ReconciliationDependencies): Promise<QuickOrderReconciliationResult> {
+  const now = dependencies.now ?? (() => new Date());
+  const monotonicNow = dependencies.monotonicNow ?? (() => performance.now());
+  const startedAt = now();
+  const monotonicStart = monotonicNow();
+  let claimed = 0; let settled = 0; let unknown = 0; let failures = 0;
+  if (!validNow(startedAt) || !Number.isFinite(monotonicStart)) return Object.freeze({ status: "failed", claimed, settled, unknown, failures: 1 });
+  const workerId = (dependencies.randomUUID ?? secureRandomUUID)();
+  const runTokenBytes = (dependencies.randomBytes ?? secureRandomBytes)(32);
+  if (!(runTokenBytes instanceof Uint8Array) || runTokenBytes.byteLength !== 32 || !UUID.test(workerId)) {
+    runTokenBytes.fill(0); return Object.freeze({ status: "failed", claimed, settled, unknown, failures: 1 });
+  }
+  const runToken = Buffer.from(runTokenBytes).toString("base64url");
+  runTokenBytes.fill(0);
+  const runTokenDigest = createHash("sha256").update(runToken, "utf8").digest("hex");
+  const runLeaseExpiresAt = new Date(startedAt.getTime() + 60_000);
+  let acquired = false;
+  try {
+    const begun = await dependencies.paymentRepository.beginReconciliationRun({ workerId, runTokenDigest,
+      now: new Date(startedAt), leaseExpiresAt: new Date(runLeaseExpiresAt) });
+    if (begun.outcome === "busy") return Object.freeze({ status: "busy", claimed, settled, unknown, failures });
+    acquired = true;
+    const cleanup = phaseAuthority("cleanup", workerId, startedAt.toISOString());
+    try {
+      await dependencies.paymentRepository.cleanupPreProviderAttempts({ workerId, ...cleanup, now: new Date(now()), limit: 25 });
+    } catch { failures += 1; }
+    let claims: readonly ReconciliationAuthority[] = [];
+    if (monotonicNow() - monotonicStart < 50_000) {
+      try {
+        claims = await dependencies.paymentRepository.claimReconciliation({ workerId, now: new Date(now()),
+          leaseExpiresAt: new Date(runLeaseExpiresAt), limit: 25 });
+        claimed = claims.length;
+      } catch { failures += 1; }
+    }
+    let cursor = 0;
+    const recordUnknown = async (claim: ReconciliationAuthority, mutationNow: Date) => {
+      const phase = phaseAuthority("reconcile-unknown", claim.attemptId, claim.leaseToken, String(claim.attemptNumber));
+      await dependencies.paymentRepository.recordReconciliationUnknown({ merchantOid: claim.merchantOid, workerId,
+        leaseToken: claim.leaseToken, ...phase, nextAttemptAt: new Date(mutationNow.getTime() + unknownBackoff(claim.attemptNumber) * 1_000),
+        now: new Date(mutationNow) });
+      unknown += 1;
+    };
+    const work = async () => {
+      while (true) {
+        const index = cursor; cursor += 1;
+        const claim = claims[index];
+        if (claim === undefined) return;
+        const before = now();
+        const elapsed = monotonicNow() - monotonicStart;
+        const remaining = runLeaseExpiresAt.getTime() - before.getTime();
+        if (!validNow(before) || !Number.isFinite(elapsed)) { failures += 1; continue; }
+        if (elapsed >= 40_000 || remaining < 10_000) {
+          if (elapsed < 50_000 && remaining >= 6_000) {
+            try { await recordUnknown(claim, before); } catch { failures += 1; }
+          }
+          continue;
+        }
+        let providerResult: Awaited<ReturnType<typeof queryPaytrStatus>> = Object.freeze({ status: "unknown" });
+        try {
+          const configuration = openPaytrConfiguration(claim, dependencies.keyring);
+          const signal = (dependencies.createDeadlineSignal ?? AbortSignal.timeout)(3_000);
+          if (!(signal instanceof AbortSignal)) throw new TypeError("checkout_runtime_invalid");
+          providerResult = await (dependencies.queryStatus ?? queryPaytrStatus)({ configuration,
+            merchantOid: claim.merchantOid, signal });
+        } catch { providerResult = Object.freeze({ status: "unknown" }); }
+        const mutationNow = now();
+        const mutationElapsed = monotonicNow() - monotonicStart;
+        const mutationRemaining = runLeaseExpiresAt.getTime() - mutationNow.getTime();
+        if (!validNow(mutationNow) || !Number.isFinite(mutationElapsed) || mutationElapsed >= 50_000 || mutationRemaining <= 0) continue;
+        if (providerResult.status === "success" && safePositiveInteger(providerResult.paymentAmount) &&
+            providerResult.paymentAmount === claim.expectedPaymentAmount && safePositiveInteger(providerResult.totalAmount) &&
+            providerResult.totalAmount >= providerResult.paymentAmount && providerResult.currency === "TRY" && providerResult.testMode === 1) {
+          const phase = phaseAuthority("reconcile-success", claim.attemptId, claim.leaseToken, String(claim.attemptNumber),
+            String(providerResult.paymentAmount), String(providerResult.totalAmount));
+          try {
+            await dependencies.paymentRepository.applyReconciliationSuccess({ merchantOid: claim.merchantOid, workerId,
+              leaseToken: claim.leaseToken, ...phase, paymentAmount: providerResult.paymentAmount,
+              totalAmount: providerResult.totalAmount, currency: "TRY", testMode: 1,
+              ...paymentSettlementIdentity(claim.attemptId), now: new Date(mutationNow) });
+            settled += 1;
+          } catch { failures += 1; }
+        } else if (mutationRemaining >= 6_000) {
+          try { await recordUnknown(claim, mutationNow); } catch { failures += 1; }
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(5, claims.length) }, () => work()));
+  } catch { failures += 1; }
+  finally {
+    if (acquired) {
+      const finishAt = now();
+      if (validNow(finishAt) && finishAt.getTime() < runLeaseExpiresAt.getTime()) {
+        try { await dependencies.paymentRepository.finishReconciliationRun({ workerId, runToken, now: new Date(finishAt) }); }
+        catch { failures += 1; }
+      }
+    }
+  }
+  return Object.freeze({ status: failures === 0 ? "completed" : "failed", claimed, settled, unknown, failures });
+}
+
 const { Pool } = pg;
 const PAYMENT_TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
-let defaultPaymentRuntime: Promise<CheckoutPaymentInfrastructureRuntime | null> | undefined;
+const RECONCILIATION_TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 4_000, lockMs: 2_000, idleTransactionMs: 5_000 });
+let defaultPaymentRuntime: Promise<DefaultCheckoutPaymentInfrastructureRuntime | null> | undefined;
+let defaultReconciliationRuntime: Promise<(DefaultCheckoutPaymentInfrastructureRuntime & Readonly<{ close: () => Promise<void> }>) | null> | undefined;
 
 function environmentKeyring(source: NodeJS.ProcessEnv): QuickLinkKeyring {
   const activeKeyId = source.CELEBIX_QUICK_ORDER_ACTIVE_KEY_ID;
@@ -349,7 +563,7 @@ function environmentKeyring(source: NodeJS.ProcessEnv): QuickLinkKeyring {
   }
 }
 
-export async function resolveDefaultCheckoutPaymentRuntime(): Promise<CheckoutPaymentInfrastructureRuntime | null> {
+export async function resolveDefaultCheckoutPaymentRuntime(): Promise<DefaultCheckoutPaymentInfrastructureRuntime | null> {
   defaultPaymentRuntime ??= Promise.resolve().then(() => {
     try {
       if (process.env.CELEBIX_DEPLOYMENT_TIER !== "staging" || process.env.CELEBIX_STOREFRONT_DATA_MODE !== "approved_staging") return null;
@@ -364,4 +578,22 @@ export async function resolveDefaultCheckoutPaymentRuntime(): Promise<CheckoutPa
     } catch { return null; }
   });
   return defaultPaymentRuntime;
+}
+
+export async function resolveDefaultCheckoutReconciliationRuntime(): Promise<(DefaultCheckoutPaymentInfrastructureRuntime & Readonly<{ close: () => Promise<void> }>) | null> {
+  defaultReconciliationRuntime ??= Promise.resolve().then(() => {
+    try {
+      if (process.env.CELEBIX_DEPLOYMENT_TIER !== "staging" || process.env.CELEBIX_STOREFRONT_DATA_MODE !== "approved_staging") return null;
+      const config = parseCheckoutRuntimeConfig(process.env);
+      const keyring = environmentKeyring(process.env);
+      const pool = new Pool({ connectionString: config.database.url, max: 6, connectionTimeoutMillis: RECONCILIATION_TIMEOUTS.poolCheckoutMs, idleTimeoutMillis: 10_000,
+        statement_timeout: RECONCILIATION_TIMEOUTS.statementMs, lock_timeout: RECONCILIATION_TIMEOUTS.lockMs,
+        idle_in_transaction_session_timeout: RECONCILIATION_TIMEOUTS.idleTransactionMs,
+        application_name: "celebix-storefront-reconciliation-staging" });
+      pool.on("error", () => undefined);
+      const paymentRepository = new PostgresCheckoutPaymentRepository({ pool, role: "celebix_saas_workflow", timeouts: RECONCILIATION_TIMEOUTS, audit: () => undefined });
+      return Object.freeze({ paymentRepository, keyring, close: () => pool.end() });
+    } catch { return null; }
+  });
+  return defaultReconciliationRuntime;
 }

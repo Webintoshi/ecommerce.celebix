@@ -482,3 +482,144 @@ test("14/14 production server emits one success-aware iframe CSP with no token s
     await rm(fixture, { recursive: true, force: true });
   }
 });
+
+function reconciliationClaim(index = 1, overrides = {}) {
+  const serialized = serializeCanonicalPaytrConfiguration(paytrConfiguration);
+  const configurationDigest = digestCanonicalPaytrConfiguration(serialized);
+  const attemptId = `88888888-8888-4888-8888-${String(index).padStart(12, "0")}`;
+  return Object.freeze({
+    storeId: STORE,
+    attemptId,
+    merchantOid: String(index).padStart(32, "a").slice(-32),
+    providerConfigId: PROVIDER,
+    status: "provider_ready",
+    expectedPaymentAmount: 25_500,
+    currency: "TRY",
+    configurationDigest,
+    configurationKeyId: "quick.current",
+    sealedConfiguration: sealQuickLinkSecret({ plaintext: serialized, purpose: "provider-config", storeId: STORE,
+      objectId: PROVIDER, digest: configurationDigest, keyring }),
+    leaseToken: Buffer.alloc(32, index).toString("base64url"),
+    attemptNumber: index,
+    ...overrides,
+  });
+}
+
+function reconciliationRepository(claims, beginOutcome = "acquired") {
+  const calls = [];
+  const repository = {
+    async beginReconciliationRun(input) { calls.push(["begin", input]); return { outcome: beginOutcome }; },
+    async cleanupPreProviderAttempts(input) { calls.push(["cleanup", input]); return { releasedCount: 0 }; },
+    async claimReconciliation(input) { calls.push(["claim", input]); return claims; },
+    async applyReconciliationSuccess(input) { calls.push(["success", input]); return { outcome: "settled", orderNumber: input.orderNumber }; },
+    async recordReconciliationUnknown(input) { calls.push(["unknown", input]); },
+    async finishReconciliationRun(input) { calls.push(["finish", input]); },
+  };
+  return { repository, calls };
+}
+
+test("15/18 reconciliation singleton exits busy before cleanup, claim, or provider access", async () => {
+  const storefront = new URL("../../../apps/storefront-shared/", import.meta.url);
+  const { runQuickOrderReconciliation } = await import(new URL("lib/checkout/runtime.ts", storefront));
+  assert.equal(typeof runQuickOrderReconciliation, "function");
+  const fixture = reconciliationRepository([], "busy");
+  let providerCalls = 0;
+  const result = await runQuickOrderReconciliation({
+    paymentRepository: fixture.repository, keyring,
+    now: () => new Date("2026-07-21T12:00:00.000Z"), monotonicNow: () => 0,
+    randomUUID: () => "77777777-7777-4777-8777-777777777777",
+    randomBytes: () => new Uint8Array(32).fill(7),
+    createDeadlineSignal: () => new AbortController().signal,
+    queryStatus: async () => { providerCalls += 1; return { status: "unknown" }; },
+  });
+  assert.deepEqual(result, { status: "busy", claimed: 0, settled: 0, unknown: 0, failures: 0 });
+  assert.deepEqual(fixture.calls.map(([kind]) => kind), ["begin"]);
+  assert.equal(providerCalls, 0);
+});
+
+test("16/18 reconciliation uses exact leases, cleanup-first 25-claim bounds, five workers, and three-second signals", async () => {
+  const storefront = new URL("../../../apps/storefront-shared/", import.meta.url);
+  const { runQuickOrderReconciliation } = await import(new URL("lib/checkout/runtime.ts", storefront));
+  const claims = Array.from({ length: 8 }, (_, index) => reconciliationClaim(index + 1));
+  const fixture = reconciliationRepository(claims);
+  let active = 0; let maximum = 0; const deadlines = [];
+  const result = await runQuickOrderReconciliation({
+    paymentRepository: fixture.repository, keyring,
+    now: () => new Date("2026-07-21T12:00:00.000Z"), monotonicNow: () => 0,
+    randomUUID: () => "77777777-7777-4777-8777-777777777777",
+    randomBytes: () => new Uint8Array(32).fill(7),
+    createDeadlineSignal(milliseconds) { deadlines.push(milliseconds); return new AbortController().signal; },
+    async queryStatus({ merchantOid, signal }) {
+      assert.ok(signal instanceof AbortSignal);
+      active += 1; maximum = Math.max(maximum, active);
+      await new Promise((resolve) => setImmediate(resolve));
+      active -= 1;
+      return merchantOid === claims[0].merchantOid
+        ? { status: "success", paymentAmount: 25_500, totalAmount: 25_600, currency: "TRY", testMode: 1 }
+        : { status: "unknown" };
+    },
+  });
+  assert.deepEqual(result, { status: "completed", claimed: 8, settled: 1, unknown: 7, failures: 0 });
+  assert.equal(maximum, 5);
+  assert.deepEqual(deadlines, Array(8).fill(3_000));
+  assert.deepEqual(fixture.calls.slice(0, 3).map(([kind]) => kind), ["begin", "cleanup", "claim"]);
+  const begin = fixture.calls[0][1];
+  assert.equal(begin.leaseExpiresAt.getTime() - begin.now.getTime(), 60_000);
+  assert.equal(fixture.calls[2][1].limit, 25);
+  assert.equal(fixture.calls[2][1].leaseExpiresAt.getTime(), begin.leaseExpiresAt.getTime());
+  for (const [, input] of fixture.calls.filter(([kind]) => kind === "unknown")) {
+    const claim = claims.find((candidate) => candidate.merchantOid === input.merchantOid);
+    assert.ok(claim);
+    assert.equal(input.nextAttemptAt.getTime() - input.now.getTime(), Math.min(21_600, 30 * (2 ** (claim.attemptNumber - 1))) * 1_000);
+  }
+  assert.equal(fixture.calls.at(-1)[0], "finish");
+});
+
+test("17/18 forty-second issue cutoff and lease-edge claims requeue without provider I/O", async () => {
+  const storefront = new URL("../../../apps/storefront-shared/", import.meta.url);
+  const { runQuickOrderReconciliation } = await import(new URL("lib/checkout/runtime.ts", storefront));
+  for (const scenario of [
+    { elapsed: 40_000, wall: 40_000 },
+    { elapsed: 39_000, wall: 51_000 },
+  ]) {
+    let elapsed = 0; let wall = 0; let providerCalls = 0;
+    const fixture = reconciliationRepository([reconciliationClaim(1)]);
+    fixture.repository.claimReconciliation = async (input) => {
+      fixture.calls.push(["claim", input]); elapsed = scenario.elapsed; wall = scenario.wall; return [reconciliationClaim(1)];
+    };
+    const result = await runQuickOrderReconciliation({
+      paymentRepository: fixture.repository, keyring,
+      now: () => new Date(Date.parse("2026-07-21T12:00:00.000Z") + wall), monotonicNow: () => elapsed,
+      randomUUID: () => "77777777-7777-4777-8777-777777777777",
+      randomBytes: () => new Uint8Array(32).fill(7),
+      createDeadlineSignal: () => new AbortController().signal,
+      queryStatus: async () => { providerCalls += 1; return { status: "unknown" }; },
+    });
+    assert.equal(providerCalls, 0);
+    assert.equal(fixture.calls.filter(([kind]) => kind === "unknown").length, 1);
+    assert.equal(result.unknown, 1);
+  }
+});
+
+test("18/18 slow provider response cannot mutate after the 50-second budget or lease fencing expiry", async () => {
+  const storefront = new URL("../../../apps/storefront-shared/", import.meta.url);
+  const { runQuickOrderReconciliation } = await import(new URL("lib/checkout/runtime.ts", storefront));
+  for (const finishAt of [50_000, 60_000]) {
+    let elapsed = 0; let wall = 0;
+    const fixture = reconciliationRepository([reconciliationClaim(1)]);
+    const result = await runQuickOrderReconciliation({
+      paymentRepository: fixture.repository, keyring,
+      now: () => new Date(Date.parse("2026-07-21T12:00:00.000Z") + wall), monotonicNow: () => elapsed,
+      randomUUID: () => "77777777-7777-4777-8777-777777777777",
+      randomBytes: () => new Uint8Array(32).fill(7),
+      createDeadlineSignal: () => new AbortController().signal,
+      queryStatus: async () => {
+        elapsed = finishAt; wall = finishAt;
+        return { status: "success", paymentAmount: 25_500, totalAmount: 25_500, currency: "TRY", testMode: 1 };
+      },
+    });
+    assert.equal(fixture.calls.filter(([kind]) => kind === "success" || kind === "unknown").length, 0);
+    assert.equal(result.settled, 0);
+    assert.equal(result.unknown, 0);
+  }
+});
