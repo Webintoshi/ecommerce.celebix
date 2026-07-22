@@ -1,13 +1,18 @@
 "use client";
 
-import type {
-  MerchantAdminEvent,
-  MerchantAdminJson,
-  MerchantAdminRecord,
-  MerchantAdminRecordKind,
+import {
+  MERCHANT_ADMIN_PROVIDER_RECORD_KINDS,
+  type MerchantAdminEvent,
+  type MerchantAdminJson,
+  type MerchantAdminProviderJob,
+  type MerchantAdminProviderRecordKind,
+  type MerchantAdminRecord,
+  type MerchantAdminRecordKind,
 } from "@celebix/saas-contracts";
 import {
   Archive,
+  Ban,
+  CircleDashed,
   DatabaseZap,
   Pencil,
   Plus,
@@ -38,6 +43,7 @@ import {
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
 import {
   buildMerchantModuleSummary,
+  buildProviderWorkflowState,
   formatMerchantAdminConfig,
   getMerchantModuleDefinition,
   type MerchantModuleFieldDefinition,
@@ -111,6 +117,18 @@ function ConfigSummary({ record }: { record: MerchantAdminRecord }) {
   ) : <span className={styles.muted}>Ek yapılandırma yok</span>;
 }
 
+function providerJobStatus(job: MerchantAdminProviderJob) {
+  return job.status === "cancelled"
+    ? Object.freeze({ label: "İptal edildi", tone: "neutral" as const })
+    : Object.freeze({ label: "Sağlayıcı aktivasyonu bekleniyor", tone: "warning" as const });
+}
+
+function toProviderRecordKind(kind: MerchantAdminRecordKind): MerchantAdminProviderRecordKind | null {
+  return MERCHANT_ADMIN_PROVIDER_RECORD_KINDS.includes(kind as MerchantAdminProviderRecordKind)
+    ? kind as MerchantAdminProviderRecordKind
+    : null;
+}
+
 export function MerchantModuleConsole({
   kind,
   canManage,
@@ -121,8 +139,10 @@ export function MerchantModuleConsole({
   createFirst?: boolean;
 }) {
   const definition = getMerchantModuleDefinition(kind);
+  const providerRecordKind = toProviderRecordKind(kind);
   const [items, setItems] = useState<readonly MerchantAdminRecord[]>([]);
   const [events, setEvents] = useState<readonly MerchantAdminEvent[]>([]);
+  const [providerJobs, setProviderJobs] = useState<readonly MerchantAdminProviderJob[]>([]);
   const [editing, setEditing] = useState<MerchantAdminRecord | null>(null);
   const [editorOpen, setEditorOpen] = useState(createFirst && canManage);
   const [loading, setLoading] = useState(true);
@@ -144,12 +164,16 @@ export function MerchantModuleConsole({
     setLoading(true);
     setError("");
     try {
-      const [records, audit] = await Promise.all([
+      const [records, audit, jobs] = await Promise.all([
         merchantAdminApi.records(kind),
         merchantAdminApi.events(kind),
+        definition.workflow && providerRecordKind
+          ? merchantAdminApi.providerJobs(providerRecordKind)
+          : Promise.resolve(Object.freeze([]) as readonly MerchantAdminProviderJob[]),
       ]);
       setItems(records);
       setEvents(audit);
+      setProviderJobs(jobs);
     } catch (caught) {
       setError(
         caught instanceof MerchantAdminApiError
@@ -159,7 +183,7 @@ export function MerchantModuleConsole({
     } finally {
       setLoading(false);
     }
-  }, [definition.title, kind]);
+  }, [definition.title, definition.workflow, kind, providerRecordKind]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -262,6 +286,61 @@ export function MerchantModuleConsole({
     }
   }
 
+  async function prepareProviderJob(record: MerchantAdminRecord) {
+    if (!definition.workflow || !providerRecordKind) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await merchantAdminApi.prepareProviderJob(providerRecordKind, record.id, record.version);
+      setMessage(`${definition.workflow.actionLabel} kalıcı olarak kaydedildi; dış sağlayıcıya çağrı yapılmadı.`);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof MerchantAdminApiError ? caught.message : "Hazırlık kaydı oluşturulamadı.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelProviderJob(job: MerchantAdminProviderJob) {
+    if (!providerRecordKind) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await merchantAdminApi.cancelProviderJob(providerRecordKind, job.id, job.version);
+      setMessage("Sağlayıcı hazırlığı iptal edildi; harici işlem çalıştırılmadı.");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof MerchantAdminApiError ? caught.message : "Hazırlık kaydı iptal edilemedi.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const waitingJobs = useMemo(
+    () => new Map(providerJobs.filter(({ status }) => status === "awaiting_provider_activation").map((job) => [job.recordId, job] as const)),
+    [providerJobs],
+  );
+
+  function providerControls(record: MerchantAdminRecord) {
+    if (!definition.workflow) return null;
+    const workflow = buildProviderWorkflowState(definition, record);
+    if (!workflow) return null;
+    const waiting = waitingJobs.get(record.id);
+    return (
+      <div className={styles.workflowSummary} data-workflow-state={waiting ? "awaiting_provider_activation" : workflow.code}>
+        <div><CircleDashed aria-hidden="true" /><span>{waiting ? "Sağlayıcı aktivasyonu bekleniyor" : workflow.label}</span></div>
+        {workflow.missingFields.length ? <small>Eksik: {workflow.missingFields.join(", ")}</small> : null}
+        {canManage && waiting ? (
+          <button type="button" className={styles.workflowCancel} disabled={busy} onClick={() => void cancelProviderJob(waiting)}><Ban aria-hidden="true" /> Hazırlığı iptal et</button>
+        ) : canManage && workflow.canPrepare ? (
+          <button type="button" className={styles.workflowAction} disabled={busy} onClick={() => void prepareProviderJob(record)}><CircleDashed aria-hidden="true" /> {definition.workflow.actionLabel} oluştur</button>
+        ) : null}
+      </div>
+    );
+  }
+
   const createLabel = `${definition.singular[0]?.toLocaleUpperCase("tr-TR")}${definition.singular.slice(1)} oluştur`;
 
   return (
@@ -285,7 +364,7 @@ export function MerchantModuleConsole({
 
       <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
         <PanelMetricCard label="Toplam kayıt" value={summary.total.toLocaleString("tr-TR")} detail="Kalıcı kayıt" />
-        <PanelMetricCard label="Aktif" value={summary.active.toLocaleString("tr-TR")} detail="Yayında" />
+        <PanelMetricCard label={definition.workflow ? "Hazır yapılandırma" : "Aktif"} value={summary.active.toLocaleString("tr-TR")} detail={definition.workflow ? "Harici çalıştırma değil" : "Yayında"} />
         <PanelMetricCard label="Taslak" value={summary.draft.toLocaleString("tr-TR")} detail="Çalışma halinde" />
         <PanelMetricCard label="Arşiv" value={summary.archived.toLocaleString("tr-TR")} detail="Salt-okunur geçmiş" />
       </section>
@@ -295,7 +374,7 @@ export function MerchantModuleConsole({
           <ShieldCheck aria-hidden="true" />
           <div>
             <strong>Harici çalıştırma kapalı</strong>
-            <p>{definition.notice}</p>
+            <p>{definition.notice} Bu ekranda yalnız doğrulanabilir hazırlık kaydı oluşturulur; gönderim, senkronizasyon veya başka bir ağ çağrısı yapılmaz.</p>
           </div>
         </aside>
       ) : definition.notice ? <p className={styles.notice}>{definition.notice}</p> : null}
@@ -354,7 +433,7 @@ export function MerchantModuleConsole({
                       <tr key={record.id}>
                         <td><strong>{record.name}</strong><small>v{record.version}</small></td>
                         <td><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></td>
-                        <td><ConfigSummary record={record} /></td>
+                        <td><ConfigSummary record={record} />{providerControls(record)}</td>
                         <td><time dateTime={record.updatedAt}>{new Date(record.updatedAt).toLocaleString("tr-TR")}</time></td>
                         <td>
                           {canManage ? (
@@ -378,6 +457,7 @@ export function MerchantModuleConsole({
                   <article className={styles.mobileCard} key={record.id}>
                     <header><div><h2>{record.name}</h2><small>v{record.version}</small></div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></header>
                     <ConfigSummary record={record} />
+                    {providerControls(record)}
                     {canManage ? (
                       <div className={styles.rowActions}>
                         <button type="button" className={styles.button} disabled={busy} onClick={(event) => openEdit(record, event)}><Pencil aria-hidden="true" /> Düzenle</button>
@@ -397,6 +477,14 @@ export function MerchantModuleConsole({
             <ol>{events.map((event) => <li key={event.id}><strong>{eventLabel(event)}</strong><time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString("tr-TR")}</time></li>)}</ol>
           ) : <p>Henüz kalıcı işlem kaydı yok.</p>}
         </details>
+        {definition.workflow ? (
+          <section className={styles.providerHistory} aria-labelledby="provider-preparation-title">
+            <header><div><span>Harici iş akışı</span><h2 id="provider-preparation-title">Hazırlık kayıtları</h2></div><strong>{providerJobs.length.toLocaleString("tr-TR")}</strong></header>
+            {providerJobs.length ? (
+              <ul>{providerJobs.map((job) => { const status = providerJobStatus(job); return <li key={job.id}><div><strong>{definition.workflow?.actionLabel}</strong><time dateTime={job.updatedAt}>{new Date(job.updatedAt).toLocaleString("tr-TR")}</time></div><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge></li>; })}</ul>
+            ) : <p>Henüz hazırlık kaydı yok. Harici sağlayıcıya hiçbir çağrı yapılmadı.</p>}
+          </section>
+        ) : null}
       </section>
 
       {editorOpen ? (
@@ -409,7 +497,7 @@ export function MerchantModuleConsole({
             </header>
             <form key={editing?.id ?? "new"} className={styles.form} onSubmit={submit}>
               <label>Ad<input autoFocus={!editing} name="name" required maxLength={160} defaultValue={editing?.name} /></label>
-              <label>Yayın durumu<select name="status" defaultValue={editing?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">Aktif</option></select></label>
+              <label>{definition.workflow ? "Hazırlık durumu" : "Yayın durumu"}<select name="status" defaultValue={editing?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.workflow ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
               {definition.fields.map((field) => (
                 <label className={field.type === "textarea" ? styles.wide : undefined} key={field.key}>
                   {field.label}

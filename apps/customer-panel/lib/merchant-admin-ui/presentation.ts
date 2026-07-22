@@ -1,5 +1,6 @@
 import type {
   MerchantAdminJson,
+  MerchantAdminProviderAction,
   MerchantAdminRecord,
   MerchantAdminRecordKind,
   MerchantAdminRecordStatus,
@@ -39,6 +40,11 @@ export interface MerchantModuleDefinition {
   readonly route: string;
   readonly singular: string;
   readonly title: string;
+  readonly workflow?: Readonly<{
+    action: MerchantAdminProviderAction;
+    actionLabel: string;
+    requiredFields: readonly string[];
+  }>;
 }
 
 export type MerchantModuleStatusFilter = MerchantAdminRecordStatus | "all";
@@ -63,6 +69,7 @@ function definition(
     ...value,
     execution: value.execution ?? "durable",
     fields: Object.freeze([...value.fields]),
+    ...(value.workflow ? { workflow: Object.freeze({ ...value.workflow, requiredFields: Object.freeze([...value.workflow.requiredFields]) }) } : {}),
   });
 }
 
@@ -72,25 +79,25 @@ const PROVIDER_NOTICE =
 export const MERCHANT_MODULE_DEFINITIONS = Object.freeze([
   definition({ kind: "discount", family: "discounts", route: "/discounts", title: "İndirimler", singular: "indirim", description: "Kupon, sepet koşulu, kullanım sınırı ve yayın durumunu yönetin.", fields: [field("code", "Kupon kodu"), field("discountType", "İndirim türü", "text", "percent veya fixed"), field("value", "İndirim değeri", "number"), field("minimumOrderCents", "Minimum sepet (kuruş)", "number"), field("usageLimit", "Kullanım sınırı", "number")] }),
   definition({ kind: "lucky_wheel", family: "discounts", route: "/discounts/lucky-wheel", title: "Şans Çarkı", singular: "çark kampanyası", description: "Çark görünümü, katılım koşulları ve ödül havuzunu kalıcı olarak yönetin.", fields: [field("campaignMessage", "Kampanya mesajı"), field("terms", "Koşullar", "textarea"), field("dailySpinLimit", "Günlük çevirme sınırı", "number"), field("prizeLabels", "Ödüller", "textarea", "Her satıra bir ödül")] }),
-  definition({ kind: "email_campaign", family: "marketing", route: "/marketing/email", title: "E-posta Kampanyaları", singular: "e-posta kampanyası", description: "İzinli hedef kitle için kampanya taslağı ve yayın planını yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, fields: [field("subject", "Konu"), field("audience", "İzinli hedef kitle"), field("content", "İçerik", "textarea"), field("scheduledAt", "Planlanan zaman")] }),
-  definition({ kind: "phone_campaign", family: "marketing", route: "/marketing/phone", title: "Telefon Kampanyaları", singular: "telefon kampanyası", description: "İzinli telefon kitlesi için arama kampanyası taslaklarını yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, fields: [field("audience", "İzinli hedef kitle"), field("script", "Arama metni", "textarea"), field("scheduledAt", "Planlanan zaman")] }),
-  definition({ kind: "whatsapp_campaign", family: "marketing", route: "/marketing/whatsapp", title: "WhatsApp Kampanyaları", singular: "WhatsApp kampanyası", description: "İzinli WhatsApp kitlesi için mesaj taslaklarını yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, fields: [field("audience", "İzinli hedef kitle"), field("message", "Mesaj", "textarea"), field("scheduledAt", "Planlanan zaman")] }),
+  definition({ kind: "email_campaign", family: "marketing", route: "/marketing/email", title: "E-posta Kampanyaları", singular: "e-posta kampanyası", description: "İzinli hedef kitle için kampanya taslağı ve yayın planını yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "delivery", actionLabel: "Teslimat hazırlığı", requiredFields: ["subject", "audience", "content"] }, fields: [field("subject", "Konu"), field("audience", "İzinli hedef kitle"), field("content", "İçerik", "textarea"), field("scheduledAt", "Planlanan zaman")] }),
+  definition({ kind: "phone_campaign", family: "marketing", route: "/marketing/phone", title: "Telefon Kampanyaları", singular: "telefon kampanyası", description: "İzinli telefon kitlesi için arama kampanyası taslaklarını yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "delivery", actionLabel: "Arama hazırlığı", requiredFields: ["audience", "script"] }, fields: [field("audience", "İzinli hedef kitle"), field("script", "Arama metni", "textarea"), field("scheduledAt", "Planlanan zaman")] }),
+  definition({ kind: "whatsapp_campaign", family: "marketing", route: "/marketing/whatsapp", title: "WhatsApp Kampanyaları", singular: "WhatsApp kampanyası", description: "İzinli WhatsApp kitlesi için mesaj taslaklarını yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "delivery", actionLabel: "Mesaj hazırlığı", requiredFields: ["audience", "message"] }, fields: [field("audience", "İzinli hedef kitle"), field("message", "Mesaj", "textarea"), field("scheduledAt", "Planlanan zaman")] }),
   definition({ kind: "blog_post", family: "content", route: "/content/blog", title: "Blog", singular: "blog yazısı", description: "Yerelleştirilmiş blog yazılarını taslak veya yayında yönetin.", fields: [field("slug", "URL anahtarı"), field("locale", "Dil", "text", "tr-TR"), field("excerpt", "Özet", "textarea"), field("body", "İçerik", "textarea"), field("published", "Yayında", "boolean")] }),
   definition({ kind: "page", family: "content", route: "/content/pages", title: "Sayfalar", singular: "sayfa", description: "Mağazanın kalıcı içerik sayfalarını yönetin.", fields: [field("slug", "URL anahtarı"), field("locale", "Dil"), field("body", "İçerik", "textarea"), field("published", "Yayında", "boolean")] }),
   definition({ kind: "policy", family: "content", route: "/content/policies", title: "Politikalar", singular: "politika", description: "Mesafeli satış, gizlilik ve iade politikası sürümlerini yönetin.", fields: [field("policyType", "Politika türü"), field("locale", "Dil"), field("body", "Politika metni", "textarea"), field("effectiveAt", "Yürürlük zamanı")] }),
-  definition({ kind: "marketplace_connection", family: "marketplaces", route: "/marketplaces", title: "Pazar Yerleri", singular: "pazar yeri bağlantısı", description: "Pazar yeri hesap eşlemesi ve senkronizasyon tercihlerini yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, fields: [field("provider", "Pazar yeri"), field("merchantReference", "Mağaza referansı"), field("syncEnabled", "Senkronizasyon isteği", "boolean")] }),
+  definition({ kind: "marketplace_connection", family: "marketplaces", route: "/marketplaces", title: "Pazar Yerleri", singular: "pazar yeri bağlantısı", description: "Pazar yeri hesap eşlemesi ve senkronizasyon tercihlerini yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "synchronization", actionLabel: "Senkronizasyon hazırlığı", requiredFields: ["provider", "merchantReference", "syncEnabled"] }, fields: [field("provider", "Pazar yeri"), field("merchantReference", "Mağaza referansı"), field("syncEnabled", "Senkronizasyon isteği", "boolean")] }),
   definition({ kind: "general_setting", family: "settings", route: "/settings/general", title: "Genel Ayarlar", singular: "genel ayar profili", description: "Mağaza görünen adı, destek adresi ve saat dilimini yönetin.", fields: [field("storeDisplayName", "Mağaza adı"), field("supportEmail", "Destek e-postası", "email"), field("timezone", "Saat dilimi", "text", "Europe/Istanbul")] }),
   definition({ kind: "language_setting", family: "settings", route: "/settings/language", title: "Dil Ayarları", singular: "dil profili", description: "Varsayılan ve etkin mağaza dillerini yönetin.", fields: [field("defaultLocale", "Varsayılan dil"), field("enabledLocales", "Etkin diller", "textarea", "Her satıra bir dil")] }),
   definition({ kind: "payment_setting", family: "settings", route: "/settings/payment", title: "Ödeme Ayarları", singular: "ödeme profili", description: "Müşteriye sunulan ödeme yöntemlerinin görünümünü yönetin.", notice: "Sağlayıcı kimlik bilgileri yalnız sunucu ortamında kalır ve bu ekranda alınmaz.", fields: [field("enabledMethods", "Etkin yöntemler", "textarea"), field("cashOnDelivery", "Kapıda ödeme", "boolean")] }),
   definition({ kind: "shipping_setting", family: "settings", route: "/settings/shipping", title: "Kargo Ayarları", singular: "kargo profili", description: "Teslimat bölgeleri ve ücretsiz kargo eşiğini yönetin.", fields: [field("regions", "Teslimat bölgeleri", "textarea"), field("freeShippingThresholdCents", "Ücretsiz kargo eşiği (kuruş)", "number"), field("estimatedDays", "Tahmini gün", "number")] }),
   definition({ kind: "administrator_invite", family: "settings", route: "/settings/administrators", title: "Yöneticiler", singular: "yönetici daveti", description: "Mağaza ekip davetlerini rol bazında yönetin.", fields: [field("email", "E-posta", "email"), field("role", "Rol", "text", "admin, editor veya analyst"), field("expiresAt", "Son geçerlilik")] }),
   definition({ kind: "accounting_profile", family: "accounting", route: "/accounting", title: "Muhasebe", singular: "muhasebe profili", description: "Fatura kimliği ve mali işletme bilgilerini yönetin.", fields: [field("legalName", "Ticari unvan"), field("taxOffice", "Vergi dairesi"), field("taxNumber", "Vergi numarası"), field("invoiceEmail", "Fatura e-postası", "email")] }),
-  definition({ kind: "invoice_integration", family: "accounting", route: "/accounting/invoicing-integration", title: "Fatura Entegrasyonu", singular: "fatura entegrasyonu", description: "Fatura sağlayıcısı hesap eşlemesini ve durumunu yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, fields: [field("provider", "Sağlayıcı"), field("accountReference", "Hesap referansı"), field("enabled", "Etkinleştirme isteği", "boolean")] }),
+  definition({ kind: "invoice_integration", family: "accounting", route: "/accounting/invoicing-integration", title: "Fatura Entegrasyonu", singular: "fatura entegrasyonu", description: "Fatura sağlayıcısı hesap eşlemesini ve durumunu yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "reconciliation", actionLabel: "Uzlaştırma hazırlığı", requiredFields: ["provider", "accountReference", "enabled"] }, fields: [field("provider", "Sağlayıcı"), field("accountReference", "Hesap referansı"), field("enabled", "Etkinleştirme isteği", "boolean")] }),
   definition({ kind: "seo_control", family: "seo", route: "/seo", title: "SEO Kontrol", singular: "SEO profili", description: "Mağaza arama görünürlüğü ve varsayılan meta alanlarını yönetin.", fields: [field("metaTitle", "Meta başlık"), field("metaDescription", "Meta açıklama", "textarea"), field("allowIndex", "İndekslemeye izin ver", "boolean")] }),
   definition({ kind: "sitemap", family: "seo", route: "/seo/sitemap", title: "Site Haritası", singular: "site haritası profili", description: "Site haritasına dahil edilen içerik ailelerini yönetin.", fields: [field("includeProducts", "Ürünleri dahil et", "boolean"), field("includeContent", "İçerikleri dahil et", "boolean"), field("changeFrequency", "Güncelleme sıklığı")] }),
   definition({ kind: "social_preview", family: "seo", route: "/seo/social-preview", title: "Sosyal Önizleme", singular: "sosyal önizleme", description: "Paylaşım başlığı, açıklaması ve görselini yönetin.", fields: [field("title", "Başlık"), field("description", "Açıklama", "textarea"), field("imageUrl", "Görsel URL", "url")] }),
   definition({ kind: "code_integration", family: "seo", route: "/seo/code-integrations", title: "Kod Entegrasyonları", singular: "kod entegrasyonu", description: "Kamuya açık doğrulama ve ölçüm kimliklerini yönetin.", notice: "Çalıştırılabilir kod veya gizli anahtar kabul edilmez.", fields: [field("provider", "Servis"), field("publicIdentifier", "Kamuya açık kimlik"), field("enabled", "Etkin", "boolean")] }),
-  definition({ kind: "indexing_request", family: "seo", route: "/seo/fast-indexing", title: "Hızlı İndeksleme", singular: "indeksleme isteği", description: "İndekslenmesi istenen güvenli URL kümelerini taslak olarak yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, fields: [field("urls", "URL listesi", "textarea"), field("reason", "İstek nedeni", "textarea")] }),
+  definition({ kind: "indexing_request", family: "seo", route: "/seo/fast-indexing", title: "Hızlı İndeksleme", singular: "indeksleme isteği", description: "İndekslenmesi istenen güvenli URL kümelerini taslak olarak yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "indexing", actionLabel: "İndeksleme hazırlığı", requiredFields: ["urls", "reason"] }, fields: [field("urls", "URL listesi", "textarea"), field("reason", "İstek nedeni", "textarea")] }),
 ] as const satisfies readonly MerchantModuleDefinition[]);
 
 const DEFINITIONS = new Map(
@@ -122,6 +129,29 @@ export function buildMerchantModuleSummary(
     total: records.length,
     visible,
   });
+}
+
+function configured(value: MerchantAdminJson | undefined): boolean {
+  if (value === true) return true;
+  if (typeof value === "string") return value.length > 0 && value === value.trim();
+  if (typeof value === "number") return Number.isSafeInteger(value) && value >= 0;
+  if (Array.isArray(value)) return value.length > 0 && value.every((entry) => typeof entry === "string" && entry.length > 0 && entry === entry.trim());
+  return false;
+}
+
+export function buildProviderWorkflowState(
+  definition: MerchantModuleDefinition,
+  record: MerchantAdminRecord,
+) {
+  if (!definition.workflow) return null;
+  const missingFields = Object.freeze(definition.workflow.requiredFields.flatMap((key) => {
+    if (configured(record.config[key])) return [];
+    return [definition.fields.find((fieldDefinition) => fieldDefinition.key === key)?.label ?? key];
+  }));
+  if (record.status === "archived") return Object.freeze({ code: "archived" as const, label: "Arşivlendi", canPrepare: false, missingFields });
+  if (missingFields.length) return Object.freeze({ code: "configuration_incomplete" as const, label: "Yapılandırma eksik", canPrepare: false, missingFields });
+  if (record.status === "draft") return Object.freeze({ code: "configuration_ready" as const, label: "Yapılandırma hazır", canPrepare: false, missingFields });
+  return Object.freeze({ code: "awaiting_preparation" as const, label: "Hazırlık oluşturulabilir", canPrepare: true, missingFields });
 }
 
 function displayValue(value: MerchantAdminJson): string | null {

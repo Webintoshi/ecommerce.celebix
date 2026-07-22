@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   MERCHANT_MODULE_DEFINITIONS,
   buildMerchantModuleSummary,
+  buildProviderWorkflowState,
   formatMerchantAdminConfig,
   getMerchantModuleDefinition,
 } from "./presentation.ts";
@@ -110,4 +111,38 @@ test("formats only labelled safe configuration fields and never emits private or
     { label: "Senkronizasyon isteği", value: "Evet" },
   ]);
   assert.equal(JSON.stringify(formatted).includes("unexpected"), false);
+});
+
+test("provider workflows distinguish configuration readiness from external execution", () => {
+  const definition = getMerchantModuleDefinition("marketplace_connection");
+  assert.deepEqual(definition.workflow, {
+    action: "synchronization",
+    actionLabel: "Senkronizasyon hazırlığı",
+    requiredFields: ["provider", "merchantReference", "syncEnabled"],
+  });
+  const base = {
+    id: "11111111-1111-4111-8111-111111111111",
+    kind: "marketplace_connection" as const,
+    name: "Trendyol",
+    version: 1,
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+  assert.deepEqual(buildProviderWorkflowState(definition, { ...base, status: "draft", config: {} }), {
+    code: "configuration_incomplete",
+    label: "Yapılandırma eksik",
+    canPrepare: false,
+    missingFields: ["Pazar yeri", "Mağaza referansı", "Senkronizasyon isteği"],
+  });
+  assert.deepEqual(buildProviderWorkflowState(definition, {
+    ...base,
+    status: "active",
+    config: { provider: "trendyol", merchantReference: "store-42", syncEnabled: true },
+  }), {
+    code: "awaiting_preparation",
+    label: "Hazırlık oluşturulabilir",
+    canPrepare: true,
+    missingFields: [],
+  });
+  assert.equal(buildProviderWorkflowState(getMerchantModuleDefinition("discount"), { ...base, kind: "discount", status: "active", config: {} }), null);
 });
