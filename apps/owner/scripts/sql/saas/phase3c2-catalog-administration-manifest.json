@@ -1,0 +1,30 @@
+{
+  "bundleId": "phase3c2-202607220035-catalog-administration",
+  "postgresqlMajor": 16,
+  "migrationClassification": "additive",
+  "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
+  "rollbackLimitations": "Rollback removes catalog administration resources, review moderation state, import history and operation proofs, and is authorized only for disposable rehearsal.",
+  "artifacts": [
+    {
+      "id": "202607220035_catalog_administration_up",
+      "direction": "up",
+      "file": "202607220035_catalog_administration.up.sql",
+      "sha256": "2581c9f8fa04c20e6411df72d363f68a4c939015963c184ec13a0835ebfacfd7",
+      "purpose": "Add forced-RLS catalog administration resources, moderation, durable imports and replay-safe APIs."
+    },
+    {
+      "id": "202607220035_catalog_administration_down",
+      "direction": "down",
+      "file": "202607220035_catalog_administration.down.sql",
+      "sha256": "a40193fbaaa7dc07ce3dd5b77e41a0622381ae317152e9c63ef9ac81f7da2659",
+      "purpose": "Remove only migration-035 catalog administration objects during disposable rollback rehearsal."
+    },
+    {
+      "id": "202607220035_catalog_administration_assertions",
+      "direction": "verify",
+      "file": "202607220035_catalog_administration_assertions.sql",
+      "sha256": "acd9ea3de5ae7e3e5ebba965145c5f2396cde0ddaab2d160170d37a8dfd34e76",
+      "purpose": "Fail on FORCE RLS, ACL, immutable audit, authority, action, tenant binding or API drift."
+    }
+  ]
+}
