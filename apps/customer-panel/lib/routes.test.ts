@@ -264,6 +264,14 @@ test("quick-order console is directly routable behind panel access and linked by
   assert.match(navigation, /label:\s*"Hızlı Siparişler"[\s\S]{0,120}href:\s*"\/orders\/quick-links"/);
 });
 
+test("content and settings family hubs render behind server panel access", async () => {
+  for (const file of ["../app/content/page.tsx", "../app/settings/page.tsx"]) {
+    const page = await readFile(new URL(file, import.meta.url), "utf8");
+    assert.match(page, /requireServerPanelAccess\(\)/);
+    assert.match(page, /<MerchantFamilyOverview[^>]+family=[\"'][a-z]+[\"'][^>]+canManage=/);
+  }
+});
+
 test("quick-order routes expose only the reviewed merchant methods and activate exact panel navigation", async () => {
   const routes = [
     ["../app/api/orders/quick-links/route.ts", ["GET", "POST"]],

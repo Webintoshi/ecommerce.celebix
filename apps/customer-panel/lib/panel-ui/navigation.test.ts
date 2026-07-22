@@ -8,6 +8,17 @@ import {
   isPanelNavigationPathActive,
 } from "./navigation.ts";
 
+function findNavigationItem(key: string) {
+  return PANEL_NAVIGATION.find((item) => item.key === key);
+}
+
+test("content and settings parents use truthful family hubs", () => {
+  assert.equal(findNavigationItem("content")?.href, "/content");
+  assert.equal(findNavigationItem("settings")?.href, "/settings");
+  assert.equal(getPanelRoutePresentation("/content").title, "İçerik");
+  assert.equal(getPanelRoutePresentation("/settings").title, "Ayarlar");
+});
+
 test("contains every and only currently working merchant destination", () => {
   const hrefs = PANEL_NAVIGATION.flatMap((item) => [
     item.href,
@@ -40,10 +51,12 @@ test("contains every and only currently working merchant destination", () => {
       "/marketing/email",
       "/marketing/phone",
       "/marketing/whatsapp",
+      "/content",
       "/content/blog",
       "/content/pages",
       "/content/policies",
       "/marketplaces",
+      "/settings",
       "/settings/general",
       "/settings/language",
       "/settings/payment",
