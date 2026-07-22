@@ -1,12 +1,11 @@
 "use client";
 
-import { Home, Package, Plus, Settings, ShoppingBag, type LucideIcon } from "lucide-react";
+import { Home, Link2, Package, Plus, Settings, ShoppingBag, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   isPanelNavigationPathActive,
   PANEL_NAVIGATION,
-  PANEL_ORDER_NAVIGATION,
   type PanelNavigationHref,
   type PanelNavigationIcon,
   type PanelNavigationItem,
@@ -16,14 +15,13 @@ import styles from "./panel-shell.module.css";
 const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   home: Home,
   orders: ShoppingBag,
+  "quick-orders": Link2,
   products: Package,
   "add-product": Plus,
   setup: Settings,
 });
 
-const NAVIGATION: readonly PanelNavigationItem[] = PANEL_ORDER_NAVIGATION === undefined
-  ? PANEL_NAVIGATION
-  : Object.freeze([PANEL_NAVIGATION[0]!, PANEL_ORDER_NAVIGATION, ...PANEL_NAVIGATION.slice(1)]);
+const NAVIGATION: readonly PanelNavigationItem[] = PANEL_NAVIGATION;
 
 function getCurrentNavigationHref(pathname: string): PanelNavigationHref | undefined {
   let currentHref: PanelNavigationHref | undefined;

@@ -13,7 +13,7 @@ export function PanelMobileDock(props: {
   onMenuToggle: () => void;
 }) {
   const items = [
-    { href: "/" as const, label: "Ana", Icon: Home },
+    { href: "/" as const, label: "Özet", Icon: Home },
     { href: "/products" as const, label: "Ürünler", Icon: Package },
   ];
 

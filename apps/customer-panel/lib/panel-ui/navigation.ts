@@ -1,8 +1,8 @@
-export type PanelNavigationHref = "/" | "/orders" | "/products" | "/products/new" | "/setup";
-export type PanelNavigationIcon = "home" | "orders" | "products" | "add-product" | "setup";
+export type PanelNavigationHref = "/" | "/orders" | "/orders/quick-links" | "/products" | "/products/new" | "/setup";
+export type PanelNavigationIcon = "home" | "orders" | "quick-orders" | "products" | "add-product" | "setup";
 
 export interface PanelNavigationItem {
-  readonly key: "overview" | "orders" | "all-orders" | "catalog" | "products" | "new-product" | "setup";
+  readonly key: "summary" | "orders" | "all-orders" | "quick-orders" | "catalog" | "products" | "new-product" | "setup";
   readonly label: string;
   readonly href: PanelNavigationHref;
   readonly icon: PanelNavigationIcon;
@@ -11,8 +11,9 @@ export interface PanelNavigationItem {
 
 export interface PanelRoutePresentation {
   readonly title:
-    | "Genel bakış"
+    | "Özet"
     | "Siparişler"
+    | "Hızlı Siparişler"
     | "Sipariş ayrıntısı"
     | "Ürün kataloğu"
     | "Yeni ürün oluştur"
@@ -21,8 +22,9 @@ export interface PanelRoutePresentation {
 }
 
 export const PANEL_ROUTE_PRESENTATIONS = Object.freeze({
-  overview: Object.freeze({ title: "Genel bakış" as const }),
+  summary: Object.freeze({ title: "Özet" as const }),
   orders: Object.freeze({ title: "Siparişler" as const }),
+  quickOrders: Object.freeze({ title: "Hızlı Siparişler" as const }),
   orderDetail: Object.freeze({ title: "Sipariş ayrıntısı" as const }),
   products: Object.freeze({ title: "Ürün kataloğu" as const }),
   newProduct: Object.freeze({ title: "Yeni ürün oluştur" as const }),
@@ -35,18 +37,20 @@ const CATALOG_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
   Object.freeze({ key: "new-product", label: "Yeni ürün", href: "/products/new", icon: "add-product" }),
 ]);
 
-export const PANEL_ORDER_NAVIGATION = Object.freeze<PanelNavigationItem>({
-  key: "orders",
-  label: "Siparişler",
-  href: "/orders",
-  icon: "orders",
-  children: Object.freeze([
-    Object.freeze({ key: "all-orders", label: "Tüm Siparişler", href: "/orders", icon: "orders" }),
-  ]),
-});
+const ORDER_CHILDREN = Object.freeze<readonly PanelNavigationItem[]>([
+  Object.freeze({ key: "all-orders", label: "Tüm Siparişler", href: "/orders", icon: "orders" }),
+  Object.freeze({ key: "quick-orders", label: "Hızlı Siparişler", href: "/orders/quick-links", icon: "quick-orders" }),
+]);
 
 export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
-  Object.freeze({ key: "overview", label: "Genel bakış", href: "/", icon: "home" }),
+  Object.freeze({ key: "summary", label: "Özet", href: "/", icon: "home" }),
+  Object.freeze({
+    key: "orders",
+    label: "Siparişler",
+    href: "/orders",
+    icon: "orders",
+    children: ORDER_CHILDREN,
+  }),
   Object.freeze({
     key: "catalog",
     label: "Ürünler",
@@ -63,14 +67,18 @@ export function isPanelNavigationPathActive(pathname: string, href: PanelNavigat
   }
 
   if (href === "/") return pathname === "/";
+  if (href === "/orders/quick-links" || href === "/products/new" || href === "/setup") {
+    return pathname === href;
+  }
   return pathname === href || pathname.startsWith(href + "/");
 }
 
 export function getPanelRoutePresentation(pathname: string): PanelRoutePresentation {
   if (!pathname.startsWith("/") || pathname.includes("?") || pathname.includes("#") || pathname.includes("%") || pathname.includes("//")) {
-    return PANEL_ROUTE_PRESENTATIONS.overview;
+    return PANEL_ROUTE_PRESENTATIONS.summary;
   }
   if (pathname === "/orders") return PANEL_ROUTE_PRESENTATIONS.orders;
+  if (pathname === "/orders/quick-links") return PANEL_ROUTE_PRESENTATIONS.quickOrders;
   if (pathname === "/products") return PANEL_ROUTE_PRESENTATIONS.products;
   if (pathname === "/products/new") return PANEL_ROUTE_PRESENTATIONS.newProduct;
   if (pathname === "/setup") return PANEL_ROUTE_PRESENTATIONS.setup;
@@ -89,7 +97,7 @@ export function getPanelRoutePresentation(pathname: string): PanelRoutePresentat
     return PANEL_ROUTE_PRESENTATIONS.orderDetail;
   }
 
-  return PANEL_ROUTE_PRESENTATIONS.overview;
+  return PANEL_ROUTE_PRESENTATIONS.summary;
 }
 
 export function getPanelNavigationState(pathname: string) {

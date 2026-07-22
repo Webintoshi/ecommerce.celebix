@@ -296,14 +296,15 @@ test("11/12 list and detail project no token or private TenantContext fields", a
   }
 });
 
-test("12/12 provider activation and revocation remain server-owned and navigation remains unchanged", async () => {
+test("12/12 provider activation and revocation remain server-owned and navigation activates the reviewed route", async () => {
   const { handlers, calls } = await harness();
   assert.equal((await handlers.activateProvider(browserRequest(`${BASE}/provider/activate`, { method: "POST" }))).status, 200);
   assert.equal((await handlers.revokeProvider(browserRequest(`${BASE}/provider/revoke`, { method: "POST" }))).status, 200);
   assert.equal(calls.configure, 1);
   assert.equal(calls.revoke, 1);
   const navigation = await readFile(new URL("lib/panel-ui/navigation.ts", APP), "utf8");
-  assert.doesNotMatch(navigation, /quick-links|quick-orders|Hızlı Sipariş/i);
+  assert.match(navigation, /label: "Hızlı Siparişler", href: "\/orders\/quick-links"/);
+  assert.doesNotMatch(navigation, /abandoned-carts|Terkedilen Sepetler/i);
 });
 
 test("13/13 signed storefront authority drives token-free checkout and iframe presentation in process", async () => {

@@ -68,7 +68,7 @@ test("changed production scope is the exact reviewed Task 1 through Task 12 allo
   assert.equal(createHash("sha256").update(`${files.join("\n")}\n`).digest("hex"), EXPECTED_CHANGED_FILE_SHA256);
 });
 
-test("added implementation content has no credentials, private browser authority, unsafe CSP, activated navigation, or test network", async () => {
+test("added implementation content has no credentials, private browser authority, unsafe CSP, unsupported navigation, or test network", async () => {
   const added = addedLines().join("\n");
   const forbidden = [
     /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/i,
@@ -81,7 +81,8 @@ test("added implementation content has no credentials, private browser authority
   ];
   for (const pattern of forbidden) assert.equal(pattern.test(added), false, `forbidden material pattern ${pattern}`);
   const navigation = await read("apps/customer-panel/lib/panel-ui/navigation.ts");
-  assert.doesNotMatch(navigation, /quick[-_ ]?(?:order|link)|hızlı\s+sipariş/i);
+  assert.match(navigation, /label: "Hızlı Siparişler", href: "\/orders\/quick-links"/);
+  assert.doesNotMatch(navigation, /abandoned-carts|customers|discounts|marketing|analytics|accounting|marketplace/i);
   const changedTests = changedFiles().filter((file) => file.startsWith("tests/") || /[.]test[.]/.test(file));
   const localNetworkFixtures = new Set([
     "tests/saas-phase3/quick-order-runtime/in-process.test.mjs",

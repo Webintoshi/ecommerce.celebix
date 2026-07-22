@@ -8,12 +8,25 @@ import {
   isPanelNavigationPathActive,
 } from "./navigation.ts";
 
-test("contains exactly the four working hrefs", () => {
+test("contains every and only currently working merchant destination", () => {
   const hrefs = PANEL_NAVIGATION.flatMap((item) => [
     item.href,
     ...(item.children ?? []).map((child) => child.href),
   ]);
-  assert.deepEqual([...new Set(hrefs)], ["/", "/products", "/products/new", "/setup"]);
+  assert.deepEqual([...new Set(hrefs)], [
+    "/",
+    "/orders",
+    "/orders/quick-links",
+    "/products",
+    "/products/new",
+    "/setup",
+  ]);
+  assert.deepEqual(PANEL_NAVIGATION.map(({ label }) => label), [
+    "Özet",
+    "Siparişler",
+    "Ürünler",
+    "Kurulum",
+  ]);
 });
 
 test("keeps the catalog parent active on exact descendants", () => {
@@ -36,7 +49,7 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes no disabled donor destination", () => {
   const hrefs = JSON.stringify(PANEL_NAVIGATION);
-  assert.doesNotMatch(hrefs, /admin|orders|customers|analytics|marketing|discount|settings/i);
+  assert.doesNotMatch(hrefs, /admin|customers|analytics|marketing|discount|settings/i);
 });
 
 test("matches root only at root", () => {
@@ -46,7 +59,22 @@ test("matches root only at root", () => {
 
 test("contains no deferred module label or href", () => {
   const text = JSON.stringify(PANEL_NAVIGATION);
-  assert.doesNotMatch(text, /order|sipariş|customer|müşteri|marketing|cms|muhasebe|seo|toshi|notification|admin/i);
+  assert.doesNotMatch(text, /customer|müşteri|marketing|cms|muhasebe|seo|toshi|notification|admin/i);
+});
+
+test("selects only the exact quick-order child", () => {
+  assert.equal(isPanelNavigationPathActive("/orders/quick-links", "/orders/quick-links"), true);
+  for (const pathname of [
+    "/orders-evil",
+    "/orders/quick-links-evil",
+    "/orders/quick-links/child",
+    "/orders%2Fquick-links",
+    "/orders/quick-links?x=1",
+    "/orders/quick-links#x",
+    "/orders//quick-links",
+  ]) {
+    assert.equal(isPanelNavigationPathActive(pathname, "/orders/quick-links"), false);
+  }
 });
 
 test("returns immutable navigation and state", () => {
@@ -57,9 +85,9 @@ test("returns immutable navigation and state", () => {
 
 test("maps every supported route to truthful fallback topbar chrome", () => {
   assert.deepEqual(
-    ["/", "/products", "/products/new", "/products/product-123", "/setup"]
+    ["/", "/orders", "/orders/quick-links", "/orders/order-123", "/products", "/products/new", "/products/product-123", "/setup"]
       .map((pathname) => getPanelRoutePresentation(pathname).title),
-    ["Genel bakış", "Ürün kataloğu", "Yeni ürün oluştur", "Ürün ayrıntısı", "Kurulum durumu"],
+    ["Özet", "Siparişler", "Hızlı Siparişler", "Sipariş ayrıntısı", "Ürün kataloğu", "Yeni ürün oluştur", "Ürün ayrıntısı", "Kurulum durumu"],
   );
 });
 
@@ -86,5 +114,5 @@ test("returns shared immutable route presentation records", () => {
   assert.equal(Object.isFrozen(PANEL_ROUTE_PRESENTATIONS), true);
   assert.equal(Object.values(PANEL_ROUTE_PRESENTATIONS).every(Object.isFrozen), true);
   assert.equal(getPanelRoutePresentation("/products"), PANEL_ROUTE_PRESENTATIONS.products);
-  assert.equal(getPanelRoutePresentation("/unknown"), PANEL_ROUTE_PRESENTATIONS.overview);
+  assert.equal(getPanelRoutePresentation("/unknown"), PANEL_ROUTE_PRESENTATIONS.summary);
 });
