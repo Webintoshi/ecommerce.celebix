@@ -1,4 +1,22 @@
-import type { PublicQuickOrderRepository, PublicStorefrontRepository } from "@celebix/saas-data";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import {
+  CheckoutPaymentRepositoryError,
+  PostgresCheckoutPaymentRepository,
+  digestCanonicalPaytrConfiguration,
+  openQuickLinkSecret,
+  parseCanonicalPaytrConfiguration,
+  sealQuickLinkSecret,
+  type CheckoutPaymentRepository,
+  type PublicQuickOrderRepository,
+  type PublicStorefrontRepository,
+  type QuickLinkKeyring,
+} from "@celebix/saas-data";
+import pg from "pg";
+
+import { parseCheckoutRuntimeConfig } from "./config.ts";
+import { requestPaytrIframeToken, type PaytrIframeTokenResult } from "./paytr.ts";
+import { digestRedemptionCredential, parseRedemptionCookie } from "./redemption-cookie.ts";
+import { parseTrustedClientIp } from "./trusted-client-ip.ts";
 
 export type CheckoutRuntime = Readonly<{
   storefrontRepository: PublicStorefrontRepository;
@@ -38,4 +56,251 @@ export function createCheckoutRuntime(input: Readonly<{
     storefrontRepository: parsed.storefrontRepository as PublicStorefrontRepository,
     quickOrderRepository: parsed.quickOrderRepository as PublicQuickOrderRepository,
   });
+}
+
+type PaymentRepository = Pick<CheckoutPaymentRepository,
+  "beginAttempt" | "markProviderReady" | "markInitiationUnknown" | "markInitiationFailed" | "getPaymentPresentation">;
+
+export type CheckoutPaymentInfrastructureRuntime = Readonly<{
+  paymentRepository: PaymentRepository;
+  keyring: QuickLinkKeyring;
+}>;
+
+export type CheckoutPaymentRuntime = CheckoutPaymentInfrastructureRuntime & Readonly<{
+  checkout: CheckoutRuntime;
+}>;
+
+type HostAuthority = Readonly<{ kind: "trusted"; hostname: string }> | Readonly<{ kind: string }>;
+type PaymentRouteDependencies = Readonly<{
+  selectAuthority: (headers: Headers) => HostAuthority;
+  resolveRuntime: () => Promise<CheckoutPaymentRuntime | null>;
+  now?: () => Date;
+  randomUUID?: () => string;
+  randomMerchantOid?: () => string;
+  initiate?: (input: Parameters<typeof requestPaytrIframeToken>[0]) => Promise<PaytrIframeTokenResult>;
+}>;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const MERCHANT_OID = /^[a-f0-9]{32}$/;
+const PROVIDER_TOKEN = /^[A-Za-z0-9_-]{32,256}$/;
+const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+const ROUTE_HEADERS = Object.freeze({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex, nofollow" });
+
+function routeText(status: number, text: string): Response {
+  return new Response(text, { status, headers: { ...ROUTE_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
+}
+
+function validHostname(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 253 && value === value.toLowerCase() && value === value.trim() && HOSTNAME.test(value);
+}
+
+function validNow(value: unknown): value is Date {
+  return value instanceof Date && Number.isFinite(value.getTime());
+}
+
+function fingerprint(hostname: string, redemptionDigest: string, operationId: string): string {
+  return createHash("sha256").update(JSON.stringify(["celebix-paytr-initiation", 1, hostname, redemptionDigest, operationId]), "utf8").digest("hex");
+}
+
+function paytrBasket(items: readonly Readonly<{ name: string; unitPriceCents: number; quantity: number }>[]): string {
+  if (!Array.isArray(items) || items.length < 1 || items.length > 100) invalid();
+  const selected = items.map((item) => {
+    if (typeof item.name !== "string" || item.name.length < 1 || item.name.length > 200 || item.name !== item.name.trim() || /[\u0000-\u001f\u007f]/.test(item.name) ||
+        !Number.isSafeInteger(item.unitPriceCents) || item.unitPriceCents < 1 || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 9_999) invalid();
+    return [item.name, `${String(Math.floor(item.unitPriceCents / 100))}.${String(item.unitPriceCents % 100).padStart(2, "0")}`, item.quantity];
+  });
+  const encoded = Buffer.from(JSON.stringify(selected), "utf8").toString("base64");
+  if (Buffer.byteLength(encoded, "ascii") > 16_384) invalid();
+  return encoded;
+}
+
+async function operationId(request: Request): Promise<string | null> {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength !== null && (!/^(?:0|[1-9][0-9]{0,2})$/.test(contentLength) || Number(contentLength) > 128)) return null;
+  let body: string;
+  try { body = await request.text(); } catch { return null; }
+  if (body.length < 1 || Buffer.byteLength(body, "utf8") > 128) return null;
+  const prefix = "operation_id=";
+  const selected = body.startsWith(prefix) ? body.slice(prefix.length) : "";
+  return UUID.test(selected) && body === `${prefix}${selected}` ? selected : null;
+}
+
+function trustedRequestTarget(request: Request, hostname: string, pathname: string, method: "GET" | "POST"): URL | null {
+  if (!validHostname(hostname) || request.method !== method) return null;
+  let url: URL;
+  try { url = new URL(request.url); } catch { return null; }
+  if ((url.protocol !== "https:" && url.protocol !== "http:") || url.username || url.password || url.pathname !== pathname || url.search || url.hash) return null;
+  if (request.headers.has("authorization") || request.headers.has("transfer-encoding")) return null;
+  for (const name of request.headers.keys()) {
+    const lower = name.toLowerCase();
+    if (lower.startsWith("x-celebix-") && lower !== "x-celebix-storefront-proxy") return null;
+  }
+  return url;
+}
+
+function checkoutFailure(error: unknown): Response {
+  if (error instanceof CheckoutPaymentRepositoryError && error.code === "attempt_in_progress") return routeText(409, "Checkout already in progress");
+  if (error instanceof CheckoutPaymentRepositoryError && (error.code === "catalog_item_unavailable" || error.code === "stock_unavailable")) return routeText(409, "Checkout unavailable");
+  return routeText(503, "Checkout unavailable");
+}
+
+async function persistedCheckoutState(runtime: CheckoutPaymentRuntime, hostname: string, redemptionDigest: string, now: Date): Promise<Response> {
+  try {
+    const state = await runtime.checkout.quickOrderRepository.getStatus({ hostname, redemptionDigest, now: new Date(now) });
+    if (state.kind === "paid") return routeText(200, `Payment completed: ${state.orderNumber}`);
+    if (state.kind === "failed") return routeText(409, "Payment failed");
+    if (state.kind === "processing") return routeText(202, "Payment is processing");
+    if (state.kind === "ready") return routeText(409, "Checkout already in progress");
+    return routeText(503, "Checkout unavailable");
+  } catch { return routeText(503, "Checkout unavailable"); }
+}
+
+export function createQuickOrderCheckoutRoute(dependencies: PaymentRouteDependencies) {
+  return async (request: Request): Promise<Response> => {
+    const authority = dependencies.selectAuthority(request.headers);
+    if (authority.kind !== "trusted" || !("hostname" in authority) || !validHostname(authority.hostname)) return routeText(404, "Not found");
+    if (trustedRequestTarget(request, authority.hostname, "/api/quick-order/checkout", "POST") === null ||
+        request.headers.get("origin") !== `https://${authority.hostname}` ||
+        request.headers.get("content-type") !== "application/x-www-form-urlencoded") return routeText(400, "Invalid checkout request");
+    const ip = parseTrustedClientIp(request.headers.get("x-forwarded-for"));
+    const cookie = parseRedemptionCookie(request.headers.get("cookie"));
+    if (ip === null || cookie.kind !== "valid") return routeText(404, "Not found");
+    const operation = await operationId(request);
+    if (operation === null) return routeText(400, "Invalid checkout request");
+    const runtime = await dependencies.resolveRuntime();
+    if (runtime === null) return routeText(503, "Checkout unavailable");
+    const now = (dependencies.now ?? (() => new Date()))();
+    if (!validNow(now)) return routeText(503, "Checkout unavailable");
+    const attemptId = (dependencies.randomUUID ?? randomUUID)();
+    const oid = (dependencies.randomMerchantOid ?? (() => randomBytes(16).toString("hex")))();
+    if (!UUID.test(attemptId) || !MERCHANT_OID.test(oid)) return routeText(503, "Checkout unavailable");
+    const redemptionDigest = digestRedemptionCredential(cookie.credential);
+    const selectedFingerprint = fingerprint(authority.hostname, redemptionDigest, operation);
+    let begun;
+    try {
+      begun = await runtime.paymentRepository.beginAttempt({ hostname: authority.hostname, redemptionDigest, attemptId, merchantOid: oid, operationId: operation, fingerprint: selectedFingerprint, now: new Date(now) });
+    } catch (error) {
+      if (error instanceof CheckoutPaymentRepositoryError && (error.code === "invalid_transition" || error.code === "provider_not_ready")) {
+        return persistedCheckoutState(runtime, authority.hostname, redemptionDigest, now);
+      }
+      return checkoutFailure(error);
+    }
+    if (begun.outcome !== "created" || begun.status !== "reserved") {
+      if (begun.status === "provider_ready") return new Response(null, { status: 303, headers: { ...ROUTE_HEADERS, Location: "/odeme/hizli/odeme" } });
+      if (begun.status === "initiation_unknown") return routeText(202, "Payment initiation is processing");
+      return routeText(409, "Checkout already in progress");
+    }
+    if (begun.attemptId !== attemptId || begun.merchantOid !== oid || begun.currency !== "TRY") return routeText(503, "Checkout unavailable");
+    let selectedConfiguration;
+    try {
+      const serialized = openQuickLinkSecret({ envelope: begun.sealedConfiguration, purpose: "provider-config", storeId: begun.storeId, objectId: begun.providerConfigId, digest: begun.configurationDigest, keyring: runtime.keyring });
+      if (digestCanonicalPaytrConfiguration(serialized) !== begun.configurationDigest) return routeText(503, "Checkout unavailable");
+      selectedConfiguration = parseCanonicalPaytrConfiguration(serialized);
+    } catch { return routeText(503, "Checkout unavailable"); }
+    const resultUrl = `https://${authority.hostname}/odeme/hizli/sonuc`;
+    const signal = AbortSignal.timeout(20_000);
+    const initiated = await (dependencies.initiate ?? requestPaytrIframeToken)({
+      configuration: selectedConfiguration, userIp: ip, merchantOid: begun.merchantOid, email: begun.customerEmail,
+      paymentAmount: begun.paymentAmount, userBasket: paytrBasket(begun.basket), userName: begun.customerName,
+      userAddress: begun.customerAddress, userPhone: begun.customerPhone, successUrl: resultUrl, failureUrl: resultUrl,
+      noInstallment: 0, maxInstallment: 0, signal,
+    });
+    const transition = { attemptId: begun.attemptId, operationId: operation, fingerprint: selectedFingerprint, now: new Date(now) };
+    if (initiated.status === "rejected") {
+      try { await runtime.paymentRepository.markInitiationFailed(transition); } catch { return routeText(503, "Checkout unavailable"); }
+      return routeText(502, "Payment provider rejected initiation");
+    }
+    if (initiated.status === "unknown") {
+      try { await runtime.paymentRepository.markInitiationUnknown(transition); } catch { return routeText(503, "Checkout unavailable"); }
+      return routeText(202, "Payment initiation is processing");
+    }
+    if (!PROVIDER_TOKEN.test(initiated.token)) return routeText(503, "Checkout unavailable");
+    const providerTokenDigest = createHash("sha256").update(initiated.token, "utf8").digest("hex");
+    const sealedProviderToken = sealQuickLinkSecret({ plaintext: initiated.token, purpose: "provider-token", storeId: begun.storeId, objectId: begun.attemptId, digest: providerTokenDigest, keyring: runtime.keyring });
+    try {
+      const ready = await runtime.paymentRepository.markProviderReady({ ...transition, providerTokenDigest, sealedProviderToken });
+      if (ready.attemptId !== begun.attemptId || ready.status !== "provider_ready" || ready.providerTokenDigest !== providerTokenDigest) {
+        return routeText(503, "Checkout unavailable");
+      }
+      const persistedToken = openQuickLinkSecret({ envelope: ready.sealedProviderToken, purpose: "provider-token", storeId: begun.storeId, objectId: begun.attemptId, digest: providerTokenDigest, keyring: runtime.keyring });
+      const expected = Buffer.from(initiated.token, "utf8");
+      const persisted = Buffer.from(persistedToken, "utf8");
+      const matches = expected.byteLength === persisted.byteLength && timingSafeEqual(expected, persisted);
+      expected.fill(0); persisted.fill(0);
+      if (!matches) return routeText(503, "Checkout unavailable");
+    } catch { return routeText(503, "Checkout unavailable"); }
+    return new Response(null, { status: 303, headers: { ...ROUTE_HEADERS, Location: "/odeme/hizli/odeme" } });
+  };
+}
+
+export function createQuickOrderIframeRoute(dependencies: Readonly<{
+  selectAuthority: (headers: Headers) => HostAuthority;
+  resolveRuntime: () => Promise<CheckoutPaymentInfrastructureRuntime | null>;
+  now?: () => Date;
+}>) {
+  return async (request: Request): Promise<Response> => {
+    const authority = dependencies.selectAuthority(request.headers);
+    if (authority.kind !== "trusted" || !("hostname" in authority) ||
+        trustedRequestTarget(request, authority.hostname, "/odeme/hizli/odeme", "GET") === null) return routeText(404, "Not found");
+    const cookie = parseRedemptionCookie(request.headers.get("cookie"));
+    if (cookie.kind !== "valid") return routeText(404, "Not found");
+    const runtime = await dependencies.resolveRuntime();
+    if (runtime === null) return routeText(503, "Checkout unavailable");
+    const now = (dependencies.now ?? (() => new Date()))();
+    if (!validNow(now)) return routeText(503, "Checkout unavailable");
+    try {
+      const presentation = await runtime.paymentRepository.getPaymentPresentation({ hostname: authority.hostname, redemptionDigest: digestRedemptionCredential(cookie.credential), now: new Date(now) });
+      const token = openQuickLinkSecret({ envelope: presentation.sealedProviderToken, purpose: "provider-token", storeId: presentation.storeId, objectId: presentation.attemptId, digest: presentation.providerTokenDigest, keyring: runtime.keyring });
+      if (!PROVIDER_TOKEN.test(token) || createHash("sha256").update(token, "utf8").digest("hex") !== presentation.providerTokenDigest) return routeText(503, "Checkout unavailable");
+      const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Güvenli ödeme</title></head><body><iframe src="https://www.paytr.com/odeme/guvenli/${token}" width="100%" height="720" scrolling="yes" frameborder="0" title="PayTR güvenli ödeme"></iframe></body></html>`;
+      return new Response(html, { status: 200, headers: { ...ROUTE_HEADERS, "Content-Type": "text/html; charset=utf-8" } });
+    } catch { return routeText(404, "Not found"); }
+  };
+}
+
+const { Pool } = pg;
+const PAYMENT_TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
+let defaultPaymentRuntime: Promise<CheckoutPaymentInfrastructureRuntime | null> | undefined;
+
+function environmentKeyring(source: NodeJS.ProcessEnv): QuickLinkKeyring {
+  const activeKeyId = source.CELEBIX_QUICK_ORDER_ACTIVE_KEY_ID;
+  const serialized = source.CELEBIX_QUICK_ORDER_KEYS;
+  if (!activeKeyId || !/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$/.test(activeKeyId) || !serialized || serialized.length > 16_384 || /\s/.test(serialized)) invalid();
+  const keys: Array<Readonly<{ keyId: string; key: Uint8Array }>> = [];
+  try {
+    for (const segment of serialized.split(",")) {
+      const separator = segment.indexOf(":");
+      if (separator < 1 || separator !== segment.lastIndexOf(":")) invalid();
+      const keyId = segment.slice(0, separator); const encoded = segment.slice(separator + 1);
+      if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$/.test(keyId) || !/^[A-Za-z0-9_-]{43}$/.test(encoded)) invalid();
+      const bytes = Buffer.from(encoded, "base64url");
+      try {
+        if (bytes.byteLength !== 32 || bytes.toString("base64url") !== encoded) invalid();
+        keys.push(Object.freeze({ keyId, key: new Uint8Array(bytes) }));
+      } finally { bytes.fill(0); }
+    }
+    if (keys.length < 1 || keys.length > 64 || !keys.some(({ keyId }) => keyId === activeKeyId) || new Set(keys.map(({ keyId }) => keyId)).size !== keys.length) invalid();
+    for (let left = 0; left < keys.length; left += 1) for (let right = left + 1; right < keys.length; right += 1) if (timingSafeEqual(keys[left]!.key, keys[right]!.key)) invalid();
+    return Object.freeze({ activeKeyId, keys: Object.freeze(keys) });
+  } catch (error) {
+    for (const { key } of keys) key.fill(0);
+    throw error;
+  }
+}
+
+export async function resolveDefaultCheckoutPaymentRuntime(): Promise<CheckoutPaymentInfrastructureRuntime | null> {
+  defaultPaymentRuntime ??= Promise.resolve().then(() => {
+    try {
+      if (process.env.CELEBIX_DEPLOYMENT_TIER !== "staging" || process.env.CELEBIX_STOREFRONT_DATA_MODE !== "approved_staging") return null;
+      const config = parseCheckoutRuntimeConfig(process.env);
+      const keyring = environmentKeyring(process.env);
+      const pool = new Pool({ connectionString: config.database.url, max: 8, connectionTimeoutMillis: PAYMENT_TIMEOUTS.poolCheckoutMs, idleTimeoutMillis: 10_000,
+        statement_timeout: PAYMENT_TIMEOUTS.statementMs, lock_timeout: PAYMENT_TIMEOUTS.lockMs, idle_in_transaction_session_timeout: PAYMENT_TIMEOUTS.idleTransactionMs,
+        application_name: "celebix-storefront-checkout-staging" });
+      pool.on("error", () => undefined);
+      const paymentRepository = new PostgresCheckoutPaymentRepository({ pool, role: "celebix_saas_workflow", timeouts: PAYMENT_TIMEOUTS, audit: () => undefined });
+      return Object.freeze({ paymentRepository, keyring });
+    } catch { return null; }
+  });
+  return defaultPaymentRuntime;
 }

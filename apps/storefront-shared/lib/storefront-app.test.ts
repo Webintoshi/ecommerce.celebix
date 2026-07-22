@@ -328,3 +328,46 @@ test("application configuration defines baseline security headers", async () => 
   assert.match(quotePage, /force-dynamic/);
   assert.doesNotMatch(quotePage, /tokenDigest|redemptionDigest|customerEmail|customerPhone|shippingAddress|billingAddress/);
 });
+
+test("checkout quote page uses one native exact-origin form and no client token transport", async () => {
+  const quotePage = await readFile(new URL("../app/odeme/hizli/page.tsx", import.meta.url), "utf8");
+  const checkoutRoute = await readFile(new URL("../app/api/quick-order/checkout/route.ts", import.meta.url), "utf8");
+  assert.match(quotePage, /randomUUID/);
+  assert.match(quotePage, /<form[^>]+method="post"[^>]+action="\/api\/quick-order\/checkout"/);
+  assert.match(quotePage, /type="hidden" name="operation_id" value=/);
+  assert.doesNotMatch(quotePage, /fetch\(|XMLHttpRequest|use client|content-security-policy|http-equiv/i);
+  assert.match(checkoutRoute, /createQuickOrderCheckoutRoute/);
+  assert.doesNotMatch(checkoutRoute, /merchantKey|merchantSalt|console[.]/);
+});
+
+test("iframe and return routes are token-free browser surfaces and return is not settlement", async () => {
+  const iframeRoute = await readFile(new URL("../app/odeme/hizli/odeme/route.ts", import.meta.url), "utf8");
+  const resultPage = await readFile(new URL("../app/odeme/hizli/sonuc/page.tsx", import.meta.url), "utf8");
+  assert.match(iframeRoute, /createQuickOrderIframeRoute/);
+  assert.doesNotMatch(iframeRoute, /searchParams|token|paytr[.]com|NextResponse[.]redirect|Response[.]json/);
+  assert.match(resultPage, /api\/quick-order\/status|Ödeme sonucu|durum/i);
+  assert.doesNotMatch(resultPage, /settle|markProvider|payment_amount|merchant_oid|token/i);
+});
+
+test("proxy owns exact checkout form and PayTR iframe CSP while every near-match stays denied", async () => {
+  const proxy = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
+  assert.match(proxy, /form-action https:\/\/\$\{authority[.]hostname\}/);
+  assert.match(proxy, /frame-src https:\/\/www[.]paytr[.]com/);
+  assert.match(proxy, /pathname === "\/odeme\/hizli"/);
+  assert.match(proxy, /pathname === "\/odeme\/hizli\/odeme"/);
+  assert.match(proxy, /search === ""/);
+  assert.match(proxy, /FALLBACK_CSP/);
+  assert.doesNotMatch(proxy, /form-action 'self'|form-action https:(?:[;'\s])|form-action \*|frame-src \*/);
+});
+
+test("checkout sources contain no raw secret, provider log, off-origin redirect, or browser token serialization", async () => {
+  const appRoot = path.resolve(import.meta.dirname, "..");
+  const checkoutFiles = (await sourceFiles(appRoot)).filter((file) =>
+    !file.includes(`${path.sep}.next${path.sep}`) && /(?:lib\/checkout|app\/odeme\/hizli|app\/api\/quick-order\/checkout|proxy[.]ts)/.test(file),
+  );
+  for (const file of checkoutFiles) {
+    const source = await readFile(file, "utf8");
+    assert.doesNotMatch(source, /console[.]|merchant[_-]?(?:key|salt)\s*[:=]\s*["'][^"']+["']/i, file);
+    assert.doesNotMatch(source, /Response[.]json\([^)]*(?:token|sealed)|Location[^\n]+paytr[.]com/i, file);
+  }
+});

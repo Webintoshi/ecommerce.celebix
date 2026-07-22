@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 
@@ -35,6 +36,7 @@ export default async function QuickOrderPage() {
     return <main className="store-container store-section"><h1>Hızlı sipariş bulunamadı</h1><p>Bağlantının süresi dolmuş veya bağlantı artık kullanılamıyor olabilir.</p></main>;
   }
   const { quote } = selected;
+  const operationId = randomUUID();
   return <main className="store-container store-section">
     <span>GÜVENLİ HIZLI SİPARİŞ</span>
     <h1>{quote.merchantName}</h1>
@@ -51,6 +53,9 @@ export default async function QuickOrderPage() {
       <div><dt>İndirim</dt><dd>-{money(quote.discountCents)}</dd></div>
       <div><dt>Toplam</dt><dd><strong>{money(quote.totalCents)}</strong></dd></div>
     </dl>
-    <p>Ödeme adımı henüz etkin değil.</p>
+    <form method="post" action="/api/quick-order/checkout">
+      <input type="hidden" name="operation_id" value={operationId} />
+      <button type="submit">Güvenli ödemeye geç</button>
+    </form>
   </main>;
 }
