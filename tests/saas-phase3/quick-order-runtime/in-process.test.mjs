@@ -493,6 +493,7 @@ function reconciliationClaim(index = 1, overrides = {}) {
     merchantOid: String(index).padStart(32, "a").slice(-32),
     providerConfigId: PROVIDER,
     status: "provider_ready",
+    itemCount: 3,
     expectedPaymentAmount: 25_500,
     currency: "TRY",
     configurationDigest,
@@ -567,6 +568,9 @@ test("16/18 reconciliation uses exact leases, cleanup-first 25-claim bounds, fiv
   assert.equal(begin.leaseExpiresAt.getTime() - begin.now.getTime(), 60_000);
   assert.equal(fixture.calls[2][1].limit, 25);
   assert.equal(fixture.calls[2][1].leaseExpiresAt.getTime(), begin.leaseExpiresAt.getTime());
+  const successfulSettlement = fixture.calls.find(([kind]) => kind === "success")[1];
+  assert.equal(successfulSettlement.orderItemIds.length, 3);
+  assert.equal(new Set(successfulSettlement.orderItemIds).size, 3);
   for (const [, input] of fixture.calls.filter(([kind]) => kind === "unknown")) {
     const claim = claims.find((candidate) => candidate.merchantOid === input.merchantOid);
     assert.ok(claim);

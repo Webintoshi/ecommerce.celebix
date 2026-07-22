@@ -317,7 +317,7 @@ test("callback verifies sealed merchant authority before exact plain OK settleme
         async getCallbackAuthority() {
           calls.authority += 1;
           return { storeId: STORE_ID, attemptId: ATTEMPT_ID, merchantOid, providerConfigId: PROVIDER_ID,
-            status: "provider_ready" as const, expectedPaymentAmount: 3_600, currency: "TRY" as const,
+            status: "provider_ready" as const, itemCount: 3, expectedPaymentAmount: 3_600, currency: "TRY" as const,
             configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration };
         },
         async settleCallback(input: Record<string, unknown>) { calls.settle.push(input); return { outcome: "settled" as const, orderNumber: "QO-safe" }; },
@@ -340,8 +340,14 @@ test("callback verifies sealed merchant authority before exact plain OK settleme
   assert.match(String(calls.settle[0]?.callbackDigest), /^[a-f0-9]{64}$/);
   assert.match(String(calls.settle[0]?.operationId), /^[a-f0-9-]{36}$/);
   assert.match(String(calls.settle[0]?.fingerprint), /^[a-f0-9]{64}$/);
+  assert.equal(Array.isArray(calls.settle[0]?.orderItemIds), true);
+  assert.equal((calls.settle[0]?.orderItemIds as readonly unknown[]).length, 3);
+  assert.equal(new Set(calls.settle[0]?.orderItemIds as readonly unknown[]).size, 3);
   assert.equal("hash" in calls.settle[0]!, false);
   assert.equal("merchantKey" in calls.settle[0]!, false);
+  const repeated = await handler(callbackRequest());
+  assert.equal(repeated.status, 200);
+  assert.deepEqual(calls.settle[1]?.orderItemIds, calls.settle[0]?.orderItemIds);
 });
 
 test("callback maps only unresolved commit to retry and accepts replay or signed failure as exact OK", async () => {
@@ -355,7 +361,7 @@ test("callback maps only unresolved commit to retry and accepts replay or signed
       selectAuthority: () => ({ kind: "trusted" as const, hostname: HOSTNAME }),
       resolveRuntime: async () => ({ keyring, paymentRepository: {
         async getCallbackAuthority() { return { storeId: STORE_ID, attemptId: ATTEMPT_ID, merchantOid,
-          providerConfigId: PROVIDER_ID, status: "provider_ready" as const, expectedPaymentAmount: 3_600,
+          providerConfigId: PROVIDER_ID, status: "provider_ready" as const, itemCount: 3, expectedPaymentAmount: 3_600,
           currency: "TRY" as const, configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration }; },
         async settleCallback(input: Record<string, unknown>) { settlements.push(input); return { outcome }; },
       } }),
@@ -379,7 +385,7 @@ test("callback rejects invalid HMAC, underpayment, external host mismatch, and b
       : ({ kind: "trusted" as const, hostname: HOSTNAME }),
     resolveRuntime: async () => ({ keyring, paymentRepository: {
       async getCallbackAuthority() { return { storeId: STORE_ID, attemptId: ATTEMPT_ID, merchantOid,
-        providerConfigId: PROVIDER_ID, status: "provider_ready" as const, expectedPaymentAmount: 3_600,
+        providerConfigId: PROVIDER_ID, status: "provider_ready" as const, itemCount: 3, expectedPaymentAmount: 3_600,
         currency: "TRY" as const, configurationDigest, configurationKeyId: sealedConfiguration.keyId, sealedConfiguration }; },
       async settleCallback() { settlements += 1; return { outcome: "settled" as const }; },
     } }),

@@ -1,9 +1,9 @@
 {
-  "bundleId": "phase3b2-202607220026-202607220028-quick-order-checkout-authority",
+  "bundleId": "phase3b2-202607220026-202607220029-quick-order-checkout-authority",
   "postgresqlMajor": 16,
   "migrationClassification": "additive",
   "environmentAuthorization": "LOCAL_DISPOSABLE_ONLY_STAGING_REQUIRES_SEPARATE_AUTHORIZATION",
-  "rollbackLimitations": "Migration 028 rollback is authorized only for isolated disposable rehearsal, restores the exact migration-027 claim body and retains all durable rows. Migration 027 rollback is authorized only for isolated disposable rehearsal and fails closed with QUICK_ORDER_CHECKOUT_API_ROLLBACK_HISTORY_CONFLICT when provider or cleanup operation history exists; immutable receipts are never deleted. Migration 026 rollback destroys quick-order checkout runtime rows and fails closed with QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT when revoked provider history and a replacement share one store/provider key.",
+  "rollbackLimitations": "Migration 029 rollback is authorized only for isolated disposable rehearsal, restores the exact migration-027 private projection bodies and retains all durable rows. Migration 028 rollback is authorized only for isolated disposable rehearsal, restores the exact migration-027 claim body and retains all durable rows. Migration 027 rollback is authorized only for isolated disposable rehearsal and fails closed with QUICK_ORDER_CHECKOUT_API_ROLLBACK_HISTORY_CONFLICT when provider or cleanup operation history exists; immutable receipts are never deleted. Migration 026 rollback destroys quick-order checkout runtime rows and fails closed with QUICK_ORDER_RUNTIME_DOWN_PROVIDER_HISTORY_CONFLICT when revoked provider history and a replacement share one store/provider key.",
   "artifacts": [
     {
       "id": "202607220026_quick_order_checkout_runtime_up",
@@ -67,6 +67,27 @@
       "file": "202607220028_quick_order_redemption_expiry_authority_assertions.sql",
       "sha256": "2762c21a7215b605aba325c7b00f7c03bb28109cf6dfd5c6a1f24545570d7956",
       "purpose": "Fail on expiry derivation order, persisted projection, owner, SECURITY DEFINER, search_path or least-privilege ACL drift."
+    },
+    {
+      "id": "202607220029_quick_order_settlement_authority_up",
+      "direction": "up",
+      "file": "202607220029_quick_order_settlement_authority.up.sql",
+      "sha256": "23bd0dd194141829f04bb0ccfdecdb9ebe3f7c83be816292434b51d8efa3788b",
+      "purpose": "Bind callback and reconciliation authority to the persisted quick-order item count while keeping worker fencing private."
+    },
+    {
+      "id": "202607220029_quick_order_settlement_authority_down",
+      "direction": "down",
+      "file": "202607220029_quick_order_settlement_authority.down.sql",
+      "sha256": "a4d6e83061164684ffc90ce9e4787b6cc8cbc5059e09d5ecbc91732307785ca2",
+      "purpose": "Restore the exact migration-027 private authority projections without deleting or mutating durable checkout history."
+    },
+    {
+      "id": "202607220029_quick_order_settlement_authority_assertions",
+      "direction": "verify",
+      "file": "202607220029_quick_order_settlement_authority_assertions.sql",
+      "sha256": "2ca603e264c8d65029a6a0b0a080a25894467270e71247e740f1f37ac89880b6",
+      "purpose": "Fail on persisted item-count derivation, worker-ID projection, helper ownership, volatility, search_path or private ACL drift."
     }
   ]
 }

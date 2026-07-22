@@ -114,6 +114,7 @@ const authority = {
   merchantOid,
   providerConfigId: ids.provider,
   status: "provider_ready",
+  itemCount: 3,
   expectedPaymentAmount: 1234,
   currency: "TRY",
   configurationDigest: digest,
@@ -331,7 +332,10 @@ test("callback authority is read-only and keeps provider configuration server-on
   const { repository, client } = repo([row("found", authority)]);
   const result = await repository.getCallbackAuthority({ merchantOid, now });
   assert.equal(result.configurationDigest, digest);
+  assert.equal(result.itemCount, 3);
   assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
+  const boundary = repo([row("found", { ...authority, itemCount: 100 })]);
+  assert.equal((await boundary.repository.getCallbackAuthority({ merchantOid, now })).itemCount, 100);
 });
 test("callback settlement reports only proven outcomes", async () => {
   const { repository } = repo([
@@ -485,6 +489,14 @@ test("reconciliation claims are bounded and authority-shaped", async () => {
     limit: 1,
   });
   assert.equal(result[0]?.leaseToken, token);
+  assert.equal(result[0]?.itemCount, 3);
+  const extraWorker = repo([row("claimed", {
+    claims: [{ ...authority, workerId: ids.worker, leaseToken: token, attemptNumber: 1 }],
+  })]);
+  await assert.rejects(
+    () => extraWorker.repository.claimReconciliation({ workerId: ids.worker, now, leaseExpiresAt: later, limit: 1 }),
+    /unavailable/,
+  );
   await assert.rejects(
     () =>
       repository.claimReconciliation({
@@ -804,6 +816,23 @@ test("callback authority rejects malformed durable amounts and mismatched canoni
     () => key.repository.getCallbackAuthority({ merchantOid, now }),
     /unavailable/,
   );
+  const { itemCount: _omitted, ...missingItemCount } = authority;
+  assert.equal(_omitted, 3);
+  for (const candidate of [
+    missingItemCount,
+    { ...authority, itemCount: null },
+    { ...authority, itemCount: "3" },
+    { ...authority, itemCount: 1.5 },
+    { ...authority, itemCount: 0 },
+    { ...authority, itemCount: 101 },
+    new Proxy(authority, {}),
+  ]) {
+    const invalidCount = repo([row("found", candidate)]);
+    await assert.rejects(
+      () => invalidCount.repository.getCallbackAuthority({ merchantOid, now }),
+      /unavailable/,
+    );
+  }
 });
 test("failed callback has no synthetic order authority", async () => {
   const { repository } = repo([

@@ -120,6 +120,7 @@ export type CallbackAuthority = Readonly<{
   merchantOid: string;
   providerConfigId: string;
   status: "provider_ready" | "initiation_unknown" | "succeeded" | "failed";
+  itemCount: number;
   expectedPaymentAmount: number;
   currency: "TRY";
   configurationDigest: string;

@@ -182,6 +182,13 @@ function paymentAmount(value: unknown): number {
     return unavailable();
   }
 }
+function itemCount(value: unknown): number {
+  try {
+    return integer(value, 1, 100);
+  } catch {
+    return unavailable();
+  }
+}
 function durableEnvelope(value: unknown) {
   try {
     return envelope(value);
@@ -206,6 +213,7 @@ function parseAuthority(
       "merchantOid",
       "providerConfigId",
       "status",
+      "itemCount",
       "expectedPaymentAmount",
       "currency",
       "configurationDigest",
@@ -229,6 +237,7 @@ function parseAuthority(
     merchantOid: merchantOid(v.merchantOid),
     providerConfigId: uuid(v.providerConfigId),
     status,
+    itemCount: itemCount(v.itemCount),
     expectedPaymentAmount: paymentAmount(v.expectedPaymentAmount),
     currency: "TRY" as const,
     configurationDigest: digest(v.configurationDigest),

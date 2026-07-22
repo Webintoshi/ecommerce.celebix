@@ -347,6 +347,7 @@ function fixtureDigest(label) {
 function seedCheckoutLink(backend, database, number, options = {}) {
   const link = fixtureUuid("6", number);
   const item = fixtureUuid("8", number);
+  const secondItem = fixtureUuid("e", number);
   const digest = fixtureDigest(`token:${number}`);
   const quantity = options.quantity ?? 1;
   const name = options.customerName ?? "Ada Lovelace";
@@ -354,7 +355,10 @@ function seedCheckoutLink(backend, database, number, options = {}) {
   const phone = options.phone ?? "+905551110000";
   const price = options.variant === VARIANT_2 ? 11000 : 10000;
   const variant = options.variant ?? VARIANT;
-  const total = price * quantity;
+  const secondVariant = options.secondVariant ?? null;
+  const secondQuantity = options.secondQuantity ?? 1;
+  const secondPrice = secondVariant === VARIANT_2 ? 11000 : 10000;
+  const total = price * quantity + (secondVariant === null ? 0 : secondPrice * secondQuantity);
   psql(backend, `SET ROLE celebix_saas_owner;
     INSERT INTO saas.quick_order_links(
       id,store_id,creating_membership_id,provider_config_id,status,token_digest,token_key_id,sealed_token,
@@ -370,9 +374,12 @@ function seedCheckoutLink(backend, database, number, options = {}) {
       unit_price_cents,quantity,line_total_cents,created_at
     ) VALUES(
       '${item}','${STORE}','${link}','${PRODUCT}','${variant}',0,'Runtime Product',
-      ${variant === VARIANT_2 ? "'Untracked'" : "'Tracked'"},${price},${quantity},${total},'2026-07-21 10:00:00+00'
-    );`, database);
-  return { link, item, digest };
+      ${variant === VARIANT_2 ? "'Untracked'" : "'Tracked'"},${price},${quantity},${price * quantity},'2026-07-21 10:00:00+00'
+    )${secondVariant === null ? ";" : `,(
+      '${secondItem}','${STORE}','${link}','${PRODUCT}','${secondVariant}',1,'Runtime Product',
+      ${secondVariant === VARIANT_2 ? "'Untracked'" : "'Tracked'"},${secondPrice},${secondQuantity},${secondPrice * secondQuantity},'2026-07-21 10:00:00+00'
+    );`}`, database);
+  return { link, item, secondItem: secondVariant === null ? null : secondItem, digest };
 }
 
 function claimLink(backend, database, linkFixture, number, options = {}) {
@@ -618,6 +625,9 @@ async function main() {
         "202607220028_quick_order_redemption_expiry_authority_up",
         "202607220028_quick_order_redemption_expiry_authority_down",
         "202607220028_quick_order_redemption_expiry_authority_assertions",
+        "202607220029_quick_order_settlement_authority_up",
+        "202607220029_quick_order_settlement_authority_down",
+        "202607220029_quick_order_settlement_authority_assertions",
       ]);
       for (const artifact of manifest.artifacts) assert.equal(createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex"), artifact.sha256);
       const inventory = catalogInventory(backend);
@@ -988,11 +998,13 @@ async function main() {
       }
     });
 
-    await scenario("migrations 027 and 028 checkout authority apply with exact role grants", async () => {
+    await scenario("migrations 027 through 029 checkout authority apply with exact role grants", async () => {
       apply(backend, "202607220027_quick_order_checkout_api.up.sql");
       apply(backend, "202607220027_quick_order_checkout_api_assertions.sql");
       apply(backend, "202607220028_quick_order_redemption_expiry_authority.up.sql");
       apply(backend, "202607220028_quick_order_redemption_expiry_authority_assertions.sql");
+      apply(backend, "202607220029_quick_order_settlement_authority.up.sql");
+      apply(backend, "202607220029_quick_order_settlement_authority_assertions.sql");
       assert.equal(psql(backend, "SELECT has_schema_privilege('celebix_saas_workflow','saas','USAGE');"), "t");
       const workflowFunctionCount = Number(psql(backend, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND has_function_privilege('celebix_saas_workflow',p.oid,'EXECUTE');"));
       assert.equal(workflowFunctionCount,24);
@@ -1593,6 +1605,13 @@ async function main() {
         INSERT INTO saas.checkout_operations(operation_id,store_id,attempt_id,operation_kind,payload_fingerprint,result_payload,committed_at)
         VALUES('${retainedOperation}','${STORE}','${ATTEMPT}','begin_attempt',repeat('1',64),'{"proof":"migration-026-retained"}'::jsonb,'2026-07-21 12:04:00+00');`,database);
       const retainedBytes=psql(backend,`SELECT operation_kind||'|'||payload_fingerprint||'|'||result_payload::text||'|'||committed_at::text FROM saas.checkout_operations WHERE operation_id='${retainedOperation}';`,database);
+      apply(backend,"202607220029_quick_order_settlement_authority.down.sql",database);
+      const migration027=readFileSync(path.join(SQL,"202607220027_quick_order_checkout_api.up.sql"),"utf8");
+      const migration029Down=readFileSync(path.join(SQL,"202607220029_quick_order_settlement_authority.down.sql"),"utf8");
+      assert.equal(normalizedFunction(migration029Down,"quick_checkout_attempt_authority_projection"),
+        normalizedFunction(migration027,"quick_checkout_attempt_authority_projection"));
+      assert.equal(normalizedFunction(migration029Down,"quick_checkout_reconciliation_projection"),
+        normalizedFunction(migration027,"quick_checkout_reconciliation_projection"));
       apply(backend,"202607220028_quick_order_redemption_expiry_authority.down.sql",database);
       apply(backend,"202607220027_quick_order_checkout_api.down.sql",database);
       assert.equal(psql(backend,`SELECT operation_kind||'|'||payload_fingerprint||'|'||result_payload::text||'|'||committed_at::text FROM saas.checkout_operations WHERE operation_id='${retainedOperation}';`,database),retainedBytes);
@@ -1610,6 +1629,8 @@ async function main() {
       apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",database);
       apply(backend,"202607220028_quick_order_redemption_expiry_authority.up.sql",database);
       apply(backend,"202607220028_quick_order_redemption_expiry_authority_assertions.sql",database);
+      apply(backend,"202607220029_quick_order_settlement_authority.up.sql",database);
+      apply(backend,"202607220029_quick_order_settlement_authority_assertions.sql",database);
       assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_begin_attempt(text,text,uuid,text,uuid,text,timestamptz)') IS NOT NULL;",database),"t");
 
       const historyDatabase=cloneDatabase(backend,"api_rollback_history");
@@ -1640,7 +1661,7 @@ async function main() {
 
     await scenario("callback authority is opaque and returns only the immutable attempt provider snapshot", async () => {
       const database=cloneDatabase(backend,"callback_authority");
-      const link=seedCheckoutLink(backend,database,400);
+      const link=seedCheckoutLink(backend,database,400,{secondVariant:VARIANT_2});
       const claimed=claimLink(backend,database,link,400);
       const begun=beginAttempt(backend,database,claimed,400);
       assert.equal(markAttemptProviderReady(backend,database,begun,401).outcome,"committed");
@@ -1649,10 +1670,11 @@ async function main() {
       assert.equal(authority.outcome,"found");
       assert.deepEqual(Object.keys(authority.payload).sort(),[
         "attemptId","configurationDigest","configurationKeyId","currency","expectedPaymentAmount",
-        "merchantOid","providerConfigId","sealedConfiguration","status","storeId",
+        "itemCount","merchantOid","providerConfigId","sealedConfiguration","status","storeId",
       ]);
       assert.equal(authority.payload.attemptId,begun.attempt);
       assert.equal(authority.payload.status,"provider_ready");
+      assert.equal(authority.payload.itemCount,2);
       assert.equal(authority.payload.configurationDigest,"d".repeat(64));
       assert.equal(functionResult(backend,
         `saas.checkout_get_callback_authority('${"0".repeat(32)}','2026-07-21 12:13:00+00')`,database).outcome,"not_found");
@@ -1662,32 +1684,40 @@ async function main() {
 
     await scenario("successful callback atomically persists provider facts snapshots one order and one stock decrement", async () => {
       const database=cloneDatabase(backend,"callback_success");
-      const link=seedCheckoutLink(backend,database,410);
+      const link=seedCheckoutLink(backend,database,410,{secondVariant:VARIANT_2});
       const claimed=claimLink(backend,database,link,410);
       const begun=beginAttempt(backend,database,claimed,410);
       assert.equal(markAttemptProviderReady(backend,database,begun,411).outcome,"committed");
       psql(backend,`SET ROLE celebix_saas_owner;
         UPDATE saas.products SET title='Changed Product',version=version+1,updated_at='2026-07-21 12:12:30+00' WHERE id='${PRODUCT}';
         UPDATE saas.product_variants SET title='Changed Variant',price_cents=77777,version=version+1,updated_at='2026-07-21 12:12:30+00' WHERE id='${VARIANT}';`,database);
-      const settled=settleCallback(backend,database,begun,410,{totalAmount:10500,paymentType:"eft"});
+      const settled=settleCallback(backend,database,begun,410,{
+        totalAmount:21500,paymentType:"eft",
+        orderItems:[fixtureUuid("8",410),fixtureUuid("e",410)],
+      });
       assert.equal(settled.outcome,"settled",JSON.stringify(settled));
       assert.equal(settled.payload.orderNumber,"QO-410");
-      assert.equal(psql(backend,`SELECT link.status||'|'||attempt.status||'|'||reservation.status||'|'||variant.stock_quantity||'|'||
+      assert.equal(psql(backend,`SELECT link.status||'|'||attempt.status||'|'||
+        (SELECT count(*) FROM saas.checkout_inventory_reservations WHERE attempt_id=attempt.id AND status='consumed')||'|'||
+        (SELECT stock_quantity FROM saas.product_variants WHERE id='${VARIANT}')||'|'||
         (SELECT count(*) FROM saas.orders WHERE quick_order_link_id=link.id)||'|'||(SELECT count(*) FROM saas.order_items WHERE order_id=link.order_id)||'|'||
         (SELECT count(*) FROM saas.order_events WHERE order_id=link.order_id AND event_type='order_created' AND actor_membership_id IS NULL)
         FROM saas.quick_order_links AS link JOIN saas.checkout_payment_attempts AS attempt ON attempt.quick_order_link_id=link.id
-        JOIN saas.checkout_inventory_reservations AS reservation ON reservation.attempt_id=attempt.id
-        JOIN saas.product_variants AS variant ON variant.id=reservation.variant_id WHERE link.id='${link.link}';`,database),
-        "paid|succeeded|consumed|5|1|1|1");
+        WHERE link.id='${link.link}';`,database),
+        "paid|succeeded|2|5|1|2|1");
       assert.equal(psql(backend,`SELECT ordered.source||'|'||ordered.status||'|'||ordered.payment_status||'|'||ordered.customer_name||'|'||
         item.product_name||'|'||item.variant_name||'|'||item.unit_price_cents||'|'||item.quantity||'|'||
         (ordered.shipping_address=(SELECT shipping_address FROM saas.quick_order_links WHERE id='${link.link}'))||'|'||
         (ordered.billing_address=(SELECT billing_address FROM saas.quick_order_links WHERE id='${link.link}'))
-        FROM saas.orders AS ordered JOIN saas.order_items AS item ON item.order_id=ordered.id WHERE ordered.id='${settled.order}';`,database),
+        FROM saas.orders AS ordered JOIN saas.order_items AS item ON item.order_id=ordered.id
+        WHERE ordered.id='${settled.order}' AND item.position=0;`,database),
         "quick_link|confirmed|completed|Ada Lovelace|Runtime Product|Tracked|10000|1|true|true");
+      assert.equal(psql(backend,`SELECT product_name||'|'||variant_name||'|'||unit_price_cents||'|'||quantity
+        FROM saas.order_items WHERE order_id='${settled.order}' AND position=1;`,database),
+        "Runtime Product|Untracked|11000|1");
       assert.equal(psql(backend,`SELECT callback_status||'|'||currency||'|'||(result_payload->>'paymentAmount')||'|'||
         (result_payload->>'totalAmount')||'|'||(result_payload->>'paymentType')||'|'||(result_payload->>'testMode')
-        FROM saas.checkout_callback_receipts WHERE attempt_id='${begun.attempt}';`,database),"success|TRY|10000|10500|eft|1");
+        FROM saas.checkout_callback_receipts WHERE attempt_id='${begun.attempt}';`,database),"success|TRY|21000|21500|eft|1");
     });
 
     await scenario("duplicate callback digest replays before fresh identifiers and a different terminal digest conflicts", async () => {
@@ -1857,7 +1887,8 @@ async function main() {
         assert.equal(claimed.payload.claims.length,25);
         assert.equal(claimed.payload.claims.some((claim)=>claim.attemptId===attempts[0].attempt),false);
         for (const claim of claimed.payload.claims) {
-          assert.equal(claim.workerId,worker);
+          assert.equal("workerId" in claim,false);
+          assert.equal(claim.itemCount,1);
           assert.match(claim.leaseToken,/^[A-Za-z0-9_-]{43}$/);
           assert.equal(claim.attemptNumber,1);
           assert.equal(psql(backend,`SELECT lease_token_digest='${createHash("sha256").update(claim.leaseToken).digest("hex")}'
@@ -1884,7 +1915,8 @@ async function main() {
         '${claimed.cookieDigest}','${worker}','2026-07-21 12:13:00+00','2026-07-21 12:14:00+00')`,database);
       assert.equal(exact.outcome,"claimed");
       assert.equal(exact.payload.attemptId,begun.attempt);
-      assert.equal(exact.payload.workerId,worker);
+      assert.equal("workerId" in exact.payload,false);
+      assert.equal(exact.payload.itemCount,1);
       assert.equal(claimReconciliation(backend,database,fixtureUuid("d",541),"2026-07-21 12:13:01+00","2026-07-21 12:14:01+00").payload.claims.length,0);
     });
 
@@ -2157,10 +2189,12 @@ async function main() {
       assert.equal(functionResult(backend,`saas.checkout_get_callback_authority('${begun.merchantOid}','2026-07-21 12:14:00+00')`,restoredDatabase).outcome,"found");
       apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",restoredDatabase);
       apply(backend,"202607220028_quick_order_redemption_expiry_authority_assertions.sql",restoredDatabase);
+      apply(backend,"202607220029_quick_order_settlement_authority_assertions.sql",restoredDatabase);
       rmSync(dump,{force:true});
       assert.equal(existsSync(dump),false);
 
       const rollbackDatabase=cloneDatabase(backend,"task4_api_rollback");
+      apply(backend,"202607220029_quick_order_settlement_authority.down.sql",rollbackDatabase);
       apply(backend,"202607220028_quick_order_redemption_expiry_authority.down.sql",rollbackDatabase);
       apply(backend,"202607220027_quick_order_checkout_api.down.sql",rollbackDatabase);
       assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_get_callback_authority(text,timestamptz)') IS NULL;",rollbackDatabase),"t");
@@ -2169,6 +2203,8 @@ async function main() {
       apply(backend,"202607220027_quick_order_checkout_api_assertions.sql",rollbackDatabase);
       apply(backend,"202607220028_quick_order_redemption_expiry_authority.up.sql",rollbackDatabase);
       apply(backend,"202607220028_quick_order_redemption_expiry_authority_assertions.sql",rollbackDatabase);
+      apply(backend,"202607220029_quick_order_settlement_authority.up.sql",rollbackDatabase);
+      apply(backend,"202607220029_quick_order_settlement_authority_assertions.sql",rollbackDatabase);
       assert.equal(psql(backend,"SELECT to_regprocedure('saas.checkout_get_callback_authority(text,timestamptz)') IS NOT NULL;",rollbackDatabase),"t");
 
       const partialDatabase=`${DATABASE}_task4_partial`;

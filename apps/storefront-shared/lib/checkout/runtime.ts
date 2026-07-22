@@ -121,11 +121,13 @@ function uuidFromDigest(digest: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-function paymentSettlementIdentity(attemptId: string) {
+function paymentSettlementIdentity(attemptId: string, itemCount: number) {
+  if (!Number.isSafeInteger(itemCount) || itemCount < 1 || itemCount > 100) invalid();
   const authority = digestParts("settlement", attemptId);
   return Object.freeze({
     orderId: uuidFromDigest(digestParts("order", authority)),
-    orderItemIds: Object.freeze([uuidFromDigest(digestParts("order-item", authority, "0"))]),
+    orderItemIds: Object.freeze(Array.from({ length: itemCount }, (_, index) =>
+      uuidFromDigest(digestParts("order-item", authority, String(index))))),
     orderEventId: uuidFromDigest(digestParts("order-event", authority)),
     orderNumber: `QO-${authority.slice(0, 20).toUpperCase()}`,
   });
@@ -390,7 +392,8 @@ export function createPaytrCallbackRoute(dependencies: Readonly<{
         authenticated.status === "failed" ? authenticated.failedReasonMessageDigest : "TRY");
       const result = await runtime.paymentRepository.settleCallback(authenticated.status === "success"
         ? { ...authenticated, merchantOid: selectedAuthority.merchantOid, callbackDigest: callback.callbackDigest,
-            operationId: operation.operationId, fingerprint: facts, ...paymentSettlementIdentity(selectedAuthority.attemptId), now: new Date(now) }
+            operationId: operation.operationId, fingerprint: facts,
+            ...paymentSettlementIdentity(selectedAuthority.attemptId, selectedAuthority.itemCount), now: new Date(now) }
         : { ...authenticated, merchantOid: selectedAuthority.merchantOid, callbackDigest: callback.callbackDigest,
             operationId: operation.operationId, fingerprint: facts, now: new Date(now) });
       if (result.outcome === "commit_unknown") return callbackResponse(503, "RETRY");
@@ -509,7 +512,7 @@ export async function runQuickOrderReconciliation(dependencies: ReconciliationDe
             await dependencies.paymentRepository.applyReconciliationSuccess({ merchantOid: claim.merchantOid, workerId,
               leaseToken: claim.leaseToken, ...phase, paymentAmount: providerResult.paymentAmount,
               totalAmount: providerResult.totalAmount, currency: "TRY", testMode: 1,
-              ...paymentSettlementIdentity(claim.attemptId), now: new Date(mutationNow) });
+              ...paymentSettlementIdentity(claim.attemptId, claim.itemCount), now: new Date(mutationNow) });
             settled += 1;
           } catch { failures += 1; }
         } else if (mutationRemaining >= 6_000) {
