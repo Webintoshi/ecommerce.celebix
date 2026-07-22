@@ -1,0 +1,14 @@
+import {MERCHANT_ADMIN_RECORD_KINDS,parseMerchantAdminConfig,type MerchantAdminJson,type MerchantAdminRecordKind} from "@celebix/saas-contracts";
+import {catalogAuthority} from "../catalog/validation.ts";
+import {MerchantAdminRepositoryError} from "./errors.ts";
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,CONTROL=/[\u0000-\u001f\u007f]/;
+function fail():never{throw new MerchantAdminRepositoryError("invalid_input")}
+function object(value:unknown){if(typeof value!=="object"||value===null||Array.isArray(value)||(Object.getPrototypeOf(value)!==Object.prototype&&Object.getPrototypeOf(value)!==null))fail();return value as Record<string,unknown>}
+export function exactMerchantAdminInput(value:unknown,required:readonly string[],optional:readonly string[]=[]){const result=object(value),allowed=new Set([...required,...optional]);if(required.some((key)=>!Object.hasOwn(result,key))||Object.keys(result).some((key)=>!allowed.has(key)))fail();return result}
+export function merchantAdminUuid(value:unknown){if(typeof value!=="string"||!UUID.test(value))fail();return value}
+export function merchantAdminVersion(value:unknown){if(!Number.isSafeInteger(value)||(value as number)<1)fail();return value as number}
+export function merchantAdminKind(value:unknown):MerchantAdminRecordKind{if(!MERCHANT_ADMIN_RECORD_KINDS.includes(value as never))fail();return value as MerchantAdminRecordKind}
+export function merchantAdminText(value:unknown){if(typeof value!=="string"||value.length<1||value.length>160||value!==value.trim()||CONTROL.test(value))fail();return value}
+export function merchantAdminConfig(value:unknown):Readonly<Record<string,MerchantAdminJson>>{try{return parseMerchantAdminConfig(value)}catch{fail()}}
+export function merchantAdminStatus(value:unknown):"draft"|"active"{if(value!=="draft"&&value!=="active")fail();return value}
+export{catalogAuthority};
