@@ -6,6 +6,7 @@ import process from "node:process";
 import {
   PostgresAbandonedCartRepository,
   PostgresCatalogRepository,
+  PostgresCatalogAdminRepository,
   PostgresCustomerRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
@@ -17,6 +18,7 @@ import type { CustomerPanelStagingAuthConfig } from "../panel-auth-authority/con
 import { createPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import { createPostgresPanelSessionRepository } from "../panel-session-persistence/postgres-panel-session-repository.ts";
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
+import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
@@ -131,6 +133,11 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.customers_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.customers_add_note(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.customers_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS customer_repository,
+      to_regprocedure('saas.catalog_admin_list_resources(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_admin_save_resource(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,text,text,jsonb,uuid[])') IS NOT NULL
+        AND to_regprocedure('saas.catalog_admin_list_reviews(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_admin_import_products(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,text,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.catalog_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_admin_repository,
       to_regprocedure('saas.quick_links_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
@@ -161,6 +168,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true ||
       row.abandoned_cart_repository !== true ||
       row.customer_repository !== true ||
+      row.catalog_admin_repository !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
@@ -225,6 +233,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const catalogAdminRepository = new PostgresCatalogAdminRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
+      audit: () => undefined,
+    });
     const quickLinkRepositoryOptions = {
       pool,
       role: "celebix_saas_app" as const,
@@ -241,6 +256,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerOrderRepository(access, orderRepository);
     registerServerAbandonedCartRepository(access, abandonedCartRepository);
     registerServerCustomerRepository(access, customerRepository);
+    registerServerCatalogAdminRepository(access, catalogAdminRepository);
     registerServerQuickLinksRuntime(access, {
       links: quickLinkRepository,
       privateLinks: quickLinkPrivateRepository,
