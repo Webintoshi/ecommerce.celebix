@@ -47,8 +47,7 @@
 .refreshButton:focus-visible,
 .errorState button:focus-visible { outline: 3px solid rgb(255 106 0 / 35%); outline-offset: 2px; }
 
-.catalogSurface,
-.unsupportedSurface {
+.catalogSurface {
   min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(218, 224, 233, .82);
@@ -147,29 +146,6 @@
   color: #1F2937;
 }
 
-.unsupportedSurface { padding: 1.25rem; }
-.unsupportedGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: .75rem;
-  margin-top: 1rem;
-}
-
-.unsupportedCard {
-  min-width: 0;
-  min-height: 126px;
-  border: 1px dashed #D9DEE7;
-  border-radius: .5rem;
-  background: #F9F9F9;
-  padding: 1rem;
-}
-
-.unsupportedCard span,
-.unsupportedCard b { display: block; }
-.unsupportedCard span { color: #6B7280; font-size: .8rem; font-weight: 700; }
-.unsupportedCard b { margin-top: .6rem; color: #374151; font-size: .95rem; }
-.unsupportedCard p { margin: .55rem 0 0; color: #7B8494; font-size: .75rem; line-height: 1.45; }
-
 .actionRail { display: flex; flex-wrap: wrap; gap: .75rem; }
 .actionRail a { min-width: 48px; min-height: 48px; }
 
@@ -177,7 +153,6 @@
 
 @media (max-width: 1280px) {
   .cardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .unsupportedGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 640px) {
@@ -187,9 +162,7 @@
   .errorState { align-items: stretch; flex-direction: column; }
   .controlBar > div { width: 100%; }
   .filterButton { width: 100%; }
-  .chartPanel,
-  .unsupportedSurface { padding: 1rem; }
-  .unsupportedGrid { grid-template-columns: 1fr; }
+  .chartPanel { padding: 1rem; }
   .actionRail { display: grid; }
 }
 

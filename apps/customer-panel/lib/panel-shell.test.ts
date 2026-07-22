@@ -9,7 +9,6 @@ import {
   getPanelRoutePresentation,
   isPanelNavigationPathActive,
   PANEL_NAVIGATION,
-  PANEL_ORDER_NAVIGATION,
 } from "./panel-ui/navigation.ts";
 import type { PanelChromeModel } from "./panel-ui/chrome-model.ts";
 import { readyAuthority, unavailableAuthority } from "./panel-ui/authority-slice.ts";
@@ -331,12 +330,12 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "lucide-react") {
-      return { Home: Icon, Package: Icon, Plus: Icon, Settings: Icon, ShoppingBag: Icon };
+      return { Home: Icon, Link2: Icon, Package: Icon, Plus: Icon, Settings: Icon, ShoppingBag: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
     if (specifier === "@/lib/panel-ui/navigation") {
-      return { isPanelNavigationPathActive, PANEL_NAVIGATION, PANEL_ORDER_NAVIGATION };
+      return { isPanelNavigationPathActive, PANEL_NAVIGATION };
     }
     if (specifier === "./panel-shell.module.css") {
       const styles = new Proxy({}, {
@@ -616,11 +615,12 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
     };
 
     for (const [nextPathname, expectedTitle] of [
-      ["/", "Genel bakış"],
+      ["/", "Özet"],
       ["/products", "Ürün kataloğu"],
       ["/products/new", "Yeni ürün oluştur"],
       ["/products/product-123", "Ürün ayrıntısı"],
       ["/orders", "Siparişler"],
+      ["/orders/quick-links", "Hızlı Siparişler"],
       ["/orders/order-123", "Sipariş ayrıntısı"],
       ["/setup", "Kurulum durumu"],
     ] as const) {
@@ -666,6 +666,17 @@ test("products/new marks only the Yeni ürün link as the current page", async (
   assert.deepEqual(currentLinks, [{ href: "/products/new", label: "Yeni ürün" }]);
 });
 
+test("orders/quick-links marks only Hızlı Siparişler as the current page", async () => {
+  const html = await renderPanelNavigation("/orders/quick-links");
+  const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
+    .map(([link]) => ({
+      href: link.match(/href="([^"]+)"/)?.[1],
+      label: link.replace(/<[^>]*>/g, ""),
+    }));
+
+  assert.deepEqual(currentLinks, [{ href: "/orders/quick-links", label: "Hızlı Siparişler" }]);
+});
+
 test("logout stays on the existing same-origin JSON mutation", async () => {
   const logout = await source("components/panel/LogoutButton.tsx");
   assert.match(logout, /fetch\(["']\/api\/session\/logout["']/);
@@ -692,7 +703,7 @@ test("mobile drawer has dialog, Escape, backdrop, focus-return, and swipe-close 
 test("mobile dock is exact, safe-area aware, 48px, reduced-motion, and breakpoint-correct", async () => {
   const dock = await source("components/panel/PanelMobileDock.tsx");
   const css = await source("components/panel/panel-shell.module.css");
-  assert.match(dock, /label:\s*"Ana"/);
+  assert.match(dock, /label:\s*"Özet"/);
   assert.match(dock, /label:\s*"Ürünler"/);
   assert.match(dock, />Menü<\/span>/);
   assert.doesNotMatch(dock, /Sipariş|Toshi|Müşteri|Bildirim/);
@@ -1084,7 +1095,7 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
   assert.match(styles, /\.cardGrid\s+strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
 });
 
-test("dashboard presentation renders exact ready catalog data and unsupported commerce without links", async () => {
+test("dashboard presentation renders exact ready catalog data and only real merchant actions", async () => {
   const chrome = Object.freeze({
     storeSlug: "pilot-store",
     membershipLabel: "Mağaza sahibi",
@@ -1111,14 +1122,15 @@ test("dashboard presentation renders exact ready catalog data and unsupported co
   const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded" });
 
   assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
+  assert.match(html, /<h1>Özet<\/h1>/);
   assert.match(html, /data-chart-labels="Toplam ürün\|Aktif ürün\|Taslak ürün\|Stokta olmayan\|Etkin medya"/);
   assert.match(html, /data-chart-values="4,3,1,2,7"/);
   assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 2);
   assert.equal((html.match(/<button[^>]*disabled=""[^>]*aria-disabled="true"/g) ?? []).length, 2);
-  const unsupported = html.match(/<section[^>]*aria-labelledby="unsupported-dashboard-title"[\s\S]*?<\/section>/)?.[0];
-  assert.ok(unsupported);
-  assert.equal((unsupported.match(/Desteklenmiyor/g) ?? []).length, 4);
-  assert.doesNotMatch(unsupported, /<a\b|>\s*\d/);
+  for (const href of ["/orders", "/orders/quick-links", "/products", "/products/new", "/setup"]) {
+    assert.match(html, new RegExp(`href="${href.replaceAll("/", "\\/")}"`));
+  }
+  assert.doesNotMatch(html, /unsupported-dashboard-title|Desteklenmiyor|Kullanılamıyor|\/api\/admin/);
 });
 
 test("dashboard presentation renders one retry control without stale ready data", async () => {

@@ -12,7 +12,7 @@ export function PanelShell({ children, session }: { children: React.ReactNode; s
         </Link>
         <StoreSelector stores={[]} activeStoreId={session.activeStoreId} />
         <nav aria-label="Panel menüsü">
-          <Link href="/">Genel bakış</Link>
+          <Link href="/">Özet</Link>
           <Link href="/setup">Kurulum durumu</Link>
         </nav>
         <form action="/auth/logout" method="post">

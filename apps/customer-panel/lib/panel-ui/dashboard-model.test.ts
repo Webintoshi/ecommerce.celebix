@@ -34,8 +34,10 @@ test("projects exact store, membership, plan, and storefront facts", () => {
   ]);
 });
 
-test("offers only working product and setup actions", () => {
+test("offers every and only working merchant action", () => {
   assert.deepEqual(createPanelDashboardModel(chrome).actions.map((action) => action.href), [
+    "/orders",
+    "/orders/quick-links",
     "/products",
     "/products/new",
     "/setup",
@@ -45,8 +47,15 @@ test("offers only working product and setup actions", () => {
 test("emits no fake commerce KPI or deferred module", () => {
   assert.doesNotMatch(
     JSON.stringify(createPanelDashboardModel(chrome)),
-    /revenue|ciro|order|sipariş|conversion|dönüşüm|visitor|sepet|customer|analytics|stok toplamı/i,
+    /revenue|ciro|conversion|dönüşüm|visitor|sepet|customer|analytics|stok toplamı/i,
   );
+});
+
+test("uses Özet as the immutable root presentation title", () => {
+  const model = createMerchantDashboardViewModel(chrome, readyAuthority(summary, "2026-07-20T12:00:00.000Z"));
+  assert.equal(model.title, "Özet");
+  assert.equal(createPanelDashboardModel(chrome).title, "Özet");
+  assert.equal(Object.isFrozen(model.actions), true);
 });
 
 test("deep-freezes cards, actions, and the root", () => {

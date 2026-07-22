@@ -30,12 +30,6 @@ import {
 } from "@/lib/panel-ui/dashboard-model";
 import styles from "./panel-dashboard.module.css";
 
-const UNSUPPORTED_DOMAINS = Object.freeze([
-  Object.freeze({ key: "analytics" as const, label: "Analizler" }),
-  Object.freeze({ key: "customers" as const, label: "Müşteriler" }),
-  Object.freeze({ key: "carts" as const, label: "Sepetler" }),
-]);
-
 const unavailableCatalog = (retryable: boolean): AuthoritySlice<CatalogDashboardSummary> =>
   Object.freeze({ state: "unavailable", retryable });
 
@@ -222,27 +216,6 @@ export function PanelDashboardPresentation({
           </div>
         </section>
       ) : null}
-
-      <section className={styles.unsupportedSurface} aria-labelledby="unsupported-dashboard-title">
-        <div className={styles.sectionHeader}>
-          <div>
-            <h2 id="unsupported-dashboard-title">Ticaret görünümü</h2>
-            <p>{dashboard.orders.state === "unsupported" ? "Sipariş, analiz, müşteri ve sepet verileri bu panelde desteklenmiyor." : "Analiz, müşteri ve sepet verileri bu panelde henüz desteklenmiyor."}</p>
-          </div>
-        </div>
-        <div className={styles.unsupportedGrid}>
-          {dashboard.orders.state === "unsupported" ? <article className={styles.unsupportedCard}><span>Siparişler</span><b>Desteklenmiyor</b><p>Bu alan için doğrulanmış bir veri kaynağı bağlı değil.</p></article> : null}
-          {UNSUPPORTED_DOMAINS.map((domain) => (
-            <article className={styles.unsupportedCard} key={domain.key}>
-              <span>{domain.label}</span>
-              <b>
-                {dashboard[domain.key].state === "unsupported" ? "Desteklenmiyor" : "Kullanılamıyor"}
-              </b>
-              <p>Bu alan için doğrulanmış bir veri kaynağı bağlı değil.</p>
-            </article>
-          ))}
-        </div>
-      </section>
 
       <PanelPanel title="Hızlı işlemler">
         <div className={styles.actionRail}>

@@ -17,7 +17,7 @@ export interface PanelDashboardCard {
 
 export interface PanelDashboardAction {
   readonly label: string;
-  readonly href: "/products" | "/products/new" | "/setup";
+  readonly href: "/orders" | "/orders/quick-links" | "/products" | "/products/new" | "/setup";
 }
 
 export interface PanelDashboardCatalogCard {
@@ -34,7 +34,7 @@ export interface PanelDashboardCatalogReadiness {
 }
 
 export interface PanelDashboardModel {
-  readonly title: "Genel bakış";
+  readonly title: "Özet";
   readonly description: string;
   readonly cards: readonly PanelDashboardCard[];
   readonly catalogCards: readonly PanelDashboardCatalogCard[];
@@ -57,7 +57,7 @@ export interface CatalogDashboardViewModel {
 }
 
 export interface MerchantDashboardViewModel {
-  readonly title: "Genel bakış";
+  readonly title: "Özet";
   readonly description: string;
   readonly chromeCards: readonly PanelDashboardCard[];
   readonly catalog: AuthoritySlice<CatalogDashboardViewModel>;
@@ -109,6 +109,8 @@ export function createPanelDashboardModel(
     }),
   ]);
   const actions = Object.freeze([
+    Object.freeze({ label: "Siparişleri yönet", href: "/orders" as const }),
+    Object.freeze({ label: "Hızlı sipariş oluştur", href: "/orders/quick-links" as const }),
     Object.freeze({ label: "Ürünleri yönet", href: "/products" as const }),
     Object.freeze({ label: "Yeni ürün ekle", href: "/products/new" as const }),
     Object.freeze({ label: "Kurulumu gözden geçir", href: "/setup" as const }),
@@ -149,8 +151,8 @@ export function createPanelDashboardModel(
       detail: `${summary.productsWithoutMedia} üründe medya eksik · ${summary.activeMedia} etkin medya`,
     });
   return Object.freeze({
-    title: "Genel bakış" as const,
-    description: "Mağazanızın doğrulanmış erişim, plan ve katalog başlangıç görünümü.",
+    title: "Özet" as const,
+    description: "Mağazanızın doğrulanmış erişim, sipariş ve katalog özeti.",
     cards,
     catalogCards,
     ...(catalogReadiness === undefined ? {} : { catalogReadiness }),
