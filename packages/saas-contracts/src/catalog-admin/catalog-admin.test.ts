@@ -19,7 +19,8 @@ test("parses and freezes exact catalog administration resources", () => {
     description: "Vitrin koleksiyonu",
     config: { featured: true },
     status: "active",
-    productCount: 3,
+    productIds: [ID],
+    productCount: 1,
     version: 1,
     createdAt: NOW,
     updatedAt: NOW,
@@ -27,6 +28,7 @@ test("parses and freezes exact catalog administration resources", () => {
   assert.equal(value.kind, "collection");
   assert.equal(Object.isFrozen(value), true);
   assert.equal(Object.isFrozen(value.config), true);
+  assert.equal(Object.isFrozen(value.productIds), true);
   for (const hostile of [
     { ...value, storeId: ID },
     { ...value, kind: "unknown" },

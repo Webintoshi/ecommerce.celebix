@@ -113,6 +113,7 @@ export function parseCatalogAdminResource(
       "slug",
       "config",
       "status",
+      "productIds",
       "productCount",
       "version",
       "createdAt",
@@ -129,6 +130,14 @@ export function parseCatalogAdminResource(
   if (typeof config !== "object" || config === null || Array.isArray(config))
     invalid();
   const resourceConfig = config as Readonly<Record<string, CatalogAdminJson>>;
+  if (!Array.isArray(parsed.productIds) || parsed.productIds.length > 100)
+    invalid();
+  const productIds = Object.freeze(parsed.productIds.map(uuid));
+  if (
+    new Set(productIds).size !== productIds.length ||
+    integer(parsed.productCount) !== productIds.length
+  )
+    invalid();
   return Object.freeze({
     id: uuid(parsed.id),
     kind: parsed.kind as CatalogAdminResource["kind"],
@@ -139,7 +148,8 @@ export function parseCatalogAdminResource(
       : { description: text(parsed.description, 1, 2000) }),
     config: resourceConfig,
     status: parsed.status as CatalogAdminResource["status"],
-    productCount: integer(parsed.productCount),
+    productIds,
+    productCount: productIds.length,
     version: integer(parsed.version, 1),
     createdAt: timestamp(parsed.createdAt),
     updatedAt: timestamp(parsed.updatedAt),

@@ -9,7 +9,7 @@
       "id": "202607220035_catalog_administration_up",
       "direction": "up",
       "file": "202607220035_catalog_administration.up.sql",
-      "sha256": "2581c9f8fa04c20e6411df72d363f68a4c939015963c184ec13a0835ebfacfd7",
+      "sha256": "f8449e0c06e22f528db5c4bffa4a74f07236f47bdd0898cd194faf1e042a7313",
       "purpose": "Add forced-RLS catalog administration resources, moderation, durable imports and replay-safe APIs."
     },
     {

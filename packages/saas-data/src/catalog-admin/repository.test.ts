@@ -81,7 +81,7 @@ function mutation(id: string, status = "active") {
 }
 
 test("resource reads and saves use exact durable authority", async () => {
-  const reader = new Client((text) => text.includes("catalog_admin_list_resources") ? [{ outcome: "listed", result_payload: { items: [{ id: RESOURCE, kind: "collection", name: "Yeni Gelenler", slug: "yeni-gelenler", config: { featured: true }, status: "active", productCount: 1, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() }] } }] : []);
+  const reader = new Client((text) => text.includes("catalog_admin_list_resources") ? [{ outcome: "listed", result_payload: { items: [{ id: RESOURCE, kind: "collection", name: "Yeni Gelenler", slug: "yeni-gelenler", config: { featured: true }, status: "active", productIds: [PRODUCT], productCount: 1, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() }] } }] : []);
   const result = await repository(new Pool([reader])).listResources({ tenantContext: tenant(), now: NOW, kind: "collection" });
   assert.equal(result[0]?.productCount, 1);
   assert.deepEqual(call(reader, "catalog_admin_list_resources").values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, "collection"]);

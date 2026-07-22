@@ -24,6 +24,7 @@ export interface CatalogAdminResource {
   readonly description?: string;
   readonly config: Readonly<Record<string, CatalogAdminJson>>;
   readonly status: CatalogAdminResourceStatus;
+  readonly productIds: readonly string[];
   readonly productCount: number;
   readonly version: number;
   readonly createdAt: string;
