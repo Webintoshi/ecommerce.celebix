@@ -78,6 +78,25 @@ test("catalog variant choices reject cursor loops bounds duplicates and hostile 
   }
 });
 
+test("catalog variant choices bound every returned detail variant before active filtering", async () => {
+  await assert.rejects(
+    () => loadCatalogVariantChoices({
+      async listProducts() { return { items: [product(1), product(2)] }; },
+      async getProduct(productId) {
+        const number = Number(productId.slice(0, 8));
+        return {
+          product: product(number),
+          variants: [
+            Object.freeze({ ...variant(number, "archived"), productId: id(number) }),
+            Object.freeze({ ...variant(number + 500, "archived"), productId: id(number) }),
+          ],
+        };
+      },
+    }, new AbortController().signal, { maximumVariants: 3 }),
+    /catalog_variant_choices_unavailable/,
+  );
+});
+
 test("catalog variant choices propagate owned abort to the underlying request and publish nothing", async () => {
   const controller = new AbortController();
   let observed: AbortSignal | undefined;

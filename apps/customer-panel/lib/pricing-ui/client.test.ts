@@ -13,10 +13,12 @@ import {
   pricingErrorState,
   pricingRuleDraft,
   PricingApiError,
+  type PricingPreviewSnapshot,
 } from "./client.ts";
 
 const ID = "20000000-0000-4000-8000-000000000001";
 const VARIANT = "30000000-0000-4000-8000-000000000001";
+const VARIANT_TWO = "30000000-0000-4000-8000-000000000002";
 const OP = "50000000-0000-4000-8000-000000000001";
 const NOW = "2026-07-23T12:00:00.000Z";
 const list = (status: "draft" | "active" | "archived" = "draft", version = 1): PriceList => ({ id: ID, name: "VIP", status, items: [{ variantId: VARIANT, priceCents: 1000 }], rules: [{ channel: "storefront", startsAt: NOW, priority: 1 }], version, createdAt: NOW, updatedAt: NOW, ...(status === "active" ? { activatedAt: NOW } : {}), ...(status === "archived" ? { archivedAt: NOW } : {}) });
@@ -64,6 +66,103 @@ test("pricing client preview is abortable read-only and contains no browser auth
     await assert.rejects(() => api.preview(invalid as never), /pricing_client_invalid/);
   }
   assert.equal(calls.length, 1);
+});
+
+test("pricing client rejects valid-shaped preview results not correlated to its request", async () => {
+  const entry = preview().entries[0]!;
+  const hostile: readonly PricingPreviewResult[] = [
+    { ...preview(), entries: [{ ...entry, variantId: VARIANT_TWO }] },
+    { ...preview(), entries: [entry, { ...entry, variantId: VARIANT_TWO }] },
+    { ...preview(), entries: [{ ...entry, channel: "quick_order" }] },
+    { ...preview(), asOf: "2026-07-23T12:00:00.000Z" },
+  ];
+  for (const result of hostile) {
+    const api = createPricingApi(async () => Response.json(result), () => OP);
+    await assert.rejects(
+      () => api.preview({ channel: "storefront", variantIds: [VARIANT] }),
+      (error: unknown) => error instanceof PricingApiError && error.code === "unavailable",
+    );
+  }
+  await assert.rejects(
+    () => createPricingApi(async () => Response.json(preview()), () => OP).preview({
+      channel: "storefront", variantIds: [VARIANT, VARIANT_TWO],
+    }),
+    (error: unknown) => error instanceof PricingApiError && error.code === "unavailable",
+  );
+});
+
+test("pricing preview controller batches five hundred selected variants into bounded complete requests", async () => {
+  const variantIds = Array.from({ length: 500 }, (_, index) =>
+    `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`
+  );
+  const calls: Array<readonly string[]> = [];
+  const states: PricingPreviewSnapshot[] = [];
+  const controller = createPricingPreviewController({
+    async preview(input) {
+      calls.push(input.variantIds);
+      return {
+        entries: Object.freeze([...input.variantIds].sort().map((variantId) => Object.freeze({
+          variantId, channel: input.channel, basePriceCents: 1500,
+          effectivePriceCents: 1500, sourceKind: "base" as const,
+        }))),
+        asOf: "2026-07-23T12:00:00.000000Z",
+      };
+    },
+  }, (state) => states.push(state));
+  controller.load({ channel: "storefront", variantIds });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls.map((batch) => batch.length), [100, 100, 100, 100, 100]);
+  assert.ok(calls.every((batch) => batch.length <= 100));
+  const loaded = states.at(-1);
+  assert.equal(loaded?.phase, "loaded");
+  assert.equal(loaded?.phase === "loaded" ? loaded.result.entries.length : 0, 500);
+});
+
+test("pricing preview controller publishes no partial batch and suppresses stale batched generations", async () => {
+  const ids = Array.from({ length: 101 }, (_, index) =>
+    `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`
+  );
+  const pending: Array<{
+    input: Readonly<{ channel: "storefront" | "quick_order"; variantIds: readonly string[] }>;
+    signal: AbortSignal;
+    resolve(value: PricingPreviewResult): void;
+    reject(error: unknown): void;
+  }> = [];
+  const states: PricingPreviewSnapshot[] = [];
+  const controller = createPricingPreviewController({
+    preview(input, signal) {
+      return new Promise((resolve, reject) => pending.push({ input, signal: signal!, resolve, reject }));
+    },
+  }, (state) => states.push(state));
+  controller.load({ channel: "storefront", variantIds: ids });
+  assert.equal(pending.length, 2);
+  pending[0]!.resolve({
+    entries: pending[0]!.input.variantIds.map((variantId) => ({ variantId, channel: "storefront", basePriceCents: 1, effectivePriceCents: 1, sourceKind: "base" })),
+    asOf: "2026-07-23T12:00:00.000000Z",
+  });
+  pending[1]!.reject(new Error("second batch unavailable"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(states.at(-1), { phase: "unavailable" });
+  assert.equal(states.some((state) => state.phase === "loaded"), false);
+
+  controller.load({ channel: "storefront", variantIds: ids });
+  const stale = pending.slice(2);
+  controller.load({ channel: "quick_order", variantIds: [VARIANT] });
+  assert.ok(stale.every(({ signal }) => signal.aborted));
+  for (const request of stale) {
+    request.resolve({
+      entries: request.input.variantIds.map((variantId) => ({ variantId, channel: "storefront", basePriceCents: 1, effectivePriceCents: 1, sourceKind: "base" })),
+      asOf: "2026-07-23T12:00:00.000000Z",
+    });
+  }
+  pending.at(-1)!.resolve({
+    entries: [{ variantId: VARIANT, channel: "quick_order", basePriceCents: 2, effectivePriceCents: 2, sourceKind: "base" }],
+    asOf: "2026-07-23T12:00:00.000000Z",
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  const loaded = states.at(-1);
+  assert.equal(loaded?.phase, "loaded");
+  assert.equal(loaded?.phase === "loaded" ? loaded.result.entries[0]?.channel : undefined, "quick_order");
 });
 
 test("pricing preview controller aborts stale generations and never publishes invented truth", async () => {

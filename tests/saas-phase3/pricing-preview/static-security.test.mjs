@@ -48,6 +48,10 @@ test("047 assertions and guarded down pin exact immutable authority", () => {
   const assertions = read(assertionsName);
   assert.match(down, /PRICING_PREVIEW_ROLLBACK_DRIFT/);
   assert.match(down, /pg_get_functiondef/);
+  assert.match(down, /expected_definition/);
+  assert.match(down, /regexp_replace/);
+  assert.match(down, /function_acl IS DISTINCT FROM/);
+  assert.doesNotMatch(down, /definition NOT LIKE/);
   assert.match(down, /DROP FUNCTION saas[.]pricing_preview/);
   assert.match(assertions, /provolatile='s'/);
   assert.match(assertions, /prosecdef/);

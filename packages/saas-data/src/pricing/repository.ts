@@ -95,7 +95,26 @@ export class PostgresPricingRepository implements PricingRepository {
       SQL.preview,
       [...authorityValues(authority), request.channel, [...request.variantIds]],
       "previewed",
-      parsePricingPreviewResult,
+      (value) => {
+        try {
+          const raw = exactPricingInput(value, ["entries", "asOf"]);
+          const result = parsePricingPreviewResult(raw);
+          const expectedAsOf = authority.now.toISOString().replace(/(\.\d{3})Z$/, "$1000Z");
+          const requested = new Set(request.variantIds);
+          if (
+            raw.asOf !== result.asOf
+            || result.asOf !== expectedAsOf
+            || result.entries.length !== request.variantIds.length
+            || result.entries.some((entry) => (
+              entry.channel !== request.channel || !requested.delete(entry.variantId)
+            ))
+            || requested.size !== 0
+          ) throw unavailable();
+          return result;
+        } catch {
+          throw unavailable();
+        }
+      },
     );
   }
 }

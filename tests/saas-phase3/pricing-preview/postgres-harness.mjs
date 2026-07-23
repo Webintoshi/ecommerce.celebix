@@ -131,7 +131,7 @@ INSERT INTO saas.price_list_rules(id,store_id,price_list_id,channel,customer_tag
 COMMIT;`, database);
 }
 
-const TOTAL = 32;
+const TOTAL = 34;
 let count = 0;
 async function scenario(name, run) {
   await run();
@@ -221,11 +221,23 @@ async function main() {
       command(box.executables.pg_restore, ["-h", box.socket, "-p", String(box.port), "-U", "postgres", "-d", RESTORED, dump]);
       assert.deepEqual(call(box, {}, RESTORED), call(box));
     });
-    await scenario("down refuses function drift", () => {
-      psql(box, "ALTER FUNCTION saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid[]) VOLATILE;");
-      const failed = psql(box, readFileSync(path.join(SQL, "202607230047_pricing_preview.down.sql"), "utf8"), DB, true);
+    const guardedDown = (mutation) => psql(
+      box,
+      `BEGIN;${mutation}\n${readFileSync(path.join(SQL, "202607230047_pricing_preview.down.sql"), "utf8")}`,
+      DB,
+      true,
+    );
+    await scenario("down refuses exact function-definition drift", () => {
+      const failed = guardedDown(`CREATE OR REPLACE FUNCTION saas.pricing_preview(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_channel text,p_variant_ids uuid[]) RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $changed$ BEGIN RETURN QUERY SELECT 'previewed',NULL::jsonb; END $changed$;`);
       assert.notEqual(failed.status, 0); assert.match(failed.stderr, /PRICING_PREVIEW_ROLLBACK_DRIFT/);
-      psql(box, "ALTER FUNCTION saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid[]) STABLE;");
+    });
+    await scenario("down refuses exact ACL drift", () => {
+      const failed = guardedDown("GRANT EXECUTE ON FUNCTION saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid[]) TO celebix_saas_workflow;");
+      assert.notEqual(failed.status, 0); assert.match(failed.stderr, /PRICING_PREVIEW_ROLLBACK_DRIFT/);
+    });
+    await scenario("down refuses exact metadata drift", () => {
+      const failed = guardedDown("ALTER FUNCTION saas.pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,uuid[]) VOLATILE;");
+      assert.notEqual(failed.status, 0); assert.match(failed.stderr, /PRICING_PREVIEW_ROLLBACK_DRIFT/);
     });
     await scenario("exact down and reapply restore authority", () => {
       apply(box, "202607230047_pricing_preview.down.sql");

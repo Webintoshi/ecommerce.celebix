@@ -159,6 +159,7 @@ export async function loadCatalogVariantChoices(
     const details: Array<Readonly<{ product: Product; variants: readonly ProductVariant[] }> | undefined> =
       new Array(products.length);
     let nextIndex = 0;
+    let returnedVariantCount = 0;
     async function worker() {
       for (;;) {
         signal.throwIfAborted();
@@ -173,6 +174,8 @@ export async function loadCatalogVariantChoices(
         signal.throwIfAborted();
         const product = parseProduct(detail.product);
         const variants = dense(detail.variants, limits.maximumVariants, parseProductVariant);
+        returnedVariantCount += variants.length;
+        if (returnedVariantCount > limits.maximumVariants) unavailable();
         if (
           product.id !== expected.id
           || product.status !== "active"
@@ -198,7 +201,6 @@ export async function loadCatalogVariantChoices(
         if (variant.productId !== product.id || variantIds.has(variant.id)) unavailable();
         variantIds.add(variant.id);
         if (variant.status !== "active") continue;
-        if (variants.length >= limits.maximumVariants) unavailable();
         variants.push(Object.freeze({
           variantId: variant.id,
           productId: product.id,

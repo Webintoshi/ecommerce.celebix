@@ -32,6 +32,7 @@ export class PricingApiError extends Error {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const LOCAL_UTC = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
+const MICROSECOND_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 const CODES = ["invalid_input", "conflict", "forbidden", "not_found", "unauthenticated", "method_not_allowed", "unavailable"] as const;
 type Fetch = typeof fetch;
 
@@ -189,6 +190,32 @@ function apiError(value: unknown, status: number) {
 
 function items(value: unknown): readonly PriceList[] { const parsed = exact(value, ["items"]); return Object.freeze(dense(parsed.items, 0, 500).map(parsePriceList)); }
 
+function pricingPreviewSelection(value: unknown, maximum: number): PricingPreviewRequest {
+  const parsed = exact(value, ["channel", "variantIds"]);
+  if (parsed.channel !== "storefront" && parsed.channel !== "quick_order") return invalid();
+  const variantIds = Object.freeze(dense(parsed.variantIds, 1, maximum).map(id));
+  if (new Set(variantIds).size !== variantIds.length) return invalid();
+  return Object.freeze({ channel: parsed.channel, variantIds });
+}
+
+function correlatedPricingPreviewResult(
+  value: unknown,
+  request: PricingPreviewRequest,
+): PricingPreviewResult {
+  const raw = exact(value, ["entries", "asOf"]);
+  if (typeof raw.asOf !== "string" || !MICROSECOND_UTC.test(raw.asOf)) return invalid();
+  const result = parsePricingPreviewResult(raw);
+  const requested = new Set(request.variantIds);
+  if (
+    result.entries.length !== request.variantIds.length
+    || result.entries.some((entry) => (
+      entry.channel !== request.channel || !requested.delete(entry.variantId)
+    ))
+    || requested.size !== 0
+  ) return invalid();
+  return result;
+}
+
 export function pricingErrorState(value: unknown): PricingErrorState {
   if (!(value instanceof PricingApiError)) return "error";
   if (value.code === "forbidden" || value.code === "unauthenticated") return "denied";
@@ -225,17 +252,18 @@ export function createPricingApi(fetcher: Fetch = fetch, uuid: () => string = ()
     async activate(priceListId: string, expectedVersion: number, signal?: AbortSignal) { return request(`/api/pricing/price-lists/${id(priceListId)}/activate`, parsePriceList, { operationId: operation(), expectedVersion: version(expectedVersion) }, signal); },
     async archive(priceListId: string, expectedVersion: number, signal?: AbortSignal) { return request(`/api/pricing/price-lists/${id(priceListId)}/archive`, parsePriceList, { operationId: operation(), expectedVersion: version(expectedVersion) }, signal); },
     async preview(value: PricingPreviewRequest, signal?: AbortSignal) {
-      const parsed = exact(value, ["channel", "variantIds"]);
       let safe: PricingPreviewRequest;
       try {
-        safe = parsePricingPreviewRequest({
-          channel: parsed.channel,
-          variantIds: parsed.variantIds,
-        });
+        safe = parsePricingPreviewRequest(pricingPreviewSelection(value, 100));
       } catch {
         return invalid();
       }
-      return request("/api/pricing/preview", parsePricingPreviewResult, safe, signal);
+      return request(
+        "/api/pricing/preview",
+        (result) => correlatedPricingPreviewResult(result, safe),
+        safe,
+        signal,
+      );
     },
   });
 }
@@ -261,14 +289,45 @@ export function createPricingPreviewController(
       current = controller;
       const selected = ++generation;
       publish({ phase: "loading" });
-      void api.preview(input, controller.signal).then((result) => {
+      let requests: readonly Promise<PricingPreviewResult>[];
+      try {
+        const safe = pricingPreviewSelection(input, 500);
+        requests = Object.freeze(Array.from(
+          { length: Math.ceil(safe.variantIds.length / 100) },
+          (_, index) => {
+            const batch = parsePricingPreviewRequest({
+              channel: safe.channel,
+              variantIds: safe.variantIds.slice(index * 100, (index + 1) * 100),
+            });
+            return api.preview(batch, controller.signal).then((result) => (
+              correlatedPricingPreviewResult(result, batch)
+            ));
+          },
+        ));
+      } catch {
+        if (current === controller && generation === selected) {
+          current = undefined;
+          controller.abort();
+          publish({ phase: "unavailable" });
+        }
+        return;
+      }
+      void Promise.all(requests).then((results) => {
         if (!controller.signal.aborted && current === controller && generation === selected) {
           current = undefined;
-          publish({ phase: "loaded", result });
+          const entries = Object.freeze(results.flatMap(({ entries }) => entries).sort((left, right) => (
+            left.variantId < right.variantId ? -1 : left.variantId > right.variantId ? 1 : 0
+          )));
+          const asOf = results.reduce(
+            (latest, result) => result.asOf > latest ? result.asOf : latest,
+            results[0]!.asOf,
+          );
+          publish({ phase: "loaded", result: Object.freeze({ entries, asOf }) });
         }
       }).catch(() => {
         if (!controller.signal.aborted && current === controller && generation === selected) {
           current = undefined;
+          controller.abort();
           publish({ phase: "unavailable" });
         }
       });

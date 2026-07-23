@@ -13,6 +13,7 @@ const MEMBERSHIP = "10000000-0000-4000-8000-000000000003";
 const PLAN = "10000000-0000-4000-8000-000000000004";
 const LIST = "20000000-0000-4000-8000-000000000001";
 const VARIANT = "30000000-0000-4000-8000-000000000001";
+const VARIANT_TWO = "30000000-0000-4000-8000-000000000002";
 const TAG = "40000000-0000-4000-8000-000000000001";
 const OPERATION = "50000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-23T12:00:00.000Z");
@@ -159,6 +160,33 @@ test("pricing preview rejects browser authority duplicate variants and hostile p
   );
   assert.equal(reads, 0);
   operationQuery(client, "BEGIN READ ONLY", "ROLLBACK");
+});
+
+test("pricing preview rejects valid-shaped results that do not exactly match request authority", async () => {
+  const entry = {
+    variantId: VARIANT,
+    channel: "storefront" as const,
+    basePriceCents: 1500,
+    effectivePriceCents: 1500,
+    sourceKind: "base" as const,
+  };
+  const cases: readonly PricingPreviewResult[] = [
+    { entries: [entry], asOf: "2026-07-23T12:00:00.000000Z" },
+    { entries: [entry, { ...entry, variantId: "30000000-0000-4000-8000-000000000003" }], asOf: "2026-07-23T12:00:00.000000Z" },
+    { entries: [entry, { ...entry, variantId: VARIANT_TWO, channel: "quick_order" }], asOf: "2026-07-23T12:00:00.000000Z" },
+    { entries: [entry, { ...entry, variantId: VARIANT_TWO }], asOf: "2026-07-23T12:00:00.001000Z" },
+    { entries: [entry, { ...entry, variantId: VARIANT_TWO }], asOf: "2026-07-23T12:00:00.000Z" },
+  ];
+  for (const result of cases) {
+    const client = new Client({ outcome: "previewed", result_payload: result });
+    await assert.rejects(
+      () => repository(new Pool([client])).preview({
+        ...authority(), channel: "storefront", variantIds: [VARIANT, VARIANT_TWO],
+      }),
+      (error: unknown) => pricingRepositoryErrorCode(error) === "unavailable",
+    );
+    operationQuery(client, "BEGIN READ ONLY", "ROLLBACK");
+  }
 });
 
 test("pricing repository canonicalizes item and rule order into deterministic fingerprints", async () => {
