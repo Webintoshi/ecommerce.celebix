@@ -8,6 +8,7 @@ import {
   PostgresCatalogRepository,
   PostgresCatalogAdminRepository,
   PostgresMerchantAdminRepository,
+  PostgresAnalyticsRepository,
   PostgresCustomerRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
@@ -21,6 +22,7 @@ import { createPostgresPanelSessionRepository } from "../panel-session-persisten
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerCatalogAdminRepository } from "../server-catalog-admin/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
+import { registerServerAnalyticsRepository } from "../server-analytics/runtime.ts";
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
@@ -113,6 +115,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       to_regprocedure('saas.catalog_recover_operation(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS catalog_recovery,
       to_regprocedure('saas.catalog_get_product_details(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,boolean)') IS NOT NULL AS catalog_details,
       to_regprocedure('saas.merchant_action_authority_error(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text)') IS NOT NULL AS merchant_action_authority,
+      to_regprocedure('saas.merchant_analytics_dashboard(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text)') IS NOT NULL AS analytics_dashboard,
       to_regprocedure('saas.orders_get_dashboard_summary(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL AS order_summary,
       to_regprocedure('saas.orders_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)') IS NOT NULL AS order_lister,
       to_regprocedure('saas.orders_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS order_reader,
@@ -169,7 +172,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_lister !== true || row.catalog_creator !== true || row.catalog_updater !== true ||
       row.catalog_archiver !== true || row.variant_creator !== true || row.variant_updater !== true ||
       row.variant_archiver !== true || row.catalog_recovery !== true || row.catalog_details !== true ||
-      row.merchant_action_authority !== true || row.order_summary !== true || row.order_lister !== true ||
+      row.merchant_action_authority !== true || row.analytics_dashboard !== true || row.order_summary !== true || row.order_lister !== true ||
       row.order_reader !== true || row.order_status_transition !== true ||
       row.order_payment_transition !== true || row.order_shipping_update !== true ||
       row.order_note_adder !== true || row.order_note_archiver !== true || row.order_recovery !== true ||
@@ -255,6 +258,12 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const analyticsRepository = new PostgresAnalyticsRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      audit: () => undefined,
+    });
     const quickLinkRepositoryOptions = {
       pool,
       role: "celebix_saas_app" as const,
@@ -273,6 +282,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCustomerRepository(access, customerRepository);
     registerServerCatalogAdminRepository(access, catalogAdminRepository);
     registerServerMerchantAdminRepository(access, merchantAdminRepository);
+    registerServerAnalyticsRepository(access, analyticsRepository);
     registerServerQuickLinksRuntime(access, {
       links: quickLinkRepository,
       privateLinks: quickLinkPrivateRepository,

@@ -78,7 +78,7 @@ export function MerchantRecordEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
-  const activeSubmission = useRef<number | undefined>();
+  const activeSubmission = useRef<number | undefined>(undefined);
   const submissionSequence = useRef(0);
 
   const load = useCallback(async () => {
