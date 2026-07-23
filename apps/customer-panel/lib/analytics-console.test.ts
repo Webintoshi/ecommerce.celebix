@@ -222,6 +222,51 @@ test("analytics cleanup suppresses stale updates and always revokes an export UR
   }
 });
 
+test("changing period during an export preserves export ownership until that export settles", async () => {
+  let resolveExport: ((value: unknown) => void) | undefined;
+  const { AnalyticsDashboard, runtime } = await compileAnalyticsDashboard({
+    dashboard: async (period) => dashboard(period, 25_000),
+    export: () => new Promise((resolve) => { resolveExport = resolve; }),
+  });
+  let view = await runtime.flush(AnalyticsDashboard);
+  view = await runtime.flush(AnalyticsDashboard);
+  let csvButton: React.ReactElement<Record<string, unknown>> | undefined;
+  let weekButton: React.ReactElement<Record<string, unknown>> | undefined;
+  visit(view, (element) => {
+    if (element.type !== "button") return;
+    if (element.props.children === "CSV dışa aktar") csvButton = element;
+    if (element.props.children === "Bu hafta") weekButton = element;
+  });
+  assert.ok(csvButton);
+  assert.ok(weekButton);
+  (csvButton.props.onClick as () => void)();
+  view = await runtime.flush(AnalyticsDashboard);
+  assert.match(text(view), /CSV hazırlanıyor/);
+  (weekButton.props.onClick as () => void)();
+  view = await runtime.flush(AnalyticsDashboard);
+  assert.match(text(view), /CSV hazırlanıyor/);
+  resolveExport?.("title,revenue\nDurable,25000\n");
+  const originalUrl = globalThis.URL;
+  const originalDocument = globalThis.document;
+  Object.defineProperty(globalThis, "URL", { configurable: true, value: { createObjectURL: () => "blob:analytics", revokeObjectURL: () => undefined } });
+  Object.defineProperty(globalThis, "document", { configurable: true, value: { createElement: () => ({ href: "", download: "", click: () => undefined }) } });
+  try {
+    view = await runtime.flush(AnalyticsDashboard);
+    let restored: React.ReactElement<Record<string, unknown>> | undefined;
+    visit(view, (element) => { if (element.type === "button" && element.props.children === "CSV dışa aktar") restored = element; });
+    assert.ok(restored);
+    assert.equal(restored.props.disabled, false);
+  } finally {
+    Object.defineProperty(globalThis, "URL", { configurable: true, value: originalUrl });
+    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+  }
+});
+
+test("analytics dashboard root preserves the page-shell grid contract", async () => {
+  const css = await source("components/analytics/analytics-dashboard.module.css");
+  assert.match(css, /[.]root\s*\{[^}]*display:\s*grid[^}]*gap:\s*1[.]5rem[^}]*min-width:\s*0/s);
+});
+
 test("analytics page is behind server access and analytics capability only", async () => {
   const page = await source("app/analytics/page.tsx");
   assert.match(page, /requireServerPanelAccess\(\)/);

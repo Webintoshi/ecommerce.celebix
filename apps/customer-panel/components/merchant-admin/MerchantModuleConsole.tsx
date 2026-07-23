@@ -60,18 +60,27 @@ function inputValue(record: MerchantAdminRecord | null, key: string) {
   return Array.isArray(current) ? current.join("\n") : "";
 }
 
-function dateTimeInputValue(record: MerchantAdminRecord | null, key: string) {
-  const value = record?.config[key];
-  if (typeof value !== "string") return "";
+function dateTimeInputSnapshot(
+  config: Readonly<Record<string, MerchantAdminJson>> | undefined,
+  key: string,
+) {
+  const value = config?.[key];
+  if (typeof value !== "string") return null;
   const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
+  if (!Number.isFinite(date.getTime())) return null;
   const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const localValue = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${String(date.getMilliseconds()).padStart(3, "0")}`;
+  return Object.freeze({ localValue, originalIso: value });
+}
+
+function dateTimeInputValue(record: MerchantAdminRecord | null, key: string) {
+  return dateTimeInputSnapshot(record?.config, key)?.localValue ?? "";
 }
 
 function parseFormConfig(
   fields: readonly MerchantModuleFieldDefinition[],
   data: FormData,
+  originalConfig?: Readonly<Record<string, MerchantAdminJson>>,
 ): Readonly<Record<string, MerchantAdminJson>> {
   const entries: Record<string, MerchantAdminJson> = {};
   for (const field of fields) {
@@ -89,7 +98,12 @@ function parseFormConfig(
       if (!Number.isSafeInteger(number) || number < 0) throw new TypeError("invalid_number");
       entries[field.key] = number;
     } else if (field.type === "datetime") {
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw)) throw new TypeError("invalid_datetime");
+      const original = dateTimeInputSnapshot(originalConfig, field.key);
+      if (original && raw === original.localValue) {
+        entries[field.key] = original.originalIso;
+        continue;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/.test(raw)) throw new TypeError("invalid_datetime");
       const timestamp = new Date(raw);
       if (!Number.isFinite(timestamp.getTime())) throw new TypeError("invalid_datetime");
       entries[field.key] = timestamp.toISOString();
@@ -105,6 +119,13 @@ function parseFormConfig(
     }
   }
   return Object.freeze(entries);
+}
+
+function formErrorMessage(error: unknown): string {
+  if (error instanceof TypeError && error.message === "invalid_string_list") {
+    return "Duyurular 1 ile 12 arasında satır içermelidir.";
+  }
+  return error instanceof MerchantAdminApiError ? error.message : "Kayıt tamamlanamadı.";
 }
 
 function statusPresentation(status: MerchantAdminRecord["status"]) {
@@ -299,7 +320,7 @@ export function MerchantModuleConsole({
       await merchantAdminApi.save(kind, {
         ...(editing ? { recordId: editing.id, expectedVersion: editing.version } : {}),
         name: String(data.get("name") ?? "").trim(),
-        config: parseFormConfig(definition.fields, data),
+        config: parseFormConfig(definition.fields, data, editing?.config),
         status: data.get("status") === "active" ? "active" : "draft",
       });
       if (!mountedRef.current || activeSubmissionRef.current !== submission) return;
@@ -309,7 +330,7 @@ export function MerchantModuleConsole({
       await load();
     } catch (caught) {
       if (mountedRef.current && activeSubmissionRef.current === submission) {
-        setError(caught instanceof MerchantAdminApiError ? caught.message : "Kayıt tamamlanamadı.");
+        setError(formErrorMessage(caught));
       }
     } finally {
       if (mountedRef.current && activeSubmissionRef.current === submission) {
@@ -567,7 +588,7 @@ export function MerchantModuleConsole({
                       {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}
                     </select>
                   ) : field.type === "datetime" ? (
-                    <input name={field.key} type="datetime-local" defaultValue={dateTimeInputValue(editing, field.key)} />
+                    <input name={field.key} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(editing, field.key)} />
                   ) : (
                     <input name={field.key} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   )}

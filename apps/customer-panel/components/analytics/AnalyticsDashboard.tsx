@@ -104,12 +104,18 @@ export function AnalyticsDashboard() {
 
   useEffect(() => {
     mountedRef.current = true;
-    void load(period);
     return () => {
       mountedRef.current = false;
       requestVersion.current += 1;
       exportVersion.current += 1;
       activeExportRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    void load(period);
+    return () => {
+      requestVersion.current += 1;
     };
   }, [load, period]);
 
