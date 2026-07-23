@@ -202,6 +202,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.pricing_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.pricing_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.pricing_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS pricing_repository
+      ,to_regprocedure('saas.resolve_effective_variant_price(uuid,uuid,text,timestamp with time zone,text)') IS NOT NULL AS pricing_resolver
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -226,7 +227,7 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.merchant_admin_repository !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
       row.inventory_relations !== true || row.inventory_repository !== true ||
-      row.pricing_relations !== true || row.pricing_repository !== true
+      row.pricing_relations !== true || row.pricing_repository !== true || row.pricing_resolver !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
 }

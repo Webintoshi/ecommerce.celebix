@@ -61,3 +61,25 @@ test("pricing HTTP enforces exact mutation bodies and stable repository error ma
   assert.equal(conflict.status, 409); assert.deepEqual(await conflict.json(), { code: "conflict" }); assert.equal(calls, 1);
   assert.equal((await handler(repo())(request("/api/pricing/price-lists", { cookie: null }))).status, 401);
 });
+
+test("pricing HTTP rejects every established private authority header and Celebix namespace before runtime", async () => {
+  let runtimeCalls = 0;
+  const handle = createPricingHttpHandler({ async resolveRuntime() { runtimeCalls += 1; return null; }, now: () => new Date(NOW), requestId: () => REQUEST });
+  for (const name of [
+    "authorization", "x-panel-session-credential", "x-store-id", "x-tenant-id", "x-principal-id",
+    "x-membership-id", "x-plan-id", "x-database-role", "x-database-url", "x-celebix-anything",
+  ]) {
+    const result = await handle(request("/api/pricing/price-lists", { headers: { [name]: "private" } }));
+    assert.equal(result.status, 400, name);
+  }
+  assert.equal(runtimeCalls, 0);
+});
+
+test("pricing HTTP contains hostile repository list descriptors before serializing a response", async () => {
+  let reads = 0;
+  const hostile: unknown[] = [];
+  Object.defineProperty(hostile, "0", { enumerable: true, get() { reads += 1; return list(); } });
+  const result = await handler(repo({ async list() { return hostile as readonly PriceList[]; } }))(request("/api/pricing/price-lists"));
+  assert.equal(result.status, 503);
+  assert.equal(reads, 0);
+});

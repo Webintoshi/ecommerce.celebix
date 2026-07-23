@@ -5,7 +5,7 @@ import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerPricingRuntime } from "../server-pricing/runtime.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const PRIVATE_HEADERS = ["authorization", "x-store-id", "x-tenant-id", "x-celebix-store", "x-celebix-tenant"];
+const PRIVATE_HEADERS = new Set(["authorization", "x-panel-session-credential", "x-store-id", "x-tenant-id", "x-principal-id", "x-membership-id", "x-plan-id", "x-database-role", "x-database-url"]);
 const MAX_BODY = 65_536;
 type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerPricingRuntime | null>; now(): Date; requestId(): string }>;
 type Route = Readonly<{ kind: "list" | "get" | "save" | "activate" | "archive"; id?: string; method: "GET" | "POST" }>;
@@ -14,7 +14,7 @@ function error(code: string, status: number, extra?: HeadersInit) { return respo
 function repositoryError(value: unknown) { const code = pricingRepositoryErrorCode(value); if (code === "invalid_input") return error("invalid_input", 400); if (code === "resource_not_found") return error("not_found", 404); if (["version_conflict", "invalid_transition", "operation_mismatch", "pricing_conflict"].includes(code ?? "")) return error("conflict", 409); if (["unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "durable_authority_invalid"].includes(code ?? "")) return error("forbidden", 403); return error("unavailable", 503); }
 function classify(request: Request): Route | Response {
   try {
-    if (PRIVATE_HEADERS.some((name) => request.headers.has(name))) return error("invalid_input", 400);
+    for (const [name] of request.headers) if (PRIVATE_HEADERS.has(name) || name.startsWith("x-celebix-")) return error("invalid_input", 400);
     const url = new URL(request.url); if (url.search !== "" || url.hash !== "") return error("invalid_input", 400);
     const list = url.pathname === "/api/pricing/price-lists";
     const detail = new RegExp(`^/api/pricing/price-lists/(${UUID.source.slice(1, -1)})$`).exec(url.pathname);
@@ -39,7 +39,7 @@ async function body(request: Request): Promise<unknown | null> {
   if (!total || (declared !== null && Number(declared) !== total)) return null; const bytes = new Uint8Array(total); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
   try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { return null; }
 }
-function listValue(value: unknown): readonly ReturnType<typeof parsePriceList>[] { if (!Array.isArray(value) || value.length > 500) throw new Error(); return Object.freeze(value.map(parsePriceList)); }
+function listValue(value: unknown): readonly ReturnType<typeof parsePriceList>[] { if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > 500) throw new Error(); const descriptors = Object.getOwnPropertyDescriptors(value); if (Reflect.ownKeys(descriptors).length !== value.length + 1) throw new Error(); const copied: unknown[] = []; for (let index = 0; index < value.length; index += 1) { const descriptor = descriptors[String(index)]; if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw new Error(); copied.push(descriptor.value); } return Object.freeze(copied.map(parsePriceList)); }
 function parsedMutation(value: unknown, kind: "save" | "activate" | "archive") {
   if (kind === "save") {
     const parsed = exact(value, ["operationId", "name", "items", "rules"], ["priceListId", "expectedVersion"]); if (!parsed || !UUID.test(String(parsed.operationId)) || typeof parsed.name !== "string" || !Array.isArray(parsed.items) || !Array.isArray(parsed.rules) || parsed.items.length < 1 || parsed.items.length > 500 || parsed.rules.length < 1 || parsed.rules.length > 100 || ((parsed.priceListId === undefined) !== (parsed.expectedVersion === undefined))) return null;

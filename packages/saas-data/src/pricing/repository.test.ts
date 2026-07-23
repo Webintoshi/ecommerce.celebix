@@ -38,16 +38,17 @@ type QueryLog = Readonly<{ text: string; values?: unknown[] }>;
 class Client implements PostgresClientLike {
   readonly queries: QueryLog[] = [];
   readonly releases: Array<boolean | Error | undefined> = [];
-  private readonly result: Readonly<{ outcome: string; result_payload: unknown }>;
+  private readonly result: Readonly<{ outcome: string; result_payload: unknown }> | ((values: readonly unknown[]) => Readonly<{ outcome: string; result_payload: unknown }>);
   private readonly failCommit: boolean;
-  constructor(result: Readonly<{ outcome: string; result_payload: unknown }>, failCommit = false) {
+  constructor(result: Readonly<{ outcome: string; result_payload: unknown }> | ((values: readonly unknown[]) => Readonly<{ outcome: string; result_payload: unknown }>), failCommit = false) {
     this.result = result;
     this.failCommit = failCommit;
   }
   async query(text: string, values?: unknown[]): Promise<QueryResult<Record<string, unknown>>> {
     this.queries.push({ text, values });
     if (text === "COMMIT" && this.failCommit) throw new Error("private socket detail");
-    const rows = text.startsWith("SELECT outcome,result_payload FROM saas.") ? [this.result] : [];
+    const selected = typeof this.result === "function" ? this.result(values ?? []) : this.result;
+    const rows = text.startsWith("SELECT outcome,result_payload FROM saas.") ? [selected] : [];
     return { rows, rowCount: rows.length } as unknown as QueryResult<Record<string, unknown>>;
   }
   release(destroy?: boolean | Error): void { this.releases.push(destroy); }
@@ -58,10 +59,10 @@ class Pool implements PostgresPoolLike {
   constructor(clients: Client[]) { this.clients = clients; }
   async connect(): Promise<PostgresClientLike> { const client = this.clients[this.index++]; if (!client) throw new Error("private pool"); return client; }
 }
-function repository(pool: PostgresPoolLike, audit: string[] = []): PricingRepository {
+function repository(pool: PostgresPoolLike, audit: string[] = [], uuid: () => string = () => LIST): PricingRepository {
   return new PostgresPricingRepository({
     pool, role: "celebix_saas_app", timeouts: { poolCheckoutMs: 10, statementMs: 20, lockMs: 30, idleTransactionMs: 40 },
-    uuid: () => LIST, audit: (event) => { audit.push(event.type); },
+    uuid, audit: (event) => { audit.push(event.type); },
   });
 }
 function operationQuery(client: Client, begin: string, terminal: string) {
@@ -80,7 +81,7 @@ test("pricing repository executes one exact PostgreSQL function for every public
   const cases = [
     ["SELECT outcome,result_payload FROM saas.pricing_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)", { outcome: "listed", result_payload: { items: [priceList()] } }, (repo: PricingRepository) => repo.list(authority())],
     ["SELECT outcome,result_payload FROM saas.pricing_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)", { outcome: "found", result_payload: priceList() }, (repo: PricingRepository) => repo.get({ ...authority(), priceListId: LIST })],
-    ["SELECT outcome,result_payload FROM saas.pricing_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text,$13::jsonb,$14::jsonb)", { outcome: "saved", result_payload: priceList() }, (repo: PricingRepository) => repo.save({ ...authority(), operationId: OPERATION, name: "VIP fiyatı", items: priceList().items, rules: priceList().rules })],
+    ["SELECT outcome,result_payload FROM saas.pricing_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text,$13::jsonb,$14::jsonb)", (values: readonly unknown[]) => ({ outcome: "saved", result_payload: { ...priceList(), id: String(values[9]) } }), (repo: PricingRepository) => repo.save({ ...authority(), operationId: OPERATION, name: "VIP fiyatı", items: priceList().items, rules: priceList().rules })],
     ["SELECT outcome,result_payload FROM saas.pricing_activate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)", { outcome: "activated", result_payload: priceList("active", 2) }, (repo: PricingRepository) => repo.activate({ ...authority(), operationId: OPERATION, priceListId: LIST, expectedVersion: 1 })],
     ["SELECT outcome,result_payload FROM saas.pricing_archive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)", { outcome: "archived", result_payload: priceList("archived", 2) }, (repo: PricingRepository) => repo.archive({ ...authority(), operationId: OPERATION, priceListId: LIST, expectedVersion: 1 })],
   ] as const;
@@ -170,4 +171,55 @@ test("pricing repository descriptor-copies list arrays without invoking hostile 
   );
   assert.equal(reads, 0);
   operationQuery(client, "BEGIN READ ONLY", "ROLLBACK");
+});
+
+test("pricing create derives one server-owned UUID deterministically across repository instances", async () => {
+  const generated = [
+    "20000000-0000-4000-8000-000000000091",
+    "20000000-0000-4000-8000-000000000092",
+  ];
+  const clients = generated.map(() => new Client((values) => ({
+    outcome: "saved",
+    result_payload: { ...priceList(), id: String(values[9]) },
+  })));
+  const results: PriceList[] = [];
+  for (const [index, client] of clients.entries()) {
+    results.push(await repository(new Pool([client]), [], () => generated[index]!).save({
+      ...authority(), operationId: OPERATION, name: "VIP fiyatı",
+      items: priceList().items,
+      rules: [priceList().rules[0]!, { channel: "storefront", priority: 5 }],
+    }));
+  }
+  const first = clients[0]!.queries[5]!.values!, second = clients[1]!.queries[5]!.values!;
+  assert.match(results[0]!.id, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(results[0]!.id, results[1]!.id);
+  assert.equal(first[9], second[9]);
+  assert.equal(first[8], second[8]);
+  assert.equal(generated.includes(results[0]!.id), false);
+});
+
+test("pricing repository rejects hostile row and payload descriptors without invoking them", async () => {
+  let rowsReads = 0;
+  const hostileRows: unknown[] = [];
+  Object.defineProperty(hostileRows, "0", { enumerable: true, get() { rowsReads += 1; return { outcome: "listed", result_payload: { items: [priceList()] } }; } });
+  const rowsClient: PostgresClientLike = {
+    async query(text: string) { const rows = text.startsWith("SELECT outcome,result_payload FROM saas.") ? hostileRows : []; return { rows, rowCount: rows.length } as QueryResult<Record<string, unknown>>; },
+    release() { /* observed through rejection */ },
+  };
+  await assert.rejects(() => repository(new Pool([rowsClient as Client])).list(authority()), (error: unknown) => pricingRepositoryErrorCode(error) === "unavailable");
+  assert.equal(rowsReads, 0);
+
+  let rowReads = 0;
+  const hostileRow = { outcome: "listed" } as Record<string, unknown>;
+  Object.defineProperty(hostileRow, "result_payload", { enumerable: true, get() { rowReads += 1; return { items: [priceList()] }; } });
+  const rowClient = new Client(hostileRow as never);
+  await assert.rejects(() => repository(new Pool([rowClient])).list(authority()), (error: unknown) => pricingRepositoryErrorCode(error) === "unavailable");
+  assert.equal(rowReads, 0);
+
+  let rootReads = 0;
+  const hostileRoot = {} as Record<string, unknown>;
+  Object.defineProperty(hostileRoot, "items", { enumerable: true, get() { rootReads += 1; return [priceList()]; } });
+  const rootClient = new Client({ outcome: "listed", result_payload: hostileRoot });
+  await assert.rejects(() => repository(new Pool([rootClient])).list(authority()), (error: unknown) => pricingRepositoryErrorCode(error) === "unavailable");
+  assert.equal(rootReads, 0);
 });
