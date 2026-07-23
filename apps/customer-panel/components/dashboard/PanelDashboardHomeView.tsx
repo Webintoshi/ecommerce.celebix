@@ -137,9 +137,12 @@ export function PanelDashboardPresentation({
         title={dashboard.title}
         description={dashboard.description}
         actions={
-          <PanelActionButton href="/products/new" primary>
-            Yeni ürün
-          </PanelActionButton>
+          <>
+            <PanelActionButton href="/analytics">Ticari analitik</PanelActionButton>
+            <PanelActionButton href="/products/new" primary>
+              Yeni ürün
+            </PanelActionButton>
+          </>
         }
       />
 

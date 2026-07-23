@@ -28,6 +28,7 @@ test("contains every and only currently working merchant destination", () => {
     [...new Set(hrefs)],
     [
       "/",
+      "/analytics",
       "/orders",
       "/orders/quick-links",
       "/orders/abandoned-carts",
@@ -62,6 +63,10 @@ test("contains every and only currently working merchant destination", () => {
       "/settings/payment",
       "/settings/shipping",
       "/settings/administrators",
+      "/settings/notifications",
+      "/settings/hero-banner",
+      "/settings/promotion-banner",
+      "/settings/marquee",
       "/accounting",
       "/accounting/invoicing-integration",
       "/seo",
@@ -74,7 +79,7 @@ test("contains every and only currently working merchant destination", () => {
   );
   assert.deepEqual(
     PANEL_NAVIGATION.map(({ label }) => label),
-    ["Özet", "Siparişler", "Müşteriler", "Ürünler", "İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO", "Kurulum"],
+    ["Özet", "Analitik", "Siparişler", "Müşteriler", "Ürünler", "İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO", "Kurulum"],
   );
 });
 

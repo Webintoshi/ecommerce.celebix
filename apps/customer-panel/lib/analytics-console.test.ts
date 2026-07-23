@@ -1,0 +1,234 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import * as React from "react";
+import { createElement, type ReactNode } from "react";
+import * as jsxRuntime from "react/jsx-runtime";
+import ts from "typescript";
+
+import {
+  MERCHANT_MODULE_DEFINITIONS,
+  getMerchantModuleDefinition,
+} from "./merchant-admin-ui/presentation.ts";
+
+const ROOT = new URL("../", import.meta.url);
+const source = (path: string) => readFile(new URL(path, ROOT), "utf8");
+
+function createHookRuntime() {
+  const slots: unknown[] = [];
+  let cursor = 0;
+  let dirty = true;
+  let latest: ReactNode;
+  const same = (left: readonly unknown[] | undefined, right: readonly unknown[]) =>
+    left !== undefined && left.length === right.length && left.every((value, index) => Object.is(value, right[index]));
+  const runtime = {
+    ...React,
+    useState<T>(initial: T | (() => T)) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = typeof initial === "function" ? (initial as () => T)() : initial;
+      const set = (next: T | ((current: T) => T)) => { slots[index] = typeof next === "function" ? (next as (current: T) => T)(slots[index] as T) : next; dirty = true; };
+      return [slots[index] as T, set] as const;
+    },
+    useRef<T>(initial: T) { const index = cursor++; if (!(index in slots)) slots[index] = { current: initial }; return slots[index] as { current: T }; },
+    useCallback<T extends (...args: never[]) => unknown>(callback: T, deps: readonly unknown[]) {
+      const index = cursor++, prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
+      if (!prior || !same(prior.deps, deps)) slots[index] = { deps: [...deps], value: callback };
+      return (slots[index] as { value: T }).value;
+    },
+    useEffect(effect: () => void | (() => void), deps: readonly unknown[]) {
+      const index = cursor++, prior = slots[index] as { deps: readonly unknown[]; cleanup?: () => void } | undefined;
+      if (prior && same(prior.deps, deps)) return;
+      prior?.cleanup?.();
+      const cleanup = effect();
+      slots[index] = { deps: [...deps], ...(typeof cleanup === "function" ? { cleanup } : {}) };
+    },
+  } as unknown as typeof React;
+  return {
+    runtime,
+    async flush(component: () => ReactNode, force = false) {
+      if (force) dirty = true;
+      for (let pass = 0; pass < 30; pass += 1) {
+        if (dirty || latest === undefined) { dirty = false; cursor = 0; latest = component(); }
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (!dirty) return latest;
+      }
+      throw new Error("analytics_console_hook_flush_exhausted");
+    },
+  };
+}
+
+function visit(node: ReactNode, visitor: (element: React.ReactElement<Record<string, unknown>>) => void) {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement<Record<string, unknown>>(child)) return;
+    visitor(child);
+    visit(child.props.children as ReactNode, visitor);
+  });
+}
+
+function text(node: ReactNode): string {
+  const values: string[] = [];
+  const collect = (value: ReactNode) => {
+    if (typeof value === "string" || typeof value === "number") values.push(String(value));
+    else if (React.isValidElement<Record<string, unknown>>(value)) collect(value.props.children as ReactNode);
+    else React.Children.forEach(value, collect);
+  };
+  collect(node);
+  return values.join(" ");
+}
+
+async function compileAnalyticsDashboard(overrides: Readonly<{ dashboard(period: string): Promise<unknown>; export(period: string, format: string): Promise<unknown> }>) {
+  const output = ts.transpileModule(await source("components/analytics/AnalyticsDashboard.tsx"), {
+    compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const styles = new Proxy({}, { get: (_target, property) => property === "__esModule" ? true : property === "default" ? styles : String(property) });
+  class CompiledAnalyticsApiError extends Error { constructor(readonly code: "unavailable") { super(code); } }
+  const module = { exports: {} as Record<string, unknown> };
+  const component = ({ children, ...props }: Record<string, unknown>) => createElement("section", props, children as ReactNode);
+  const requireModule = (specifier: string): unknown => {
+    if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return runtime.runtime;
+    if (specifier === "recharts") return { CartesianGrid: component, Line: component, LineChart: component, ResponsiveContainer: component, Tooltip: component, XAxis: component, YAxis: component };
+    if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
+    if (specifier === "@/components/panel/PanelPageShell") return {
+      PanelPageShell: component,
+      PanelPageHeader: ({ title, description }: { title: string; description?: string }) => createElement("header", null, title, description),
+      PanelPanel: ({ title, children }: { title?: string; children?: ReactNode }) => createElement("section", null, title, children),
+      PanelMetricCard: ({ label, value, detail }: { label: string; value: string; detail?: string }) => createElement("article", null, label, value, detail),
+      PanelEmptyState: ({ title, description, action }: { title: string; description: string; action?: ReactNode }) => createElement("section", null, title, description, action),
+    };
+    if (specifier === "@/lib/analytics-ui/client") return { AnalyticsApiError: CompiledAnalyticsApiError, analyticsApi: overrides };
+    if (specifier === "./analytics-dashboard.module.css") return styles;
+    throw new Error(`unexpected_analytics_module:${specifier}`);
+  };
+  const runtime = createHookRuntime();
+  Function("require", "module", "exports", output)(requireModule, module, module.exports);
+  return { AnalyticsDashboard: module.exports.AnalyticsDashboard as () => ReactNode, runtime };
+}
+
+function dashboard(period: string, revenueCents: number) {
+  return { period, rangeStart: "2026-07-01T00:00:00.000Z", rangeEnd: "2026-07-22T15:00:00.000Z", generatedAt: "2026-07-22T15:00:00.000Z", currency: "TRY", revenueCents, orders: { total: 1, paid: 1, cancelled: 0, refunded: 0 }, customers: { total: 1, newInPeriod: 1 }, catalog: { activeProducts: 1, lowStockVariants: 0 }, series: [{ startsAt: "2026-07-01T00:00:00.000Z", orders: 1, revenueCents }], topProducts: [] };
+}
+
+test("analytics renders only durable commerce aggregates and finite controls", async () => {
+  const value = await source("components/analytics/AnalyticsDashboard.tsx");
+  for (const label of [
+    "Gelir",
+    "Sipariş",
+    "Yeni müşteri",
+    "Düşük stok",
+    "today",
+    "week",
+    "month",
+    "year",
+    "analyticsApi.dashboard",
+    "analyticsApi.export",
+    "LineChart",
+    "aria-label=\"Gelir zaman serisi\"",
+    "requestVersion",
+  ]) {
+    assert.match(value, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  for (const unsupported of ["Canlı ziyaretçi", "Dönüşüm oranı", "Cihaz dağılımı", "Trafik kaynağı"]) {
+    assert.doesNotMatch(value, new RegExp(unsupported));
+  }
+  assert.match(value, /error instanceof AnalyticsApiError/);
+  assert.doesNotMatch(value, /caught[.]message|Error[.]message|console[.](log|error)/);
+});
+
+test("period changes ignore stale results and export failures surface a stable message", async () => {
+  let resolveMonth: ((value: unknown) => void) | undefined;
+  let resolveWeek: ((value: unknown) => void) | undefined;
+  const { AnalyticsDashboard, runtime } = await compileAnalyticsDashboard({
+    dashboard(period) {
+      if (period === "month") return new Promise((resolve) => { resolveMonth = resolve; });
+      if (period === "week") return new Promise((resolve) => { resolveWeek = resolve; });
+      return Promise.resolve(dashboard(period, 1));
+    },
+    async export() { throw new Error("network secret must not render"); },
+  });
+  let view = await runtime.flush(AnalyticsDashboard);
+  let weekButton: React.ReactElement<Record<string, unknown>> | undefined;
+  visit(view, (element) => { if (element.type === "button" && element.props.children === "7 gün") weekButton = element; });
+  assert.ok(weekButton);
+  (weekButton.props.onClick as () => void)();
+  view = await runtime.flush(AnalyticsDashboard);
+  resolveMonth?.(dashboard("month", 10_000));
+  view = await runtime.flush(AnalyticsDashboard);
+  let metricValues: string[] = [];
+  visit(view, (element) => { if (element.props.label === "Gelir") metricValues.push(String(element.props.value)); });
+  assert.doesNotMatch(metricValues.join(" "), /₺100[,.]00/);
+  resolveWeek?.(dashboard("week", 25_000));
+  view = await runtime.flush(AnalyticsDashboard);
+  metricValues = [];
+  visit(view, (element) => { if (element.props.label === "Gelir") metricValues.push(String(element.props.value)); });
+  assert.match(metricValues.join(" "), /₺250[,.]00/);
+
+  let csvButton: React.ReactElement<Record<string, unknown>> | undefined;
+  visit(view, (element) => { if (element.type === "button" && element.props.children === "CSV dışa aktar") csvButton = element; });
+  assert.ok(csvButton);
+  (csvButton.props.onClick as () => void)();
+  view = await runtime.flush(AnalyticsDashboard);
+  assert.match(text(view), /Analitik verileri şu anda kullanılamıyor/);
+  assert.doesNotMatch(text(view), /network secret/);
+});
+
+test("analytics page is behind server access and analytics capability only", async () => {
+  const page = await source("app/analytics/page.tsx");
+  assert.match(page, /requireServerPanelAccess\(\)/);
+  assert.match(page, /analytics[.]read/);
+  assert.match(page, /<AnalyticsDashboard/);
+  assert.doesNotMatch(page, /tenantContext=|storeId=|membershipId=|planId=/);
+});
+
+test("settings navigation exposes only the four working typed pages", async () => {
+  const navigation = await source("lib/panel-ui/navigation.ts");
+  for (const href of [
+    "/settings/notifications",
+    "/settings/hero-banner",
+    "/settings/promotion-banner",
+    "/settings/marquee",
+  ]) assert.match(navigation, new RegExp(href));
+  assert.match(navigation, /"\/analytics"/);
+});
+
+test("four typed storefront settings expose exact safe field contracts without secrets", () => {
+  const contracts = [
+    ["notification_setting", ["emailEnabled", "smsEnabled", "pushEnabled", "senderLabel", "replyToEmail"]],
+    ["hero_banner", ["headline", "body", "imageUrl", "destination", "enabled"]],
+    ["promotion_banner", ["headline", "body", "destination", "startsAt", "endsAt", "enabled"]],
+    ["marquee_setting", ["items", "icon", "speed", "direction", "animation", "enabled"]],
+  ] as const;
+  for (const [kind, fields] of contracts) {
+    const definition = getMerchantModuleDefinition(kind);
+    assert.deepEqual(definition.fields.map(({ key }) => key), fields);
+    assert.equal(definition.execution, "durable");
+  }
+  assert.deepEqual(getMerchantModuleDefinition("promotion_banner").fields.filter(({ key }) => key === "startsAt" || key === "endsAt").map(({ type }) => type), ["datetime", "datetime"]);
+  assert.deepEqual(getMerchantModuleDefinition("marquee_setting").fields.map(({ type }) => type), ["string-list", "enum", "enum", "enum", "enum", "boolean"]);
+  assert.deepEqual(getMerchantModuleDefinition("marquee_setting").fields.find(({ key }) => key === "icon")?.allowedValues, ["none", "sparkle", "truck", "shield"]);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 25);
+  assert.equal(JSON.stringify(MERCHANT_MODULE_DEFINITIONS).match(/secret|password|credential|token|api.?key/gi), null);
+});
+
+test("typed setting pages remain server-authorized and do not send TenantContext to clients", async () => {
+  for (const [path, kind] of [
+    ["app/settings/notifications/page.tsx", "notification_setting"],
+    ["app/settings/hero-banner/page.tsx", "hero_banner"],
+    ["app/settings/promotion-banner/page.tsx", "promotion_banner"],
+    ["app/settings/marquee/page.tsx", "marquee_setting"],
+  ] as const) {
+    const value = await source(path);
+    assert.match(value, /requireServerPanelAccess\(\)/);
+    assert.match(value, new RegExp(`kind=\"${kind}\"`));
+    assert.match(value, /configuration[.]manage/);
+    assert.doesNotMatch(value, /tenantContext=|storeId=|membershipId=|secret|password|token/i);
+  }
+});
+
+test("dashboard model links to analytics only after the real route exists", async () => {
+  const model = await source("lib/panel-ui/dashboard-model.ts");
+  const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
+  assert.match(model, /href:\s*"\/analytics"/);
+  assert.match(view, /\/analytics/);
+  assert.doesNotMatch(`${model}\n${view}`, /liveVisitors|conversionRate|deviceBreakdown|trafficSource/);
+});

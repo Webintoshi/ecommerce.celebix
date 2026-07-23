@@ -47,7 +47,7 @@ test("export uses safe fixed JSON and bounded CSV responses", async () => {
 
 test("local request validation is raw-query exact and never resolves runtime or access", async () => {
   let resolves = 0, access = 0, repositoryCalls = 0;
-  const h = createAnalyticsHttpHandlers({ async resolveRuntime() { resolves += 1; return { analytics: { async dashboard() { repositoryCalls += 1; return dashboard() as never; } }, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { access += 1; return { kind: "authenticated", tenantContext: tenant() } as never; } } } as ServerAnalyticsRuntime; }, now: () => NOW, requestId: () => REQUEST });
+  const h = createAnalyticsHttpHandlers({ async resolveRuntime() { resolves += 1; return { analytics: { async dashboard() { repositoryCalls += 1; return dashboard() as never; } }, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { access += 1; return { kind: "authenticated", tenantContext: tenant() } as never; } } } as unknown as ServerAnalyticsRuntime; }, now: () => NOW, requestId: () => REQUEST });
   const cookie = { cookie: `__Host-celebix_panel=${CREDENTIAL}` };
   for (const value of [
     localRequest("http://internal:3400/api/analytics/dashboard?period=%6donth", cookie),
@@ -75,7 +75,7 @@ test("analytics API maps durable access and repository outcomes to fixed statuse
   const cookie = { cookie: `__Host-celebix_panel=${CREDENTIAL}` };
   for (const [accessKind, expected] of [["unauthenticated", 401], ["unauthorized", 403]] as const) {
     let resolves = 0, repositoryCalls = 0;
-    const h = createAnalyticsHttpHandlers({ async resolveRuntime() { resolves += 1; return { analytics: { async dashboard() { repositoryCalls += 1; return dashboard() as never; } }, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: accessKind }; } } } as ServerAnalyticsRuntime; }, now: () => NOW, requestId: () => REQUEST });
+    const h = createAnalyticsHttpHandlers({ async resolveRuntime() { resolves += 1; return { analytics: { async dashboard() { repositoryCalls += 1; return dashboard() as never; } }, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: accessKind }; } } } as unknown as ServerAnalyticsRuntime; }, now: () => NOW, requestId: () => REQUEST });
     const response = await h.dashboard(localRequest("http://internal:3400/api/analytics/dashboard?period=month", cookie));
     assert.equal(response.status, expected); assert.deepEqual(await response.json(), { code: accessKind === "unauthenticated" ? "unauthenticated" : "membership_denied" }); assert.equal(resolves, 1); assert.equal(repositoryCalls, 0);
   }

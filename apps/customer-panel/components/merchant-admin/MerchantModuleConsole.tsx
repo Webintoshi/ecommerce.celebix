@@ -60,6 +60,13 @@ function inputValue(record: MerchantAdminRecord | null, key: string) {
   return Array.isArray(current) ? current.join("\n") : "";
 }
 
+function dateTimeInputValue(record: MerchantAdminRecord | null, key: string) {
+  const value = record?.config[key];
+  if (typeof value !== "string") return "";
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 16) : "";
+}
+
 function parseFormConfig(
   fields: readonly MerchantModuleFieldDefinition[],
   data: FormData,
@@ -76,10 +83,18 @@ function parseFormConfig(
       const number = Number(raw);
       if (!Number.isSafeInteger(number) || number < 0) throw new TypeError("invalid_number");
       entries[field.key] = number;
-    } else if (field.type === "textarea" && field.key.endsWith("s")) {
+    } else if (field.type === "datetime") {
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw)) throw new TypeError("invalid_datetime");
+      const timestamp = new Date(raw);
+      if (!Number.isFinite(timestamp.getTime())) throw new TypeError("invalid_datetime");
+      entries[field.key] = timestamp.toISOString();
+    } else if (field.type === "string-list") {
       entries[field.key] = Object.freeze(
         raw.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean).slice(0, 100),
       );
+    } else if (field.type === "enum") {
+      if (!field.allowedValues?.includes(raw)) throw new TypeError("invalid_enum_value");
+      entries[field.key] = raw;
     } else {
       entries[field.key] = raw;
     }
@@ -508,12 +523,19 @@ export function MerchantModuleConsole({
               <label>Ad<input autoFocus={!editing} name="name" required maxLength={160} defaultValue={editing?.name} /></label>
               <label>{definition.workflow ? "Hazırlık durumu" : "Yayın durumu"}<select name="status" defaultValue={editing?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.workflow ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
               {definition.fields.map((field) => (
-                <label className={field.type === "textarea" ? styles.wide : undefined} key={field.key}>
+                <label className={field.type === "textarea" || field.type === "string-list" ? styles.wide : undefined} key={field.key}>
                   {field.label}
-                  {field.type === "textarea" ? (
+                  {field.type === "textarea" || field.type === "string-list" ? (
                     <textarea name={field.key} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   ) : field.type === "boolean" ? (
                     <span className={styles.switchField}><input name={field.key} type="checkbox" defaultChecked={editing?.config[field.key] === true} /><span>Etkin</span></span>
+                  ) : field.type === "enum" ? (
+                    <select name={field.key} defaultValue={inputValue(editing, field.key)}>
+                      <option value="">Seçin</option>
+                      {field.allowedValues?.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  ) : field.type === "datetime" ? (
+                    <input name={field.key} type="datetime-local" defaultValue={dateTimeInputValue(editing, field.key)} />
                   ) : (
                     <input name={field.key} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={inputValue(editing, field.key)} />
                   )}

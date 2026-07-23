@@ -17,3 +17,9 @@ test("approved merchant record subpages are server-authorized and keep fixed kin
  ["app/content/policies/new/page.tsx","policy","content.manage"],["app/content/policies/[recordId]/edit/page.tsx","policy","content.manage"],
  ["app/settings/payment/new/page.tsx","payment_setting","configuration.manage"],["app/settings/payment/[recordId]/edit/page.tsx","payment_setting","configuration.manage"],
 ]as const){const value=await source(path);assert.match(value,/requireServerPanelAccess\(\)/);assert.match(value,new RegExp(`kind=\\"${kind}\\"`));assert.match(value,new RegExp(permission.replace(".","\\.")));assert.doesNotMatch(value,/searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/)} });
+
+test("typed storefront settings render closed enum, canonical datetime, and bounded announcement-list controls",async()=>{
+  const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");
+  for(const evidence of["field.type === \"enum\"","field.type === \"datetime\"","field.type === \"string-list\"","field.allowedValues","datetime-local","toISOString","invalid_enum_value"])assert.match(value,new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+  assert.doesNotMatch(value,/localStorage|sessionStorage|document[.]cookie|apiSecret|clientSecret|accessToken/);
+});

@@ -1044,7 +1044,8 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
   );
   assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
-  assert.doesNotMatch(view, /href=[^\n]*analytics|provider(?:Data|Payload)|TenantContext/i);
+  assert.match(combined, /"\/analytics"/);
+  assert.doesNotMatch(view, /provider(?:Data|Payload)|TenantContext/i);
 });
 
 test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {

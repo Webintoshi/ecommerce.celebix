@@ -20,6 +20,23 @@ test("exports the authenticated catalog dashboard summary route", async () => {
   assert.doesNotMatch(routeSource, /export const POST/);
 });
 
+test("analytics and typed storefront setting pages are server-authorized routes", async () => {
+  const analytics = await readFile(new URL("../app/analytics/page.tsx", import.meta.url), "utf8");
+  assert.match(analytics, /requireServerPanelAccess\(\)/);
+  assert.match(analytics, /analytics[.]read/);
+  for (const [path, kind] of [
+    ["../app/settings/notifications/page.tsx", "notification_setting"],
+    ["../app/settings/hero-banner/page.tsx", "hero_banner"],
+    ["../app/settings/promotion-banner/page.tsx", "promotion_banner"],
+    ["../app/settings/marquee/page.tsx", "marquee_setting"],
+  ] as const) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /requireServerPanelAccess\(\)/);
+    assert.match(source, new RegExp(kind));
+    assert.match(source, /configuration[.]manage/);
+  }
+});
+
 test("exports only the exact authenticated order route methods", async () => {
   const routes = [
     ["../app/api/orders/summary/route.ts", "GET", "handleDefaultOrderGetDashboardSummary"],

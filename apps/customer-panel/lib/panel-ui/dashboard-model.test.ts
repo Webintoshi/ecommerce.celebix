@@ -44,6 +44,7 @@ test("offers every and only working merchant action", () => {
   assert.deepEqual(
     createPanelDashboardModel(chrome).actions.map((action) => action.href),
     [
+      "/analytics",
       "/orders",
       "/orders/quick-links",
       "/orders/abandoned-carts",
@@ -62,11 +63,12 @@ test("offers every and only working merchant action", () => {
   );
 });
 
-test("emits no fake commerce KPI or deferred module", () => {
+test("emits no fake commerce KPI while linking only the implemented analytics route", () => {
   assert.doesNotMatch(
     JSON.stringify(createPanelDashboardModel(chrome)),
-    /revenue|ciro|conversion|dönüşüm|visitor|analytics|stok toplamı/i,
+    /revenue|ciro|conversion|dönüşüm|visitor|stok toplamı/i,
   );
+  assert.ok(createPanelDashboardModel(chrome).actions.some(({ href }) => href === "/analytics"));
 });
 
 test("uses Özet as the immutable root presentation title", () => {

@@ -22,6 +22,7 @@ export interface PanelDashboardCard {
 export interface PanelDashboardAction {
   readonly label: string;
   readonly href:
+    | "/analytics"
     | "/orders"
     | "/orders/quick-links"
     | "/orders/abandoned-carts"
@@ -156,6 +157,7 @@ export function createPanelDashboardModel(
     }),
   ]);
   const actions = Object.freeze([
+    Object.freeze({ label: "Ticari analitiği görüntüle", href: "/analytics" as const }),
     Object.freeze({ label: "Siparişleri yönet", href: "/orders" as const }),
     Object.freeze({
       label: "Hızlı sipariş oluştur",

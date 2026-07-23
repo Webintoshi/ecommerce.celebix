@@ -30,14 +30,18 @@ function record(
 }
 
 test("defines every durable merchant module with a unique route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 21);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 21);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 21);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 25);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 25);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 25);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
   assert.equal(getMerchantModuleDefinition("lucky_wheel").route, "/discounts/lucky-wheel");
   assert.equal(getMerchantModuleDefinition("administrator_invite").route, "/settings/administrators");
   assert.equal(getMerchantModuleDefinition("indexing_request").route, "/seo/fast-indexing");
+  assert.equal(getMerchantModuleDefinition("notification_setting").route, "/settings/notifications");
+  assert.equal(getMerchantModuleDefinition("hero_banner").route, "/settings/hero-banner");
+  assert.equal(getMerchantModuleDefinition("promotion_banner").route, "/settings/promotion-banner");
+  assert.equal(getMerchantModuleDefinition("marquee_setting").route, "/settings/marquee");
 
   for (const definition of MERCHANT_MODULE_DEFINITIONS) {
     assert.equal(Object.isFrozen(definition), true);
