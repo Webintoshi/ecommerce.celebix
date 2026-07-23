@@ -259,6 +259,10 @@ function authority(now = NOW) {
   return `'${STORE}'::uuid,'${OWNER}'::uuid,'${OWNER_MEMBERSHIP}'::uuid,'${PLAN}'::uuid,'free_starter'::text,1::bigint,'${now}'::timestamptz`;
 }
 
+function catalogAuthority(now = NOW) {
+  return `'${STORE}'::uuid,'${OWNER}'::uuid,'${OWNER_MEMBERSHIP}'::uuid,'${PLAN}'::uuid,'free_starter'::text,1::bigint,100::bigint,'${now}'::timestamptz`;
+}
+
 function result(box, functionCall, database = DB) {
   const output = psql(
     box,
@@ -553,6 +557,37 @@ function inventoryState(box) {
   ).stdout;
 }
 
+function uuidArray(values) {
+  return `ARRAY[${values.map((value) => `'${value}'::uuid`).join(",")}]::uuid[]`;
+}
+
+function denialState(box, {
+  counts = [], transfers = [], variants = [], operations = [],
+}) {
+  const entityIds = [...counts, ...transfers];
+  const raw = psql(
+    box,
+    `SELECT pg_catalog.jsonb_build_object(
+  'counts',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(count_row) ORDER BY count_row.id),'[]'::jsonb) FROM saas.inventory_counts AS count_row WHERE count_row.id=ANY(${uuidArray(counts)})),
+  'countLines',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(line_row) ORDER BY line_row.inventory_count_id,line_row.id),'[]'::jsonb) FROM saas.inventory_count_lines AS line_row WHERE line_row.inventory_count_id=ANY(${uuidArray(counts)})),
+  'transfers',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(transfer_row) ORDER BY transfer_row.id),'[]'::jsonb) FROM saas.inventory_transfers AS transfer_row WHERE transfer_row.id=ANY(${uuidArray(transfers)})),
+  'transferLines',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(line_row) ORDER BY line_row.inventory_transfer_id,line_row.id),'[]'::jsonb) FROM saas.inventory_transfer_lines AS line_row WHERE line_row.inventory_transfer_id=ANY(${uuidArray(transfers)})),
+  'variants',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(variant_row) ORDER BY variant_row.id),'[]'::jsonb) FROM saas.product_variants AS variant_row WHERE variant_row.store_id='${STORE}' AND variant_row.id=ANY(${uuidArray(variants)})),
+  'balances',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(balance_row) ORDER BY balance_row.location_id,balance_row.variant_id),'[]'::jsonb) FROM saas.inventory_balances AS balance_row WHERE balance_row.store_id='${STORE}' AND balance_row.variant_id=ANY(${uuidArray(variants)})),
+  'movements',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(movement_row) ORDER BY movement_row.occurred_at,movement_row.id),'[]'::jsonb) FROM saas.inventory_movements AS movement_row WHERE movement_row.store_id='${STORE}' AND movement_row.variant_id=ANY(${uuidArray(variants)})),
+  'operations',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(operation_row) ORDER BY operation_row.committed_at,operation_row.operation_id),'[]'::jsonb) FROM saas.inventory_operations AS operation_row WHERE operation_row.store_id='${STORE}' AND (operation_row.operation_id=ANY(${uuidArray(operations)}) OR operation_row.result_entity_id=ANY(${uuidArray(entityIds)}))),
+  'activeReservations',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(reservation_row) ORDER BY reservation_row.variant_id,reservation_row.id),'[]'::jsonb) FROM saas.checkout_inventory_reservations AS reservation_row WHERE reservation_row.store_id='${STORE}' AND reservation_row.variant_id=ANY(${uuidArray(variants)}) AND reservation_row.status='held'),
+  'activeHoldAttempts',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(attempt_row) ORDER BY attempt_row.id),'[]'::jsonb) FROM saas.checkout_payment_attempts AS attempt_row WHERE attempt_row.store_id='${STORE}' AND EXISTS(SELECT 1 FROM saas.checkout_inventory_reservations AS reservation_row WHERE reservation_row.store_id=attempt_row.store_id AND reservation_row.attempt_id=attempt_row.id AND reservation_row.variant_id=ANY(${uuidArray(variants)}) AND reservation_row.status='held'))
+)::text;`,
+  ).stdout.trim();
+  return { raw, value: JSON.parse(raw) };
+}
+
+function assertDenialStateUnchanged(before, after) {
+  assert.equal(after.raw, before.raw);
+  assert.deepEqual(after.value, before.value);
+}
+
 const TOTAL = 30;
 let count = 0;
 async function scenario(name, run) {
@@ -802,10 +837,16 @@ ALTER TABLE saas.product_variants ENABLE TRIGGER product_variants_inventory_reco
 COMMIT;`,
       );
       const before = psql(box, `SELECT quantity FROM saas.inventory_balances WHERE store_id='${STORE}' AND location_id='${defaultLocation}' AND variant_id='${VARIANT_A}';`).stdout.trim();
+      const beforeDenial = denialState(box, {
+        counts: [COUNT_NEGATIVE], variants: [VARIANT_A], operations: [operation(12)],
+      });
       const denied = result(box, countTransition("commit", {
         op: operation(12), count: COUNT_NEGATIVE, expected: counted.result.version,
       }));
       assert.equal(denied.outcome, "invalid_input");
+      assertDenialStateUnchanged(beforeDenial, denialState(box, {
+        counts: [COUNT_NEGATIVE], variants: [VARIANT_A], operations: [operation(12)],
+      }));
       assert.equal(psql(box, `SELECT quantity FROM saas.inventory_balances WHERE store_id='${STORE}' AND location_id='${defaultLocation}' AND variant_id='${VARIANT_A}';`).stdout.trim(), before);
       psql(
         box,
@@ -830,10 +871,16 @@ COMMIT;`,
         location: defaultLocation,
         lines: [{ lineId: line(5), variantId: VARIANT_A, countedQuantity: 16 }],
       }));
+      const beforeDenial = denialState(box, {
+        counts: [COUNT_HOLD], variants: [VARIANT_A], operations: [operation(16)],
+      });
       const denied = result(box, countTransition("commit", {
         op: operation(16), count: COUNT_HOLD, expected: counted.result.version,
       }));
       assert.equal(denied.outcome, "active_hold_conflict");
+      assertDenialStateUnchanged(beforeDenial, denialState(box, {
+        counts: [COUNT_HOLD], variants: [VARIANT_A], operations: [operation(16)],
+      }));
     });
     await scenario("count operation replay is exact and fingerprint mismatch is denied", () => {
       const persistedRaw = psql(
@@ -962,11 +1009,19 @@ COMMIT;`,
         source: LOCATION_B, destination: defaultLocation,
         lines: [{ lineId: line(55), variantId: VARIANT_A, quantity: 1 }],
       }));
+      const beforeInsufficient = denialState(box, {
+        transfers: [TRANSFER_INSUFFICIENT], variants: [VARIANT_A],
+        operations: [operation(56)],
+      });
       const denied = result(box, transferTransition("dispatch", {
         op: operation(56), transfer: TRANSFER_INSUFFICIENT,
         expected: saved.result.version,
       }));
       assert.equal(denied.outcome, "insufficient_stock");
+      assertDenialStateUnchanged(beforeInsufficient, denialState(box, {
+        transfers: [TRANSFER_INSUFFICIENT], variants: [VARIANT_A],
+        operations: [operation(56)],
+      }));
       assert.equal(
         psql(box, `SELECT count(*) FROM saas.inventory_movements WHERE source_id='${TRANSFER_INSUFFICIENT}';`).stdout.trim(),
         "0",
@@ -978,11 +1033,17 @@ COMMIT;`,
         lines: [{ lineId: line(85), variantId: VARIANT_A, quantity: 2 }],
         now: "2026-07-22T20:07:01Z",
       }));
+      const beforeHeld = denialState(box, {
+        transfers: [heldTransfer], variants: [VARIANT_A], operations: [operation(86)],
+      });
       const heldDenied = result(box, transferTransition("dispatch", {
         op: operation(86), transfer: heldTransfer, expected: heldSaved.result.version,
         now: "2026-07-22T20:07:02Z",
       }));
       assert.equal(heldDenied.outcome, "active_hold_conflict");
+      assertDenialStateUnchanged(beforeHeld, denialState(box, {
+        transfers: [heldTransfer], variants: [VARIANT_A], operations: [operation(86)],
+      }));
       psql(
         box,
         `SET ROLE celebix_saas_owner;UPDATE saas.checkout_inventory_reservations SET status='released',released_at='2026-07-22T20:08:00Z',version=2,updated_at='2026-07-22T20:08:00Z' WHERE id='72000000-0000-4000-8000-000000000001';`,
@@ -1165,17 +1226,29 @@ COMMIT;`,
       const stateBeforeBarrier = JSON.parse(psql(
         box,
         `SELECT pg_catalog.jsonb_object_agg(variant.id,pg_catalog.jsonb_build_object(
-  'stock',variant.stock_quantity,
-  'source',(SELECT balance.quantity FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${defaultLocation}' AND balance.variant_id=variant.id),
-  'destination',(SELECT balance.quantity FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${LOCATION_B}' AND balance.variant_id=variant.id)
+  'variant',pg_catalog.to_jsonb(variant),
+  'source',(SELECT pg_catalog.to_jsonb(balance) FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${defaultLocation}' AND balance.variant_id=variant.id),
+  'destination',(SELECT pg_catalog.to_jsonb(balance) FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${LOCATION_B}' AND balance.variant_id=variant.id)
 )) FROM saas.product_variants AS variant WHERE variant.store_id='${STORE}' AND variant.id IN('${VARIANT_A}','${VARIANT_B}');`,
       ).stdout.trim());
+      const catalogOperation = "75000000-0000-4000-8000-000000000009";
+      const catalogFingerprint = fingerprint(catalogOperation);
+      const catalogCall = (payloadFingerprint = catalogFingerprint) =>
+        `saas.catalog_update_variant(${catalogAuthority("2026-07-22T20:22:59Z")},'${catalogOperation}'::uuid,'${payloadFingerprint}'::text,'${PRODUCT}'::uuid,'${VARIANT_A}'::uuid,${stateBeforeBarrier[VARIANT_A].variant.version}::bigint,'A Catalog Barrier'::text,'CATALOG-BARRIER-A'::text,NULL::text,1000::bigint,NULL::bigint,500::bigint,true,${stateBeforeBarrier[VARIANT_A].variant.stock_quantity + 2}::bigint,'{"barrier":"catalog"}'::jsonb)`;
 
       const blocker = interactive(box, "inventory_checkout_store_barrier");
       blocker.write(`BEGIN;SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.store:${STORE}',0));SELECT 'CHECKOUT_BARRIER_READY';\n`);
       await waitUntil(
         () => psql(box, `SELECT count(*) FROM pg_catalog.pg_locks AS lock JOIN pg_catalog.pg_stat_activity AS activity ON activity.pid=lock.pid WHERE activity.application_name='inventory_checkout_store_barrier' AND lock.locktype='advisory' AND lock.granted;`).stdout.trim() === "1",
         "checkout store barrier",
+      );
+
+      const catalogWriter = interactive(box, "inventory_catalog_other_writer");
+      catalogWriter.write(`SET ROLE celebix_saas_app;SET statement_timeout='10s';SELECT outcome FROM ${catalogCall()};`);
+      catalogWriter.child.stdin.end();
+      await waitUntil(
+        () => psql(box, `SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE application_name='inventory_catalog_other_writer' AND wait_event_type='Lock';`).stdout.trim() === "1",
+        "catalog advisory wait",
       );
 
       const checkoutWriter = interactive(box, "inventory_checkout_other_writer");
@@ -1210,41 +1283,70 @@ COMMIT;`,
       assert.equal(
         psql(
           box,
-          `SELECT count(*) FROM pg_catalog.pg_locks AS lock JOIN pg_catalog.pg_stat_activity AS activity ON activity.pid=lock.pid WHERE activity.application_name=ANY(ARRAY['inventory_checkout_other_writer','inventory_transfer_checkout_barrier','inventory_count_checkout_barrier']) AND lock.locktype='advisory' AND NOT lock.granted;`,
+          `SELECT pg_catalog.count(*)||':'||pg_catalog.count(DISTINCT (waiting.classid,waiting.objid,waiting.objsubid)) FROM pg_catalog.pg_locks AS waiting JOIN pg_catalog.pg_stat_activity AS waiter ON waiter.pid=waiting.pid JOIN pg_catalog.pg_locks AS held ON held.locktype=waiting.locktype AND held.classid=waiting.classid AND held.objid=waiting.objid AND held.objsubid=waiting.objsubid JOIN pg_catalog.pg_stat_activity AS holder ON holder.pid=held.pid WHERE waiter.application_name=ANY(ARRAY['inventory_catalog_other_writer','inventory_checkout_other_writer','inventory_transfer_checkout_barrier','inventory_count_checkout_barrier']) AND holder.application_name='inventory_checkout_store_barrier' AND waiting.locktype='advisory' AND NOT waiting.granted AND held.granted;`,
         ).stdout.trim(),
-        "3",
+        "4:1",
       );
       blocker.write("COMMIT;\n");
       blocker.child.stdin.end();
       await blocker.done();
       const barrierOutputs = await Promise.all([
+        catalogWriter.done(),
         checkoutWriter.done(),
         transferBarrierWriter.done(),
         countBarrierWriter.done(),
       ]);
       assert.deepEqual(barrierOutputs.map((entry) => entry.trim()), [
-        "settled", "dispatched", "inventory_conflict",
+        "updated", "settled", "dispatched", "inventory_conflict",
       ]);
       const stateAfterBarrier = JSON.parse(psql(
         box,
         `SELECT pg_catalog.jsonb_object_agg(variant.id,pg_catalog.jsonb_build_object(
-  'stock',variant.stock_quantity,
-  'source',(SELECT balance.quantity FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${defaultLocation}' AND balance.variant_id=variant.id),
-  'destination',(SELECT balance.quantity FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${LOCATION_B}' AND balance.variant_id=variant.id)
+  'variant',pg_catalog.to_jsonb(variant),
+  'source',(SELECT pg_catalog.to_jsonb(balance) FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${defaultLocation}' AND balance.variant_id=variant.id),
+  'destination',(SELECT pg_catalog.to_jsonb(balance) FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${LOCATION_B}' AND balance.variant_id=variant.id)
 )) FROM saas.product_variants AS variant WHERE variant.store_id='${STORE}' AND variant.id IN('${VARIANT_A}','${VARIANT_B}');`,
       ).stdout.trim());
+      const transferTimestamp = JSON.parse(
+        psql(box, `SELECT pg_catalog.to_jsonb('2026-07-22T20:23:01Z'::timestamptz);`).stdout.trim(),
+      );
       assert.deepEqual(stateAfterBarrier, {
         [VARIANT_A]: {
-          stock: stateBeforeBarrier[VARIANT_A].stock - 2,
-          source: stateBeforeBarrier[VARIANT_A].source - 2,
+          variant: {
+            ...stateBeforeBarrier[VARIANT_A].variant,
+            title: "A Catalog Barrier",
+            sku: "CATALOG-BARRIER-A",
+            attributes: { barrier: "catalog" },
+            version: stateBeforeBarrier[VARIANT_A].variant.version + 3,
+            updated_at: transferTimestamp,
+          },
+          source: {
+            ...stateBeforeBarrier[VARIANT_A].source,
+            version: stateBeforeBarrier[VARIANT_A].source.version + 3,
+            updated_at: transferTimestamp,
+          },
           destination: stateBeforeBarrier[VARIANT_A].destination,
         },
         [VARIANT_B]: {
-          stock: stateBeforeBarrier[VARIANT_B].stock - 1,
-          source: stateBeforeBarrier[VARIANT_B].source - 1,
+          variant: {
+            ...stateBeforeBarrier[VARIANT_B].variant,
+            stock_quantity: stateBeforeBarrier[VARIANT_B].variant.stock_quantity - 1,
+            version: stateBeforeBarrier[VARIANT_B].variant.version + 1,
+            updated_at: transferTimestamp,
+          },
+          source: {
+            ...stateBeforeBarrier[VARIANT_B].source,
+            quantity: stateBeforeBarrier[VARIANT_B].source.quantity - 1,
+            version: stateBeforeBarrier[VARIANT_B].source.version + 1,
+            updated_at: transferTimestamp,
+          },
           destination: stateBeforeBarrier[VARIANT_B].destination,
         },
       });
+      assert.deepEqual(movementRows(box, catalogOperation, ["catalog_adjustment"]), [{
+        variantId: VARIANT_A, locationId: defaultLocation, movementKind: "catalog_adjustment",
+        direction: "in", quantityDelta: 2, sourceKind: "catalog_adjustment", sourceId: catalogOperation,
+      }]);
       assert.deepEqual(movementRows(box, CHECKOUT_ATTEMPT, ["checkout_sale"]), [{
         variantId: VARIANT_A, locationId: defaultLocation, movementKind: "checkout_sale",
         direction: "out", quantityDelta: -1, sourceKind: "checkout_sale", sourceId: CHECKOUT_ATTEMPT,
@@ -1259,6 +1361,63 @@ COMMIT;`,
           direction: "out", quantityDelta: -1, sourceKind: "transfer", sourceId: checkoutBarrierTransfer,
         },
       ]);
+      const persistedCatalogRaw = psql(
+        box,
+        `SELECT result_payload::text FROM saas.catalog_operations WHERE operation_id='${catalogOperation}';`,
+      ).stdout.trim();
+      const catalogCreatedAt = psql(
+        box,
+        `SELECT saas.catalog_timestamp(created_at) FROM saas.product_variants WHERE id='${VARIANT_A}';`,
+      ).stdout.trim();
+      const expectedCatalogResult = {
+        variant: {
+          id: VARIANT_A,
+          productId: PRODUCT,
+          storeId: STORE,
+          title: "A Catalog Barrier",
+          sku: "CATALOG-BARRIER-A",
+          priceCents: 1000,
+          costCents: 500,
+          stockTracking: true,
+          stockQuantity: stateBeforeBarrier[VARIANT_A].variant.stock_quantity + 2,
+          status: "active",
+          attributes: { barrier: "catalog" },
+          createdAt: catalogCreatedAt,
+          updatedAt: "2026-07-22T20:22:59.000Z",
+          version: stateBeforeBarrier[VARIANT_A].variant.version + 1,
+        },
+      };
+      assert.deepEqual(JSON.parse(persistedCatalogRaw), expectedCatalogResult);
+      assert.deepEqual(
+        JSON.parse(psql(
+          box,
+          `SELECT pg_catalog.jsonb_build_object('operationId',operation_id,'operationKind',operation_kind,'fingerprint',payload_fingerprint,'productId',result_product_id,'variantId',result_variant_id,'result',result_payload) FROM saas.catalog_operations WHERE operation_id='${catalogOperation}';`,
+        ).stdout.trim()),
+        {
+          operationId: catalogOperation,
+          operationKind: "update_variant",
+          fingerprint: catalogFingerprint,
+          productId: PRODUCT,
+          variantId: VARIANT_A,
+          result: expectedCatalogResult,
+        },
+      );
+      const catalogOperationRaw = psql(
+        box,
+        `SELECT pg_catalog.to_jsonb(operation_row)::text FROM saas.catalog_operations AS operation_row WHERE operation_id='${catalogOperation}';`,
+      ).stdout.trim();
+      const replayedCatalog = result(box, catalogCall());
+      assert.equal(replayedCatalog.outcome, "operation_replayed");
+      assert.deepEqual(replayedCatalog.result, JSON.parse(persistedCatalogRaw));
+      assert.equal(
+        psql(box, `SET ROLE celebix_saas_app;SELECT result_payload::text FROM ${catalogCall()};`).stdout.trim(),
+        persistedCatalogRaw,
+      );
+      assert.equal(result(box, catalogCall(fingerprint("catalog-mismatch"))).outcome, "operation_mismatch");
+      assert.equal(
+        psql(box, `SELECT pg_catalog.to_jsonb(operation_row)::text FROM saas.catalog_operations AS operation_row WHERE operation_id='${catalogOperation}';`).stdout.trim(),
+        catalogOperationRaw,
+      );
       assert.deepEqual(
         JSON.parse(psql(
           box,
@@ -1275,9 +1434,19 @@ COMMIT;`,
           },
         },
       );
-      assert.equal(
-        psql(box, `SELECT count(*) FROM saas.inventory_operations WHERE operation_id='${operation(107)}';`).stdout.trim(),
-        "0",
+      assert.deepEqual(
+        JSON.parse(psql(
+          box,
+          `SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('operationId',operation_id,'operationKind',operation_kind,'fingerprint',payload_fingerprint,'entityId',result_entity_id,'status',result_payload->>'status','version',(result_payload->>'version')::bigint) ORDER BY operation_id) FROM saas.inventory_operations WHERE operation_id IN('${operation(106)}','${operation(107)}');`,
+        ).stdout.trim()),
+        [{
+          operationId: operation(106),
+          operationKind: "transfer_dispatch",
+          fingerprint: fingerprint(operation(106)),
+          entityId: checkoutBarrierTransfer,
+          status: "in_transit",
+          version: barrierTransfer.result.version + 1,
+        }],
       );
 
       const transferA = makeTransfer(
