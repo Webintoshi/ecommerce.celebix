@@ -106,14 +106,47 @@ test("import preview prepare read and commit use only canonical rows and durable
   const reader = new Client((text) => text.includes("catalog_admin_get_import_preview") ? [{ outcome: "found", result_payload: preview() }] : []);
   assert.equal((await repository(new Pool([reader])).getImportPreview({ tenantContext: tenant(), now: NOW, previewId: PREVIEW })).status, "prepared");
 
-  const commit = new Client((text) => text.includes("catalog_admin_commit_import_preview") ? [{ outcome: "imported", result_payload: mutation(JOB, "completed") }] : []);
+  const commit = new Client((text) => {
+    if (text.includes("catalog_admin_get_import_preview"))
+      return [{ outcome: "found", result_payload: preview() }];
+    if (text.includes("catalog_admin_commit_import_preview"))
+      return [{ outcome: "imported", result_payload: mutation(JOB, "completed") }];
+    return [];
+  });
   assert.equal((await repository(new Pool([commit]), [], [JOB]).commitImportPreview({
     tenantContext: tenant(), now: NOW, operationId: OP, previewId: PREVIEW, expectedVersion: 1,
   })).status, "completed");
+  const snapshotIndex = commit.calls.findIndex((entry) =>
+    entry.text.includes("catalog_admin_get_import_preview")
+  );
+  const mutationIndex = commit.calls.findIndex((entry) =>
+    entry.text.includes("catalog_admin_commit_import_preview")
+  );
+  assert.ok(snapshotIndex > -1 && snapshotIndex < mutationIndex);
+  assert.deepEqual(commit.calls[mutationIndex]?.values.slice(12, 15), [
+    "shopify_csv", "a".repeat(64), JSON.stringify(preview().rows),
+  ]);
+  const changedDigest = new Client((text) => {
+    if (text.includes("catalog_admin_get_import_preview"))
+      return [{ outcome: "found", result_payload: { ...preview(), digest: "b".repeat(64) } }];
+    if (text.includes("catalog_admin_commit_import_preview"))
+      return [{ outcome: "imported", result_payload: mutation(JOB, "completed") }];
+    return [];
+  });
+  await repository(new Pool([changedDigest]), [], [JOB]).commitImportPreview({
+    tenantContext: tenant(), now: NOW, operationId: OP,
+    previewId: PREVIEW, expectedVersion: 1,
+  });
+  assert.notEqual(
+    call(commit, "catalog_admin_commit_import_preview").values[9],
+    call(changedDigest, "catalog_admin_commit_import_preview").values[9],
+  );
 });
 
 test("import preview unknown commit destroys writer and recovers exactly once read-only", async () => {
   const writer = new Client((text) => {
+    if (text.includes("catalog_admin_get_import_preview"))
+      return [{ outcome: "found", result_payload: preview() }];
     if (text.includes("catalog_admin_commit_import_preview"))
       return [{ outcome: "imported", result_payload: mutation(JOB, "completed") }];
     if (text === "COMMIT") throw new Error("wire");
@@ -137,6 +170,12 @@ test("import preview unknown commit destroys writer and recovers exactly once re
   ).length, 1);
   assert.equal(recovery.calls.some((entry) =>
     entry.text.includes("catalog_admin_commit_import_preview")
+  ), false);
+  assert.equal(writer.calls.filter((entry) =>
+    entry.text.includes("catalog_admin_get_import_preview")
+  ).length, 1);
+  assert.equal(recovery.calls.some((entry) =>
+    entry.text.includes("catalog_admin_get_import_preview")
   ), false);
 });
 

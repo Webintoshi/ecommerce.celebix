@@ -2,13 +2,14 @@ BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
 DROP FUNCTION saas.catalog_admin_recover_import_preview_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text);
-DROP FUNCTION saas.catalog_admin_commit_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,bigint,uuid);
+DROP FUNCTION saas.catalog_admin_commit_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,bigint,text,text,jsonb,uuid);
 DROP FUNCTION saas.catalog_admin_get_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid);
 DROP FUNCTION saas.catalog_admin_prepare_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,text,text,text,jsonb);
 DROP FUNCTION saas.catalog_import_preview_uuid(uuid,integer,text);
 DROP FUNCTION saas.catalog_import_preview_projection(uuid,uuid,timestamptz);
 DROP FUNCTION saas.catalog_import_preview_rows_valid(jsonb);
 DROP TABLE saas.catalog_import_previews;
+DROP FUNCTION saas.guard_catalog_import_preview_mutation();
 
 ALTER TABLE saas.catalog_admin_operations DISABLE TRIGGER catalog_admin_operations_immutable;
 DELETE FROM saas.catalog_admin_operations WHERE operation_kind IN('prepare_import_preview','commit_import_preview');

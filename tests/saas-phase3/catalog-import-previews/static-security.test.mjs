@@ -23,7 +23,23 @@ test("SQL accepts only canonical rows and digest, never raw CSV",()=>{
 });
 test("confirmation is row locked atomic and replay safe",()=>{
  const body=up.slice(up.indexOf("CREATE FUNCTION saas.catalog_admin_commit_import_preview"),up.indexOf("CREATE FUNCTION saas.catalog_admin_recover_import_preview_operation"));
- assert.match(body,/pg_advisory_xact_lock/);assert.match(body,/FOR UPDATE/);assert.match(body,/preview\.expires_at<=p_now/);assert.match(body,/product_limit_reached/);assert.match(body,/INSERT INTO saas\.products/);assert.match(body,/INSERT INTO saas\.product_variants/);assert.match(body,/INSERT INTO saas\.catalog_import_jobs/);assert.match(body,/status='consumed'/);assert.match(body,/operation_replayed/);assert.match(body,/operation_mismatch/);
+ assert.match(body,/pg_advisory_xact_lock/);assert.match(body,/FOR UPDATE/);assert.match(body,/preview\.format IS DISTINCT FROM p_format/);assert.match(body,/preview\.payload_digest IS DISTINCT FROM p_digest/);assert.match(body,/preview\.rows IS DISTINCT FROM p_rows/);assert.match(body,/preview\.expires_at<=p_now/);assert.match(body,/product_limit_reached/);assert.match(body,/INSERT INTO saas\.products/);assert.match(body,/INSERT INTO saas\.product_variants/);assert.match(body,/INSERT INTO saas\.catalog_import_jobs/);assert.match(body,/status='consumed'/);assert.match(body,/operation_replayed/);assert.match(body,/operation_mismatch/);
+});
+test("prepare and confirmation take the exact shared store lock before product-limit counts",()=>{
+ for(const [start,end] of [["CREATE FUNCTION saas.catalog_admin_prepare_import_preview","CREATE FUNCTION saas.catalog_admin_get_import_preview"],["CREATE FUNCTION saas.catalog_admin_commit_import_preview","CREATE FUNCTION saas.catalog_admin_recover_import_preview_operation"]]){
+  const body=up.slice(up.indexOf(start),up.indexOf(end));
+  const lock=body.indexOf("'saas.catalog.store:' || p_store_id::text");
+  const count=body.indexOf("FROM saas.products WHERE store_id=p_store_id");
+  assert.ok(lock>-1&&lock<count,`${start} lock ordering`);
+ }
+});
+test("preview identity is trigger-immutable while lifecycle version transitions remain finite",()=>{
+ assert.match(up,/CREATE FUNCTION saas\.guard_catalog_import_preview_mutation/);
+ assert.match(up,/OLD\.format IS DISTINCT FROM NEW\.format/);
+ assert.match(up,/OLD\.payload_digest IS DISTINCT FROM NEW\.payload_digest/);
+ assert.match(up,/OLD\.rows IS DISTINCT FROM NEW\.rows/);
+ assert.match(up,/NEW\.version<>OLD\.version\+1/);
+ assert.match(up,/BEFORE UPDATE OR DELETE ON saas\.catalog_import_previews/);
 });
 test("table ACL and rollback surface are exact",()=>{
  assert.match(up,/ENABLE ROW LEVEL SECURITY/);assert.match(up,/FORCE ROW LEVEL SECURITY/);assert.match(up,/REVOKE ALL ON saas\.catalog_import_previews/);assert.match(assertions,/pg_catalog\.aclexplode/);
@@ -33,8 +49,15 @@ test("repository unknown COMMIT uses one read-only preview recovery and no write
  assert.match(repository,/catalog_admin_recover_import_preview_operation/);assert.match(repository,/BEGIN READ ONLY/);assert.match(repository,/release\(client,\s*true\)/);
  const commit=repository.slice(repository.indexOf("async commitImportPreview"));assert.equal((commit.match(/catalog_admin_commit_import_preview/g)??[]).length,1);
 });
+test("commit fingerprint binds the persisted immutable preview snapshot in one transaction",()=>{
+ const commit=repository.slice(repository.indexOf("async commitImportPreview"));
+ const snapshot=commit.indexOf("catalog_admin_get_import_preview"),fingerprint=commit.indexOf("catalogAdminFingerprint",snapshot),mutation=commit.indexOf("catalog_admin_commit_import_preview",fingerprint);
+ assert.ok(snapshot>-1&&snapshot<fingerprint&&fingerprint<mutation);
+ for(const field of ["previewId","expectedVersion","format:persisted.format","digest:persisted.digest","rows:persisted.rows"])assert.ok(commit.includes(field),field);
+ assert.match(commit,/persisted\.format,persisted\.digest,JSON\.stringify\(persisted\.rows\)/);
+});
 test("disposable proof covers concurrency backup restore rollback and cleanup",()=>{
- for(const witness of ["concurrent double confirmation","backup and restore","rollback removes only 041","cleanup removes disposable PostgreSQL"])assert.ok(harness.includes(witness),witness);
+ for(const witness of ["concurrent double confirmation","different previews serialize at the near limit","backup and restore preserve executable authority","rollback removes only 041","cleanup removes disposable PostgreSQL"])assert.ok(harness.includes(witness),witness);
  assert.match(harness,/pg_dump/);assert.match(harness,/pg_restore/);assert.doesNotMatch(harness,/pg_sleep/);
 });
 test("no provider OAuth AI network or credential behavior is introduced",()=>{

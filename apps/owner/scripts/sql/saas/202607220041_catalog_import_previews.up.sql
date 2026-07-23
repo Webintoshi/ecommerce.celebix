@@ -33,6 +33,25 @@ ALTER TABLE saas.catalog_import_previews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas.catalog_import_previews FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON saas.catalog_import_previews FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
 
+CREATE FUNCTION saas.guard_catalog_import_preview_mutation()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $f$
+BEGIN
+ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'CATALOG_IMPORT_PREVIEW_IMMUTABLE'; END IF;
+ IF OLD.id IS DISTINCT FROM NEW.id OR OLD.store_id IS DISTINCT FROM NEW.store_id
+    OR OLD.format IS DISTINCT FROM NEW.format OR OLD.file_name IS DISTINCT FROM NEW.file_name
+    OR OLD.payload_digest IS DISTINCT FROM NEW.payload_digest OR OLD.rows IS DISTINCT FROM NEW.rows
+    OR OLD.expires_at IS DISTINCT FROM NEW.expires_at OR OLD.created_at IS DISTINCT FROM NEW.created_at
+ THEN RAISE EXCEPTION 'CATALOG_IMPORT_PREVIEW_IDENTITY_IMMUTABLE'; END IF;
+ IF OLD.status<>'prepared' OR NEW.version<>OLD.version+1 OR NEW.updated_at<OLD.updated_at
+    OR NOT ((NEW.status='consumed' AND NEW.consumed_at IS NOT NULL AND NEW.updated_at=NEW.consumed_at)
+         OR (NEW.status='expired' AND NEW.consumed_at IS NULL))
+ THEN RAISE EXCEPTION 'CATALOG_IMPORT_PREVIEW_LIFECYCLE_INVALID'; END IF;
+ RETURN NEW;
+END $f$;
+CREATE TRIGGER catalog_import_previews_immutable
+BEFORE UPDATE OR DELETE ON saas.catalog_import_previews
+FOR EACH ROW EXECUTE FUNCTION saas.guard_catalog_import_preview_mutation();
+
 CREATE FUNCTION saas.catalog_import_preview_rows_valid(p_rows jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
  SELECT pg_catalog.jsonb_typeof(p_rows)='array'
@@ -101,6 +120,7 @@ BEGIN
     OR p_file_name IS NULL OR p_file_name<>pg_catalog.btrim(p_file_name) OR pg_catalog.char_length(p_file_name) NOT BETWEEN 1 AND 200 OR p_file_name~'[[:cntrl:]]'
     OR p_digest!~'^[a-f0-9]{64}$' OR NOT saas.catalog_import_preview_rows_valid(p_rows)
  THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.store:' || p_store_id::text, 0));
  IF (SELECT pg_catalog.count(*) FROM saas.products WHERE store_id=p_store_id AND status<>'archived')+pg_catalog.jsonb_array_length(p_rows)>p_products_limit
  THEN RETURN QUERY SELECT 'product_limit_reached',NULL::jsonb; RETURN; END IF;
  BEGIN
@@ -127,7 +147,7 @@ END $f$;
 
 CREATE FUNCTION saas.catalog_admin_commit_import_preview(
   p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,
-  p_products_limit bigint,p_operation_id uuid,p_fingerprint text,p_preview_id uuid,p_expected_version bigint,p_job_id uuid
+  p_products_limit bigint,p_operation_id uuid,p_fingerprint text,p_preview_id uuid,p_expected_version bigint,p_format text,p_digest text,p_rows jsonb,p_job_id uuid
 ) RETURNS TABLE(outcome text,result_payload jsonb)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE e text; op saas.catalog_admin_operations%ROWTYPE; preview saas.catalog_import_previews%ROWTYPE; row_value jsonb; position integer:=0; result jsonb; store_currency text; row_count integer;
@@ -139,12 +159,14 @@ BEGIN
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.import.preview.operation:'||p_operation_id::text,0));
  SELECT * INTO op FROM saas.catalog_admin_operations WHERE operation_id=p_operation_id;
  IF FOUND THEN
-   IF op.store_id<>p_store_id OR op.operation_kind<>'commit_import_preview' OR op.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
-   ELSE RETURN QUERY SELECT 'operation_replayed',op.result_payload; END IF; RETURN;
+   IF op.store_id<>p_store_id OR op.operation_kind<>'commit_import_preview' OR op.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
  END IF;
- IF p_fingerprint!~'^[a-f0-9]{64}$' OR p_expected_version IS NULL OR p_expected_version<1 THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ IF p_fingerprint!~'^[a-f0-9]{64}$' OR p_expected_version IS NULL OR p_expected_version<1 OR p_format IS NULL OR p_format NOT IN('native_csv','shopify_csv') OR p_digest IS NULL OR p_digest!~'^[a-f0-9]{64}$' OR p_rows IS NULL OR NOT saas.catalog_import_preview_rows_valid(p_rows) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.store:' || p_store_id::text, 0));
  SELECT * INTO preview FROM saas.catalog_import_previews WHERE store_id=p_store_id AND id=p_preview_id FOR UPDATE;
  IF NOT FOUND THEN RETURN QUERY SELECT 'resource_not_found',NULL::jsonb; RETURN; END IF;
+ IF preview.format IS DISTINCT FROM p_format OR preview.payload_digest IS DISTINCT FROM p_digest OR preview.rows IS DISTINCT FROM p_rows THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; RETURN; END IF;
+ IF op.operation_id IS NOT NULL THEN RETURN QUERY SELECT 'operation_replayed',op.result_payload; RETURN; END IF;
  IF preview.status<>'prepared' THEN RETURN QUERY SELECT 'invalid_transition',NULL::jsonb; RETURN; END IF;
  IF preview.version<>p_expected_version THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb; RETURN; END IF;
  IF preview.expires_at<=p_now THEN
@@ -194,8 +216,8 @@ BEGIN
  ELSE RETURN QUERY SELECT 'operation_replayed',op.result_payload; END IF;
 END $f$;
 
-REVOKE ALL ON FUNCTION saas.catalog_import_preview_rows_valid(jsonb),saas.catalog_import_preview_projection(uuid,uuid,timestamptz),saas.catalog_import_preview_uuid(uuid,integer,text) FROM PUBLIC,celebix_saas_app,celebix_saas_identity,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
-REVOKE ALL ON FUNCTION saas.catalog_admin_prepare_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,text,text,text,jsonb),saas.catalog_admin_get_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.catalog_admin_commit_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,bigint,uuid),saas.catalog_admin_recover_import_preview_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text) FROM PUBLIC,celebix_saas_identity,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
-GRANT EXECUTE ON FUNCTION saas.catalog_admin_prepare_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,text,text,text,jsonb),saas.catalog_admin_get_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.catalog_admin_commit_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,bigint,uuid),saas.catalog_admin_recover_import_preview_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text) TO celebix_saas_app;
+REVOKE ALL ON FUNCTION saas.guard_catalog_import_preview_mutation(),saas.catalog_import_preview_rows_valid(jsonb),saas.catalog_import_preview_projection(uuid,uuid,timestamptz),saas.catalog_import_preview_uuid(uuid,integer,text) FROM PUBLIC,celebix_saas_app,celebix_saas_identity,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+REVOKE ALL ON FUNCTION saas.catalog_admin_prepare_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,text,text,text,jsonb),saas.catalog_admin_get_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.catalog_admin_commit_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,bigint,text,text,jsonb,uuid),saas.catalog_admin_recover_import_preview_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text) FROM PUBLIC,celebix_saas_identity,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+GRANT EXECUTE ON FUNCTION saas.catalog_admin_prepare_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,text,text,text,jsonb),saas.catalog_admin_get_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid),saas.catalog_admin_commit_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamptz,bigint,uuid,text,uuid,bigint,text,text,jsonb,uuid),saas.catalog_admin_recover_import_preview_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text) TO celebix_saas_app;
 
 COMMIT;
