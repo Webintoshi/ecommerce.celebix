@@ -32,6 +32,12 @@ export const MERCHANT_ACTIONS = Object.freeze([
   "configuration.archive",
   "integrations.read",
   "integrations.manage",
+  "inventory.read",
+  "inventory.manage",
+  "purchasing.read",
+  "purchasing.manage",
+  "pricing.read",
+  "pricing.manage",
 ] as const);
 
 export type MerchantAction = (typeof MERCHANT_ACTIONS)[number];
@@ -58,6 +64,11 @@ const ROLE_ACTIONS: Readonly<
     "marketing.read",
     "configuration.read",
     "integrations.read",
+    "inventory.read",
+    "inventory.manage",
+    "purchasing.read",
+    "purchasing.manage",
+    "pricing.read",
   ]),
   analyst: new Set<MerchantAction>([
     "analytics.read",
@@ -71,6 +82,9 @@ const ROLE_ACTIONS: Readonly<
     "marketing.read",
     "configuration.read",
     "integrations.read",
+    "inventory.read",
+    "purchasing.read",
+    "pricing.read",
   ]),
 });
 

@@ -70,6 +70,38 @@ export {
 } from "./authorization/actions.ts";
 export type { MerchantAction } from "./authorization/actions.ts";
 export {
+  INVENTORY_COUNT_STATUSES,
+  INVENTORY_MOVEMENT_KINDS,
+  INVENTORY_TRANSFER_STATUSES,
+  PURCHASE_ORDER_STATUSES,
+  parseInventoryBalance,
+  parseInventoryCount,
+  parseInventoryCountLine,
+  parseInventoryLocation,
+  parseInventoryMovement,
+  parseInventoryMutationResult,
+  parseInventoryTransfer,
+  parseInventoryTransferLine,
+  parsePurchaseOrder,
+  parsePurchaseOrderLine,
+} from "./inventory/index.ts";
+export type {
+  InventoryBalance,
+  InventoryCount,
+  InventoryCountLine,
+  InventoryCountStatus,
+  InventoryLocation,
+  InventoryMovement,
+  InventoryMovementKind,
+  InventoryMutationResult,
+  InventoryTransfer,
+  InventoryTransferLine,
+  InventoryTransferStatus,
+  PurchaseOrder,
+  PurchaseOrderLine,
+  PurchaseOrderStatus,
+} from "./inventory/index.ts";
+export {
   ANALYTICS_PERIODS,
   parseAnalyticsDashboard,
 } from "./analytics/index.ts";
