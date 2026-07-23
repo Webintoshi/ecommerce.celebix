@@ -180,7 +180,7 @@ LANGUAGE sql IMMUTABLE STRICT
 SET search_path=pg_catalog,saas
 AS $f$
   SELECT pg_catalog.to_char(
-    p_value AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+    p_value AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
   )
 $f$;
 

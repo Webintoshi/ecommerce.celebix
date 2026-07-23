@@ -32,8 +32,10 @@ const CROSS_CUSTOMER = "60000000-0000-4000-8000-000000000002";
 const TAG = "61000000-0000-4000-8000-000000000001";
 const CROSS_TAG = "61000000-0000-4000-8000-000000000002";
 const PROVIDER = "62000000-0000-4000-8000-000000000001";
-const NOW = "2026-07-23T12:00:00.000Z";
-const LATER = "2026-07-24T12:00:00.000Z";
+const NOW = "2026-07-23T12:00:00.000000Z";
+const LATER = "2026-07-24T12:00:00.000000Z";
+const MICRO_NOW = "2026-07-23T12:00:00.123456Z";
+const MICRO_LATER = "2026-07-24T12:00:00.654321Z";
 const HOSTNAME = "pricing.example.test";
 const ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
 const DUPLICATE_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"ZHVwbGljYXRlLXRva2VuLWNpcGhlcnRleHQ","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
@@ -807,6 +809,64 @@ async function main() {
       }));
       assert.equal(nullEnd.outcome, "saved");
       assert.equal(Object.hasOwn(nullEnd.result.rules[0], "endsAt"), false);
+
+      const microOperation = operation(94);
+      const microList = listId(94);
+      const microSaveCall = saveCall({
+        op: microOperation,
+        list: microList,
+        name: "Microsecond precision",
+        now: MICRO_NOW,
+        items: [item(VARIANT_B, 2200)],
+        rules: [rule("storefront", 31, {
+          startsAt: MICRO_NOW,
+          endsAt: MICRO_LATER,
+        })],
+      });
+      const microSaved = result(box, microSaveCall);
+      assert.equal(microSaved.outcome, "saved");
+      assert.equal(microSaved.result.createdAt, MICRO_NOW);
+      assert.equal(microSaved.result.updatedAt, MICRO_NOW);
+      assert.equal(microSaved.result.rules[0].startsAt, MICRO_NOW);
+      assert.equal(microSaved.result.rules[0].endsAt, MICRO_LATER);
+
+      const microFound = result(
+        box,
+        `saas.pricing_get(${authority(MICRO_NOW)},'${microList}'::uuid)`,
+      );
+      assert.equal(microFound.outcome, "found");
+      assert.deepEqual(microFound.result, microSaved.result);
+
+      const microReplay = result(box, microSaveCall);
+      assert.equal(microReplay.outcome, "operation_replayed");
+      assert.deepEqual(microReplay.result, microSaved.result);
+      const operationProof = JSON.parse(psql(
+        box,
+        `SELECT result_payload FROM saas.price_list_operations
+         WHERE operation_id='${microOperation}'::uuid;`,
+      ).stdout.trim());
+      assert.deepEqual(operationProof, microSaved.result);
+
+      const stored = JSON.parse(psql(box, `SELECT pg_catalog.jsonb_build_object(
+        'createdAt',pg_catalog.to_char(list.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+        'updatedAt',pg_catalog.to_char(list.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+        'startsAt',pg_catalog.to_char(rule.starts_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+        'endsAt',pg_catalog.to_char(rule.ends_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+        'exact',list.created_at='${MICRO_NOW}'::timestamptz
+          AND list.updated_at='${MICRO_NOW}'::timestamptz
+          AND rule.starts_at='${MICRO_NOW}'::timestamptz
+          AND rule.ends_at='${MICRO_LATER}'::timestamptz
+      ) FROM saas.price_lists list
+      JOIN saas.price_list_rules rule
+        ON rule.store_id=list.store_id AND rule.price_list_id=list.id
+      WHERE list.store_id='${STORE}'::uuid AND list.id='${microList}'::uuid;`).stdout.trim());
+      assert.deepEqual(stored, {
+        createdAt: MICRO_NOW,
+        updatedAt: MICRO_NOW,
+        startsAt: MICRO_NOW,
+        endsAt: MICRO_LATER,
+        exact: true,
+      });
     });
 
     await scenario("higher priority wins deterministically across both channels", () => {

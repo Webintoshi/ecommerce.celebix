@@ -13,6 +13,8 @@ import {
 
 const NOW = "2026-07-23T12:00:00.000Z";
 const LATER = "2026-07-24T12:00:00.000Z";
+const MICRO_NOW = "2026-07-23T12:00:00.123456Z";
+const MICRO_LATER = "2026-07-24T12:00:00.654321Z";
 const LIST_ID = "11111111-1111-4111-8111-111111111111";
 const VARIANT_ID = "22222222-2222-4222-8222-222222222222";
 const OTHER_VARIANT_ID = "33333333-3333-4333-8333-333333333333";
@@ -95,6 +97,23 @@ test("price rule timestamps preserve omitted starts and normalize a null optiona
       priority: 10,
     }));
   }
+});
+
+test("price list timestamps preserve exact six-digit UTC microseconds", () => {
+  const list = parsePriceList({
+    ...listFixture(),
+    rules: [{
+      ...ruleFixture(),
+      startsAt: MICRO_NOW,
+      endsAt: MICRO_LATER,
+    }],
+    createdAt: MICRO_NOW,
+    updatedAt: MICRO_LATER,
+  });
+  assert.equal(list.rules[0]?.startsAt, MICRO_NOW);
+  assert.equal(list.rules[0]?.endsAt, MICRO_LATER);
+  assert.equal(list.createdAt, MICRO_NOW);
+  assert.equal(list.updatedAt, MICRO_LATER);
 });
 
 test("price list items accept only fixed safe integer cents for an exact variant", () => {

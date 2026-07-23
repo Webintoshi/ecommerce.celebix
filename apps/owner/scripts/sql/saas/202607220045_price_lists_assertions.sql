@@ -76,6 +76,12 @@ BEGIN
     RAISE EXCEPTION 'PRICE_LIST_FINITE_VOCABULARY_INVALID';
   END IF;
 
+  IF saas.pricing_json_timestamp(
+    '2026-07-23T12:00:00.123456Z'::timestamptz
+  ) IS DISTINCT FROM '2026-07-23T12:00:00.123456Z' THEN
+    RAISE EXCEPTION 'PRICE_LIST_TIMESTAMP_PROJECTION_INVALID';
+  END IF;
+
   FOREACH signature IN ARRAY ARRAY[
     'saas.pricing_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)',
     'saas.pricing_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)',
