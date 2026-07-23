@@ -16,7 +16,11 @@ $precondition$;
 
 DROP TRIGGER product_variants_inventory_reconcile ON saas.product_variants;
 
-CREATE FUNCTION saas.inventory_strip_function_marker(p_signature text)
+CREATE FUNCTION saas.inventory_strip_function_marker(
+  p_signature text,
+  p_expected_marker text,
+  p_expected_source_id text
+)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path=pg_catalog,saas
@@ -24,7 +28,39 @@ AS $f$
 DECLARE
   definition text;
   stripped text;
+  marker_set text;
+  source_id_set text;
+  source_time_set text:=
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_time'',p_now::text,true);';
+  marker_clear text:=
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_marker'','''',true);';
+  source_id_clear text:=
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_id'','''',true);';
+  source_time_clear text:=
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_time'','''',true);';
+  prefix_fragment text;
+  suffix_fragment text;
+  prefix_residue text;
+  suffix_residue text;
+  prefix_start integer;
+  prefix_end integer;
+  suffix_start integer;
+  suffix_end integer;
+  definition_length integer;
+  begin_position integer;
+  end_position integer;
+  marker_set_position integer;
+  source_id_set_position integer;
+  source_time_set_position integer;
+  marker_clear_position integer;
+  source_id_clear_position integer;
+  source_time_clear_position integer;
+  guc_call_count integer;
 BEGIN
+  IF p_expected_marker NOT IN('catalog_adjustment','checkout_sale')
+     OR p_expected_source_id NOT IN('p_operation_id::text','current_attempt.id::text') THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
+  END IF;
   SELECT pg_catalog.pg_get_functiondef(p_signature::regprocedure) INTO definition;
   IF (
     pg_catalog.length(definition)-
@@ -36,42 +72,148 @@ BEGIN
   )/pg_catalog.length('-- inventory marker end')<>1 THEN
     RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
   END IF;
-  stripped:=pg_catalog.regexp_replace(
-    definition,
-    E'^[ \\t]*-- inventory marker begin[ \\t]*\\n(?:[ \\t]*PERFORM pg_catalog[.]set_config[(]''saas[.]inventory[.](source_marker|source_id|source_time)''[^\\r\\n]*\\n)+',
-    '',
-    'gn'
+  marker_set:=pg_catalog.format(
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_marker'',''%s'',true);',
+    p_expected_marker
   );
-  stripped:=pg_catalog.regexp_replace(
-    stripped,
-    E'(?:^[ \\t]*PERFORM pg_catalog[.]set_config[(]''saas[.]inventory[.](source_marker|source_id|source_time)''[^\\r\\n]*\\n)+^[ \\t]*-- inventory marker end[ \\t]*\\n',
-    '',
-    'gn'
+  source_id_set:=pg_catalog.format(
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_id'',%s,true);',
+    p_expected_source_id
   );
+  begin_position:=pg_catalog.strpos(definition,'-- inventory marker begin');
+  end_position:=pg_catalog.strpos(definition,'-- inventory marker end');
+  marker_set_position:=pg_catalog.strpos(definition,marker_set);
+  source_id_set_position:=pg_catalog.strpos(definition,source_id_set);
+  source_time_set_position:=pg_catalog.strpos(definition,source_time_set);
+  marker_clear_position:=pg_catalog.strpos(definition,marker_clear);
+  source_id_clear_position:=pg_catalog.strpos(definition,source_id_clear);
+  source_time_clear_position:=pg_catalog.strpos(definition,source_time_clear);
+  guc_call_count:=(
+    pg_catalog.length(definition)-pg_catalog.length(pg_catalog.replace(
+      definition,
+      'PERFORM pg_catalog.set_config(''saas.inventory.',
+      ''
+    ))
+  )/pg_catalog.length('PERFORM pg_catalog.set_config(''saas.inventory.');
+  IF guc_call_count<>6
+     OR NOT(
+       begin_position<marker_set_position
+       AND marker_set_position<source_id_set_position
+       AND source_id_set_position<source_time_set_position
+       AND source_time_set_position<marker_clear_position
+       AND marker_clear_position<source_id_clear_position
+       AND source_id_clear_position<source_time_clear_position
+       AND source_time_clear_position<end_position
+  ) THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
+  END IF;
+  definition_length:=pg_catalog.length(definition);
+
+  prefix_start:=begin_position;
+  WHILE prefix_start>1
+    AND pg_catalog.substr(definition,prefix_start-1,1) IN(' ',E'\t') LOOP
+    prefix_start:=prefix_start-1;
+  END LOOP;
+  IF prefix_start>1
+     AND pg_catalog.substr(definition,prefix_start-1,1)<>E'\n' THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
+  END IF;
+  prefix_end:=source_time_set_position+pg_catalog.length(source_time_set);
+  WHILE prefix_end<=definition_length
+    AND pg_catalog.substr(definition,prefix_end,1) IN(' ',E'\t',E'\r') LOOP
+    prefix_end:=prefix_end+1;
+  END LOOP;
+  IF prefix_end>definition_length
+     OR pg_catalog.substr(definition,prefix_end,1)<>E'\n' THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
+  END IF;
+  prefix_end:=prefix_end+1;
+  prefix_fragment:=pg_catalog.substr(
+    definition,prefix_start,prefix_end-prefix_start
+  );
+  prefix_residue:=prefix_fragment;
+  prefix_residue:=pg_catalog.replace(
+    prefix_residue,'-- inventory marker begin',''
+  );
+  prefix_residue:=pg_catalog.replace(prefix_residue,marker_set,'');
+  prefix_residue:=pg_catalog.replace(prefix_residue,source_id_set,'');
+  prefix_residue:=pg_catalog.replace(prefix_residue,source_time_set,'');
+  IF pg_catalog.btrim(prefix_residue,E' \t\r\n')<>'' THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
+  END IF;
+
+  suffix_start:=marker_clear_position;
+  WHILE suffix_start>1
+    AND pg_catalog.substr(definition,suffix_start-1,1) IN(' ',E'\t') LOOP
+    suffix_start:=suffix_start-1;
+  END LOOP;
+  IF suffix_start>1
+     AND pg_catalog.substr(definition,suffix_start-1,1)<>E'\n' THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
+  END IF;
+  suffix_end:=end_position+pg_catalog.length('-- inventory marker end');
+  WHILE suffix_end<=definition_length
+    AND pg_catalog.substr(definition,suffix_end,1) IN(' ',E'\t',E'\r') LOOP
+    suffix_end:=suffix_end+1;
+  END LOOP;
+  IF suffix_end>definition_length
+     OR pg_catalog.substr(definition,suffix_end,1)<>E'\n' THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
+  END IF;
+  suffix_end:=suffix_end+1;
+  suffix_fragment:=pg_catalog.substr(
+    definition,suffix_start,suffix_end-suffix_start
+  );
+  suffix_residue:=suffix_fragment;
+  suffix_residue:=pg_catalog.replace(suffix_residue,marker_clear,'');
+  suffix_residue:=pg_catalog.replace(suffix_residue,source_id_clear,'');
+  suffix_residue:=pg_catalog.replace(suffix_residue,source_time_clear,'');
+  suffix_residue:=pg_catalog.replace(
+    suffix_residue,'-- inventory marker end',''
+  );
+  IF pg_catalog.btrim(suffix_residue,E' \t\r\n')<>'' THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_DRIFT: %',p_signature;
+  END IF;
+
+  stripped:=pg_catalog.replace(definition,prefix_fragment,'');
+  stripped:=pg_catalog.replace(stripped,suffix_fragment,'');
+  IF stripped LIKE '%-- inventory marker begin%'
+     OR stripped LIKE '%-- inventory marker end%'
+     OR stripped LIKE '%saas.inventory.source_marker%'
+     OR stripped LIKE '%saas.inventory.source_id%'
+     OR stripped LIKE '%saas.inventory.source_time%' THEN
+    RAISE EXCEPTION 'INVENTORY_WRITER_RESTORE_RESIDUE: %',p_signature;
+  END IF;
   EXECUTE stripped;
 END
 $f$;
 
 SELECT saas.inventory_strip_function_marker(
-  'saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)'
+  'saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)',
+  'catalog_adjustment','p_operation_id::text'
 );
 SELECT saas.inventory_strip_function_marker(
-  'saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)'
+  'saas.catalog_create_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)',
+  'catalog_adjustment','p_operation_id::text'
 );
 SELECT saas.inventory_strip_function_marker(
-  'saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)'
+  'saas.catalog_update_variant(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,bigint,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)',
+  'catalog_adjustment','p_operation_id::text'
 );
 SELECT saas.inventory_strip_function_marker(
-  'saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'
+  'saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)',
+  'checkout_sale','current_attempt.id::text'
 );
 SELECT saas.inventory_strip_function_marker(
-  'saas.catalog_admin_import_products(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,text,jsonb)'
+  'saas.catalog_admin_import_products(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,text,jsonb)',
+  'catalog_adjustment','p_operation_id::text'
 );
 SELECT saas.inventory_strip_function_marker(
-  'saas.catalog_admin_commit_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,bigint,text,text,jsonb,uuid)'
+  'saas.catalog_admin_commit_import_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,bigint,uuid,text,uuid,bigint,text,text,jsonb,uuid)',
+  'catalog_adjustment','p_operation_id::text'
 );
 
-DROP FUNCTION saas.inventory_strip_function_marker(text);
+DROP FUNCTION saas.inventory_strip_function_marker(text,text,text);
 
 DROP FUNCTION saas.inventory_recover_operation(
   uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text

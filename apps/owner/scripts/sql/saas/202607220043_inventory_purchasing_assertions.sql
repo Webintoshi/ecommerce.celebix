@@ -6,6 +6,26 @@ DECLARE
   relation_name text;
   function_signature text;
   function_definition text;
+  expected_marker text;
+  expected_source_id text;
+  marker_set text;
+  source_id_set text;
+  source_time_set text:=
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_time'',p_now::text,true);';
+  marker_clear text:=
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_marker'','''',true);';
+  source_id_clear text:=
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_id'','''',true);';
+  source_time_clear text:=
+    'PERFORM pg_catalog.set_config(''saas.inventory.source_time'','''',true);';
+  begin_position integer;
+  end_position integer;
+  marker_set_position integer;
+  source_id_set_position integer;
+  source_time_set_position integer;
+  marker_clear_position integer;
+  source_id_clear_position integer;
+  source_time_clear_position integer;
   receive_definition text;
   purchase_lock_position integer;
   variant_lock_position integer;
@@ -140,6 +160,33 @@ BEGIN
   ] LOOP
     SELECT pg_catalog.pg_get_functiondef(function_signature::regprocedure)
     INTO function_definition;
+    IF function_signature LIKE 'saas.quick_checkout_settle_success_core(%' THEN
+      expected_marker:='checkout_sale';
+      expected_source_id:='current_attempt.id::text';
+    ELSE
+      expected_marker:='catalog_adjustment';
+      expected_source_id:='p_operation_id::text';
+    END IF;
+    marker_set:=pg_catalog.format(
+      'PERFORM pg_catalog.set_config(''saas.inventory.source_marker'',''%s'',true);',
+      expected_marker
+    );
+    source_id_set:=pg_catalog.format(
+      'PERFORM pg_catalog.set_config(''saas.inventory.source_id'',%s,true);',
+      expected_source_id
+    );
+    begin_position:=pg_catalog.strpos(
+      function_definition,'-- inventory marker begin'
+    );
+    end_position:=pg_catalog.strpos(
+      function_definition,'-- inventory marker end'
+    );
+    marker_set_position:=pg_catalog.strpos(function_definition,marker_set);
+    source_id_set_position:=pg_catalog.strpos(function_definition,source_id_set);
+    source_time_set_position:=pg_catalog.strpos(function_definition,source_time_set);
+    marker_clear_position:=pg_catalog.strpos(function_definition,marker_clear);
+    source_id_clear_position:=pg_catalog.strpos(function_definition,source_id_clear);
+    source_time_clear_position:=pg_catalog.strpos(function_definition,source_time_clear);
     IF (
       pg_catalog.length(function_definition)-
       pg_catalog.length(
@@ -151,8 +198,55 @@ BEGIN
       pg_catalog.length(
         pg_catalog.replace(function_definition,'-- inventory marker end','')
       )
-    )/pg_catalog.length('-- inventory marker end')<>1 THEN
-      RAISE EXCEPTION 'INVENTORY_WRITER_MARKER_INVALID: %',function_signature;
+    )/pg_catalog.length('-- inventory marker end')<>1
+    OR (
+      pg_catalog.length(function_definition)-
+      pg_catalog.length(pg_catalog.replace(
+        function_definition,
+        'PERFORM pg_catalog.set_config(''saas.inventory.',
+        ''
+      ))
+    )/pg_catalog.length('PERFORM pg_catalog.set_config(''saas.inventory.')<>6
+    OR (
+      pg_catalog.length(function_definition)-
+      pg_catalog.length(pg_catalog.replace(
+        function_definition,
+        'PERFORM pg_catalog.set_config(''saas.inventory.source_marker''',
+        ''
+      ))
+    )/pg_catalog.length(
+      'PERFORM pg_catalog.set_config(''saas.inventory.source_marker'''
+    )<>2
+    OR (
+      pg_catalog.length(function_definition)-
+      pg_catalog.length(pg_catalog.replace(
+        function_definition,
+        'PERFORM pg_catalog.set_config(''saas.inventory.source_id''',
+        ''
+      ))
+    )/pg_catalog.length(
+      'PERFORM pg_catalog.set_config(''saas.inventory.source_id'''
+    )<>2
+    OR (
+      pg_catalog.length(function_definition)-
+      pg_catalog.length(pg_catalog.replace(
+        function_definition,
+        'PERFORM pg_catalog.set_config(''saas.inventory.source_time''',
+        ''
+      ))
+    )/pg_catalog.length(
+      'PERFORM pg_catalog.set_config(''saas.inventory.source_time'''
+    )<>2
+    OR NOT(
+      begin_position<marker_set_position
+      AND marker_set_position<source_id_set_position
+      AND source_id_set_position<source_time_set_position
+      AND source_time_set_position<marker_clear_position
+      AND marker_clear_position<source_id_clear_position
+      AND source_id_clear_position<source_time_clear_position
+      AND source_time_clear_position<end_position
+    ) THEN
+      RAISE EXCEPTION 'INVENTORY_WRITER_GUC_SHAPE_INVALID: %',function_signature;
     END IF;
   END LOOP;
 

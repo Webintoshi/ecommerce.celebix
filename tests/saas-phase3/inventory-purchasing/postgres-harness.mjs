@@ -266,6 +266,85 @@ function result(box, functionCall, database = DB) {
   return JSON.parse(output);
 }
 
+function transactionJson(box, source, database = DB) {
+  return psql(box, source, database).stdout
+    .trim()
+    .split("\n")
+    .filter((line) => line.startsWith("{"))
+    .map((line) => JSON.parse(line));
+}
+
+function resultSelect(functionCall) {
+  return `SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM ${functionCall};`;
+}
+
+function writerWitnessSelect({ variant, operationTable, operation }) {
+  return `SELECT pg_catalog.jsonb_build_object(
+  'stock',variant.stock_quantity,
+  'balance',saas.inventory_active_balance_total(variant.store_id,variant.id),
+  'aggregateEqual',variant.stock_quantity=saas.inventory_active_balance_total(variant.store_id,variant.id),
+  'movementCount',(SELECT count(*) FROM saas.inventory_movements AS movement WHERE movement.store_id=variant.store_id AND movement.variant_id=variant.id),
+  'openingDelta',(SELECT COALESCE(sum(movement.quantity_delta),0) FROM saas.inventory_movements AS movement WHERE movement.store_id=variant.store_id AND movement.variant_id=variant.id AND movement.movement_kind='opening'),
+  'nonOpeningMovements',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+    'kind',movement.movement_kind,'direction',movement.direction,'delta',movement.quantity_delta,
+    'sourceKind',movement.source_kind,'sourceId',movement.source_id
+  ) ORDER BY movement.occurred_at,movement.id),'[]'::jsonb) FROM saas.inventory_movements AS movement WHERE movement.store_id=variant.store_id AND movement.variant_id=variant.id AND movement.movement_kind<>'opening'),
+  'operationProofCount',(SELECT count(*) FROM saas.${operationTable} AS operation WHERE operation.operation_id='${operation}'),
+  'operationKind',(SELECT operation.operation_kind FROM saas.${operationTable} AS operation WHERE operation.operation_id='${operation}'),
+  'operationFingerprint',(SELECT operation.payload_fingerprint FROM saas.${operationTable} AS operation WHERE operation.operation_id='${operation}'),
+  'operationResult',(SELECT operation.result_payload FROM saas.${operationTable} AS operation WHERE operation.operation_id='${operation}')
+) FROM saas.product_variants AS variant WHERE variant.store_id='${STORE}' AND variant.id='${variant}';`;
+}
+
+function purchaseMutationSnapshotSelect({ variant, location, order, line, operation }) {
+  return `SELECT pg_catalog.jsonb_build_object(
+  'variant',(SELECT to_jsonb(row_value) FROM saas.product_variants AS row_value WHERE row_value.store_id='${STORE}' AND row_value.id='${variant}'),
+  'balance',(SELECT to_jsonb(row_value) FROM saas.inventory_balances AS row_value WHERE row_value.store_id='${STORE}' AND row_value.location_id='${location}' AND row_value.variant_id='${variant}'),
+  'purchase',(SELECT to_jsonb(row_value) FROM saas.purchase_orders AS row_value WHERE row_value.store_id='${STORE}' AND row_value.id='${order}'),
+  'line',(SELECT to_jsonb(row_value) FROM saas.purchase_order_lines AS row_value WHERE row_value.store_id='${STORE}' AND row_value.purchase_order_id='${order}' AND row_value.id='${line}'),
+  'movements',(SELECT COALESCE(pg_catalog.jsonb_agg(to_jsonb(row_value) ORDER BY row_value.occurred_at,row_value.id),'[]'::jsonb) FROM saas.inventory_movements AS row_value WHERE row_value.store_id='${STORE}' AND row_value.variant_id='${variant}'),
+  'operations',(SELECT COALESCE(pg_catalog.jsonb_agg(to_jsonb(row_value) ORDER BY row_value.committed_at,row_value.operation_id),'[]'::jsonb) FROM saas.inventory_operations AS row_value WHERE row_value.store_id='${STORE}' AND (row_value.result_entity_id='${order}' OR row_value.operation_id='${operation}'))
+);`;
+}
+
+function variantMutationSnapshotSelect({ variant }) {
+  return `SELECT pg_catalog.jsonb_build_object(
+  'variant',(SELECT to_jsonb(row_value) FROM saas.product_variants AS row_value WHERE row_value.store_id='${STORE}' AND row_value.id='${variant}'),
+  'balances',(SELECT COALESCE(pg_catalog.jsonb_agg(to_jsonb(row_value) ORDER BY row_value.location_id),'[]'::jsonb) FROM saas.inventory_balances AS row_value WHERE row_value.store_id='${STORE}' AND row_value.variant_id='${variant}'),
+  'movements',(SELECT COALESCE(pg_catalog.jsonb_agg(to_jsonb(row_value) ORDER BY row_value.occurred_at,row_value.id),'[]'::jsonb) FROM saas.inventory_movements AS row_value WHERE row_value.store_id='${STORE}' AND row_value.variant_id='${variant}'),
+  'heldReservations',(SELECT COALESCE(pg_catalog.jsonb_agg(to_jsonb(row_value) ORDER BY row_value.id),'[]'::jsonb) FROM saas.checkout_inventory_reservations AS row_value WHERE row_value.store_id='${STORE}' AND row_value.variant_id='${variant}' AND row_value.status='held')
+);`;
+}
+
+function assertWriterEvidence(
+  rows,
+  {
+    successOutcome,
+    replayOutcome = "operation_replayed",
+    stock,
+    openingDelta,
+    operationKind,
+    fingerprint,
+    nonOpeningMovements = [],
+  },
+) {
+  assert.equal(rows.length, 4);
+  assert.equal(rows[0].outcome, successOutcome);
+  assert.equal(rows[1].outcome, replayOutcome);
+  assert.deepEqual(rows[1].result, rows[0].result);
+  assert.equal(rows[2].outcome, "operation_mismatch");
+  assert.equal(rows[3].stock, stock);
+  assert.equal(rows[3].balance, stock);
+  assert.equal(rows[3].aggregateEqual, true);
+  assert.equal(rows[3].movementCount, 1 + nonOpeningMovements.length);
+  assert.equal(rows[3].openingDelta, openingDelta);
+  assert.deepEqual(rows[3].nonOpeningMovements, nonOpeningMovements);
+  assert.equal(rows[3].operationProofCount, 1);
+  assert.equal(rows[3].operationKind, operationKind);
+  assert.equal(rows[3].operationFingerprint, fingerprint);
+  assert.deepEqual(rows[3].operationResult, rows[0].result);
+}
+
 function saveCall({
   operation,
   fingerprint,
@@ -330,7 +409,7 @@ COMMIT;`,
   );
 }
 
-function interactive(box) {
+function interactive(box, applicationName = "inventory-purchasing-interactive") {
   const child = spawn(
     box.executables.psql,
     [
@@ -347,7 +426,15 @@ function interactive(box) {
       "-d",
       DB,
     ],
-    { cwd: ROOT, env: { ...process.env, LC_ALL: "C", LANG: "C" } },
+    {
+      cwd: ROOT,
+      env: {
+        ...process.env,
+        LC_ALL: "C",
+        LANG: "C",
+        PGAPPNAME: applicationName,
+      },
+    },
   );
   let stdout = "";
   let stderr = "";
@@ -538,6 +625,214 @@ SELECT saas.inventory_active_balance_total('${STORE}','${VARIANT_A}')=8
 ROLLBACK;`,
       ).stdout.trim().split("\n").at(-1);
       assert.equal(corrected, "t");
+
+      const catalogAuthority = `'${STORE}'::uuid,'${OWNER}'::uuid,'${OWNER_MEMBERSHIP}'::uuid,'${PLAN}'::uuid,'free_starter'::text,1::bigint,100::bigint,'${NOW}'::timestamptz`;
+      const writerProduct = "90000000-0000-4000-8000-000000000101";
+      const writerProductVariant = "91000000-0000-4000-8000-000000000101";
+      const createProductOperation = "92000000-0000-4000-8000-000000000101";
+      const createProduct = (fingerprint) =>
+        `saas.catalog_create_product(${catalogAuthority},'${createProductOperation}'::uuid,'${fingerprint}'::text,'${writerProduct}'::uuid,'${writerProductVariant}'::uuid,'writer-product'::text,'Writer Product'::text,'Writer product inventory proof'::text,'draft'::text,'TRY'::text,'Default'::text,'WRITER-PRODUCT'::text,NULL::text,1000::bigint,NULL::bigint,500::bigint,true,4::bigint,'{}'::jsonb)`;
+      assertWriterEvidence(
+        transactionJson(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_app;
+${resultSelect(createProduct("11".repeat(32)))}
+${resultSelect(createProduct("11".repeat(32)))}
+${resultSelect(createProduct("12".repeat(32)))}
+SET LOCAL ROLE celebix_saas_owner;
+${writerWitnessSelect({ variant: writerProductVariant, operationTable: "catalog_operations", operation: createProductOperation })}
+ROLLBACK;`,
+        ),
+        {
+          successOutcome: "created",
+          stock: 4,
+          openingDelta: 4,
+          operationKind: "create_product",
+          fingerprint: "11".repeat(32),
+        },
+      );
+
+      const writerVariant = "91000000-0000-4000-8000-000000000102";
+      const createVariantOperation = "92000000-0000-4000-8000-000000000102";
+      const createVariant = (fingerprint) =>
+        `saas.catalog_create_variant(${catalogAuthority},'${createVariantOperation}'::uuid,'${fingerprint}'::text,'${PRODUCT}'::uuid,'${writerVariant}'::uuid,'Writer Variant'::text,'WRITER-VARIANT'::text,NULL::text,1100::bigint,NULL::bigint,600::bigint,true,6::bigint,'{}'::jsonb)`;
+      assertWriterEvidence(
+        transactionJson(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_app;
+${resultSelect(createVariant("13".repeat(32)))}
+${resultSelect(createVariant("13".repeat(32)))}
+${resultSelect(createVariant("14".repeat(32)))}
+SET LOCAL ROLE celebix_saas_owner;
+${writerWitnessSelect({ variant: writerVariant, operationTable: "catalog_operations", operation: createVariantOperation })}
+ROLLBACK;`,
+        ),
+        {
+          successOutcome: "created",
+          stock: 6,
+          openingDelta: 6,
+          operationKind: "create_variant",
+          fingerprint: "13".repeat(32),
+        },
+      );
+
+      const updateVariantOperation = "92000000-0000-4000-8000-000000000103";
+      const updateVariant = (fingerprint) =>
+        `saas.catalog_update_variant(${catalogAuthority},'${updateVariantOperation}'::uuid,'${fingerprint}'::text,'${PRODUCT}'::uuid,'${VARIANT_A}'::uuid,1::bigint,'A Updated'::text,'WRITER-UPDATE'::text,NULL::text,1000::bigint,NULL::bigint,500::bigint,true,12::bigint,'{}'::jsonb)`;
+      assertWriterEvidence(
+        transactionJson(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_app;
+${resultSelect(updateVariant("15".repeat(32)))}
+${resultSelect(updateVariant("15".repeat(32)))}
+${resultSelect(updateVariant("16".repeat(32)))}
+SET LOCAL ROLE celebix_saas_owner;
+${writerWitnessSelect({ variant: VARIANT_A, operationTable: "catalog_operations", operation: updateVariantOperation })}
+ROLLBACK;`,
+        ),
+        {
+          successOutcome: "updated",
+          stock: 12,
+          openingDelta: 10,
+          operationKind: "update_variant",
+          fingerprint: "15".repeat(32),
+          nonOpeningMovements: [
+            {
+              kind: "catalog_adjustment",
+              direction: "in",
+              delta: 2,
+              sourceKind: "catalog_adjustment",
+              sourceId: updateVariantOperation,
+            },
+          ],
+        },
+      );
+
+      const legacyProduct = "90000000-0000-4000-8000-000000000104";
+      const legacyVariant = "91000000-0000-4000-8000-000000000104";
+      const legacyOperation = "92000000-0000-4000-8000-000000000104";
+      const legacyJob = "93000000-0000-4000-8000-000000000104";
+      const legacyPayload = JSON.stringify([
+        {
+          productId: legacyProduct,
+          variantId: legacyVariant,
+          title: "Legacy Writer",
+          slug: "legacy-writer",
+          priceCents: 1200,
+          sku: "LEGACY-WRITER",
+          stockQuantity: 8,
+        },
+      ]);
+      const legacyImport = (fingerprint) =>
+        `saas.catalog_admin_import_products(${authority()},100::bigint,'${legacyOperation}'::uuid,'${fingerprint}'::text,'${legacyJob}'::uuid,'writer.csv'::text,'${legacyPayload}'::jsonb)`;
+      assertWriterEvidence(
+        transactionJson(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_app;
+${resultSelect(legacyImport("17".repeat(32)))}
+${resultSelect(legacyImport("17".repeat(32)))}
+${resultSelect(legacyImport("18".repeat(32)))}
+SET LOCAL ROLE celebix_saas_owner;
+${writerWitnessSelect({ variant: legacyVariant, operationTable: "catalog_admin_operations", operation: legacyOperation })}
+ROLLBACK;`,
+        ),
+        {
+          successOutcome: "imported",
+          stock: 8,
+          openingDelta: 8,
+          operationKind: "import_products",
+          fingerprint: "17".repeat(32),
+        },
+      );
+
+      const preview = "94000000-0000-4000-8000-000000000105";
+      const previewPrepareOperation = "92000000-0000-4000-8000-000000000105";
+      const previewCommitOperation = "92000000-0000-4000-8000-000000000106";
+      const previewJob = "93000000-0000-4000-8000-000000000106";
+      const previewVariant = psql(
+        box,
+        `SELECT saas.catalog_import_preview_uuid('${preview}',1,'variant');`,
+      ).stdout.trim();
+      const previewPayload = JSON.stringify([
+        {
+          title: "Preview Writer",
+          slug: "preview-writer",
+          priceCents: 1300,
+          sku: "PREVIEW-WRITER",
+          stockQuantity: 9,
+        },
+      ]);
+      const preparePreview = `saas.catalog_admin_prepare_import_preview(${authority()},100::bigint,'${previewPrepareOperation}'::uuid,'${"19".repeat(32)}'::text,'${preview}'::uuid,'shopify_csv'::text,'preview.csv'::text,'${"2a".repeat(32)}'::text,'${previewPayload}'::jsonb)`;
+      const commitPreview = (fingerprint) =>
+        `saas.catalog_admin_commit_import_preview(${authority()},100::bigint,'${previewCommitOperation}'::uuid,'${fingerprint}'::text,'${preview}'::uuid,1::bigint,'shopify_csv'::text,'${"2a".repeat(32)}'::text,'${previewPayload}'::jsonb,'${previewJob}'::uuid)`;
+      assertWriterEvidence(
+        transactionJson(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_app;
+SELECT outcome FROM ${preparePreview};
+${resultSelect(commitPreview("1a".repeat(32)))}
+${resultSelect(commitPreview("1a".repeat(32)))}
+${resultSelect(commitPreview("1b".repeat(32)))}
+SET LOCAL ROLE celebix_saas_owner;
+${writerWitnessSelect({ variant: previewVariant, operationTable: "catalog_admin_operations", operation: previewCommitOperation })}
+ROLLBACK;`,
+        ),
+        {
+          successOutcome: "imported",
+          stock: 9,
+          openingDelta: 9,
+          operationKind: "commit_import_preview",
+          fingerprint: "1a".repeat(32),
+        },
+      );
+
+      const settlementOperation = "92000000-0000-4000-8000-000000000107";
+      const settlementAttempt = "95000000-0000-4000-8000-000000000107";
+      const settlementOrder = "96000000-0000-4000-8000-000000000107";
+      const settlementCall = (callbackDigest, fingerprint) =>
+        `saas.checkout_settle_callback('1234567890abcdef1234567890abcdea'::text,'${callbackDigest}'::text,'${settlementOperation}'::uuid,'${fingerprint}'::text,'success'::text,1000::bigint,1000::bigint,'TRY'::text,'card'::text,1::integer,NULL::text,NULL::text,'${settlementOrder}'::uuid,ARRAY['96000000-0000-4000-8000-000000000108'::uuid],'96000000-0000-4000-8000-000000000109'::uuid,'WRITER-ORDER'::text,'${NOW}'::timestamptz)`;
+      assertWriterEvidence(
+        transactionJson(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+INSERT INTO saas.checkout_provider_configs(id,store_id,provider_key,status,public_origin,configuration_key_id,sealed_configuration,configuration_digest,version,created_at,updated_at)
+VALUES('95000000-0000-4000-8000-000000000101','${STORE}','paytr','active','https://www.paytr.com','key-1',${ENVELOPE},repeat('d',64),1,'2026-07-22T17:00:00Z','2026-07-22T17:00:00Z');
+INSERT INTO saas.quick_order_links(id,store_id,creating_membership_id,provider_config_id,status,token_digest,token_key_id,sealed_token,customer_name,customer_email,customer_phone,shipping_address,billing_address,internal_label,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,expires_at,version,created_at,updated_at)
+VALUES('95000000-0000-4000-8000-000000000102','${STORE}','${OWNER_MEMBERSHIP}','95000000-0000-4000-8000-000000000101','active',repeat('a',64),'key-1',${ENVELOPE},'Ada Lovelace','ada-writer@example.test','+905551110000',${ADDRESS},${ADDRESS},'writer settlement','TRY',1000,0,0,1000,'2026-07-23T17:00:00Z',1,'2026-07-22T17:00:00Z','2026-07-22T17:00:00Z');
+INSERT INTO saas.quick_order_link_items(id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,variant_name,unit_price_cents,quantity,line_total_cents,created_at)
+VALUES('95000000-0000-4000-8000-000000000103','${STORE}','95000000-0000-4000-8000-000000000102','${PRODUCT}','${VARIANT_A}',0,'Urun A','A',500,2,1000,'2026-07-22T17:00:00Z');
+INSERT INTO saas.quick_order_redemption_sessions(id,store_id,quick_order_link_id,cookie_digest,expires_at,version,created_at,updated_at)
+VALUES('95000000-0000-4000-8000-000000000104','${STORE}','95000000-0000-4000-8000-000000000102',repeat('e',64),'2026-07-23T17:00:00Z',1,'2026-07-22T17:50:00Z','2026-07-22T17:50:00Z');
+INSERT INTO saas.checkout_payment_attempts(id,store_id,quick_order_link_id,redemption_session_id,provider_config_id,provider_config_version,configuration_digest,configuration_key_id,sealed_configuration,merchant_oid,expected_subtotal_cents,expected_shipping_cents,expected_discount_cents,expected_payment_amount,currency,status,provider_token_digest,provider_token_key_id,sealed_provider_token,hold_expires_at,provider_ready_at,version,created_at,updated_at)
+VALUES('${settlementAttempt}','${STORE}','95000000-0000-4000-8000-000000000102','95000000-0000-4000-8000-000000000104','95000000-0000-4000-8000-000000000101',1,repeat('d',64),'key-1',${ENVELOPE},'1234567890abcdef1234567890abcdea',1000,0,0,1000,'TRY','provider_ready',repeat('1',64),'key-1',${ENVELOPE},'2026-07-22T17:55:00Z','2026-07-22T17:51:00Z',1,'2026-07-22T17:50:00Z','2026-07-22T17:51:00Z');
+INSERT INTO saas.checkout_inventory_reservations(id,store_id,attempt_id,quick_order_link_id,product_id,variant_id,quantity,stock_tracked,status,held_at,version,updated_at)
+VALUES('95000000-0000-4000-8000-000000000105','${STORE}','${settlementAttempt}','95000000-0000-4000-8000-000000000102','${PRODUCT}','${VARIANT_A}',2,true,'held','2026-07-22T17:50:00Z',1,'2026-07-22T17:50:00Z');
+SET LOCAL ROLE celebix_saas_workflow;
+${resultSelect(settlementCall("2b".repeat(32), "1c".repeat(32)))}
+${resultSelect(settlementCall("2b".repeat(32), "1c".repeat(32)))}
+${resultSelect(settlementCall("2c".repeat(32), "1d".repeat(32)))}
+SET LOCAL ROLE celebix_saas_owner;
+${writerWitnessSelect({ variant: VARIANT_A, operationTable: "checkout_operations", operation: settlementOperation })}
+ROLLBACK;`,
+        ),
+        {
+          successOutcome: "settled",
+          replayOutcome: "replayed",
+          stock: 8,
+          openingDelta: 10,
+          operationKind: "settle_callback",
+          fingerprint: "1c".repeat(32),
+          nonOpeningMovements: [
+            {
+              kind: "checkout_sale",
+              direction: "out",
+              delta: -2,
+              sourceKind: "checkout_sale",
+              sourceId: settlementAttempt,
+            },
+          ],
+        },
+      );
     });
     await scenario("location and balance projections are deterministic", () => {
       const first = result(box, `saas.inventory_list_locations(${authority()})`);
@@ -797,6 +1092,16 @@ ROLLBACK;`,
           transition: "order",
         }),
       );
+      const before = psql(
+        box,
+        purchaseMutationSnapshotSelect({
+          variant: VARIANT_A,
+          location,
+          order: ORDER_OVER,
+          line: LINE_OVER,
+          operation: "80000000-0000-4000-8000-00000000000b",
+        }),
+      ).stdout.trim();
       assert.equal(
         result(
           box,
@@ -811,6 +1116,19 @@ ROLLBACK;`,
         ).outcome,
         "over_receipt",
       );
+      assert.equal(
+        psql(
+          box,
+          purchaseMutationSnapshotSelect({
+            variant: VARIANT_A,
+            location,
+            order: ORDER_OVER,
+            line: LINE_OVER,
+            operation: "80000000-0000-4000-8000-00000000000b",
+          }),
+        ).stdout.trim(),
+        before,
+      );
     });
     await scenario("cross-store location variant and order IDs are rejected", () => {
       assert.equal(
@@ -824,6 +1142,26 @@ ROLLBACK;`,
             lines: [
               {
                 lineId: "61000000-0000-4000-8000-000000000099",
+                variantId: VARIANT_A,
+                orderedQuantity: 1,
+                unitCostCents: 1,
+              },
+            ],
+          }),
+        ).outcome,
+        "invalid_input",
+      );
+      assert.equal(
+        result(
+          box,
+          saveCall({
+            operation: "80000000-0000-4000-8000-000000000026",
+            fingerprint: "71".repeat(32),
+            order: "60000000-0000-4000-8000-000000000096",
+            location,
+            lines: [
+              {
+                lineId: "61000000-0000-4000-8000-000000000096",
                 variantId: CROSS_VARIANT,
                 orderedQuantity: 1,
                 unitCostCents: 1,
@@ -833,6 +1171,33 @@ ROLLBACK;`,
         ).outcome,
         "invalid_input",
       );
+      const crossOrder = "60000000-0000-4000-8000-000000000095";
+      const crossOrderRows = transactionJson(
+        box,
+        `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+INSERT INTO saas.purchase_orders(id,store_id,location_id,supplier_name,status,total_cost_cents,version,created_at,updated_at)
+VALUES('${crossOrder}','${STORE_B}','${crossLocation}','Cross Supplier','draft',1,1,'${NOW}','${NOW}');
+SET LOCAL ROLE celebix_saas_app;
+${resultSelect(
+  saveCall({
+    operation: "80000000-0000-4000-8000-000000000027",
+    fingerprint: "72".repeat(32),
+    order: crossOrder,
+    location,
+    lines: [
+      {
+        lineId: "61000000-0000-4000-8000-000000000095",
+        variantId: VARIANT_A,
+        orderedQuantity: 1,
+        unitCostCents: 1,
+      },
+    ],
+  }),
+)}
+ROLLBACK;`,
+      );
+      assert.equal(crossOrderRows.length, 1);
+      assert.equal(crossOrderRows[0].outcome, "invalid_input");
     });
     await scenario("duplicate purchase lines and variants are rejected", () => {
       assert.equal(
@@ -845,7 +1210,23 @@ ROLLBACK;`,
             location,
             lines: [
               { ...baseLines[0], lineId: "61000000-0000-4000-8000-000000000098" },
-              { ...baseLines[0], lineId: "61000000-0000-4000-8000-000000000098" },
+              { ...baseLines[1], lineId: "61000000-0000-4000-8000-000000000098" },
+            ],
+          }),
+        ).outcome,
+        "invalid_input",
+      );
+      assert.equal(
+        result(
+          box,
+          saveCall({
+            operation: "80000000-0000-4000-8000-000000000028",
+            fingerprint: "81".repeat(32),
+            order: "60000000-0000-4000-8000-000000000094",
+            location,
+            lines: [
+              { ...baseLines[0], lineId: "61000000-0000-4000-8000-000000000093" },
+              { ...baseLines[0], lineId: "61000000-0000-4000-8000-000000000094" },
             ],
           }),
         ).outcome,
@@ -967,13 +1348,23 @@ WHERE variant.store_id='${STORE}' AND variant.id='${VARIANT_B}';`,
       }
     });
     await scenario("malformed and nonfinite timestamps fail closed", () => {
-      assert.equal(
-        result(
-          box,
-          `saas.inventory_list_locations(${authority({ now: "infinity" })})`,
-        ).outcome,
-        "invalid_input",
+      const malformed = psql(
+        box,
+        `SET ROLE celebix_saas_app;SELECT outcome FROM saas.inventory_list_locations(${authority({ now: "not-a-timestamp" })});`,
+        DB,
+        true,
       );
+      assert.notEqual(malformed.status, 0);
+      assert.match(malformed.stderr, /invalid input syntax for type timestamp with time zone/);
+      for (const nonfinite of ["infinity", "-infinity"]) {
+        assert.equal(
+          result(
+            box,
+            `saas.inventory_list_locations(${authority({ now: nonfinite })})`,
+          ).outcome,
+          "invalid_input",
+        );
+      }
     });
     await scenario("active checkout hold invariant remains enforced", () => {
       psql(
@@ -1034,13 +1425,7 @@ COMMIT;`,
       );
       const before = psql(
         box,
-        `SELECT variant.stock_quantity||'|'||balance.quantity||'|'||
-  (SELECT count(*) FROM saas.inventory_movements AS movement
-   WHERE movement.store_id=variant.store_id AND movement.variant_id=variant.id)
-FROM saas.product_variants AS variant
-JOIN saas.inventory_balances AS balance
-  ON balance.store_id=variant.store_id AND balance.location_id='${location}' AND balance.variant_id=variant.id
-WHERE variant.store_id='${STORE}' AND variant.id='${VARIANT_A}';`,
+        variantMutationSnapshotSelect({ variant: VARIANT_A }),
       ).stdout.trim();
       const heldDenial = psql(
         box,
@@ -1063,13 +1448,27 @@ COMMIT;`,
       assert.equal(
         psql(
           box,
-          `SELECT variant.stock_quantity||'|'||balance.quantity||'|'||
-  (SELECT count(*) FROM saas.inventory_movements AS movement
-   WHERE movement.store_id=variant.store_id AND movement.variant_id=variant.id)
-FROM saas.product_variants AS variant
-JOIN saas.inventory_balances AS balance
-  ON balance.store_id=variant.store_id AND balance.location_id='${location}' AND balance.variant_id=variant.id
-WHERE variant.store_id='${STORE}' AND variant.id='${VARIANT_A}';`,
+          variantMutationSnapshotSelect({ variant: VARIANT_A }),
+        ).stdout.trim(),
+        before,
+      );
+      const reconcileDenial = psql(
+        box,
+        `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+SELECT pg_catalog.set_config('saas.inventory.source_marker','catalog_adjustment',true);
+SELECT pg_catalog.set_config('saas.inventory.source_id','70000000-0000-4000-8000-000000000017',true);
+SELECT pg_catalog.set_config('saas.inventory.source_time','2026-07-22T18:03:30Z',true);
+SELECT saas.inventory_reconcile_variant_delta('${STORE}','${VARIANT_A}',15,14,false);
+COMMIT;`,
+        DB,
+        true,
+      );
+      assert.notEqual(reconcileDenial.status, 0);
+      assert.match(reconcileDenial.stderr, /INVENTORY_ACTIVE_HOLD_VIOLATION/);
+      assert.equal(
+        psql(
+          box,
+          variantMutationSnapshotSelect({ variant: VARIANT_A }),
         ).stdout.trim(),
         before,
       );
@@ -1084,6 +1483,7 @@ WHERE store_id='${STORE}' AND id='${HOLD_RESERVATION}';`,
     });
     await scenario("concurrent receipt calls serialize on purchase variant and balance locks", async () => {
       const line = "61000000-0000-4000-8000-000000000004";
+      const secondLine = "61000000-0000-4000-8000-000000000007";
       result(
         box,
         saveCall({
@@ -1098,6 +1498,12 @@ WHERE store_id='${STORE}' AND id='${HOLD_RESERVATION}';`,
               orderedQuantity: 2,
               unitCostCents: 500,
             },
+            {
+              lineId: secondLine,
+              variantId: VARIANT_B,
+              orderedQuantity: 1,
+              unitCostCents: 800,
+            },
           ],
         }),
       );
@@ -1111,6 +1517,152 @@ WHERE store_id='${STORE}' AND id='${HOLD_RESERVATION}';`,
           transition: "order",
         }),
       );
+
+      const purchaseProbe = `SELECT 1 FROM saas.purchase_orders WHERE store_id='${STORE}' AND id='${ORDER_CONCURRENT}' FOR UPDATE NOWAIT`;
+      const variantAProbe = `SELECT 1 FROM saas.product_variants WHERE store_id='${STORE}' AND id='${VARIANT_A}' FOR UPDATE NOWAIT`;
+      const variantBProbe = `SELECT 1 FROM saas.product_variants WHERE store_id='${STORE}' AND id='${VARIANT_B}' FOR UPDATE NOWAIT`;
+      const balanceAProbe = `SELECT 1 FROM saas.inventory_balances WHERE store_id='${STORE}' AND location_id='${location}' AND variant_id='${VARIANT_A}' FOR UPDATE NOWAIT`;
+      const balanceBProbe = `SELECT 1 FROM saas.inventory_balances WHERE store_id='${STORE}' AND location_id='${location}' AND variant_id='${VARIANT_B}' FOR UPDATE NOWAIT`;
+      const probe = (source, expectedBlocked, label) => {
+        const completed = psql(
+          box,
+          `BEGIN;SET LOCAL ROLE celebix_saas_owner;${source};ROLLBACK;`,
+          DB,
+          true,
+        );
+        if (expectedBlocked) {
+          assert.notEqual(completed.status, 0, label);
+          assert.match(completed.stderr, /could not obtain lock on row/, label);
+        } else {
+          assert.equal(completed.status, 0, `${label}: ${completed.stderr}`);
+          assert.equal(completed.stdout.trim(), "1", label);
+        }
+      };
+      const lockReceipts = [
+        { lineId: secondLine, quantity: 1 },
+        { lineId: line, quantity: 1 },
+      ];
+      const proveLockStage = async ({
+        name,
+        blockerSql,
+        operation,
+        blockedProbes,
+        freeProbes,
+      }) => {
+        const blocker = interactive(box, `inventory_lock_blocker_${name}`);
+        blocker.write(
+          `BEGIN;SET LOCAL ROLE celebix_saas_owner;${blockerSql};SELECT 'BLOCKER_READY';\n`,
+        );
+        await waitUntil(
+          () => blocker.output().includes("BLOCKER_READY"),
+          `${name} blocker`,
+        );
+        const receiverApp = `inventory_lock_receiver_${name}`;
+        const receiver = interactive(box, receiverApp);
+        receiver.write(
+          `BEGIN;SET LOCAL ROLE celebix_saas_app;SELECT outcome FROM ${receiveCall({
+            operation,
+            fingerprint: operation.slice(-2).repeat(32),
+            order: ORDER_CONCURRENT,
+            expected: 2,
+            location,
+            receipts: lockReceipts,
+          })};ROLLBACK;SELECT 'RECEIVER_DONE';\\q\n`,
+        );
+        try {
+          await waitUntil(
+            () =>
+              psql(
+                box,
+                `SELECT a.wait_event_type='Lock' AND EXISTS(
+  SELECT 1 FROM pg_catalog.pg_locks AS held
+  WHERE held.pid=a.pid AND NOT held.granted
+)
+FROM pg_catalog.pg_stat_activity AS a
+WHERE a.datname=current_database() AND a.application_name='${receiverApp}';`,
+              ).stdout.trim() === "t",
+            `${name} pg_stat_activity and pg_locks barrier`,
+          );
+          for (const [label, source] of blockedProbes) probe(source, true, `${name} ${label}`);
+          for (const [label, source] of freeProbes) probe(source, false, `${name} ${label}`);
+        } finally {
+          blocker.write("ROLLBACK;\\q\n");
+        }
+        const [blockerOutput, receiverOutput] = await Promise.all([
+          blocker.done(),
+          receiver.done(),
+        ]);
+        assert.match(blockerOutput, /BLOCKER_READY/);
+        assert.match(receiverOutput, /received/);
+        assert.match(receiverOutput, /RECEIVER_DONE/);
+      };
+
+      await proveLockStage({
+        name: "purchase",
+        blockerSql: purchaseProbe.replace(" NOWAIT", ""),
+        operation: "80000000-0000-4000-8000-000000000031",
+        blockedProbes: [["purchase blocked", purchaseProbe]],
+        freeProbes: [
+          ["variant A downstream free", variantAProbe],
+          ["variant B downstream free", variantBProbe],
+          ["balance A downstream free", balanceAProbe],
+          ["balance B downstream free", balanceBProbe],
+        ],
+      });
+      await proveLockStage({
+        name: "variant_a",
+        blockerSql: variantAProbe.replace(" NOWAIT", ""),
+        operation: "80000000-0000-4000-8000-000000000032",
+        blockedProbes: [
+          ["purchase retained", purchaseProbe],
+          ["variant A blocked", variantAProbe],
+        ],
+        freeProbes: [
+          ["variant B sorted downstream free", variantBProbe],
+          ["balance A downstream free", balanceAProbe],
+          ["balance B downstream free", balanceBProbe],
+        ],
+      });
+      await proveLockStage({
+        name: "variant_b",
+        blockerSql: variantBProbe.replace(" NOWAIT", ""),
+        operation: "80000000-0000-4000-8000-000000000033",
+        blockedProbes: [
+          ["purchase retained", purchaseProbe],
+          ["variant A sorted predecessor retained", variantAProbe],
+          ["variant B blocked", variantBProbe],
+        ],
+        freeProbes: [
+          ["balance A downstream free", balanceAProbe],
+          ["balance B downstream free", balanceBProbe],
+        ],
+      });
+      await proveLockStage({
+        name: "balance_a",
+        blockerSql: balanceAProbe.replace(" NOWAIT", ""),
+        operation: "80000000-0000-4000-8000-000000000034",
+        blockedProbes: [
+          ["purchase retained", purchaseProbe],
+          ["variant A retained", variantAProbe],
+          ["variant B retained", variantBProbe],
+          ["balance A blocked", balanceAProbe],
+        ],
+        freeProbes: [["balance B sorted downstream free", balanceBProbe]],
+      });
+      await proveLockStage({
+        name: "balance_b",
+        blockerSql: balanceBProbe.replace(" NOWAIT", ""),
+        operation: "80000000-0000-4000-8000-000000000035",
+        blockedProbes: [
+          ["purchase retained", purchaseProbe],
+          ["variant A retained", variantAProbe],
+          ["variant B retained", variantBProbe],
+          ["balance A sorted predecessor retained", balanceAProbe],
+          ["balance B blocked", balanceBProbe],
+        ],
+        freeProbes: [],
+      });
+
       const first = interactive(box);
       first.write(
         `BEGIN;SET ROLE celebix_saas_app;SELECT pg_catalog.jsonb_build_object('outcome',outcome,'result',result_payload) FROM ${receiveCall({
@@ -1303,6 +1855,94 @@ COMMIT;`,
         box,
         "SELECT store_id||':'||id||':'||stock_quantity FROM saas.product_variants ORDER BY store_id,id;",
       ).stdout;
+      const restoreProbeSignature =
+        "saas.catalog_create_product(uuid,uuid,uuid,uuid,text,bigint,bigint,timestamp with time zone,uuid,text,uuid,uuid,text,text,text,text,text,text,text,text,bigint,bigint,bigint,boolean,bigint,jsonb)";
+      const patchedDefinition = psql(
+        box,
+        `SELECT pg_catalog.pg_get_functiondef('${restoreProbeSignature}'::regprocedure);`,
+      ).stdout;
+      const extraGucDefinition = patchedDefinition.replace(
+        "-- inventory marker begin",
+        "-- inventory marker begin\n  PERFORM pg_catalog.set_config('saas.inventory.source_marker','catalog_adjustment',true);",
+      );
+      psql(box, extraGucDefinition);
+      const gucShapeRefused = psql(
+        box,
+        readFileSync(
+          path.join(SQL, "202607220043_inventory_purchasing.down.sql"),
+          "utf8",
+        ),
+        DB,
+        true,
+      );
+      assert.notEqual(gucShapeRefused.status, 0);
+      assert.match(gucShapeRefused.stderr, /INVENTORY_WRITER_RESTORE_DRIFT/);
+      psql(box, patchedDefinition);
+
+      const sourceIdSet =
+        "PERFORM pg_catalog.set_config('saas.inventory.source_id',p_operation_id::text,true);";
+      const sourceTimeSet =
+        "PERFORM pg_catalog.set_config('saas.inventory.source_time',p_now::text,true);";
+      assert.ok(patchedDefinition.includes(`${sourceIdSet}\n  ${sourceTimeSet}`));
+      for (const injectedStatement of [
+        "PERFORM pg_catalog.set_config('saas.unrelated','x',true);",
+        "PERFORM 1;",
+      ]) {
+        const sameLineDefinition = patchedDefinition.replace(
+          sourceTimeSet,
+          `${sourceTimeSet} ${injectedStatement}`,
+        );
+        psql(box, sameLineDefinition);
+        const sameLineRefused = psql(
+          box,
+          readFileSync(
+            path.join(SQL, "202607220043_inventory_purchasing.down.sql"),
+            "utf8",
+          ),
+          DB,
+          true,
+        );
+        assert.notEqual(sameLineRefused.status, 0);
+        assert.match(sameLineRefused.stderr, /INVENTORY_WRITER_RESTORE_DRIFT/);
+        psql(box, patchedDefinition);
+      }
+
+      const reorderedDefinition = patchedDefinition.replace(
+        `${sourceIdSet}\n  ${sourceTimeSet}`,
+        `${sourceTimeSet}\n  ${sourceIdSet}`,
+      );
+      psql(box, reorderedDefinition);
+      const reorderedRefused = psql(
+        box,
+        readFileSync(
+          path.join(SQL, "202607220043_inventory_purchasing.down.sql"),
+          "utf8",
+        ),
+        DB,
+        true,
+      );
+      assert.notEqual(reorderedRefused.status, 0);
+      assert.match(reorderedRefused.stderr, /INVENTORY_WRITER_RESTORE_DRIFT/);
+      psql(box, patchedDefinition);
+
+      const residueDefinition = patchedDefinition.replace(
+        "-- inventory marker begin",
+        "-- saas.inventory.source_marker restore residue\n  -- inventory marker begin",
+      );
+      psql(box, residueDefinition);
+      const residueRefused = psql(
+        box,
+        readFileSync(
+          path.join(SQL, "202607220043_inventory_purchasing.down.sql"),
+          "utf8",
+        ),
+        DB,
+        true,
+      );
+      assert.notEqual(residueRefused.status, 0);
+      assert.match(residueRefused.stderr, /INVENTORY_WRITER_RESTORE_RESIDUE/);
+      psql(box, patchedDefinition);
+
       apply(box, "202607220043_inventory_purchasing.down.sql");
       assert.equal(
         psql(box, "SELECT to_regclass('saas.inventory_locations') IS NULL;").stdout.trim(),

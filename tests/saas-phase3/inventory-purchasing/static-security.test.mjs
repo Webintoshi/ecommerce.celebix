@@ -51,6 +51,21 @@ test("variant reconciliation fails closed and preserves prior writers with finit
   assert.match(up, /inventory marker begin/);
   assert.match(up, /inventory marker end/);
   assert.match(down, /inventory marker begin[\s\S]*inventory marker end/);
+  assert.match(down, /p_expected_marker text/);
+  assert.match(down, /p_expected_source_id text/);
+  assert.match(down, /guc_call_count<>6/);
+  assert.match(down, /prefix_fragment text/);
+  assert.match(down, /suffix_fragment text/);
+  assert.match(down, /prefix_residue text/);
+  assert.match(down, /suffix_residue text/);
+  assert.doesNotMatch(down, /\[\^\\\\r\\\\n\]\*/);
+  assert.match(down, /INVENTORY_WRITER_RESTORE_RESIDUE/);
+  assert.match(down, /EXECUTE stripped/);
+  assert.ok(
+    down.indexOf("INVENTORY_WRITER_RESTORE_RESIDUE") <
+      down.indexOf("EXECUTE stripped"),
+  );
+  assert.match(assertions, /INVENTORY_WRITER_GUC_SHAPE_INVALID/);
 });
 
 test("purchasing receive uses exact deterministic lock and mutation order", () => {
@@ -115,6 +130,25 @@ test("the disposable harness defines exactly 34 named scenarios and full recover
   assert.match(harness, /pg_dump/);
   assert.match(harness, /pg_restore/);
   assert.match(harness, /pg_stat_activity/);
+  assert.match(harness, /pg_catalog[.]pg_locks/);
+  assert.match(harness, /FOR UPDATE NOWAIT/);
+  for (const writer of [
+    "catalog_create_product",
+    "catalog_create_variant",
+    "catalog_update_variant",
+    "catalog_admin_import_products",
+    "catalog_admin_commit_import_preview",
+    "checkout_settle_callback",
+  ]) {
+    assert.match(harness, new RegExp(`saas[.]${writer}[(]`));
+  }
+  assert.match(harness, /inventory_lock_receiver_[$][{]name[}]/);
+  for (const lockStage of ["purchase", "variant_a", "variant_b", "balance_a", "balance_b"]) {
+    assert.match(harness, new RegExp(`name: "${lockStage}"`));
+  }
+  assert.match(harness, /INVENTORY_ACTIVE_HOLD_VIOLATION/);
+  assert.match(harness, /not-a-timestamp/);
+  assert.match(harness, /INVENTORY_WRITER_RESTORE_RESIDUE/);
   assert.doesNotMatch(harness, /pg_sleep|127[.]0[.]0[.]1|localhost|PGHOST|DATABASE_URL/);
 });
 
