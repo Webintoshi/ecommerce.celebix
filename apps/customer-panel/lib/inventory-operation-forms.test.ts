@@ -83,5 +83,5 @@ test("new line identities are submit-owned and never randomize server/client ini
   const initializer = component.match(/const newLine[\s\S]*?;\nconst statusError/)?.[0] ?? "";
   assert.doesNotMatch(initializer, /crypto[.]randomUUID/);
   assert.doesNotMatch(component, /crypto[.]randomUUID/);
-  assert.match(component, /prepareInventoryOperationSubmission\(/);
+  assert.match(component, /submitInventoryOperationForm\(/);
 });

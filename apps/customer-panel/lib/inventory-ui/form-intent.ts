@@ -134,6 +134,17 @@ export function prepareInventoryOperationSubmission(
   }
 }
 
+export function submitInventoryOperationForm(
+  draft: InventoryOperationDraft,
+  choices: ChoiceAuthority,
+  onSave: (value: SaveIntent) => void,
+  randomUUID: () => string = () => crypto.randomUUID(),
+): Result<SaveIntent> {
+  const parsed = prepareInventoryOperationSubmission(draft, choices, randomUUID);
+  if (parsed.ok) onSave(parsed.value);
+  return parsed;
+}
+
 export function buildPurchaseReceiptIntent(
   record: PurchaseOrder,
   quantities: Readonly<Record<string, string>>,

@@ -19,8 +19,8 @@ import type { InventoryConsolePhase } from "@/lib/inventory-ui/console-controlle
 import {
   buildPurchaseReceiptIntent,
   initialPurchaseReceiptQuantities,
-  prepareInventoryOperationSubmission,
   purchaseReceiptRevision,
+  submitInventoryOperationForm,
   type InventoryOperationDraftLine,
 } from "@/lib/inventory-ui/form-intent";
 import styles from "./inventory-console.module.css";
@@ -133,7 +133,7 @@ export function InventoryOperationForm(props: Props) {
     event.preventDefault();
     setValidation("");
     if (!props.canManage || disabled || empty) return;
-    const parsed = prepareInventoryOperationSubmission({
+    const parsed = submitInventoryOperationForm({
       mode: props.mode,
       ...(props.record ? { record: props.record } : {}),
       supplierName,
@@ -141,9 +141,8 @@ export function InventoryOperationForm(props: Props) {
       sourceLocationId,
       destinationLocationId,
       lines,
-    }, { locationIds: knownLocations, variantIds: knownVariants });
+    }, { locationIds: knownLocations, variantIds: knownVariants }, props.onSave);
     if (!parsed.ok) { setValidation(parsed.message); return; }
-    props.onSave(parsed.value);
   }
 
   if (!props.canManage) return <div className={styles.denied} role="status">{label(props.mode)} oluşturma veya düzenleme yetkiniz yok.</div>;

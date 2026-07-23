@@ -9,7 +9,7 @@ import ts from "typescript";
 
 import type { InventoryCount, InventoryLocation, InventoryMutationResult, InventoryTransfer, PurchaseOrder } from "@celebix/saas-contracts";
 import { createInventoryApi, InventoryApiError } from "./inventory-ui/client.ts";
-import { prepareInventoryOperationSubmission } from "./inventory-ui/form-intent.ts";
+import { prepareInventoryOperationSubmission, submitInventoryOperationForm } from "./inventory-ui/form-intent.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const ORDER = "11111111-1111-4111-8111-111111111111";
@@ -353,6 +353,119 @@ test("count and transfer save preserve durable IDs, versions and exact line inpu
   await transferSubject.save(transferIntent);
   assert.deepEqual(countCalls, [countIntent]);
   assert.deepEqual(transferCalls, [transferIntent]);
+});
+
+test("shared form boundary owns empty-store count create start and commit without duplicate mutations", async () => {
+  const module = await controllers();
+  const created = count({ status: "draft", version: 1, lines: Object.freeze([
+    Object.freeze({ id: LINE, variantId: VARIANT, expectedQuantity: 0, countedQuantity: 0 }),
+  ]), });
+  const counting = count({ ...created, status: "counting", version: 2 });
+  const committed = count({ ...counting, status: "committed", version: 3 });
+  const savePending = deferred<InventoryMutationResult>();
+  const startPending = deferred<InventoryMutationResult>();
+  const commitPending = deferred<InventoryMutationResult>();
+  const saves: unknown[] = [], starts: unknown[] = [], commits: unknown[] = [];
+  let reads = 0;
+  const subject = (module.createInventoryCountConsoleController as Function)({
+    canManage: true,
+    api: {
+      saveCount(value: unknown, signal: AbortSignal) { saves.push({ value, signal }); return savePending.promise; },
+      startCount(id: string, version: number, signal: AbortSignal) { starts.push({ id, version, signal }); return startPending.promise; },
+      commitCount(id: string, version: number, signal: AbortSignal) { commits.push({ id, version, signal }); return commitPending.promise; },
+      async getCount() { reads += 1; return reads === 1 ? created : reads === 2 ? counting : committed; },
+    },
+  });
+  let generated = 0;
+  let createWork: Promise<void> | undefined;
+  const submit = () => submitInventoryOperationForm({
+    mode: "count", supplierName: "", locationId: LOCATION, sourceLocationId: "", destinationLocationId: "",
+    lines: [{ lineId: "", variantId: VARIANT, quantity: "0", unitCostCents: "0" }],
+  }, { locationIds: new Set([LOCATION]), variantIds: new Set([VARIANT]) }, (value) => {
+    createWork = subject.save(value);
+  }, () => { generated += 1; return LINE; });
+
+  assert.equal(submit().ok, true);
+  assert.equal(submit().ok, true);
+  assert.equal(saves.length, 1);
+  assert.equal(generated, 2);
+  assert.deepEqual((saves[0] as { value: unknown }).value, {
+    locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 0 }],
+  });
+  assert.equal((saves[0] as { signal: AbortSignal }).signal instanceof AbortSignal, true);
+  savePending.resolve(mutation(COUNT, "draft", 1));
+  await createWork;
+  assert.equal(subject.getSnapshot().record, created);
+
+  const firstStart = subject.start(), duplicateStart = subject.start();
+  assert.equal(starts.length, 1);
+  startPending.resolve(mutation(COUNT, "counting", 2));
+  await Promise.all([firstStart, duplicateStart]);
+  assert.deepEqual({ id: (starts[0] as { id: string }).id, version: (starts[0] as { version: number }).version }, { id: COUNT, version: 1 });
+  assert.equal(subject.getSnapshot().record, counting);
+
+  const firstCommit = subject.commit(), duplicateCommit = subject.commit();
+  assert.equal(commits.length, 1);
+  commitPending.resolve(mutation(COUNT, "committed", 3));
+  await Promise.all([firstCommit, duplicateCommit]);
+  assert.deepEqual({ id: (commits[0] as { id: string }).id, version: (commits[0] as { version: number }).version }, { id: COUNT, version: 2 });
+  assert.equal(subject.getSnapshot().record, committed);
+});
+
+test("shared form boundary owns empty-store transfer create dispatch and receive without duplicate mutations", async () => {
+  const module = await controllers();
+  const created = transfer({ status: "draft", version: 1 });
+  const inTransit = transfer({ ...created, status: "in_transit", version: 2 });
+  const received = transfer({ ...inTransit, status: "received", version: 3 });
+  const savePending = deferred<InventoryMutationResult>();
+  const dispatchPending = deferred<InventoryMutationResult>();
+  const receivePending = deferred<InventoryMutationResult>();
+  const saves: unknown[] = [], dispatches: unknown[] = [], receipts: unknown[] = [];
+  let reads = 0;
+  const subject = (module.createInventoryTransferConsoleController as Function)({
+    canManage: true,
+    api: {
+      saveTransfer(value: unknown, signal: AbortSignal) { saves.push({ value, signal }); return savePending.promise; },
+      dispatchTransfer(id: string, version: number, signal: AbortSignal) { dispatches.push({ id, version, signal }); return dispatchPending.promise; },
+      receiveTransfer(id: string, version: number, signal: AbortSignal) { receipts.push({ id, version, signal }); return receivePending.promise; },
+      async getTransfer() { reads += 1; return reads === 1 ? created : reads === 2 ? inTransit : received; },
+    },
+  });
+  let generated = 0;
+  let createWork: Promise<void> | undefined;
+  const submit = () => submitInventoryOperationForm({
+    mode: "transfer", supplierName: "", locationId: "", sourceLocationId: LOCATION, destinationLocationId: DESTINATION,
+    lines: [{ lineId: "", variantId: VARIANT, quantity: "2", unitCostCents: "0" }],
+  }, { locationIds: new Set([LOCATION, DESTINATION]), variantIds: new Set([VARIANT]) }, (value) => {
+    createWork = subject.save(value);
+  }, () => { generated += 1; return LINE; });
+
+  assert.equal(submit().ok, true);
+  assert.equal(submit().ok, true);
+  assert.equal(saves.length, 1);
+  assert.equal(generated, 2);
+  assert.deepEqual((saves[0] as { value: unknown }).value, {
+    sourceLocationId: LOCATION, destinationLocationId: DESTINATION,
+    lines: [{ lineId: LINE, variantId: VARIANT, quantity: 2 }],
+  });
+  assert.equal((saves[0] as { signal: AbortSignal }).signal instanceof AbortSignal, true);
+  savePending.resolve(mutation(TRANSFER, "draft", 1));
+  await createWork;
+  assert.equal(subject.getSnapshot().record, created);
+
+  const firstDispatch = subject.dispatch(), duplicateDispatch = subject.dispatch();
+  assert.equal(dispatches.length, 1);
+  dispatchPending.resolve(mutation(TRANSFER, "in_transit", 2));
+  await Promise.all([firstDispatch, duplicateDispatch]);
+  assert.deepEqual({ id: (dispatches[0] as { id: string }).id, version: (dispatches[0] as { version: number }).version }, { id: TRANSFER, version: 1 });
+  assert.equal(subject.getSnapshot().record, inTransit);
+
+  const firstReceive = subject.receive(), duplicateReceive = subject.receive();
+  assert.equal(receipts.length, 1);
+  receivePending.resolve(mutation(TRANSFER, "received", 3));
+  await Promise.all([firstReceive, duplicateReceive]);
+  assert.deepEqual({ id: (receipts[0] as { id: string }).id, version: (receipts[0] as { version: number }).version }, { id: TRANSFER, version: 2 });
+  assert.equal(subject.getSnapshot().record, received);
 });
 
 test("a synchronous double receipt owns one mutation and one canonical reload", async () => {
