@@ -1,0 +1,7 @@
+import { createHash } from "node:crypto";
+import type { PriceListItem, PriceListRule } from "@celebix/saas-contracts";
+function stable(value: unknown): string { if (value === null || typeof value !== "object") return JSON.stringify(value); if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`; return `{${Object.entries(value as Record<string, unknown>).filter(([, nested]) => nested !== undefined).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, nested]) => `${JSON.stringify(key)}:${stable(nested)}`).join(",")}}`; }
+export function canonicalPricingItems(items: readonly PriceListItem[]): readonly PriceListItem[] { return Object.freeze([...items].sort((left, right) => left.variantId < right.variantId ? -1 : left.variantId > right.variantId ? 1 : 0)); }
+export function canonicalPricingRules(rules: readonly PriceListRule[]): readonly PriceListRule[] { return Object.freeze([...rules].sort((left, right) => stable(left) < stable(right) ? -1 : stable(left) > stable(right) ? 1 : 0)); }
+export function pricingFingerprint(kind: string, storeId: string, priceListId: string, expectedVersion: number | null, payload: unknown): string { return createHash("sha256").update(stable({ expectedVersion, kind, payload, priceListId, storeId }), "utf8").digest("hex"); }
+export function equalPricingProjection(left: unknown, right: unknown): boolean { return stable(left) === stable(right); }

@@ -11,6 +11,7 @@ import {
   PostgresAnalyticsRepository,
   PostgresCustomerRepository,
   PostgresInventoryRepository,
+  PostgresPricingRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
@@ -28,6 +29,7 @@ import { registerServerAbandonedCartRepository } from "../server-abandoned-carts
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
 import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
+import { registerServerPricingRepository } from "../server-pricing/runtime.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
   parseQuickLinkServerConfig,
@@ -170,6 +172,10 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regclass('saas.inventory_count_lines') IS NOT NULL
         AND to_regclass('saas.inventory_transfers') IS NOT NULL
         AND to_regclass('saas.inventory_transfer_lines') IS NOT NULL AS inventory_relations,
+      to_regclass('saas.price_lists') IS NOT NULL
+        AND to_regclass('saas.price_list_items') IS NOT NULL
+        AND to_regclass('saas.price_list_rules') IS NOT NULL
+        AND to_regclass('saas.price_list_operations') IS NOT NULL AS pricing_relations,
       to_regprocedure('saas.inventory_list_locations(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
         AND to_regprocedure('saas.inventory_list_balances(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
         AND to_regprocedure('saas.purchasing_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
@@ -190,6 +196,12 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.inventory_transfers_receive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.inventory_transfers_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
         AND to_regprocedure('saas.inventory_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS inventory_repository
+      ,to_regprocedure('saas.pricing_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,jsonb,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.pricing_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS pricing_repository
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -213,7 +225,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.catalog_admin_repository !== true ||
       row.merchant_admin_repository !== true ||
       row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
-      row.inventory_relations !== true || row.inventory_repository !== true
+      row.inventory_relations !== true || row.inventory_repository !== true ||
+      row.pricing_relations !== true || row.pricing_repository !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
 }
@@ -303,6 +316,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       uuid: randomUUID,
       audit: () => undefined,
     });
+    const pricingRepository = new PostgresPricingRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
+      audit: () => undefined,
+    });
     const quickLinkRepositoryOptions = {
       pool,
       role: "celebix_saas_app" as const,
@@ -323,6 +343,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerMerchantAdminRepository(access, merchantAdminRepository);
     registerServerAnalyticsRepository(access, analyticsRepository);
     registerServerInventoryRepository(access, inventoryRepository);
+    registerServerPricingRepository(access, pricingRepository);
     registerServerQuickLinksRuntime(access, {
       links: quickLinkRepository,
       privateLinks: quickLinkPrivateRepository,

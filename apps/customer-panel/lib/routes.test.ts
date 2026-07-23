@@ -20,6 +20,13 @@ test("exports the authenticated catalog dashboard summary route", async () => {
   assert.doesNotMatch(routeSource, /export const POST/);
 });
 
+test("exports only the finite authenticated pricing catch-all methods", async () => {
+  const route = await readFile(new URL("../app/api/pricing/[...path]/route.ts", import.meta.url), "utf8");
+  assert.match(route, /export const GET = handlePricingRequest;/);
+  assert.match(route, /export const POST = handlePricingRequest;/);
+  for (const method of ["PUT", "PATCH", "DELETE"]) assert.doesNotMatch(route, new RegExp(`export const ${method}`));
+});
+
 test("analytics and typed storefront setting pages are server-authorized routes", async () => {
   const analytics = await readFile(new URL("../app/analytics/page.tsx", import.meta.url), "utf8");
   assert.match(analytics, /requireServerPanelAccess\(\)/);
