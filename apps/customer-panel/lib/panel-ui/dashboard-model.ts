@@ -2,6 +2,7 @@ import type { PanelChromeModel } from "./chrome-model.ts";
 import type { CatalogDashboardSummary } from "../catalog-ui/client.ts";
 import type {
   AbandonedCartSummary,
+  AnalyticsDashboard,
   CustomerSummary,
   OrderDashboardSummary,
 } from "@celebix/saas-contracts";
@@ -90,10 +91,32 @@ export interface MerchantDashboardViewModel {
   readonly chromeCards: readonly PanelDashboardCard[];
   readonly catalog: AuthoritySlice<CatalogDashboardViewModel>;
   readonly orders: AuthoritySlice<OrderDashboardViewModel>;
-  readonly analytics: AuthoritySlice<never>;
+  readonly analytics: AuthoritySlice<AnalyticsDashboardViewModel>;
   readonly customers: AuthoritySlice<CustomerSummary>;
   readonly carts: AuthoritySlice<AbandonedCartSummary>;
   readonly actions: readonly PanelDashboardAction[];
+}
+
+export interface AnalyticsDashboardViewModel {
+  readonly period: AnalyticsDashboard["period"];
+  readonly currency: string;
+  readonly revenueCents: number;
+  readonly orders: Readonly<{
+    total: number;
+    paid: number;
+    cancelled: number;
+    refunded: number;
+  }>;
+  readonly customers: Readonly<{ total: number; newInPeriod: number }>;
+  readonly catalog: Readonly<{
+    activeProducts: number;
+    lowStockVariants: number;
+  }>;
+  readonly series: readonly Readonly<{
+    startsAt: string;
+    orders: number;
+    revenueCents: number;
+  }>[];
 }
 
 export interface OrderDashboardViewModel {
@@ -272,6 +295,22 @@ function createCatalogDashboardViewModel(
   });
 }
 
+function createAnalyticsDashboardViewModel(
+  dashboard: AnalyticsDashboard,
+): AnalyticsDashboardViewModel {
+  return Object.freeze({
+    period: dashboard.period,
+    currency: dashboard.currency,
+    revenueCents: dashboard.revenueCents,
+    orders: Object.freeze({ ...dashboard.orders }),
+    customers: Object.freeze({ ...dashboard.customers }),
+    catalog: Object.freeze({ ...dashboard.catalog }),
+    series: Object.freeze(
+      dashboard.series.map((point) => Object.freeze({ ...point })),
+    ),
+  });
+}
+
 export function createMerchantDashboardViewModel(
   chrome: PanelChromeModel,
   catalog: AuthoritySlice<CatalogDashboardSummary>,
@@ -281,6 +320,9 @@ export function createMerchantDashboardViewModel(
   carts: AuthoritySlice<AbandonedCartSummary> = unsupportedAuthority("carts"),
   customers: AuthoritySlice<CustomerSummary> = unsupportedAuthority(
     "customers",
+  ),
+  analytics: AuthoritySlice<AnalyticsDashboard> = unsupportedAuthority(
+    "analytics",
   ),
 ): MerchantDashboardViewModel {
   const legacy = createPanelDashboardModel(chrome);
@@ -311,7 +353,13 @@ export function createMerchantDashboardViewModel(
     chromeCards: legacy.cards,
     catalog: catalogView,
     orders: orderView,
-    analytics: unsupportedAuthority("analytics"),
+    analytics:
+      analytics.state === "ready"
+        ? readyAuthority(
+            createAnalyticsDashboardViewModel(analytics.value),
+            analytics.asOf,
+          )
+        : analytics,
     customers:
       customers.state === "ready"
         ? readyAuthority(customers.value, customers.value.asOf)

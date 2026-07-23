@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readyAuthority, unavailableAuthority } from "./authority-slice.ts";
 import type { PanelChromeModel } from "./chrome-model.ts";
+import type { AnalyticsDashboard } from "@celebix/saas-contracts";
 import {
   createMerchantDashboardViewModel,
   createPanelDashboardModel,
@@ -26,6 +27,22 @@ const summary = Object.freeze({
   productsWithoutMedia: 1,
   activeMedia: 7,
 });
+
+const analyticsReady = () => readyAuthority<AnalyticsDashboard>(Object.freeze({
+  period: "month",
+  rangeStart: "2026-07-01T00:00:00.000Z",
+  rangeEnd: "2026-07-22T12:00:00.000Z",
+  generatedAt: "2026-07-22T12:00:00.000Z",
+  currency: "TRY",
+  revenueCents: 125_000,
+  orders: Object.freeze({ total: 12, paid: 10, cancelled: 1, refunded: 1 }),
+  customers: Object.freeze({ total: 30, newInPeriod: 4 }),
+  catalog: Object.freeze({ activeProducts: 8, lowStockVariants: 2 }),
+  series: Object.freeze([Object.freeze({
+    startsAt: "2026-07-01T00:00:00.000Z", orders: 2, revenueCents: 20_000,
+  })]),
+  topProducts: Object.freeze([]),
+}), "2026-07-22T12:00:00.000Z");
 
 test("projects exact store, membership, plan, and storefront facts", () => {
   const model = createPanelDashboardModel(chrome);
@@ -173,6 +190,24 @@ test("marks absent commerce domains unsupported without zero KPI", () => {
     JSON.stringify(model),
     /revenue|conversion|orderTotal|customerTotal|0 ₺/i,
   );
+});
+
+test("dashboard uses persisted analytics without unsupported claims", () => {
+  const model = createMerchantDashboardViewModel(
+    chrome,
+    readyAuthority(summary, "2026-07-20T12:00:00.000Z"),
+    unavailableAuthority(true),
+    unavailableAuthority(true),
+    unavailableAuthority(true),
+    analyticsReady(),
+  );
+  assert.equal(model.analytics.state, "ready");
+  if (model.analytics.state !== "ready") assert.fail("analytics must be ready");
+  assert.equal(model.analytics.value.revenueCents, 125_000);
+  const text = JSON.stringify(model);
+  for (const forbidden of ["liveVisitors", "conversionRate", "devices", "trafficSources"]) {
+    assert.doesNotMatch(text, new RegExp(forbidden));
+  }
 });
 
 test("keeps dashboard slices deeply frozen", () => {

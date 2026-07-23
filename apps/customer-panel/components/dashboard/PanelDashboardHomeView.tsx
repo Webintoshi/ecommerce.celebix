@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import type {
   AbandonedCartSummary,
+  AnalyticsDashboard,
   CustomerSummary,
   OrderDashboardSummary,
 } from "@celebix/saas-contracts";
@@ -79,6 +80,16 @@ const readyCustomers = (
 ): AuthoritySlice<CustomerSummary> =>
   Object.freeze({ state: "ready", value, asOf: value.asOf });
 
+const unavailableAnalytics = (
+  retryable: boolean,
+): AuthoritySlice<AnalyticsDashboard> =>
+  Object.freeze({ state: "unavailable", retryable });
+
+const readyAnalytics = (
+  value: AnalyticsDashboard,
+): AuthoritySlice<AnalyticsDashboard> =>
+  Object.freeze({ state: "ready", value, asOf: value.generatedAt });
+
 function orderMoney(cents: number, currency: string) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency }).format(
     cents / 100,
@@ -114,6 +125,7 @@ export function PanelDashboardPresentation({
   ordersState,
   cartsState,
   customersState,
+  analyticsState,
 }: {
   dashboard: MerchantDashboardViewModel;
   onRefresh: () => void;
@@ -121,6 +133,7 @@ export function PanelDashboardPresentation({
   ordersState?: "loading" | "loaded" | "error" | "unsupported";
   cartsState?: "loading" | "loaded" | "error" | "unsupported";
   customersState?: "loading" | "loaded" | "error" | "unsupported";
+  analyticsState?: "loading" | "loaded" | "error" | "unsupported";
 }) {
   const activeOrdersState =
     ordersState ??
@@ -131,6 +144,12 @@ export function PanelDashboardPresentation({
   const activeCustomersState =
     customersState ??
     (dashboard.customers.state === "ready" ? "loaded" : "unsupported");
+  const activeAnalyticsState =
+    analyticsState ??
+    (dashboard.analytics.state === "ready" ? "loaded" : "unsupported");
+  const analyticsValue = dashboard.analytics.state === "ready"
+    ? dashboard.analytics.value
+    : undefined;
   return (
     <PanelPageShell>
       <PanelPageHeader
@@ -288,6 +307,91 @@ export function PanelDashboardPresentation({
               {dashboard.catalog.value.productLimit.toLocaleString("tr-TR")}
             </p>
           </div>
+        </section>
+      ) : null}
+
+      {activeAnalyticsState === "loading" ? (
+        <section
+          className={styles.catalogSurface}
+          role="status"
+          aria-label="Ticari analitik özeti yükleniyor"
+        >
+          <div className={styles.metricTabs}>
+            {Array.from({ length: 4 }, (_, index) => (
+              <article className={styles.skeletonCard} aria-hidden="true" key={index}>
+                <span className={styles.skeletonLine} />
+                <span className={styles.skeletonLine} />
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {activeAnalyticsState === "error" &&
+      dashboard.analytics.state === "unavailable" ? (
+        <div className={styles.errorState} role="alert">
+          <div>
+            <h2>Ticari analitik özeti yüklenemedi</h2>
+            <p>Kalıcı ticari özet şu anda kullanılamıyor.</p>
+          </div>
+          <DashboardRefreshButton
+            label="Tekrar dene"
+            onRefresh={onRefresh}
+            state="error"
+          />
+        </div>
+      ) : null}
+
+      {activeAnalyticsState === "loaded" && analyticsValue ? (
+        <section className={styles.catalogSurface} aria-labelledby="analytics-summary-title">
+          <div className={styles.chartPanel}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2 id="analytics-summary-title">Bu ayın ticari özeti</h2>
+                <p>Kalıcı sipariş, müşteri ve katalog kayıtlarından hesaplanır.</p>
+              </div>
+              <PanelActionButton href="/analytics">Analitiği incele</PanelActionButton>
+            </div>
+          </div>
+          <div className={styles.metricTabs} role="list" aria-label="Ticari analitik metrikleri">
+            <article className={styles.metricTab} role="listitem">
+              <p>Gelir</p>
+              <strong>{orderMoney(analyticsValue.revenueCents, analyticsValue.currency)}</strong>
+              <span>Ödenmiş siparişlerden</span>
+            </article>
+            <article className={styles.metricTab} role="listitem">
+              <p>Sipariş</p>
+              <strong>{analyticsValue.orders.total.toLocaleString("tr-TR")}</strong>
+              <span>{analyticsValue.orders.paid.toLocaleString("tr-TR")} ödenmiş kayıt</span>
+            </article>
+            <article className={styles.metricTab} role="listitem">
+              <p>Yeni müşteri</p>
+              <strong>{analyticsValue.customers.newInPeriod.toLocaleString("tr-TR")}</strong>
+              <span>{analyticsValue.customers.total.toLocaleString("tr-TR")} kalıcı müşteri</span>
+            </article>
+            <article className={styles.metricTab} role="listitem">
+              <p>Düşük stok</p>
+              <strong>{analyticsValue.catalog.lowStockVariants.toLocaleString("tr-TR")}</strong>
+              <span>{analyticsValue.catalog.activeProducts.toLocaleString("tr-TR")} aktif ürün</span>
+            </article>
+          </div>
+          {analyticsValue.series.length > 0 ? (
+            <div className={styles.chartPanel}>
+              <div className={styles.chartViewport}>
+                <div className={styles.chartInner} role="img" aria-label="Aylık gelir zaman serisi">
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={analyticsValue.series} accessibilityLayer>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="startsAt" />
+                      <YAxis tickFormatter={(value) => orderMoney(Number(value), analyticsValue.currency)} />
+                      <Tooltip formatter={(value) => [orderMoney(Number(value), analyticsValue.currency), "Gelir"]} />
+                      <Bar dataKey="revenueCents" fill="#FF6A00" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -625,6 +729,12 @@ export function PanelDashboardHomeView() {
   const [customersState, setCustomersState] = useState<
     "loading" | "loaded" | "error"
   >("loading");
+  const [analytics, setAnalytics] = useState<AuthoritySlice<AnalyticsDashboard>>(
+    () => unavailableAnalytics(false),
+  );
+  const [analyticsState, setAnalyticsState] = useState<
+    "loading" | "loaded" | "error"
+  >("loading");
   const requestSequence = useRef(0);
   const load = useCallback(async () => {
     const sequence = ++requestSequence.current;
@@ -632,15 +742,20 @@ export function PanelDashboardHomeView() {
     setOrdersState("loading");
     setCartsState("loading");
     setCustomersState("loading");
+    setAnalyticsState("loading");
     const [baseResults, supplementalResults] = await Promise.all([
       loadMerchantDashboardSummaries(catalogApi, orderApi),
       Promise.allSettled([
         abandonedCartApi.getSummary(),
         customerApi.summary(),
+        (async () => {
+          const { analyticsApi } = await import("@/lib/analytics-ui/client");
+          return analyticsApi.dashboard("month");
+        })(),
       ]),
     ]);
     const [catalogResult, orderResult] = baseResults;
-    const [cartResult, customerResult] = supplementalResults;
+    const [cartResult, customerResult, analyticsResult] = supplementalResults;
     if (sequence !== requestSequence.current) return;
     if (catalogResult.status === "fulfilled") {
       setCatalog(readyCatalog(catalogResult.value));
@@ -670,6 +785,13 @@ export function PanelDashboardHomeView() {
       setCustomers(unavailableCustomers(true));
       setCustomersState("error");
     }
+    if (analyticsResult?.status === "fulfilled") {
+      setAnalytics(readyAnalytics(analyticsResult.value));
+      setAnalyticsState("loaded");
+    } else {
+      setAnalytics(unavailableAnalytics(true));
+      setAnalyticsState("error");
+    }
   }, []);
 
   useEffect(() => {
@@ -685,6 +807,7 @@ export function PanelDashboardHomeView() {
     orders,
     carts,
     customers,
+    analytics,
   );
   return (
     <PanelDashboardPresentation
@@ -696,6 +819,7 @@ export function PanelDashboardHomeView() {
       ordersState={ordersState}
       cartsState={cartsState}
       customersState={customersState}
+      analyticsState={analyticsState}
     />
   );
 }

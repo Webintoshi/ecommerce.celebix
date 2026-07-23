@@ -470,6 +470,9 @@ async function renderPanelDashboard(
     if (specifier === "@/lib/customer-ui/client") {
       return { customerApi: { summary: async () => undefined } };
     }
+    if (specifier === "@/lib/analytics-ui/client") {
+      return { analyticsApi: { dashboard: async () => undefined } };
+    }
     if (specifier === "@/lib/panel-ui/dashboard-model") {
       return { createMerchantDashboardViewModel };
     }
@@ -1042,7 +1045,7 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
     combined,
     /conversion(?:Rate|Total)|dönüşüm oranı|customerTotal|previousRevenue|currentRevenue|Toshi/i,
   );
-  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
+  assert.match(view, /analyticsApi[.]dashboard\("month"\)/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
   assert.match(combined, /"\/analytics"/);
   assert.doesNotMatch(view, /provider(?:Data|Payload)|TenantContext/i);
