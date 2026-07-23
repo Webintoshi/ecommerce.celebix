@@ -7,7 +7,7 @@
     { "file": "202607220039_typed_storefront_settings.up.sql", "sha256": "c043a025aa57837049733495b1e415176115fa129058ccf6e0b8fde58406f009" },
     { "file": "202607220039_typed_storefront_settings.down.sql", "sha256": "d4a5adb525901381b2b4c5835e7d93ea83c18114683fce990792d16c9a9e2d50" },
     { "file": "202607220039_typed_storefront_settings_assertions.sql", "sha256": "d2f5fca301bd8182d7a8906dac7a9bcf76deb89e9fc5e36c4d5f0b3cd6fa2140" },
-    { "file": "202607220040_advanced_seo_preferences.up.sql", "sha256": "2efd0e7b650c974b91e2f22a839456a1fd80ec7621288dec8a5ba0b8ee75546d" },
+    { "file": "202607220040_advanced_seo_preferences.up.sql", "sha256": "6be1cde1f5119487dde08cd4863f8741e55df31b247363e253b8d630bb682e39" },
     { "file": "202607220040_advanced_seo_preferences.down.sql", "sha256": "c56b93a6f5e2279b22b78dcebb5e5d6a450e500fb7b8b8ca35a010b15f83b939" },
     { "file": "202607220040_advanced_seo_preferences_assertions.sql", "sha256": "fff15eb0cc7a24ef210971f34e135c6e2382437041e1bf4690cdc457c19679a4" }
   ]

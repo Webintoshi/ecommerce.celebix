@@ -51,3 +51,28 @@ test("security boundaries preserve operation-first locking, exact ACLs, and cano
   assert.match(down, /CREATE OR REPLACE FUNCTION saas\.merchant_admin_config_valid/);
   assert.doesNotMatch(down, /DROP TABLE saas\.merchant_admin_records/);
 });
+
+test("save locks before any input or authority result and reauthorizes persisted operations", () => {
+  const start = up.indexOf("CREATE OR REPLACE FUNCTION saas.merchant_admin_save");
+  const end = up.indexOf("CREATE OR REPLACE FUNCTION saas.merchant_admin_archive", start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const body = up.slice(start, end);
+  const lock = body.indexOf("pg_advisory_xact_lock");
+  const existing = body.indexOf("SELECT * INTO op FROM saas.merchant_admin_operations", lock);
+  const loadPersisted = body.indexOf("id=(op.result_payload->>'id')::uuid", existing);
+  const persistedAuthority = body.indexOf("current_record.record_kind,true", loadPersisted);
+  const mismatch = body.indexOf("op.payload_fingerprint<>p_fingerprint", persistedAuthority);
+  const requestedAuthority = body.lastIndexOf("p_kind,true");
+  assert.ok(lock > -1 && lock < body.indexOf("merchant_admin_config_valid"));
+  assert.ok(existing > lock && loadPersisted > existing && persistedAuthority > loadPersisted && mismatch > persistedAuthority);
+  assert.ok(requestedAuthority > mismatch);
+});
+
+test("SQL grammar has exact TypeScript parity for path UUID and locale", () => {
+  assert.match(up, /merchant_admin_setting_text\(p_value,1,512\)/);
+  assert.match(up, /\[1-8\]\[0-9a-f\]\{3\}/);
+  assert.match(up, /\^\[a-z\]\{2,3\}\(-\[A-Z\]\{2\}\)\?\$/);
+  assert.doesNotMatch(up, /p_value,1,1024/);
+  assert.doesNotMatch(up, /-\[A-Z\]\[a-z\]\{3\}|-\[0-9\]\{3\}/);
+});

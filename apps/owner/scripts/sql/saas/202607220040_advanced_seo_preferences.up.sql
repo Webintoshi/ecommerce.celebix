@@ -71,7 +71,7 @@ $f$;
 
 CREATE OR REPLACE FUNCTION saas.merchant_admin_setting_public_path(p_value jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
- SELECT saas.merchant_admin_setting_text(p_value,1,1024)
+ SELECT saas.merchant_admin_setting_text(p_value,1,512)
    AND p_value#>>'{}' ~ '^/[A-Za-z0-9/_-]*$'
    AND p_value#>>'{}' !~ '^//'
    AND p_value#>>'{}' !~ '(^|/)[.][.]?(/|$)'
@@ -80,7 +80,7 @@ $f$;
 CREATE OR REPLACE FUNCTION saas.merchant_admin_setting_uuid(p_value jsonb)
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
 BEGIN
- IF pg_catalog.jsonb_typeof(p_value)<>'string' OR p_value#>>'{}' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN RETURN false; END IF;
+ IF pg_catalog.jsonb_typeof(p_value)<>'string' OR p_value#>>'{}' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN RETURN false; END IF;
  PERFORM (p_value#>>'{}')::uuid;
  RETURN true;
 EXCEPTION WHEN others THEN RETURN false;
@@ -89,7 +89,7 @@ END $f$;
 CREATE OR REPLACE FUNCTION saas.merchant_admin_setting_locale(p_value jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
  SELECT saas.merchant_admin_setting_text(p_value,2,35)
-   AND p_value#>>'{}' ~ '^[a-z]{2,3}(-[A-Z][a-z]{3}|-[A-Z]{2}|-[0-9]{3})?$'
+   AND p_value#>>'{}' ~ '^[a-z]{2,3}(-[A-Z]{2})?$'
 $f$;
 
 CREATE OR REPLACE FUNCTION saas.merchant_admin_required_action(p_kind text,p_mutation boolean)
@@ -226,10 +226,16 @@ CREATE OR REPLACE FUNCTION saas.merchant_admin_save(p_store_id uuid,p_principal_
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE e text; op saas.merchant_admin_operations%ROWTYPE; current_record saas.merchant_admin_records%ROWTYPE; result jsonb; projection jsonb;
 BEGIN
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.merchant.admin.operation:'||p_operation_id::text,0));
+ SELECT * INTO op FROM saas.merchant_admin_operations WHERE operation_id=p_operation_id AND store_id=p_store_id;
+ IF FOUND THEN
+  SELECT * INTO current_record FROM saas.merchant_admin_records WHERE store_id=p_store_id AND id=(op.result_payload->>'id')::uuid FOR UPDATE;
+  IF NOT FOUND OR current_record.record_kind<>(op.result_payload->>'kind') THEN RETURN QUERY SELECT 'record_not_found',NULL::jsonb; RETURN; END IF;
+  e:=saas.merchant_admin_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,current_record.record_kind,true); IF e IS NOT NULL THEN RETURN QUERY SELECT e,NULL::jsonb; RETURN; END IF;
+  IF current_record.id<>p_record_id OR op.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',op.result_payload; END IF; RETURN;
+ END IF;
  IF p_fingerprint!~'^[a-f0-9]{64}$' OR p_name IS NULL OR p_name<>pg_catalog.btrim(p_name) OR pg_catalog.octet_length(p_name) NOT BETWEEN 1 AND 160 OR p_name~'[[:cntrl:]]' OR NOT saas.merchant_admin_config_valid(p_kind,p_config) OR p_status NOT IN('draft','active') THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
  e:=saas.merchant_admin_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_kind,true); IF e IS NOT NULL THEN RETURN QUERY SELECT e,NULL::jsonb; RETURN; END IF;
- PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.merchant.admin.operation:'||p_operation_id::text,0));
- SELECT * INTO op FROM saas.merchant_admin_operations WHERE operation_id=p_operation_id AND store_id=p_store_id; IF FOUND THEN IF op.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',op.result_payload; END IF; RETURN; END IF;
  SELECT * INTO current_record FROM saas.merchant_admin_records WHERE store_id=p_store_id AND id=p_record_id FOR UPDATE;
  IF FOUND THEN IF current_record.record_kind<>p_kind THEN RETURN QUERY SELECT 'record_not_found',NULL::jsonb; RETURN; END IF; IF p_expected_version IS NULL OR current_record.version<>p_expected_version OR current_record.status='archived' THEN RETURN QUERY SELECT CASE WHEN current_record.status='archived' THEN 'invalid_transition' ELSE 'version_conflict' END,NULL::jsonb; RETURN; END IF; UPDATE saas.merchant_admin_records SET name=p_name,config=p_config,status=p_status,version=version+1,updated_at=p_now WHERE store_id=p_store_id AND id=p_record_id;
  ELSE IF p_expected_version IS NOT NULL THEN RETURN QUERY SELECT 'record_not_found',NULL::jsonb; RETURN; END IF; INSERT INTO saas.merchant_admin_records(id,store_id,record_kind,name,config,status,created_at,updated_at) VALUES(p_record_id,p_store_id,p_kind,p_name,p_config,p_status,p_now,p_now); END IF;
