@@ -18,6 +18,8 @@ const LOCATION = "44444444-4444-4444-8444-444444444444";
 const DESTINATION = "55555555-5555-4555-8555-555555555555";
 const LINE = "66666666-6666-4666-8666-666666666666";
 const VARIANT = "77777777-7777-4777-8777-777777777777";
+const SECOND_LINE = "88888888-8888-4888-8888-888888888888";
+const SECOND_VARIANT = "99999999-9999-4999-8999-999999999999";
 const NOW = "2026-07-23T10:00:00.000Z";
 
 const purchase = (overrides: Partial<PurchaseOrder> = {}): PurchaseOrder => Object.freeze({
@@ -200,6 +202,51 @@ test("purchase receipt accepts exact positive partial quantities and never auto-
   await invalid.receive([{ lineId: LINE, quantity: 0 }]);
   await invalid.receive([{ lineId: LINE, quantity: 3 }]);
   assert.equal(invalidCalled, false);
+});
+
+test("two-line receipt refreshes canonical partial state before a later exact completion", async () => {
+  const module = await controllers();
+  const originalLines = Object.freeze([
+    Object.freeze({ ...purchase().lines[0]!, orderedQuantity: 5, receivedQuantity: 0 }),
+    Object.freeze({ ...purchase().lines[0]!, id: SECOND_LINE, variantId: SECOND_VARIANT, orderedQuantity: 4, receivedQuantity: 2, lineCostCents: 5000 }),
+  ]);
+  const partial = purchase({
+    status: "partially_received", version: 4,
+    lines: Object.freeze([
+      Object.freeze({ ...originalLines[0]!, receivedQuantity: 5 }),
+      originalLines[1]!,
+    ]),
+  });
+  const complete = purchase({
+    status: "received", version: 5,
+    lines: Object.freeze([
+      partial.lines[0]!,
+      Object.freeze({ ...partial.lines[1]!, receivedQuantity: 4 }),
+    ]),
+  });
+  const calls: unknown[] = [];
+  let canonicalReads = 0;
+  const subject = (module.createPurchasingConsoleController as Function)({
+    initial: purchase({ status: "ordered", lines: originalLines }), canManage: true,
+    api: {
+      async receivePurchaseOrder(_id: string, input: unknown) {
+        calls.push(input);
+        return calls.length === 1 ? mutation(ORDER, "partially_received", 4) : mutation(ORDER, "received", 5);
+      },
+      async getPurchaseOrder() { canonicalReads += 1; return canonicalReads === 1 ? partial : complete; },
+    },
+  });
+
+  await subject.receive([{ lineId: LINE, quantity: 5 }]);
+  assert.equal(subject.getSnapshot().record, partial);
+  await subject.receive([{ lineId: SECOND_LINE, quantity: 2 }]);
+
+  assert.deepEqual(calls, [
+    { expectedVersion: 3, locationId: LOCATION, lines: [{ lineId: LINE, quantity: 5 }] },
+    { expectedVersion: 4, locationId: LOCATION, lines: [{ lineId: SECOND_LINE, quantity: 2 }] },
+  ]);
+  assert.equal(subject.getSnapshot().record, complete);
+  assert.equal(subject.getSnapshot().phase, "committed");
 });
 
 test("count and transfer save preserve durable IDs, versions and exact line inputs", async () => {

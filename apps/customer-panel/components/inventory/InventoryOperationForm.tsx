@@ -19,6 +19,8 @@ import type { InventoryConsolePhase } from "@/lib/inventory-ui/console-controlle
 import {
   buildInventoryOperationIntent,
   buildPurchaseReceiptIntent,
+  initialPurchaseReceiptQuantities,
+  purchaseReceiptRevision,
   type InventoryOperationDraftLine,
 } from "@/lib/inventory-ui/form-intent";
 import styles from "./inventory-console.module.css";
@@ -177,8 +179,13 @@ export function PurchaseReceiptForm(props: Readonly<{
   locked: boolean;
   onReceive(lines: ReceivePurchaseOrderIntent["lines"]): void;
 }>) {
-  const [quantities, setQuantities] = useState<Readonly<Record<string, string>>>(() => Object.freeze(Object.fromEntries(props.record.lines.map((line) => [line.id, "0"]))));
+  const revision = purchaseReceiptRevision(props.record);
+  const [quantities, setQuantities] = useState<Readonly<Record<string, string>>>(() => initialPurchaseReceiptQuantities(props.record));
   const [error, setError] = useState("");
+  useEffect(() => {
+    setQuantities(initialPurchaseReceiptQuantities(props.record));
+    setError("");
+  }, [revision]);
   const remaining = props.record.lines.filter((line) => line.orderedQuantity > line.receivedQuantity);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

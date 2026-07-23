@@ -124,10 +124,12 @@ export function buildPurchaseReceiptIntent(
     if (record.status !== "ordered" && record.status !== "partially_received") return fail("Bu satın alma siparişi teslim almaya açık değil.");
     const lines: Array<{ lineId: string; quantity: number }> = [];
     for (const line of record.lines) {
+      const remaining = line.orderedQuantity - line.receivedQuantity;
+      if (remaining === 0) continue;
       const raw = quantities[line.id] ?? "0";
       if (!integer(raw, 0)) return fail("Teslim miktarlarını tam sayı olarak girin.");
       const quantity = Number(raw);
-      if (quantity > line.orderedQuantity - line.receivedQuantity) return fail("Kalan miktardan fazla teslim alınamaz.");
+      if (quantity > remaining) return fail("Kalan miktardan fazla teslim alınamaz.");
       if (quantity > 0) lines.push(Object.freeze({ lineId: line.id, quantity }));
     }
     if (!lines.length) return fail("En az bir pozitif teslim miktarı girin.");
@@ -135,4 +137,14 @@ export function buildPurchaseReceiptIntent(
   } catch {
     return fail("Teslim miktarları güvenli biçimde doğrulanamadı.");
   }
+}
+
+export function purchaseReceiptRevision(record: PurchaseOrder): string {
+  return `${record.id}:${record.version}`;
+}
+
+export function initialPurchaseReceiptQuantities(record: PurchaseOrder): Readonly<Record<string, string>> {
+  return Object.freeze(Object.fromEntries(record.lines
+    .filter((line) => line.receivedQuantity < line.orderedQuantity)
+    .map((line) => [line.id, "0"])));
 }

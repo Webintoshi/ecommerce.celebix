@@ -5,6 +5,8 @@ import type { InventoryCount, InventoryTransfer, PurchaseOrder } from "@celebix/
 import {
   buildInventoryOperationIntent,
   buildPurchaseReceiptIntent,
+  initialPurchaseReceiptQuantities,
+  purchaseReceiptRevision,
   type InventoryOperationDraft,
 } from "./inventory-ui/form-intent.ts";
 
@@ -15,6 +17,7 @@ const LOCATION = "44444444-4444-4444-8444-444444444444";
 const DESTINATION = "55555555-5555-4555-8555-555555555555";
 const LINE = "66666666-6666-4666-8666-666666666666";
 const VARIANT = "77777777-7777-4777-8777-777777777777";
+const SECOND_LINE = "88888888-8888-4888-8888-888888888888";
 const NOW = "2026-07-23T10:00:00.000Z";
 const choices = Object.freeze({ locationIds: new Set([LOCATION, DESTINATION]), variantIds: new Set([VARIANT]) });
 const line = Object.freeze({ lineId: LINE, variantId: VARIANT, quantity: "1", unitCostCents: "250" });
@@ -98,5 +101,23 @@ test("receipt builder keeps exact positive partial quantities and rejects zero-o
   assert.deepEqual(buildPurchaseReceiptIntent(receiptRecord, { [LINE]: "3" }), {
     ok: false,
     message: "Kalan miktardan fazla teslim alınamaz.",
+  });
+});
+
+test("receipt draft resets on exact durable id/version and hidden completed lines cannot contribute", () => {
+  const twoLines = Object.freeze({
+    ...purchase,
+    status: "partially_received" as const,
+    version: 4,
+    lines: Object.freeze([
+      Object.freeze({ ...purchase.lines[0]!, receivedQuantity: 5 }),
+      Object.freeze({ ...purchase.lines[0]!, id: SECOND_LINE, orderedQuantity: 4, receivedQuantity: 2 }),
+    ]),
+  });
+  assert.equal(purchaseReceiptRevision(twoLines), `${ORDER}:4`);
+  assert.deepEqual(initialPurchaseReceiptQuantities(twoLines), { [SECOND_LINE]: "0" });
+  assert.deepEqual(buildPurchaseReceiptIntent(twoLines, { [LINE]: "5", [SECOND_LINE]: "2" }), {
+    ok: true,
+    value: [{ lineId: SECOND_LINE, quantity: 2 }],
   });
 });

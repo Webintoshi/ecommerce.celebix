@@ -45,7 +45,7 @@ function PurchasingDetail(props: Readonly<{ initial?: PurchaseOrder; resourceId?
   const item = state.record;
   return <>{item ? <PurchasingDetailPresentation state={state} canManage={props.canManage} onOrder={() => { void lifecycle.current?.getCurrent()?.order(); }} onCancel={() => { void lifecycle.current?.getCurrent()?.cancel(); }} /> : null}
     {(props.create || item?.status === "draft") ? <InventoryOperationForm mode="purchase" record={item} canManage={props.canManage} phase={state.phase} pending={state.pending} locked={state.locked} message={state.message} onSave={(value) => { void lifecycle.current?.getCurrent()?.save(value as Parameters<ReturnType<typeof createPurchasingConsoleController>["save"]>[0]); }} /> : null}
-    {item && (item.status === "ordered" || item.status === "partially_received") && props.canManage ? <PurchaseReceiptForm record={item} pending={state.pending} locked={state.locked} onReceive={(lines) => { void lifecycle.current?.getCurrent()?.receive(lines); }} /> : null}
+    {item && (item.status === "ordered" || item.status === "partially_received") && props.canManage ? <PurchaseReceiptForm key={`${item.id}:${item.version}`} record={item} pending={state.pending} locked={state.locked} onReceive={(lines) => { void lifecycle.current?.getCurrent()?.receive(lines); }} /> : null}
   </>;
 }
 
