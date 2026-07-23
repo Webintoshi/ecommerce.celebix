@@ -37,6 +37,25 @@ test("analytics and typed storefront setting pages are server-authorized routes"
   }
 });
 
+test("advanced SEO and AI pages expose only fixed server-authorized kinds", async () => {
+  const pages = [
+    ["../app/seo/geo-optimization/page.tsx", "seo_geo_profile", "integrations.manage"],
+    ["../app/seo/internal-linking/page.tsx", "seo_internal_link", "integrations.manage"],
+    ["../app/seo/content/page.tsx", "seo_content_entry", "integrations.manage"],
+    ["../app/seo/categories/page.tsx", "seo_category_entry", "integrations.manage"],
+    ["../app/seo/pages/page.tsx", "seo_page_entry", "integrations.manage"],
+    ["../app/seo/products/page.tsx", "seo_product_entry", "integrations.manage"],
+    ["../app/settings/artificial-intelligence/page.tsx", "ai_setting", "configuration.manage"],
+  ] as const;
+  for (const [path, kind, capability] of pages) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /requireServerPanelAccess\(\)/);
+    assert.match(source, new RegExp(`kind=["']${kind}["']`));
+    assert.match(source, new RegExp(capability.replace(".", "\\.")));
+    assert.doesNotMatch(source, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+});
+
 test("exports only the exact authenticated order route methods", async () => {
   const routes = [
     ["../app/api/orders/summary/route.ts", "GET", "handleDefaultOrderGetDashboardSummary"],

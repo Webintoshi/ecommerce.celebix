@@ -1,0 +1,9 @@
+import { isMerchantActionAllowed } from "@celebix/saas-contracts";
+
+import { MerchantModuleConsole } from "@/components/merchant-admin/MerchantModuleConsole";
+import { requireServerPanelAccess } from "@/lib/server-access";
+
+export default async function SeoPagesPage() {
+  const { tenantContext } = await requireServerPanelAccess();
+  return <MerchantModuleConsole kind="seo_page_entry" canManage={isMerchantActionAllowed(tenantContext.membership.role, "integrations.manage")} />;
+}

@@ -67,6 +67,7 @@ test("contains every and only currently working merchant destination", () => {
       "/settings/hero-banner",
       "/settings/promotion-banner",
       "/settings/marquee",
+      "/settings/artificial-intelligence",
       "/accounting",
       "/accounting/invoicing-integration",
       "/seo",
@@ -74,6 +75,12 @@ test("contains every and only currently working merchant destination", () => {
       "/seo/social-preview",
       "/seo/code-integrations",
       "/seo/fast-indexing",
+      "/seo/geo-optimization",
+      "/seo/internal-linking",
+      "/seo/content",
+      "/seo/categories",
+      "/seo/pages",
+      "/seo/products",
       "/setup",
     ],
   );
@@ -154,6 +161,35 @@ test("matches root only at root", () => {
 test("contains every completed merchant administration family", () => {
   const labels = JSON.stringify(PANEL_NAVIGATION);
   for (const label of ["İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO"]) assert.match(labels, new RegExp(label));
+});
+
+test("SEO navigation exposes each advanced fixed-kind page without near-match activation", () => {
+  const seo = PANEL_NAVIGATION.find(({ key }) => key === "seo");
+  assert.deepEqual(
+    seo?.children?.slice(-6).map(({ href }) => href),
+    [
+      "/seo/geo-optimization",
+      "/seo/internal-linking",
+      "/seo/content",
+      "/seo/categories",
+      "/seo/pages",
+      "/seo/products",
+    ],
+  );
+  for (const href of seo?.children?.slice(-6).map(({ href }) => href) ?? []) {
+    assert.equal(isPanelNavigationPathActive(href, href), true);
+    assert.equal(isPanelNavigationPathActive(`${href}-evil`, href), false);
+    assert.equal(isPanelNavigationPathActive(`${href}?next=/seo/products`, href), false);
+  }
+});
+
+test("AI settings navigation is exact and query-safe", () => {
+  const settings = PANEL_NAVIGATION.find(({ key }) => key === "settings");
+  const ai = settings?.children?.find(({ href }) => href === "/settings/artificial-intelligence");
+  assert.equal(ai?.label, "Yapay Zeka");
+  assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence", "/settings/artificial-intelligence"), true);
+  assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence-evil", "/settings/artificial-intelligence"), false);
+  assert.equal(isPanelNavigationPathActive("/settings/artificial-intelligence?tab=provider", "/settings/artificial-intelligence"), false);
 });
 
 test("selects only exact customer children and safe detail descendants", () => {
