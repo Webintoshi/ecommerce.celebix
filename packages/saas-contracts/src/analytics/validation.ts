@@ -7,7 +7,7 @@ import {
 } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/;
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
@@ -15,18 +15,25 @@ function invalid(): never {
   throw new TypeError("analytics_contract_invalid");
 }
 
-function record(value: unknown): Record<string, unknown> {
+function record(value: unknown): object {
   if (typeof value !== "object" || value === null || Array.isArray(value)) invalid();
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) invalid();
-  return value as Record<string, unknown>;
+  return value;
 }
 
 function exact(value: unknown, required: readonly string[]): Record<string, unknown> {
   const parsed = record(value);
-  const keys = Object.keys(parsed);
-  if (required.some((key) => !Object.hasOwn(parsed, key)) || keys.some((key) => !required.includes(key))) invalid();
-  return parsed;
+  const keys = Reflect.ownKeys(parsed);
+  if (keys.length !== required.length || keys.some((key) => typeof key !== "string" || !required.includes(key))) invalid();
+
+  const copied = Object.create(null) as Record<string, unknown>;
+  for (const key of required) {
+    const descriptor = Object.getOwnPropertyDescriptor(parsed, key);
+    if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) invalid();
+    copied[key] = descriptor.value;
+  }
+  return copied;
 }
 
 function string(value: unknown, minimum: number, maximum: number, pattern?: RegExp): string {
@@ -42,10 +49,9 @@ function string(value: unknown, minimum: number, maximum: number, pattern?: RegE
 }
 
 function timestamp(value: unknown): string {
-  const parsed = string(value, 24, 27, ISO_UTC);
+  const parsed = string(value, 24, 24, ISO_UTC);
   const date = new Date(parsed);
-  const millisecondCanonical = parsed.replace(/(\.\d{3})\d{3}Z$/, "$1Z");
-  if (!Number.isFinite(date.getTime()) || date.toISOString() !== millisecondCanonical) invalid();
+  if (!Number.isFinite(date.getTime()) || date.toISOString() !== parsed) invalid();
   return parsed;
 }
 
@@ -96,8 +102,21 @@ function parseTopProduct(value: unknown): Readonly<AnalyticsTopProduct> {
 }
 
 function parseArray<T>(value: unknown, maximum: number, parser: (entry: unknown) => Readonly<T>): readonly T[] {
-  if (!Array.isArray(value) || value.length > maximum) invalid();
-  return freeze(value.map((entry) => parser(entry)) as T[]) as readonly T[];
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) invalid();
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+  if (lengthDescriptor === undefined || !("value" in lengthDescriptor) || !Number.isSafeInteger(lengthDescriptor.value)) invalid();
+  const length = lengthDescriptor.value as number;
+  if (length < 0 || length > maximum) invalid();
+
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== length + 1 || !keys.includes("length")) invalid();
+  const copied: unknown[] = [];
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) invalid();
+    copied.push(descriptor.value);
+  }
+  return freeze(copied.map((entry) => parser(entry)) as T[]) as readonly T[];
 }
 
 export function parseAnalyticsDashboard(value: unknown): Readonly<AnalyticsDashboard> {
