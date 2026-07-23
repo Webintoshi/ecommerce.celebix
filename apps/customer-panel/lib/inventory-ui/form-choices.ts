@@ -33,8 +33,8 @@ export type InventoryFormChoices = Readonly<{
 }>;
 
 type CatalogChoicesApi = Readonly<{
-  listProducts(input: Readonly<{ status: "active"; cursor?: string }>): Promise<ProductListResult>;
-  getProduct(productId: string): Promise<ProductDetailResult>;
+  listProducts(input: Readonly<{ status: "active"; cursor?: string }>, signal?: AbortSignal): Promise<ProductListResult>;
+  getProduct(productId: string, signal?: AbortSignal): Promise<ProductDetailResult>;
 }>;
 type InventoryChoicesApi = Readonly<{
   listLocations(signal?: AbortSignal): Promise<readonly InventoryLocation[]>;
@@ -79,7 +79,7 @@ export async function loadInventoryFormChoices(
     for (let pageNumber = 0; ; pageNumber += 1) {
       check(signal);
       if (pageNumber >= limits.maximumPages) unavailable();
-      const page = await dependencies.catalog.listProducts({ status: "active", ...(cursor ? { cursor } : {}) });
+      const page = await dependencies.catalog.listProducts({ status: "active", ...(cursor ? { cursor } : {}) }, signal);
       check(signal);
       const pageItems = safeArray(page.items, limits.maximumProducts);
       if (products.length + pageItems.length > limits.maximumProducts) unavailable();
@@ -113,7 +113,7 @@ export async function loadInventoryFormChoices(
     const variantIds = new Set<string>();
     for (const product of products) {
       check(signal);
-      const detail = await dependencies.catalog.getProduct(product.id);
+      const detail = await dependencies.catalog.getProduct(product.id, signal);
       check(signal);
       if (detail.product.id !== product.id || detail.product.status !== "active") unavailable();
       const detailVariants = safeArray(detail.variants, limits.maximumVariants);

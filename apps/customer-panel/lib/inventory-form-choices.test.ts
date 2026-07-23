@@ -118,3 +118,46 @@ test("choice loader exposes only server-returned active locations", async () => 
   }, new AbortController().signal);
   assert.deepEqual(choices.locations.map((item: { locationId: string }) => item.locationId), [LOCATION]);
 });
+
+test("choice loader propagates one lifecycle signal through catalog pages details and inventory locations", async () => {
+  const module = await choicesModule();
+  const controller = new AbortController();
+  const observed: AbortSignal[] = [];
+  await (module.loadInventoryFormChoices as Function)({
+    catalog: {
+      async listProducts(_input: unknown, signal: AbortSignal) { observed.push(signal); return { items: [product(1)] }; },
+      async getProduct(_id: string, signal: AbortSignal) { observed.push(signal); return { product: product(1), variants: [variant(1)] }; },
+    },
+    inventory: { async listLocations(signal: AbortSignal) { observed.push(signal); return [location()]; } },
+  }, controller.signal);
+  assert.deepEqual(observed, [controller.signal, controller.signal, controller.signal]);
+});
+
+test("choice lifecycle abort reaches an underlying catalog request and remains a silent stale generation", async () => {
+  const module = await choicesModule();
+  let underlyingSignal: AbortSignal | undefined;
+  let aborted = false;
+  const states: Array<{ phase: string }> = [];
+  const lifecycle = (module.createInventoryFormChoiceLifecycle as Function)(
+    (signal: AbortSignal) => (module.loadInventoryFormChoices as Function)({
+      catalog: {
+        listProducts(_input: unknown, requestSignal: AbortSignal) {
+          underlyingSignal = requestSignal;
+          return new Promise((_resolve, reject) => requestSignal.addEventListener("abort", () => {
+            aborted = true;
+            reject(new DOMException("catalog aborted", "AbortError"));
+          }, { once: true }));
+        },
+        async getProduct() { throw new Error("unexpected"); },
+      },
+      inventory: { async listLocations() { throw new Error("unexpected"); } },
+    }, signal),
+    (snapshot: { phase: string }) => states.push(snapshot),
+  );
+  const cleanup = lifecycle.setup();
+  cleanup();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(underlyingSignal?.aborted, true);
+  assert.equal(aborted, true);
+  assert.deepEqual(states.map((state) => state.phase), ["loading"]);
+});
