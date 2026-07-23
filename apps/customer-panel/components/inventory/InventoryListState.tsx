@@ -8,6 +8,7 @@ import styles from "./inventory-console.module.css";
 export type InventoryListPhase = "loading" | "loaded" | "error" | "denied";
 
 export function useInventoryCollection<Item>(options: Readonly<{
+  enabled?: boolean;
   canRead: boolean;
   initial?: readonly Item[];
   load: (signal?: AbortSignal) => Promise<readonly Item[]>;
@@ -18,7 +19,7 @@ export function useInventoryCollection<Item>(options: Readonly<{
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    if (!options.canRead || options.initial) return;
+    if (options.enabled === false || !options.canRead || options.initial) return;
     const request = new AbortController();
     setPhase("loading");
     setError("");
@@ -31,7 +32,7 @@ export function useInventoryCollection<Item>(options: Readonly<{
       }
     });
     return () => request.abort();
-  }, [options.canRead, options.initial, options.load, revision]);
+  }, [options.canRead, options.enabled, options.initial, options.load, revision]);
 
   return Object.freeze({ phase, items, error, retry: () => setRevision((value) => value + 1) });
 }

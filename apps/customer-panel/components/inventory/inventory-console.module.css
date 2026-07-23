@@ -40,6 +40,13 @@
   text-decoration: none;
 }
 
+.mobileRecordLink {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+}
+
 .desktopTable code,
 .lineTable code,
 .detailSummary code {

@@ -13,6 +13,8 @@ export type InventoryConsolePhase =
   | "submitting"
   | "committed"
   | "replayed"
+  | "mutation_rejected"
+  | "verification_unavailable"
   | "conflict"
   | "error"
   | "denied";
@@ -21,6 +23,7 @@ export interface InventoryConsoleSnapshot<RecordType> {
   readonly phase: InventoryConsolePhase;
   readonly record?: RecordType;
   readonly pending: boolean;
+  readonly locked: boolean;
   readonly message: string;
 }
 
@@ -52,6 +55,7 @@ function createController<RecordType extends Resource>(options: Readonly<{
     phase: options.canRead === false ? "denied" : options.initial ? "loaded" : "loading",
     ...(options.initial ? { record: options.initial } : {}),
     pending: false,
+    locked: false,
     message: options.canRead === false ? "Bu envanter kaydını görüntüleme yetkiniz yok." : "",
   });
 
@@ -74,58 +78,68 @@ function createController<RecordType extends Resource>(options: Readonly<{
   async function load() {
     if (disposed || options.canRead === false || busy || snapshot.record) return;
     if (!options.resourceId) {
-      publish({ phase: "error", pending: false, message: "Envanter kaydı yüklenemedi." });
+      publish({ phase: "error", pending: false, locked: false, message: "Envanter kaydı yüklenemedi." });
       return;
     }
     busy = true;
     request = new AbortController();
     const selected = ++sequence;
-    publish({ phase: "loading", pending: false, message: "" });
+    publish({ phase: "loading", pending: false, locked: false, message: "" });
     try {
       const record = await reload(options.resourceId, request.signal);
-      if (current(selected)) publish({ phase: "loaded", record, pending: false, message: "" });
+      if (current(selected)) publish({ phase: "loaded", record, pending: false, locked: false, message: "" });
     } catch (error) {
-      if (current(selected) && !isAbort(error)) publish({ phase: "error", pending: false, message: "Envanter kaydı yüklenemedi. Tekrar deneyin." });
+      if (current(selected) && !isAbort(error)) publish({ phase: "error", pending: false, locked: false, message: "Envanter kaydı yüklenemedi. Tekrar deneyin." });
     } finally {
       if (current(selected)) { busy = false; request = undefined; }
     }
   }
 
   function submit(execute: (record: RecordType, signal: AbortSignal) => Promise<InventoryMutationResult>) {
-    if (disposed || options.canRead === false || !options.canManage || busy || !snapshot.record) return active ?? Promise.resolve();
+    if (disposed || options.canRead === false || !options.canManage || busy || snapshot.locked || !snapshot.record) return active ?? Promise.resolve();
     const record = snapshot.record;
     busy = true;
     request = new AbortController();
     const selected = ++sequence;
-    publish({ phase: "submitting", record, pending: true, message: "İşlem kalıcı envanter kaydına gönderiliyor…" });
+    publish({ phase: "submitting", record, pending: true, locked: true, message: "İşlem kalıcı envanter kaydına gönderiliyor…" });
     active = (async () => {
+      let result: InventoryMutationResult;
       try {
-        const result = await execute(record, request!.signal);
-        if (!current(selected)) return;
+        result = await execute(record, request!.signal);
+      } catch (error) {
+        if (!current(selected) || isAbort(error)) return;
+        try {
+          const canonical = await reload(record.id, request!.signal);
+          if (!current(selected)) return;
+          if (canonical.version === record.version && canonical.status === record.status) {
+            publish({ phase: "mutation_rejected", record: canonical, pending: false, locked: false, message: "İşlem uygulanmadı; kalıcı kayıt değişmedi. Yeni bir işlem kimliğiyle tekrar deneyebilirsiniz." });
+          } else {
+            publish({ phase: "conflict", record: canonical, pending: false, locked: true, message: isConflict(error) ? "Kayıt başka bir işlem tarafından değiştirildi. Güncel kalıcı sürüm yüklendi." : "İşlem sonucu belirsizdi; kalıcı kaydın değiştiği doğrulandı ve güncel sürüm yüklendi." });
+          }
+        } catch (reloadError) {
+          if (current(selected) && !isAbort(reloadError)) publish({ phase: "verification_unavailable", record, pending: false, locked: true, message: "İşlem sonucu doğrulanamadı. Yeni işlem göndermeyin; sayfayı yeniden yükleyin." });
+        } finally {
+          if (current(selected)) { busy = false; request = undefined; active = undefined; }
+        }
+        return;
+      }
+      if (!current(selected)) return;
+      try {
         const canonical = await reload(record.id, request!.signal);
         if (!current(selected)) return;
         if (canonical.version < result.version || canonical.status !== result.status) {
-          publish({ phase: "error", record: canonical, pending: false, message: "İşlem yanıtlandı ancak kalıcı sonuç doğrulanamadı. Yeniden göndermeyin." });
+          publish({ phase: "conflict", record: canonical, pending: false, locked: true, message: "İşlem yanıtlandı ancak kalıcı kayıt farklı bir sürüme ilerledi. Güncel kalıcı durum gösteriliyor." });
           return;
         }
         publish({
           phase: result.replayed ? "replayed" : "committed",
           record: canonical,
           pending: false,
+          locked: false,
           message: result.replayed ? "Daha önce tamamlanan işlem kalıcı kayıttan yeniden gösterildi." : "İşlem tamamlandı ve kalıcı kayıt yeniden yüklendi.",
         });
       } catch (error) {
-        if (!current(selected) || isAbort(error)) return;
-        if (isConflict(error)) {
-          try {
-            const canonical = await reload(record.id, request!.signal);
-            if (current(selected)) publish({ phase: "conflict", record: canonical, pending: false, message: "Kayıt başka bir işlem tarafından değiştirildi. Güncel kalıcı sürüm yüklendi." });
-          } catch (reloadError) {
-            if (current(selected) && !isAbort(reloadError)) publish({ phase: "conflict", record, pending: false, message: "Kayıt başka bir işlem tarafından değiştirildi; güncel sürüm yüklenemedi." });
-          }
-        } else {
-          publish({ phase: "error", record, pending: false, message: "İşlemin kalıcı sonucu doğrulanamadı. Kaydı yeniden yükleyin." });
-        }
+        if (current(selected) && !isAbort(error)) publish({ phase: "verification_unavailable", record, pending: false, locked: true, message: "İşlem yanıtlandı ancak kalıcı sonuç doğrulanamadı. Yeni işlem göndermeyin; sayfayı yeniden yükleyin." });
       } finally {
         if (current(selected)) { busy = false; request = undefined; active = undefined; }
       }
@@ -146,6 +160,26 @@ function createController<RecordType extends Resource>(options: Readonly<{
       busy = false;
       active = undefined;
     },
+  });
+}
+
+type LifecycleController = Readonly<{ load(): Promise<void>; dispose(): void }>;
+
+export function createInventoryConsoleLifecycle<Controller extends LifecycleController>(factory: () => Controller) {
+  let current: Controller | undefined;
+  let generation = 0;
+  return Object.freeze({
+    setup() {
+      const controller = factory();
+      const selected = ++generation;
+      current = controller;
+      void controller.load();
+      return () => {
+        controller.dispose();
+        if (generation === selected && current === controller) current = undefined;
+      };
+    },
+    getCurrent() { return current; },
   });
 }
 

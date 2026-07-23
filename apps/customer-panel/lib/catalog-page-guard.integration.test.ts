@@ -65,7 +65,7 @@ async function stop(child: ChildProcessWithoutNullStreams): Promise<void> {
   });
 }
 
-test("actual Next catalog page exports redirect the genuine signed-out runtime", async (t) => {
+test("actual Next catalog and inventory pages redirect the genuine signed-out runtime", async (t) => {
   const port = await availablePort();
   const output = { value: "" };
   const nextEnvironment = await readFile(NEXT_ENV);
@@ -83,7 +83,16 @@ test("actual Next catalog page exports redirect the genuine signed-out runtime",
   });
   await waitUntilReady(child, output);
 
-  for (const pathname of ["/products/tags", "/products/barcode-labels"] as const) {
+  for (const pathname of [
+    "/products/tags",
+    "/products/barcode-labels",
+    "/products/purchasing",
+    "/products/purchasing/11111111-1111-4111-8111-111111111111",
+    "/products/inventory-counts",
+    "/products/inventory-counts/22222222-2222-4222-8222-222222222222",
+    "/products/transfers",
+    "/products/transfers/33333333-3333-4333-8333-333333333333",
+  ] as const) {
     const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
       redirect: "manual",
       signal: AbortSignal.timeout(30_000),
