@@ -309,14 +309,16 @@ test("maps only persisted customer totals and consent activity", () => {
 
 test("dashboard slices settle retry and suppress stale work independently", async () => {
   const catalog = deferred<typeof summary>();
-  const analytics = deferred<AnalyticsDashboard>();
+  const oldAnalytics = deferred<AnalyticsDashboard>();
+  const currentAnalytics = deferred<AnalyticsDashboard>();
+  let analyticsCalls = 0;
   const published: string[] = [];
   const loader = createMerchantDashboardSliceLoader({
     catalog: () => catalog.promise,
     orders: async () => ({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" }),
     carts: async () => ({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" }),
     customers: async () => ({ active: 1, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" }),
-    analytics: () => analytics.promise,
+    analytics: () => (++analyticsCalls === 1 ? oldAnalytics.promise : currentAnalytics.promise),
   }, {
     loading: (slice) => published.push(`${slice}:loading`),
     ready: (slice) => published.push(`${slice}:ready`),
@@ -332,9 +334,12 @@ test("dashboard slices settle retry and suppress stale work independently", asyn
   assert.equal(published.filter((value) => value === "analytics:loading").length, 2);
   const readyAnalytics = analyticsReady();
   if (readyAnalytics.state !== "ready") assert.fail("analytics fixture must be ready");
-  analytics.resolve(readyAnalytics.value);
+  oldAnalytics.resolve(readyAnalytics.value);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(published.includes("analytics:ready"), true);
+  assert.equal(published.includes("analytics:ready"), false);
+  currentAnalytics.resolve(readyAnalytics.value);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(published.filter((value) => value === "analytics:ready").length, 1);
   loader.dispose();
   catalog.resolve(summary);
   await Promise.resolve();

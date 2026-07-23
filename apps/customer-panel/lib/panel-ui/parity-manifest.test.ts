@@ -56,6 +56,18 @@ test("every evidence reference and canonical target is executable", async () => 
 
 test("legacy rejections carry an explicit duplicate typo or unsafe rationale", () => {
   const rejected = HEMENAKU_DONOR_PARITY.filter(({ status }) => status === "legacy_rejected");
-  assert.equal(rejected.length, 4);
-  for (const entry of rejected) assert.match(entry.rejectionRationale ?? "", /duplicate|typo|unsafe/i);
+  assert.deepEqual(rejected.map(({ donorPath, rejectionRationale }) => [donorPath, rejectionRationale]), [
+    ["/ayarlar/ana-sayfa-vitrini", "duplicate storefront showcase; collections is the canonical safe target"],
+    ["/muhasabe", "typo spelling; accounting is the canonical safe target"],
+    ["/pazarlama/lucky-wheel", "duplicate lucky-wheel workflow; discounts is the canonical safe target"],
+  ]);
+  assert.deepEqual(HEMENAKU_DONOR_PARITY.reduce((counts, entry) => ({ ...counts, [entry.status]: (counts[entry.status] ?? 0) + 1 }), {} as Record<string, number>), { complete: 77, provider_gated: 6, legacy_rejected: 3 });
+});
+
+test("AI preference is complete without claiming external generation", () => {
+  assert.deepEqual(getDonorParityEntry("/ayarlar/yapay-zeka"), {
+    donorPath: "/ayarlar/yapay-zeka", targetPath: "/settings/artificial-intelligence",
+    status: "complete", authority: "merchant_admin",
+    evidenceTest: "apps/customer-panel/lib/merchant-admin-ui/presentation.test.ts#defines finite advanced SEO and AI preferences without a provider job",
+  });
 });

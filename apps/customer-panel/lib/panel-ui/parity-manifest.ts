@@ -12,6 +12,8 @@ export type DonorParityEntry = Readonly<{
 function entry(donorPath: string, targetPath: string, status: DonorParityStatus, authority: DonorParityAuthority): DonorParityEntry {
   const evidenceTest = status === "provider_gated"
     ? "apps/customer-panel/lib/merchant-admin-ui/presentation.test.ts#provider workflows distinguish configuration readiness from external execution"
+    : donorPath === "/ayarlar/yapay-zeka"
+      ? "apps/customer-panel/lib/merchant-admin-ui/presentation.test.ts#defines finite advanced SEO and AI preferences without a provider job"
     : "apps/customer-panel/lib/panel-ui/parity-manifest.test.ts#every evidence reference and canonical target is executable";
   const rejectionRationale = donorPath === "/ayarlar/ana-sayfa-vitrini"
     ? "duplicate storefront showcase; collections is the canonical safe target"
@@ -19,8 +21,6 @@ function entry(donorPath: string, targetPath: string, status: DonorParityStatus,
       ? "typo spelling; accounting is the canonical safe target"
       : donorPath === "/pazarlama/lucky-wheel"
         ? "duplicate lucky-wheel workflow; discounts is the canonical safe target"
-        : donorPath === "/seo-killer"
-          ? "unsafe destructive legacy SEO label; SEO is the canonical safe target"
         : undefined;
   return Object.freeze({ donorPath, targetPath, status, authority, evidenceTest, ...(rejectionRationale ? { rejectionRationale } : {}) });
 }
@@ -40,7 +40,7 @@ export const HEMENAKU_DONOR_PARITY = Object.freeze([
   entry("/ayarlar/odeme/yeni", "/settings/payment/new", "complete", "merchant_admin"),
   entry("/ayarlar/promosyon-banner", "/settings/promotion-banner", "complete", "merchant_admin"),
   entry("/ayarlar/tasarim", "/settings/design", "complete", "merchant_admin"),
-  entry("/ayarlar/yapay-zeka", "/settings/artificial-intelligence", "provider_gated", "merchant_admin"),
+  entry("/ayarlar/yapay-zeka", "/settings/artificial-intelligence", "complete", "merchant_admin"),
   entry("/cms", "/content", "complete", "merchant_admin"),
   entry("/cms/blog", "/content/blog", "complete", "merchant_admin"),
   entry("/cms/blog/[id]", "/content/blog/[recordId]/edit", "complete", "merchant_admin"),
@@ -70,7 +70,7 @@ export const HEMENAKU_DONOR_PARITY = Object.freeze([
   entry("/pazarlama/lucky-wheel", "/discounts/lucky-wheel", "legacy_rejected", "merchant_admin"),
   entry("/pazarlama/phone", "/marketing/phone", "provider_gated", "merchant_admin"),
   entry("/pazarlama/whatsapp", "/marketing/whatsapp", "provider_gated", "merchant_admin"),
-  entry("/seo-killer", "/seo", "legacy_rejected", "merchant_admin"),
+  entry("/seo-killer", "/seo", "complete", "merchant_admin"),
   entry("/seo-killer/geo-optimizasyon", "/seo/geo-optimization", "complete", "merchant_admin"),
   entry("/seo-killer/hizli-index", "/seo/fast-indexing", "provider_gated", "merchant_admin"),
   entry("/seo-killer/ic-linkleme", "/seo/internal-linking", "complete", "merchant_admin"),
