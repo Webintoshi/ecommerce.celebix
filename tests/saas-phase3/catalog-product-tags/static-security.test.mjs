@@ -44,14 +44,14 @@ test("barcode UI is read-only and projects only persisted variant barcodes", () 
   );
 });
 
-test("cumulative manifest has fifteen current checksums", () => {
+test("cumulative manifest has eighteen current checksums", () => {
   const manifest = JSON.parse(
     readFileSync(
       path.join(SQL, "phase3h-merchant-completion-manifest.json"),
       "utf8",
     ),
   );
-  assert.equal(manifest.artifacts.length, 15);
+  assert.equal(manifest.artifacts.length, 18);
   for (const artifact of manifest.artifacts) {
     assert.equal(
       createHash("sha256")

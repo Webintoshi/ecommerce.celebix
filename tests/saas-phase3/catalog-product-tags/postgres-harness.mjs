@@ -302,14 +302,14 @@ async function main() {
         /'tag'/,
       );
     });
-    await scenario("cumulative manifest pins fifteen exact artifacts", () => {
+    await scenario("cumulative manifest pins eighteen exact artifacts", () => {
       const manifest = JSON.parse(
         readFileSync(
           path.join(SQL, "phase3h-merchant-completion-manifest.json"),
           "utf8",
         ),
       );
-      assert.equal(manifest.artifacts.length, 15);
+      assert.equal(manifest.artifacts.length, 18);
       for (const artifact of manifest.artifacts) {
         assert.equal(
           createHash("sha256")

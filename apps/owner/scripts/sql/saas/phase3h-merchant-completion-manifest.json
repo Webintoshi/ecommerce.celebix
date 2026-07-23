@@ -15,6 +15,9 @@
     { "file": "202607220041_catalog_import_previews_assertions.sql", "sha256": "4dd31fdde4137995da4bd781b2be4a87f28427eb9d7a50cb7c6f59d130ac5135" },
     { "file": "202607220042_catalog_product_tags.up.sql", "sha256": "187766c319ffa11a93a70ceeb4e8f9be82c3d3ecbdae4675458123483f71224a" },
     { "file": "202607220042_catalog_product_tags.down.sql", "sha256": "6fead151e4cdeb299a46369913b414cc5cb890ae2048439dd9c9189798e20bb9" },
-    { "file": "202607220042_catalog_product_tags_assertions.sql", "sha256": "fe07ff2478e5c0da891c6658aa042e1bc0ac926ba001862b22b45723048c7642" }
+    { "file": "202607220042_catalog_product_tags_assertions.sql", "sha256": "fe07ff2478e5c0da891c6658aa042e1bc0ac926ba001862b22b45723048c7642" },
+    { "file": "202607220043_inventory_purchasing.up.sql", "sha256": "0e32871b29194bd52fa7164d1759a3b8470657188903e05dba3aefa163367124" },
+    { "file": "202607220043_inventory_purchasing.down.sql", "sha256": "b0ccf46de3acd8e088035d0e4dbde902c141a075b4bb29214636c54f0f4ec94a" },
+    { "file": "202607220043_inventory_purchasing_assertions.sql", "sha256": "8f6420c4421cca3f9475f4c8aa400f773a3a75279208c501899deb926ce60096" }
   ]
 }
