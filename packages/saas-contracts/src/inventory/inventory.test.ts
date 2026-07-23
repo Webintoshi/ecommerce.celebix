@@ -41,6 +41,9 @@ function countLineFixture() {
 function transferLineFixture() {
   return { id: LINE_ID, variantId: VARIANT_ID, quantity: 2 };
 }
+function lineId(index: number) {
+  return `aaaaaaaa-aaaa-4aaa-8aaa-${index.toString(16).padStart(12, "0")}`;
+}
 
 test("inventory contracts export the exact immutable enum registries", () => {
   assert.deepEqual(INVENTORY_MOVEMENT_KINDS, ["opening", "catalog_adjustment", "purchase_receipt", "count_adjustment", "transfer_out", "transfer_in", "transfer_return", "checkout_sale"]);
@@ -70,11 +73,57 @@ test("inventory DTOs reject hidden authority and unsafe quantities", () => {
 test("inventory DTOs reject noncanonical values, duplicate lines and invalid arithmetic", () => {
   assert.throws(() => parseInventoryLocation({ ...locationFixture(), id: "aaaaaaaa-1111-4111-8111-111111111111".toUpperCase() }));
   assert.throws(() => parseInventoryBalance({ ...balanceFixture(), updatedAt: "2026-07-23T12:00:00Z" }));
-  assert.throws(() => parseInventoryMovement({ id: ID, locationId: LOCATION_ID, variantId: VARIANT_ID, kind: "purchase_receipt", quantity: 0, occurredAt: NOW }));
   assert.throws(() => parsePurchaseOrderLine({ ...purchaseLineFixture(), lineCostCents: 999 }));
   assert.throws(() => parsePurchaseOrder({ id: ID, locationId: LOCATION_ID, supplierName: "Atlas Supply", status: "draft", lines: [purchaseLineFixture(), purchaseLineFixture()], totalCostCents: 2000, version: 1, createdAt: NOW, updatedAt: NOW }));
-  assert.throws(() => parseInventoryCount({ id: ID, locationId: LOCATION_ID, status: "draft", lines: Array.from({ length: 501 }, (_, index) => ({ ...countLineFixture(), id: `${index}` })), version: 1, createdAt: NOW, updatedAt: NOW }));
+  assert.throws(() => parseInventoryCount({ id: ID, locationId: LOCATION_ID, status: "draft", lines: Array.from({ length: 501 }, (_, index) => ({ ...countLineFixture(), id: lineId(index) })), version: 1, createdAt: NOW, updatedAt: NOW }));
   assert.throws(() => parseInventoryTransfer({ id: ID, sourceLocationId: LOCATION_ID, destinationLocationId: LOCATION_ID, status: "draft", lines: [transferLineFixture()], version: 1, createdAt: NOW, updatedAt: NOW }));
+});
+
+test("every inventory quantity field accepts zero and rejects negative fractional and overflowing values", () => {
+  assert.equal(parseInventoryMovement({ id: ID, locationId: LOCATION_ID, variantId: VARIANT_ID, kind: "opening", quantity: 0, occurredAt: NOW }).quantity, 0);
+  assert.equal(parsePurchaseOrderLine({ ...purchaseLineFixture(), orderedQuantity: 0, receivedQuantity: 0, lineCostCents: 0 }).orderedQuantity, 0);
+  assert.equal(parseInventoryTransferLine({ ...transferLineFixture(), quantity: 0 }).quantity, 0);
+  for (const invalidQuantity of [-1, 0.5, 2_147_483_648]) {
+    assert.throws(() => parseInventoryMovement({ id: ID, locationId: LOCATION_ID, variantId: VARIANT_ID, kind: "opening", quantity: invalidQuantity, occurredAt: NOW }));
+    assert.throws(() => parsePurchaseOrderLine({ ...purchaseLineFixture(), orderedQuantity: invalidQuantity, receivedQuantity: 0, lineCostCents: 0 }));
+    assert.throws(() => parseInventoryTransferLine({ ...transferLineFixture(), quantity: invalidQuantity }));
+  }
+});
+
+test("inventory line arrays use a fixed descriptor length and reject hostile shapes", () => {
+  const tooManyLines = Array.from({ length: 501 }, (_, index) => ({ ...countLineFixture(), id: lineId(index) }));
+  let lengthReads = 0;
+  const proxy = new Proxy(tooManyLines, {
+    get(target, property, receiver) {
+      if (property === "length") return lengthReads++ === 0 ? 0 : 501;
+      return Reflect.get(target, property, receiver);
+    },
+  });
+  const sparse = new Array(1) as Array<ReturnType<typeof countLineFixture>>;
+  const getter = [] as Array<ReturnType<typeof countLineFixture>>;
+  let getterCalled = false;
+  Object.defineProperty(getter, "0", { enumerable: true, configurable: true, get() { getterCalled = true; return countLineFixture(); } });
+  const symbol = [countLineFixture()];
+  Object.defineProperty(symbol, Symbol("hidden"), { value: "hidden", enumerable: true });
+  const nonEnumerable = [countLineFixture()];
+  Object.defineProperty(nonEnumerable, "0", { value: countLineFixture(), enumerable: false, writable: true, configurable: true });
+  for (const lines of [proxy, sparse, getter, symbol, nonEnumerable]) {
+    assert.throws(() => parseInventoryCount({ id: ID, locationId: LOCATION_ID, status: "draft", lines, version: 1, createdAt: NOW, updatedAt: NOW }));
+  }
+  assert.equal(lengthReads, 0);
+  assert.equal(getterCalled, false);
+});
+
+test("inventory timestamp ordering normalizes millisecond precision to microseconds", () => {
+  const milliseconds = "2026-07-23T12:00:00.123Z";
+  const microseconds = "2026-07-23T12:00:00.123456Z";
+  const earlier = parseInventoryLocation({ ...locationFixture(), createdAt: milliseconds, updatedAt: microseconds });
+  const equal = parseInventoryLocation({ ...locationFixture(), createdAt: milliseconds, updatedAt: "2026-07-23T12:00:00.123000Z" });
+  const equalReversed = parseInventoryLocation({ ...locationFixture(), createdAt: "2026-07-23T12:00:00.123000Z", updatedAt: milliseconds });
+  assert.equal(earlier.createdAt, "2026-07-23T12:00:00.123000Z");
+  assert.equal(equal.updatedAt, "2026-07-23T12:00:00.123000Z");
+  assert.equal(equalReversed.updatedAt, "2026-07-23T12:00:00.123000Z");
+  assert.throws(() => parseInventoryLocation({ ...locationFixture(), createdAt: microseconds, updatedAt: milliseconds }));
 });
 
 test("inventory line arrays permit empty drafts while remaining frozen", () => {

@@ -53,9 +53,10 @@ function uuid(value: unknown): string { const result = text(value, 36, 36); if (
 function timestamp(value: unknown): string {
   if (typeof value !== "string" || !ISO_UTC.test(value)) invalid();
   const parsed = new Date(value);
-  const milliseconds = value.replace(/(\.\d{3})\d{3}Z$/, "$1Z");
+  const normalized = value.replace(/(\.\d{3})Z$/, "$1000Z");
+  const milliseconds = normalized.replace(/(\.\d{3})\d{3}Z$/, "$1Z");
   if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== milliseconds) invalid();
-  return value;
+  return normalized;
 }
 function integer(value: unknown, min: number, max = Number.MAX_SAFE_INTEGER): number {
   if (!Number.isSafeInteger(value) || (value as number) < min || (value as number) > max) invalid();
@@ -65,12 +66,15 @@ function quantity(value: unknown, min = 0): number { return integer(value, min, 
 function money(value: unknown): number { return integer(value, 0, MAX_MONEY_CENTS); }
 function freeze<T>(value: T): T { if (typeof value === "object" && value !== null && !Object.isFrozen(value)) { for (const nested of Object.values(value)) freeze(nested); Object.freeze(value); } return value; }
 function lines<T>(value: unknown, parse: (entry: unknown) => T): readonly T[] {
-  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > 500) invalid();
-  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) invalid();
   const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
-  if (Reflect.ownKeys(descriptors).length !== value.length + 1 || !lengthDescriptor || !("value" in lengthDescriptor) || lengthDescriptor.enumerable) invalid();
+  if (!lengthDescriptor || !("value" in lengthDescriptor) || lengthDescriptor.enumerable) invalid();
+  const length = integer(lengthDescriptor.value, 0, 500);
+  const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<string | symbol, PropertyDescriptor | undefined>;
+  const describedLength = descriptors["length"];
+  if (!describedLength || !("value" in describedLength) || describedLength.enumerable || describedLength.value !== length || Reflect.ownKeys(descriptors).length !== length + 1) invalid();
   const result: T[] = [];
-  for (let index = 0; index < value.length; index += 1) {
+  for (let index = 0; index < length; index += 1) {
     const descriptor = descriptors[String(index)];
     if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) invalid();
     result.push(parse(descriptor.value));
@@ -94,11 +98,11 @@ export function parseInventoryBalance(value: unknown): InventoryBalance { return
 export function parseInventoryMovement(value: unknown): InventoryMovement { return guarded(() => {
   const parsed = exact(value, ["id", "locationId", "variantId", "kind", "quantity", "occurredAt"]);
   if (typeof parsed.kind !== "string" || !INVENTORY_MOVEMENT_KINDS.includes(parsed.kind as never)) invalid();
-  return freeze({ id: uuid(parsed.id), locationId: uuid(parsed.locationId), variantId: uuid(parsed.variantId), kind: parsed.kind as InventoryMovement["kind"], quantity: quantity(parsed.quantity, 1), occurredAt: timestamp(parsed.occurredAt) } satisfies InventoryMovement);
+  return freeze({ id: uuid(parsed.id), locationId: uuid(parsed.locationId), variantId: uuid(parsed.variantId), kind: parsed.kind as InventoryMovement["kind"], quantity: quantity(parsed.quantity), occurredAt: timestamp(parsed.occurredAt) } satisfies InventoryMovement);
 }); }
 export function parsePurchaseOrderLine(value: unknown): PurchaseOrderLine { return guarded(() => {
   const parsed = exact(value, ["id", "variantId", "orderedQuantity", "receivedQuantity", "unitCostCents", "lineCostCents"]);
-  const orderedQuantity = quantity(parsed.orderedQuantity, 1), receivedQuantity = quantity(parsed.receivedQuantity), unitCostCents = money(parsed.unitCostCents), lineCostCents = money(parsed.lineCostCents);
+  const orderedQuantity = quantity(parsed.orderedQuantity), receivedQuantity = quantity(parsed.receivedQuantity), unitCostCents = money(parsed.unitCostCents), lineCostCents = money(parsed.lineCostCents);
   if (receivedQuantity > orderedQuantity || orderedQuantity * unitCostCents > MAX_MONEY_CENTS || lineCostCents !== orderedQuantity * unitCostCents) invalid();
   return freeze({ id: uuid(parsed.id), variantId: uuid(parsed.variantId), orderedQuantity, receivedQuantity, unitCostCents, lineCostCents } satisfies PurchaseOrderLine);
 }); }
@@ -122,7 +126,7 @@ export function parseInventoryCount(value: unknown): InventoryCount { return gua
 }); }
 export function parseInventoryTransferLine(value: unknown): InventoryTransferLine { return guarded(() => {
   const parsed = exact(value, ["id", "variantId", "quantity"]);
-  return freeze({ id: uuid(parsed.id), variantId: uuid(parsed.variantId), quantity: quantity(parsed.quantity, 1) } satisfies InventoryTransferLine);
+  return freeze({ id: uuid(parsed.id), variantId: uuid(parsed.variantId), quantity: quantity(parsed.quantity) } satisfies InventoryTransferLine);
 }); }
 export function parseInventoryTransfer(value: unknown): InventoryTransfer { return guarded(() => {
   const parsed = exact(value, ["id", "sourceLocationId", "destinationLocationId", "status", "lines", "version", "createdAt", "updatedAt"]);
