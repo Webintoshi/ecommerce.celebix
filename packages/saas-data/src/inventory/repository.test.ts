@@ -367,6 +367,104 @@ test("inventory repository validates exact input and TenantContext before pool c
   assert.equal(pool.connectCount, 0);
 });
 
+test("inventory repository contains every hostile nested line array as a fresh invalid_input before pool checkout", async () => {
+  const injected = inventoryFailure("membership_denied");
+  let accessorReads = 0;
+  const operations = [
+    {
+      name: "save purchase order",
+      line: { lineId: LINE, variantId: VARIANT, orderedQuantity: 2, unitCostCents: 100 },
+      invoke: (repo: InventoryRepository, lines: unknown) => repo.savePurchaseOrder({
+        ...authority(), operationId: OPERATION, locationId: LOCATION, supplierName: "Tedarikçi", lines: lines as never,
+      }),
+    },
+    {
+      name: "receive purchase order",
+      line: { lineId: LINE, quantity: 2 },
+      invoke: (repo: InventoryRepository, lines: unknown) => repo.receivePurchaseOrder({
+        ...authority(), operationId: OPERATION, orderId: ORDER, expectedVersion: 1, locationId: LOCATION, lines: lines as never,
+      }),
+    },
+    {
+      name: "save count",
+      line: { lineId: LINE, variantId: VARIANT, countedQuantity: 7 },
+      invoke: (repo: InventoryRepository, lines: unknown) => repo.saveCount({
+        ...authority(), operationId: OPERATION, locationId: LOCATION, lines: lines as never,
+      }),
+    },
+    {
+      name: "save transfer",
+      line: { lineId: LINE, variantId: VARIANT, quantity: 2 },
+      invoke: (repo: InventoryRepository, lines: unknown) => repo.saveTransfer({
+        ...authority(), operationId: OPERATION, sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: lines as never,
+      }),
+    },
+  ] as const;
+
+  for (const operation of operations) {
+    const revoked = Proxy.revocable([operation.line], {});
+    revoked.revoke();
+    const accessor = [operation.line];
+    Object.defineProperty(accessor, "0", {
+      configurable: true,
+      enumerable: true,
+      get() { accessorReads += 1; return operation.line; },
+    });
+    const symbol = [operation.line];
+    Object.defineProperty(symbol, Symbol("private"), { configurable: true, enumerable: true, value: STORE });
+    const nonEnumerable = [operation.line];
+    Object.defineProperty(nonEnumerable, "0", { configurable: true, enumerable: false, value: operation.line });
+    class LineArray extends Array<unknown> {}
+    const subclass = new LineArray(operation.line);
+    const elementProxy = new Proxy(operation.line, {
+      getPrototypeOf() { throw injected; },
+    });
+    const elementAccessor = { ...operation.line };
+    Object.defineProperty(elementAccessor, "lineId", {
+      configurable: true,
+      enumerable: true,
+      get() { accessorReads += 1; return LINE; },
+    });
+    const cases: ReadonlyArray<readonly [string, unknown]> = [
+      ["revoked proxy Array.isArray", revoked.proxy],
+      ["captured error from getPrototypeOf", new Proxy([operation.line], { getPrototypeOf() { throw injected; } })],
+      ["captured error from length get", new Proxy([operation.line], {
+        get(target, property, receiver) {
+          if (property === "length") throw injected;
+          return Reflect.get(target, property, receiver);
+        },
+      })],
+      ["captured error from ownKeys", new Proxy([operation.line], { ownKeys() { throw injected; } })],
+      ["captured error from index descriptor", new Proxy([operation.line], {
+        getOwnPropertyDescriptor(target, property) {
+          if (property === "0") throw injected;
+          return Reflect.getOwnPropertyDescriptor(target, property);
+        },
+      })],
+      ["accessor index", accessor],
+      ["symbol property", symbol],
+      ["non-enumerable index", nonEnumerable],
+      ["sparse array", new Array(1)],
+      ["proxy array subclass", new Proxy(subclass, {})],
+      ["captured error from element exact copy", [elementProxy]],
+      ["element accessor", [elementAccessor]],
+    ];
+
+    for (const [name, lines] of cases) {
+      const client = new Client({ outcome: "saved", result_payload: mutation(TRANSFER, "draft", 1) });
+      const pool = new Pool(client);
+      await assert.rejects(
+        () => operation.invoke(repository(pool), lines),
+        (error: unknown) => error !== injected && hasCode(error, "invalid_input"),
+        `${operation.name}: ${name}`,
+      );
+      assert.equal(pool.connectCount, 0, `${operation.name}: ${name}: pool connect`);
+      assert.equal(client.queries.length, 0, `${operation.name}: ${name}: SQL query`);
+    }
+  }
+  assert.equal(accessorReads, 0);
+});
+
 test("inventory repository public errors are guarded and hostile validation cannot inject trusted authority codes", async () => {
   assert.equal("InventoryRepositoryError" in inventoryPublic, false);
   assert.equal(typeof (inventoryPublic as Record<string, unknown>).inventoryRepositoryErrorCode, "function");

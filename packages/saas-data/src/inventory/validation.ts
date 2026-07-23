@@ -136,9 +136,17 @@ function unique<T extends Readonly<{ lineId: string; variantId?: string }>>(line
   return Object.freeze(lines);
 }
 
+function exactLines<T extends Readonly<{ lineId: string; variantId?: string }>>(
+  value: unknown,
+  parser: (entry: unknown) => T,
+): readonly T[] {
+  try { return unique(denseArray(value).map(parser)); }
+  catch { fail(); }
+}
+
 export function purchaseSaveLines(value: unknown) {
   let total = 0;
-  const lines = denseArray(value).map((entry) => {
+  return exactLines(value, (entry) => {
     const parsed = exactInventoryInput(entry, ["lineId", "variantId", "orderedQuantity", "unitCostCents"]);
     const orderedQuantity = inventoryQuantity(parsed.orderedQuantity, 1);
     const unitCostCents = inventoryMoney(parsed.unitCostCents);
@@ -153,19 +161,17 @@ export function purchaseSaveLines(value: unknown) {
       unitCostCents,
     });
   });
-  return unique(lines);
 }
 
 export function purchaseReceiptLines(value: unknown) {
-  const lines = denseArray(value).map((entry) => {
+  return exactLines(value, (entry) => {
     const parsed = exactInventoryInput(entry, ["lineId", "quantity"]);
     return Object.freeze({ lineId: inventoryUuid(parsed.lineId), quantity: inventoryQuantity(parsed.quantity, 1) });
   });
-  return unique(lines);
 }
 
 export function countSaveLines(value: unknown) {
-  const lines = denseArray(value).map((entry) => {
+  return exactLines(value, (entry) => {
     const parsed = exactInventoryInput(entry, ["lineId", "variantId"], ["countedQuantity"]);
     return Object.freeze({
       lineId: inventoryUuid(parsed.lineId),
@@ -173,11 +179,10 @@ export function countSaveLines(value: unknown) {
       ...(Object.hasOwn(parsed, "countedQuantity") ? { countedQuantity: inventoryQuantity(parsed.countedQuantity) } : {}),
     });
   });
-  return unique(lines);
 }
 
 export function transferSaveLines(value: unknown) {
-  const lines = denseArray(value).map((entry) => {
+  return exactLines(value, (entry) => {
     const parsed = exactInventoryInput(entry, ["lineId", "variantId", "quantity"]);
     return Object.freeze({
       lineId: inventoryUuid(parsed.lineId),
@@ -185,5 +190,4 @@ export function transferSaveLines(value: unknown) {
       quantity: inventoryQuantity(parsed.quantity, 1),
     });
   });
-  return unique(lines);
 }
