@@ -9,7 +9,7 @@ const MAX_FILE_BYTES = 131_072;
 export interface CatalogImportPreparationFile {
   readonly name: string;
   readonly size: number;
-  text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
 }
 
 export interface CatalogImportPreparationApi {
@@ -67,6 +67,14 @@ function isPreparedAndUnexpired(preview: CatalogImportPreview | undefined, now: 
 
 function isAbort(caught: unknown) {
   return caught instanceof DOMException && caught.name === "AbortError";
+}
+
+function decodeCatalogImportCsv(bytes: ArrayBuffer) {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error("catalog_import_csv_invalid");
+  }
 }
 
 export function createCatalogImportPreparationController({
@@ -199,9 +207,16 @@ export function createCatalogImportPreparationController({
       commitLocked = false;
       publish({ phase: "preparing", error: "", notice: "Önizleme oluşturuluyor…" });
       const { controller, request } = begin();
+      let bytes: ArrayBuffer | undefined;
       let content = "";
       try {
-        content = await file.text();
+        bytes = await file.arrayBuffer();
+        if (!current(request)) return;
+        try {
+          content = decodeCatalogImportCsv(bytes);
+        } finally {
+          bytes = undefined;
+        }
         if (!current(request)) return;
         const prepared = await api.prepareImportPreview({ format, fileName: file.name, content }, controller.signal);
         content = "";
@@ -222,6 +237,7 @@ export function createCatalogImportPreparationController({
           publish({ phase: "error", error: "CSV önizlemesi oluşturulamadı.", notice: "" });
         }
       } finally {
+        bytes = undefined;
         content = "";
         finish(request);
       }

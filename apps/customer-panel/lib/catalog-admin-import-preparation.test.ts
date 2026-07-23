@@ -12,11 +12,17 @@ const PREVIEW_ID = "11111111-1111-4111-8111-111111111111";
 const JOB_ID = "22222222-2222-4222-8222-222222222222";
 const NOW = Date.parse("2026-07-23T10:00:00.000Z");
 const CONTENT = "title,slug,priceCents,sku,stockQuantity\nYerel,yerel,1000,YRL,1";
-const FILE: CatalogImportPreparationFile = Object.freeze({
-  name: "products.csv",
-  size: CONTENT.length,
-  async text() { return CONTENT; },
-});
+
+function browserFile(name: string, bytes: Uint8Array) {
+  return Object.freeze({
+    name,
+    size: bytes.byteLength,
+    async arrayBuffer() { return bytes.slice().buffer; },
+    async text() { return new TextDecoder().decode(bytes); },
+  }) as CatalogImportPreparationFile & Readonly<{ text(): Promise<string> }>;
+}
+
+const FILE = browserFile("products.csv", new TextEncoder().encode(CONTENT));
 
 function preview(
   status: CatalogImportPreview["status"] = "prepared",
@@ -65,6 +71,106 @@ function controller(api: CatalogImportPreparationApi) {
     now: () => NOW,
   });
 }
+
+test("rejects malformed UTF-8 bytes before any preview API call", async () => {
+  let prepareCount = 0;
+  let getCount = 0;
+  let commitCount = 0;
+  const subject = controller({
+    async prepareImportPreview() { prepareCount += 1; return preview(); },
+    async getImportPreview() { getCount += 1; return preview(); },
+    async commitImportPreview() { commitCount += 1; return mutation(); },
+  });
+  const malformed = browserFile("malformed.csv", Uint8Array.from([0xc3, 0x28]));
+
+  await subject.prepare(malformed);
+
+  assert.equal(subject.getSnapshot().phase, "error");
+  assert.equal(subject.getSnapshot().error, "CSV önizlemesi oluşturulamadı.");
+  assert.equal(subject.getSnapshot().canCommit, false);
+  assert.deepEqual([prepareCount, getCount, commitCount], [0, 0, 0]);
+});
+
+test("passes exact valid UTF-8 content to preview preparation", async () => {
+  const exact = "title,slug,priceCents,sku,stockQuantity\nİçecek,icecek,1250,İÇ-1,4";
+  let received = "";
+  const subject = controller({
+    async prepareImportPreview(input) { received = input.content; return preview(); },
+    async getImportPreview() { return preview(); },
+    async commitImportPreview() { return mutation(); },
+  });
+
+  await subject.prepare(browserFile("utf8.csv", new TextEncoder().encode(exact)));
+
+  assert.equal(received, exact);
+  assert.equal(subject.getSnapshot().phase, "prepared");
+});
+
+test("file replacement during a pending byte read prevents preview API calls", async () => {
+  const readPending = deferred<ArrayBuffer>();
+  const legacyTextPending = deferred<string>();
+  let readMethod = "";
+  let prepareCount = 0;
+  const subject = controller({
+    async prepareImportPreview() { prepareCount += 1; return preview(); },
+    async getImportPreview() { return preview(); },
+    async commitImportPreview() { return mutation(); },
+  });
+  const reading = subject.prepare(Object.freeze({
+    name: "pending.csv",
+    size: 1,
+    arrayBuffer() { readMethod = "arrayBuffer"; return readPending.promise; },
+    text() { readMethod = "text"; return legacyTextPending.promise; },
+  }) as CatalogImportPreparationFile & Readonly<{ text(): Promise<string> }>);
+  await tick();
+
+  const observedReadMethod = readMethod;
+  subject.resetSelection();
+  readPending.resolve(new TextEncoder().encode(CONTENT).buffer);
+  legacyTextPending.resolve(CONTENT);
+  await reading;
+
+  assert.equal(observedReadMethod, "arrayBuffer");
+  assert.equal(prepareCount, 0);
+  assert.equal(subject.getSnapshot().phase, "idle");
+});
+
+test("dispose during a pending byte read prevents API calls and unmounted updates", async () => {
+  const readPending = deferred<ArrayBuffer>();
+  const legacyTextPending = deferred<string>();
+  let readMethod = "";
+  let prepareCount = 0;
+  const states: string[] = [];
+  const subject = createCatalogImportPreparationController({
+    api: {
+      async prepareImportPreview() { prepareCount += 1; return preview(); },
+      async getImportPreview() { return preview(); },
+      async commitImportPreview() { return mutation(); },
+    },
+    canImport: true,
+    format: "native_csv",
+    now: () => NOW,
+    onChange(snapshot) { states.push(snapshot.phase); },
+  });
+  const reading = subject.prepare(Object.freeze({
+    name: "pending.csv",
+    size: 1,
+    arrayBuffer() { readMethod = "arrayBuffer"; return readPending.promise; },
+    text() { readMethod = "text"; return legacyTextPending.promise; },
+  }) as CatalogImportPreparationFile & Readonly<{ text(): Promise<string> }>);
+  await tick();
+
+  const observedReadMethod = readMethod;
+  subject.dispose();
+  const countAtDispose = states.length;
+  readPending.resolve(new TextEncoder().encode(CONTENT).buffer);
+  legacyTextPending.resolve(CONTENT);
+  await reading;
+
+  assert.equal(observedReadMethod, "arrayBuffer");
+  assert.equal(prepareCount, 0);
+  assert.equal(states.length, countAtDispose);
+});
 
 test("prepares persisted rows before an explicit versioned commit and refreshes the original preview ID", async () => {
   const prepareCalls: unknown[] = [];
