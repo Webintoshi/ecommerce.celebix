@@ -1175,9 +1175,15 @@ test("dashboard presentation renders analytics loading ready and retry states wi
   const loading = await renderPanelDashboard(chrome, { dashboard: base, state: "loaded", analyticsState: "loading" });
   const rendered = await renderPanelDashboard(chrome, { dashboard: ready, state: "loaded", analyticsState: "loaded" });
   const failed = await renderPanelDashboard(chrome, { dashboard: base, state: "loaded", analyticsState: "error" });
-  for (const html of [loading, rendered, failed]) assert.match(html, /Toplam ürün|Sipariş özeti|Müşteri özeti/);
+  for (const html of [loading, rendered, failed]) {
+    assert.match(html, /Toplam ürün/);
+    assert.match(html, /Sipariş özeti/);
+    assert.match(html, /Terk edilen sepet özeti/);
+    assert.match(html, /Müşteri özeti/);
+  }
   assert.match(loading, /Ticari analitik özeti yükleniyor/);
-  assert.match(rendered, /Bu ayın ticari özeti|1250/);
+  assert.match(rendered, /Bu ayın ticari özeti/);
+  assert.match(rendered, /1[,.]250/);
   assert.match(failed, /Ticari analitik özeti yüklenemedi/);
   assert.match(failed, />Tekrar dene<\/button>/);
 });
