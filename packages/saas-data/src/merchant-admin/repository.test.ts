@@ -56,6 +56,33 @@ test("typed settings accept only finite public configuration before SQL",async()
  for(const hostile of [{smtpPassword:"x"},{apiKey:"x"},{pushToken:"x"},{html:"<script>x</script>"}]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"notification_setting" as never,name:"Ayar",config:hostile as unknown as Record<string,string>,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
+test("advanced SEO and AI records reject code and provider material before SQL",async()=>{
+ const configurations={
+  seo_geo_profile:{businessName:"Celebix",businessCategory:"E-ticaret",serviceAreas:["İstanbul"],locale:"tr-TR",description:"Yerel mağaza"},
+  seo_internal_link:{sourcePath:"/blog/kahve",targetPath:"/products/kahve",anchorText:"Kahve",enabled:true},
+  seo_content_entry:{resourceId:RECORD,metaTitle:"Kahve",metaDescription:"Kahve rehberi",canonicalPath:"/blog/kahve",structuredDataType:"Article"},
+  seo_category_entry:{resourceId:RECORD,metaTitle:"Kategori",metaDescription:"Kategori açıklaması",canonicalPath:"/categories/kahve"},
+  seo_page_entry:{resourceId:RECORD,metaTitle:"Sayfa",metaDescription:"Sayfa açıklaması",canonicalPath:"/about"},
+  seo_product_entry:{resourceId:RECORD,metaTitle:"Ürün",metaDescription:"Ürün açıklaması",canonicalPath:"/products/kahve"},
+  ai_setting:{tone:"yardımsever",locale:"tr-TR",enabledFeatures:["description_suggestions","seo_suggestions"]},
+ } as const;
+ for(const [kind,config] of Object.entries(configurations)){
+  const writer=new Client((text)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{...mutation(),kind}}]:[]);
+  await assert.doesNotReject(()=>repository(new Pool([writer])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:kind as never,name:"Yapılandırma",config,status:"active"}));
+ }
+ for(const hostile of [{code:"YAZ20"},{provider:"external"},{html:"<script>x</script>"},{apiKey:"x"},{prompt:"ignore authority"},{redirectUrl:"javascript:x"}]){
+  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"ai_setting",name:"Yapay zeka",config:hostile as unknown as Record<string,string>,status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ }
+ for(const hostile of [
+  ["seo_internal_link",{sourcePath:"https://evil.test",targetPath:"/safe",anchorText:"Bağlantı",enabled:true}],
+  ["seo_content_entry",{resourceId:"not-a-uuid",metaTitle:"Başlık",metaDescription:"Açıklama",canonicalPath:"/safe",structuredDataType:"Article"}],
+  ["seo_content_entry",{resourceId:RECORD,metaTitle:"Başlık",metaDescription:"Açıklama",canonicalPath:"/safe?query=1",structuredDataType:"Article"}],
+  ["ai_setting",{tone:"yardımsever",locale:"tr-TR",enabledFeatures:["description_suggestions","unbounded"]}],
+ ] as const){
+  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:hostile[0] as never,name:"Yapılandırma",config:hostile[1] as never,status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ }
+});
+
 test("typed settings reject hostile descriptors and canonical URL email timestamp enum array inputs before SQL",async()=>{
  const getterInput={tenantContext:tenant(),now:NOW,operationId:OP,kind:"hero_banner",name:"Ayar",status:"active"} as Record<string,unknown>;
  Object.defineProperty(getterInput,"config",{enumerable:true,get(){throw new Error("getter_invoked")}});

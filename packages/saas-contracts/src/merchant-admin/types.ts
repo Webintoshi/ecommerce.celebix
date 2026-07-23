@@ -7,6 +7,8 @@ export const MERCHANT_ADMIN_RECORD_KINDS = Object.freeze([
   "accounting_profile", "invoice_integration",
   "seo_control", "sitemap", "social_preview", "code_integration", "indexing_request",
   "notification_setting", "hero_banner", "promotion_banner", "marquee_setting",
+  "seo_geo_profile", "seo_internal_link", "seo_content_entry", "seo_category_entry",
+  "seo_page_entry", "seo_product_entry", "ai_setting",
 ] as const);
 export type MerchantAdminRecordKind = (typeof MERCHANT_ADMIN_RECORD_KINDS)[number];
 export type MerchantAdminRecordStatus = "draft" | "active" | "archived";

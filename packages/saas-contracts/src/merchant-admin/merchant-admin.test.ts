@@ -11,7 +11,7 @@ import {
   parseMerchantAdminRecord,
 } from "./index.ts";
 const ID = "11111111-1111-4111-8111-111111111111", NOW = "2026-07-22T19:00:00.000Z";
-test("parses exact durable merchant module records", () => { const value = parseMerchantAdminRecord({ id: ID, kind: "discount", name: "Yaz indirimi", config: { discountType: "percent", value: 15 }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }); assert.equal(Object.isFrozen(value.config), true); assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 25); for (const hostile of [{ ...value, storeId: ID }, { ...value, config: { apiKey: "private" } }, { ...value, status: "deleted" }]) assert.throws(() => parseMerchantAdminRecord(hostile)); });
+test("parses exact durable merchant module records", () => { const value = parseMerchantAdminRecord({ id: ID, kind: "discount", name: "Yaz indirimi", config: { discountType: "percent", value: 15 }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }); assert.equal(Object.isFrozen(value.config), true); assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 32); for (const hostile of [{ ...value, storeId: ID }, { ...value, config: { apiKey: "private" } }, { ...value, status: "deleted" }]) assert.throws(() => parseMerchantAdminRecord(hostile)); });
 test("typed settings expose only finite public configuration", () => {
   const configurations = {
     notification_setting: { emailEnabled: true, smsEnabled: false, pushEnabled: true, senderLabel: "Celebix", replyToEmail: "support@example.test" },
@@ -21,6 +21,24 @@ test("typed settings expose only finite public configuration", () => {
   } as const;
   for (const [kind, config] of Object.entries(configurations)) assert.doesNotThrow(() => parseMerchantAdminRecord({ id: ID, kind, name: "Ayar", config, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }));
   for (const hostile of [{ smtpPassword: "x" }, { apiKey: "x" }, { pushToken: "x" }]) assert.throws(() => parseMerchantAdminRecord({ id: ID, kind: "notification_setting", name: "Ayar", config: hostile, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }));
+});
+test("advanced SEO and AI records retain only their finite record kinds", () => {
+  for (const kind of [
+    "seo_geo_profile", "seo_internal_link", "seo_content_entry", "seo_category_entry",
+    "seo_page_entry", "seo_product_entry", "ai_setting",
+  ] as const) {
+    assert.doesNotThrow(() => parseMerchantAdminRecord({
+      id: ID,
+      kind,
+      name: "Yapılandırma",
+      config: {},
+      status: "draft",
+      version: 1,
+      createdAt: NOW,
+      updatedAt: NOW,
+    }));
+  }
+  assert.equal(MERCHANT_ADMIN_RECORD_KINDS.length, 32);
 });
 test("merchant-admin parsers reject hostile descriptors, prototypes, and sparse arrays without invoking getters", () => {
   const record = { id: ID, kind: "marquee_setting", name: "Ayar", config: { items: ["Duyuru"] }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };

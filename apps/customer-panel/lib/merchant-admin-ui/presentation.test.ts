@@ -30,9 +30,9 @@ function record(
 }
 
 test("defines every durable merchant module with a unique route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 25);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 25);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 25);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 32);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 32);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 32);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
   assert.equal(getMerchantModuleDefinition("lucky_wheel").route, "/discounts/lucky-wheel");
@@ -77,6 +77,28 @@ test("marks only real in-application workflows durable and external execution pr
   ] as const) {
     assert.equal(getMerchantModuleDefinition(kind).execution, "durable");
   }
+});
+
+test("defines finite advanced SEO and AI preferences without a provider job", () => {
+  const expected = {
+    seo_geo_profile: "/seo/geo-optimization",
+    seo_internal_link: "/seo/internal-linking",
+    seo_content_entry: "/seo/content",
+    seo_category_entry: "/seo/categories",
+    seo_page_entry: "/seo/pages",
+    seo_product_entry: "/seo/products",
+    ai_setting: "/settings/artificial-intelligence",
+  } as const;
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 32);
+  for (const [kind, route] of Object.entries(expected)) {
+    const definition = getMerchantModuleDefinition(kind as keyof typeof expected);
+    assert.equal(definition.route, route);
+    assert.equal(definition.execution, "durable");
+    assert.equal(definition.workflow, undefined);
+  }
+  const ai = getMerchantModuleDefinition("ai_setting");
+  assert.match(ai.notice ?? "", /harici.*üreti[mş]/i);
+  assert.deepEqual(ai.fields.map(({ key }) => key), ["tone", "locale", "enabledFeatures"]);
 });
 
 test("builds truthful status metrics and applies exact status and locale-aware search filters", () => {
