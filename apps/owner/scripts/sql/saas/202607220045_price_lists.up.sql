@@ -1157,6 +1157,8 @@ DECLARE
   patched text;
   old_fragment text;
   new_fragment text;
+  old_lock_fragment text;
+  new_lock_fragment text;
 BEGIN
   SELECT pg_catalog.pg_get_functiondef(create_target) INTO definition;
   old_fragment:=$old$
@@ -1187,6 +1189,28 @@ BEGIN
     RAISE EXCEPTION 'PRICE_LIST_READER_PATCH_DRIFT';
   END IF;
   patched:=pg_catalog.replace(definition,old_fragment,new_fragment);
+  old_lock_fragment:=$old$
+    RETURN;
+  END IF;
+
+  IF p_link_id IS NULL OR p_link_id::text !~ uuid_pattern$old$;
+  new_lock_fragment:=$new$
+    RETURN;
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('saas.catalog.store:'||p_store_id::text,0)
+  );
+
+  IF p_link_id IS NULL OR p_link_id::text !~ uuid_pattern$new$;
+  IF (
+    pg_catalog.length(patched)-pg_catalog.length(
+      pg_catalog.replace(patched,old_lock_fragment,'')
+    )
+  )/pg_catalog.length(old_lock_fragment)<>1 THEN
+    RAISE EXCEPTION 'PRICE_LIST_READER_PATCH_DRIFT';
+  END IF;
+  patched:=pg_catalog.replace(patched,old_lock_fragment,new_lock_fragment);
   EXECUTE patched;
 
   SELECT pg_catalog.pg_get_functiondef(duplicate_target) INTO definition;
@@ -1216,6 +1240,25 @@ BEGIN
     RAISE EXCEPTION 'PRICE_LIST_READER_PATCH_DRIFT';
   END IF;
   patched:=pg_catalog.replace(definition,old_fragment,new_fragment);
+  old_lock_fragment:=$old$
+    RETURN;
+  END IF;
+  IF p_source_link_id IS NULL OR p_link_id IS NULL OR p_link_id::text !~ uuid_pattern$old$;
+  new_lock_fragment:=$new$
+    RETURN;
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('saas.catalog.store:'||p_store_id::text,0)
+  );
+  IF p_source_link_id IS NULL OR p_link_id IS NULL OR p_link_id::text !~ uuid_pattern$new$;
+  IF (
+    pg_catalog.length(patched)-pg_catalog.length(
+      pg_catalog.replace(patched,old_lock_fragment,'')
+    )
+  )/pg_catalog.length(old_lock_fragment)<>1 THEN
+    RAISE EXCEPTION 'PRICE_LIST_READER_PATCH_DRIFT';
+  END IF;
+  patched:=pg_catalog.replace(patched,old_lock_fragment,new_lock_fragment);
   EXECUTE patched;
 END
 $quick_reader_patch$;
@@ -1252,13 +1295,6 @@ BEGIN
   ) THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
-  -- The live reader names the resolver without changing migration-027's
-  -- validation/replay ordering; the delegated 025 body below persists its result.
-  PERFORM resolved.outcome
-  FROM pg_catalog.unnest(p_variant_ids) requested(variant_id)
-  CROSS JOIN LATERAL saas.resolve_effective_variant_price(
-    p_store_id,requested.variant_id,'quick_order',p_now,p_customer_email
-  ) resolved;
   RETURN QUERY SELECT delegated.outcome,delegated.result_payload
   FROM saas.quick_links_create_025(
     p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,
@@ -1300,17 +1336,6 @@ BEGIN
   ) THEN
     RETURN QUERY SELECT 'invalid_input'::text,NULL::jsonb; RETURN;
   END IF;
-  -- Preserve the public wrapper's existing result ordering; the delegated body
-  -- re-resolves each source item before writing its immutable duplicate snapshot.
-  PERFORM resolved.outcome
-  FROM saas.quick_order_link_items item
-  JOIN saas.quick_order_links link
-    ON link.store_id=item.store_id AND link.id=item.quick_order_link_id
-  CROSS JOIN LATERAL saas.resolve_effective_variant_price(
-    p_store_id,item.variant_id,'quick_order',p_now,link.customer_email
-  ) resolved
-  WHERE item.store_id=p_store_id
-    AND item.quick_order_link_id=p_source_link_id;
   RETURN QUERY SELECT delegated.outcome,delegated.result_payload
   FROM saas.quick_links_duplicate_025(
     p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,
@@ -1349,6 +1374,11 @@ BEGIN
       THEN 'invalid_input' ELSE 'catalog_item_unavailable' END,NULL::jsonb;
     RETURN;
   END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'saas.catalog.store:'||selected_store::text,0
+    )
+  );
   requested_count:=pg_catalog.jsonb_array_length(p_items);
   SELECT pg_catalog.count(*)::integer,
     pg_catalog.sum(resolved.price_cents*(entry.value->>'quantity')::bigint)

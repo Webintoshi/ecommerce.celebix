@@ -22,6 +22,8 @@ DECLARE
   restored text;
   old_fragment text;
   new_fragment text;
+  old_lock_fragment text;
+  new_lock_fragment text;
 BEGIN
   SELECT pg_catalog.pg_get_functiondef(create_target) INTO definition;
   old_fragment:=$old$
@@ -52,6 +54,28 @@ BEGIN
     RAISE EXCEPTION 'PRICE_LIST_READER_RESTORE_DRIFT';
   END IF;
   restored:=pg_catalog.replace(definition,new_fragment,old_fragment);
+  old_lock_fragment:=$old$
+    RETURN;
+  END IF;
+
+  IF p_link_id IS NULL OR p_link_id::text !~ uuid_pattern$old$;
+  new_lock_fragment:=$new$
+    RETURN;
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('saas.catalog.store:'||p_store_id::text,0)
+  );
+
+  IF p_link_id IS NULL OR p_link_id::text !~ uuid_pattern$new$;
+  IF (
+    pg_catalog.length(restored)-pg_catalog.length(
+      pg_catalog.replace(restored,new_lock_fragment,'')
+    )
+  )/pg_catalog.length(new_lock_fragment)<>1 THEN
+    RAISE EXCEPTION 'PRICE_LIST_READER_RESTORE_DRIFT';
+  END IF;
+  restored:=pg_catalog.replace(restored,new_lock_fragment,old_lock_fragment);
   EXECUTE restored;
 
   SELECT pg_catalog.pg_get_functiondef(duplicate_target) INTO definition;
@@ -81,6 +105,25 @@ BEGIN
     RAISE EXCEPTION 'PRICE_LIST_READER_RESTORE_DRIFT';
   END IF;
   restored:=pg_catalog.replace(definition,new_fragment,old_fragment);
+  old_lock_fragment:=$old$
+    RETURN;
+  END IF;
+  IF p_source_link_id IS NULL OR p_link_id IS NULL OR p_link_id::text !~ uuid_pattern$old$;
+  new_lock_fragment:=$new$
+    RETURN;
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('saas.catalog.store:'||p_store_id::text,0)
+  );
+  IF p_source_link_id IS NULL OR p_link_id IS NULL OR p_link_id::text !~ uuid_pattern$new$;
+  IF (
+    pg_catalog.length(restored)-pg_catalog.length(
+      pg_catalog.replace(restored,new_lock_fragment,'')
+    )
+  )/pg_catalog.length(new_lock_fragment)<>1 THEN
+    RAISE EXCEPTION 'PRICE_LIST_READER_RESTORE_DRIFT';
+  END IF;
+  restored:=pg_catalog.replace(restored,new_lock_fragment,old_lock_fragment);
   EXECUTE restored;
 END
 $quick_reader_restore$;

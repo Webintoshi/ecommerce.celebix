@@ -177,8 +177,6 @@ BEGIN
   FOREACH signature IN ARRAY ARRAY[
     'saas.public_list_products(uuid,text,timestamp with time zone,integer)',
     'saas.public_get_product_by_slug(uuid,text,timestamp with time zone,text)',
-    'saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)',
-    'saas.quick_links_duplicate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid[],text,text,jsonb,uuid,text)',
     'saas.abandoned_carts_capture(text,uuid,text,timestamp with time zone,jsonb,jsonb)',
     'saas.quick_links_create_025(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)',
     'saas.quick_links_duplicate_025(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid[],text,text,jsonb,uuid,text)'
@@ -189,6 +187,48 @@ BEGIN
       RAISE EXCEPTION 'PRICE_LIST_READER_PATCH_INVALID:%',signature;
     END IF;
   END LOOP;
+
+  FOREACH signature IN ARRAY ARRAY[
+    'saas.quick_links_create_025(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)',
+    'saas.quick_links_duplicate_025(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid[],text,text,jsonb,uuid,text)'
+  ] LOOP
+    SELECT pg_catalog.pg_get_functiondef(signature::regprocedure)
+    INTO definition;
+    IF definition NOT LIKE '%saas.catalog.store:%'
+       OR pg_catalog.strpos(definition,'saas.quick_links.operation:')
+          >=pg_catalog.strpos(definition,'saas.catalog.store:')
+       OR pg_catalog.strpos(definition,'saas.catalog.store:')
+          >=pg_catalog.strpos(definition,'resolve_effective_variant_price') THEN
+      RAISE EXCEPTION 'PRICE_LIST_READER_EPOCH_INVALID:%',signature;
+    END IF;
+  END LOOP;
+
+  signature:=
+    'saas.quick_links_create(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid[],uuid[],bigint[],uuid,text,text,text,jsonb,jsonb,text,text,bigint,bigint,bigint,text,text,jsonb,uuid,text)';
+  SELECT pg_catalog.pg_get_functiondef(signature::regprocedure)
+  INTO definition;
+  IF definition LIKE '%PERFORM resolved.outcome%'
+     OR definition NOT LIKE '%saas.quick_links_create_025(%' THEN
+    RAISE EXCEPTION 'PRICE_LIST_READER_DELEGATION_INVALID:%',signature;
+  END IF;
+  signature:=
+    'saas.quick_links_duplicate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,uuid,uuid[],text,text,jsonb,uuid,text)';
+  SELECT pg_catalog.pg_get_functiondef(signature::regprocedure)
+  INTO definition;
+  IF definition LIKE '%PERFORM resolved.outcome%'
+     OR definition NOT LIKE '%saas.quick_links_duplicate_025(%' THEN
+    RAISE EXCEPTION 'PRICE_LIST_READER_DELEGATION_INVALID:%',signature;
+  END IF;
+
+  signature:=
+    'saas.abandoned_carts_capture(text,uuid,text,timestamp with time zone,jsonb,jsonb)';
+  SELECT pg_catalog.pg_get_functiondef(signature::regprocedure)
+  INTO definition;
+  IF definition NOT LIKE '%saas.catalog.store:%'
+     OR pg_catalog.strpos(definition,'saas.catalog.store:')
+        >=pg_catalog.strpos(definition,'resolve_effective_variant_price') THEN
+    RAISE EXCEPTION 'PRICE_LIST_READER_EPOCH_INVALID:%',signature;
+  END IF;
 
   IF NOT EXISTS(
     SELECT 1 FROM pg_catalog.pg_constraint

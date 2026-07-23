@@ -86,12 +86,10 @@ test("one stable definer resolver owns finite channel time customer and cents de
   assert.doesNotMatch(body, /segment|cookie|forwarded|header/i);
 });
 
-test("exact five live pre-snapshot readers call the shared resolver and preserve snapshots", () => {
+test("all live pre-snapshot readers use the behavioral resolver authority and preserve snapshots", () => {
   for (const functionName of [
     "public_list_products",
     "public_get_product_by_slug",
-    "quick_links_create",
-    "quick_links_duplicate",
     "abandoned_carts_capture",
   ]) {
     const start = up.indexOf(`CREATE OR REPLACE FUNCTION saas.${functionName}`);
@@ -100,6 +98,22 @@ test("exact five live pre-snapshot readers call the shared resolver and preserve
     const body = up.slice(start, next === -1 ? undefined : next);
     assert.match(body, /resolve_effective_variant_price/, functionName);
   }
+  for (const [functionName, delegatedName] of [
+    ["quick_links_create", "quick_links_create_025"],
+    ["quick_links_duplicate", "quick_links_duplicate_025"],
+  ]) {
+    const start = up.indexOf(`CREATE OR REPLACE FUNCTION saas.${functionName}`);
+    assert.ok(start > -1, functionName);
+    const next = up.indexOf("CREATE OR REPLACE FUNCTION saas.", start + 30);
+    const body = up.slice(start, next === -1 ? undefined : next);
+    assert.match(body, new RegExp(`saas[.]${delegatedName}[(]`), functionName);
+    assert.doesNotMatch(body, /PERFORM resolved[.]outcome/, functionName);
+  }
+  const patchStart = up.indexOf("DO $quick_reader_patch$");
+  const patchEnd = up.indexOf("CREATE OR REPLACE FUNCTION saas.quick_links_create", patchStart);
+  const behavioralPatch = up.slice(patchStart, patchEnd);
+  assert.equal((behavioralPatch.match(/resolve_effective_variant_price/g) ?? []).length, 2);
+  assert.equal((behavioralPatch.match(/saas[.]catalog[.]store:/g) ?? []).length, 2);
   assert.match(up, /unit_price_cents/);
   assert.match(up, /line_total_cents/);
   assert.match(up, /'storefront'/);

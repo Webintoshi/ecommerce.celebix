@@ -37,6 +37,8 @@ const LATER = "2026-07-24T12:00:00.000Z";
 const HOSTNAME = "pricing.example.test";
 const ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
 const DUPLICATE_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"ZHVwbGljYXRlLXRva2VuLWNpcGhlcnRleHQ","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
+const EPOCH_CREATE_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"ZXBvY2gtY3JlYXRlLXRva2VuLWNpcGhlcnRleHQ","iv":"AwMDAwMDAwMDAwMD","keyId":"key-1","tag":"BAQEBAQEBAQEBAQEBAQEBA","version":1}'::jsonb`;
+const EPOCH_DUPLICATE_ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"ZXBvY2gtZHVwbGljYXRlLXRva2VuLWNpcGhlcnRleHQ","iv":"BQUFBQUFBQUFBQUF","keyId":"key-1","tag":"BgYGBgYGBgYGBgYGBgYGBg","version":1}'::jsonb`;
 const ADDRESS = `'{"recipientName":"Ada Lovelace","phone":"+905551110000","line1":"Test 1","city":"Istanbul","country":"TR"}'::jsonb`;
 
 const PRIOR = [
@@ -258,6 +260,101 @@ function psqlAsync(box, source, database = DB) {
   });
 }
 
+function holdAdvisoryLock(box, lockKey, database = DB) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      box.executables.psql,
+      [
+        "-h", box.socket,
+        "-p", String(box.port),
+        "-X", "-qAt",
+        "-v", "ON_ERROR_STOP=1",
+        "-U", "postgres",
+        "-d", database,
+      ],
+      {
+        cwd: ROOT,
+        env: { ...process.env, LC_ALL: "C", LANG: "C" },
+      },
+    );
+    let stdout = "";
+    let stderr = "";
+    let ready = false;
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      if (!ready && stdout.includes("PRICE_EPOCH_LOCK_READY")) {
+        ready = true;
+        resolve({
+          release: () => new Promise((releaseResolve, releaseReject) => {
+            child.once("error", releaseReject);
+            child.once("close", (code) => {
+              if (code === 0) releaseResolve();
+              else releaseReject(new Error(`lock holder failed\n${stderr}`));
+            });
+            child.stdin.end("COMMIT;\n\\q\n");
+          }),
+        });
+      }
+    });
+    child.once("error", reject);
+    child.once("close", (code) => {
+      if (!ready) reject(new Error(`lock holder exited ${code}\n${stderr}`));
+    });
+    child.stdin.write(`BEGIN;
+      SELECT pg_catalog.pg_advisory_xact_lock(${lockKey}::bigint);
+      SELECT 'PRICE_EPOCH_LOCK_READY';\n`);
+  });
+}
+
+async function waitFor(box, predicate, label) {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`WAIT_TIMEOUT:${label}`);
+}
+
+async function proveTransitionWaitsForConsumer(box, {
+  lockKey,
+  consumerName,
+  consumerCall,
+  consumerRole,
+  transitionName,
+  transitionCall: suppliedTransitionCall,
+}) {
+  const holder = await holdAdvisoryLock(box, lockKey);
+  const consumer = psqlAsync(
+    box,
+    `SET application_name='${consumerName}';SET ROLE ${consumerRole};
+      SELECT outcome FROM ${consumerCall};`,
+  );
+  await waitFor(box, () => psql(box, `SELECT wait_event_type='Lock'
+    FROM pg_catalog.pg_stat_activity
+    WHERE application_name='${consumerName}';`).stdout.trim() === "t", `${consumerName}:pause`);
+
+  let transitionSettled = false;
+  const transition = psqlAsync(
+    box,
+    `SET application_name='${transitionName}';SET ROLE celebix_saas_app;
+      SELECT outcome FROM ${suppliedTransitionCall};`,
+  ).finally(() => { transitionSettled = true; });
+  await waitFor(box, () => transitionSettled || psql(box, `SELECT wait_event_type='Lock'
+    FROM pg_catalog.pg_stat_activity
+    WHERE application_name='${transitionName}';`).stdout.trim() === "t", `${transitionName}:store-lock`);
+  const waitedForConsumer = !transitionSettled;
+  await holder.release();
+  const [consumerResult, transitionResult] = await Promise.all([consumer, transition]);
+  return {
+    waitedForConsumer,
+    consumerOutcome: consumerResult.stdout.trim(),
+    transitionOutcome: transitionResult.stdout.trim(),
+  };
+}
+
 function apply(box, file, database = DB) {
   psql(box, readFileSync(path.join(SQL, file), "utf8"), database);
 }
@@ -418,10 +515,30 @@ function quickCreateCall({
   )`;
 }
 
+function quickCreateMultiCall({ link, itemIds, op, token = "e" }) {
+  return `saas.quick_links_create(
+    ${authority()},'${link}'::uuid,
+    ARRAY[${itemIds.map((id) => `'${id}'::uuid`).join(",")}],
+    ARRAY['${VARIANT}'::uuid,'${VARIANT_B}'::uuid],ARRAY[2::bigint,3::bigint],
+    '${PROVIDER}'::uuid,'Ada Lovelace','plain@example.test','+905551110000',
+    ${ADDRESS},${ADDRESS},NULL::text,'epoch',0,0,24,
+    repeat('${token}',64),'key-1',${EPOCH_CREATE_ENVELOPE},'${op}'::uuid,'${fingerprint(op)}'
+  )`;
+}
+
 function quickDuplicateCall({ source, link, itemId, op, token = "b" }) {
   return `saas.quick_links_duplicate(
     ${authority()},'${source}'::uuid,'${link}'::uuid,ARRAY['${itemId}'::uuid],
     repeat('${token}',64),'key-1',${DUPLICATE_ENVELOPE},'${op}'::uuid,'${fingerprint(op)}'
+  )`;
+}
+
+function quickDuplicateMultiCall({ source, link, itemIds, op, token = "f" }) {
+  return `saas.quick_links_duplicate(
+    ${authority()},'${source}'::uuid,'${link}'::uuid,
+    ARRAY[${itemIds.map((id) => `'${id}'::uuid`).join(",")}],
+    repeat('${token}',64),'key-1',${EPOCH_DUPLICATE_ENVELOPE},
+    '${op}'::uuid,'${fingerprint(op)}'
   )`;
 }
 
@@ -964,7 +1081,7 @@ async function main() {
       assert.equal(mismatch.outcome, "operation_mismatch");
     });
 
-    await scenario("shared store lock matches inventory catalog and checkout lock order", () => {
+    await scenario("shared store lock gives every persisted consumer one pricing epoch", async () => {
       const pricing = psql(box, `SELECT pg_get_functiondef('saas.pricing_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)'::regprocedure);`).stdout;
       const inventory = psql(box, `SELECT pg_get_functiondef('saas.inventory_counts_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,jsonb)'::regprocedure);`).stdout;
       const checkout = psql(box, `SELECT pg_get_functiondef('saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure);`).stdout;
@@ -972,6 +1089,152 @@ async function main() {
         assert.match(definition, /saas[.]catalog[.]store:/);
       }
       assert.ok(pricing.indexOf("saas.pricing.operation:") < pricing.indexOf("saas.catalog.store:"));
+
+      const epochLock = 70450045;
+      const firstEpoch = listId(100);
+      const secondEpoch = listId(101);
+      assert.equal(result(box, saveCall({
+        op: operation(100),
+        list: firstEpoch,
+        name: "First consumer epoch",
+        items: [item(VARIANT, 700), item(VARIANT_B, 1700)],
+        rules: [rule("storefront", 900), rule("quick_order", 900)],
+      })).outcome, "saved");
+      assert.equal(result(box, transitionCall("activate", {
+        op: operation(101), list: firstEpoch, expected: 1,
+      })).outcome, "activated");
+      psql(box, `SET ROLE celebix_saas_owner;
+        CREATE FUNCTION saas.price_epoch_test_pause()
+        RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $f$
+        BEGIN
+          PERFORM pg_catalog.pg_advisory_xact_lock(${epochLock}::bigint);
+          RETURN NEW;
+        END
+        $f$;
+        CREATE TRIGGER quick_item_price_epoch_pause
+          BEFORE INSERT ON saas.quick_order_link_items
+          FOR EACH ROW EXECUTE FUNCTION saas.price_epoch_test_pause();
+        CREATE TRIGGER cart_item_price_epoch_pause
+          BEFORE INSERT ON saas.abandoned_cart_items
+          FOR EACH ROW EXECUTE FUNCTION saas.price_epoch_test_pause();`);
+
+      const epochCreateLink = "90000000-0000-4000-8000-000000000100";
+      const createRun = await proveTransitionWaitsForConsumer(box, {
+        lockKey: epochLock,
+        consumerName: "price_epoch_quick_create",
+        consumerCall: quickCreateMultiCall({
+          link: epochCreateLink,
+          itemIds: [
+            "91000000-0000-4000-8000-000000000100",
+            "91000000-0000-4000-8000-000000000101",
+          ],
+          op: operation(102),
+        }),
+        consumerRole: "celebix_saas_app",
+        transitionName: "price_epoch_archive_create",
+        transitionCall: transitionCall("archive", {
+          op: operation(103), list: firstEpoch, expected: 2,
+        }),
+      });
+      const createSnapshot = JSON.parse(psql(box, `SELECT pg_catalog.jsonb_build_object(
+          'subtotal',link.subtotal_cents,
+          'lineSubtotal',pg_catalog.sum(item.line_total_cents),
+          'prices',pg_catalog.jsonb_agg(item.unit_price_cents ORDER BY item.position)
+        )
+        FROM saas.quick_order_links link
+        JOIN saas.quick_order_link_items item
+          ON item.store_id=link.store_id AND item.quick_order_link_id=link.id
+        WHERE link.store_id='${STORE}' AND link.id='${epochCreateLink}'
+        GROUP BY link.subtotal_cents;`).stdout.trim());
+
+      assert.equal(result(box, saveCall({
+        op: operation(104),
+        list: secondEpoch,
+        name: "Second consumer epoch",
+        items: [item(VARIANT, 800), item(VARIANT_B, 1800)],
+        rules: [rule("storefront", 950), rule("quick_order", 950)],
+      })).outcome, "saved");
+      const epochDuplicateLink = "90000000-0000-4000-8000-000000000101";
+      const duplicateRun = await proveTransitionWaitsForConsumer(box, {
+        lockKey: epochLock,
+        consumerName: "price_epoch_quick_duplicate",
+        consumerCall: quickDuplicateMultiCall({
+          source: epochCreateLink,
+          link: epochDuplicateLink,
+          itemIds: [
+            "91000000-0000-4000-8000-000000000102",
+            "91000000-0000-4000-8000-000000000103",
+          ],
+          op: operation(105),
+        }),
+        consumerRole: "celebix_saas_app",
+        transitionName: "price_epoch_activate_duplicate",
+        transitionCall: transitionCall("activate", {
+          op: operation(106), list: secondEpoch, expected: 1,
+        }),
+      });
+      const duplicateSnapshot = JSON.parse(psql(box, `SELECT pg_catalog.jsonb_build_object(
+          'subtotal',link.subtotal_cents,
+          'lineSubtotal',pg_catalog.sum(item.line_total_cents),
+          'prices',pg_catalog.jsonb_agg(item.unit_price_cents ORDER BY item.position)
+        )
+        FROM saas.quick_order_links link
+        JOIN saas.quick_order_link_items item
+          ON item.store_id=link.store_id AND item.quick_order_link_id=link.id
+        WHERE link.store_id='${STORE}' AND link.id='${epochDuplicateLink}'
+        GROUP BY link.subtotal_cents;`).stdout.trim());
+
+      const epochCart = "92000000-0000-4000-8000-000000000100";
+      const cartRun = await proveTransitionWaitsForConsumer(box, {
+        lockKey: epochLock,
+        consumerName: "price_epoch_abandoned_cart",
+        consumerCall: `saas.abandoned_carts_capture(
+          '${HOSTNAME}','${epochCart}'::uuid,repeat('e',64),'${NOW}',
+          '{"name":"Ada Lovelace","email":"plain@example.test","phone":"+905551110000"}'::jsonb,
+          '[{"productId":"${PRODUCT}","variantId":"${VARIANT}","quantity":2},{"productId":"${PRODUCT}","variantId":"${VARIANT_B}","quantity":3}]'::jsonb
+        )`,
+        consumerRole: "celebix_saas_workflow",
+        transitionName: "price_epoch_archive_cart",
+        transitionCall: transitionCall("archive", {
+          op: operation(107), list: secondEpoch, expected: 2,
+        }),
+      });
+      const cartSnapshot = JSON.parse(psql(box, `SELECT pg_catalog.jsonb_build_object(
+          'subtotal',cart.subtotal_cents,
+          'lineSubtotal',pg_catalog.sum(item.line_total_cents),
+          'prices',pg_catalog.jsonb_agg(item.unit_price_cents ORDER BY item.position)
+        )
+        FROM saas.abandoned_carts cart
+        JOIN saas.abandoned_cart_items item
+          ON item.store_id=cart.store_id AND item.cart_id=cart.id
+        WHERE cart.store_id='${STORE}' AND cart.id='${epochCart}'
+        GROUP BY cart.subtotal_cents;`).stdout.trim());
+      psql(box, `SET ROLE celebix_saas_owner;
+        DROP TRIGGER quick_item_price_epoch_pause ON saas.quick_order_link_items;
+        DROP TRIGGER cart_item_price_epoch_pause ON saas.abandoned_cart_items;
+        DROP FUNCTION saas.price_epoch_test_pause();`);
+
+      assert.deepEqual(createRun, {
+        waitedForConsumer: true,
+        consumerOutcome: "committed",
+        transitionOutcome: "archived",
+      });
+      assert.equal(createSnapshot.subtotal, createSnapshot.lineSubtotal);
+      assert.deepEqual(createSnapshot.prices, [700, 1700]);
+      assert.deepEqual(duplicateRun, {
+        waitedForConsumer: true,
+        consumerOutcome: "committed",
+        transitionOutcome: "activated",
+      });
+      assert.equal(duplicateSnapshot.subtotal, duplicateSnapshot.lineSubtotal);
+      assert.deepEqual(duplicateSnapshot.prices, [500, 2500]);
+      assert.deepEqual(cartRun, {
+        waitedForConsumer: true,
+        consumerOutcome: "captured",
+        transitionOutcome: "archived",
+      });
+      assert.equal(cartSnapshot.subtotal, cartSnapshot.lineSubtotal);
+      assert.deepEqual(cartSnapshot.prices, [800, 1800]);
     });
 
     await scenario("backup and restore preserve pricing authority ACL RLS and effective result", () => {
