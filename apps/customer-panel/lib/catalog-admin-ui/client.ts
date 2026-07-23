@@ -1,4 +1,4 @@
-import { CATALOG_ADMIN_RESOURCE_KINDS, parseCatalogAdminImportJob, parseCatalogAdminMutationResult, parseCatalogAdminResource, parseProductReview, type CatalogAdminJson, type CatalogAdminResourceKind, type ProductReviewStatus } from "@celebix/saas-contracts";
+import { CATALOG_ADMIN_RESOURCE_KINDS, parseCatalogAdminImportJob, parseCatalogAdminMutationResult, parseCatalogAdminResource, parseCatalogImportPreview, parseProductReview, type CatalogAdminJson, type CatalogAdminResourceKind, type CatalogImportFormat, type ProductReviewStatus } from "@celebix/saas-contracts";
 import type { CatalogAdminImportRow } from "@celebix/saas-data";
 const CODES = ["invalid_input", "unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "resource_not_found", "review_not_found", "slug_conflict", "product_limit_reached", "import_conflict", "invalid_transition", "version_conflict", "operation_mismatch", "durable_authority_invalid", "unavailable"] as const;
 type Code = (typeof CODES)[number];
@@ -8,8 +8,10 @@ type Fetch = typeof fetch;
 function record(value: unknown) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null; }
 async function json(response: Response) { if (response.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new CatalogAdminApiError("unavailable", response.status || 503); try { return await response.json(); } catch { throw new CatalogAdminApiError("unavailable", 503); } }
 function kind(value: CatalogAdminResourceKind) { if (!CATALOG_ADMIN_RESOURCE_KINDS.includes(value)) throw new TypeError("catalog_admin_client_invalid"); return value; }
+function opaqueId(value: string) { if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) throw new TypeError("catalog_admin_client_invalid"); return value; }
+function preview(value: unknown) { try { return parseCatalogImportPreview(value); } catch { throw new CatalogAdminApiError("unavailable", 503); } }
 export function createCatalogAdminApi(fetcher: Fetch = fetch, uuid: () => string = crypto.randomUUID.bind(crypto)) {
-  async function request(path: string, init?: RequestInit) { const response = await fetcher(path, { credentials: "same-origin", cache: "no-store", ...init }); const value = await json(response); if (!response.ok) { const parsed = record(value); const code = parsed && typeof parsed.code === "string" && CODES.includes(parsed.code as Code) ? parsed.code as Code : "unavailable"; throw new CatalogAdminApiError(code, response.status); } return value; }
+  async function request(path: string, init?: RequestInit) { const response = await fetcher(path, { credentials: "same-origin", cache: "no-store", ...init }); const value = await json(response); if (!response.ok) { const parsed = record(value); const code = parsed && Object.keys(parsed).length === 1 && Object.hasOwn(parsed, "code") && typeof parsed.code === "string" && CODES.includes(parsed.code as Code) ? parsed.code as Code : "unavailable"; throw new CatalogAdminApiError(code, response.status); } return value; }
   function post(path: string, value: unknown) { return request(path, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": uuid() }, body: JSON.stringify(value) }); }
   function items<T>(value: unknown, parser: (entry: unknown) => T): readonly T[] { const parsed = record(value); if (!parsed || Object.keys(parsed).join(",") !== "items" || !Array.isArray(parsed.items)) throw new CatalogAdminApiError("unavailable", 503); return Object.freeze(parsed.items.map(parser)); }
   return Object.freeze({
@@ -20,6 +22,9 @@ export function createCatalogAdminApi(fetcher: Fetch = fetch, uuid: () => string
     async moderateReview(reviewId: string, value: Readonly<{ expectedVersion: number; status: "approved" | "rejected" | "archived"; reply?: string }>) { return parseCatalogAdminMutationResult(await post(`/api/catalog/admin/reviews/${encodeURIComponent(reviewId)}/moderate`, value)); },
     async imports() { return items(await request("/api/catalog/admin/imports"), parseCatalogAdminImportJob); },
     async importProducts(value: Readonly<{ fileName: string; rows: readonly CatalogAdminImportRow[] }>) { return parseCatalogAdminMutationResult(await post("/api/catalog/admin/imports", value)); },
+    async prepareImportPreview(value: Readonly<{ format: CatalogImportFormat; fileName: string; content: string }>, signal?: AbortSignal) { return preview(await request("/api/catalog/admin/import-previews", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": uuid() }, body: JSON.stringify(value), signal })); },
+    async getImportPreview(previewId: string, signal?: AbortSignal) { return preview(await request(`/api/catalog/admin/import-previews/${opaqueId(previewId)}`, { signal })); },
+    async commitImportPreview(previewId: string, expectedVersion: number, signal?: AbortSignal) { if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) throw new TypeError("catalog_admin_client_invalid"); const value = await request(`/api/catalog/admin/import-previews/${opaqueId(previewId)}/commit`, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": uuid() }, body: JSON.stringify({ expectedVersion }), signal }); try { return parseCatalogAdminMutationResult(value); } catch { throw new CatalogAdminApiError("unavailable", 503); } },
   });
 }
 export const catalogAdminApi = createCatalogAdminApi();
