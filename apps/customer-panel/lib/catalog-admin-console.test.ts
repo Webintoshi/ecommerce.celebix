@@ -21,9 +21,9 @@ test("tag and barcode consoles are fixed read-only catalog surfaces", async () =
   assert.doesNotMatch(labels, /randomUUID|Math[.]random|JsBarcode|fetch[(]|catalogApi[.](?:create|update|archive)/);
   assert.match(tagPage, /requireServerPanelAccess[(][)]/);
   assert.match(tagPage, /kind="tag"/);
-  assert.match(tagPage, /catalog_admin[.]manage/);
+  assert.match(tagPage, /CATALOG_PAGE_ACTIONS[.]tags/);
   assert.match(barcodePage, /requireServerPanelAccess[(][)]/);
-  assert.match(barcodePage, /catalog_admin[.]read/);
+  assert.match(barcodePage, /CATALOG_PAGE_ACTIONS[.]barcodeLabels/);
   assert.match(barcodePage, /tenantContext/);
   assert.match(barcodePage, /projectBarcodeLabelProducts/);
   assert.match(barcodePage, /<BarcodeLabelConsole products=\{Object[.]freeze\(products\)\}/);

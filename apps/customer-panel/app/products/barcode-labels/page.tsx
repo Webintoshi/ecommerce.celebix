@@ -1,17 +1,20 @@
 import {
-  isMerchantActionAllowed,
   type BarcodeLabelRow,
 } from "@celebix/saas-contracts";
 import { BarcodeLabelConsole } from "@/components/catalog-admin/BarcodeLabelConsole";
 import { projectBarcodeLabelProducts } from "@/lib/catalog-admin-ui/barcode-label-projection";
+import {
+  CATALOG_PAGE_ACTIONS,
+  isCatalogPageActionAllowed,
+} from "@/lib/catalog-page-access";
 import { requireServerPanelAccess } from "@/lib/server-access";
 import { resolveDefaultServerCatalogRuntime } from "@/lib/server-catalog/default";
 
 export default async function BarcodeLabelsPage() {
   const { tenantContext } = await requireServerPanelAccess();
-  const canRead = isMerchantActionAllowed(
-    tenantContext.membership.role,
-    "catalog_admin.read",
+  const canRead = isCatalogPageActionAllowed(
+    tenantContext,
+    CATALOG_PAGE_ACTIONS.barcodeLabels,
   );
   const products: BarcodeLabelRow[] = [];
   const runtime = canRead ? await resolveDefaultServerCatalogRuntime() : null;

@@ -1,5 +1,8 @@
-import { isMerchantActionAllowed } from "@celebix/saas-contracts";
 import { CatalogResourceConsole } from "@/components/catalog-admin/CatalogResourceConsole";
+import {
+  CATALOG_PAGE_ACTIONS,
+  isCatalogPageActionAllowed,
+} from "@/lib/catalog-page-access";
 import { requireServerPanelAccess } from "@/lib/server-access";
 
 export default async function TagsPage() {
@@ -7,9 +10,9 @@ export default async function TagsPage() {
   return (
     <CatalogResourceConsole
       kind="tag"
-      canManage={isMerchantActionAllowed(
-        tenantContext.membership.role,
-        "catalog_admin.manage",
+      canManage={isCatalogPageActionAllowed(
+        tenantContext,
+        CATALOG_PAGE_ACTIONS.tags,
       )}
     />
   );
