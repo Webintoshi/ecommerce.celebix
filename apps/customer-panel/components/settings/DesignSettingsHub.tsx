@@ -10,13 +10,13 @@ const SURFACES = Object.freeze([
   ["Koleksiyonlar", "/products/collections", "Vitrindeki ürün gruplarını yönetin."],
 ] as const);
 
-export function DesignSettingsHub({ canManage }: Readonly<{ canManage: boolean }>) {
+export function DesignSettingsHub({ canManage: _canManage }: Readonly<{ canManage: boolean }>) {
   return <PanelPageShell>
     <PanelPageHeader title="Tasarım ayarları" description="Mevcut kalıcı vitrin yüzeylerini yönetin." />
     <PanelPanel title="Vitrin yüzeyleri">
       <div className={styles.surface}>
       {SURFACES.map(([title, href, description]) => <Link className={styles.card} href={href} key={href}>
-        <strong>{title}</strong><span>{description}</span><small>{canManage ? "Yönet" : "Görüntüle"}</small>
+        <strong>{title}</strong><span>{description}</span><small>Aç</small>
       </Link>)}
       </div>
     </PanelPanel>

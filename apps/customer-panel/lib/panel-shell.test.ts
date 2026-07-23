@@ -361,6 +361,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
 type DashboardPresentationInput = Readonly<{
   dashboard: ReturnType<typeof createMerchantDashboardViewModel>;
   state: "loading" | "loaded" | "error";
+  analyticsState?: "loading" | "loaded" | "error";
 }>;
 
 async function renderPanelDashboard(
@@ -1160,6 +1161,25 @@ test("dashboard presentation renders one retry control without stale ready data"
   assert.equal((html.match(/<button(?![^>]*disabled)[^>]*>/g) ?? []).length, 1);
   assert.doesNotMatch(html, /role="listitem"|data-chart-(?:labels|values)|Katalog dağılımı/);
   assert.doesNotMatch(html, /Toplam ürün|Aktif ürün|Taslak ürün|Stokta olmayan|Etkin medya/);
+});
+
+test("dashboard presentation renders analytics loading ready and retry states without hiding ready slices", async () => {
+  const chrome = Object.freeze({ storeSlug: "pilot-store", membershipLabel: "Mağaza sahibi", planCode: "free_starter", planVersion: 1, entitlementStatus: "active", storefrontHostname: "pilot-store.celebix.site", locale: "tr-TR" });
+  const catalog = Object.freeze({ totalProducts: 4, activeProducts: 3, draftProducts: 1, productLimit: 10, activeVariants: 6, outOfStockVariants: 2, productsWithoutMedia: 1, activeMedia: 7 });
+  const orders = Object.freeze({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" });
+  const carts = Object.freeze({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" });
+  const customers = Object.freeze({ active: 1, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" });
+  const analytics = Object.freeze({ period: "month" as const, rangeStart: "2026-07-01T00:00:00.000Z", rangeEnd: "2026-07-22T12:00:00.000Z", generatedAt: "2026-07-22T12:00:00.000Z", currency: "TRY", revenueCents: 125000, orders: { total: 12, paid: 10, cancelled: 1, refunded: 1 }, customers: { total: 30, newInPeriod: 4 }, catalog: { activeProducts: 8, lowStockVariants: 2 }, series: [], topProducts: [] });
+  const base = createMerchantDashboardViewModel(chrome, readyAuthority(catalog, analytics.generatedAt), readyAuthority(orders, orders.asOf), readyAuthority(carts, carts.asOf), readyAuthority(customers, customers.asOf), unavailableAuthority(true));
+  const ready = createMerchantDashboardViewModel(chrome, readyAuthority(catalog, analytics.generatedAt), readyAuthority(orders, orders.asOf), readyAuthority(carts, carts.asOf), readyAuthority(customers, customers.asOf), readyAuthority(analytics, analytics.generatedAt));
+  const loading = await renderPanelDashboard(chrome, { dashboard: base, state: "loaded", analyticsState: "loading" });
+  const rendered = await renderPanelDashboard(chrome, { dashboard: ready, state: "loaded", analyticsState: "loaded" });
+  const failed = await renderPanelDashboard(chrome, { dashboard: base, state: "loaded", analyticsState: "error" });
+  for (const html of [loading, rendered, failed]) assert.match(html, /Toplam ürün|Sipariş özeti|Müşteri özeti/);
+  assert.match(loading, /Ticari analitik özeti yükleniyor/);
+  assert.match(rendered, /Bu ayın ticari özeti|1250/);
+  assert.match(failed, /Ticari analitik özeti yüklenemedi/);
+  assert.match(failed, />Tekrar dene<\/button>/);
 });
 
 interface CssTestElement {
