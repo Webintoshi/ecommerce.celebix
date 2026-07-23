@@ -18,28 +18,33 @@ test("approved merchant record subpages are server-authorized and keep fixed kin
  ["app/settings/payment/new/page.tsx","payment_setting","configuration.manage"],["app/settings/payment/[recordId]/edit/page.tsx","payment_setting","configuration.manage"],
 ]as const){const value=await source(path);assert.match(value,/requireServerPanelAccess\(\)/);assert.match(value,new RegExp(`kind=\\"${kind}\\"`));assert.match(value,new RegExp(permission.replace(".","\\.")));assert.doesNotMatch(value,/searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/)} });
 
-test("typed storefront settings render closed enum, local datetime roundtrip, and bounded announcement-list controls",async()=>{
+test("typed storefront settings render closed enum, local datetime roundtrip, finite list bounds and enum-list controls",async()=>{
   const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");
-  for(const evidence of["field.type === \"enum\"","field.type === \"datetime\"","field.type === \"string-list\"","field.allowedValues","field.optionLabels","datetime-local","getFullYear","new Date(raw)","timestamp.toISOString","invalid_enum_value","invalid_string_list","activeSubmissionRef","loadVersionRef"])assert.match(value,new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+  for(const evidence of["field.type === \"enum\"","field.type === \"enum-list\"","field.type === \"datetime\"","field.type === \"string-list\"","field.maxItems","field.allowedValues","field.optionLabels","datetime-local","getFullYear","new Date(raw)","timestamp.toISOString","invalid_enum_value","invalid_enum_list","invalid_string_list_","activeSubmissionRef","loadVersionRef"])assert.match(value,new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
   assert.doesNotMatch(value,/localStorage|sessionStorage|document[.]cookie|apiSecret|clientSecret|accessToken/);
+  assert.match(value,/defaultChecked=\{Array[.]isArray\(editing[?][.]config\[field[.]key\]\).*includes\(value\)\}/);
 });
 
-test("datetime-local and announcement parsing keep local wall time and reject a thirteenth item",async()=>{
+test("datetime-local, bounded list, and finite enum-list parsing reject unknown or duplicate values",async()=>{
   const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");
   const dateStart=value.indexOf("function dateTimeInputSnapshot");const dateEnd=value.indexOf("\n}\n\nfunction parseFormConfig",dateStart)+2;
   const parseStart=value.indexOf("function parseFormConfig");const parseEnd=value.indexOf("\n}\n\nfunction statusPresentation",parseStart)+2;
-  const program=ts.transpileModule(`${value.slice(dateStart,dateEnd)}\n${value.slice(parseStart,parseEnd)}\nconst fields=[{key:"items",type:"string-list"},{key:"startsAt",type:"datetime"}];const original="2026-11-01T06:30:00.123Z";const data=new FormData();data.set("items",Array.from({length:12},(_,index)=>\` item-${"${"}index+1} \`).join("\\n"));data.set("startsAt","2026-11-01T01:30:00.123");console.log(JSON.stringify({local:dateTimeInputValue({config:{startsAt:original}},"startsAt"),parsed:parseFormConfig(fields,data,{startsAt:original})}));const tooMany=new FormData();tooMany.set("items",Array.from({length:13},(_,index)=>\`item-${"${"}index+1}\`).join("\\n"));try{parseFormConfig([{key:"items",type:"string-list"}],tooMany)}catch(error){console.log(error.message)}` ,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+  const program=ts.transpileModule(`${value.slice(dateStart,dateEnd)}\n${value.slice(parseStart,parseEnd)}\nconst fields=[{key:"items",type:"string-list",maxItems:12},{key:"areas",type:"string-list",maxItems:24},{key:"features",type:"enum-list",maxItems:3,allowedValues:["description_suggestions","seo_suggestions","campaign_drafts"]},{key:"startsAt",type:"datetime"}];const original="2026-11-01T06:30:00.123Z";const data=new FormData();data.set("items",Array.from({length:12},(_,index)=>\` item-${"${"}index+1} \`).join("\\n"));data.set("areas",Array.from({length:24},(_,index)=>\` area-${"${"}index+1} \`).join("\\n"));data.append("features","description_suggestions");data.append("features","seo_suggestions");data.set("startsAt","2026-11-01T01:30:00.123");const parsed=parseFormConfig(fields,data,{startsAt:original});console.log(JSON.stringify({local:dateTimeInputValue({config:{startsAt:original}},"startsAt"),parsed,featuresFrozen:Object.isFrozen(parsed.features)}));const tooMany=new FormData();tooMany.set("items",Array.from({length:13},(_,index)=>\`item-${"${"}index+1}\`).join("\\n"));try{parseFormConfig([{key:"items",type:"string-list",maxItems:12}],tooMany)}catch(error){console.log(error.message)}const tooManyAreas=new FormData();tooManyAreas.set("areas",Array.from({length:25},(_,index)=>\`area-${"${"}index+1}\`).join("\\n"));try{parseFormConfig([{key:"areas",type:"string-list",maxItems:24}],tooManyAreas)}catch(error){console.log(error.message)}const duplicate=new FormData();duplicate.append("features","description_suggestions");duplicate.append("features","description_suggestions");try{parseFormConfig([{key:"features",type:"enum-list",maxItems:3,allowedValues:["description_suggestions","seo_suggestions","campaign_drafts"]}],duplicate)}catch(error){console.log(error.message)}const unknown=new FormData();unknown.append("features","unknown");try{parseFormConfig([{key:"features",type:"enum-list",maxItems:3,allowedValues:["description_suggestions","seo_suggestions","campaign_drafts"]}],unknown)}catch(error){console.log(error.message)}` ,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
   const result=spawnSync(process.execPath,["-e",program],{encoding:"utf8",env:{...process.env,TZ:"America/New_York"}});
   assert.equal(result.status,0,result.stderr);
   const [payload,rejection]=result.stdout.trim().split("\n");
   assert.equal(JSON.parse(payload!).local,"2026-11-01T01:30:00.123");
   assert.equal(JSON.parse(payload!).parsed.startsAt,"2026-11-01T06:30:00.123Z");
   assert.equal(JSON.parse(payload!).parsed.items.length,12);
-  assert.equal(rejection,"invalid_string_list");
+  assert.equal(JSON.parse(payload!).parsed.areas.length,24);
+  assert.deepEqual(JSON.parse(payload!).parsed.features,["description_suggestions","seo_suggestions"]);
+  assert.equal(JSON.parse(payload!).featuresFrozen,true);
+  assert.equal(rejection,"invalid_string_list_12");
+  assert.equal(JSON.stringify(result.stdout.trim().split("\n").slice(2)),JSON.stringify(["invalid_string_list_24","invalid_enum_list","invalid_enum_list"]));
 });
 
-test("announcement validation exposes a fixed Turkish 1-to-12 message",async()=>{
+test("list validation exposes the exact per-field Turkish bound message",async()=>{
   const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");
-  assert.match(value,/1 ile 12 arasında/);
+  assert.match(value,/Liste 1 ile \$\{limit\} arasında/);
   assert.match(value,/setError\(formErrorMessage\(caught\)\)/);
 });

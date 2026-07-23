@@ -77,6 +77,12 @@ function dateTimeInputValue(record: MerchantAdminRecord | null, key: string) {
   return dateTimeInputSnapshot(record?.config, key)?.localValue ?? "";
 }
 
+function listLimit(field: MerchantModuleFieldDefinition) {
+  const limit = field.maxItems;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new TypeError("invalid_list_definition");
+  return limit;
+}
+
 function parseFormConfig(
   fields: readonly MerchantModuleFieldDefinition[],
   data: FormData,
@@ -88,9 +94,16 @@ function parseFormConfig(
       entries[field.key] = data.get(field.key) === "on";
       continue;
     }
+    if (field.type === "enum-list") {
+      const limit = listLimit(field);
+      const values = data.getAll(field.key);
+      if (values.length < 1 || values.length > limit || !field.allowedValues || values.some((value) => typeof value !== "string" || !field.allowedValues.includes(value)) || new Set(values).size !== values.length) throw new TypeError("invalid_enum_list");
+      entries[field.key] = Object.freeze([...values] as string[]);
+      continue;
+    }
     const raw = String(data.get(field.key) ?? "").trim();
     if (!raw) {
-      if (field.type === "string-list") throw new TypeError("invalid_string_list");
+      if (field.type === "string-list") throw new TypeError(`invalid_string_list_${listLimit(field)}`);
       continue;
     }
     if (field.type === "number") {
@@ -109,7 +122,8 @@ function parseFormConfig(
       entries[field.key] = timestamp.toISOString();
     } else if (field.type === "string-list") {
       const values = raw.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
-      if (values.length < 1 || values.length > 12) throw new TypeError("invalid_string_list");
+      const limit = listLimit(field);
+      if (values.length < 1 || values.length > limit) throw new TypeError(`invalid_string_list_${limit}`);
       entries[field.key] = Object.freeze(values);
     } else if (field.type === "enum") {
       if (!field.allowedValues?.includes(raw)) throw new TypeError("invalid_enum_value");
@@ -122,8 +136,13 @@ function parseFormConfig(
 }
 
 function formErrorMessage(error: unknown): string {
-  if (error instanceof TypeError && error.message === "invalid_string_list") {
-    return "Duyurular 1 ile 12 arasında satır içermelidir.";
+  if (error instanceof TypeError) {
+    const match = /^invalid_string_list_(\d{1,3})$/.exec(error.message);
+    if (match) {
+      const limit = Number(match[1]);
+      return `Liste 1 ile ${limit} arasında satır içermelidir.`;
+    }
+    if (error.message === "invalid_enum_list") return "Yalnız geçerli özelliklerden 1 ile 3 tanesini bir kez seçin.";
   }
   return error instanceof MerchantAdminApiError ? error.message : "Kayıt tamamlanamadı.";
 }
@@ -575,7 +594,17 @@ export function MerchantModuleConsole({
             <form key={editing?.id ?? "new"} className={styles.form} onSubmit={submit}>
               <label>Ad<input autoFocus={!editing} name="name" required maxLength={160} defaultValue={editing?.name} /></label>
               <label>{definition.workflow ? "Hazırlık durumu" : "Yayın durumu"}<select name="status" defaultValue={editing?.status === "active" ? "active" : "draft"}><option value="draft">Taslak</option><option value="active">{definition.workflow ? "Hazırlık için yapılandırıldı" : "Aktif"}</option></select></label>
-              {definition.fields.map((field) => (
+              {definition.fields.map((field) => field.type === "enum-list" ? (
+                <fieldset className={styles.wide} key={field.key}>
+                  <legend>{field.label}</legend>
+                  {field.allowedValues?.map((value) => (
+                    <label key={value}>
+                      <input name={field.key} type="checkbox" value={value} defaultChecked={Array.isArray(editing?.config[field.key]) && editing?.config[field.key]?.includes(value)} />
+                      <span>{field.optionLabels?.[value] ?? value}</span>
+                    </label>
+                  ))}
+                </fieldset>
+              ) : (
                 <label className={field.type === "textarea" || field.type === "string-list" ? styles.wide : undefined} key={field.key}>
                   {field.label}
                   {field.type === "textarea" || field.type === "string-list" ? (

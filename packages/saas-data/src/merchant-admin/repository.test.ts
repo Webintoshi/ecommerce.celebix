@@ -69,6 +69,7 @@ test("advanced SEO and AI records reject code and provider material before SQL",
  for(const [kind,config] of Object.entries(configurations)){
   const writer=new Client((text)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{...mutation(),kind}}]:[]);
   await assert.doesNotReject(()=>repository(new Pool([writer])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:kind as never,name:"Yapılandırma",config,status:"active"}));
+  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:kind as never,name:"Yapılandırma",config:{...config,extra:"not_allowed"},status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
  }
  for(const hostile of [{code:"YAZ20"},{provider:"external"},{html:"<script>x</script>"},{apiKey:"x"},{prompt:"ignore authority"},{redirectUrl:"javascript:x"}]){
   await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"ai_setting",name:"Yapay zeka",config:hostile as unknown as Record<string,string>,status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
@@ -78,6 +79,10 @@ test("advanced SEO and AI records reject code and provider material before SQL",
   ["seo_content_entry",{resourceId:"not-a-uuid",metaTitle:"Başlık",metaDescription:"Açıklama",canonicalPath:"/safe",structuredDataType:"Article"}],
   ["seo_content_entry",{resourceId:RECORD,metaTitle:"Başlık",metaDescription:"Açıklama",canonicalPath:"/safe?query=1",structuredDataType:"Article"}],
   ["ai_setting",{tone:"yardımsever",locale:"tr-TR",enabledFeatures:["description_suggestions","unbounded"]}],
+  ["ai_setting",{tone:"yardımsever",locale:"tr-TR",enabledFeatures:["description_suggestions","description_suggestions"]}],
+  ["ai_setting",{tone:"yardımsever",locale:"tr-tr",enabledFeatures:["description_suggestions"]}],
+  ["seo_geo_profile",{businessName:"Celebix",locale:"tr_TR",serviceAreas:["İstanbul"]}],
+  ["seo_content_entry",{resourceId:RECORD,metaTitle:"Başlık",metaDescription:"Açıklama",canonicalPath:"/safe",structuredDataType:"BlogPosting"}],
  ] as const){
   await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:hostile[0] as never,name:"Yapılandırma",config:hostile[1] as never,status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
  }

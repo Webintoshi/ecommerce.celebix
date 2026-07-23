@@ -301,7 +301,7 @@ test("four typed storefront settings expose exact safe field contracts without s
   assert.deepEqual(getMerchantModuleDefinition("promotion_banner").fields.filter(({ key }) => key === "startsAt" || key === "endsAt").map(({ type }) => type), ["datetime", "datetime"]);
   assert.deepEqual(getMerchantModuleDefinition("marquee_setting").fields.map(({ type }) => type), ["string-list", "enum", "enum", "enum", "enum", "boolean"]);
   assert.deepEqual(getMerchantModuleDefinition("marquee_setting").fields.find(({ key }) => key === "icon")?.allowedValues, ["none", "sparkle", "truck", "shield"]);
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 25);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 32);
   assert.equal(JSON.stringify(MERCHANT_MODULE_DEFINITIONS).match(/secret|password|credential|token|api.?key/gi), null);
 });
 

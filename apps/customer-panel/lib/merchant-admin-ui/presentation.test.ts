@@ -81,24 +81,29 @@ test("marks only real in-application workflows durable and external execution pr
 
 test("defines finite advanced SEO and AI preferences without a provider job", () => {
   const expected = {
-    seo_geo_profile: "/seo/geo-optimization",
-    seo_internal_link: "/seo/internal-linking",
-    seo_content_entry: "/seo/content",
-    seo_category_entry: "/seo/categories",
-    seo_page_entry: "/seo/pages",
-    seo_product_entry: "/seo/products",
-    ai_setting: "/settings/artificial-intelligence",
+    seo_geo_profile: { route: "/seo/geo-optimization", fields: [["businessName", "text"], ["businessCategory", "text"], ["serviceAreas", "string-list"], ["locale", "text"], ["description", "textarea"]] },
+    seo_internal_link: { route: "/seo/internal-linking", fields: [["sourcePath", "text"], ["targetPath", "text"], ["anchorText", "text"], ["enabled", "boolean"]] },
+    seo_content_entry: { route: "/seo/content", fields: [["resourceId", "text"], ["metaTitle", "text"], ["metaDescription", "textarea"], ["canonicalPath", "text"], ["structuredDataType", "enum"]] },
+    seo_category_entry: { route: "/seo/categories", fields: [["resourceId", "text"], ["metaTitle", "text"], ["metaDescription", "textarea"], ["canonicalPath", "text"]] },
+    seo_page_entry: { route: "/seo/pages", fields: [["resourceId", "text"], ["metaTitle", "text"], ["metaDescription", "textarea"], ["canonicalPath", "text"]] },
+    seo_product_entry: { route: "/seo/products", fields: [["resourceId", "text"], ["metaTitle", "text"], ["metaDescription", "textarea"], ["canonicalPath", "text"]] },
+    ai_setting: { route: "/settings/artificial-intelligence", fields: [["tone", "text"], ["locale", "text"], ["enabledFeatures", "enum-list"]] },
   } as const;
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 32);
-  for (const [kind, route] of Object.entries(expected)) {
+  for (const [kind, expectedDefinition] of Object.entries(expected)) {
     const definition = getMerchantModuleDefinition(kind as keyof typeof expected);
-    assert.equal(definition.route, route);
+    assert.equal(definition.route, expectedDefinition.route);
     assert.equal(definition.execution, "durable");
     assert.equal(definition.workflow, undefined);
+    assert.deepEqual(definition.fields.map(({ key, type }) => [key, type]), expectedDefinition.fields);
   }
+  assert.equal(getMerchantModuleDefinition("seo_geo_profile").fields.find(({ key }) => key === "serviceAreas")?.maxItems, 24);
   const ai = getMerchantModuleDefinition("ai_setting");
   assert.match(ai.notice ?? "", /harici.*üreti[mş]/i);
-  assert.deepEqual(ai.fields.map(({ key }) => key), ["tone", "locale", "enabledFeatures"]);
+  const features = ai.fields.find(({ key }) => key === "enabledFeatures");
+  assert.deepEqual(features?.allowedValues, ["description_suggestions", "seo_suggestions", "campaign_drafts"]);
+  assert.equal(Object.isFrozen(features?.allowedValues), true);
+  assert.equal(features?.maxItems, 3);
+  assert.deepEqual(getMerchantModuleDefinition("seo_content_entry").fields.find(({ key }) => key === "structuredDataType")?.allowedValues, ["Article", "FAQPage", "Product", "WebPage"]);
 });
 
 test("builds truthful status metrics and applies exact status and locale-aware search filters", () => {
