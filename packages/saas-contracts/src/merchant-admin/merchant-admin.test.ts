@@ -4,6 +4,7 @@ import {
   MERCHANT_ADMIN_PROVIDER_ACTIONS,
   MERCHANT_ADMIN_PROVIDER_JOB_STATUSES,
   MERCHANT_ADMIN_RECORD_KINDS,
+  parseMerchantAdminConfig,
   parseMerchantAdminMutationResult,
   parseMerchantAdminProviderJob,
   parseMerchantAdminProviderJobMutationResult,
@@ -20,6 +21,23 @@ test("typed settings expose only finite public configuration", () => {
   } as const;
   for (const [kind, config] of Object.entries(configurations)) assert.doesNotThrow(() => parseMerchantAdminRecord({ id: ID, kind, name: "Ayar", config, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }));
   for (const hostile of [{ smtpPassword: "x" }, { apiKey: "x" }, { pushToken: "x" }]) assert.throws(() => parseMerchantAdminRecord({ id: ID, kind: "notification_setting", name: "Ayar", config: hostile, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }));
+});
+test("merchant-admin parsers reject hostile descriptors, prototypes, and sparse arrays without invoking getters", () => {
+  const record = { id: ID, kind: "marquee_setting", name: "Ayar", config: { items: ["Duyuru"] }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
+  const getterRoot = { ...record } as Record<string, unknown>;
+  Object.defineProperty(getterRoot, "config", { enumerable: true, get() { throw new Error("getter_invoked"); } });
+  const getterArray: unknown[] = ["Duyuru"];
+  Object.defineProperty(getterArray, "0", { enumerable: true, get() { throw new Error("getter_invoked"); } });
+  const namedArray = ["Duyuru"] as unknown[] & Record<string, unknown>;
+  namedArray.extra = "not_allowed";
+  const sparseArray = new Array(1);
+  for (const hostile of [getterRoot, { ...record, config: { items: getterArray } }, { ...record, config: { items: namedArray } }, { ...record, config: { items: sparseArray } }, Object.assign(Object.create(null), record), Object.assign({ ...record }, { [Symbol("hidden")]: "no" })]) assert.throws(() => parseMerchantAdminRecord(hostile), /merchant_admin_contract_invalid/);
+});
+test("merchant-admin configuration bounds canonical UTF-8 bytes rather than JavaScript characters", () => {
+  const within = Object.fromEntries(Array.from({ length: 4 }, (_, index) => [`field${index}`, "é".repeat(1_990)]));
+  const over = Object.fromEntries(Array.from({ length: 5 }, (_, index) => [`field${index}`, "é".repeat(2_000)]));
+  assert.doesNotThrow(() => parseMerchantAdminConfig(within));
+  assert.throws(() => parseMerchantAdminConfig(over), /merchant_admin_contract_invalid/);
 });
 test("mutation projections remain exact and replay-aware", () => { const result = parseMerchantAdminMutationResult({ id: ID, kind: "policy", status: "draft", version: 2, updatedAt: NOW, replayed: false }); assert.equal(result.kind, "policy"); assert.throws(() => parseMerchantAdminMutationResult({ ...result, operationId: ID })); });
 

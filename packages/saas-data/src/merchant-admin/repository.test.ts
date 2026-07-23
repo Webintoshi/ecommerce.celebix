@@ -56,6 +56,26 @@ test("typed settings accept only finite public configuration before SQL",async()
  for(const hostile of [{smtpPassword:"x"},{apiKey:"x"},{pushToken:"x"},{html:"<script>x</script>"}]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"notification_setting" as never,name:"Ayar",config:hostile as unknown as Record<string,string>,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
+test("typed settings reject hostile descriptors and canonical URL email timestamp enum array inputs before SQL",async()=>{
+ const getterInput={tenantContext:tenant(),now:NOW,operationId:OP,kind:"hero_banner",name:"Ayar",status:"active"} as Record<string,unknown>;
+ Object.defineProperty(getterInput,"config",{enumerable:true,get(){throw new Error("getter_invoked")}});
+ await assert.rejects(()=>repository(new Pool([])).save(getterInput as never),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+ const hostile=[
+  ["notification_setting",{replyToEmail:".lead@example.test"}], ["notification_setting",{replyToEmail:"lead..dot@example.test"}],
+  ["hero_banner",{headline:"Hero",imageUrl:"https://cdn..example.test/hero.webp"}], ["hero_banner",{headline:"Hero",imageUrl:"https://cdn.example.test/a/../hero.webp"}], ["hero_banner",{headline:"Hero",imageUrl:"https://cdn.example.test/%zz"}], ["hero_banner",{headline:"Hero",destination:"/a/../b"}], ["hero_banner",{headline:"Hero",destination:"//evil.test"}], ["hero_banner",{headline:"Hero",destination:"/sale?next=%zz"}],
+  ["promotion_banner",{headline:"Promo",startsAt:"2026-08-22T19:00:00.000Z",endsAt:"2026-07-22T19:00:00.000Z"}], ["promotion_banner",{headline:"Promo",startsAt:Date.now()}],
+  ["marquee_setting",{items:[]}], ["marquee_setting",{items:["Duyuru"],icon:"rocket"}], ["marquee_setting",{items:["Duyuru"],speed:"warp"}], ["marquee_setting",{items:["Duyuru"],direction:"up"}], ["marquee_setting",{items:["Duyuru"],animation:"blink"}],
+ ] as const;
+ for(const [index,[kind,config]] of hostile.entries()) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:`72000000-0000-4000-8000-${String(300+index).padStart(12,"0")}`,kind:kind as never,name:"Ayar",config:config as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+});
+
+test("typed settings unknown commit recovers once without repeating the write",async()=>{
+ let commits=0;const writer=new Client((text)=>{if(text.includes("merchant_admin_save"))return[{outcome:"saved",result_payload:{...mutation(),kind:"hero_banner"}}];if(text==="COMMIT"&&commits++===0)throw new Error("wire");return[]});
+ const recovery=new Client((text)=>text.includes("merchant_admin_recover_operation")?[{outcome:"operation_replayed",result_payload:{...mutation(),kind:"hero_banner"}}]:[]);
+ const result=await repository(new Pool([writer,recovery])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"hero_banner",name:"Ayar",config:{headline:"Hero",body:"Metin",imageUrl:"https://cdn.example.test/hero.webp",destination:"/hero",enabled:true},status:"active"});
+ assert.equal(result.replayed,true);assert.equal(writer.calls.filter((entry)=>entry.text.includes("merchant_admin_save")).length,1);assert.equal(recovery.calls[0]?.text,"BEGIN READ ONLY");
+});
+
 test("unknown commit destroys writer and performs one read-only recovery",async()=>{
  let commits=0;const writer=new Client((text)=>{if(text.includes("merchant_admin_save"))return[{outcome:"saved",result_payload:mutation()}];if(text==="COMMIT"&&commits++===0)throw new Error("wire");return[]});
  const recovery=new Client((text)=>text.includes("merchant_admin_recover_operation")?[{outcome:"operation_replayed",result_payload:mutation()}]:[]),audit:string[]=[];

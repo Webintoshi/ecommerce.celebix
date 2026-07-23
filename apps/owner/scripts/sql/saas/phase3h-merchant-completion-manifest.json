@@ -4,8 +4,8 @@
     { "file": "202607220038_merchant_analytics.up.sql", "sha256": "b0708fe9fd1a49cd73a8547fa280f5eec0341face00fa4adeafa019380c98e41" },
     { "file": "202607220038_merchant_analytics.down.sql", "sha256": "a4de26e29ad0dccfb4d8e96c342b8d466df4092d26b62c5b64b1648acb119ffd" },
     { "file": "202607220038_merchant_analytics_assertions.sql", "sha256": "e43466eecb7b7b86f9309039d0a26aa653dfb83dc18666c4cc63b169196605cb" },
-    { "file": "202607220039_typed_storefront_settings.up.sql", "sha256": "13e39896c0b70b6a0c6ea29bd8567136230c441512a2c7ae8b6c98c7e253b1d8" },
-    { "file": "202607220039_typed_storefront_settings.down.sql", "sha256": "79c886c8fe33b0b91007e9f4d7beb9b7c7a8127704dc544eaffc2cd7ec90132d" },
-    { "file": "202607220039_typed_storefront_settings_assertions.sql", "sha256": "a151e3037db7afb727b6a6ab37020b9f111284b6f258c1fe4fc07431333f86b6" }
+    { "file": "202607220039_typed_storefront_settings.up.sql", "sha256": "f9abf69847abad8ccb082f4a8b8a7d3f4e6682563bc9e49a1114e7f3f0660d6b" },
+    { "file": "202607220039_typed_storefront_settings.down.sql", "sha256": "56402fde98e61ebe50b50e8ccd95c499285e7b49b7065c986aeb751f24d06d93" },
+    { "file": "202607220039_typed_storefront_settings_assertions.sql", "sha256": "31fb062350b86825bb0086c3aeb8447aa38a2d1011708382932de35f03734ab7" }
   ]
 }
