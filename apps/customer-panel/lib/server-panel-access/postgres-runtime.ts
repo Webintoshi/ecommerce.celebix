@@ -10,6 +10,7 @@ import {
   PostgresMerchantAdminRepository,
   PostgresAnalyticsRepository,
   PostgresCustomerRepository,
+  PostgresInventoryRepository,
   PostgresOrderRepository,
   PostgresQuickOrderLinkRepository,
   PostgresQuickOrderPrivateRepository,
@@ -26,6 +27,7 @@ import { registerServerAnalyticsRepository } from "../server-analytics/runtime.t
 import { registerServerAbandonedCartRepository } from "../server-abandoned-carts/runtime.ts";
 import { registerServerOrderRepository } from "../server-orders/runtime.ts";
 import { registerServerCustomerRepository } from "../server-customers/runtime.ts";
+import { registerServerInventoryRepository } from "../server-inventory/runtime.ts";
 import {
   QUICK_LINK_SERVER_ENVIRONMENT_FIELDS,
   parseQuickLinkServerConfig,
@@ -157,7 +159,37 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
         AND to_regprocedure('saas.quick_links_configure_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,text,text,jsonb,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_revoke_provider(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint,uuid,text)') IS NOT NULL
         AND to_regprocedure('saas.quick_links_reveal_credential(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
-        AND to_regprocedure('saas.quick_links_reveal_provider_configuration(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS quick_link_private_repository
+        AND to_regprocedure('saas.quick_links_reveal_provider_configuration(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL AS quick_link_private_repository,
+      to_regclass('saas.inventory_locations') IS NOT NULL
+        AND to_regclass('saas.inventory_balances') IS NOT NULL
+        AND to_regclass('saas.inventory_movements') IS NOT NULL
+        AND to_regclass('saas.purchase_orders') IS NOT NULL
+        AND to_regclass('saas.purchase_order_lines') IS NOT NULL
+        AND to_regclass('saas.inventory_operations') IS NOT NULL
+        AND to_regclass('saas.inventory_counts') IS NOT NULL
+        AND to_regclass('saas.inventory_count_lines') IS NOT NULL
+        AND to_regclass('saas.inventory_transfers') IS NOT NULL
+        AND to_regclass('saas.inventory_transfer_lines') IS NOT NULL AS inventory_relations,
+      to_regprocedure('saas.inventory_list_locations(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_list_balances(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,text,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_transition(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)') IS NOT NULL
+        AND to_regprocedure('saas.purchasing_receive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_start(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_commit(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_counts_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_list(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_get(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,uuid,uuid,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_dispatch(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_receive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_transfers_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)') IS NOT NULL
+        AND to_regprocedure('saas.inventory_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)') IS NOT NULL AS inventory_repository
     FROM pg_roles AS role WHERE role.rolname = current_user`);
     const row = result.rows[0];
     if (
@@ -180,7 +212,8 @@ async function preflight(pool: pg.Pool, databaseName: string): Promise<void> {
       row.customer_repository !== true ||
       row.catalog_admin_repository !== true ||
       row.merchant_admin_repository !== true ||
-      row.quick_link_repository !== true || row.quick_link_private_repository !== true
+      row.quick_link_repository !== true || row.quick_link_private_repository !== true ||
+      row.inventory_relations !== true || row.inventory_repository !== true
     ) throw new Error("server_panel_access_database_preflight_failed");
   } finally { client.release(); }
 }
@@ -263,6 +296,13 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       role: "celebix_saas_app",
       timeouts: TIMEOUTS,
     });
+    const inventoryRepository = new PostgresInventoryRepository({
+      pool,
+      role: "celebix_saas_app",
+      timeouts: TIMEOUTS,
+      uuid: randomUUID,
+      audit: () => undefined,
+    });
     const quickLinkRepositoryOptions = {
       pool,
       role: "celebix_saas_app" as const,
@@ -282,6 +322,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerCatalogAdminRepository(access, catalogAdminRepository);
     registerServerMerchantAdminRepository(access, merchantAdminRepository);
     registerServerAnalyticsRepository(access, analyticsRepository);
+    registerServerInventoryRepository(access, inventoryRepository);
     registerServerQuickLinksRuntime(access, {
       links: quickLinkRepository,
       privateLinks: quickLinkPrivateRepository,

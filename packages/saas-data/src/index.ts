@@ -46,6 +46,7 @@ export * from "./customers/index.ts";
 export * from "./catalog-admin/index.ts";
 export * from "./merchant-admin/index.ts";
 export * from "./analytics/index.ts";
+export * from "./inventory/index.ts";
 export {
   CHECKOUT_PAYMENT_ERROR_CODES,
   CheckoutPaymentRepositoryError,
