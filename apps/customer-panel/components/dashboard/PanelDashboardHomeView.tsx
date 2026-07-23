@@ -34,8 +34,10 @@ import { abandonedCartApi } from "@/lib/abandoned-cart-ui/client";
 import { customerApi } from "@/lib/customer-ui/client";
 import type { AuthoritySlice } from "@/lib/panel-ui/authority-slice";
 import {
+  createMerchantDashboardSliceLoader,
   createMerchantDashboardViewModel,
   loadMerchantDashboardSummaries,
+  type MerchantDashboardSlice,
   type MerchantDashboardViewModel,
 } from "@/lib/panel-ui/dashboard-model";
 import styles from "./panel-dashboard.module.css";
@@ -126,6 +128,11 @@ export function PanelDashboardPresentation({
   cartsState,
   customersState,
   analyticsState,
+  onRefreshCatalog,
+  onRefreshOrders,
+  onRefreshCarts,
+  onRefreshCustomers,
+  onRefreshAnalytics,
 }: {
   dashboard: MerchantDashboardViewModel;
   onRefresh: () => void;
@@ -134,6 +141,11 @@ export function PanelDashboardPresentation({
   cartsState?: "loading" | "loaded" | "error" | "unsupported";
   customersState?: "loading" | "loaded" | "error" | "unsupported";
   analyticsState?: "loading" | "loaded" | "error" | "unsupported";
+  onRefreshCatalog?: () => void;
+  onRefreshOrders?: () => void;
+  onRefreshCarts?: () => void;
+  onRefreshCustomers?: () => void;
+  onRefreshAnalytics?: () => void;
 }) {
   const activeOrdersState =
     ordersState ??
@@ -242,7 +254,7 @@ export function PanelDashboardPresentation({
           </div>
           <DashboardRefreshButton
             label="Tekrar dene"
-            onRefresh={onRefresh}
+            onRefresh={onRefreshCatalog ?? onRefresh}
             state={state}
           />
         </div>
@@ -277,7 +289,7 @@ export function PanelDashboardPresentation({
               </div>
               <DashboardRefreshButton
                 label="Yenile"
-                onRefresh={onRefresh}
+                onRefresh={onRefreshCatalog ?? onRefresh}
                 state={state}
               />
             </div>
@@ -336,7 +348,7 @@ export function PanelDashboardPresentation({
           </div>
           <DashboardRefreshButton
             label="Tekrar dene"
-            onRefresh={onRefresh}
+            onRefresh={onRefreshAnalytics ?? onRefresh}
             state="error"
           />
         </div>
@@ -425,7 +437,7 @@ export function PanelDashboardPresentation({
           </div>
           <DashboardRefreshButton
             label="Tekrar dene"
-            onRefresh={onRefresh}
+            onRefresh={onRefreshOrders ?? onRefresh}
             state="error"
           />
         </div>
@@ -520,7 +532,7 @@ export function PanelDashboardPresentation({
           </div>
           <DashboardRefreshButton
             label="Tekrar dene"
-            onRefresh={onRefresh}
+            onRefresh={onRefreshCarts ?? onRefresh}
             state="error"
           />
         </div>
@@ -621,7 +633,7 @@ export function PanelDashboardPresentation({
           </div>
           <DashboardRefreshButton
             label="Tekrar dene"
-            onRefresh={onRefresh}
+            onRefresh={onRefreshCustomers ?? onRefresh}
             state="error"
           />
         </div>
@@ -735,71 +747,49 @@ export function PanelDashboardHomeView() {
   const [analyticsState, setAnalyticsState] = useState<
     "loading" | "loaded" | "error"
   >("loading");
-  const requestSequence = useRef(0);
-  const load = useCallback(async () => {
-    const sequence = ++requestSequence.current;
-    setState("loading");
-    setOrdersState("loading");
-    setCartsState("loading");
-    setCustomersState("loading");
-    setAnalyticsState("loading");
-    const [baseResults, supplementalResults] = await Promise.all([
-      loadMerchantDashboardSummaries(catalogApi, orderApi),
-      Promise.allSettled([
-        abandonedCartApi.getSummary(),
-        customerApi.summary(),
-        (async () => {
-          const { analyticsApi } = await import("@/lib/analytics-ui/client");
-          return analyticsApi.dashboard("month");
-        })(),
-      ]),
-    ]);
-    const [catalogResult, orderResult] = baseResults;
-    const [cartResult, customerResult, analyticsResult] = supplementalResults;
-    if (sequence !== requestSequence.current) return;
-    if (catalogResult.status === "fulfilled") {
-      setCatalog(readyCatalog(catalogResult.value));
-      setState("loaded");
-    } else {
-      setCatalog(unavailableCatalog(true));
-      setState("error");
-    }
-    if (orderResult.status === "fulfilled") {
-      setOrders(readyOrders(orderResult.value));
-      setOrdersState("loaded");
-    } else {
-      setOrders(unavailableOrders(true));
-      setOrdersState("error");
-    }
-    if (cartResult?.status === "fulfilled") {
-      setCarts(readyCarts(cartResult.value));
-      setCartsState("loaded");
-    } else {
-      setCarts(unavailableCarts(true));
-      setCartsState("error");
-    }
-    if (customerResult?.status === "fulfilled") {
-      setCustomers(readyCustomers(customerResult.value));
-      setCustomersState("loaded");
-    } else {
-      setCustomers(unavailableCustomers(true));
-      setCustomersState("error");
-    }
-    if (analyticsResult?.status === "fulfilled") {
-      setAnalytics(readyAnalytics(analyticsResult.value));
-      setAnalyticsState("loaded");
-    } else {
-      setAnalytics(unavailableAnalytics(true));
-      setAnalyticsState("error");
-    }
-  }, []);
+  const loader = useRef<ReturnType<typeof createMerchantDashboardSliceLoader> | null>(null);
+  const reload = useCallback((slice: MerchantDashboardSlice) => loader.current?.reload(slice), []);
 
   useEffect(() => {
-    void load();
+    const next = createMerchantDashboardSliceLoader({
+      catalog: () => catalogApi.getDashboardSummary(),
+      orders: () => orderApi.getDashboardSummary(),
+      carts: () => abandonedCartApi.getSummary(),
+      customers: () => customerApi.summary(),
+      analytics: async () => {
+        const { analyticsApi } = await import("@/lib/analytics-ui/client");
+        return analyticsApi.dashboard("month");
+      },
+    }, {
+      loading(slice) {
+        if (slice === "catalog") setState("loading");
+        if (slice === "orders") setOrdersState("loading");
+        if (slice === "carts") setCartsState("loading");
+        if (slice === "customers") setCustomersState("loading");
+        if (slice === "analytics") setAnalyticsState("loading");
+      },
+      ready(slice, value) {
+        if (slice === "catalog") { setCatalog(readyCatalog(value as CatalogDashboardSummary)); setState("loaded"); }
+        if (slice === "orders") { setOrders(readyOrders(value as OrderDashboardSummary)); setOrdersState("loaded"); }
+        if (slice === "carts") { setCarts(readyCarts(value as AbandonedCartSummary)); setCartsState("loaded"); }
+        if (slice === "customers") { setCustomers(readyCustomers(value as CustomerSummary)); setCustomersState("loaded"); }
+        if (slice === "analytics") { setAnalytics(readyAnalytics(value as AnalyticsDashboard)); setAnalyticsState("loaded"); }
+      },
+      unavailable(slice) {
+        if (slice === "catalog") { setCatalog(unavailableCatalog(true)); setState("error"); }
+        if (slice === "orders") { setOrders(unavailableOrders(true)); setOrdersState("error"); }
+        if (slice === "carts") { setCarts(unavailableCarts(true)); setCartsState("error"); }
+        if (slice === "customers") { setCustomers(unavailableCustomers(true)); setCustomersState("error"); }
+        if (slice === "analytics") { setAnalytics(unavailableAnalytics(true)); setAnalyticsState("error"); }
+      },
+    });
+    loader.current = next;
+    next.reloadAll();
     return () => {
-      requestSequence.current += 1;
+      next.dispose();
+      if (loader.current === next) loader.current = null;
     };
-  }, [load]);
+  }, []);
 
   const dashboard = createMerchantDashboardViewModel(
     chrome,
@@ -812,9 +802,12 @@ export function PanelDashboardHomeView() {
   return (
     <PanelDashboardPresentation
       dashboard={dashboard}
-      onRefresh={() => {
-        void load();
-      }}
+      onRefresh={() => reload("catalog")}
+      onRefreshCatalog={() => reload("catalog")}
+      onRefreshOrders={() => reload("orders")}
+      onRefreshCarts={() => reload("carts")}
+      onRefreshCustomers={() => reload("customers")}
+      onRefreshAnalytics={() => reload("analytics")}
       state={state}
       ordersState={ordersState}
       cartsState={cartsState}

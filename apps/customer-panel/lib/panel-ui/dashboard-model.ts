@@ -128,6 +128,58 @@ export interface OrderDashboardViewModel {
   readonly asOf: string;
 }
 
+export type MerchantDashboardSlice = "catalog" | "orders" | "carts" | "customers" | "analytics";
+
+export interface MerchantDashboardSliceLoaders {
+  readonly catalog: () => Promise<CatalogDashboardSummary>;
+  readonly orders: () => Promise<OrderDashboardSummary>;
+  readonly carts: () => Promise<AbandonedCartSummary>;
+  readonly customers: () => Promise<CustomerSummary>;
+  readonly analytics: () => Promise<AnalyticsDashboard>;
+}
+
+export interface MerchantDashboardSlicePublisher {
+  loading(slice: MerchantDashboardSlice): void;
+  ready(slice: MerchantDashboardSlice, value: CatalogDashboardSummary | OrderDashboardSummary | AbandonedCartSummary | CustomerSummary | AnalyticsDashboard): void;
+  unavailable(slice: MerchantDashboardSlice): void;
+}
+
+export function createMerchantDashboardSliceLoader(
+  loaders: MerchantDashboardSliceLoaders,
+  publisher: MerchantDashboardSlicePublisher,
+) {
+  let disposed = false;
+  const generation: Record<MerchantDashboardSlice, number> = {
+    catalog: 0, orders: 0, carts: 0, customers: 0, analytics: 0,
+  };
+  const reload = (slice: MerchantDashboardSlice) => {
+    const current = ++generation[slice];
+    publisher.loading(slice);
+    void Promise.resolve()
+      .then<unknown>(() => loaders[slice]())
+      .then(
+        (value) => {
+          if (!disposed && generation[slice] === current) publisher.ready(slice, value as CatalogDashboardSummary | OrderDashboardSummary | AbandonedCartSummary | CustomerSummary | AnalyticsDashboard);
+        },
+        () => {
+          if (!disposed && generation[slice] === current) publisher.unavailable(slice);
+        },
+      );
+  };
+  return Object.freeze({
+    reload,
+    reloadAll() {
+      (Object.keys(generation) as MerchantDashboardSlice[]).forEach(reload);
+    },
+    dispose() {
+      disposed = true;
+      (Object.keys(generation) as MerchantDashboardSlice[]).forEach((slice) => {
+        generation[slice] += 1;
+      });
+    },
+  });
+}
+
 export async function loadMerchantDashboardSummaries(
   catalog: Readonly<{
     getDashboardSummary(): Promise<CatalogDashboardSummary>;

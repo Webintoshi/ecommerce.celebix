@@ -1055,7 +1055,7 @@ test("dashboard loads real catalog summary without tenant authority in the brows
   const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
   const model = await source("lib/panel-ui/dashboard-model.ts");
   const styles = await source("components/dashboard/panel-dashboard.module.css");
-  assert.match(view, /loadMerchantDashboardSummaries\(catalogApi, orderApi\)/);
+  assert.match(view, /createMerchantDashboardSliceLoader/);
   assert.match(model, /catalog[.]getDashboardSummary\(\)/);
   assert.match(view, /role="status"/);
   assert.match(view, /role="alert"/);

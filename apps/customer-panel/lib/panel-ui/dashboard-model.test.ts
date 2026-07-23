@@ -4,6 +4,7 @@ import { readyAuthority, unavailableAuthority } from "./authority-slice.ts";
 import type { PanelChromeModel } from "./chrome-model.ts";
 import type { AnalyticsDashboard } from "@celebix/saas-contracts";
 import {
+  createMerchantDashboardSliceLoader,
   createMerchantDashboardViewModel,
   createPanelDashboardModel,
 } from "./dashboard-model.ts";
@@ -43,6 +44,16 @@ const analyticsReady = () => readyAuthority<AnalyticsDashboard>(Object.freeze({
   })]),
   topProducts: Object.freeze([]),
 }), "2026-07-22T12:00:00.000Z");
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
 
 test("projects exact store, membership, plan, and storefront facts", () => {
   const model = createPanelDashboardModel(chrome);
@@ -294,4 +305,38 @@ test("maps only persisted customer totals and consent activity", () => {
     model.customers.state === "ready" && Object.isFrozen(model.customers.value),
     true,
   );
+});
+
+test("dashboard slices settle retry and suppress stale work independently", async () => {
+  const catalog = deferred<typeof summary>();
+  const analytics = deferred<AnalyticsDashboard>();
+  const published: string[] = [];
+  const loader = createMerchantDashboardSliceLoader({
+    catalog: () => catalog.promise,
+    orders: async () => ({ totalOrders: 2, pendingOrders: 1, fulfilledOrders: 1, revenueCents: 100, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" }),
+    carts: async () => ({ abandoned: 1, recovered: 0, lostValueCents: 10, recoveredValueCents: 0, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" }),
+    customers: async () => ({ active: 1, archived: 0, consentedEmail: 1, totalSpentCents: 100, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" }),
+    analytics: () => analytics.promise,
+  }, {
+    loading: (slice) => published.push(`${slice}:loading`),
+    ready: (slice) => published.push(`${slice}:ready`),
+    unavailable: (slice) => published.push(`${slice}:error`),
+  });
+  loader.reloadAll();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(published.slice(0, 5), ["catalog:loading", "orders:loading", "carts:loading", "customers:loading", "analytics:loading"]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(published.includes("orders:ready"));
+  assert.equal(published.includes("analytics:ready"), false);
+  loader.reload("analytics");
+  assert.equal(published.filter((value) => value === "analytics:loading").length, 2);
+  const readyAnalytics = analyticsReady();
+  if (readyAnalytics.state !== "ready") assert.fail("analytics fixture must be ready");
+  analytics.resolve(readyAnalytics.value);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(published.includes("analytics:ready"), true);
+  loader.dispose();
+  catalog.resolve(summary);
+  await Promise.resolve();
+  assert.equal(published.includes("catalog:ready"), false);
 });
