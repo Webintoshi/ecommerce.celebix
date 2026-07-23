@@ -162,6 +162,44 @@ test("choice lifecycle abort reaches an underlying catalog request and remains a
   assert.deepEqual(states.map((state) => state.phase), ["loading"]);
 });
 
+test("only an owned lifecycle abort is silent; an unexpected current-generation AbortError is unavailable", async () => {
+  const module = await choicesModule();
+  const states: Array<{ phase: string }> = [];
+  const lifecycle = (module.createInventoryFormChoiceLifecycle as Function)(
+    async (signal: AbortSignal) => {
+      assert.equal(signal.aborted, false);
+      throw new DOMException("unexpected upstream abort", "AbortError");
+    },
+    (snapshot: { phase: string }) => states.push(snapshot),
+  );
+  const cleanup = lifecycle.setup();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(states.map((state) => state.phase), ["loading", "unavailable"]);
+  cleanup();
+});
+
+test("loader converts an unexpected AbortError to controlled unavailable but preserves its own signal abort", async () => {
+  const module = await choicesModule();
+  const unexpected = new DOMException("unexpected upstream abort", "AbortError");
+  await assert.rejects(() => (module.loadInventoryFormChoices as Function)({
+    catalog: { async listProducts() { throw unexpected; }, async getProduct() { throw new Error("unexpected"); } },
+    inventory: { async listLocations() { throw new Error("unexpected"); } },
+  }, new AbortController().signal), /inventory_choices_unavailable/);
+
+  const owned = new AbortController();
+  const pending = (module.loadInventoryFormChoices as Function)({
+    catalog: {
+      listProducts(_input: unknown, signal: AbortSignal) {
+        return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new DOMException("owned", "AbortError")), { once: true }));
+      },
+      async getProduct() { throw new Error("unexpected"); },
+    },
+    inventory: { async listLocations() { throw new Error("unexpected"); } },
+  }, owned.signal);
+  owned.abort();
+  await assert.rejects(() => pending, (error: unknown) => error instanceof DOMException && error.name === "AbortError");
+});
+
 test("choice boundary fails closed on hostile proxies, bounds, duplicates and inconsistent detail authority", async () => {
   const module = await choicesModule();
   const signal = new AbortController().signal;

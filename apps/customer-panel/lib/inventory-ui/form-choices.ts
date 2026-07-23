@@ -137,7 +137,7 @@ export async function loadInventoryFormChoices(
       locations: Object.freeze(activeLocations),
     });
   } catch (error) {
-    if (signal.aborted || (error instanceof DOMException && error.name === "AbortError")) throw error;
+    if (signal.aborted) signal.throwIfAborted();
     if (error instanceof Error && error.message === "inventory_choices_unavailable") throw error;
     return unavailable();
   }
@@ -175,7 +175,7 @@ export function createInventoryFormChoiceLifecycle(
           choices,
         });
       }).catch((error: unknown) => {
-        if (!controller.signal.aborted && selected === generation && current === controller && !(error instanceof DOMException && error.name === "AbortError")) {
+        if (!controller.signal.aborted && selected === generation && current === controller) {
           publish({ phase: "unavailable", choices: EMPTY_CHOICES });
         }
       });
