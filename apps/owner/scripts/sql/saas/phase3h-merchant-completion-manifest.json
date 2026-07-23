@@ -10,8 +10,8 @@
     { "file": "202607220040_advanced_seo_preferences.up.sql", "sha256": "6be1cde1f5119487dde08cd4863f8741e55df31b247363e253b8d630bb682e39" },
     { "file": "202607220040_advanced_seo_preferences.down.sql", "sha256": "c56b93a6f5e2279b22b78dcebb5e5d6a450e500fb7b8b8ca35a010b15f83b939" },
     { "file": "202607220040_advanced_seo_preferences_assertions.sql", "sha256": "fff15eb0cc7a24ef210971f34e135c6e2382437041e1bf4690cdc457c19679a4" },
-    { "file": "202607220041_catalog_import_previews.up.sql", "sha256": "15c32af46619b0febe05ffe9e01e46e1496034ed9455f1f4284cadbc9e4fb902" },
-    { "file": "202607220041_catalog_import_previews.down.sql", "sha256": "78b4536a588c4263d09ab3b2c9a5dc679d056ed1087a63f58fae659c53598250" },
-    { "file": "202607220041_catalog_import_previews_assertions.sql", "sha256": "7164e9c33a46331b058b196115e976f51806aa61d6f37174ea374193556ea531" }
+    { "file": "202607220041_catalog_import_previews.up.sql", "sha256": "70ee50864a0a63cd204dc7ca82ae4c2b7afb750068d0f7fc353cf4042b0023f1" },
+    { "file": "202607220041_catalog_import_previews.down.sql", "sha256": "427faf4054926a56140ba619a21043afc1f19d010cbf9487388d37673868bcda" },
+    { "file": "202607220041_catalog_import_previews_assertions.sql", "sha256": "4dd31fdde4137995da4bd781b2be4a87f28427eb9d7a50cb7c6f59d130ac5135" }
   ]
 }

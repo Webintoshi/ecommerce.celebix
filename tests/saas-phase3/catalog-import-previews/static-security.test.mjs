@@ -6,7 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"../../../"),SQL=path.join(ROOT,"apps/owner/scripts/sql/saas");
-const up=readFileSync(path.join(SQL,"202607220041_catalog_import_previews.up.sql"),"utf8"),down=readFileSync(path.join(SQL,"202607220041_catalog_import_previews.down.sql"),"utf8"),assertions=readFileSync(path.join(SQL,"202607220041_catalog_import_previews_assertions.sql"),"utf8");
+const legacy=readFileSync(path.join(SQL,"202607220035_catalog_administration.up.sql"),"utf8"),up=readFileSync(path.join(SQL,"202607220041_catalog_import_previews.up.sql"),"utf8"),down=readFileSync(path.join(SQL,"202607220041_catalog_import_previews.down.sql"),"utf8"),assertions=readFileSync(path.join(SQL,"202607220041_catalog_import_previews_assertions.sql"),"utf8");
 const repository=readFileSync(path.join(ROOT,"packages/saas-data/src/catalog-admin/repository.ts"),"utf8"),harness=readFileSync(path.join(ROOT,"tests/saas-phase3/catalog-import-previews/postgres-harness.mjs"),"utf8");
 
 test("migration 041 is pinned by the completion manifest",()=>{
@@ -33,6 +33,15 @@ test("prepare and confirmation take the exact shared store lock before product-l
   assert.ok(lock>-1&&lock<count,`${start} lock ordering`);
  }
 });
+test("legacy and preview writers share the exact store lock and rollback restores migration 035",()=>{
+ const functionBody=(source,start)=>{const offset=source.indexOf(start);assert.ok(offset>-1,start);const bodyStart=source.indexOf("AS $f$",offset),bodyEnd=source.indexOf("END $f$;",bodyStart);assert.ok(bodyStart>-1&&bodyEnd>bodyStart,start);return source.slice(bodyStart,bodyEnd+8);};
+ const start="FUNCTION saas.catalog_admin_import_products";
+ const upgraded=functionBody(up,start),baseline=functionBody(legacy,start),restored=functionBody(down,start);
+ const lock=upgraded.indexOf("'saas.catalog.store:' || p_store_id::text"),count=upgraded.indexOf("FROM saas.products WHERE store_id=p_store_id");
+ assert.ok(lock>-1&&lock<count,"legacy writer lock ordering");
+ assert.equal(restored,baseline,"041 down must restore the exact 035 legacy body");
+ assert.doesNotMatch(restored,/saas\.catalog\.store:/);
+});
 test("preview identity is trigger-immutable while lifecycle version transitions remain finite",()=>{
  assert.match(up,/CREATE FUNCTION saas\.guard_catalog_import_preview_mutation/);
  assert.match(up,/OLD\.format IS DISTINCT FROM NEW\.format/);
@@ -57,8 +66,9 @@ test("commit fingerprint binds the persisted immutable preview snapshot in one t
  assert.match(commit,/persisted\.format,persisted\.digest,JSON\.stringify\(persisted\.rows\)/);
 });
 test("disposable proof covers concurrency backup restore rollback and cleanup",()=>{
- for(const witness of ["concurrent double confirmation","different previews serialize at the near limit","backup and restore preserve executable authority","rollback removes only 041","cleanup removes disposable PostgreSQL"])assert.ok(harness.includes(witness),witness);
+ for(const witness of ["concurrent double confirmation","different previews serialize at the near limit","preview and legacy import serialize at 99 of 100","backup and restore preserve executable authority","rollback removes only 041","cleanup removes disposable PostgreSQL"])assert.ok(harness.includes(witness),witness);
  assert.match(harness,/pg_dump/);assert.match(harness,/pg_restore/);assert.doesNotMatch(harness,/pg_sleep/);
+ assert.match(harness,/celebix_saas_owner/);assert.doesNotMatch(harness,/--no-owner/);
 });
 test("no provider OAuth AI network or credential behavior is introduced",()=>{
  for(const source of [up,down,repository])assert.doesNotMatch(source,/\b(?:oauth|access_token|refresh_token|client_secret|api_key|fetch\(|https?:\/\/|openai|anthropic)\b/i);
