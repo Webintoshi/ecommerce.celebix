@@ -222,7 +222,7 @@ function mutationResult(
 }
 function locationMutationResult(
   value: unknown,
-  expected: Readonly<{ targetId?: string; expectedVersion?: number }>,
+  expected: Readonly<{ targetId?: string; expectedVersion?: number; expectedStatus: "active" | "archived" }>,
 ): InventoryLocationMutationResult {
   const parsed = object(value, ["kind", "id", "status", "version", "updatedAt", "replayed"]);
   if (parsed.kind !== "inventory_location") invalid();
@@ -235,6 +235,7 @@ function locationMutationResult(
   });
   if (
     (expected.targetId !== undefined && result.id !== expected.targetId) ||
+    result.status !== expected.expectedStatus ||
     result.version !== (expected.expectedVersion === undefined ? 1 : expected.expectedVersion + 1)
   ) invalid();
   return result;
@@ -291,11 +292,11 @@ export function createInventoryApi(fetcher: Fetch = fetch, uuid: () => string = 
     saveLocation(value: SaveInventoryLocationIntent, signal?: AbortSignal): Promise<InventoryLocationMutationResult> {
       const parsed = object(value, ["name"], ["locationId", "expectedVersion"]);
       const prior = existing(parsed, "locationId") as { locationId?: string; expectedVersion?: number };
-      return post("/api/inventory/locations", { ...prior, name: text(parsed.name, 1, 200) }, (result) => locationMutationResult(result, prior), signal);
+      return post("/api/inventory/locations", { ...prior, name: text(parsed.name, 1, 200) }, (result) => locationMutationResult(result, { ...prior, expectedStatus: "active" }), signal);
     },
     archiveLocation(locationId: string, expectedVersion: number, signal?: AbortSignal): Promise<InventoryLocationMutationResult> {
       const targetId = id(locationId), selectedVersion = version(expectedVersion);
-      return post(`/api/inventory/locations/${targetId}/archive`, { expectedVersion: selectedVersion }, (result) => locationMutationResult(result, { targetId, expectedVersion: selectedVersion }), signal);
+      return post(`/api/inventory/locations/${targetId}/archive`, { expectedVersion: selectedVersion }, (result) => locationMutationResult(result, { targetId, expectedVersion: selectedVersion, expectedStatus: "archived" }), signal);
     },
     listBalances(locationId: string, signal?: AbortSignal): Promise<readonly InventoryBalance[]> {
       const selected = id(locationId);

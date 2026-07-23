@@ -68,21 +68,60 @@ function stop(box) { if (box) command(box.executables.pg_ctl, ["-D", box.data, "
 function psql(box, input, database = DB, allowFailure = false) {
   return command(box.executables.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], { input, allowFailure });
 }
-function psqlAsync(box, input, database = DB) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(box.executables.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], {
-      cwd: ROOT,
-      env: { ...process.env, LC_ALL: "C", LANG: "C" },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let stdout = "", stderr = "";
-    child.stdout.setEncoding("utf8"); child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (value) => { stdout += value; });
-    child.stderr.on("data", (value) => { stderr += value; });
-    child.on("error", reject);
-    child.on("close", (status) => status === 0 ? resolve({ stdout, stderr, status }) : reject(new Error(`psql async failed\n${stderr}`)));
-    child.stdin.end(input);
+function openPsqlSession(box, database = DB) {
+  const child = spawn(box.executables.psql, ["-h", box.socket, "-p", String(box.port), "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database], {
+    cwd: ROOT,
+    env: { ...process.env, LC_ALL: "C", LANG: "C" },
+    stdio: ["pipe", "pipe", "pipe"],
   });
+  let stdout = "", stderr = "", closed = false, spawnError;
+  child.stdout.setEncoding("utf8"); child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (value) => { stdout += value; });
+  child.stderr.on("data", (value) => { stderr += value; });
+  child.on("error", (error) => { spawnError = error; });
+  const done = new Promise((resolve) => child.on("close", (status, signal) => {
+    closed = true;
+    resolve({ status, signal, spawnError });
+  }));
+  return {
+    child,
+    done,
+    output: () => stdout,
+    errors: () => stderr,
+    closed: () => closed,
+    write: (input) => {
+      if (closed || !child.stdin.writable) throw new Error("psql interactive session is closed");
+      child.stdin.write(input);
+    },
+    end: () => { if (!closed && child.stdin.writable) child.stdin.end(); },
+    terminate: () => { if (!closed) child.kill("SIGTERM"); },
+  };
+}
+function waitUntil(check, label, timeout = 5000) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeout;
+    const poll = () => {
+      try {
+        const value = check();
+        if (value) { resolve(value); return; }
+        if (Date.now() >= deadline) { reject(new Error(`${label} timed out`)); return; }
+        setTimeout(poll, 10);
+      } catch (error) { reject(error); }
+    };
+    poll();
+  });
+}
+function bounded(promise, label, timeout = 5000) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${label} timed out`)), timeout); }),
+  ]).finally(() => clearTimeout(timer));
+}
+function tagged(output, prefix) {
+  const lines = output.split("\n").filter((line) => line.startsWith(prefix));
+  assert.equal(lines.length, 1, `${prefix} output count`);
+  return lines[0].slice(prefix.length);
 }
 function apply(box, file, database = DB) { psql(box, readFileSync(path.join(SQL, file), "utf8"), database); }
 function seed(box, database = DB) {
@@ -139,10 +178,44 @@ function transferSaveCall(seed, location, defaultLocation) {
   return `saas.inventory_transfers_save(${authority()},'${op(seed)}','${fp(`transfer-race-${seed}`)}','${entity(seed)}',NULL,'${location}','${defaultLocation}','[{"lineId":"${entity(seed, "a")}","variantId":"${VARIANT}","quantity":1}]'::jsonb)`;
 }
 async function race(box, firstCall, secondCall) {
-  const script = (call, delay) => `SET statement_timeout='5s';SET lock_timeout='4s';SET ROLE celebix_saas_app;SELECT pg_sleep(${delay});SELECT jsonb_build_object('outcome',outcome,'result',result_payload) FROM ${call};`;
-  const [first, second] = await Promise.all([psqlAsync(box, script(firstCall, 0)), psqlAsync(box, script(secondCall, 0.35))]);
-  const parse = (value) => JSON.parse(value.stdout.trim().split("\n").at(-1));
-  return [parse(first), parse(second)];
+  const first = openPsqlSession(box);
+  let second;
+  const configure = `SET LOCAL statement_timeout='8s';SET LOCAL lock_timeout='7s';SET LOCAL idle_in_transaction_session_timeout='10s';SET LOCAL ROLE celebix_saas_app;`;
+  try {
+    first.write(`BEGIN;${configure}SET LOCAL application_name='celebix_inventory_contention_first';SELECT 'FIRST_PID:'||pg_backend_pid();SELECT 'RESULT:'||jsonb_build_object('outcome',outcome,'result',result_payload)::text FROM ${firstCall};\n\\echo FIRST_READY\n`);
+    await waitUntil(() => first.output().includes("FIRST_READY"), "first READY marker");
+    assert.equal(first.closed(), false);
+
+    second = openPsqlSession(box);
+    second.write(`BEGIN;${configure}SET LOCAL application_name='celebix_inventory_contention_second';SELECT 'SECOND_PID:'||pg_backend_pid();\n\\echo SECOND_READY\nSELECT 'RESULT:'||jsonb_build_object('outcome',outcome,'result',result_payload)::text FROM ${secondCall};\n\\echo SECOND_DONE\nCOMMIT;\n\\q\n`);
+    second.end();
+    await waitUntil(() => second.output().includes("SECOND_READY"), "second READY marker");
+    const secondPid = Number(tagged(second.output(), "SECOND_PID:"));
+    assert.equal(Number.isSafeInteger(secondPid), true);
+    const waiting = await waitUntil(() => {
+      if (second.closed()) throw new Error(`contender exited before advisory wait\n${second.errors()}`);
+      const observed = psql(box, `SET statement_timeout='1s';SELECT a.state||'|'||COALESCE(a.wait_event_type,'')||'|'||COALESCE(a.wait_event,'')||'|'||(SELECT count(*) FROM pg_locks WHERE pid=a.pid AND locktype='advisory' AND NOT granted)::text FROM pg_stat_activity a WHERE a.pid=${secondPid};`).stdout.trim();
+      return observed.endsWith("|Lock|advisory|1") ? observed : false;
+    }, "contender advisory-lock wait");
+    assert.equal(waiting, "active|Lock|advisory|1");
+    assert.equal(second.closed(), false);
+    assert.equal(second.output().includes("RESULT:"), false, "contender emitted terminal output before first release");
+    assert.equal(second.output().includes("SECOND_DONE"), false, "contender emitted terminal output before first release");
+
+    first.write("COMMIT;\n\\q\n"); first.end();
+    const firstExit = await bounded(first.done, "first transaction release");
+    assert.deepEqual({ status: firstExit.status, signal: firstExit.signal, error: firstExit.spawnError }, { status: 0, signal: null, error: undefined });
+    const secondExit = await bounded(second.done, "contender completion");
+    assert.deepEqual({ status: secondExit.status, signal: secondExit.signal, error: secondExit.spawnError }, { status: 0, signal: null, error: undefined });
+    assert.equal(second.output().includes("SECOND_DONE"), true);
+    return [JSON.parse(tagged(first.output(), "RESULT:")), JSON.parse(tagged(second.output(), "RESULT:"))];
+  } finally {
+    first.terminate(); second?.terminate();
+    await Promise.allSettled([
+      bounded(first.done, "first cleanup", 2000),
+      ...(second ? [bounded(second.done, "second cleanup", 2000)] : []),
+    ]);
+  }
 }
 
 const TOTAL = 44;

@@ -132,6 +132,25 @@ test("inventory client rejects generic or cross-entity mutation results for ever
   }
 });
 
+test("inventory client rejects a valid but operation-incompatible location status", async () => {
+  for (const [response, invoke] of [
+    [
+      taggedMutation("inventory_location", OPERATION, "archived", 1),
+      (api: ReturnType<typeof createInventoryApi>) => api.saveLocation({ name: "Secondary warehouse" }),
+    ],
+    [
+      taggedMutation("inventory_location", LOCATION, "active", 2),
+      (api: ReturnType<typeof createInventoryApi>) => api.archiveLocation(LOCATION, 1),
+    ],
+  ] as const) {
+    const api = createInventoryApi(async () => Response.json(response), () => OPERATION);
+    await assert.rejects(
+      () => invoke(api),
+      (error: unknown) => error instanceof InventoryApiError && error.code === "unavailable",
+    );
+  }
+});
+
 test("inventory client forwards AbortSignal on reads and mutations and preserves native fetch AbortError", async () => {
   const controller = new AbortController();
   const calls: RequestInit[] = [];

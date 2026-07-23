@@ -52,6 +52,19 @@ test("location mutation contracts are wired exactly through repository HTTP and 
   assert.match(types, /recoverLocationOperation[\s\S]*Promise<InventoryLocationMutationResult>/);
   assert.match(handler, /parseInventoryLocationMutationResult/);
   assert.match(client, /parseInventoryLocationMutationResult/);
+  assert.match(repository, /locationMutationParser\([\s\S]*expectedStatus/);
+  assert.match(client, /locationMutationResult\([\s\S]*expectedStatus/);
+});
+
+test("the concurrency harness proves real advisory-lock waiting without timing-order sleeps", () => {
+  const harness = readFileSync(path.join(ROOT, "tests/saas-phase3/inventory-locations/postgres-harness.mjs"), "utf8");
+  assert.doesNotMatch(harness, /pg_sleep\s*\(/);
+  assert.match(harness, /wait_event_type/);
+  assert.match(harness, /wait_event/);
+  assert.match(harness, /locktype='advisory'/);
+  assert.match(harness, /NOT granted/);
+  assert.match(harness, /READY/);
+  assert.match(harness, /terminal output/i);
 });
 
 test("migration 046 archive is fail-closed for default balances and nonterminal work", () => {

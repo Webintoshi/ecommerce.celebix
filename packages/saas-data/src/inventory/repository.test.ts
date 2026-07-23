@@ -264,6 +264,27 @@ test("location creation identity and fingerprint are deterministic across reposi
   assert.equal(rightValues?.[9], OPERATION);
 });
 
+test("location repository rejects a valid but operation-incompatible status before commit", async () => {
+  for (const [response, invoke] of [
+    [
+      { outcome: "saved", result_payload: mutation(OPERATION, "archived", 1) },
+      (repo: InventoryRepository) => repo.saveLocation({ ...authority(), operationId: OPERATION, name: "Secondary warehouse" }),
+    ],
+    [
+      { outcome: "archived", result_payload: mutation(LOCATION, "active", 2) },
+      (repo: InventoryRepository) => repo.archiveLocation({ ...authority(), operationId: OPERATION, locationId: LOCATION, expectedVersion: 1 }),
+    ],
+  ] as const) {
+    const client = new Client(response);
+    await assert.rejects(
+      () => invoke(repository(new Pool(client))),
+      (error: unknown) => hasCode(error, "unavailable"),
+    );
+    assertConfigured(client, "BEGIN ISOLATION LEVEL READ COMMITTED", "ROLLBACK");
+    assert.equal(client.queries.some((query) => query.text === "COMMIT"), false);
+  }
+});
+
 test("unknown location commit uses exactly one location-specific read-only recovery", async () => {
   const writer = new Client({ outcome: "archived", result_payload: mutation(LOCATION, "archived", 2) }, true);
   const recovery = new Client({ outcome: "operation_replayed", result_payload: mutation(LOCATION, "archived", 2) });

@@ -107,8 +107,8 @@ test("finite inventory routes call each repository method once with only server 
   const capture = (name: string, value: unknown) => { calls.push([name, value as Record<string, unknown>]); };
   const inventory = repository({
     async listLocations(input) { capture("listLocations", input); return [location()]; },
-    async saveLocation(input) { capture("saveLocation", input); return mutation(DESTINATION, "active"); },
-    async archiveLocation(input) { capture("archiveLocation", input); return mutation(LOCATION, "archived"); },
+    async saveLocation(input) { capture("saveLocation", input); return { ...mutation(DESTINATION, "active"), status: "active" as const }; },
+    async archiveLocation(input) { capture("archiveLocation", input); return { ...mutation(LOCATION, "archived"), status: "archived" as const }; },
     async listBalances(input) { capture("listBalances", input); return [balance()]; },
     async listPurchaseOrders(input) { capture("listPurchaseOrders", input); return [purchase()]; },
     async getPurchaseOrder(input) { capture("getPurchaseOrder", input); return purchase(); },

@@ -358,6 +358,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
   private locationMutationParser(
     targetId: string,
     expectedVersion: number,
+    expectedStatus: "active" | "archived",
   ): MutationParser<InventoryLocationMutationResult> {
     return (value, replayed) => {
       try {
@@ -370,7 +371,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
           updatedAt: raw.updatedAt,
           replayed,
         });
-        if (parsed.id !== targetId || parsed.version !== expectedVersion) throw unavailable();
+        if (parsed.id !== targetId || parsed.version !== expectedVersion || parsed.status !== expectedStatus) throw unavailable();
         return parsed;
       } catch (error) {
         if (inventoryRepositoryErrorCode(error) !== undefined) throw error;
@@ -400,7 +401,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     return this.mutate(authority, operationId, fingerprint, "saved", {
       text: SQL.saveLocation,
       values: [...authorityValues(authority), operationId, fingerprint, targetId, expectedVersion ?? null, name],
-    }, this.locationMutationParser(targetId, (expectedVersion ?? 0) + 1), SQL.recoverLocation);
+    }, this.locationMutationParser(targetId, (expectedVersion ?? 0) + 1, "active"), SQL.recoverLocation);
   }
 
   async archiveLocation(input: ArchiveInventoryLocationInput): Promise<InventoryLocationMutationResult> {
@@ -410,7 +411,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     return this.mutate(authority, operationId, fingerprint, "archived", {
       text: SQL.archiveLocation,
       values: [...authorityValues(authority), operationId, fingerprint, locationId, expectedVersion],
-    }, this.locationMutationParser(locationId, expectedVersion + 1), SQL.recoverLocation);
+    }, this.locationMutationParser(locationId, expectedVersion + 1, "archived"), SQL.recoverLocation);
   }
 
   async recoverLocationOperation(input: RecoverInventoryLocationOperationInput): Promise<InventoryLocationMutationResult> {
@@ -420,9 +421,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     if (parsed.expectedStatus !== "active" && parsed.expectedStatus !== "archived") throw inventoryFailure("invalid_input");
     const expectedStatus = parsed.expectedStatus;
     return this.read({ text: SQL.recoverLocation, values: [...authorityValues(authority), operationId, parsed.fingerprint] }, "operation_replayed", (value) => {
-      const result = this.locationMutationParser(locationId, expectedVersion)(value, true);
-      if (result.status !== expectedStatus) throw unavailable();
-      return result;
+      return this.locationMutationParser(locationId, expectedVersion, expectedStatus)(value, true);
     });
   }
 
