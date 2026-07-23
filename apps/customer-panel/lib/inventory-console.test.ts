@@ -9,6 +9,7 @@ import ts from "typescript";
 
 import type { InventoryCount, InventoryLocation, InventoryMutationResult, InventoryTransfer, PurchaseOrder } from "@celebix/saas-contracts";
 import { createInventoryApi, InventoryApiError } from "./inventory-ui/client.ts";
+import { prepareInventoryOperationSubmission } from "./inventory-ui/form-intent.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const ORDER = "11111111-1111-4111-8111-111111111111";
@@ -175,6 +176,41 @@ test("purchase save owns one mutation, preserves draft version and rejects cross
   await Promise.all([first, duplicate, crossed]);
   assert.deepEqual(saves, [intent]);
   assert.equal(subject.getSnapshot().record, canonical);
+});
+
+test("empty-store form submission creates canonical purchase and can continue its real lifecycle", async () => {
+  const module = await controllers();
+  const intent = prepareInventoryOperationSubmission({
+    mode: "purchase", supplierName: "İlk Tedarikçi", locationId: LOCATION,
+    sourceLocationId: "", destinationLocationId: "",
+    lines: [{ lineId: "", variantId: VARIANT, quantity: "2", unitCostCents: "150" }],
+  }, { locationIds: new Set([LOCATION]), variantIds: new Set([VARIANT]) }, () => LINE);
+  assert.equal(intent.ok, true);
+  if (!intent.ok) return;
+  const draftRecord = purchase({ status: "draft", version: 1, supplierName: "İlk Tedarikçi", lines: Object.freeze([
+    Object.freeze({ ...purchase().lines[0]!, orderedQuantity: 2, receivedQuantity: 0, unitCostCents: 150, lineCostCents: 300 }),
+  ]), totalCostCents: 300 });
+  const orderedRecord = purchase({ ...draftRecord, status: "ordered", version: 2 });
+  const saves: unknown[] = [], transitions: unknown[] = [];
+  let reads = 0;
+  const subject = (module.createPurchasingConsoleController as Function)({
+    canManage: true,
+    api: {
+      async savePurchaseOrder(value: unknown) { saves.push(value); return mutation(ORDER, "draft", 1); },
+      async transitionPurchaseOrder(id: string, value: unknown) { transitions.push({ id, value }); return mutation(ORDER, "ordered", 2); },
+      async getPurchaseOrder() { reads += 1; return reads === 1 ? draftRecord : orderedRecord; },
+    },
+  });
+  assert.equal(subject.getSnapshot().record, undefined);
+  await subject.save(intent.value);
+  assert.deepEqual(saves, [{
+    locationId: LOCATION, supplierName: "İlk Tedarikçi",
+    lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 2, unitCostCents: 150 }],
+  }]);
+  assert.equal(subject.getSnapshot().record, draftRecord);
+  await subject.order();
+  assert.deepEqual(transitions, [{ id: ORDER, value: { expectedVersion: 1, transition: "order" } }]);
+  assert.equal(subject.getSnapshot().record, orderedRecord);
 });
 
 test("purchase receipt accepts exact positive partial quantities and never auto-receives remaining lines", async () => {

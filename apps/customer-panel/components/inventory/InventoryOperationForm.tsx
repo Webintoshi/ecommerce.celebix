@@ -17,9 +17,9 @@ import {
 } from "@/lib/inventory-ui/form-choices";
 import type { InventoryConsolePhase } from "@/lib/inventory-ui/console-controller";
 import {
-  buildInventoryOperationIntent,
   buildPurchaseReceiptIntent,
   initialPurchaseReceiptQuantities,
+  prepareInventoryOperationSubmission,
   purchaseReceiptRevision,
   type InventoryOperationDraftLine,
 } from "@/lib/inventory-ui/form-intent";
@@ -133,18 +133,14 @@ export function InventoryOperationForm(props: Props) {
     event.preventDefault();
     setValidation("");
     if (!props.canManage || disabled || empty) return;
-    const submitLines = Object.freeze(lines.map((line) => Object.freeze({
-      ...line,
-      lineId: line.lineId || crypto.randomUUID(),
-    })));
-    const parsed = buildInventoryOperationIntent({
+    const parsed = prepareInventoryOperationSubmission({
       mode: props.mode,
       ...(props.record ? { record: props.record } : {}),
       supplierName,
       locationId,
       sourceLocationId,
       destinationLocationId,
-      lines: submitLines,
+      lines,
     }, { locationIds: knownLocations, variantIds: knownVariants });
     if (!parsed.ok) { setValidation(parsed.message); return; }
     props.onSave(parsed.value);

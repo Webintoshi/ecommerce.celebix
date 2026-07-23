@@ -161,3 +161,33 @@ test("choice lifecycle abort reaches an underlying catalog request and remains a
   assert.equal(aborted, true);
   assert.deepEqual(states.map((state) => state.phase), ["loading"]);
 });
+
+test("choice boundary fails closed on hostile proxies, bounds, duplicates and inconsistent detail authority", async () => {
+  const module = await choicesModule();
+  const signal = new AbortController().signal;
+  const base = () => ({
+    catalog: {
+      async listProducts() { return { items: [product(1)] }; },
+      async getProduct() { return { product: product(1), variants: [variant(1)] }; },
+    },
+    inventory: { async listLocations() { return [location()]; } },
+  });
+  const cases: Array<{ dependencies: unknown; limits?: unknown }> = [
+    { dependencies: { ...base(), catalog: { ...base().catalog, async listProducts() { return new Proxy({}, { get() { throw new Error("hostile list projection"); } }); } } } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async listProducts() { return { items: [product(1), product(2)] }; } } }, limits: { maximumProducts: 1 } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async listProducts() { return { items: [product(1), product(1)] }; } } } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async getProduct() { return { product: product(2), variants: [variant(2)] }; } } } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async getProduct() { throw new Error("detail unavailable"); } } } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async getProduct() { return { product: product(1), variants: [variant(1), Object.freeze({ ...variant(1), id: id(202) })] }; } } }, limits: { maximumVariants: 1 } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async getProduct() { return { product: product(1), variants: [variant(1), variant(1)] }; } } } },
+    { dependencies: { ...base(), catalog: { ...base().catalog, async getProduct() { return { product: product(1), variants: [Object.freeze({ ...variant(2), productId: id(2) })] }; } } } },
+    { dependencies: { ...base(), inventory: { async listLocations() { return [location(), location({ id: id(55), isDefault: false })]; } } }, limits: { maximumLocations: 1 } },
+    { dependencies: { ...base(), inventory: { async listLocations() { return [location(), location()]; } } } },
+  ];
+  for (const candidate of cases) {
+    await assert.rejects(
+      () => (module.loadInventoryFormChoices as Function)(candidate.dependencies, signal, candidate.limits),
+      /inventory_choices_unavailable/,
+    );
+  }
+});

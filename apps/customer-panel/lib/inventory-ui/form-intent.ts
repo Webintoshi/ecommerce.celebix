@@ -116,6 +116,24 @@ export function buildInventoryOperationIntent(
   }
 }
 
+export function prepareInventoryOperationSubmission(
+  draft: InventoryOperationDraft,
+  choices: ChoiceAuthority,
+  randomUUID: () => string = () => crypto.randomUUID(),
+): Result<SaveIntent> {
+  try {
+    return buildInventoryOperationIntent(Object.freeze({
+      ...draft,
+      lines: Object.freeze(draft.lines.map((line) => Object.freeze({
+        ...line,
+        lineId: line.lineId || randomUUID(),
+      }))),
+    }), choices);
+  } catch {
+    return fail("Envanter formu güvenli biçimde doğrulanamadı.");
+  }
+}
+
 export function buildPurchaseReceiptIntent(
   record: PurchaseOrder,
   quantities: Readonly<Record<string, string>>,

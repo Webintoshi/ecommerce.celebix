@@ -6,6 +6,7 @@ import {
   buildInventoryOperationIntent,
   buildPurchaseReceiptIntent,
   initialPurchaseReceiptQuantities,
+  prepareInventoryOperationSubmission,
   purchaseReceiptRevision,
   type InventoryOperationDraft,
 } from "./inventory-ui/form-intent.ts";
@@ -50,6 +51,32 @@ test("builds exact create and versioned edit intents without private authority",
     },
   });
   assert.deepEqual(buildInventoryOperationIntent(draft({ record: purchase }), choices), {
+    ok: true,
+    value: {
+      orderId: ORDER, expectedVersion: 3, locationId: LOCATION, supplierName: "Tedarikçi",
+      lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 1, unitCostCents: 250 }],
+    },
+  });
+});
+
+test("form submission boundary assigns create identity once and preserves exact edit identity", () => {
+  let generated = 0;
+  const create = prepareInventoryOperationSubmission(draft({
+    lines: Object.freeze([{ ...line, lineId: "" }]),
+  }), choices, () => { generated += 1; return LINE; });
+  assert.deepEqual(create, {
+    ok: true,
+    value: {
+      locationId: LOCATION, supplierName: "Tedarikçi",
+      lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 1, unitCostCents: 250 }],
+    },
+  });
+  assert.equal(generated, 1);
+
+  const edit = prepareInventoryOperationSubmission(draft({ record: purchase }), choices, () => {
+    throw new Error("persisted edit identity must not be replaced");
+  });
+  assert.deepEqual(edit, {
     ok: true,
     value: {
       orderId: ORDER, expectedVersion: 3, locationId: LOCATION, supplierName: "Tedarikçi",
