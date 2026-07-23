@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const INVENTORY_BASE = "6cbbe8859c9ae01374ccd1488e24733e2256552c";
-const TASK_1_8_HEAD = "146fa723b2af66050a6819314cb1a2bd86fab9db";
+const CUMULATIVE_HEAD = "1bc7a31f146a457222603d1999a179d90c6f5ebd";
 const DONOR = "fc6c5318b47f045a7cefcedc7612d5b10563ba32";
 const ROOT = new URL("../../../", import.meta.url);
 const ROOT_PATH = fileURLToPath(ROOT);
@@ -29,14 +29,17 @@ const PAGE_GROUPS = Object.freeze({
   ]),
   purchasing: Object.freeze([
     "apps/customer-panel/app/products/purchasing/page.tsx",
+    "apps/customer-panel/app/products/purchasing/new/page.tsx",
     "apps/customer-panel/app/products/purchasing/[purchaseOrderId]/page.tsx",
   ]),
   inventoryCounts: Object.freeze([
     "apps/customer-panel/app/products/inventory-counts/page.tsx",
+    "apps/customer-panel/app/products/inventory-counts/new/page.tsx",
     "apps/customer-panel/app/products/inventory-counts/[countId]/page.tsx",
   ]),
   transfers: Object.freeze([
     "apps/customer-panel/app/products/transfers/page.tsx",
+    "apps/customer-panel/app/products/transfers/new/page.tsx",
     "apps/customer-panel/app/products/transfers/[transferId]/page.tsx",
   ]),
   priceLists: Object.freeze([
@@ -46,7 +49,14 @@ const PAGE_GROUPS = Object.freeze({
   ]),
 });
 
-const MIGRATION_BUNDLES = Object.freeze(["042_catalog_product_tags", "043_inventory_purchasing", "044_inventory_counts_transfers", "045_price_lists"]);
+const MIGRATION_BUNDLES = Object.freeze([
+  ["202607220042", "catalog_product_tags"],
+  ["202607220043", "inventory_purchasing"],
+  ["202607220044", "inventory_counts_transfers"],
+  ["202607220045", "price_lists"],
+  ["202607230046", "inventory_locations"],
+  ["202607230047", "pricing_preview"],
+]);
 
 function pinnedTaskArtifacts(source) {
   const serialized = source.match(
@@ -362,11 +372,11 @@ test("pins all six product-operation page families and their subpages", async ()
   }
 });
 
-test("pins four complete migration bundles and their disposable PostgreSQL proofs", async () => {
-  assert.equal(MIGRATION_BUNDLES.length, 4);
-  for (const name of MIGRATION_BUNDLES) {
+test("pins six complete migration bundles and their disposable PostgreSQL proofs", async () => {
+  assert.equal(MIGRATION_BUNDLES.length, 6);
+  for (const [prefix, name] of MIGRATION_BUNDLES) {
     for (const suffix of [".up.sql", ".down.sql", "_assertions.sql"]) {
-      await access(new URL(`apps/owner/scripts/sql/saas/202607220${name}${suffix}`, ROOT));
+      await access(new URL(`apps/owner/scripts/sql/saas/${prefix}_${name}${suffix}`, ROOT));
     }
   }
   for (const path of [
@@ -374,6 +384,8 @@ test("pins four complete migration bundles and their disposable PostgreSQL proof
     "tests/saas-phase3/inventory-purchasing/postgres-harness.mjs",
     "tests/saas-phase3/inventory-counts-transfers/postgres-harness.mjs",
     "tests/saas-phase3/price-lists/postgres-harness.mjs",
+    "tests/saas-phase3/inventory-locations/postgres-harness.mjs",
+    "tests/saas-phase3/pricing-preview/postgres-harness.mjs",
   ]) await access(new URL(path, ROOT));
 });
 
@@ -383,10 +395,10 @@ test("keeps the cumulative artifact allowlist exact and reviewable", async () =>
   const committedTaskDiff = git(
     "diff",
     "--name-only",
-    `${INVENTORY_BASE}...${TASK_1_8_HEAD}`,
+    `${INVENTORY_BASE}...${CUMULATIVE_HEAD}`,
   ).split("\n").filter(Boolean).sort();
-  assert.equal(committedTaskDiff.length, 117);
-  assert.deepEqual(pinned, committedTaskDiff, "Task 1-8 tracked artifact inventory is not symmetric with its pinned committed diff");
+  assert.equal(committedTaskDiff.length, 144);
+  assert.deepEqual(pinned, committedTaskDiff, "cumulative tracked artifact inventory is not symmetric with its pinned committed diff");
   for (const path of pinned) {
     assert.equal(git("ls-files", "--error-unmatch", path), path);
   }
@@ -446,11 +458,11 @@ test("resolves every static local import and re-export without donor or Supabase
   const graph = assertRepositoryImportGraph(ts, sourceRoots);
   for (const required of REQUIRED_GRAPH_ROOTS) assert.equal(graph.includes(required), true, `unvisited graph root ${required}`);
   const productionSources = pinned.filter(isProductionInventorySource);
-  assert.equal(productionSources.length, 66);
+  assert.equal(productionSources.length, 75);
   const productionArtifacts = pinned.filter((path) => !isEvidenceArtifact(path));
   const evidenceArtifacts = pinned.filter(isEvidenceArtifact);
-  assert.equal(productionArtifacts.length, 77);
-  assert.equal(evidenceArtifacts.length, 40);
+  assert.equal(productionArtifacts.length, 90);
+  assert.equal(evidenceArtifacts.length, 54);
   assert.equal(productionArtifacts.length + evidenceArtifacts.length, pinned.length);
   for (const path of productionArtifacts) {
     assertProductionArtifactSecurity(ts, path, readFileSync(resolve(ROOT_PATH, path), "utf8"));
@@ -549,6 +561,10 @@ test("executes the exact focused contract repository HTTP client and console aut
     "apps/customer-panel/lib/price-list-console.test.ts",
     "apps/customer-panel/lib/catalog-admin-ui/barcode-label-projection.test.ts",
     "apps/customer-panel/lib/catalog-admin-console.test.ts",
+    "apps/customer-panel/lib/catalog-ui/variant-choices.test.ts",
+    "apps/customer-panel/lib/inventory-form-choices.test.ts",
+    "apps/customer-panel/lib/inventory-form-intent.test.ts",
+    "apps/customer-panel/lib/inventory-operation-forms.test.ts",
   ], { cwd: ROOT_PATH, stdio: "pipe", maxBuffer: 64 * 1024 * 1024 });
 });
 
