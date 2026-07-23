@@ -72,6 +72,29 @@ export interface CatalogAdminImportJob {
   readonly updatedAt: string;
 }
 
+export interface CatalogAdminImportRow {
+  readonly title: string;
+  readonly slug: string;
+  readonly priceCents: number;
+  readonly sku?: string;
+  readonly stockQuantity: number;
+}
+
+export type CatalogImportFormat = "native_csv" | "shopify_csv";
+export interface CatalogImportPreview {
+  readonly id: string;
+  readonly format: CatalogImportFormat;
+  readonly fileName: string;
+  readonly digest: string;
+  readonly status: "prepared" | "consumed" | "expired";
+  readonly rows: readonly CatalogAdminImportRow[];
+  readonly totalRows: number;
+  readonly version: number;
+  readonly expiresAt: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export interface CatalogAdminMutationResult {
   readonly id: string;
   readonly version: number;

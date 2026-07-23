@@ -5,18 +5,22 @@ export {
 } from "./types.ts";
 export type {
   CatalogAdminImportJob,
+  CatalogAdminImportRow,
   CatalogAdminJson,
   CatalogAdminMutationResult,
   CatalogAdminResource,
   CatalogAdminResourceKind,
   CatalogAdminResourceStatus,
   CatalogImportStatus,
+  CatalogImportFormat,
+  CatalogImportPreview,
   ProductReview,
   ProductReviewStatus,
 } from "./types.ts";
 export {
   parseCatalogAdminImportJob,
   parseCatalogAdminMutationResult,
+  parseCatalogImportPreview,
   parseCatalogAdminResource,
   parseProductReview,
 } from "./validation.ts";

@@ -409,6 +409,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseCatalogAdminImportJob",
     "parseCatalogAdminMutationResult",
     "parseCatalogAdminResource",
+    "parseCatalogImportPreview",
     "parseCustomerDetail",
     "parseCustomerListItem",
     "parseCustomerMutationResult",

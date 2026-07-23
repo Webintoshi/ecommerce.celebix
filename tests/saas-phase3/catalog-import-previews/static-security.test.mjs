@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"../../../"),SQL=path.join(ROOT,"apps/owner/scripts/sql/saas");
+const up=readFileSync(path.join(SQL,"202607220041_catalog_import_previews.up.sql"),"utf8"),down=readFileSync(path.join(SQL,"202607220041_catalog_import_previews.down.sql"),"utf8"),assertions=readFileSync(path.join(SQL,"202607220041_catalog_import_previews_assertions.sql"),"utf8");
+const repository=readFileSync(path.join(ROOT,"packages/saas-data/src/catalog-admin/repository.ts"),"utf8"),harness=readFileSync(path.join(ROOT,"tests/saas-phase3/catalog-import-previews/postgres-harness.mjs"),"utf8");
+
+test("migration 041 is pinned by the completion manifest",()=>{
+ const manifest=JSON.parse(readFileSync(path.join(SQL,"phase3h-merchant-completion-manifest.json"),"utf8"));
+ assert.equal(manifest.artifacts.length,12);
+ for(const file of ["202607220041_catalog_import_previews.up.sql","202607220041_catalog_import_previews.down.sql","202607220041_catalog_import_previews_assertions.sql"]){
+  const artifact=manifest.artifacts.find(entry=>entry.file===file);assert.ok(artifact,file);assert.equal(createHash("sha256").update(readFileSync(path.join(SQL,file))).digest("hex"),artifact.sha256,file);
+ }
+});
+test("SQL accepts only canonical rows and digest, never raw CSV",()=>{
+ assert.match(up,/payload_digest char\(64\)/);assert.match(up,/pg_catalog\.pg_column_size\(rows\)<=131072/);assert.match(up,/jsonb_array_length\(rows\) BETWEEN 1 AND 100/);
+ assert.doesNotMatch(up,/\bp_raw|\braw_csv|\bcsv_bytes|\bfile_bytes/i);
+ assert.match(up,/CREATE FUNCTION saas\.catalog_admin_prepare_import_preview/);assert.match(up,/p_rows jsonb/);
+});
+test("confirmation is row locked atomic and replay safe",()=>{
+ const body=up.slice(up.indexOf("CREATE FUNCTION saas.catalog_admin_commit_import_preview"),up.indexOf("CREATE FUNCTION saas.catalog_admin_recover_import_preview_operation"));
+ assert.match(body,/pg_advisory_xact_lock/);assert.match(body,/FOR UPDATE/);assert.match(body,/preview\.expires_at<=p_now/);assert.match(body,/product_limit_reached/);assert.match(body,/INSERT INTO saas\.products/);assert.match(body,/INSERT INTO saas\.product_variants/);assert.match(body,/INSERT INTO saas\.catalog_import_jobs/);assert.match(body,/status='consumed'/);assert.match(body,/operation_replayed/);assert.match(body,/operation_mismatch/);
+});
+test("table ACL and rollback surface are exact",()=>{
+ assert.match(up,/ENABLE ROW LEVEL SECURITY/);assert.match(up,/FORCE ROW LEVEL SECURITY/);assert.match(up,/REVOKE ALL ON saas\.catalog_import_previews/);assert.match(assertions,/pg_catalog\.aclexplode/);
+ assert.match(down,/DROP TABLE saas\.catalog_import_previews/);assert.match(down,/DELETE FROM saas\.catalog_admin_operations WHERE operation_kind IN\('prepare_import_preview','commit_import_preview'\)/);assert.doesNotMatch(down,/DROP TABLE saas\.catalog_admin_operations/);
+});
+test("repository unknown COMMIT uses one read-only preview recovery and no write retry",()=>{
+ assert.match(repository,/catalog_admin_recover_import_preview_operation/);assert.match(repository,/BEGIN READ ONLY/);assert.match(repository,/release\(client,\s*true\)/);
+ const commit=repository.slice(repository.indexOf("async commitImportPreview"));assert.equal((commit.match(/catalog_admin_commit_import_preview/g)??[]).length,1);
+});
+test("disposable proof covers concurrency backup restore rollback and cleanup",()=>{
+ for(const witness of ["concurrent double confirmation","backup and restore","rollback removes only 041","cleanup removes disposable PostgreSQL"])assert.ok(harness.includes(witness),witness);
+ assert.match(harness,/pg_dump/);assert.match(harness,/pg_restore/);assert.doesNotMatch(harness,/pg_sleep/);
+});
+test("no provider OAuth AI network or credential behavior is introduced",()=>{
+ for(const source of [up,down,repository])assert.doesNotMatch(source,/\b(?:oauth|access_token|refresh_token|client_secret|api_key|fetch\(|https?:\/\/|openai|anthropic)\b/i);
+});

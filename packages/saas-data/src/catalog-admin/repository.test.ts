@@ -14,7 +14,9 @@ const OP = "74000000-0000-4000-8000-000000000001";
 const JOB = "75000000-0000-4000-8000-000000000001";
 const NEW_PRODUCT = "76000000-0000-4000-8000-000000000001";
 const VARIANT = "77000000-0000-4000-8000-000000000001";
+const PREVIEW = "78000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-07-22T18:00:00.000Z");
+const LATER = "2026-07-22T18:15:00.000Z";
 
 function tenant(): TenantContext {
   return {
@@ -79,6 +81,64 @@ function call(client: Client, name: string) {
 function mutation(id: string, status = "active") {
   return { id, version: 1, status, updatedAt: NOW.toISOString() };
 }
+function preview(status = "prepared") {
+  return {
+    id: PREVIEW, format: "shopify_csv", fileName: "products.csv",
+    digest: "a".repeat(64), status,
+    rows: [{ title: "Kahve", slug: "kahve", priceCents: 25000, sku: "KHV-1", stockQuantity: 5 }],
+    totalRows: 1, version: status === "prepared" ? 1 : 2,
+    expiresAt: LATER, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+  };
+}
+
+test("import preview prepare read and commit use only canonical rows and durable authority", async () => {
+  const prepare = new Client((text) => text.includes("catalog_admin_prepare_import_preview") ? [{ outcome: "prepared", result_payload: preview() }] : []);
+  const prepared = await repository(new Pool([prepare])).prepareImport({
+    tenantContext: tenant(), now: NOW, operationId: OP, previewId: PREVIEW,
+    format: "shopify_csv", fileName: "products.csv", digest: "a".repeat(64),
+    rows: preview().rows,
+  });
+  assert.equal(prepared.id, PREVIEW);
+  const prepareCall = call(prepare, "catalog_admin_prepare_import_preview");
+  assert.equal(prepareCall.values.includes("raw,csv"), false);
+  assert.match(String(prepareCall.values.at(-1)), /Kahve/);
+
+  const reader = new Client((text) => text.includes("catalog_admin_get_import_preview") ? [{ outcome: "found", result_payload: preview() }] : []);
+  assert.equal((await repository(new Pool([reader])).getImportPreview({ tenantContext: tenant(), now: NOW, previewId: PREVIEW })).status, "prepared");
+
+  const commit = new Client((text) => text.includes("catalog_admin_commit_import_preview") ? [{ outcome: "imported", result_payload: mutation(JOB, "completed") }] : []);
+  assert.equal((await repository(new Pool([commit]), [], [JOB]).commitImportPreview({
+    tenantContext: tenant(), now: NOW, operationId: OP, previewId: PREVIEW, expectedVersion: 1,
+  })).status, "completed");
+});
+
+test("import preview unknown commit destroys writer and recovers exactly once read-only", async () => {
+  const writer = new Client((text) => {
+    if (text.includes("catalog_admin_commit_import_preview"))
+      return [{ outcome: "imported", result_payload: mutation(JOB, "completed") }];
+    if (text === "COMMIT") throw new Error("wire");
+    return [];
+  });
+  const recovery = new Client((text) =>
+    text.includes("catalog_admin_recover_import_preview_operation")
+      ? [{ outcome: "operation_replayed", result_payload: mutation(JOB, "completed") }]
+      : [],
+  );
+  const result = await repository(new Pool([writer, recovery]), [], [JOB])
+    .commitImportPreview({
+      tenantContext: tenant(), now: NOW, operationId: OP,
+      previewId: PREVIEW, expectedVersion: 1,
+    });
+  assert.equal(result.replayed, true);
+  assert.deepEqual(writer.releases, [true]);
+  assert.equal(recovery.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal(recovery.calls.filter((entry) =>
+    entry.text.includes("catalog_admin_recover_import_preview_operation")
+  ).length, 1);
+  assert.equal(recovery.calls.some((entry) =>
+    entry.text.includes("catalog_admin_commit_import_preview")
+  ), false);
+});
 
 test("resource reads and saves use exact durable authority", async () => {
   const reader = new Client((text) => text.includes("catalog_admin_list_resources") ? [{ outcome: "listed", result_payload: { items: [{ id: RESOURCE, kind: "collection", name: "Yeni Gelenler", slug: "yeni-gelenler", config: { featured: true }, status: "active", productIds: [PRODUCT], productCount: 1, version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() }] } }] : []);

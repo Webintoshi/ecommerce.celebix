@@ -112,6 +112,7 @@ export {
   PRODUCT_REVIEW_STATUSES,
   parseCatalogAdminImportJob,
   parseCatalogAdminMutationResult,
+  parseCatalogImportPreview,
   parseCatalogAdminResource,
   parseProductReview,
 } from "./catalog-admin/index.ts";
@@ -144,12 +145,15 @@ export type {
 } from "./merchant-admin/index.ts";
 export type {
   CatalogAdminImportJob,
+  CatalogAdminImportRow,
   CatalogAdminJson,
   CatalogAdminMutationResult,
   CatalogAdminResource,
   CatalogAdminResourceKind,
   CatalogAdminResourceStatus,
   CatalogImportStatus,
+  CatalogImportFormat,
+  CatalogImportPreview,
   ProductReview,
   ProductReviewStatus,
 } from "./catalog-admin/index.ts";
