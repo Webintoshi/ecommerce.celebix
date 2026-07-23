@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../");
 const COMPLETION_SOURCES = Object.freeze([
+  "apps/customer-panel/app/api/catalog/admin/import-previews/[previewId]/commit/route.ts",
+  "apps/customer-panel/app/api/catalog/admin/import-previews/[previewId]/route.ts",
+  "apps/customer-panel/app/api/catalog/admin/import-previews/route.ts",
   "apps/customer-panel/app/products/auto-import/page.tsx",
   "apps/customer-panel/app/products/shopify-converter/page.tsx",
   "apps/customer-panel/app/seo/categories/page.tsx",
@@ -25,12 +28,16 @@ const COMPLETION_SOURCES = Object.freeze([
   "apps/customer-panel/lib/catalog-import/csv.ts",
   "apps/customer-panel/lib/catalog-import/digest.ts",
   "apps/customer-panel/lib/merchant-admin-ui/presentation.ts",
+  "apps/customer-panel/lib/panel-ui/navigation.ts",
   "apps/customer-panel/lib/server-catalog-admin/runtime.ts",
   "apps/owner/scripts/sql/saas/202607220040_advanced_seo_preferences.up.sql",
   "apps/owner/scripts/sql/saas/202607220041_catalog_import_previews.up.sql",
+  "packages/saas-contracts/src/catalog-admin/index.ts",
   "packages/saas-contracts/src/catalog-admin/types.ts",
   "packages/saas-contracts/src/catalog-admin/validation.ts",
+  "packages/saas-contracts/src/index.ts",
   "packages/saas-contracts/src/merchant-admin/types.ts",
+  "packages/saas-data/src/catalog-admin/index.ts",
   "packages/saas-data/src/catalog-admin/repository.ts",
   "packages/saas-data/src/catalog-admin/types.ts",
   "packages/saas-data/src/catalog-admin/validation.ts",
@@ -44,5 +51,6 @@ async function readCompletionSources() {
 test("provider-gated tools remain local and secret-free", async () => {
   const source = await readCompletionSources();
   assert.doesNotMatch(source, /fetch\(["'`]https?:|shopify\.com|openai\.com|apiKey|clientSecret|accessToken|dangerouslySetInnerHTML|<iframe/i);
+  assert.doesNotMatch(source, /Shopify bağlandı|senkronizasyon tamamlandı|içerik (?:üretildi|oluşturuldu)/i);
   assert.match(source, /awaiting_provider_activation|Sağlayıcı etkinleştirilmeden/);
 });
