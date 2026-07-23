@@ -110,31 +110,63 @@ function existingModule(candidate) {
   return candidates.find((path) => existsSync(path)) ?? null;
 }
 
+function workspacePackageRoots() {
+  const rootManifest = JSON.parse(readFileSync(resolve(ROOT_PATH, "package.json"), "utf8"));
+  assert.deepEqual(rootManifest.workspaces, ["apps/*", "packages/*"]);
+  const manifestPaths = git("ls-files", "apps/*/package.json", "packages/*/package.json")
+    .split("\n").filter(Boolean).sort();
+  const packages = new Map();
+  for (const manifestPath of manifestPaths) {
+    const manifest = JSON.parse(readFileSync(resolve(ROOT_PATH, manifestPath), "utf8"));
+    assert.equal(typeof manifest.name, "string", `workspace package has no name: ${manifestPath}`);
+    assert.equal(packages.has(manifest.name), false, `duplicate workspace package: ${manifest.name}`);
+    packages.set(manifest.name, Object.freeze({
+      root: dirname(manifestPath).split(sep).join("/"),
+      manifest: Object.freeze(manifest),
+    }));
+  }
+  return packages;
+}
+
+const WORKSPACE_PACKAGES = workspacePackageRoots();
+
+function workspaceSpecifierParts(specifier) {
+  if (!specifier.startsWith("@")) return null;
+  const parts = specifier.split("/");
+  if (parts.length < 2) return null;
+  return Object.freeze({ packageName: parts.slice(0, 2).join("/"), subpath: parts.slice(2).join("/") });
+}
+
+function workspacePackageCandidate(packageEntry, subpath) {
+  const exportKey = subpath === "" ? "." : `./${subpath}`;
+  const exported = packageEntry.manifest.exports?.[exportKey];
+  const selected = typeof exported === "string"
+    ? exported
+    : subpath === ""
+      ? packageEntry.manifest.module ?? packageEntry.manifest.main ?? packageEntry.manifest.types ?? "./src/index.ts"
+      : `./src/${subpath}`;
+  return resolve(ROOT_PATH, packageEntry.root, selected);
+}
+
 function resolveRepositorySpecifier(importerPath, specifier) {
   let candidate;
   if (specifier.startsWith(".")) {
     candidate = resolve(dirname(resolve(ROOT_PATH, importerPath)), specifier);
   } else if (specifier.startsWith("@/")) {
     candidate = resolve(ROOT_PATH, "apps/customer-panel", specifier.slice(2));
-  } else if (specifier === "@celebix/saas-contracts") {
-    candidate = resolve(ROOT_PATH, "packages/saas-contracts/src/index.ts");
-  } else if (specifier.startsWith("@celebix/saas-contracts/")) {
-    candidate = resolve(ROOT_PATH, "packages/saas-contracts/src", specifier.slice("@celebix/saas-contracts/".length));
-  } else if (specifier === "@celebix/saas-data") {
-    candidate = resolve(ROOT_PATH, "packages/saas-data/src/index.ts");
-  } else if (specifier.startsWith("@celebix/saas-data/")) {
-    candidate = resolve(ROOT_PATH, "packages/saas-data/src", specifier.slice("@celebix/saas-data/".length));
-  } else if (specifier === "@celebix/platform-config") {
-    candidate = resolve(ROOT_PATH, "packages/platform-config/src/index.ts");
-  } else if (specifier.startsWith("@celebix/platform-config/")) {
-    candidate = resolve(ROOT_PATH, "packages/platform-config/src", specifier.slice("@celebix/platform-config/".length));
   } else if (specifier.startsWith("apps/") || specifier.startsWith("packages/")) {
     candidate = resolve(ROOT_PATH, specifier);
   } else {
-    if (specifier === "apps/admin" || specifier.startsWith("apps/admin/") || specifier.startsWith("@/../admin/")) {
+    const workspace = workspaceSpecifierParts(specifier);
+    const packageEntry = workspace === null ? null : WORKSPACE_PACKAGES.get(workspace.packageName);
+    if (packageEntry?.root === "apps/admin" || specifier === "apps/admin" || specifier.startsWith("apps/admin/") || specifier.startsWith("@/../admin/")) {
       throw new Error("apps_admin_import_forbidden");
     }
-    return null;
+    if (packageEntry !== null && packageEntry !== undefined) {
+      candidate = workspacePackageCandidate(packageEntry, workspace.subpath);
+    } else {
+      return null;
+    }
   }
   const selected = existingModule(candidate);
   if (selected === null) throw new Error(`repository_import_unresolved:${importerPath}:${specifier}`);
@@ -158,11 +190,65 @@ function moduleSpecifiers(ts, sourceFile) {
       node.arguments.length === 1 && ts.isStringLiteralLike(node.arguments[0])
     ) {
       specifiers.push(node.arguments[0].text);
+    } else if (
+      ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "require" &&
+      node.arguments.length === 1 && ts.isStringLiteralLike(node.arguments[0])
+    ) {
+      specifiers.push(node.arguments[0].text);
     }
     ts.forEachChild(node, visit);
   }
   visit(sourceFile);
   return specifiers;
+}
+
+function isProductionInventorySource(path) {
+  return SOURCE_EXTENSIONS.includes(extname(path)) &&
+    (path.startsWith("apps/customer-panel/") || path.startsWith("packages/")) &&
+    !/(^|\/)(?:[^/]+[.])?(?:test|spec)[.](?:ts|tsx|js|jsx|mjs|cjs)$/.test(path);
+}
+
+function isEvidenceArtifact(path) {
+  return path.startsWith("tests/") ||
+    /(^|\/)(?:[^/]+[.])?(?:test|spec)[.](?:ts|tsx|js|jsx|mjs|cjs)$/.test(path) ||
+    path.endsWith("_assertions.sql");
+}
+
+function assertProductionSourceSecurity(ts, path, source) {
+  const sourceFile = ts.createSourceFile(
+    path,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    path.endsWith(".tsx") || path.endsWith(".jsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const forbidden = [];
+  function visit(node) {
+    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      if (node.text.includes("/api/admin")) forbidden.push("legacy_admin_api");
+      if (/^https?:\/\//i.test(node.text)) forbidden.push("external_endpoint");
+    }
+    if (ts.isIdentifier(node)) {
+      if (/^(?:DATABASE_URL|PGPASSWORD|SERVICE_ROLE|CLIENT_SECRET|PRIVATE_KEY)$/.test(node.text)) forbidden.push("secret_identifier");
+      if (/^(?:fake|fixture|mock)(?:Total|Price|Stock|Revenue|Quantity)$/i.test(node.text)) forbidden.push("fabricated_commerce_total");
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+  if (forbidden.length > 0) throw new Error(`production_source_forbidden:${path}:${[...new Set(forbidden)].join(",")}`);
+}
+
+function assertProductionArtifactSecurity(ts, path, source) {
+  if (isProductionInventorySource(path)) {
+    assertProductionSourceSecurity(ts, path, source);
+    return;
+  }
+  const searchable = path.endsWith(".sql") ? stripSqlComments(source) : source;
+  if (/\/api\/admin\b|https?:\/\//i.test(searchable) ||
+      /\b(?:DATABASE_URL|PGPASSWORD|SERVICE_ROLE|CLIENT_SECRET|PRIVATE_KEY)\b/.test(searchable) ||
+      /\b(?:fake|fixture|mock)(?:Total|Price|Stock|Revenue|Quantity)\b/i.test(searchable)) {
+    throw new Error(`production_source_forbidden:${path}`);
+  }
 }
 
 function assertRepositoryImportGraph(ts, rootPaths) {
@@ -222,12 +308,50 @@ function occurrences(value, needle) {
   return value.split(needle).length - 1;
 }
 
-function assertResolverCount(body, expected, label) {
-  assert.equal(
-    occurrences(body, "saas.resolve_effective_variant_price("),
-    expected,
-    `${label} does not own its exact effective-price resolver calls`,
-  );
+function assertStorefrontReaderDataflow(body, label) {
+  const compact = body.replace(/\s+/g, " ");
+  const lateral = /SELECT variant[.][*],resolved[.]price_cents AS effective_price FROM saas[.]product_variants variant CROSS JOIN LATERAL saas[.]resolve_effective_variant_price\( p_store_id,variant[.]id,'storefront',p_now,NULL \) resolved WHERE [\s\S]*?resolved[.]outcome='found'/;
+  if (!lateral.test(compact) ||
+      !/'priceCents',selected_price[.]effective_price/.test(compact) ||
+      !/'priceCents',variant[.]effective_price/.test(compact) ||
+      /'priceCents',(?:selected_price|variant)[.]price_cents/.test(compact)) {
+    throw new Error(`price_consumer_dataflow_invalid:${label}`);
+  }
+}
+
+function quickNewFragments(patch) {
+  return [...patch.matchAll(/new_fragment:=\$new\$([\s\S]*?)\$new\$;/g)].map((match) => stripSqlComments(match[1]));
+}
+
+function assertQuickCoreDataflow(fragment, customerExpression, label) {
+  const compact = fragment.replace(/\s+/g, " ");
+  const expectedSelect = "SELECT product.id,product.title,variant.title,variant.sku,resolved.price_cents INTO product_id,product_name,variant_name,variant_sku,variant_price";
+  const expectedResolver = `CROSS JOIN LATERAL saas.resolve_effective_variant_price( p_store_id,variant.id,'quick_order',p_now,${customerExpression} ) AS resolved`;
+  if (!compact.includes(expectedSelect) || !compact.includes(expectedResolver) ||
+      !compact.includes("AND resolved.outcome='found'") || /SELECT [^;]*variant[.]price_cents/.test(compact)) {
+    throw new Error(`price_consumer_dataflow_invalid:${label}`);
+  }
+}
+
+function assertAbandonedCartDataflow(body) {
+  const compact = body.replace(/\s+/g, " ");
+  const subtotal = "pg_catalog.sum(resolved.price_cents*(entry.value->>'quantity')::bigint) INTO resolved_count,subtotal";
+  const resolver = "CROSS JOIN LATERAL saas.resolve_effective_variant_price( selected_store,variant.id,'storefront',p_now,NULL ) resolved";
+  const lineProjection = "),resolved.price_cents,(entry.value->>'quantity')::integer,0, resolved.price_cents*(entry.value->>'quantity')::integer,p_now";
+  if (!compact.includes(subtotal) || occurrences(compact, resolver) !== 2 ||
+      !compact.includes(lineProjection) || /(?:sum\(|\),)variant[.]price_cents/.test(compact)) {
+    throw new Error("price_consumer_dataflow_invalid:abandoned_carts_capture");
+  }
+}
+
+function assertSqlConsumerDataflow(migration) {
+  assertStorefrontReaderDataflow(sqlFunctionBody(migration, "public_list_products"), "public_list_products");
+  assertStorefrontReaderDataflow(sqlFunctionBody(migration, "public_get_product_by_slug"), "public_get_product_by_slug");
+  assertAbandonedCartDataflow(sqlFunctionBody(migration, "abandoned_carts_capture"));
+  const fragments = quickNewFragments(sqlDollarBlock(migration, "quick_reader_patch"));
+  if (fragments.length !== 2) throw new Error("price_consumer_dataflow_invalid:quick_core_count");
+  assertQuickCoreDataflow(fragments[0], "p_customer_email", "quick_links_create_025");
+  assertQuickCoreDataflow(fragments[1], "source_link.customer_email", "quick_links_duplicate_025");
 }
 
 test("pins all six product-operation page families and their subpages", async () => {
@@ -292,15 +416,10 @@ test("registers exact inventory and pricing repositories behind server panel acc
 
 test("shares one effective price authority across every required consumer", async () => {
   const migration = await read("apps/owner/scripts/sql/saas/202607220045_price_lists.up.sql");
-  const resolver = "saas.resolve_effective_variant_price(";
-  assertResolverCount(sqlFunctionBody(migration, "public_list_products"), 1, "public_list_products");
-  assertResolverCount(sqlFunctionBody(migration, "public_get_product_by_slug"), 1, "public_get_product_by_slug");
-  assertResolverCount(sqlFunctionBody(migration, "abandoned_carts_capture"), 2, "abandoned_carts_capture");
+  assertSqlConsumerDataflow(migration);
 
   const createWrapper = sqlFunctionBody(migration, "quick_links_create");
   const duplicateWrapper = sqlFunctionBody(migration, "quick_links_duplicate");
-  assert.equal(occurrences(createWrapper, resolver), 0);
-  assert.equal(occurrences(duplicateWrapper, resolver), 0);
   assert.equal(occurrences(createWrapper, "saas.quick_links_create_025("), 1);
   assert.equal(occurrences(duplicateWrapper, "saas.quick_links_duplicate_025("), 1);
   assert.equal(occurrences(createWrapper, "saas.quick_links_duplicate_025("), 0);
@@ -312,19 +431,8 @@ test("shares one effective price authority across every required consumer", asyn
   const [createCorePatch, duplicateCorePatch] = patch.split(duplicateBoundary);
   assert.match(createCorePatch, /create_target regprocedure:=\s*'saas[.]quick_links_create_025\([^']+\)'::regprocedure;/);
   assert.match(patch, /duplicate_target regprocedure:=\s*'saas[.]quick_links_duplicate_025\([^']+\)'::regprocedure;/);
-  assertResolverCount(createCorePatch, 1, "quick_links_create_025 patch");
-  assertResolverCount(duplicateCorePatch, 1, "quick_links_duplicate_025 patch");
   assert.equal(occurrences(createCorePatch, "variant.price_cents"), 1);
   assert.equal(occurrences(duplicateCorePatch, "variant.price_cents"), 1);
-
-  for (const functionName of ["public_list_products", "public_get_product_by_slug", "abandoned_carts_capture"]) {
-    const body = sqlFunctionBody(migration, functionName);
-    const withoutResolver = body.replaceAll(resolver, "saas.untrusted_price_reader(");
-    assert.throws(
-      () => assertResolverCount(withoutResolver, functionName === "abandoned_carts_capture" ? 2 : 1, functionName),
-      assert.AssertionError,
-    );
-  }
 });
 
 test("resolves every static local import and re-export without donor or Supabase authority", async () => {
@@ -337,6 +445,16 @@ test("resolves every static local import and re-export without donor or Supabase
   const sourceRoots = pinned.filter((path) => SOURCE_EXTENSIONS.includes(extname(path)));
   const graph = assertRepositoryImportGraph(ts, sourceRoots);
   for (const required of REQUIRED_GRAPH_ROOTS) assert.equal(graph.includes(required), true, `unvisited graph root ${required}`);
+  const productionSources = pinned.filter(isProductionInventorySource);
+  assert.equal(productionSources.length, 66);
+  const productionArtifacts = pinned.filter((path) => !isEvidenceArtifact(path));
+  const evidenceArtifacts = pinned.filter(isEvidenceArtifact);
+  assert.equal(productionArtifacts.length, 77);
+  assert.equal(evidenceArtifacts.length, 40);
+  assert.equal(productionArtifacts.length + evidenceArtifacts.length, pinned.length);
+  for (const path of productionArtifacts) {
+    assertProductionArtifactSecurity(ts, path, readFileSync(resolve(ROOT_PATH, path), "utf8"));
+  }
   assert.throws(
     () => resolveRepositorySpecifier("apps/customer-panel/lib/server-access.ts", "../../admin/package.json"),
     /apps_admin_import_forbidden/,
@@ -432,4 +550,42 @@ test("executes the exact focused contract repository HTTP client and console aut
     "apps/customer-panel/lib/catalog-admin-ui/barcode-label-projection.test.ts",
     "apps/customer-panel/lib/catalog-admin-console.test.ts",
   ], { cwd: ROOT_PATH, stdio: "pipe", maxBuffer: 64 * 1024 * 1024 });
+});
+
+test("rejects workspace-admin aliases CommonJS edges and prohibited production literals", async () => {
+  const imported = await import("typescript");
+  const ts = imported.default ?? imported;
+  assert.throws(
+    () => resolveRepositorySpecifier("apps/customer-panel/lib/server-access.ts", "@celebix/admin/catalog"),
+    /apps_admin_import_forbidden/,
+  );
+  const sourceFile = ts.createSourceFile(
+    "synthetic.cjs",
+    "export * from '@celebix/saas-data'; const donor = require('@celebix/admin/catalog');",
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.JS,
+  );
+  assert.deepEqual(moduleSpecifiers(ts, sourceFile), ["@celebix/saas-data", "@celebix/admin/catalog"]);
+  for (const [path, source] of [
+    ["apps/customer-panel/lib/forbidden-admin.ts", "fetch('/api/admin/catalog')"],
+    ["apps/customer-panel/lib/forbidden-secret.ts", "const CLIENT_SECRET = 'hidden'"],
+    ["apps/customer-panel/lib/forbidden-endpoint.ts", "const upstream = 'https://external.example/catalog'"],
+    ["apps/customer-panel/lib/forbidden-total.ts", "const fakeRevenue = 12345"],
+  ]) assert.throws(() => assertProductionSourceSecurity(ts, path, source), /production_source_forbidden/);
+});
+
+test("rejects resolver tokens that do not feed each authoritative price projection", async () => {
+  const migration = await read("apps/owner/scripts/sql/saas/202607220045_price_lists.up.sql");
+  assertSqlConsumerDataflow(migration);
+  const brokenStorefront = migration.replace(
+    "'priceCents',selected_price.effective_price",
+    "'priceCents',selected_price.price_cents /* saas.resolve_effective_variant_price( */",
+  );
+  assert.throws(() => assertSqlConsumerDataflow(brokenStorefront), /price_consumer_dataflow_invalid/);
+  const brokenCart = migration.replace(
+    "pg_catalog.sum(resolved.price_cents*(entry.value->>'quantity')::bigint)",
+    "pg_catalog.sum(variant.price_cents*(entry.value->>'quantity')::bigint) /* saas.resolve_effective_variant_price( */",
+  );
+  assert.throws(() => assertSqlConsumerDataflow(brokenCart), /price_consumer_dataflow_invalid/);
 });
