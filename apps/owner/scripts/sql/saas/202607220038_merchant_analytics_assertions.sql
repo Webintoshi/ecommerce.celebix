@@ -3,7 +3,7 @@ DECLARE actor record; result text; role_name text; dashboard_signature text := '
 BEGIN
   IF to_regprocedure(dashboard_signature) IS NULL THEN RAISE EXCEPTION 'MERCHANT_ANALYTICS_API_MISSING'; END IF;
   IF EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) acl WHERE p.oid=dashboard_signature::regprocedure AND acl.grantee=0 AND acl.privilege_type='EXECUTE') OR NOT has_function_privilege('celebix_saas_app',dashboard_signature,'EXECUTE') THEN RAISE EXCEPTION 'MERCHANT_ANALYTICS_DASHBOARD_ACL_INVALID'; END IF;
-  FOREACH role_name IN ARRAY ARRAY['celebix_saas_workflow','celebix_saas_host_resolver','celebix_saas_bootstrap','celebix_saas_observability','celebix_saas_migrator'] LOOP
+  FOREACH role_name IN ARRAY ARRAY['celebix_saas_identity','celebix_saas_workflow','celebix_saas_host_resolver','celebix_saas_bootstrap','celebix_saas_observability','celebix_saas_migrator'] LOOP
     IF has_function_privilege(role_name,dashboard_signature,'EXECUTE') OR has_function_privilege(role_name,series_signature,'EXECUTE') OR has_function_privilege(role_name,top_signature,'EXECUTE') THEN RAISE EXCEPTION 'MERCHANT_ANALYTICS_ACL_LEAK:%',role_name; END IF;
   END LOOP;
   IF has_function_privilege('celebix_saas_app',series_signature,'EXECUTE') OR has_function_privilege('celebix_saas_app',top_signature,'EXECUTE') OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) acl WHERE p.oid IN(series_signature::regprocedure,top_signature::regprocedure) AND acl.grantee=0 AND acl.privilege_type='EXECUTE') THEN RAISE EXCEPTION 'MERCHANT_ANALYTICS_HELPER_LEAK'; END IF;
