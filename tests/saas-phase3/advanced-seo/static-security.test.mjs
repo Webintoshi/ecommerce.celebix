@@ -10,6 +10,7 @@ const SQL = path.join(ROOT, "apps/owner/scripts/sql/saas");
 const up = readFileSync(path.join(SQL, "202607220040_advanced_seo_preferences.up.sql"), "utf8");
 const down = readFileSync(path.join(SQL, "202607220040_advanced_seo_preferences.down.sql"), "utf8");
 const assertions = readFileSync(path.join(SQL, "202607220040_advanced_seo_preferences_assertions.sql"), "utf8");
+const harness = readFileSync(path.join(ROOT, "tests/saas-phase3/advanced-seo/postgres-harness.mjs"), "utf8");
 const kinds = ["seo_geo_profile", "seo_internal_link", "seo_content_entry", "seo_category_entry", "seo_page_entry", "seo_product_entry", "ai_setting"];
 
 test("advanced SEO manifest pins migration 040 exactly", () => {
@@ -75,4 +76,19 @@ test("SQL grammar has exact TypeScript parity for path UUID and locale", () => {
   assert.match(up, /\^\[a-z\]\{2,3\}\(-\[A-Z\]\{2\}\)\?\$/);
   assert.doesNotMatch(up, /p_value,1,1024/);
   assert.doesNotMatch(up, /-\[A-Z\]\[a-z\]\{3\}|-\[0-9\]\{3\}/);
+});
+
+test("disposable evidence snapshots every replaced 039 helper and uses a deterministic advisory-lock barrier", () => {
+  for (const signature of [
+    "saas.merchant_admin_setting_text(jsonb,integer,integer)",
+    "saas.merchant_admin_setting_https_media_url(jsonb)",
+    "saas.merchant_admin_setting_destination(jsonb)",
+    "saas.merchant_admin_setting_email(jsonb)",
+    "saas.merchant_admin_setting_timestamp_value(jsonb)",
+    "saas.merchant_admin_setting_timestamp(jsonb)",
+    "saas.merchant_admin_record_event(uuid,uuid,uuid,text,jsonb,timestamp with time zone)",
+  ]) assert.ok(harness.includes(signature), signature);
+  assert.match(harness, /pg_catalog\.pg_advisory_xact_lock/);
+  assert.match(harness, /pg_catalog\.pg_stat_activity/);
+  assert.doesNotMatch(harness, /pg_sleep/);
 });
