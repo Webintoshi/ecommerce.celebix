@@ -8,6 +8,7 @@ import {
   type PriceList,
   type PriceListItem,
   type PriceListRule,
+  type PricingPreviewEntry,
   type PricingPreviewRequest,
   type PricingPreviewResult,
 } from "@celebix/saas-contracts";
@@ -270,9 +271,14 @@ export function createPricingApi(fetcher: Fetch = fetch, uuid: () => string = ()
 
 export type PricingApi = ReturnType<typeof createPricingApi>;
 
+export type PricingPreviewAggregate = Readonly<{
+  entries: readonly PricingPreviewEntry[];
+  batches: readonly PricingPreviewResult[];
+}>;
+
 export type PricingPreviewSnapshot =
   | Readonly<{ phase: "idle" | "loading" | "unavailable" }>
-  | Readonly<{ phase: "loaded"; result: PricingPreviewResult }>;
+  | Readonly<{ phase: "loaded"; result: PricingPreviewAggregate }>;
 
 export function createPricingPreviewController(
   api: Pick<PricingApi, "preview">,
@@ -315,14 +321,11 @@ export function createPricingPreviewController(
       void Promise.all(requests).then((results) => {
         if (!controller.signal.aborted && current === controller && generation === selected) {
           current = undefined;
-          const entries = Object.freeze(results.flatMap(({ entries }) => entries).sort((left, right) => (
+          const batches = Object.freeze([...results]);
+          const entries = Object.freeze(batches.flatMap(({ entries }) => entries).sort((left, right) => (
             left.variantId < right.variantId ? -1 : left.variantId > right.variantId ? 1 : 0
           )));
-          const asOf = results.reduce(
-            (latest, result) => result.asOf > latest ? result.asOf : latest,
-            results[0]!.asOf,
-          );
-          publish({ phase: "loaded", result: Object.freeze({ entries, asOf }) });
+          publish({ phase: "loaded", result: Object.freeze({ entries, batches }) });
         }
       }).catch(() => {
         if (!controller.signal.aborted && current === controller && generation === selected) {

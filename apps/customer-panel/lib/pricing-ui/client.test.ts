@@ -118,6 +118,42 @@ test("pricing preview controller batches five hundred selected variants into bou
   assert.equal(loaded?.phase === "loaded" ? loaded.result.entries.length : 0, 500);
 });
 
+test("pricing preview aggregate preserves each verified batch epoch without a synthetic asOf", async () => {
+  const variantIds = Array.from({ length: 101 }, (_, index) =>
+    `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`
+  );
+  const epochs = [
+    "2026-07-23T12:00:00.000001Z",
+    "2026-07-23T12:00:00.000002Z",
+  ] as const;
+  let call = 0;
+  const states: PricingPreviewSnapshot[] = [];
+  const controller = createPricingPreviewController({
+    async preview(input) {
+      const asOf = epochs[call++]!;
+      return {
+        entries: Object.freeze([...input.variantIds].sort().map((variantId) => Object.freeze({
+          variantId, channel: input.channel, basePriceCents: 1000 + call,
+          effectivePriceCents: 1000 + call, sourceKind: "base" as const,
+        }))),
+        asOf,
+      };
+    },
+  }, (state) => states.push(state));
+  controller.load({ channel: "storefront", variantIds });
+  await new Promise((resolve) => setImmediate(resolve));
+  const loaded = states.at(-1);
+  assert.equal(loaded?.phase, "loaded");
+  if (loaded?.phase !== "loaded") return;
+  assert.equal(Object.hasOwn(loaded.result, "asOf"), false);
+  assert.deepEqual(loaded.result.batches.map(({ asOf }) => asOf), epochs);
+  assert.equal(loaded.result.batches[0]?.entries[0]?.variantId, variantIds[0]);
+  assert.equal(loaded.result.batches[1]?.entries[0]?.variantId, variantIds[100]);
+  assert.equal(loaded.result.entries[0]?.variantId, variantIds[0]);
+  assert.equal(loaded.result.entries[100]?.variantId, variantIds[100]);
+  assert.equal(Object.isFrozen(loaded.result.batches), true);
+});
+
 test("pricing preview controller publishes no partial batch and suppresses stale batched generations", async () => {
   const ids = Array.from({ length: 101 }, (_, index) =>
     `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`
@@ -186,9 +222,9 @@ test("pricing preview controller aborts stale generations and never publishes in
     entries: [{ ...preview().entries[0]!, channel: "quick_order" }],
   });
   await new Promise((resolve) => setImmediate(resolve));
-  const loaded = states.at(-1) as { phase: string; result?: PricingPreviewResult };
+  const loaded = states.at(-1) as PricingPreviewSnapshot;
   assert.equal(loaded.phase, "loaded");
-  assert.equal(loaded.result?.entries[0]?.channel, "quick_order");
+  assert.equal(loaded.phase === "loaded" ? loaded.result.entries[0]?.channel : undefined, "quick_order");
 
   controller.load({ channel: "storefront", variantIds: [VARIANT] });
   pending[2]?.reject(new PricingApiError("unavailable", 503));

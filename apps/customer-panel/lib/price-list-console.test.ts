@@ -44,6 +44,7 @@ test("price-list editor uses complete shared catalog choices and only server pri
   assert.doesNotMatch(component, /variant[.]priceCents/);
   assert.doesNotMatch(component, /effectivePriceCents\s*[:=]\s*item[.]priceCents/);
   assert.doesNotMatch(component, /basePriceCents\s*[:=]\s*item[.]priceCents/);
+  assert.doesNotMatch(component, /previewState[.]result[.]asOf/);
 });
 
 test("price-list console uses durable API results for conflict permission empty and error truth", async () => {
