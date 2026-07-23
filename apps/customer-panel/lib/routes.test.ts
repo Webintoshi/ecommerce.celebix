@@ -56,6 +56,25 @@ test("advanced SEO and AI pages expose only fixed server-authorized kinds", asyn
   }
 });
 
+test("product import preparation pages use fixed formats and server-owned capability", async () => {
+  const pages = [
+    ["../app/products/auto-import/page.tsx", "native_csv"],
+    ["../app/products/shopify-converter/page.tsx", "shopify_csv"],
+    ["../app/products/bulk-upload/page.tsx", "native_csv"],
+  ] as const;
+  for (const [path, format] of pages) {
+    const page = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(page, /requireServerPanelAccess\(\)/);
+    assert.match(page, /tenantContext[.]membership[.]role/);
+    assert.match(page, /catalog_admin[.]import/);
+    if (!path.endsWith("bulk-upload/page.tsx")) {
+      assert.match(page, new RegExp(`format=["']${format}["']`));
+      assert.match(page, /<CatalogImportPreparationConsole/);
+    }
+    assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage|provider|credential|token/i);
+  }
+});
+
 test("exports only the exact authenticated order route methods", async () => {
   const routes = [
     ["../app/api/orders/summary/route.ts", "GET", "handleDefaultOrderGetDashboardSummary"],

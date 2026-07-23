@@ -44,6 +44,8 @@ test("contains every and only currently working merchant destination", () => {
       "/products/extras",
       "/products/reviews",
       "/products/definitions",
+      "/products/auto-import",
+      "/products/shopify-converter",
       "/products/bulk-upload",
       "/discounts",
       "/discounts/new",
@@ -123,7 +125,21 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+});
+
+test("import preparation navigation is exact, near-match-safe, and query-safe", () => {
+  for (const href of [
+    "/products/auto-import",
+    "/products/shopify-converter",
+    "/products/bulk-upload",
+  ] as const) {
+    assert.equal(isPanelNavigationPathActive(href, href), true);
+    assert.equal(isPanelNavigationPathActive(`${href}-evil`, href), false);
+    assert.equal(isPanelNavigationPathActive(`${href}/child`, href), false);
+    assert.equal(isPanelNavigationPathActive(`${href}?next=/products`, href), false);
+    assert.equal(isPanelNavigationPathActive(`${href}#preview`, href), false);
+  }
 });
 
 test("selects only the exact abandoned-cart child", () => {
@@ -267,6 +283,8 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "/products/extras",
       "/products/reviews",
       "/products/definitions",
+      "/products/auto-import",
+      "/products/shopify-converter",
       "/products/bulk-upload",
       "/products/product-123",
       "/setup",
@@ -291,6 +309,8 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "Ekstralar",
       "Yorumlar",
       "Tanımlamalar",
+      "Otomatik Yükle",
+      "Shopify Dönüştürücü",
       "Toplu Yükle",
       "Ürün ayrıntısı",
       "Kurulum durumu",
