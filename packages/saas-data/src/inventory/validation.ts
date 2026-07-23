@@ -2,14 +2,44 @@ import type { TenantContext } from "@celebix/saas-contracts";
 
 import { OrderRepositoryError } from "../orders/errors.ts";
 import { merchantAuthority, type ValidatedOrderAuthority } from "../orders/validation.ts";
-import { InventoryRepositoryError, type InventoryErrorCode } from "./errors.ts";
+import { inventoryFailure, type InventoryErrorCode } from "./errors.ts";
 
 export const INVENTORY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const MAX_QUANTITY = 2_147_483_647;
 const MAX_MONEY = 8_000_000_000;
 
-function fail(code: InventoryErrorCode = "invalid_input"): never { throw new InventoryRepositoryError(code); }
+function fail(code: InventoryErrorCode = "invalid_input"): never { throw inventoryFailure(code); }
+
+function authorityData(value: unknown, depth = 0): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (depth > 12) fail("durable_authority_invalid");
+  if (Array.isArray(value)) {
+    if (Object.getPrototypeOf(value) !== Array.prototype || value.length > 100) fail("durable_authority_invalid");
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (Reflect.ownKeys(descriptors).length !== value.length + 1) fail("durable_authority_invalid");
+    const copied: unknown[] = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = descriptors[String(index)];
+      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) fail("durable_authority_invalid");
+      copied.push(authorityData(descriptor.value, depth + 1));
+    }
+    return copied;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) fail("durable_authority_invalid");
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const copied = Object.create(null) as Record<string, unknown>;
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (typeof key !== "string") fail("durable_authority_invalid");
+    const descriptor = descriptors[key];
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) {
+      fail("durable_authority_invalid");
+    }
+    copied[key] = authorityData(descriptor.value, depth + 1);
+  }
+  return copied;
+}
 
 export function exactInventoryInput(
   value: unknown,
@@ -35,15 +65,20 @@ export function exactInventoryInput(
       result[key] = descriptor.value;
     }
     return Object.freeze(result);
-  } catch (error) {
-    if (error instanceof InventoryRepositoryError) throw error;
-    fail();
-  }
+  } catch { fail(); }
 }
 
 export function inventoryAuthority(context: TenantContext, now: Date): ValidatedOrderAuthority {
+  let safeContext: TenantContext, safeNow: Date;
   try {
-    return merchantAuthority(context, now, "catalog");
+    safeContext = authorityData(context) as TenantContext;
+    if (!(now instanceof Date) || Object.getPrototypeOf(now) !== Date.prototype) fail("durable_authority_invalid");
+    const timestamp = Date.prototype.getTime.call(now);
+    if (!Number.isFinite(timestamp)) fail("durable_authority_invalid");
+    safeNow = new Date(timestamp);
+  } catch { fail("durable_authority_invalid"); }
+  try {
+    return merchantAuthority(safeContext, safeNow, "catalog");
   } catch (error) {
     if (
       error instanceof OrderRepositoryError &&
@@ -59,7 +94,7 @@ export function inventoryUuid(value: unknown): string {
 }
 
 export function inventoryVersion(value: unknown): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 1) fail();
+  if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) >= Number.MAX_SAFE_INTEGER) fail();
   return value as number;
 }
 

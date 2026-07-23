@@ -32,7 +32,10 @@ function exact(value: unknown, required: readonly string[], optional: readonly s
     ? null : parsed;
 }
 function id(value: unknown): string | null { return typeof value === "string" && UUID.test(value) ? value : null; }
-function version(value: unknown): number | null { return Number.isSafeInteger(value) && (value as number) >= 1 ? value as number : null; }
+function version(value: unknown): number | null {
+  return Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) < Number.MAX_SAFE_INTEGER
+    ? value as number : null;
+}
 function quantity(value: unknown, minimum: number): number | null {
   return Number.isSafeInteger(value) && (value as number) >= minimum && (value as number) <= 2_147_483_647 ? value as number : null;
 }

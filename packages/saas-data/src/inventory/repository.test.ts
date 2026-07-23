@@ -5,11 +5,14 @@ import type { TenantContext } from "@celebix/saas-contracts";
 import type { QueryResult } from "pg";
 
 import {
-  InventoryRepositoryError,
+  inventoryRepositoryErrorCode,
   PostgresInventoryRepository,
   type InventoryRepository,
 } from "./index.ts";
+import * as inventoryPublic from "./index.ts";
+import { inventoryFailure } from "./errors.ts";
 import type { PostgresClientLike, PostgresPoolLike } from "../postgres/pool.ts";
+import { OrderRepositoryError } from "../orders/errors.ts";
 
 const STORE = "10000000-0000-4000-8000-000000000001";
 const PRINCIPAL = "10000000-0000-4000-8000-000000000002";
@@ -76,6 +79,7 @@ const transfer = () => ({
 });
 const mutation = (id: string, status: string, version: number) => ({ id, status, version, updatedAt: TIMESTAMP, replayed: false });
 const authority = () => ({ tenantContext: tenant(), now: new Date(NOW) });
+const hasCode = (value: unknown, code: string) => inventoryRepositoryErrorCode(value) === code;
 
 type QueryLog = Readonly<{ text: string; values?: unknown[] }>;
 type ResultRow = Readonly<{ outcome: string; result_payload: unknown }>;
@@ -187,10 +191,34 @@ test("inventory repository runs every read in one exact read-only transaction an
   const malformed = new Client({ outcome: "listed", result_payload: { items: [{ ...location(), storeId: STORE }] } });
   await assert.rejects(
     () => repository(new Pool(malformed)).listLocations(authority()),
-    (error: unknown) => error instanceof InventoryRepositoryError && error.code === "unavailable",
+    (error: unknown) => hasCode(error, "unavailable"),
   );
   assert.equal(malformed.queries.some((query) => query.text === "COMMIT"), false);
   assert.equal(malformed.queries.at(-1)?.text, "ROLLBACK");
+});
+
+test("inventory repository descriptor-copies exact SQL envelopes and rejects sparse or exotic list arrays before commit", async () => {
+  let accessorReads = 0;
+  const accessorEnvelope = Object.defineProperty({}, "items", {
+    enumerable: true,
+    get() { accessorReads += 1; return [location()]; },
+  });
+  const symbolEnvelope = { items: [location()], [Symbol("private")]: STORE };
+  const sparseItems = new Array(1);
+  const proxyEnvelope = new Proxy({ items: [location()] }, {
+    getPrototypeOf() { throw inventoryFailure("membership_denied"); },
+  });
+  for (const payload of [accessorEnvelope, symbolEnvelope, { items: sparseItems }, proxyEnvelope]) {
+    const client = new Client({ outcome: "listed", result_payload: payload });
+    await assert.rejects(
+      () => repository(new Pool(client)).listLocations(authority()),
+      (error: unknown) => hasCode(error, "unavailable"),
+    );
+    assert.equal(client.queries.some((query) => query.text === "COMMIT"), false);
+    assertConfigured(client, "BEGIN READ ONLY", "ROLLBACK");
+    assert.deepEqual(client.releases, [undefined]);
+  }
+  assert.equal(accessorReads, 0);
 });
 
 test("inventory repository exposes the eleven exact mutation SQL signatures", async () => {
@@ -281,7 +309,7 @@ test("inventory repository rolls back known mutation failures and maps unknown f
       () => repository(new Pool(client)).dispatchTransfer({
         ...authority(), operationId: OPERATION, transferId: TRANSFER, expectedVersion: 1,
       }),
-      (error: unknown) => error instanceof InventoryRepositoryError && error.code === code,
+      (error: unknown) => hasCode(error, code),
     );
     assertConfigured(client, "BEGIN ISOLATION LEVEL READ COMMITTED", "ROLLBACK");
     assert.deepEqual(client.releases, [undefined]);
@@ -291,7 +319,7 @@ test("inventory repository rolls back known mutation failures and maps unknown f
     () => repository(new Pool(unknown)).dispatchTransfer({
       ...authority(), operationId: OPERATION, transferId: TRANSFER, expectedVersion: 1,
     }),
-    (error: unknown) => error instanceof InventoryRepositoryError && error.code === "unavailable" && !error.message.includes("private"),
+    (error: unknown) => hasCode(error, "unavailable") && error instanceof Error && !error.message.includes("private"),
   );
 });
 
@@ -305,7 +333,7 @@ test("inventory repository rejects corrupt replay flags and operation-impossible
       () => repository(new Pool(client)).dispatchTransfer({
         ...authority(), operationId: OPERATION, transferId: TRANSFER, expectedVersion: 1,
       }),
-      (error: unknown) => error instanceof InventoryRepositoryError && error.code === "unavailable",
+      (error: unknown) => hasCode(error, "unavailable"),
     );
     assert.equal(client.queries.some((query) => query.text === "COMMIT"), false);
     assertConfigured(client, "BEGIN ISOLATION LEVEL READ COMMITTED", "ROLLBACK");
@@ -317,18 +345,53 @@ test("inventory repository validates exact input and TenantContext before pool c
   const repo = repository(pool);
   await assert.rejects(
     () => repo.listLocations({ ...authority(), storeId: STORE } as never),
-    (error: unknown) => error instanceof InventoryRepositoryError && error.code === "invalid_input",
+    (error: unknown) => hasCode(error, "invalid_input"),
   );
   await assert.rejects(
     () => repo.listLocations({ ...authority(), tenantContext: { ...tenant(), store: { ...tenant().store, id: "not-a-uuid" } } as TenantContext }),
-    (error: unknown) => error instanceof InventoryRepositoryError && error.code === "durable_authority_invalid",
+    (error: unknown) => hasCode(error, "durable_authority_invalid"),
   );
   await assert.rejects(
     () => repo.saveTransfer({
       ...authority(), operationId: OPERATION, sourceLocationId: LOCATION, destinationLocationId: DESTINATION,
       lines: [{ lineId: LINE, variantId: VARIANT, quantity: 0 }],
     }),
-    (error: unknown) => error instanceof InventoryRepositoryError && error.code === "invalid_input",
+    (error: unknown) => hasCode(error, "invalid_input"),
+  );
+  assert.throws(
+    () => repo.startCount({
+      ...authority(), operationId: OPERATION, countId: COUNT, expectedVersion: Number.MAX_SAFE_INTEGER,
+    }),
+    (error: unknown) => hasCode(error, "invalid_input"),
+  );
+  assert.equal(pool.connectCount, 0);
+});
+
+test("inventory repository public errors are guarded and hostile validation cannot inject trusted authority codes", async () => {
+  assert.equal("InventoryRepositoryError" in inventoryPublic, false);
+  assert.equal(typeof (inventoryPublic as Record<string, unknown>).inventoryRepositoryErrorCode, "function");
+
+  const pool = new Pool();
+  const injected = inventoryFailure("membership_denied");
+  const hostile = new Proxy({}, {
+    ownKeys() { throw injected; },
+  });
+  await assert.rejects(
+    () => repository(pool).listLocations(hostile as never),
+    (error: unknown) => (
+      (inventoryPublic as unknown as { inventoryRepositoryErrorCode(value: unknown): string | undefined })
+        .inventoryRepositoryErrorCode(error) === "invalid_input"
+    ),
+  );
+  const hostileTenant = new Proxy(tenant(), {
+    getPrototypeOf() { throw new OrderRepositoryError("membership_denied"); },
+  });
+  await assert.rejects(
+    () => repository(pool).listLocations({ tenantContext: hostileTenant, now: new Date(NOW) }),
+    (error: unknown) => (
+      (inventoryPublic as unknown as { inventoryRepositoryErrorCode(value: unknown): string | undefined })
+        .inventoryRepositoryErrorCode(error) === "durable_authority_invalid"
+    ),
   );
   assert.equal(pool.connectCount, 0);
 });
@@ -339,6 +402,29 @@ test("inventory repository construction is finite and fail-closed", () => {
       pool: new Pool(), role: "celebix_saas_app", timeouts: { poolCheckoutMs: 1, statementMs: 1, lockMs: 1, idleTransactionMs: 1 },
       uuid: () => ORDER, audit: () => undefined, databaseUrl: "private",
     } as never),
-    (error: unknown) => error instanceof InventoryRepositoryError && error.code === "unavailable",
+    (error: unknown) => hasCode(error, "unavailable"),
+  );
+  const injected = inventoryFailure("membership_denied");
+  const hostileOptions = new Proxy({
+    pool: new Pool(), role: "celebix_saas_app" as const,
+    timeouts: { poolCheckoutMs: 1, statementMs: 1, lockMs: 1, idleTransactionMs: 1 },
+    uuid: () => ORDER, audit: () => undefined,
+  }, { getPrototypeOf() { throw injected; } });
+  assert.throws(
+    () => new PostgresInventoryRepository(hostileOptions),
+    (error: unknown) => hasCode(error, "unavailable"),
+  );
+});
+
+test("inventory repository contains trusted-looking errors thrown by driver dependencies", async () => {
+  const injected = inventoryFailure("membership_denied");
+  const client: PostgresClientLike = {
+    async query() { throw injected; },
+    release() { return undefined; },
+  };
+  const pool: PostgresPoolLike = { async connect() { return client; } };
+  await assert.rejects(
+    () => repository(pool).listLocations(authority()),
+    (error: unknown) => hasCode(error, "unavailable"),
   );
 });

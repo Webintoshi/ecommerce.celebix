@@ -7,7 +7,7 @@ import {
   parsePurchaseOrder,
   type TenantContext,
 } from "@celebix/saas-contracts";
-import { InventoryRepositoryError } from "@celebix/saas-data";
+import { inventoryRepositoryErrorCode } from "@celebix/saas-data";
 
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
@@ -28,16 +28,38 @@ function response(value: unknown, status = 200, extra?: HeadersInit): Response {
 }
 function error(code: string, status: number, extra?: HeadersInit): Response { return response({ code }, status, extra); }
 function repositoryError(value: unknown): Response {
-  if (!(value instanceof InventoryRepositoryError)) return error("unavailable", 503);
-  if (value.code === "invalid_input") return error("invalid_input", 400);
-  if (value.code === "resource_not_found") return error("not_found", 404);
-  if (["unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "durable_authority_invalid"].includes(value.code)) return error("forbidden", 403);
-  if (["invalid_transition", "version_conflict", "operation_mismatch", "over_receipt", "inventory_conflict", "active_hold_conflict", "insufficient_stock"].includes(value.code)) return error("conflict", 409);
-  return error("unavailable", 503);
+  try {
+    const code = inventoryRepositoryErrorCode(value);
+    if (code === "invalid_input") return error("invalid_input", 400);
+    if (code === "resource_not_found") return error("not_found", 404);
+    if (["unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "durable_authority_invalid"].includes(code ?? "")) return error("forbidden", 403);
+    if (["invalid_transition", "version_conflict", "operation_mismatch", "over_receipt", "inventory_conflict", "active_hold_conflict", "insufficient_stock"].includes(code ?? "")) return error("conflict", 409);
+    return error("unavailable", 503);
+  } catch { return error("unavailable", 503); }
+}
+function denseArray(value: unknown, maximum: number): readonly unknown[] {
+  try {
+    if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > maximum) {
+      throw new TypeError("inventory_http_output_invalid");
+    }
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (Reflect.ownKeys(descriptors).length !== value.length + 1) throw new TypeError("inventory_http_output_invalid");
+    const copied: unknown[] = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = descriptors[String(index)];
+      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) {
+        throw new TypeError("inventory_http_output_invalid");
+      }
+      copied.push(descriptor.value);
+    }
+    return copied;
+  } catch { throw new TypeError("inventory_http_output_invalid"); }
 }
 function items(value: unknown, parser: (entry: unknown) => unknown): Readonly<{ items: readonly unknown[] }> {
-  if (!Array.isArray(value) || value.length > 500) throw new TypeError("inventory_http_output_invalid");
-  return Object.freeze({ items: Object.freeze(value.map(parser)) });
+  return Object.freeze({ items: Object.freeze(denseArray(value, 500).map(parser)) });
+}
+function mutation(kind: "purchase_order" | "inventory_count" | "inventory_transfer", value: unknown) {
+  return Object.freeze({ kind, ...parseInventoryMutationResult(value) });
 }
 
 async function authorize(dependencies: Dependencies, request: Request, route: InventoryRoute): Promise<Response | Authorized> {
@@ -93,21 +115,21 @@ export function createInventoryHttpHandler(dependencies: Dependencies): (request
       case "balances": return execute(() => repository.listBalances({ ...authority, locationId: (input as { locationId: string }).locationId }), (value) => items(value, parseInventoryBalance));
       case "purchase_list": return execute(() => repository.listPurchaseOrders(authority), (value) => items(value, parsePurchaseOrder));
       case "purchase_get": return execute(() => repository.getPurchaseOrder({ ...authority, orderId: route.id }), parsePurchaseOrder);
-      case "purchase_save": return execute(() => repository.savePurchaseOrder({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "purchase_save" }>).value }), parseInventoryMutationResult);
-      case "purchase_transition": return execute(() => repository.transitionPurchaseOrder({ ...authority, orderId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "purchase_transition" }>).value }), parseInventoryMutationResult);
-      case "purchase_receive": return execute(() => repository.receivePurchaseOrder({ ...authority, orderId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "purchase_receive" }>).value }), parseInventoryMutationResult);
+      case "purchase_save": return execute(() => repository.savePurchaseOrder({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "purchase_save" }>).value }), (value) => mutation("purchase_order", value));
+      case "purchase_transition": return execute(() => repository.transitionPurchaseOrder({ ...authority, orderId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "purchase_transition" }>).value }), (value) => mutation("purchase_order", value));
+      case "purchase_receive": return execute(() => repository.receivePurchaseOrder({ ...authority, orderId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "purchase_receive" }>).value }), (value) => mutation("purchase_order", value));
       case "count_list": return execute(() => repository.listCounts(authority), (value) => items(value, parseInventoryCount));
       case "count_get": return execute(() => repository.getCount({ ...authority, countId: route.id }), parseInventoryCount);
-      case "count_save": return execute(() => repository.saveCount({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "count_save" }>).value }), parseInventoryMutationResult);
-      case "count_start": return execute(() => repository.startCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), parseInventoryMutationResult);
-      case "count_commit": return execute(() => repository.commitCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), parseInventoryMutationResult);
-      case "count_cancel": return execute(() => repository.cancelCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), parseInventoryMutationResult);
+      case "count_save": return execute(() => repository.saveCount({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "count_save" }>).value }), (value) => mutation("inventory_count", value));
+      case "count_start": return execute(() => repository.startCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_count", value));
+      case "count_commit": return execute(() => repository.commitCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_count", value));
+      case "count_cancel": return execute(() => repository.cancelCount({ ...authority, countId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_count", value));
       case "transfer_list": return execute(() => repository.listTransfers(authority), (value) => items(value, parseInventoryTransfer));
       case "transfer_get": return execute(() => repository.getTransfer({ ...authority, transferId: route.id }), parseInventoryTransfer);
-      case "transfer_save": return execute(() => repository.saveTransfer({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "transfer_save" }>).value }), parseInventoryMutationResult);
-      case "transfer_dispatch": return execute(() => repository.dispatchTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), parseInventoryMutationResult);
-      case "transfer_receive": return execute(() => repository.receiveTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), parseInventoryMutationResult);
-      case "transfer_cancel": return execute(() => repository.cancelTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), parseInventoryMutationResult);
+      case "transfer_save": return execute(() => repository.saveTransfer({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "transfer_save" }>).value }), (value) => mutation("inventory_transfer", value));
+      case "transfer_dispatch": return execute(() => repository.dispatchTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_transfer", value));
+      case "transfer_receive": return execute(() => repository.receiveTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_transfer", value));
+      case "transfer_cancel": return execute(() => repository.cancelTransfer({ ...authority, transferId: route.id, ...(input as unknown as { value: OperationValue }).value }), (value) => mutation("inventory_transfer", value));
     }
   };
 }

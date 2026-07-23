@@ -17,7 +17,12 @@ import {
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import type { ValidatedOrderAuthority } from "../orders/validation.ts";
 import { canonicalInventoryLines, inventoryFingerprint } from "./canonical.ts";
-import { INVENTORY_ERROR_CODES, InventoryRepositoryError, type InventoryErrorCode } from "./errors.ts";
+import {
+  INVENTORY_ERROR_CODES,
+  inventoryFailure,
+  inventoryRepositoryErrorCode,
+  type InventoryErrorCode,
+} from "./errors.ts";
 import type {
   CancelInventoryCountInput,
   CancelInventoryTransferInput,
@@ -80,7 +85,7 @@ type Spec = Readonly<{ text: string; values: unknown[] }>;
 type MutationParser = (value: unknown, replayed: boolean) => InventoryMutationResult;
 const ERRORS = new Set<string>(INVENTORY_ERROR_CODES);
 
-function unavailable(): InventoryRepositoryError { return new InventoryRepositoryError("unavailable"); }
+function unavailable(): Error { return inventoryFailure("unavailable"); }
 function timeout(value: number): string {
   if (!Number.isSafeInteger(value) || value < 1 || value > 60_000) throw unavailable();
   return `${value}ms`;
@@ -89,18 +94,50 @@ function release(client: PostgresClientLike, destroy = false): void {
   try { client.release(destroy || undefined); } catch { /* Cleanup cannot change the durable outcome. */ }
 }
 function record(value: unknown, keys: readonly string[]): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
-  const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) throw unavailable();
-  const parsed = value as Record<string, unknown>;
-  if (Object.keys(parsed).sort().join(",") !== [...keys].sort().join(",")) throw unavailable();
-  return parsed;
+  try {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) throw unavailable();
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) throw unavailable();
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const ownKeys = Reflect.ownKeys(descriptors);
+    if (
+      ownKeys.length !== keys.length ||
+      ownKeys.some((key) => typeof key !== "string" || !keys.includes(key))
+    ) throw unavailable();
+    const parsed = Object.create(null) as Record<string, unknown>;
+    for (const key of keys) {
+      const descriptor = descriptors[key];
+      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw unavailable();
+      parsed[key] = descriptor.value;
+    }
+    return parsed;
+  } catch { throw unavailable(); }
+}
+function denseArray(value: unknown, minimum: number, maximum: number): readonly unknown[] {
+  try {
+    if (
+      !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype ||
+      value.length < minimum || value.length > maximum
+    ) throw unavailable();
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (Reflect.ownKeys(descriptors).length !== value.length + 1) throw unavailable();
+    const copied: unknown[] = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = descriptors[String(index)];
+      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw unavailable();
+      copied.push(descriptor.value);
+    }
+    return Object.freeze(copied);
+  } catch { throw unavailable(); }
 }
 function row(result: Readonly<{ rows: unknown[]; rowCount?: number | null }>) {
-  if (result.rowCount !== 1 || result.rows.length !== 1) throw unavailable();
-  const parsed = record(result.rows[0], ["outcome", "result_payload"]);
-  if (typeof parsed.outcome !== "string" || parsed.outcome.length < 1 || parsed.outcome.length > 64) throw unavailable();
-  return Object.freeze({ outcome: parsed.outcome, result: parsed.result_payload });
+  try {
+    const rows = denseArray(result.rows, 1, 1);
+    if (result.rowCount !== 1) throw unavailable();
+    const parsed = record(rows[0], ["outcome", "result_payload"]);
+    if (typeof parsed.outcome !== "string" || parsed.outcome.length < 1 || parsed.outcome.length > 64) throw unavailable();
+    return Object.freeze({ outcome: parsed.outcome, result: parsed.result_payload });
+  } catch { throw unavailable(); }
 }
 function authorityValues(authority: ValidatedOrderAuthority): unknown[] {
   return [authority.storeId, authority.principalId, authority.membershipId, authority.planId, authority.planCode, authority.planVersion, authority.now];
@@ -130,10 +167,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
       ) throw unavailable();
       for (const value of Object.values(options.timeouts)) timeout(value);
       this.options = Object.freeze({ ...options, timeouts: Object.freeze({ ...options.timeouts }) });
-    } catch (error) {
-      if (error instanceof InventoryRepositoryError) throw error;
-      throw unavailable();
-    }
+    } catch { throw unavailable(); }
   }
 
   private async acquire(): Promise<PostgresClientLike> {
@@ -141,19 +175,24 @@ export class PostgresInventoryRepository implements InventoryRepository {
     catch { throw unavailable(); }
   }
 
-  private async configure(client: PostgresClientLike): Promise<void> {
-    await client.query("SELECT pg_catalog.set_config('statement_timeout', $1, true)", [timeout(this.options.timeouts.statementMs)]);
-    await client.query("SELECT pg_catalog.set_config('lock_timeout', $1, true)", [timeout(this.options.timeouts.lockMs)]);
-    await client.query("SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.options.timeouts.idleTransactionMs)]);
-    await client.query("SET LOCAL ROLE celebix_saas_app");
+  private async query(client: PostgresClientLike, text: string, values?: unknown[]) {
+    try { return await client.query(text, values); }
+    catch { throw unavailable(); }
   }
 
-  private expected(outcome: string): InventoryRepositoryError | undefined {
-    return ERRORS.has(outcome) ? new InventoryRepositoryError(outcome as InventoryErrorCode) : undefined;
+  private async configure(client: PostgresClientLike): Promise<void> {
+    await this.query(client, "SELECT pg_catalog.set_config('statement_timeout', $1, true)", [timeout(this.options.timeouts.statementMs)]);
+    await this.query(client, "SELECT pg_catalog.set_config('lock_timeout', $1, true)", [timeout(this.options.timeouts.lockMs)]);
+    await this.query(client, "SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)", [timeout(this.options.timeouts.idleTransactionMs)]);
+    await this.query(client, "SET LOCAL ROLE celebix_saas_app");
+  }
+
+  private expected(outcome: string): Error | undefined {
+    return ERRORS.has(outcome) ? inventoryFailure(outcome as InventoryErrorCode) : undefined;
   }
 
   private async rollback(client: PostgresClientLike): Promise<void> {
-    try { await client.query("ROLLBACK"); release(client); }
+    try { await this.query(client, "ROLLBACK"); release(client); }
     catch { release(client, true); }
   }
 
@@ -162,16 +201,16 @@ export class PostgresInventoryRepository implements InventoryRepository {
     let began = false;
     let terminal = false;
     try {
-      await client.query("BEGIN READ ONLY");
+      await this.query(client, "BEGIN READ ONLY");
       began = true;
       await this.configure(client);
-      const result = row(await client.query(spec.text, spec.values));
+      const result = row(await this.query(client, spec.text, spec.values));
       const expected = this.expected(result.outcome);
       if (expected) throw expected;
       if (result.outcome !== expectedOutcome) throw unavailable();
       const parsed = parser(result.result);
       try {
-        await client.query("COMMIT");
+        await this.query(client, "COMMIT");
         terminal = true;
         release(client);
       } catch {
@@ -183,7 +222,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
       else if (!began && !terminal) release(client, true);
-      if (error instanceof InventoryRepositoryError) throw error;
+      if (inventoryRepositoryErrorCode(error) !== undefined) throw error;
       throw unavailable();
     }
   }
@@ -224,16 +263,16 @@ export class PostgresInventoryRepository implements InventoryRepository {
     let began = false;
     let terminal = false;
     try {
-      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      await this.query(client, "BEGIN ISOLATION LEVEL READ COMMITTED");
       began = true;
       await this.configure(client);
-      const result = row(await client.query(spec.text, spec.values));
+      const result = row(await this.query(client, spec.text, spec.values));
       const expected = this.expected(result.outcome);
       if (expected) throw expected;
       if (result.outcome !== successOutcome && result.outcome !== "operation_replayed") throw unavailable();
       const parsed = parser(result.result, result.outcome === "operation_replayed");
       try {
-        await client.query("COMMIT");
+        await this.query(client, "COMMIT");
         terminal = true;
         release(client);
         return parsed;
@@ -246,7 +285,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
       else if (!began && !terminal) release(client, true);
-      if (error instanceof InventoryRepositoryError) throw error;
+      if (inventoryRepositoryErrorCode(error) !== undefined) throw error;
       throw unavailable();
     }
   }
@@ -269,9 +308,9 @@ export class PostgresInventoryRepository implements InventoryRepository {
     ordered?: (left: T, right: T) => number,
   ): readonly T[] {
     const envelope = record(value, ["items"]);
-    if (!Array.isArray(envelope.items) || envelope.items.length > 500) throw unavailable();
+    const rawItems = denseArray(envelope.items, 0, 500);
     let items: readonly T[];
-    try { items = Object.freeze(envelope.items.map(parser)); } catch { throw unavailable(); }
+    try { items = Object.freeze(rawItems.map(parser)); } catch { throw unavailable(); }
     if (ordered) {
       for (let index = 1; index < items.length; index += 1) {
         if (ordered(items[index - 1]!, items[index]!) >= 0) throw unavailable();
@@ -300,7 +339,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
         ) throw unavailable();
         return parsed;
       } catch (error) {
-        if (error instanceof InventoryRepositoryError) throw error;
+        if (inventoryRepositoryErrorCode(error) !== undefined) throw error;
         throw unavailable();
       }
     };
@@ -333,7 +372,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const orderId = inventoryUuid(parsed.orderId);
     return this.read({ text: SQL.getPurchaseOrder, values: [...authorityValues(authority), orderId] }, "found", (value) => {
       try { const result = parsePurchaseOrder(value); if (result.id !== orderId) throw unavailable(); return result; }
-      catch (error) { if (error instanceof InventoryRepositoryError) throw error; throw unavailable(); }
+      catch (error) { if (inventoryRepositoryErrorCode(error) !== undefined) throw error; throw unavailable(); }
     });
   }
 
@@ -344,7 +383,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const operationId = inventoryUuid(parsed.operationId);
     const existingId = parsed.orderId === undefined ? undefined : inventoryUuid(parsed.orderId);
     const expectedVersion = parsed.expectedVersion === undefined ? undefined : inventoryVersion(parsed.expectedVersion);
-    if ((existingId === undefined) !== (expectedVersion === undefined)) throw new InventoryRepositoryError("invalid_input");
+    if ((existingId === undefined) !== (expectedVersion === undefined)) throw inventoryFailure("invalid_input");
     const targetId = existingId ?? this.generatedId();
     const locationId = inventoryUuid(parsed.locationId);
     const supplierName = inventoryText(parsed.supplierName, 1, 200);
@@ -361,7 +400,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
   async transitionPurchaseOrder(input: TransitionPurchaseOrderInput): Promise<InventoryMutationResult> {
     const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "orderId", "expectedVersion", "transition"]);
     const operationId = inventoryUuid(parsed.operationId), orderId = inventoryUuid(parsed.orderId), expectedVersion = inventoryVersion(parsed.expectedVersion);
-    if (parsed.transition !== "order" && parsed.transition !== "cancel") throw new InventoryRepositoryError("invalid_input");
+    if (parsed.transition !== "order" && parsed.transition !== "cancel") throw inventoryFailure("invalid_input");
     const transition = parsed.transition;
     const fingerprint = inventoryFingerprint("purchase_transition", authority.storeId, orderId, expectedVersion, { transition });
     return this.mutate(authority, operationId, fingerprint, "transitioned", {
@@ -392,7 +431,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const countId = inventoryUuid(parsed.countId);
     return this.read({ text: SQL.getCount, values: [...authorityValues(authority), countId] }, "found", (value) => {
       try { const result = parseInventoryCount(value); if (result.id !== countId) throw unavailable(); return result; }
-      catch (error) { if (error instanceof InventoryRepositoryError) throw error; throw unavailable(); }
+      catch (error) { if (inventoryRepositoryErrorCode(error) !== undefined) throw error; throw unavailable(); }
     });
   }
 
@@ -403,7 +442,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const operationId = inventoryUuid(parsed.operationId);
     const existingId = parsed.countId === undefined ? undefined : inventoryUuid(parsed.countId);
     const expectedVersion = parsed.expectedVersion === undefined ? undefined : inventoryVersion(parsed.expectedVersion);
-    if ((existingId === undefined) !== (expectedVersion === undefined)) throw new InventoryRepositoryError("invalid_input");
+    if ((existingId === undefined) !== (expectedVersion === undefined)) throw inventoryFailure("invalid_input");
     const targetId = existingId ?? this.generatedId(), locationId = inventoryUuid(parsed.locationId);
     const lines = canonicalInventoryLines(countSaveLines(parsed.lines));
     const fingerprint = inventoryFingerprint("count_save", authority.storeId, existingId ?? null, expectedVersion ?? null, { lines, locationId });
@@ -450,7 +489,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const transferId = inventoryUuid(parsed.transferId);
     return this.read({ text: SQL.getTransfer, values: [...authorityValues(authority), transferId] }, "found", (value) => {
       try { const result = parseInventoryTransfer(value); if (result.id !== transferId) throw unavailable(); return result; }
-      catch (error) { if (error instanceof InventoryRepositoryError) throw error; throw unavailable(); }
+      catch (error) { if (inventoryRepositoryErrorCode(error) !== undefined) throw error; throw unavailable(); }
     });
   }
 
@@ -461,9 +500,9 @@ export class PostgresInventoryRepository implements InventoryRepository {
     const operationId = inventoryUuid(parsed.operationId);
     const existingId = parsed.transferId === undefined ? undefined : inventoryUuid(parsed.transferId);
     const expectedVersion = parsed.expectedVersion === undefined ? undefined : inventoryVersion(parsed.expectedVersion);
-    if ((existingId === undefined) !== (expectedVersion === undefined)) throw new InventoryRepositoryError("invalid_input");
+    if ((existingId === undefined) !== (expectedVersion === undefined)) throw inventoryFailure("invalid_input");
     const targetId = existingId ?? this.generatedId(), sourceLocationId = inventoryUuid(parsed.sourceLocationId), destinationLocationId = inventoryUuid(parsed.destinationLocationId);
-    if (sourceLocationId === destinationLocationId) throw new InventoryRepositoryError("invalid_input");
+    if (sourceLocationId === destinationLocationId) throw inventoryFailure("invalid_input");
     const lines = canonicalInventoryLines(transferSaveLines(parsed.lines));
     const fingerprint = inventoryFingerprint("transfer_save", authority.storeId, existingId ?? null, expectedVersion ?? null, {
       destinationLocationId, lines, sourceLocationId,

@@ -1,4 +1,4 @@
-export { INVENTORY_ERROR_CODES, InventoryRepositoryError } from "./errors.ts";
+export { INVENTORY_ERROR_CODES, inventoryRepositoryErrorCode } from "./errors.ts";
 export type { InventoryErrorCode } from "./errors.ts";
 export { PostgresInventoryRepository } from "./repository.ts";
 export type {

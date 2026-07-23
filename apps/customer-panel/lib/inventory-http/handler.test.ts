@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { TenantContext } from "@celebix/saas-contracts";
-import { InventoryRepositoryError, type InventoryRepository } from "@celebix/saas-data";
+import type { InventoryRepository } from "@celebix/saas-data";
+import { inventoryFailure } from "../../../../packages/saas-data/src/inventory/errors.ts";
 
 import { createInventoryHttpHandler } from "./handler.ts";
 import { prepareInventoryRouteRequest } from "./request-authority.ts";
@@ -160,6 +161,23 @@ test("finite inventory routes call each repository method once with only server 
   }
 });
 
+test("mutation responses carry the exact server-selected entity kind", async () => {
+  const handle = handler(repository({
+    async transitionPurchaseOrder() { return mutation(ORDER, "ordered"); },
+    async startCount() { return mutation(COUNT, "counting"); },
+    async dispatchTransfer() { return mutation(TRANSFER, "in_transit"); },
+  }));
+  for (const [path, body, kind] of [
+    [`/api/inventory/purchase-orders/${ORDER}/transition`, { operationId: OPERATION, expectedVersion: 1, transition: "order" }, "purchase_order"],
+    [`/api/inventory/counts/${COUNT}/start`, { operationId: OPERATION, expectedVersion: 1 }, "inventory_count"],
+    [`/api/inventory/transfers/${TRANSFER}/dispatch`, { operationId: OPERATION, expectedVersion: 1 }, "inventory_transfer"],
+  ] as const) {
+    const response = await handle(request(path, { method: "POST", body }));
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).kind, kind);
+  }
+});
+
 test("wrong, child, encoded, prefix, method, and query paths are rejected before repository access", async () => {
   let calls = 0;
   const inventory = repository({ async listLocations() { calls += 1; return []; } });
@@ -174,6 +192,64 @@ test("wrong, child, encoded, prefix, method, and query paths are rejected before
     ["POST", "/api/inventory/locations", 405],
   ] as const) assert.equal((await handle(request(path, { method, body: {} }))).status, status);
   assert.equal(calls, 0);
+});
+
+test("every mutation family rejects URL query, fragment, and forwarded rescue before repository access", async () => {
+  let calls = 0;
+  const inventory = new Proxy(repository(), {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? async (...args: unknown[]) => { calls += 1; return value(...args); } : value;
+    },
+  });
+  const handle = handler(inventory);
+  const mutations: Array<readonly [string, unknown]> = [
+    ["/api/inventory/purchase-orders", { operationId: OPERATION, locationId: LOCATION, supplierName: "Tedarikçi", lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 2, unitCostCents: 100 }] }],
+    [`/api/inventory/purchase-orders/${ORDER}/transition`, { operationId: OPERATION, expectedVersion: 1, transition: "order" }],
+    [`/api/inventory/purchase-orders/${ORDER}/receive`, { operationId: OPERATION, expectedVersion: 1, locationId: LOCATION, lines: [{ lineId: LINE, quantity: 1 }] }],
+    ["/api/inventory/counts", { operationId: OPERATION, locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT }] }],
+    [`/api/inventory/counts/${COUNT}/start`, { operationId: OPERATION, expectedVersion: 1 }],
+    [`/api/inventory/counts/${COUNT}/commit`, { operationId: OPERATION, expectedVersion: 1 }],
+    [`/api/inventory/counts/${COUNT}/cancel`, { operationId: OPERATION, expectedVersion: 1 }],
+    ["/api/inventory/transfers", { operationId: OPERATION, sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: [{ lineId: LINE, variantId: VARIANT, quantity: 1 }] }],
+    [`/api/inventory/transfers/${TRANSFER}/dispatch`, { operationId: OPERATION, expectedVersion: 1 }],
+    [`/api/inventory/transfers/${TRANSFER}/receive`, { operationId: OPERATION, expectedVersion: 1 }],
+    [`/api/inventory/transfers/${TRANSFER}/cancel`, { operationId: OPERATION, expectedVersion: 1 }],
+  ];
+  for (const [path, body] of mutations) {
+    assert.equal((await handle(request(`${path}?private=1`, { method: "POST", body }))).status, 400, `${path} query`);
+    assert.equal((await handle(request(`${path}#private`, { method: "POST", body }))).status, 400, `${path} fragment`);
+    assert.equal((await handle(request(`${path}?private=1`, {
+      method: "POST", body, headers: { "x-forwarded-uri": path },
+    }))).status, 400, `${path} forwarded query rescue`);
+  }
+  assert.equal(calls, 0);
+});
+
+test("method errors return the exact finite Allow header for collections, items, and actions", async () => {
+  const handle = handler(repository());
+  for (const [path, allow] of [
+    ["/api/inventory/locations", "GET"],
+    ["/api/inventory/balances", "GET"],
+    ["/api/inventory/purchase-orders", "GET, POST"],
+    [`/api/inventory/purchase-orders/${ORDER}`, "GET"],
+    [`/api/inventory/purchase-orders/${ORDER}/transition`, "POST"],
+    [`/api/inventory/purchase-orders/${ORDER}/receive`, "POST"],
+    ["/api/inventory/counts", "GET, POST"],
+    [`/api/inventory/counts/${COUNT}`, "GET"],
+    [`/api/inventory/counts/${COUNT}/start`, "POST"],
+    [`/api/inventory/counts/${COUNT}/commit`, "POST"],
+    [`/api/inventory/counts/${COUNT}/cancel`, "POST"],
+    ["/api/inventory/transfers", "GET, POST"],
+    [`/api/inventory/transfers/${TRANSFER}`, "GET"],
+    [`/api/inventory/transfers/${TRANSFER}/dispatch`, "POST"],
+    [`/api/inventory/transfers/${TRANSFER}/receive`, "POST"],
+    [`/api/inventory/transfers/${TRANSFER}/cancel`, "POST"],
+  ] as const) {
+    const response = await handle(request(path, { method: "PUT" }));
+    assert.equal(response.status, 405, path);
+    assert.equal(response.headers.get("allow"), allow, path);
+  }
 });
 
 test("mutations require exact Origin and every route requires one valid cookie", async () => {
@@ -231,6 +307,7 @@ test("mutation JSON is exact, bounded, fatal UTF-8, and validated before one rep
   for (const candidate of [
     request(path, { method: "POST", body: { ...valid, storeId: STORE } }),
     request(path, { method: "POST", body: { operationId: OPERATION, expectedVersion: 0 } }),
+    request(path, { method: "POST", body: { operationId: OPERATION, expectedVersion: Number.MAX_SAFE_INTEGER } }),
     request(path, { method: "POST", rawBody: "{" }),
     request(path, { method: "POST", rawBody: new Uint8Array([0xc3, 0x28]) }),
     request(path, { method: "POST", body: valid, headers: { "content-type": "application/json; charset=utf-8" } }),
@@ -262,10 +339,10 @@ test("mutation JSON is exact, bounded, fatal UTF-8, and validated before one rep
 
 test("repository outcomes collapse to stable safe HTTP errors with no SQL or authority detail", async () => {
   for (const [caught, status, code] of [
-    [new InventoryRepositoryError("invalid_input"), 400, "invalid_input"],
-    [new InventoryRepositoryError("version_conflict"), 409, "conflict"],
-    [new InventoryRepositoryError("membership_denied"), 403, "forbidden"],
-    [new InventoryRepositoryError("resource_not_found"), 404, "not_found"],
+    [inventoryFailure("invalid_input"), 400, "invalid_input"],
+    [inventoryFailure("version_conflict"), 409, "conflict"],
+    [inventoryFailure("membership_denied"), 403, "forbidden"],
+    [inventoryFailure("resource_not_found"), 404, "not_found"],
     [new Error(`SELECT private FROM store ${STORE}`), 503, "unavailable"],
   ] as const) {
     const handle = handler(repository({ async listLocations() { throw caught; } }));
@@ -275,6 +352,43 @@ test("repository outcomes collapse to stable safe HTTP errors with no SQL or aut
     assert.deepEqual(payload, { code });
     assert.doesNotMatch(JSON.stringify(payload), /SELECT|private|store_id|principal|membership|10000000/i);
   }
+});
+
+test("constructible lookalikes and hostile repository errors always collapse to a stable unavailable envelope", async () => {
+  for (const caught of [
+    Object.assign(new Error("membership_denied"), { code: "membership_denied" }),
+    Object.defineProperty({}, "code", { get() { throw new Error(`private ${STORE}`); } }),
+    new Proxy({}, { getPrototypeOf() { throw new Error(`private ${STORE}`); } }),
+  ]) {
+    const handle = handler(repository({ async listLocations() { throw caught; } }));
+    const response = await handle(request("/api/inventory/locations"));
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { code: "unavailable" });
+  }
+});
+
+test("handler rejects sparse, accessor, and symbol-bearing repository list arrays without serializing null holes", async () => {
+  let accessorReads = 0;
+  const accessor = [location()];
+  Object.defineProperty(accessor, "0", {
+    enumerable: true,
+    configurable: true,
+    get() { accessorReads += 1; return location(); },
+  });
+  const symbol = [location()];
+  Object.defineProperty(symbol, Symbol("private"), { enumerable: true, value: STORE });
+  const proxy = new Proxy([location()], {
+    getPrototypeOf() { throw inventoryFailure("membership_denied"); },
+  });
+  for (const value of [new Array(1), accessor, symbol, proxy]) {
+    const handle = handler(repository({ async listLocations() { return value; } }));
+    const response = await handle(request("/api/inventory/locations"));
+    assert.equal(response.status, 503);
+    const body = await response.text();
+    assert.equal(body, JSON.stringify({ code: "unavailable" }));
+    assert.doesNotMatch(body, /null|private|10000000/i);
+  }
+  assert.equal(accessorReads, 0);
 });
 
 test("disabled default runtime remains unavailable and contains no database construction", async () => {

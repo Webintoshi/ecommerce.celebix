@@ -18,11 +18,28 @@ export const INVENTORY_ERROR_CODES = Object.freeze([
 
 export type InventoryErrorCode = (typeof INVENTORY_ERROR_CODES)[number];
 
-export class InventoryRepositoryError extends Error {
+const TRUSTED_ERRORS = new WeakSet<object>();
+
+class InventoryRepositoryFailure extends Error {
   readonly code: InventoryErrorCode;
   constructor(code: InventoryErrorCode) {
     super(code);
     this.name = "InventoryRepositoryError";
     this.code = code;
+    TRUSTED_ERRORS.add(this);
+    Object.freeze(this);
   }
+}
+
+export function inventoryFailure(code: InventoryErrorCode): Error {
+  return new InventoryRepositoryFailure(code);
+}
+
+export function inventoryRepositoryErrorCode(value: unknown): InventoryErrorCode | undefined {
+  try {
+    if ((typeof value !== "object" && typeof value !== "function") || value === null || !TRUSTED_ERRORS.has(value)) {
+      return undefined;
+    }
+    return (value as InventoryRepositoryFailure).code;
+  } catch { return undefined; }
 }
