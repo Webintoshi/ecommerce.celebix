@@ -7,6 +7,9 @@ import {
   type InventoryCount,
   type InventoryCountLine,
   type InventoryLocation,
+  type InventoryLocationArchiveInput,
+  type InventoryLocationMutationResult,
+  type InventoryLocationSaveInput,
   type InventoryMovement,
   type InventoryMutationResult,
   type InventoryTransfer,
@@ -90,6 +93,25 @@ export function parseInventoryLocation(value: unknown): InventoryLocation { retu
   if (typeof parsed.isDefault !== "boolean" || (parsed.status !== "active" && parsed.status !== "archived")) invalid();
   const createdAt = timestamp(parsed.createdAt), updatedAt = timestamp(parsed.updatedAt); dateOrder(createdAt, updatedAt);
   return freeze({ id: uuid(parsed.id), name: text(parsed.name, 1, 200), isDefault: parsed.isDefault, status: parsed.status, version: integer(parsed.version, 1), createdAt, updatedAt } satisfies InventoryLocation);
+}); }
+export function parseInventoryLocationSaveInput(value: unknown): InventoryLocationSaveInput { return guarded(() => {
+  const parsed = exact(value, ["operationId", "name"], ["locationId", "expectedVersion"]);
+  const hasLocation = Object.hasOwn(parsed, "locationId"), hasVersion = Object.hasOwn(parsed, "expectedVersion");
+  if (hasLocation !== hasVersion) invalid();
+  return freeze({
+    operationId: uuid(parsed.operationId),
+    ...(hasLocation ? { locationId: uuid(parsed.locationId), expectedVersion: integer(parsed.expectedVersion, 1, Number.MAX_SAFE_INTEGER - 1) } : {}),
+    name: text(parsed.name, 1, 200),
+  } satisfies InventoryLocationSaveInput);
+}); }
+export function parseInventoryLocationArchiveInput(value: unknown): InventoryLocationArchiveInput { return guarded(() => {
+  const parsed = exact(value, ["operationId", "locationId", "expectedVersion"]);
+  return freeze({ operationId: uuid(parsed.operationId), locationId: uuid(parsed.locationId), expectedVersion: integer(parsed.expectedVersion, 1, Number.MAX_SAFE_INTEGER - 1) } satisfies InventoryLocationArchiveInput);
+}); }
+export function parseInventoryLocationMutationResult(value: unknown): InventoryLocationMutationResult { return guarded(() => {
+  const parsed = exact(value, ["id", "status", "version", "updatedAt", "replayed"]);
+  if ((parsed.status !== "active" && parsed.status !== "archived") || typeof parsed.replayed !== "boolean") invalid();
+  return freeze({ id: uuid(parsed.id), status: parsed.status, version: integer(parsed.version, 1), updatedAt: timestamp(parsed.updatedAt), replayed: parsed.replayed } satisfies InventoryLocationMutationResult);
 }); }
 export function parseInventoryBalance(value: unknown): InventoryBalance { return guarded(() => {
   const parsed = exact(value, ["locationId", "variantId", "quantity", "version", "updatedAt"]);

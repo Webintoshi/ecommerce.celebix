@@ -13,7 +13,7 @@ export type ServerInventoryRuntime = Readonly<{
 }>;
 
 const METHODS = Object.freeze([
-  "listLocations", "listBalances", "listPurchaseOrders", "getPurchaseOrder", "savePurchaseOrder",
+  "listLocations", "saveLocation", "archiveLocation", "recoverLocationOperation", "listBalances", "listPurchaseOrders", "getPurchaseOrder", "savePurchaseOrder",
   "transitionPurchaseOrder", "receivePurchaseOrder", "listCounts", "getCount", "saveCount",
   "startCount", "commitCount", "cancelCount", "listTransfers", "getTransfer", "saveTransfer",
   "dispatchTransfer", "receiveTransfer", "cancelTransfer",

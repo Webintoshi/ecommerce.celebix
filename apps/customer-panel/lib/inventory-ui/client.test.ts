@@ -28,6 +28,8 @@ test("inventory client uses exact same-origin no-store requests and puts operati
     calls.push([input, init]);
     const path = String(input);
     if (init?.method === "POST") {
+      if (path === "/api/inventory/locations") return Response.json(taggedMutation("inventory_location", OPERATION, "active", 1));
+      if (path.endsWith("/archive")) return Response.json(taggedMutation("inventory_location", LOCATION, "archived", 2));
       if (path === "/api/inventory/purchase-orders") return Response.json(taggedMutation("purchase_order", ORDER, "draft", 1));
       if (path.endsWith("/transition")) return Response.json(taggedMutation("purchase_order", ORDER, "ordered", 2));
       if (path === `/api/inventory/purchase-orders/${ORDER}/receive`) return Response.json(taggedMutation("purchase_order", ORDER, "received", 2));
@@ -52,6 +54,8 @@ test("inventory client uses exact same-origin no-store requests and puts operati
   };
   const api = createInventoryApi(fetcher, () => OPERATION);
   await api.listLocations();
+  await api.saveLocation({ name: "Secondary warehouse" });
+  await api.archiveLocation(LOCATION, 1);
   await api.listBalances(LOCATION);
   await api.listPurchaseOrders();
   await api.getPurchaseOrder(ORDER);
@@ -70,9 +74,10 @@ test("inventory client uses exact same-origin no-store requests and puts operati
   await api.dispatchTransfer(TRANSFER, 1);
   await api.receiveTransfer(TRANSFER, 1);
   await api.cancelTransfer(TRANSFER, 1);
-  assert.equal(calls.length, 19);
+  assert.equal(calls.length, 21);
   assert.deepEqual(calls.map((call) => String(call[0])), [
-    "/api/inventory/locations", `/api/inventory/balances?locationId=${LOCATION}`,
+    "/api/inventory/locations", "/api/inventory/locations", `/api/inventory/locations/${LOCATION}/archive`,
+    `/api/inventory/balances?locationId=${LOCATION}`,
     "/api/inventory/purchase-orders", `/api/inventory/purchase-orders/${ORDER}`,
     "/api/inventory/purchase-orders", `/api/inventory/purchase-orders/${ORDER}/transition`,
     `/api/inventory/purchase-orders/${ORDER}/receive`, "/api/inventory/counts",

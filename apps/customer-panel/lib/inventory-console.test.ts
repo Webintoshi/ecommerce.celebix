@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 
-import type { InventoryCount, InventoryMutationResult, InventoryTransfer, PurchaseOrder } from "@celebix/saas-contracts";
+import type { InventoryCount, InventoryLocation, InventoryMutationResult, InventoryTransfer, PurchaseOrder } from "@celebix/saas-contracts";
 import { createInventoryApi, InventoryApiError } from "./inventory-ui/client.ts";
 
 const ROOT = new URL("../", import.meta.url);
@@ -37,6 +37,74 @@ const transfer = (overrides: Partial<InventoryTransfer> = {}): InventoryTransfer
 });
 const mutation = (id: string, status: string, version: number, replayed = false): InventoryMutationResult =>
   Object.freeze({ id, status, version, updatedAt: NOW, replayed });
+const location = (overrides: Partial<InventoryLocation> = {}): InventoryLocation => Object.freeze({
+  id: LOCATION, name: "Ana depo", isDefault: true, status: "active", version: 1,
+  createdAt: NOW, updatedAt: NOW, ...overrides,
+});
+
+test("location controller owns one mutation and reloads exact durable locations", async () => {
+  const module = await controllers();
+  assert.equal(typeof module.createInventoryLocationConsoleController, "function");
+  const pending = deferred<InventoryMutationResult>();
+  let saves = 0, loads = 0;
+  const subject = (module.createInventoryLocationConsoleController as Function)({
+    canRead: true, canManage: true,
+    api: {
+      async listLocations() { loads += 1; return loads === 1 ? [location()] : [location(), location({ id: DESTINATION, name: "Şube depo", isDefault: false })]; },
+      saveLocation() { saves += 1; return pending.promise; },
+      async archiveLocation() { throw new Error("unexpected"); },
+    },
+  });
+  await subject.load();
+  const first = subject.save({ name: "Şube depo" });
+  const second = subject.save({ name: "Ignored" });
+  assert.equal(saves, 1);
+  assert.equal(subject.getSnapshot().pending, true);
+  pending.resolve(mutation(DESTINATION, "active", 1));
+  await Promise.all([first, second]);
+  assert.equal(loads, 2);
+  assert.equal(subject.getSnapshot().items.length, 2);
+  assert.equal(subject.getSnapshot().phase, "committed");
+});
+
+test("location controller locks ambiguous mutation until full reload and aborts on dispose", async () => {
+  const module = await controllers();
+  const phases: string[] = [];
+  let signal: AbortSignal | undefined;
+  const subject = (module.createInventoryLocationConsoleController as Function)({
+    canRead: true, canManage: true,
+    api: {
+      async listLocations() { return [location()]; },
+      async saveLocation(_value: unknown, requestSignal: AbortSignal) { signal = requestSignal; throw new InventoryApiError("unavailable", 503); },
+      async archiveLocation() { throw new Error("unexpected"); },
+    },
+    onChange(snapshot: { phase: string }) { phases.push(snapshot.phase); },
+  });
+  await subject.load();
+  await subject.save({ name: "Şube depo" });
+  assert.equal(subject.getSnapshot().phase, "verification_unavailable");
+  assert.equal(subject.getSnapshot().locked, true);
+  await subject.save({ name: "No retry" });
+  assert.equal(phases.filter((phase) => phase === "submitting").length, 1);
+  subject.dispose();
+  assert.equal(signal?.aborted, false);
+
+  const pending = deferred<InventoryMutationResult>();
+  const pendingSubject = (module.createInventoryLocationConsoleController as Function)({
+    canRead: true, canManage: true,
+    api: {
+      async listLocations() { return [location()]; },
+      saveLocation(_value: unknown, requestSignal: AbortSignal) { signal = requestSignal; return pending.promise; },
+      async archiveLocation() { throw new Error("unexpected"); },
+    },
+  });
+  await pendingSubject.load();
+  const work = pendingSubject.save({ name: "Pending" });
+  pendingSubject.dispose();
+  assert.equal(signal?.aborted, true);
+  pending.resolve(mutation(DESTINATION, "active", 1));
+  await work;
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -343,6 +411,7 @@ async function compilePresentation(path: string, exportName: string) {
       InventoryListState: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       useInventoryCollection: () => ({ phase: "loaded", items: [], error: "", retry() {} }),
     };
+    if (specifier === "./InventoryLocationConsole") return { InventoryLocationConsole: () => null };
     if (specifier.endsWith("inventory-console.module.css")) return styles;
     throw new Error(`unexpected_inventory_import:${specifier}`);
   }, module, module.exports);
@@ -359,6 +428,20 @@ test("analyst detail presentations show records and no mutation controls", async
   assert.match(html, /Kalemler/);
   assert.match(html, /Sürüm 4/);
   assert.doesNotMatch(html, /Sayımı tamamla|Sayımı başlat|İptal et/);
+});
+
+test("location presentation is truthful about default and non-archivable reasons with 48px actions", async () => {
+  const Presentation = await compilePresentation("components/inventory/InventoryLocationConsole.tsx", "InventoryLocationPresentation");
+  const html = renderToStaticMarkup(createElement(Presentation, {
+    state: { phase: "loaded", items: [location(), location({ id: DESTINATION, name: "Şube", isDefault: false, status: "archived" })], pending: false, locked: false, message: "" },
+    canManage: true, name: "", onName() {}, onCreate() {}, onEdit() {}, onArchive() {},
+  }));
+  assert.match(html, /Varsayılan konum arşivlenemez/);
+  assert.match(html, /Arşivlenmiş konum değiştirilemez/);
+  assert.match(html, /Sürüm 1/);
+  assert.match(html, /disabled=""/);
+  const css = await readFile(new URL("components/inventory/inventory-console.module.css", ROOT), "utf8");
+  assert.match(css, /\.locationActions[\s\S]*min-height:\s*48px/);
 });
 
 test("verification unavailable stays an alert with visible locked controls", async () => {

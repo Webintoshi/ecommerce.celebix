@@ -2,6 +2,7 @@ export { INVENTORY_ERROR_CODES, inventoryRepositoryErrorCode } from "./errors.ts
 export type { InventoryErrorCode } from "./errors.ts";
 export { PostgresInventoryRepository } from "./repository.ts";
 export type {
+  ArchiveInventoryLocationInput,
   CancelInventoryCountInput,
   CancelInventoryTransferInput,
   CommitInventoryCountInput,
@@ -25,7 +26,9 @@ export type {
   PurchaseOrderSaveLineInput,
   ReceiveInventoryTransferInput,
   ReceivePurchaseOrderInput,
+  RecoverInventoryLocationOperationInput,
   SaveInventoryCountInput,
+  SaveInventoryLocationInput,
   SaveInventoryTransferInput,
   SavePurchaseOrderInput,
   StartInventoryCountInput,

@@ -7,6 +7,8 @@ const PRIVATE_EXACT = new Set([
 
 export type InventoryRoute =
   | Readonly<{ kind: "locations"; method: "GET"; pathname: "/api/inventory/locations" }>
+  | Readonly<{ kind: "location_save"; method: "POST"; pathname: "/api/inventory/locations" }>
+  | Readonly<{ kind: "location_archive"; method: "POST"; pathname: string; id: string }>
   | Readonly<{ kind: "balances"; method: "GET"; pathname: "/api/inventory/balances" }>
   | Readonly<{ kind: "purchase_list"; method: "GET"; pathname: "/api/inventory/purchase-orders" }>
   | Readonly<{ kind: "purchase_save"; method: "POST"; pathname: "/api/inventory/purchase-orders" }>
@@ -46,7 +48,9 @@ function route(pathname: string, method: string): InventoryRouteDecision {
   let allow: "GET" | "POST" | "GET, POST";
   let selected: InventoryRoute;
   if (pathname === "/api/inventory/locations") {
-    allow = "GET"; selected = { kind: "locations", method: "GET", pathname };
+    allow = "GET, POST"; selected = method === "POST"
+      ? { kind: "location_save", method: "POST", pathname }
+      : { kind: "locations", method: "GET", pathname };
   } else if (pathname === "/api/inventory/balances") {
     allow = "GET"; selected = { kind: "balances", method: "GET", pathname };
   } else if (pathname === "/api/inventory/purchase-orders") {
@@ -65,10 +69,13 @@ function route(pathname: string, method: string): InventoryRouteDecision {
       ? { kind: "transfer_save", method: "POST", pathname }
       : { kind: "transfer_list", method: "GET", pathname };
   } else {
+    const location = new RegExp(`^/api/inventory/locations/(${UUID})/archive$`).exec(pathname);
     const purchase = new RegExp(`^/api/inventory/purchase-orders/(${UUID})(?:/(transition|receive))?$`).exec(pathname);
     const count = new RegExp(`^/api/inventory/counts/(${UUID})(?:/(start|commit|cancel))?$`).exec(pathname);
     const transfer = new RegExp(`^/api/inventory/transfers/(${UUID})(?:/(dispatch|receive|cancel))?$`).exec(pathname);
-    if (purchase) {
+    if (location) {
+      allow = "POST"; selected = { kind: "location_archive", method: "POST", pathname, id: location[1]! };
+    } else if (purchase) {
       if (purchase[2]) {
         allow = "POST";
         selected = { kind: purchase[2] === "transition" ? "purchase_transition" : "purchase_receive", method: "POST", pathname, id: purchase[1]! };

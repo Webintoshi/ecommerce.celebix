@@ -8,7 +8,7 @@ import { registerServerInventoryRepository, resolveServerInventoryRuntime } from
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 
 const METHODS = [
-  "listLocations", "listBalances", "listPurchaseOrders", "getPurchaseOrder", "savePurchaseOrder",
+  "listLocations", "saveLocation", "archiveLocation", "recoverLocationOperation", "listBalances", "listPurchaseOrders", "getPurchaseOrder", "savePurchaseOrder",
   "transitionPurchaseOrder", "receivePurchaseOrder", "listCounts", "getCount", "saveCount",
   "startCount", "commitCount", "cancelCount", "listTransfers", "getTransfer", "saveTransfer",
   "dispatchTransfer", "receiveTransfer", "cancelTransfer",
@@ -55,13 +55,14 @@ test("disabled, malformed, hostile, and duplicate inventory registration fail cl
   assert.throws(() => registerServerInventoryRepository(hostile, repository()), /^Error: server_inventory_runtime_invalid$/);
 });
 
-test("approved staging checks all ten relations and twenty exact procedures before inventory registration", () => {
+test("approved staging checks all eleven relations and twenty-three exact procedures before inventory registration", () => {
   const source = readFileSync(new URL("../server-panel-access/postgres-runtime.ts", import.meta.url), "utf8");
   assert.equal((source.match(/new Pool\(/g) ?? []).length, 1);
   for (const relation of [
     "inventory_locations", "inventory_balances", "inventory_movements", "purchase_orders",
     "purchase_order_lines", "inventory_operations", "inventory_counts", "inventory_count_lines",
     "inventory_transfers", "inventory_transfer_lines",
+    "inventory_location_operations",
   ]) assert.match(source, new RegExp(`to_regclass\\('saas\\.${relation}'\\) IS NOT NULL`));
   for (const signature of [
     "inventory_list_locations(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)",
@@ -84,6 +85,9 @@ test("approved staging checks all ten relations and twenty exact procedures befo
     "inventory_transfers_receive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
     "inventory_transfers_cancel(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
     "inventory_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+    "inventory_locations_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+    "inventory_locations_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
+    "inventory_locations_recover(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
   ]) assert.equal(source.includes(`to_regprocedure('saas.${signature}') IS NOT NULL`), true, signature);
   assert.match(source, /new PostgresInventoryRepository\(\{[\s\S]*?pool,[\s\S]*?role: "celebix_saas_app"[\s\S]*?timeouts: TIMEOUTS,[\s\S]*?uuid: randomUUID,[\s\S]*?audit:/);
   assert.match(source, /registerServerInventoryRepository\(access, inventoryRepository\)/);

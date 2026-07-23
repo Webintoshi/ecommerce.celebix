@@ -10,6 +10,9 @@ import {
   parseInventoryCount,
   parseInventoryCountLine,
   parseInventoryLocation,
+  parseInventoryLocationArchiveInput,
+  parseInventoryLocationSaveInput,
+  parseInventoryLocationMutationResult,
   parseInventoryMovement,
   parseInventoryMutationResult,
   parseInventoryTransfer,
@@ -62,6 +65,26 @@ test("inventory DTOs parse exact canonical frozen projections", () => {
   const transfer = parseInventoryTransfer({ id: ID, sourceLocationId: LOCATION_ID, destinationLocationId: OTHER_LOCATION_ID, status: "draft", lines: [transferLineFixture()], version: 1, createdAt: NOW, updatedAt: NOW });
   const result = parseInventoryMutationResult({ id: ID, status: "received", version: 2, updatedAt: LATER, replayed: false });
   for (const value of [location, balance, movement, purchase, count, transfer, result, purchase.lines, count.lines, transfer.lines]) assert.equal(Object.isFrozen(value), true);
+});
+
+test("inventory location commands parse exact frozen create update archive projections", () => {
+  const create = parseInventoryLocationSaveInput({ operationId: ID, name: "Secondary warehouse" });
+  const update = parseInventoryLocationSaveInput({ operationId: ID, locationId: LOCATION_ID, expectedVersion: 2, name: "City warehouse" });
+  const archive = parseInventoryLocationArchiveInput({ operationId: ID, locationId: LOCATION_ID, expectedVersion: 3 });
+  const result = parseInventoryLocationMutationResult({ id: LOCATION_ID, status: "active", version: 2, updatedAt: LATER, replayed: false });
+  assert.deepEqual(create, { operationId: ID, name: "Secondary warehouse" });
+  assert.equal(update.expectedVersion, 2);
+  assert.equal(archive.locationId, LOCATION_ID);
+  assert.equal(result.status, "active");
+  for (const value of [create, update, archive, result]) assert.equal(Object.isFrozen(value), true);
+});
+
+test("inventory location commands reject browser authority ambiguous targets and hostile values", () => {
+  assert.throws(() => parseInventoryLocationSaveInput({ operationId: ID, name: " Secondary", storeId: ID }));
+  assert.throws(() => parseInventoryLocationSaveInput({ operationId: ID, locationId: LOCATION_ID, name: "Missing version" }));
+  assert.throws(() => parseInventoryLocationSaveInput({ operationId: ID, expectedVersion: 1, name: "Missing target" }));
+  assert.throws(() => parseInventoryLocationArchiveInput({ operationId: ID, locationId: LOCATION_ID, expectedVersion: Number.MAX_SAFE_INTEGER }));
+  assert.throws(() => parseInventoryLocationMutationResult({ id: LOCATION_ID, status: "deleted", version: 2, updatedAt: LATER, replayed: false }));
 });
 
 test("inventory DTOs reject hidden authority and unsafe quantities", () => {

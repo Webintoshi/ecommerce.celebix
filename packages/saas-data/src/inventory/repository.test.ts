@@ -221,11 +221,13 @@ test("inventory repository descriptor-copies exact SQL envelopes and rejects spa
   assert.equal(accessorReads, 0);
 });
 
-test("inventory repository exposes the eleven exact mutation SQL signatures", async () => {
+test("inventory repository exposes the thirteen exact mutation SQL signatures", async () => {
   const savePurchase = { ...authority(), operationId: OPERATION, locationId: LOCATION, supplierName: "Tedarikçi", lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 2, unitCostCents: 100 }] };
   const saveCount = { ...authority(), operationId: OPERATION, locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 7 }] };
   const saveTransfer = { ...authority(), operationId: OPERATION, sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: [{ lineId: LINE, variantId: VARIANT, quantity: 2 }] };
   const cases = [
+    ["SELECT outcome,result_payload FROM saas.inventory_locations_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text)", { outcome: "saved", result_payload: mutation(OPERATION, "active", 1) }, (repo: InventoryRepository) => repo.saveLocation({ ...authority(), operationId: OPERATION, name: "Secondary warehouse" })],
+    ["SELECT outcome,result_payload FROM saas.inventory_locations_archive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)", { outcome: "archived", result_payload: mutation(LOCATION, "archived", 2) }, (repo: InventoryRepository) => repo.archiveLocation({ ...authority(), operationId: OPERATION, locationId: LOCATION, expectedVersion: 1 })],
     ["SELECT outcome,result_payload FROM saas.purchasing_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::uuid,$13::text,$14::jsonb)", { outcome: "saved", result_payload: mutation(ORDER, "draft", 1) }, (repo: InventoryRepository) => repo.savePurchaseOrder(savePurchase)],
     ["SELECT outcome,result_payload FROM saas.purchasing_transition($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text)", { outcome: "transitioned", result_payload: mutation(ORDER, "ordered", 2) }, (repo: InventoryRepository) => repo.transitionPurchaseOrder({ ...authority(), operationId: OPERATION, orderId: ORDER, expectedVersion: 1, transition: "order" })],
     ["SELECT outcome,result_payload FROM saas.purchasing_receive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::uuid,$13::jsonb)", { outcome: "received", result_payload: mutation(ORDER, "received", 2) }, (repo: InventoryRepository) => repo.receivePurchaseOrder({ ...authority(), operationId: OPERATION, orderId: ORDER, expectedVersion: 1, locationId: LOCATION, lines: [{ lineId: LINE, quantity: 2 }] })],
@@ -248,6 +250,28 @@ test("inventory repository exposes the eleven exact mutation SQL signatures", as
     assert.match(String(query.values?.[8]), /^[a-f0-9]{64}$/);
     assert.deepEqual(client.releases, [undefined]);
   }
+});
+
+test("location creation identity and fingerprint are deterministic across repository instances", async () => {
+  const response = { outcome: "saved", result_payload: mutation(OPERATION, "active", 1) };
+  const left = new Client(response), right = new Client(response);
+  await repository(new Pool(left), [LOCATION]).saveLocation({ ...authority(), operationId: OPERATION, name: "Secondary warehouse" });
+  await repository(new Pool(right), [DESTINATION]).saveLocation({ ...authority(), operationId: OPERATION, name: "Secondary warehouse" });
+  const leftValues = left.queries[5]?.values, rightValues = right.queries[5]?.values;
+  assert.equal(leftValues?.[8], rightValues?.[8]);
+  assert.equal(leftValues?.[9], OPERATION);
+  assert.equal(rightValues?.[9], OPERATION);
+});
+
+test("unknown location commit uses exactly one location-specific read-only recovery", async () => {
+  const writer = new Client({ outcome: "archived", result_payload: mutation(LOCATION, "archived", 2) }, true);
+  const recovery = new Client({ outcome: "operation_replayed", result_payload: mutation(LOCATION, "archived", 2) });
+  const pool = new Pool(writer, recovery);
+  const result = await repository(pool).archiveLocation({ ...authority(), operationId: OPERATION, locationId: LOCATION, expectedVersion: 1 });
+  assert.equal(result.replayed, true);
+  assert.equal(writer.queries.filter((query) => query.text.includes("inventory_locations_archive")).length, 1);
+  const query = assertConfigured(recovery, "BEGIN READ ONLY", "COMMIT");
+  assert.equal(query.text, "SELECT outcome,result_payload FROM saas.inventory_locations_recover($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)");
 });
 
 test("inventory repository canonicalizes line order into deterministic fingerprints and SQL payloads", async () => {

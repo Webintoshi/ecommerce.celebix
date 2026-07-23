@@ -19,6 +19,25 @@ export interface ListInventoryBalancesInput extends InventoryAuthorityInput {
   readonly locationId: string;
 }
 
+export interface SaveInventoryLocationInput extends InventoryAuthorityInput {
+  readonly operationId: string;
+  readonly locationId?: string;
+  readonly expectedVersion?: number;
+  readonly name: string;
+}
+export interface ArchiveInventoryLocationInput extends InventoryAuthorityInput {
+  readonly operationId: string;
+  readonly locationId: string;
+  readonly expectedVersion: number;
+}
+export interface RecoverInventoryLocationOperationInput extends InventoryAuthorityInput {
+  readonly operationId: string;
+  readonly fingerprint: string;
+  readonly locationId: string;
+  readonly expectedVersion: number;
+  readonly expectedStatus: "active" | "archived";
+}
+
 export type ListPurchaseOrdersInput = InventoryAuthorityInput;
 export interface GetPurchaseOrderInput extends InventoryAuthorityInput { readonly orderId: string }
 export interface PurchaseOrderSaveLineInput {
@@ -102,6 +121,9 @@ export type CancelInventoryTransferInput = InventoryTransferOperationInput;
 
 export interface InventoryRepository {
   listLocations(input: InventoryAuthorityInput): Promise<readonly InventoryLocation[]>;
+  saveLocation(input: SaveInventoryLocationInput): Promise<InventoryMutationResult>;
+  archiveLocation(input: ArchiveInventoryLocationInput): Promise<InventoryMutationResult>;
+  recoverLocationOperation(input: RecoverInventoryLocationOperationInput): Promise<InventoryMutationResult>;
   listBalances(input: ListInventoryBalancesInput): Promise<readonly InventoryBalance[]>;
   listPurchaseOrders(input: ListPurchaseOrdersInput): Promise<readonly PurchaseOrder[]>;
   getPurchaseOrder(input: GetPurchaseOrderInput): Promise<PurchaseOrder>;

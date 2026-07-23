@@ -1,5 +1,6 @@
 import type {
   InventoryCount,
+  InventoryLocation,
   InventoryMutationResult,
   InventoryTransfer,
   PurchaseOrder,
@@ -22,6 +23,14 @@ export type InventoryConsolePhase =
 export interface InventoryConsoleSnapshot<RecordType> {
   readonly phase: InventoryConsolePhase;
   readonly record?: RecordType;
+  readonly pending: boolean;
+  readonly locked: boolean;
+  readonly message: string;
+}
+
+export interface InventoryLocationConsoleSnapshot {
+  readonly phase: InventoryConsolePhase;
+  readonly items: readonly InventoryLocation[];
   readonly pending: boolean;
   readonly locked: boolean;
   readonly message: string;
@@ -182,6 +191,83 @@ export function createInventoryConsoleLifecycle<Controller extends LifecycleCont
       };
     },
     getCurrent() { return current; },
+  });
+}
+
+type LocationApi = Pick<typeof inventoryApi, "listLocations" | "saveLocation" | "archiveLocation">;
+export function createInventoryLocationConsoleController(options: Readonly<{
+  canRead: boolean;
+  canManage: boolean;
+  api: LocationApi;
+  onChange?: (snapshot: InventoryLocationConsoleSnapshot) => void;
+}>) {
+  let disposed = false, busy = false, sequence = 0;
+  let request: AbortController | undefined, active: Promise<void> | undefined;
+  let snapshot: InventoryLocationConsoleSnapshot = Object.freeze({
+    phase: options.canRead ? "loading" : "denied", items: Object.freeze([]), pending: false, locked: false,
+    message: options.canRead ? "" : "Konumları görüntüleme yetkiniz yok.",
+  });
+  const publish = (value: InventoryLocationConsoleSnapshot) => { if (!disposed) { snapshot = Object.freeze(value); options.onChange?.(snapshot); } };
+  const current = (selected: number) => !disposed && selected === sequence;
+  async function read(signal: AbortSignal) {
+    const items = await options.api.listLocations(signal);
+    return Object.freeze([...items]);
+  }
+  async function load() {
+    if (disposed || !options.canRead || busy) return;
+    busy = true; request = new AbortController(); const selected = ++sequence;
+    publish({ phase: "loading", items: snapshot.items, pending: false, locked: false, message: "" });
+    try {
+      const items = await read(request.signal);
+      if (current(selected)) publish({ phase: items.length ? "loaded" : "loaded", items, pending: false, locked: false, message: items.length ? "" : "Henüz ek konum yok." });
+    } catch (error) {
+      if (current(selected) && !isAbort(error)) publish({
+        phase: error instanceof InventoryApiError && (error.code === "forbidden" || error.code === "unauthenticated") ? "denied" : "error",
+        items: Object.freeze([]), pending: false, locked: false,
+        message: error instanceof InventoryApiError && (error.code === "forbidden" || error.code === "unauthenticated") ? "Konumları görüntüleme yetkiniz yok." : "Konumlar yüklenemedi. Tekrar deneyin.",
+      });
+    } finally { if (current(selected)) { busy = false; request = undefined; } }
+  }
+  function mutate(run: (signal: AbortSignal) => Promise<InventoryMutationResult>) {
+    if (disposed || !options.canRead || !options.canManage || busy || snapshot.locked) return active ?? Promise.resolve();
+    busy = true; request = new AbortController(); const selected = ++sequence;
+    publish({ ...snapshot, phase: "submitting", pending: true, locked: true, message: "Konum işlemi kalıcı kayda gönderiliyor…" });
+    active = (async () => {
+      let result: InventoryMutationResult;
+      try { result = await run(request!.signal); }
+      catch (error) {
+        if (!current(selected)) return;
+        if (!isDefinitiveRejection(error)) {
+          publish({ ...snapshot, phase: "verification_unavailable", pending: false, locked: true, message: "İşlem sonucu belirsiz. Yeni işlem göndermeyin; sayfayı tamamen yenileyin." });
+        } else {
+          try {
+            const items = await read(request!.signal);
+            if (!current(selected)) return;
+            publish({ phase: error.code === "conflict" ? "conflict" : "mutation_rejected", items, pending: false, locked: error.code === "conflict", message: error.code === "conflict" ? "Konum başka bir işlem tarafından değiştirildi. Güncel sürüm gösteriliyor." : "Konum işlemi uygulanmadı." });
+          } catch { if (current(selected)) publish({ ...snapshot, phase: "verification_unavailable", pending: false, locked: true, message: "İşlem sonucu doğrulanamadı. Sayfayı tamamen yenileyin." }); }
+        }
+        return;
+      }
+      if (!current(selected)) return;
+      try {
+        const items = await read(request!.signal), canonical = items.find((item) => item.id === result.id);
+        if (!canonical || canonical.version < result.version || canonical.status !== result.status) {
+          publish({ phase: "conflict", items, pending: false, locked: true, message: "Kalıcı konum sonucu beklenen sürümle eşleşmedi. Sayfayı yenileyin." }); return;
+        }
+        publish({ phase: result.replayed ? "replayed" : "committed", items, pending: false, locked: false, message: result.replayed ? "Daha önce tamamlanan konum işlemi kalıcı kayıttan gösterildi." : "Konum işlemi kalıcı olarak tamamlandı." });
+      } catch { if (current(selected)) publish({ ...snapshot, phase: "verification_unavailable", pending: false, locked: true, message: "İşlem yanıtlandı ancak kalıcı sonuç doğrulanamadı. Sayfayı tamamen yenileyin." }); }
+    })().finally(() => { if (current(selected)) { busy = false; request = undefined; active = undefined; } });
+    return active;
+  }
+  return Object.freeze({
+    getSnapshot: () => snapshot,
+    load,
+    save(value: Readonly<{ locationId?: string; expectedVersion?: number; name: string }>) { return mutate((signal) => options.api.saveLocation(value, signal)); },
+    archive(location: InventoryLocation) {
+      if (location.isDefault || location.status !== "active") return Promise.resolve();
+      return mutate((signal) => options.api.archiveLocation(location.id, location.version, signal));
+    },
+    dispose() { if (disposed) return; disposed = true; sequence += 1; request?.abort(); request = undefined; busy = false; active = undefined; },
   });
 }
 

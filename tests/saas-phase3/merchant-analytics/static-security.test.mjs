@@ -12,7 +12,7 @@ const down = readFileSync(path.join(SQL, "202607220038_merchant_analytics.down.s
 
 test("merchant analytics manifest pins every migration artifact", () => {
   const manifest = JSON.parse(readFileSync(path.join(SQL, "phase3h-merchant-completion-manifest.json"), "utf8"));
-  assert.equal(manifest.artifacts.length, 24);
+  assert.equal(manifest.artifacts.length, 27);
   for (const artifact of manifest.artifacts) assert.equal(createHash("sha256").update(readFileSync(path.join(SQL, artifact.file))).digest("hex"), artifact.sha256);
 });
 

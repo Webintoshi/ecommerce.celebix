@@ -54,7 +54,8 @@ const mutation = (id = ORDER, status = "draft") => ({ id, status, version: 2, up
 function repository(overrides: Partial<InventoryRepository> = {}): InventoryRepository {
   const reject = async () => { throw new Error("unexpected repository call"); };
   return {
-    listLocations: reject, listBalances: reject, listPurchaseOrders: reject, getPurchaseOrder: reject,
+    listLocations: reject, saveLocation: reject, archiveLocation: reject, recoverLocationOperation: reject,
+    listBalances: reject, listPurchaseOrders: reject, getPurchaseOrder: reject,
     savePurchaseOrder: reject, transitionPurchaseOrder: reject, receivePurchaseOrder: reject,
     listCounts: reject, getCount: reject, saveCount: reject, startCount: reject, commitCount: reject, cancelCount: reject,
     listTransfers: reject, getTransfer: reject, saveTransfer: reject, dispatchTransfer: reject, receiveTransfer: reject, cancelTransfer: reject,
@@ -106,6 +107,8 @@ test("finite inventory routes call each repository method once with only server 
   const capture = (name: string, value: unknown) => { calls.push([name, value as Record<string, unknown>]); };
   const inventory = repository({
     async listLocations(input) { capture("listLocations", input); return [location()]; },
+    async saveLocation(input) { capture("saveLocation", input); return mutation(DESTINATION, "active"); },
+    async archiveLocation(input) { capture("archiveLocation", input); return mutation(LOCATION, "archived"); },
     async listBalances(input) { capture("listBalances", input); return [balance()]; },
     async listPurchaseOrders(input) { capture("listPurchaseOrders", input); return [purchase()]; },
     async getPurchaseOrder(input) { capture("getPurchaseOrder", input); return purchase(); },
@@ -128,6 +131,8 @@ test("finite inventory routes call each repository method once with only server 
   const handle = handler(inventory);
   const cases: Array<readonly [string, string, unknown?]> = [
     ["GET", "/api/inventory/locations"],
+    ["POST", "/api/inventory/locations", { operationId: OPERATION, name: "Secondary warehouse" }],
+    ["POST", `/api/inventory/locations/${LOCATION}/archive`, { operationId: OPERATION, expectedVersion: 1 }],
     ["GET", `/api/inventory/balances?locationId=${LOCATION}`],
     ["GET", "/api/inventory/purchase-orders"],
     ["GET", `/api/inventory/purchase-orders/${ORDER}`],
@@ -153,7 +158,7 @@ test("finite inventory routes call each repository method once with only server 
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   }
-  assert.equal(calls.length, 19);
+  assert.equal(calls.length, 21);
   for (const [, input] of calls) {
     assert.deepEqual(input.tenantContext, tenant());
     assert.deepEqual(input.now, NOW);
@@ -189,7 +194,7 @@ test("wrong, child, encoded, prefix, method, and query paths are rejected before
     ["GET", "/api/inventory/%6cocations", 404],
     ["GET", "/api/inventory/purchase-orders-evil", 404],
     ["GET", "/api/inventory/locations?x=1", 400],
-    ["POST", "/api/inventory/locations", 405],
+    ["POST", "/api/inventory/locations/", 404],
   ] as const) assert.equal((await handle(request(path, { method, body: {} }))).status, status);
   assert.equal(calls, 0);
 });
@@ -229,7 +234,8 @@ test("every mutation family rejects URL query, fragment, and forwarded rescue be
 test("method errors return the exact finite Allow header for collections, items, and actions", async () => {
   const handle = handler(repository());
   for (const [path, allow] of [
-    ["/api/inventory/locations", "GET"],
+    ["/api/inventory/locations", "GET, POST"],
+    [`/api/inventory/locations/${LOCATION}/archive`, "POST"],
     ["/api/inventory/balances", "GET"],
     ["/api/inventory/purchase-orders", "GET, POST"],
     [`/api/inventory/purchase-orders/${ORDER}`, "GET"],

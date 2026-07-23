@@ -9,6 +9,7 @@ import { inventoryApi } from "@/lib/inventory-ui/client";
 import { createInventoryConsoleLifecycle, createInventoryTransferConsoleController, type InventoryConsoleSnapshot } from "@/lib/inventory-ui/console-controller";
 import { InventoryListState, useInventoryCollection, type InventoryListPhase } from "./InventoryListState";
 import styles from "./inventory-console.module.css";
+import { InventoryLocationConsole } from "./InventoryLocationConsole";
 
 const LABELS: Readonly<Record<InventoryTransferStatus, string>> = Object.freeze({ draft: "Taslak", in_transit: "Yolda", received: "Teslim alındı", cancelled: "İptal" });
 const date = (value: string) => new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -38,5 +39,5 @@ function InventoryTransferDetail(props: Readonly<{ initial?: InventoryTransfer; 
 
 export function InventoryTransferConsole(props: Readonly<{ initial?: InventoryTransfer; initialItems?: readonly InventoryTransfer[]; resourceId?: string; canRead?: boolean; canManage: boolean }>) {
   const canRead = props.canRead ?? true, load = useCallback((signal?: AbortSignal) => inventoryApi.listTransfers(signal), []), detail = Boolean(props.initial || props.resourceId), list = useInventoryCollection({ enabled: !detail, canRead, initial: props.initialItems, load });
-  return <PanelPageShell><PanelPageHeader title={detail ? "Stok transferi ayrıntısı" : "Stok transferleri"} description="Konumlar arası stok hareketlerini kalıcı sürümlerle izleyin." />{detail ? <InventoryTransferDetail initial={props.initial} resourceId={props.resourceId} canRead={canRead} canManage={props.canManage} /> : <InventoryTransferListPresentation state={list.phase} items={list.items} error={list.error} onRetry={list.retry} />}</PanelPageShell>;
+  return <PanelPageShell><PanelPageHeader title={detail ? "Stok transferi ayrıntısı" : "Stok transferleri"} description="Konumlar arası stok hareketlerini kalıcı sürümlerle izleyin." />{detail ? <InventoryTransferDetail initial={props.initial} resourceId={props.resourceId} canRead={canRead} canManage={props.canManage} /> : <><InventoryLocationConsole canRead={canRead} canManage={props.canManage} /><InventoryTransferListPresentation state={list.phase} items={list.items} error={list.error} onRetry={list.retry} /></>}</PanelPageShell>;
 }

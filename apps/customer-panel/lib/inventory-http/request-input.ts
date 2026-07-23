@@ -14,6 +14,8 @@ const INVALID = Object.freeze({ kind: "invalid" as const });
 type Invalid = typeof INVALID;
 
 export type InventoryMutationInput =
+  | Readonly<{ kind: "location_save"; value: Readonly<{ operationId: string; locationId?: string; expectedVersion?: number; name: string }> }>
+  | Readonly<{ kind: "location_archive"; value: Readonly<{ operationId: string; expectedVersion: number }> }>
   | Readonly<{ kind: "purchase_save"; value: Readonly<{ operationId: string; orderId?: string; expectedVersion?: number; locationId: string; supplierName: string; lines: readonly PurchaseOrderSaveLineInput[] }> }>
   | Readonly<{ kind: "purchase_transition"; value: Readonly<{ operationId: string; expectedVersion: number; transition: "order" | "cancel" }> }>
   | Readonly<{ kind: "purchase_receive"; value: Readonly<{ operationId: string; expectedVersion: number; locationId: string; lines: readonly PurchaseOrderReceiptLineInput[] }> }>
@@ -124,6 +126,17 @@ export function readInventoryGetInput(request: Request, route: InventoryRoute): 
 export async function readInventoryMutationInput(request: Request, route: InventoryRoute): Promise<Invalid | InventoryMutationInput> {
   const raw = await json(request);
   if (raw === null || route.method !== "POST") return INVALID;
+  if (route.kind === "location_save") {
+    const parsed = exact(raw, ["operationId", "name"], ["locationId", "expectedVersion"]);
+    const operationId = id(parsed?.operationId), locationId = parsed?.locationId === undefined ? undefined : id(parsed.locationId);
+    const expectedVersion = parsed?.expectedVersion === undefined ? undefined : version(parsed.expectedVersion), name = text(parsed?.name, 1, 200);
+    if (!parsed || !operationId || !name || (locationId === undefined) !== (expectedVersion === undefined) || locationId === null || expectedVersion === null) return INVALID;
+    return Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, ...(locationId ? { locationId, expectedVersion: expectedVersion! } : {}), name }) });
+  }
+  if (route.kind === "location_archive") {
+    const parsed = exact(raw, ["operationId", "expectedVersion"]), operationId = id(parsed?.operationId), expectedVersion = version(parsed?.expectedVersion);
+    return parsed && operationId && expectedVersion ? Object.freeze({ kind: route.kind, value: Object.freeze({ operationId, expectedVersion }) }) : INVALID;
+  }
   if (route.kind === "purchase_save") {
     const parsed = exact(raw, ["operationId", "locationId", "supplierName", "lines"], ["orderId", "expectedVersion"]);
     const operationId = id(parsed?.operationId), orderId = parsed?.orderId === undefined ? undefined : id(parsed.orderId), expectedVersion = parsed?.expectedVersion === undefined ? undefined : version(parsed.expectedVersion), locationId = id(parsed?.locationId), supplierName = text(parsed?.supplierName, 1, 200), selectedLines = lines(parsed?.lines, purchaseLine);

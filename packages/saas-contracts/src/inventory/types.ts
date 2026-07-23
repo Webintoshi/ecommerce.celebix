@@ -45,6 +45,27 @@ export interface InventoryLocation {
   readonly updatedAt: string;
 }
 
+export interface InventoryLocationSaveInput {
+  readonly operationId: string;
+  readonly locationId?: string;
+  readonly expectedVersion?: number;
+  readonly name: string;
+}
+
+export interface InventoryLocationArchiveInput {
+  readonly operationId: string;
+  readonly locationId: string;
+  readonly expectedVersion: number;
+}
+
+export interface InventoryLocationMutationResult {
+  readonly id: string;
+  readonly status: "active" | "archived";
+  readonly version: number;
+  readonly updatedAt: string;
+  readonly replayed: boolean;
+}
+
 export interface InventoryBalance {
   readonly locationId: string;
   readonly variantId: string;

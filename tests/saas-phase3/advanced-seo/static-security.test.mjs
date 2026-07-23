@@ -15,7 +15,7 @@ const kinds = ["seo_geo_profile", "seo_internal_link", "seo_content_entry", "seo
 
 test("advanced SEO manifest pins migration 040 exactly", () => {
   const manifest = JSON.parse(readFileSync(path.join(SQL, "phase3h-merchant-completion-manifest.json"), "utf8"));
-  assert.equal(manifest.artifacts.length, 24);
+  assert.equal(manifest.artifacts.length, 27);
   const files = ["202607220040_advanced_seo_preferences.up.sql", "202607220040_advanced_seo_preferences.down.sql", "202607220040_advanced_seo_preferences_assertions.sql"];
   for (const file of files) {
     const artifact = manifest.artifacts.find((entry) => entry.file === file);

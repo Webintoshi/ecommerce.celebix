@@ -207,11 +207,11 @@ test("the disposable PostgreSQL 16 harness defines exactly thirty eight named sc
   assert.doesNotMatch(harness, /pg_sleep|127[.]0[.]0[.]1|localhost|PGHOST|DATABASE_URL/);
 });
 
-test("cumulative completion manifest has twenty four current checksums", () => {
+test("cumulative completion manifest has twenty seven current checksums", () => {
   const manifest = JSON.parse(
     readFileSync(path.join(SQL, "phase3h-merchant-completion-manifest.json"), "utf8"),
   );
-  assert.equal(manifest.artifacts.length, 24);
+  assert.equal(manifest.artifacts.length, 27);
   for (const artifact of manifest.artifacts) {
     assert.equal(
       createHash("sha256")

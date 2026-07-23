@@ -27,6 +27,7 @@ import type {
   CancelInventoryCountInput,
   CancelInventoryTransferInput,
   CommitInventoryCountInput,
+  ArchiveInventoryLocationInput,
   DispatchInventoryTransferInput,
   GetInventoryCountInput,
   GetInventoryTransferInput,
@@ -40,7 +41,9 @@ import type {
   PostgresInventoryRepositoryOptions,
   ReceiveInventoryTransferInput,
   ReceivePurchaseOrderInput,
+  RecoverInventoryLocationOperationInput,
   SaveInventoryCountInput,
+  SaveInventoryLocationInput,
   SaveInventoryTransferInput,
   SavePurchaseOrderInput,
   StartInventoryCountInput,
@@ -60,6 +63,9 @@ import {
 
 const SQL = Object.freeze({
   listLocations: "SELECT outcome,result_payload FROM saas.inventory_list_locations($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
+  saveLocation: "SELECT outcome,result_payload FROM saas.inventory_locations_save($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint,$12::text)",
+  archiveLocation: "SELECT outcome,result_payload FROM saas.inventory_locations_archive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
+  recoverLocation: "SELECT outcome,result_payload FROM saas.inventory_locations_recover($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",
   listBalances: "SELECT outcome,result_payload FROM saas.inventory_list_balances($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
   listPurchaseOrders: "SELECT outcome,result_payload FROM saas.purchasing_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
   getPurchaseOrder: "SELECT outcome,result_payload FROM saas.purchasing_get($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid)",
@@ -240,9 +246,10 @@ export class PostgresInventoryRepository implements InventoryRepository {
     fingerprint: string,
     parser: MutationParser,
     observed: InventoryMutationResult,
+    recoverSql: string = SQL.recover,
   ): Promise<InventoryMutationResult> {
     return this.read({
-      text: SQL.recover,
+      text: recoverSql,
       values: [...authorityValues(authority), operationId, fingerprint],
     }, "operation_replayed", (value) => {
       const recovered = parser(value, true);
@@ -258,6 +265,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
     successOutcome: string,
     spec: Spec,
     parser: MutationParser,
+    recoverSql: string = SQL.recover,
   ): Promise<InventoryMutationResult> {
     const client = await this.acquire();
     let began = false;
@@ -280,7 +288,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
         terminal = true;
         release(client, true);
         this.emitUnknownCommit();
-        return await this.recover(authority, operationId, fingerprint, parser, parsed);
+        return await this.recover(authority, operationId, fingerprint, parser, parsed, recoverSql);
       }
     } catch (error) {
       if (began && !terminal) await this.rollback(client);
@@ -352,6 +360,42 @@ export class PostgresInventoryRepository implements InventoryRepository {
         if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1;
         return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
       }));
+  }
+
+  async saveLocation(input: SaveInventoryLocationInput): Promise<InventoryMutationResult> {
+    const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "name"], ["locationId", "expectedVersion"]);
+    const operationId = inventoryUuid(parsed.operationId);
+    const existingId = parsed.locationId === undefined ? undefined : inventoryUuid(parsed.locationId);
+    const expectedVersion = parsed.expectedVersion === undefined ? undefined : inventoryVersion(parsed.expectedVersion);
+    if ((existingId === undefined) !== (expectedVersion === undefined)) throw inventoryFailure("invalid_input");
+    const targetId = existingId ?? operationId;
+    const name = inventoryText(parsed.name, 1, 200);
+    const fingerprint = inventoryFingerprint("location_save", authority.storeId, existingId ?? null, expectedVersion ?? null, { name, targetId });
+    return this.mutate(authority, operationId, fingerprint, "saved", {
+      text: SQL.saveLocation,
+      values: [...authorityValues(authority), operationId, fingerprint, targetId, expectedVersion ?? null, name],
+    }, this.mutationParser(targetId, (expectedVersion ?? 0) + 1, ["active"], false), SQL.recoverLocation);
+  }
+
+  async archiveLocation(input: ArchiveInventoryLocationInput): Promise<InventoryMutationResult> {
+    const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "locationId", "expectedVersion"]);
+    const operationId = inventoryUuid(parsed.operationId), locationId = inventoryUuid(parsed.locationId), expectedVersion = inventoryVersion(parsed.expectedVersion);
+    const fingerprint = inventoryFingerprint("location_archive", authority.storeId, locationId, expectedVersion, {});
+    return this.mutate(authority, operationId, fingerprint, "archived", {
+      text: SQL.archiveLocation,
+      values: [...authorityValues(authority), operationId, fingerprint, locationId, expectedVersion],
+    }, this.mutationParser(locationId, expectedVersion + 1, ["archived"], false), SQL.recoverLocation);
+  }
+
+  async recoverLocationOperation(input: RecoverInventoryLocationOperationInput): Promise<InventoryMutationResult> {
+    const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "fingerprint", "locationId", "expectedVersion", "expectedStatus"]);
+    const operationId = inventoryUuid(parsed.operationId), locationId = inventoryUuid(parsed.locationId), expectedVersion = inventoryVersion(parsed.expectedVersion);
+    if (typeof parsed.fingerprint !== "string" || !/^[a-f0-9]{64}$/.test(parsed.fingerprint)) throw inventoryFailure("invalid_input");
+    if (parsed.expectedStatus !== "active" && parsed.expectedStatus !== "archived") throw inventoryFailure("invalid_input");
+    const expectedStatus = parsed.expectedStatus;
+    return this.read({ text: SQL.recoverLocation, values: [...authorityValues(authority), operationId, parsed.fingerprint] }, "operation_replayed", (value) => {
+      return this.mutationParser(locationId, expectedVersion, [expectedStatus], false)(value, true);
+    });
   }
 
   async listBalances(input: ListInventoryBalancesInput): Promise<readonly InventoryBalance[]> {

@@ -107,6 +107,25 @@
 
 .actions button:disabled { cursor: wait; opacity: .62; }
 
+.locationManager { display: grid; gap: 16px; margin-bottom: 24px; padding: 18px; border: 1px solid #e7e5e4; border-radius: 18px; background: #fafaf9; }
+.locationManager h2 { margin: 0; font-size: 19px; }
+.locationManager header p { margin: 6px 0 0; color: #78716c; }
+.locationCreate { display: grid; grid-template-columns: minmax(180px, 1fr) auto; gap: 8px 12px; align-items: end; }
+.locationCreate label { grid-column: 1 / -1; font-weight: 700; }
+.locationCreate input,
+.locationCreate button,
+.locationActions button { min-height: 48px; border: 1px solid #d6d3d1; border-radius: 12px; padding: 0 14px; font: inherit; }
+.locationCreate button { background: #ea580c; color: #fff; font-weight: 750; }
+.locationGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.locationCard { display: grid; gap: 10px; padding: 16px; border: 1px solid #e7e5e4; border-radius: 16px; background: #fff; }
+.locationCard > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.locationCard code { overflow-wrap: anywhere; font-size: 12px; }
+.locationCard p { margin: 0; color: #57534e; }
+.locationActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.locationActions button { background: #fff; font-weight: 700; }
+.locationActions button:disabled,
+.locationCreate button:disabled { cursor: not-allowed; opacity: .6; }
+
 .state,
 .denied,
 .error,
@@ -136,4 +155,7 @@
   .mobileCard dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
   .actions { display: grid; }
   .actions button { width: 100%; }
+  .locationCreate { grid-template-columns: 1fr; }
+  .locationCreate label { grid-column: auto; }
+  .locationActions { grid-template-columns: 1fr; }
 }
