@@ -143,7 +143,7 @@ export function parsePriceListRule(value: unknown): PriceListRule {
     const startsAt = Object.hasOwn(parsed, "startsAt")
       ? timestamp(parsed.startsAt)
       : undefined;
-    const endsAt = Object.hasOwn(parsed, "endsAt")
+    const endsAt = Object.hasOwn(parsed, "endsAt") && parsed.endsAt !== null
       ? timestamp(parsed.endsAt)
       : undefined;
     if ((endsAt !== undefined && startsAt === undefined) || (endsAt !== undefined && endsAt <= startsAt!)) invalid();

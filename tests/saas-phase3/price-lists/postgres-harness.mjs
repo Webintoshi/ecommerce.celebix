@@ -628,7 +628,7 @@ async function main() {
       }).priceCents, 1200);
     });
 
-    await scenario("time boundary is inclusive at start and exclusive at end", () => {
+    await scenario("time boundary is inclusive and supplied timestamps require canonical UTC", () => {
       assert.equal(result(box, saveCall({
         op: operation(8),
         list: timed,
@@ -641,6 +641,55 @@ async function main() {
       })).outcome, "activated");
       assert.equal(resolve(box, { variant: VARIANT_B, now: NOW }).priceCents, 2100);
       assert.equal(resolve(box, { variant: VARIANT_B, now: LATER }).priceCents, 2500);
+
+      const omittedStart = result(box, saveCall({
+        op: operation(80),
+        list: listId(80),
+        name: "Omitted start",
+        items: [item(VARIANT_B, 2200)],
+        rules: [{ channel: "storefront", priority: 30 }],
+      }));
+      assert.equal(omittedStart.outcome, "saved");
+      assert.equal(omittedStart.result.rules[0].startsAt, NOW);
+      assert.equal(Object.hasOwn(omittedStart.result.rules[0], "endsAt"), false);
+
+      const invalidTimestamps = [
+        ["noncanonical-start", { channel: "storefront", startsAt: "2026-07-23 12:00:00+00", priority: 30 }],
+        ["null-start", { channel: "storefront", startsAt: null, priority: 30 }],
+        ["empty-start", { channel: "storefront", startsAt: "", priority: 30 }],
+        ["malformed-start", { channel: "storefront", startsAt: "not-a-timestamp", priority: 30 }],
+        ["infinite-start", { channel: "storefront", startsAt: "infinity", priority: 30 }],
+        ["oversized-start", { channel: "storefront", startsAt: "2".repeat(512), priority: 30 }],
+        ["empty-end", { channel: "storefront", startsAt: NOW, endsAt: "", priority: 30 }],
+        ["malformed-end", { channel: "storefront", startsAt: NOW, endsAt: "not-a-timestamp", priority: 30 }],
+        ["noncanonical-end", { channel: "storefront", startsAt: NOW, endsAt: "2026-07-24 12:00:00+00", priority: 30 }],
+        ["infinite-end", { channel: "storefront", startsAt: NOW, endsAt: "infinity", priority: 30 }],
+      ];
+      for (const [index, [name, suppliedRule]] of invalidTimestamps.entries()) {
+        const invalidList = listId(82 + index);
+        assert.equal(result(box, saveCall({
+          op: operation(82 + index),
+          list: invalidList,
+          name,
+          items: [item(VARIANT_B, 2200)],
+          rules: [suppliedRule],
+        })).outcome, "invalid_input", name);
+        assert.equal(
+          psql(box, `SELECT count(*) FROM saas.price_lists WHERE id='${invalidList}';`).stdout.trim(),
+          "0",
+          name,
+        );
+      }
+
+      const nullEnd = result(box, saveCall({
+        op: operation(81),
+        list: listId(81),
+        name: "Null open end",
+        items: [item(VARIANT_B, 2200)],
+        rules: [{ channel: "storefront", startsAt: NOW, endsAt: null, priority: 30 }],
+      }));
+      assert.equal(nullEnd.outcome, "saved");
+      assert.equal(Object.hasOwn(nullEnd.result.rules[0], "endsAt"), false);
     });
 
     await scenario("higher priority wins deterministically across both channels", () => {

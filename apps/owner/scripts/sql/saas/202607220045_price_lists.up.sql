@@ -244,6 +244,8 @@ SET search_path=pg_catalog,saas
 AS $f$
 DECLARE
   entry jsonb;
+  starts_text text;
+  ends_text text;
   starts_at timestamptz;
   ends_at timestamptz;
   priority numeric;
@@ -271,14 +273,50 @@ BEGIN
        OR (entry ? 'startsAt'
          AND pg_catalog.jsonb_typeof(entry->'startsAt')<>'string')
        OR (entry ? 'endsAt'
+         AND entry->'endsAt' IS DISTINCT FROM 'null'::jsonb
          AND pg_catalog.jsonb_typeof(entry->'endsAt')<>'string') THEN
       RETURN false;
     END IF;
     priority:=(entry->>'priority')::numeric;
-    starts_at:=CASE WHEN entry ? 'startsAt'
-      THEN (entry->>'startsAt')::timestamptz ELSE p_now END;
-    ends_at:=CASE WHEN entry ? 'endsAt'
-      THEN (entry->>'endsAt')::timestamptz ELSE NULL END;
+    IF entry ? 'startsAt' THEN
+      starts_text:=entry->>'startsAt';
+      IF starts_text IS NULL
+         OR pg_catalog.char_length(starts_text) NOT IN(24,27)
+         OR starts_text!~'^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.](?:[0-9]{3}|[0-9]{6})Z$' THEN
+        RETURN false;
+      END IF;
+      starts_at:=starts_text::timestamptz;
+      IF starts_text<>pg_catalog.to_char(
+        starts_at AT TIME ZONE 'UTC',
+        CASE pg_catalog.char_length(starts_text)
+          WHEN 24 THEN 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+          ELSE 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+        END
+      ) THEN
+        RETURN false;
+      END IF;
+    ELSE
+      starts_at:=p_now;
+    END IF;
+    IF entry ? 'endsAt' AND entry->'endsAt' IS DISTINCT FROM 'null'::jsonb THEN
+      ends_text:=entry->>'endsAt';
+      IF pg_catalog.char_length(ends_text) NOT IN(24,27)
+         OR ends_text!~'^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.](?:[0-9]{3}|[0-9]{6})Z$' THEN
+        RETURN false;
+      END IF;
+      ends_at:=ends_text::timestamptz;
+      IF ends_text<>pg_catalog.to_char(
+        ends_at AT TIME ZONE 'UTC',
+        CASE pg_catalog.char_length(ends_text)
+          WHEN 24 THEN 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+          ELSE 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+        END
+      ) THEN
+        RETURN false;
+      END IF;
+    ELSE
+      ends_at:=NULL;
+    END IF;
     IF priority<>pg_catalog.trunc(priority)
        OR priority NOT BETWEEN 0 AND 1000
        OR NOT pg_catalog.isfinite(starts_at)

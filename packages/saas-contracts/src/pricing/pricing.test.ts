@@ -58,6 +58,45 @@ test("price rules are finite and cannot carry browser authority", () => {
   assert.throws(() => parsePriceListRule({ ...ruleFixture(), priority: 1001 }));
 });
 
+test("price rule timestamps preserve omitted starts and normalize a null optional end", () => {
+  const omittedStart = parsePriceListRule({
+    channel: "quick_order",
+    customerTagId: TAG_ID,
+    priority: 10,
+  });
+  const openEnded = parsePriceListRule({
+    channel: "storefront",
+    startsAt: NOW,
+    endsAt: null,
+    priority: 10,
+  });
+  assert.equal(Object.hasOwn(omittedStart, "startsAt"), false);
+  assert.equal(Object.hasOwn(openEnded, "endsAt"), false);
+  assert.throws(() => parsePriceListRule({
+    channel: "storefront",
+    startsAt: null,
+    priority: 10,
+  }));
+  for (const timestamp of [
+    "",
+    "not-a-timestamp",
+    "2026-07-23 12:00:00+00",
+    "infinity",
+  ]) {
+    assert.throws(() => parsePriceListRule({
+      channel: "storefront",
+      startsAt: timestamp,
+      priority: 10,
+    }));
+    assert.throws(() => parsePriceListRule({
+      channel: "storefront",
+      startsAt: NOW,
+      endsAt: timestamp,
+      priority: 10,
+    }));
+  }
+});
+
 test("price list items accept only fixed safe integer cents for an exact variant", () => {
   assert.deepEqual(parsePriceListItem(itemFixture()), itemFixture());
   for (const invalidPrice of [-1, 12.5, Number.MAX_SAFE_INTEGER + 1]) {
