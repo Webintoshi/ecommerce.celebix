@@ -6,7 +6,7 @@ const MESSAGES: Record<Code, string> = { invalid_input: "Gönderilen katalog bil
 export class CatalogAdminApiError extends Error { constructor(readonly code: Code, readonly status: number) { super(MESSAGES[code]); this.name = "CatalogAdminApiError"; } }
 type Fetch = typeof fetch;
 function record(value: unknown) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null; }
-async function json(response: Response) { if (response.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new CatalogAdminApiError("unavailable", response.status || 503); try { return await response.json(); } catch { throw new CatalogAdminApiError("unavailable", 503); } }
+async function json(response: Response) { if (response.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new CatalogAdminApiError("unavailable", response.status || 503); try { return await response.json(); } catch (caught) { if (caught instanceof DOMException && caught.name === "AbortError") throw caught; throw new CatalogAdminApiError("unavailable", 503); } }
 function kind(value: CatalogAdminResourceKind) { if (!CATALOG_ADMIN_RESOURCE_KINDS.includes(value)) throw new TypeError("catalog_admin_client_invalid"); return value; }
 function opaqueId(value: string) { if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) throw new TypeError("catalog_admin_client_invalid"); return value; }
 function preview(value: unknown) { try { return parseCatalogImportPreview(value); } catch { throw new CatalogAdminApiError("unavailable", 503); } }

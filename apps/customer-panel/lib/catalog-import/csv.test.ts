@@ -27,6 +27,18 @@ test("supports strict quoted fields and an absent SKU", () => {
   assert.equal(Object.isFrozen(parseCatalogCsv(native("Kahve,kahve,25000,KHV-1,5"))), true);
 });
 
+for (const format of ["native_csv", "shopify_csv"] as const) {
+  test(`${format} enforces the consumed 3..100 slug boundary`, () => {
+    const input = (slug: string) => format === "native_csv"
+      ? native(`Kahve,${slug},25000,KHV-1,5`)
+      : shopify(`${slug},Kahve,KHV-1,250.00,5`);
+    assert.throws(() => parseCatalogCsv(input("aa")), /catalog_import_csv_invalid/);
+    assert.equal(parseCatalogCsv(input("aaa"))[0]?.slug, "aaa");
+    assert.equal(parseCatalogCsv(input("a".repeat(100)))[0]?.slug.length, 100);
+    assert.throws(() => parseCatalogCsv(input("a".repeat(101))), /catalog_import_csv_invalid/);
+  });
+}
+
 const hostile = [
   { name: "formula cell", input: native("=1+1,kahve,25000,KHV-1,5") },
   { name: "duplicate native slug", input: { format: "native_csv" as const, content: `${native("Kahve,kahve,25000,KHV-1,5").content}\nÇay,kahve,10000,CAY-1,2` } },

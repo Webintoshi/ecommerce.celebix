@@ -63,3 +63,19 @@ test("wrong-store previews stay repository-owned 404s", async () => {
   assert.equal(result.status, 404);
   assert.deepEqual(await result.json(), { code: "resource_not_found" });
 });
+
+test("prepare rejects out-of-contract native and Shopify slug bounds without repository access", async () => {
+  let calls = 0;
+  const h = handlers(repository({ async prepareImport() { calls += 1; return preview(); } }));
+  const examples = [
+    { format: "native_csv", content: `title,slug,priceCents,sku,stockQuantity\nKahve,aa,25000,KHV-1,5` },
+    { format: "native_csv", content: `title,slug,priceCents,sku,stockQuantity\nKahve,${"a".repeat(101)},25000,KHV-1,5` },
+    { format: "shopify_csv", content: `Handle,Title,Variant SKU,Variant Price,Variant Inventory Qty\naa,Kahve,KHV-1,250.00,5` },
+    { format: "shopify_csv", content: `Handle,Title,Variant SKU,Variant Price,Variant Inventory Qty\n${"a".repeat(101)},Kahve,KHV-1,250.00,5` },
+  ];
+  for (const example of examples) {
+    const result = await h.prepareImportPreview(request("/api/catalog/admin/import-previews", "POST", { ...example, fileName: "urunler.csv" }));
+    assert.equal(result.status, 400);
+  }
+  assert.equal(calls, 0);
+});

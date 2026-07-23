@@ -33,3 +33,33 @@ test("client maps malformed commit envelopes to finite unavailable errors", asyn
   const api = createCatalogAdminApi(async () => response({ id: ID, version: 3, status: "completed", updatedAt: NOW, replayed: false, rawCsv: "secret" }), () => OP);
   await assert.rejects(() => api.commitImportPreview(ID, 2), (error: unknown) => error instanceof CatalogAdminApiError && error.code === "unavailable");
 });
+
+test("prepare, get and commit preserve native AbortError during response body consumption", async () => {
+  const operations = [
+    (api: ReturnType<typeof createCatalogAdminApi>, signal: AbortSignal) => api.prepareImportPreview({ format: "native_csv", fileName: "x.csv", content: "csv" }, signal),
+    (api: ReturnType<typeof createCatalogAdminApi>, signal: AbortSignal) => api.getImportPreview(ID, signal),
+    (api: ReturnType<typeof createCatalogAdminApi>, signal: AbortSignal) => api.commitImportPreview(ID, 2, signal),
+  ];
+  for (const operation of operations) {
+    const controller = new AbortController();
+    let bodyStarted!: () => void;
+    const consuming = new Promise<void>((resolve) => { bodyStarted = resolve; });
+    const api = createCatalogAdminApi(async (_input, init) => {
+      const response = new Response("{}", { headers: { "content-type": "application/json" } });
+      Object.defineProperty(response, "json", { value: async () => {
+        bodyStarted();
+        return new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true }));
+      } });
+      return response;
+    }, () => OP);
+    const pending = operation(api, controller.signal);
+    await consuming;
+    controller.abort();
+    await assert.rejects(pending, (error: unknown) => error === controller.signal.reason && error instanceof DOMException && error.name === "AbortError");
+  }
+});
+
+test("non-abort response JSON failures remain controlled unavailable errors", async () => {
+  const api = createCatalogAdminApi(async () => new Response("{", { headers: { "content-type": "application/json" } }), () => OP);
+  await assert.rejects(() => api.getImportPreview(ID), (error: unknown) => error instanceof CatalogAdminApiError && error.code === "unavailable" && error.status === 503);
+});

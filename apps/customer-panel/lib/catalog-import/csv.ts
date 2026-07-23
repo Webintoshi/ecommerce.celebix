@@ -79,7 +79,7 @@ function price(value: string): number {
 
 function common(title: string, slug: string, rawSku: string, rawPrice: string, rawStock: string, shopify: boolean): CatalogAdminImportRow {
   const cells = [title, slug, rawSku, rawPrice, rawStock];
-  if (cells.some((cell) => FORMULA.test(cell)) || title.length < 1 || title.length > 200 || title !== title.trim() || slug.length < 1 || slug.length > 120 || !SLUG.test(slug) || rawSku !== rawSku.trim() || (rawSku && !SKU.test(rawSku))) invalid();
+  if (cells.some((cell) => FORMULA.test(cell)) || title.length < 1 || title.length > 200 || title !== title.trim() || slug.length < 3 || slug.length > 100 || !SLUG.test(slug) || rawSku !== rawSku.trim() || (rawSku && !SKU.test(rawSku))) invalid();
   const row = {
     title,
     slug,
