@@ -17,6 +17,7 @@ function repository(calls: unknown[]): AnalyticsRepository { return { async dash
 function runtime(calls: unknown[]): ServerAnalyticsRuntime { return { analytics: repository(calls), access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant() } as never; }, async rotateCredential() { return { kind: "unavailable" }; }, async revokeCredential() { return { kind: "unavailable" }; } } } as ServerAnalyticsRuntime; }
 function request(path: string, headers?: HeadersInit, method = "GET") { const values = new Headers(headers); values.set("cookie", `__Host-celebix_panel=${CREDENTIAL}`); return new Request(`http://internal:3400${path}`, { method, headers: values }); }
 function handlers(calls: unknown[]) { return createAnalyticsHttpHandlers({ async resolveRuntime() { return runtime(calls); }, now: () => new Date(NOW), requestId: () => REQUEST }); }
+function localRequest(url: string, headers: HeadersInit = {}, method = "GET") { return { url, method, headers: new Headers(headers), body: null } as unknown as Request; }
 
 test("dashboard derives only durable TenantContext and accepts exact GET query without Origin authority", async () => {
   const calls: unknown[] = [], response = await handlers(calls).dashboard(request("/api/analytics/dashboard?period=month", { origin: "https://attacker.test" }));
@@ -40,6 +41,44 @@ test("export uses safe fixed JSON and bounded CSV responses", async () => {
   const calls: unknown[] = [], h = handlers(calls);
   const csv = await h.export(request("/api/analytics/export?period=month&format=csv"));
   assert.equal(csv.status, 200); assert.equal(csv.headers.get("content-type"), "text/csv; charset=utf-8"); assert.equal(csv.headers.get("content-disposition"), 'attachment; filename="merchant-analytics.csv"'); assert.equal(await csv.text(), "bucket_start,orders,revenue_cents\r\n2026-07-01T00:00:00.000Z,2,42000\r\n");
-  const json = await h.export(request("/api/analytics/export?period=month&format=json")); assert.equal(json.status, 200); assert.equal((await json.json()).period, "month");
+  const json = await h.export(request("/api/analytics/export?period=month&format=json")); assert.equal(json.status, 200); assert.equal(json.headers.get("content-disposition"), 'attachment; filename="merchant-analytics.json"'); assert.equal((await json.json()).period, "month");
   assert.equal((await h.export(request("/api/analytics/export?format=csv&period=month&period=week"))).status, 400);
+});
+
+test("local request validation is raw-query exact and never resolves runtime or access", async () => {
+  let resolves = 0, access = 0, repositoryCalls = 0;
+  const h = createAnalyticsHttpHandlers({ async resolveRuntime() { resolves += 1; return { analytics: { async dashboard() { repositoryCalls += 1; return dashboard() as never; } }, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { access += 1; return { kind: "authenticated", tenantContext: tenant() } as never; } } } as ServerAnalyticsRuntime; }, now: () => NOW, requestId: () => REQUEST });
+  const cookie = { cookie: `__Host-celebix_panel=${CREDENTIAL}` };
+  for (const value of [
+    localRequest("http://internal:3400/api/analytics/dashboard?period=%6donth", cookie),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month+", cookie),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month&", cookie),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month&&format=csv", cookie),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month&format=csv", cookie),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month#fragment", cookie),
+    localRequest("ftp://internal:3400/api/analytics/dashboard?period=month", cookie),
+    localRequest("http://user:pass@internal:3400/api/analytics/dashboard?period=month", cookie),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month", { ...cookie, "transfer-encoding": "chunked" }),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month", { ...cookie, "content-type": "application/json" }),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month", { ...cookie, authorization: "bearer x" }),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month", cookie, "POST"),
+    localRequest("http://internal:3400/api/analytics/dashboard?period=month", {}),
+  ]) {
+    const result = await h.dashboard(value); assert.ok([400, 401, 405].includes(result.status));
+  }
+  assert.equal(resolves, 0); assert.equal(access, 0); assert.equal(repositoryCalls, 0);
+  assert.equal((await h.export(localRequest("http://internal:3400/api/analytics/export?period=month&format=csv", cookie))).status, 200);
+  assert.equal(resolves, 1); assert.equal(access, 1); assert.equal(repositoryCalls, 1);
+});
+
+test("analytics API maps durable access and repository outcomes to fixed statuses once", async () => {
+  const cookie = { cookie: `__Host-celebix_panel=${CREDENTIAL}` };
+  for (const [accessKind, expected] of [["unauthenticated", 401], ["unauthorized", 403]] as const) {
+    let resolves = 0, repositoryCalls = 0;
+    const h = createAnalyticsHttpHandlers({ async resolveRuntime() { resolves += 1; return { analytics: { async dashboard() { repositoryCalls += 1; return dashboard() as never; } }, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: accessKind }; } } } as ServerAnalyticsRuntime; }, now: () => NOW, requestId: () => REQUEST });
+    const response = await h.dashboard(localRequest("http://internal:3400/api/analytics/dashboard?period=month", cookie));
+    assert.equal(response.status, expected); assert.deepEqual(await response.json(), { code: accessKind === "unauthenticated" ? "unauthenticated" : "membership_denied" }); assert.equal(resolves, 1); assert.equal(repositoryCalls, 0);
+  }
+  const unavailable = createAnalyticsHttpHandlers({ async resolveRuntime() { throw new Error("runtime private"); }, now: () => NOW, requestId: () => REQUEST });
+  const response = await unavailable.dashboard(localRequest("http://internal:3400/api/analytics/dashboard?period=month", cookie)); assert.equal(response.status, 503); assert.deepEqual(await response.json(), { code: "unavailable" });
 });

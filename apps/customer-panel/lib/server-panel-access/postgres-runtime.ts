@@ -262,7 +262,6 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       pool,
       role: "celebix_saas_app",
       timeouts: TIMEOUTS,
-      audit: () => undefined,
     });
     const quickLinkRepositoryOptions = {
       pool,

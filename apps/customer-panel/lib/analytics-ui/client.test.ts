@@ -14,3 +14,7 @@ test("browser analytics client rejects invalid period and unsafe error payload",
   assert.throws(() => api.dashboard("quarter" as never), TypeError);
   await assert.rejects(() => api.dashboard("month"), (error: unknown) => error instanceof AnalyticsApiError && error.code === "unavailable");
 });
+test("browser analytics client converts a network failure into a stable API error", async () => {
+  const api = createAnalyticsApi(async () => { throw new Error("socket token private"); });
+  await assert.rejects(() => api.dashboard("month"), (error: unknown) => error instanceof AnalyticsApiError && error.code === "unavailable" && error.status === 503 && error.message === "unavailable");
+});

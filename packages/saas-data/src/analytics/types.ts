@@ -7,5 +7,4 @@ export interface PostgresAnalyticsRepositoryOptions {
   readonly pool: PostgresPoolLike;
   readonly role: "celebix_saas_app";
   readonly timeouts: PostgresTimeoutOptions;
-  readonly audit: (event: Readonly<{ type: "analytics_read_failure" }>) => void | Promise<void>;
 }

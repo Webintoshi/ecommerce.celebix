@@ -54,13 +54,13 @@ class Pool {
   async connect() { if (this.failure) throw this.failure; const client = this.clients.shift(); if (!client) throw new Error("pool_empty"); return client; }
 }
 function repository(pool: Pool) {
-  return new PostgresAnalyticsRepository({ pool: pool as never, role: "celebix_saas_app", timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 }, audit: () => undefined });
+  return new PostgresAnalyticsRepository({ pool: pool as never, role: "celebix_saas_app", timeouts: { poolCheckoutMs: 100, statementMs: 500, lockMs: 300, idleTransactionMs: 700 } });
 }
 function readAnswers(payload: unknown = dashboard()): Answer[] {
   return [{}, {}, {}, {}, {}, { rows: [{ outcome: "resolved", result_payload: payload }] }, {}];
 }
 
-test("uses one exact read-only analytics function call and projects only immutable safe data", async () => {
+test("uses the exact read-only transaction sequence and one analytics function call", async () => {
   const client = new Client(readAnswers());
   const result = await repository(new Pool([client])).dashboard({ tenantContext: tenant(), now: NOW, period: "month" });
   assert.equal(result.period, "month");
@@ -70,7 +70,33 @@ test("uses one exact read-only analytics function call and projects only immutab
   assert.match(call?.text ?? "", /^SELECT outcome,result_payload FROM saas\.merchant_analytics_dashboard\(/);
   assert.deepEqual(call?.values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, "month"]);
   assert.equal(JSON.stringify(result).includes(STORE), false);
-  assert.equal(client.releases.length, 1);
+  assert.deepEqual(client.calls.map((entry) => entry.text), [
+    "BEGIN READ ONLY",
+    "SELECT pg_catalog.set_config('statement_timeout', $1, true)",
+    "SELECT pg_catalog.set_config('lock_timeout', $1, true)",
+    "SELECT pg_catalog.set_config('idle_in_transaction_session_timeout', $1, true)",
+    "SET LOCAL ROLE celebix_saas_app",
+    call?.text,
+    "COMMIT",
+  ]);
+  assert.deepEqual(client.releases, [undefined]);
+});
+
+test("every pre-commit database failure cleans up exactly once and commit-unknown destroys", async () => {
+  for (const index of [0, 1, 2, 3, 4, 5] as const) {
+    const answers = readAnswers(); answers[index] = { throw: new Error(`fault-${index}`) };
+    const client = new Client(answers);
+    await assert.rejects(() => repository(new Pool([client])).dashboard({ tenantContext: tenant(), now: NOW, period: "month" }), (error: unknown) => error instanceof AnalyticsRepositoryError && error.code === "unavailable");
+    if (index === 0) { assert.deepEqual(client.releases, [true]); assert.equal(client.calls.some((call) => call.text === "ROLLBACK"), false); }
+    else { assert.equal(client.calls.at(-1)?.text, "ROLLBACK"); assert.deepEqual(client.releases, [undefined]); }
+  }
+  const rollbackFailure = new Client([{}, { throw: new Error("configure") }, { throw: new Error("rollback") }]);
+  await assert.rejects(() => repository(new Pool([rollbackFailure])).dashboard({ tenantContext: tenant(), now: NOW, period: "month" }), AnalyticsRepositoryError);
+  assert.deepEqual(rollbackFailure.releases, [true]);
+  const commitFailure = new Client([{}, {}, {}, {}, {}, { rows: [{ outcome: "resolved", result_payload: dashboard() }] }, { throw: new Error("commit") }]);
+  await assert.rejects(() => repository(new Pool([commitFailure])).dashboard({ tenantContext: tenant(), now: NOW, period: "month" }), AnalyticsRepositoryError);
+  assert.deepEqual(commitFailure.releases, [true]);
+  assert.equal(commitFailure.calls.some((call) => call.text === "ROLLBACK"), false);
 });
 
 test("maps acquisition, malformed projection, timeout, outcome and terminal failures to stable unavailable", async () => {
