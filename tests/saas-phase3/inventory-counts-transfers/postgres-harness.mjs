@@ -37,11 +37,22 @@ const COUNT_HOLD = "60000000-0000-4000-8000-000000000004";
 const COUNT_CONCURRENT_A = "60000000-0000-4000-8000-000000000005";
 const COUNT_CONCURRENT_B = "60000000-0000-4000-8000-000000000006";
 const COUNT_CANCEL = "60000000-0000-4000-8000-000000000007";
+const COUNT_CANCEL_STARTED = "60000000-0000-4000-8000-000000000008";
 const TRANSFER_RECEIVE = "70000000-0000-4000-8000-000000000001";
 const TRANSFER_CANCEL = "70000000-0000-4000-8000-000000000002";
 const TRANSFER_INSUFFICIENT = "70000000-0000-4000-8000-000000000003";
 const TRANSFER_REVERSE_A = "70000000-0000-4000-8000-000000000004";
 const TRANSFER_REVERSE_B = "70000000-0000-4000-8000-000000000005";
+const CHECKOUT_LINK = "74000000-0000-4000-8000-000000000001";
+const CHECKOUT_ITEM = "74000000-0000-4000-8000-000000000002";
+const CHECKOUT_REDEMPTION = "74000000-0000-4000-8000-000000000003";
+const CHECKOUT_ATTEMPT = "74000000-0000-4000-8000-000000000004";
+const CHECKOUT_RESERVATION = "74000000-0000-4000-8000-000000000005";
+const CHECKOUT_ORDER = "74000000-0000-4000-8000-000000000006";
+const CHECKOUT_ORDER_ITEM = "74000000-0000-4000-8000-000000000007";
+const CHECKOUT_ORDER_EVENT = "74000000-0000-4000-8000-000000000008";
+const CHECKOUT_OPERATION = "74000000-0000-4000-8000-000000000009";
+const CHECKOUT_MERCHANT_OID = "abcdef1234567890abcdef1234567890";
 const NOW = "2026-07-22T20:00:00.000Z";
 const ADDRESS = `'{"recipientName":"Ada Lovelace","phone":"+905551110000","line1":"Test 1","city":"Istanbul","country":"TR"}'::jsonb`;
 const ENVELOPE = `'{"algorithm":"A256GCM","ciphertext":"cXVpY2stbGluay10b2tlbi1jaXBoZXJ0ZXh0","iv":"AQEBAQEBAQEBAQEB","keyId":"key-1","tag":"AgICAgICAgICAgICAgICAg","version":1}'::jsonb`;
@@ -452,6 +463,96 @@ COMMIT;`,
   );
 }
 
+function seedSettlement(box) {
+  psql(
+    box,
+    `BEGIN;SET LOCAL ROLE celebix_saas_owner;
+INSERT INTO saas.quick_order_links(
+  id,store_id,creating_membership_id,provider_config_id,status,token_digest,
+  token_key_id,sealed_token,customer_name,customer_email,customer_phone,
+  shipping_address,billing_address,internal_label,currency,subtotal_cents,
+  shipping_cents,discount_cents,total_cents,expires_at,version,created_at,updated_at
+) VALUES(
+  '${CHECKOUT_LINK}','${STORE}','${OWNER_MEMBERSHIP}',
+  '72000000-0000-4000-8000-000000000010','active',repeat('b',64),'key-1',
+  ${ENVELOPE},'Grace Hopper','grace@example.test','+905551110001',${ADDRESS},
+  ${ADDRESS},'checkout writer','TRY',1000,0,0,1000,
+  '2026-07-23T19:00:00Z',1,'2026-07-22T19:00:00Z','2026-07-22T19:00:00Z'
+);
+INSERT INTO saas.quick_order_link_items(
+  id,store_id,quick_order_link_id,product_id,variant_id,position,product_name,
+  variant_name,unit_price_cents,quantity,line_total_cents,created_at
+) VALUES(
+  '${CHECKOUT_ITEM}','${STORE}','${CHECKOUT_LINK}','${PRODUCT}','${VARIANT_A}',0,
+  'Urun A','A',1000,1,1000,'2026-07-22T19:00:00Z'
+);
+INSERT INTO saas.quick_order_redemption_sessions(
+  id,store_id,quick_order_link_id,cookie_digest,expires_at,version,created_at,updated_at
+) VALUES(
+  '${CHECKOUT_REDEMPTION}','${STORE}','${CHECKOUT_LINK}',repeat('f',64),
+  '2026-07-23T19:00:00Z',1,'2026-07-22T20:22:00Z','2026-07-22T20:22:00Z'
+);
+INSERT INTO saas.checkout_payment_attempts(
+  id,store_id,quick_order_link_id,redemption_session_id,provider_config_id,
+  provider_config_version,configuration_digest,configuration_key_id,
+  sealed_configuration,merchant_oid,expected_subtotal_cents,
+  expected_shipping_cents,expected_discount_cents,expected_payment_amount,
+  currency,status,hold_expires_at,initiation_unknown_at,version,created_at,updated_at
+) VALUES(
+  '${CHECKOUT_ATTEMPT}','${STORE}','${CHECKOUT_LINK}','${CHECKOUT_REDEMPTION}',
+  '72000000-0000-4000-8000-000000000010',1,repeat('d',64),'key-1',${ENVELOPE},
+  '${CHECKOUT_MERCHANT_OID}',1000,0,0,1000,'TRY','initiation_unknown',
+  '2026-07-22T20:27:00Z','2026-07-22T20:22:00Z',1,
+  '2026-07-22T20:22:00Z','2026-07-22T20:22:00Z'
+);
+INSERT INTO saas.checkout_inventory_reservations(
+  id,store_id,attempt_id,quick_order_link_id,product_id,variant_id,quantity,
+  stock_tracked,status,held_at,version,updated_at
+) VALUES(
+  '${CHECKOUT_RESERVATION}','${STORE}','${CHECKOUT_ATTEMPT}','${CHECKOUT_LINK}',
+  '${PRODUCT}','${VARIANT_A}',1,true,'held','2026-07-22T20:22:00Z',1,
+  '2026-07-22T20:22:00Z'
+);
+COMMIT;`,
+  );
+}
+
+function checkoutSettlementCall() {
+  return `saas.checkout_settle_callback(
+    '${CHECKOUT_MERCHANT_OID}',repeat('c',64),'${CHECKOUT_OPERATION}',
+    '${fingerprint(CHECKOUT_OPERATION)}','success',1000,1000,'TRY','card',1,
+    NULL,NULL,'${CHECKOUT_ORDER}',ARRAY['${CHECKOUT_ORDER_ITEM}'::uuid],
+    '${CHECKOUT_ORDER_EVENT}','INV-CHECKOUT-1','2026-07-22T20:23:00Z'
+  )`;
+}
+
+function movementRows(box, sourceId, movementKinds) {
+  return JSON.parse(psql(
+    box,
+    `SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+  'variantId',variant_id,'locationId',location_id,'movementKind',movement_kind,
+  'direction',direction,'quantityDelta',quantity_delta,'sourceKind',source_kind,
+  'sourceId',source_id
+) ORDER BY variant_id,movement_kind,location_id),'[]'::jsonb)
+FROM saas.inventory_movements
+WHERE source_id='${sourceId}' AND movement_kind=ANY(ARRAY[${movementKinds.map((kind) => `'${kind}'`).join(",")}]);`,
+  ).stdout.trim());
+}
+
+function inventoryState(box) {
+  return psql(
+    box,
+    `SELECT pg_catalog.jsonb_build_object(
+  'variants',(SELECT pg_catalog.jsonb_agg(pg_catalog.to_jsonb(variant) ORDER BY variant.id)
+    FROM saas.product_variants AS variant WHERE variant.store_id='${STORE}' AND variant.id IN('${VARIANT_A}','${VARIANT_B}')),
+  'balances',(SELECT pg_catalog.jsonb_agg(pg_catalog.to_jsonb(balance) ORDER BY balance.location_id,balance.variant_id)
+    FROM saas.inventory_balances AS balance WHERE balance.store_id='${STORE}' AND balance.variant_id IN('${VARIANT_A}','${VARIANT_B}')),
+  'movements',(SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(movement) ORDER BY movement.id),'[]'::jsonb)
+    FROM saas.inventory_movements AS movement WHERE movement.store_id='${STORE}' AND movement.variant_id IN('${VARIANT_A}','${VARIANT_B}'))
+)::text;`,
+  ).stdout;
+}
+
 const TOTAL = 30;
 let count = 0;
 async function scenario(name, run) {
@@ -506,6 +607,18 @@ FROM pg_catalog.pg_constraint WHERE conrelid='saas.inventory_operations'::regcla
       box,
       `SELECT pg_catalog.string_agg(conname||':'||pg_catalog.pg_get_constraintdef(oid),E'\n' ORDER BY conname)
 FROM pg_catalog.pg_constraint WHERE conrelid='saas.inventory_movements'::regclass;`,
+    ).stdout;
+    const checkoutDefinition043 = psql(
+      box,
+      `SELECT pg_catalog.pg_get_functiondef('saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure);`,
+    ).stdout;
+    const checkoutOwner043 = psql(
+      box,
+      `SELECT owner.rolname FROM pg_catalog.pg_proc AS proc JOIN pg_catalog.pg_roles AS owner ON owner.oid=proc.proowner WHERE proc.oid='saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure;`,
+    ).stdout;
+    const checkoutAcl043 = psql(
+      box,
+      `SELECT COALESCE(proc.proacl::text,'NULL') FROM pg_catalog.pg_proc AS proc WHERE proc.oid='saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure;`,
     ).stdout;
 
     await scenario("migration order applies 044 only after exact 043", () => {
@@ -617,13 +730,16 @@ FROM pg_catalog.pg_constraint WHERE conrelid='saas.inventory_movements'::regclas
         ).stdout.trim()),
         [[VARIANT_A, 18, 2], [VARIANT_B, 15, 2]],
       );
-      assert.equal(
-        psql(
-          box,
-          `SELECT count(*)||':'||sum(quantity_delta) FROM saas.inventory_movements WHERE source_kind='count_adjustment' AND source_id='${COUNT_MAIN}';`,
-        ).stdout.trim(),
-        "2:1",
-      );
+      assert.deepEqual(movementRows(box, COUNT_MAIN, ["count_adjustment"]), [
+        {
+          variantId: VARIANT_A, locationId: defaultLocation, movementKind: "count_adjustment",
+          direction: "out", quantityDelta: -2, sourceKind: "count_adjustment", sourceId: COUNT_MAIN,
+        },
+        {
+          variantId: VARIANT_B, locationId: defaultLocation, movementKind: "count_adjustment",
+          direction: "in", quantityDelta: 3, sourceKind: "count_adjustment", sourceId: COUNT_MAIN,
+        },
+      ]);
       assert.equal(
         psql(
           box,
@@ -720,6 +836,16 @@ COMMIT;`,
       assert.equal(denied.outcome, "active_hold_conflict");
     });
     await scenario("count operation replay is exact and fingerprint mismatch is denied", () => {
+      const persistedRaw = psql(
+        box,
+        `SELECT result_payload::text FROM saas.inventory_operations WHERE operation_id='${operation(4)}';`,
+      ).stdout.trim();
+      const replayRaw = psql(
+        box,
+        `SET ROLE celebix_saas_app;SELECT result_payload::text FROM ${countTransition("commit", {
+          op: operation(4), count: COUNT_MAIN, expected: countVersion,
+        })};`,
+      ).stdout.trim();
       const replay = result(box, countTransition("commit", {
         op: operation(4), count: COUNT_MAIN, expected: countVersion,
       }));
@@ -728,7 +854,8 @@ COMMIT;`,
         fp: fingerprint("different-count-payload"),
       }));
       assert.equal(replay.outcome, "operation_replayed");
-      assert.equal(replay.result.status, "committed");
+      assert.equal(replayRaw, persistedRaw);
+      assert.deepEqual(replay.result, JSON.parse(persistedRaw));
       assert.equal(mismatch.outcome, "operation_mismatch");
     });
 
@@ -760,6 +887,7 @@ COMMIT;`,
       assert.deepEqual(outcomes, ["committed", "inventory_conflict"]);
     });
     await scenario("draft and counting counts cancel without stock mutation", () => {
+      const beforeDraft = inventoryState(box);
       const saved = result(box, countSave({
         op: operation(40), count: COUNT_CANCEL, location: defaultLocation,
         lines: [{ lineId: line(40), variantId: VARIANT_A }],
@@ -769,8 +897,24 @@ COMMIT;`,
       }));
       assert.equal(cancelled.outcome, "cancelled");
       assert.equal(cancelled.result.status, "cancelled");
+      assert.equal(inventoryState(box), beforeDraft);
+
+      const beforeCounting = inventoryState(box);
+      const countingSaved = result(box, countSave({
+        op: operation(42), count: COUNT_CANCEL_STARTED, location: defaultLocation,
+        lines: [{ lineId: line(41), variantId: VARIANT_B }],
+      }));
+      const countingStarted = result(box, countTransition("start", {
+        op: operation(43), count: COUNT_CANCEL_STARTED, expected: countingSaved.result.version,
+      }));
+      const countingCancelled = result(box, countTransition("cancel", {
+        op: operation(44), count: COUNT_CANCEL_STARTED, expected: countingStarted.result.version,
+      }));
+      assert.equal(countingCancelled.outcome, "cancelled");
+      assert.equal(countingCancelled.result.status, "cancelled");
+      assert.equal(inventoryState(box), beforeCounting);
       assert.equal(
-        psql(box, `SELECT count(*) FROM saas.inventory_movements WHERE source_id='${COUNT_CANCEL}';`).stdout.trim(),
+        psql(box, `SELECT count(*) FROM saas.inventory_movements WHERE source_id IN('${COUNT_CANCEL}','${COUNT_CANCEL_STARTED}');`).stdout.trim(),
         "0",
       );
     });
@@ -856,10 +1000,16 @@ COMMIT;`,
         Number(psql(box, `SELECT stock_quantity FROM saas.product_variants WHERE store_id='${STORE}' AND id='${VARIANT_A}';`).stdout.trim()),
         before - 3,
       );
-      assert.equal(
-        psql(box, `SELECT count(*)||':'||sum(quantity_delta) FROM saas.inventory_movements WHERE source_id='${TRANSFER_RECEIVE}' AND movement_kind='transfer_out';`).stdout.trim(),
-        "2:-5",
-      );
+      assert.deepEqual(movementRows(box, TRANSFER_RECEIVE, ["transfer_out"]), [
+        {
+          variantId: VARIANT_A, locationId: defaultLocation, movementKind: "transfer_out",
+          direction: "out", quantityDelta: -3, sourceKind: "transfer", sourceId: TRANSFER_RECEIVE,
+        },
+        {
+          variantId: VARIANT_B, locationId: defaultLocation, movementKind: "transfer_out",
+          direction: "out", quantityDelta: -2, sourceKind: "transfer", sourceId: TRANSFER_RECEIVE,
+        },
+      ]);
     });
     await scenario("receive restores sellable stock at the destination", () => {
       const received = result(box, transferTransition("receive", {
@@ -875,6 +1025,16 @@ COMMIT;`,
         psql(box, `SELECT stock_quantity FROM saas.product_variants WHERE store_id='${STORE}' AND id='${VARIANT_A}';`).stdout.trim(),
         "18",
       );
+      assert.deepEqual(movementRows(box, TRANSFER_RECEIVE, ["transfer_in"]), [
+        {
+          variantId: VARIANT_A, locationId: LOCATION_B, movementKind: "transfer_in",
+          direction: "in", quantityDelta: 3, sourceKind: "transfer", sourceId: TRANSFER_RECEIVE,
+        },
+        {
+          variantId: VARIANT_B, locationId: LOCATION_B, movementKind: "transfer_in",
+          direction: "in", quantityDelta: 2, sourceKind: "transfer", sourceId: TRANSFER_RECEIVE,
+        },
+      ]);
     });
     let cancelVersion = 0;
     await scenario("cancelling a dispatched transfer returns stock to its source", () => {
@@ -892,12 +1052,28 @@ COMMIT;`,
       }));
       assert.equal(cancelled.outcome, "cancelled");
       assert.equal(cancelled.result.status, "cancelled");
-      assert.equal(
-        psql(box, `SELECT sum(quantity_delta) FROM saas.inventory_movements WHERE source_id='${TRANSFER_CANCEL}';`).stdout.trim(),
-        "0",
-      );
+      assert.deepEqual(movementRows(box, TRANSFER_CANCEL, ["transfer_out", "transfer_return"]), [
+        {
+          variantId: VARIANT_A, locationId: defaultLocation, movementKind: "transfer_out",
+          direction: "out", quantityDelta: -2, sourceKind: "transfer", sourceId: TRANSFER_CANCEL,
+        },
+        {
+          variantId: VARIANT_A, locationId: defaultLocation, movementKind: "transfer_return",
+          direction: "in", quantityDelta: 2, sourceKind: "transfer", sourceId: TRANSFER_CANCEL,
+        },
+      ]);
     });
     await scenario("transfer operation replay is exact and fingerprint mismatch is denied", () => {
+      const persistedRaw = psql(
+        box,
+        `SELECT result_payload::text FROM saas.inventory_operations WHERE operation_id='${operation(62)}';`,
+      ).stdout.trim();
+      const replayRaw = psql(
+        box,
+        `SET ROLE celebix_saas_app;SELECT result_payload::text FROM ${transferTransition("cancel", {
+          op: operation(62), transfer: TRANSFER_CANCEL, expected: cancelVersion,
+        })};`,
+      ).stdout.trim();
       const replay = result(box, transferTransition("cancel", {
         op: operation(62), transfer: TRANSFER_CANCEL, expected: cancelVersion,
       }));
@@ -906,7 +1082,8 @@ COMMIT;`,
         fp: fingerprint("different-transfer-payload"),
       }));
       assert.equal(replay.outcome, "operation_replayed");
-      assert.equal(replay.result.status, "cancelled");
+      assert.equal(replayRaw, persistedRaw);
+      assert.deepEqual(replay.result, JSON.parse(persistedRaw));
       assert.equal(mismatch.outcome, "operation_mismatch");
     });
     await scenario("cross store identifiers and duplicate transfer lines are denied", () => {
@@ -946,6 +1123,163 @@ COMMIT;`,
       const makeTransfer = (transfer, seed, lines, source, destination) => result(box, transferSave({
         op: operation(seed), transfer, source, destination, lines,
       }));
+
+      const checkoutBarrierTransfer = "70000000-0000-4000-8000-000000000009";
+      const checkoutBarrierCount = "69000000-0000-4000-8000-000000000003";
+      const barrierTransfer = makeTransfer(
+        checkoutBarrierTransfer,
+        100,
+        [
+          { lineId: line(100), variantId: VARIANT_B, quantity: 1 },
+          { lineId: line(101), variantId: VARIANT_A, quantity: 1 },
+        ],
+        defaultLocation,
+        LOCATION_B,
+      );
+      const expectedAtBarrier = JSON.parse(psql(
+        box,
+        `SELECT pg_catalog.jsonb_object_agg(variant_id,quantity) FROM saas.inventory_balances WHERE store_id='${STORE}' AND location_id='${defaultLocation}' AND variant_id IN('${VARIANT_A}','${VARIANT_B}');`,
+      ).stdout.trim());
+      const barrierCountSaved = result(box, countSave({
+        op: operation(102), count: checkoutBarrierCount, location: defaultLocation,
+        lines: [
+          { lineId: line(102), variantId: VARIANT_B },
+          { lineId: line(103), variantId: VARIANT_A },
+        ],
+        now: "2026-07-22T20:22:00Z",
+      }));
+      const barrierCountStarted = result(box, countTransition("start", {
+        op: operation(104), count: checkoutBarrierCount,
+        expected: barrierCountSaved.result.version, now: "2026-07-22T20:22:01Z",
+      }));
+      const barrierCountReady = result(box, countSave({
+        op: operation(105), count: checkoutBarrierCount,
+        expected: barrierCountStarted.result.version, location: defaultLocation,
+        lines: [
+          { lineId: line(102), variantId: VARIANT_B, countedQuantity: expectedAtBarrier[VARIANT_B] },
+          { lineId: line(103), variantId: VARIANT_A, countedQuantity: expectedAtBarrier[VARIANT_A] },
+        ],
+        now: "2026-07-22T20:22:02Z",
+      }));
+      seedSettlement(box);
+      const stateBeforeBarrier = JSON.parse(psql(
+        box,
+        `SELECT pg_catalog.jsonb_object_agg(variant.id,pg_catalog.jsonb_build_object(
+  'stock',variant.stock_quantity,
+  'source',(SELECT balance.quantity FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${defaultLocation}' AND balance.variant_id=variant.id),
+  'destination',(SELECT balance.quantity FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${LOCATION_B}' AND balance.variant_id=variant.id)
+)) FROM saas.product_variants AS variant WHERE variant.store_id='${STORE}' AND variant.id IN('${VARIANT_A}','${VARIANT_B}');`,
+      ).stdout.trim());
+
+      const blocker = interactive(box, "inventory_checkout_store_barrier");
+      blocker.write(`BEGIN;SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.catalog.store:${STORE}',0));SELECT 'CHECKOUT_BARRIER_READY';\n`);
+      await waitUntil(
+        () => psql(box, `SELECT count(*) FROM pg_catalog.pg_locks AS lock JOIN pg_catalog.pg_stat_activity AS activity ON activity.pid=lock.pid WHERE activity.application_name='inventory_checkout_store_barrier' AND lock.locktype='advisory' AND lock.granted;`).stdout.trim() === "1",
+        "checkout store barrier",
+      );
+
+      const checkoutWriter = interactive(box, "inventory_checkout_other_writer");
+      checkoutWriter.write(`SET ROLE celebix_saas_workflow;SET statement_timeout='10s';SELECT outcome FROM ${checkoutSettlementCall()};`);
+      checkoutWriter.child.stdin.end();
+      await waitUntil(
+        () => psql(box, `SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE application_name='inventory_checkout_other_writer' AND wait_event_type='Lock';`).stdout.trim() === "1",
+        "checkout advisory wait",
+      );
+
+      const transferBarrierWriter = interactive(box, "inventory_transfer_checkout_barrier");
+      transferBarrierWriter.write(`SET ROLE celebix_saas_app;SET statement_timeout='10s';SELECT outcome FROM ${transferTransition("dispatch", {
+        op: operation(106), transfer: checkoutBarrierTransfer,
+        expected: barrierTransfer.result.version, now: "2026-07-22T20:23:01Z",
+      })};`);
+      transferBarrierWriter.child.stdin.end();
+      await waitUntil(
+        () => psql(box, `SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE application_name='inventory_transfer_checkout_barrier' AND wait_event_type='Lock';`).stdout.trim() === "1",
+        "transfer advisory wait",
+      );
+
+      const countBarrierWriter = interactive(box, "inventory_count_checkout_barrier");
+      countBarrierWriter.write(`SET ROLE celebix_saas_app;SET statement_timeout='10s';SELECT outcome FROM ${countTransition("commit", {
+        op: operation(107), count: checkoutBarrierCount,
+        expected: barrierCountReady.result.version, now: "2026-07-22T20:23:02Z",
+      })};`);
+      countBarrierWriter.child.stdin.end();
+      await waitUntil(
+        () => psql(box, `SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE application_name='inventory_count_checkout_barrier' AND wait_event_type='Lock';`).stdout.trim() === "1",
+        "count advisory wait",
+      );
+      assert.equal(
+        psql(
+          box,
+          `SELECT count(*) FROM pg_catalog.pg_locks AS lock JOIN pg_catalog.pg_stat_activity AS activity ON activity.pid=lock.pid WHERE activity.application_name=ANY(ARRAY['inventory_checkout_other_writer','inventory_transfer_checkout_barrier','inventory_count_checkout_barrier']) AND lock.locktype='advisory' AND NOT lock.granted;`,
+        ).stdout.trim(),
+        "3",
+      );
+      blocker.write("COMMIT;\n");
+      blocker.child.stdin.end();
+      await blocker.done();
+      const barrierOutputs = await Promise.all([
+        checkoutWriter.done(),
+        transferBarrierWriter.done(),
+        countBarrierWriter.done(),
+      ]);
+      assert.deepEqual(barrierOutputs.map((entry) => entry.trim()), [
+        "settled", "dispatched", "inventory_conflict",
+      ]);
+      const stateAfterBarrier = JSON.parse(psql(
+        box,
+        `SELECT pg_catalog.jsonb_object_agg(variant.id,pg_catalog.jsonb_build_object(
+  'stock',variant.stock_quantity,
+  'source',(SELECT balance.quantity FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${defaultLocation}' AND balance.variant_id=variant.id),
+  'destination',(SELECT balance.quantity FROM saas.inventory_balances AS balance WHERE balance.store_id=variant.store_id AND balance.location_id='${LOCATION_B}' AND balance.variant_id=variant.id)
+)) FROM saas.product_variants AS variant WHERE variant.store_id='${STORE}' AND variant.id IN('${VARIANT_A}','${VARIANT_B}');`,
+      ).stdout.trim());
+      assert.deepEqual(stateAfterBarrier, {
+        [VARIANT_A]: {
+          stock: stateBeforeBarrier[VARIANT_A].stock - 2,
+          source: stateBeforeBarrier[VARIANT_A].source - 2,
+          destination: stateBeforeBarrier[VARIANT_A].destination,
+        },
+        [VARIANT_B]: {
+          stock: stateBeforeBarrier[VARIANT_B].stock - 1,
+          source: stateBeforeBarrier[VARIANT_B].source - 1,
+          destination: stateBeforeBarrier[VARIANT_B].destination,
+        },
+      });
+      assert.deepEqual(movementRows(box, CHECKOUT_ATTEMPT, ["checkout_sale"]), [{
+        variantId: VARIANT_A, locationId: defaultLocation, movementKind: "checkout_sale",
+        direction: "out", quantityDelta: -1, sourceKind: "checkout_sale", sourceId: CHECKOUT_ATTEMPT,
+      }]);
+      assert.deepEqual(movementRows(box, checkoutBarrierTransfer, ["transfer_out"]), [
+        {
+          variantId: VARIANT_A, locationId: defaultLocation, movementKind: "transfer_out",
+          direction: "out", quantityDelta: -1, sourceKind: "transfer", sourceId: checkoutBarrierTransfer,
+        },
+        {
+          variantId: VARIANT_B, locationId: defaultLocation, movementKind: "transfer_out",
+          direction: "out", quantityDelta: -1, sourceKind: "transfer", sourceId: checkoutBarrierTransfer,
+        },
+      ]);
+      assert.deepEqual(
+        JSON.parse(psql(
+          box,
+          `SELECT pg_catalog.jsonb_build_object('operationId',operation_id,'operationKind',operation_kind,'fingerprint',payload_fingerprint,'result',result_payload) FROM saas.checkout_operations WHERE operation_id='${CHECKOUT_OPERATION}';`,
+        ).stdout.trim()),
+        {
+          operationId: CHECKOUT_OPERATION,
+          operationKind: "settle_callback",
+          fingerprint: fingerprint(CHECKOUT_OPERATION),
+          result: {
+            outcome: "settled", status: "success", orderId: CHECKOUT_ORDER,
+            orderNumber: "INV-CHECKOUT-1", paymentAmount: 1000, totalAmount: 1000,
+            currency: "TRY", paymentType: "card", testMode: 1,
+          },
+        },
+      );
+      assert.equal(
+        psql(box, `SELECT count(*) FROM saas.inventory_operations WHERE operation_id='${operation(107)}';`).stdout.trim(),
+        "0",
+      );
+
       const transferA = makeTransfer(
         TRANSFER_REVERSE_A,
         70,
@@ -1129,6 +1463,7 @@ COMMIT;`,
         "-h", box.socket, "-p", String(box.port), "-U", "postgres",
         "-d", RESTORED, "--exit-on-error", dump,
       ]);
+      apply(box, "202607220044_inventory_counts_transfers_assertions.sql", RESTORED);
       assert.equal(
         psql(box, `SELECT count(*) FROM saas.inventory_counts;`, RESTORED).stdout.trim(),
         psql(box, `SELECT count(*) FROM saas.inventory_counts;`).stdout.trim(),
@@ -1137,6 +1472,34 @@ COMMIT;`,
         result(box, `saas.inventory_transfers_get(${authority()},'${TRANSFER_RECEIVE}')`, RESTORED).outcome,
         "found",
       );
+      const ownerProof = JSON.parse(psql(
+        box,
+        `SELECT pg_catalog.jsonb_build_object(
+  'tables',(SELECT pg_catalog.bool_and(pg_catalog.pg_get_userbyid(relation.relowner)='celebix_saas_owner' AND relation.relrowsecurity AND relation.relforcerowsecurity) FROM pg_catalog.pg_class AS relation JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace WHERE namespace.nspname='saas' AND relation.relname=ANY(ARRAY['inventory_counts','inventory_count_lines','inventory_transfers','inventory_transfer_lines'])),
+  'functions',(SELECT pg_catalog.bool_and(pg_catalog.pg_get_userbyid(proc.proowner)='celebix_saas_owner') FROM pg_catalog.pg_proc AS proc JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=proc.pronamespace WHERE namespace.nspname='saas' AND (proc.proname=ANY(ARRAY['inventory_counts_list','inventory_counts_get','inventory_counts_save','inventory_counts_start','inventory_counts_commit','inventory_counts_cancel','inventory_transfers_list','inventory_transfers_get','inventory_transfers_save','inventory_transfers_dispatch','inventory_transfers_receive','inventory_transfers_cancel']) OR proc.proname='quick_checkout_settle_success_core')),
+  'immutability',(SELECT pg_catalog.count(*)=2 FROM pg_catalog.pg_trigger AS trigger WHERE trigger.tgname=ANY(ARRAY['inventory_movements_immutable','inventory_operations_immutable']) AND trigger.tgenabled='O' AND NOT trigger.tgisinternal)
+);`,
+        RESTORED,
+      ).stdout.trim());
+      assert.deepEqual(ownerProof, {
+        tables: true, functions: true, immutability: true,
+      });
+      const restoredImmutable = psql(
+        box,
+        `SET ROLE celebix_saas_owner;UPDATE saas.inventory_movements SET quantity_delta=99 WHERE source_id='${COUNT_MAIN}';`,
+        RESTORED,
+        true,
+      );
+      assert.notEqual(restoredImmutable.status, 0);
+      assert.match(restoredImmutable.stderr, /INVENTORY_MOVEMENT_IMMUTABLE/);
+      const restoredDirectDml = psql(
+        box,
+        `SET ROLE celebix_saas_app;DELETE FROM saas.inventory_counts;`,
+        RESTORED,
+        true,
+      );
+      assert.notEqual(restoredDirectDml.status, 0);
+      assert.match(restoredDirectDml.stderr, /permission denied/);
       psql(box, `DROP DATABASE ${RESTORED} WITH (FORCE);`, "postgres");
     });
     await scenario("rollback refuses nondisposable state then restores exact 043 and reapplies", () => {
@@ -1168,6 +1531,42 @@ ALTER TABLE saas.inventory_operations ENABLE TRIGGER inventory_operations_immuta
 ALTER TABLE saas.inventory_movements ENABLE TRIGGER inventory_movements_immutable;
 COMMIT;`,
       );
+      const patchedCheckoutDefinition = psql(
+        box,
+        `SELECT pg_catalog.pg_get_functiondef('saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure);`,
+      ).stdout;
+      const driftedCheckoutDefinition = patchedCheckoutDefinition.replace(
+        "inventory checkout store lock begin",
+        "inventory checkout store lock begin drift",
+      );
+      assert.notEqual(driftedCheckoutDefinition, patchedCheckoutDefinition);
+      psql(box, `SET ROLE celebix_saas_owner;${driftedCheckoutDefinition}`);
+      const driftRefused = psql(
+        box,
+        readFileSync(path.join(SQL, "202607220044_inventory_counts_transfers.down.sql"), "utf8"),
+        DB,
+        true,
+      );
+      assert.notEqual(driftRefused.status, 0);
+      assert.match(driftRefused.stderr, /INVENTORY_CHECKOUT_STORE_LOCK_RESTORE_DRIFT/);
+      psql(box, `SET ROLE celebix_saas_owner;${patchedCheckoutDefinition}`);
+
+      const residueCheckoutDefinition = patchedCheckoutDefinition.replace(
+        "  -- Shared success settlement lock order is exact:",
+        "  -- saas.catalog.store: residue\n  -- Shared success settlement lock order is exact:",
+      );
+      assert.notEqual(residueCheckoutDefinition, patchedCheckoutDefinition);
+      psql(box, `SET ROLE celebix_saas_owner;${residueCheckoutDefinition}`);
+      const residueRefused = psql(
+        box,
+        readFileSync(path.join(SQL, "202607220044_inventory_counts_transfers.down.sql"), "utf8"),
+        DB,
+        true,
+      );
+      assert.notEqual(residueRefused.status, 0);
+      assert.match(residueRefused.stderr, /INVENTORY_CHECKOUT_STORE_LOCK_RESTORE_RESIDUE/);
+      psql(box, `SET ROLE celebix_saas_owner;${patchedCheckoutDefinition}`);
+
       apply(box, "202607220044_inventory_counts_transfers.down.sql");
       assert.equal(psql(box, "SELECT to_regclass('saas.inventory_counts') IS NULL;").stdout.trim(), "t");
       assert.equal(
@@ -1184,6 +1583,18 @@ COMMIT;`,
       assert.equal(
         psql(box, `SELECT pg_catalog.string_agg(conname||':'||pg_catalog.pg_get_constraintdef(oid),E'\n' ORDER BY conname) FROM pg_catalog.pg_constraint WHERE conrelid='saas.inventory_movements'::regclass;`).stdout,
         movementConstraints043,
+      );
+      assert.equal(
+        psql(box, `SELECT pg_catalog.pg_get_functiondef('saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure);`).stdout,
+        checkoutDefinition043,
+      );
+      assert.equal(
+        psql(box, `SELECT owner.rolname FROM pg_catalog.pg_proc AS proc JOIN pg_catalog.pg_roles AS owner ON owner.oid=proc.proowner WHERE proc.oid='saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure;`).stdout,
+        checkoutOwner043,
+      );
+      assert.equal(
+        psql(box, `SELECT COALESCE(proc.proacl::text,'NULL') FROM pg_catalog.pg_proc AS proc WHERE proc.oid='saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure;`).stdout,
+        checkoutAcl043,
       );
       apply(box, "202607220044_inventory_counts_transfers.up.sql");
       apply(box, "202607220044_inventory_counts_transfers_assertions.sql");

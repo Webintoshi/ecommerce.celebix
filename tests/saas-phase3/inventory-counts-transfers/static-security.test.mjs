@@ -81,6 +81,15 @@ test("transfer transitions use one deterministic location variant balance lock o
   assert.match(up, /transfer_return/);
   assert.match(up, /insufficient_stock/);
   assert.match(up, /active_hold_conflict/);
+  assert.match(up, /inventory checkout store lock begin/);
+  assert.match(up, /inventory checkout store lock end/);
+  assert.match(up, /saas[.]catalog[.]store:/);
+  assert.match(up, /quick_checkout_settle_success_core/);
+  assert.match(up, /INVENTORY_CHECKOUT_STORE_LOCK_PATCH_DRIFT/);
+  assert.match(down, /INVENTORY_CHECKOUT_STORE_LOCK_RESTORE_DRIFT/);
+  assert.match(down, /INVENTORY_CHECKOUT_STORE_LOCK_RESTORE_RESIDUE/);
+  assert.match(down, /EXECUTE stripped/);
+  assert.match(assertions, /INVENTORY_CHECKOUT_STORE_LOCK_INVALID/);
 });
 
 test("finite operation entity constraints extend 043 and rollback restores them exactly", () => {
@@ -108,6 +117,11 @@ test("finite operation entity constraints extend 043 and rollback restores them 
   assert.match(down, /INVENTORY_COUNTS_TRANSFERS_ROLLBACK_BLOCKED/);
   assert.doesNotMatch(down, /DROP TABLE[^;]*inventory_operations/);
   assert.match(assertions, /INVENTORY_OPERATION_ENTITY_CONSTRAINT_INVALID/);
+  assert.match(assertions, /operation_vocabulary/);
+  assert.match(assertions, /entity_vocabulary/);
+  assert.match(assertions, /movement_vocabulary/);
+  assert.match(assertions, /movement_source_vocabulary/);
+  assert.match(assertions, /IS DISTINCT FROM ARRAY/);
 });
 
 test("functions are app-only and tables have no application DML", () => {
@@ -133,6 +147,11 @@ test("functions are app-only and tables have no application DML", () => {
   assert.doesNotMatch(up, /GRANT EXECUTE.*(?:workflow|host_resolver|bootstrap)/s);
   assert.match(up, /INVENTORY_OPERATION_IMMUTABLE/);
   assert.match(up, /INVENTORY_MOVEMENT_IMMUTABLE/);
+  assert.match(assertions, /celebix_saas_identity/);
+  assert.match(assertions, /celebix_saas_observability/);
+  assert.match(assertions, /celebix_saas_migrator/);
+  assert.match(assertions, /table_privilege/);
+  assert.match(assertions, /function_execute/);
 });
 
 test("the disposable harness defines exactly thirty named scenarios and full recovery", () => {
@@ -146,6 +165,13 @@ test("the disposable harness defines exactly thirty named scenarios and full rec
     "distinct active source",
     "insufficient source",
     "reverse input count transfer and purchasing writers",
+    "checkout_settle_callback",
+    "inventory_checkout_other_writer",
+    "pg_stat_activity",
+    "pg_catalog.pg_locks",
+    "persistedRaw",
+    "movementRows",
+    "ownerProof",
     "received and cancelled transfer movements",
     "backup and restore",
     "rollback refuses nondisposable",

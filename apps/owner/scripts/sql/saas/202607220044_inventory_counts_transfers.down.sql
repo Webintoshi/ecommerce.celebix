@@ -20,6 +20,68 @@ BEGIN
 END
 $precondition$;
 
+DO $checkout_store_lock_restore$
+DECLARE
+  target regprocedure:=
+    'saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure;
+  definition text;
+  stripped text;
+  definition_after text;
+  expected_fragment text:=$fragment$
+  -- inventory checkout store lock begin
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'saas.catalog.store:'||current_attempt.store_id::text,0
+    )
+  );
+  -- inventory checkout store lock end
+$fragment$;
+  owner_before oid;
+  owner_after oid;
+  acl_before aclitem[];
+  acl_after aclitem[];
+BEGIN
+  SELECT pg_catalog.pg_get_functiondef(proc.oid),proc.proowner,proc.proacl
+  INTO definition,owner_before,acl_before
+  FROM pg_catalog.pg_proc AS proc
+  WHERE proc.oid=target;
+  IF definition IS NULL
+     OR (
+       pg_catalog.length(definition)-pg_catalog.length(
+         pg_catalog.replace(definition,expected_fragment,'')
+       )
+     )/pg_catalog.length(expected_fragment)<>1
+     OR (
+       pg_catalog.length(definition)-pg_catalog.length(
+         pg_catalog.replace(definition,'inventory checkout store lock begin','')
+       )
+     )/pg_catalog.length('inventory checkout store lock begin')<>1
+     OR (
+       pg_catalog.length(definition)-pg_catalog.length(
+         pg_catalog.replace(definition,'inventory checkout store lock end','')
+       )
+     )/pg_catalog.length('inventory checkout store lock end')<>1 THEN
+    RAISE EXCEPTION 'INVENTORY_CHECKOUT_STORE_LOCK_RESTORE_DRIFT';
+  END IF;
+  stripped:=pg_catalog.replace(definition,expected_fragment,E'\n');
+  IF stripped LIKE '%inventory checkout store lock begin%'
+     OR stripped LIKE '%inventory checkout store lock end%'
+     OR stripped LIKE '%saas.catalog.store:%' THEN
+    RAISE EXCEPTION 'INVENTORY_CHECKOUT_STORE_LOCK_RESTORE_RESIDUE';
+  END IF;
+  EXECUTE stripped;
+  SELECT pg_catalog.pg_get_functiondef(proc.oid),proc.proowner,proc.proacl
+  INTO definition_after,owner_after,acl_after
+  FROM pg_catalog.pg_proc AS proc
+  WHERE proc.oid=target;
+  IF definition_after IS DISTINCT FROM stripped
+     OR owner_after IS DISTINCT FROM owner_before
+     OR acl_after IS DISTINCT FROM acl_before THEN
+    RAISE EXCEPTION 'INVENTORY_CHECKOUT_STORE_LOCK_RESTORE_DRIFT';
+  END IF;
+END
+$checkout_store_lock_restore$;
+
 DROP FUNCTION saas.inventory_transfers_cancel(
   uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint
 );

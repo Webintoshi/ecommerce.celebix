@@ -2,6 +2,63 @@
 BEGIN;
 SET LOCAL ROLE celebix_saas_owner;
 
+DO $checkout_store_lock_patch$
+DECLARE
+  target regprocedure:=
+    'saas.quick_checkout_settle_success_core(uuid,uuid,text,uuid,uuid[],uuid,text,timestamp with time zone)'::regprocedure;
+  definition text;
+  patched text;
+  definition_after text;
+  old_fragment text:=$old$
+  IF NOT FOUND THEN RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN; END IF;
+  -- Shared success settlement lock order is exact: attempt -> link -> persisted products by id -> variants by id -> reservations by variant_id.
+$old$;
+  new_fragment text:=$new$
+  IF NOT FOUND THEN RETURN QUERY SELECT 'conflict'::text,NULL::jsonb; RETURN; END IF;
+  -- inventory checkout store lock begin
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'saas.catalog.store:'||current_attempt.store_id::text,0
+    )
+  );
+  -- inventory checkout store lock end
+  -- Shared success settlement lock order is exact: attempt -> link -> persisted products by id -> variants by id -> reservations by variant_id.
+$new$;
+  owner_before oid;
+  owner_after oid;
+  acl_before aclitem[];
+  acl_after aclitem[];
+BEGIN
+  SELECT pg_catalog.pg_get_functiondef(proc.oid),proc.proowner,proc.proacl
+  INTO definition,owner_before,acl_before
+  FROM pg_catalog.pg_proc AS proc
+  WHERE proc.oid=target;
+  IF definition IS NULL
+     OR definition LIKE '%inventory checkout store lock begin%'
+     OR definition LIKE '%saas.catalog.store:%'
+     OR (
+       pg_catalog.length(definition)-pg_catalog.length(
+         pg_catalog.replace(definition,old_fragment,'')
+       )
+     )/pg_catalog.length(old_fragment)<>1 THEN
+    RAISE EXCEPTION 'INVENTORY_CHECKOUT_STORE_LOCK_PATCH_DRIFT';
+  END IF;
+  patched:=pg_catalog.replace(definition,old_fragment,new_fragment);
+  EXECUTE patched;
+  SELECT pg_catalog.pg_get_functiondef(proc.oid),proc.proowner,proc.proacl
+  INTO definition_after,owner_after,acl_after
+  FROM pg_catalog.pg_proc AS proc
+  WHERE proc.oid=target;
+  IF owner_after IS DISTINCT FROM owner_before
+     OR acl_after IS DISTINCT FROM acl_before
+     OR definition_after NOT LIKE '%inventory checkout store lock begin%'
+     OR definition_after NOT LIKE '%inventory checkout store lock end%'
+     OR definition_after NOT LIKE '%saas.catalog.store:%' THEN
+    RAISE EXCEPTION 'INVENTORY_CHECKOUT_STORE_LOCK_PATCH_DRIFT';
+  END IF;
+END
+$checkout_store_lock_patch$;
+
 CREATE TABLE saas.inventory_counts (
   id uuid,
   store_id uuid NOT NULL,
