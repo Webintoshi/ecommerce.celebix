@@ -107,6 +107,100 @@
 
 .actions button:disabled { cursor: wait; opacity: .62; }
 
+.createAction,
+.secondaryAction {
+  display: inline-flex;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 0 0 16px;
+  padding: 0 18px;
+  border: 1px solid #ea580c;
+  border-radius: 12px;
+  background: #ea580c;
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.operationForm,
+.receiptForm {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #e7e5e4;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.operationForm header h2,
+.operationForm header p { margin: 0; }
+.operationForm header p { margin-top: 6px; color: #78716c; }
+.operationForm form,
+.operationForm fieldset,
+.receiptForm fieldset { display: grid; gap: 16px; min-width: 0; }
+.operationForm fieldset,
+.receiptForm fieldset { margin: 0; padding: 16px; border: 1px solid #e7e5e4; border-radius: 16px; }
+.operationForm legend,
+.receiptForm legend { padding: 0 8px; color: #292524; font-weight: 800; }
+.operationFields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.operationFields label,
+.mobileFormCards label,
+.receiptForm label { display: grid; gap: 7px; color: #44403c; font-weight: 700; }
+.operationFields input,
+.operationFields select,
+.desktopFormTable input,
+.desktopFormTable select,
+.mobileFormCards input,
+.mobileFormCards select,
+.receiptForm input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid #d6d3d1;
+  border-radius: 11px;
+  background: #fff;
+  color: #1c1917;
+  font: inherit;
+}
+.desktopFormTable { overflow-x: auto; }
+.desktopFormTable table { width: 100%; min-width: 850px; border-collapse: collapse; }
+.desktopFormTable th,
+.desktopFormTable td { padding: 10px; border-bottom: 1px solid #f0efed; text-align: left; vertical-align: middle; }
+.desktopFormTable th { color: #78716c; font-size: 12px; text-transform: uppercase; }
+.desktopFormTable code,
+.mobileFormCards code { display: block; max-width: 220px; overflow-wrap: anywhere; font-size: 11px; }
+.desktopFormTable button,
+.mobileFormCards button,
+.receiptForm button,
+.secondaryAction {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #d6d3d1;
+  border-radius: 11px;
+  background: #fff;
+  color: #292524;
+  font: inherit;
+  font-weight: 750;
+}
+.receiptForm .primary { border-color: #ea580c; background: #ea580c; color: #fff; }
+.mobileFormCards { display: none; }
+.srStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .locationManager { display: grid; gap: 16px; margin-bottom: 24px; padding: 18px; border: 1px solid #e7e5e4; border-radius: 18px; background: #fafaf9; }
 .locationManager h2 { margin: 0; font-size: 19px; }
 .locationManager header p { margin: 6px 0 0; color: #78716c; }
@@ -158,4 +252,12 @@
   .locationCreate { grid-template-columns: 1fr; }
   .locationCreate label { grid-column: auto; }
   .locationActions { grid-template-columns: 1fr; }
+  .desktopFormTable { display: none; }
+  .mobileFormCards { display: grid; gap: 12px; }
+  .mobileFormCards article { display: grid; gap: 12px; padding: 14px; border: 1px solid #e7e5e4; border-radius: 14px; background: #fafaf9; }
+  .operationForm,
+  .receiptForm { padding: 14px; }
+  .operationFields { grid-template-columns: 1fr; }
+  .createAction,
+  .secondaryAction { width: 100%; }
 }

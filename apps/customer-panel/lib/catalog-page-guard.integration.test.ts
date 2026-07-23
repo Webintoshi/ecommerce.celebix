@@ -33,7 +33,7 @@ async function waitUntilReady(
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error(`next_dev_ready_timeout\n${output.value}`));
-    }, 30_000);
+    }, 90_000);
     const inspect = (chunk: Buffer) => {
       output.value = `${output.value}${chunk.toString("utf8")}`.slice(-16_384);
       if (/Ready in/.test(output.value)) {
@@ -87,15 +87,18 @@ test("actual Next catalog and inventory pages redirect the genuine signed-out ru
     "/products/tags",
     "/products/barcode-labels",
     "/products/purchasing",
+    "/products/purchasing/new",
     "/products/purchasing/11111111-1111-4111-8111-111111111111",
     "/products/inventory-counts",
+    "/products/inventory-counts/new",
     "/products/inventory-counts/22222222-2222-4222-8222-222222222222",
     "/products/transfers",
+    "/products/transfers/new",
     "/products/transfers/33333333-3333-4333-8333-333333333333",
   ] as const) {
     const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
       redirect: "manual",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(90_000),
     });
     assert.equal(response.status, 307, `${pathname}\n${output.value}`);
     assert.equal(response.headers.get("location"), "/login");

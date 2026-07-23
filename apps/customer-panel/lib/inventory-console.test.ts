@@ -123,7 +123,7 @@ async function controllers() {
 test("purchase receipt preserves persisted version, location and line identifiers", async () => {
   const module = await controllers();
   assert.equal(typeof module.createPurchasingConsoleController, "function");
-  const calls: unknown[] = [];
+  const calls: Array<unknown> = [];
   const canonical = purchase({ status: "partially_received", version: 4, lines: Object.freeze([Object.freeze({ ...purchase().lines[0]!, receivedQuantity: 5 })]) });
   const subject = (module.createPurchasingConsoleController as Function)({
     initial: purchase(), canManage: true,
@@ -133,7 +133,7 @@ test("purchase receipt preserves persisted version, location and line identifier
     },
   });
 
-  await subject.receive();
+  await subject.receive([{ lineId: LINE, quantity: 2 }]);
 
   assert.deepEqual((calls[0] as { id: string; input: unknown }).id, ORDER);
   assert.deepEqual((calls[0] as { input: unknown }).input, {
@@ -144,6 +144,87 @@ test("purchase receipt preserves persisted version, location and line identifier
   assert.equal((calls[0] as { signal: AbortSignal }).signal instanceof AbortSignal, true);
   assert.equal(subject.getSnapshot().phase, "committed");
   assert.equal(subject.getSnapshot().record, canonical);
+});
+
+test("purchase save owns one mutation, preserves draft version and rejects cross-action posts", async () => {
+  const module = await controllers();
+  const pending = deferred<InventoryMutationResult>();
+  const saves: unknown[] = [];
+  let orders = 0;
+  const canonical = purchase({ status: "draft", version: 4 });
+  const subject = (module.createPurchasingConsoleController as Function)({
+    initial: purchase({ status: "draft" }), canManage: true,
+    api: {
+      savePurchaseOrder(value: unknown) { saves.push(value); return pending.promise; },
+      async transitionPurchaseOrder() { orders += 1; return mutation(ORDER, "ordered", 4); },
+      async getPurchaseOrder() { return canonical; },
+    },
+  });
+  const intent = {
+    orderId: ORDER, expectedVersion: 3, locationId: LOCATION, supplierName: "Kalıcı Tedarikçi",
+    lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 4, unitCostCents: 900 }],
+  };
+  const first = subject.save(intent);
+  const duplicate = subject.save(intent);
+  const crossed = subject.order();
+  assert.equal(saves.length, 1);
+  assert.equal(orders, 0);
+  pending.resolve(mutation(ORDER, "draft", 4));
+  await Promise.all([first, duplicate, crossed]);
+  assert.deepEqual(saves, [intent]);
+  assert.equal(subject.getSnapshot().record, canonical);
+});
+
+test("purchase receipt accepts exact positive partial quantities and never auto-receives remaining lines", async () => {
+  const module = await controllers();
+  const calls: Array<unknown> = [];
+  const canonical = purchase({ status: "partially_received", version: 4, lines: Object.freeze([Object.freeze({ ...purchase().lines[0]!, receivedQuantity: 4 })]) });
+  const subject = (module.createPurchasingConsoleController as Function)({
+    initial: purchase(), canManage: true,
+    api: {
+      async receivePurchaseOrder(_id: string, input: unknown) { calls.push(input); return mutation(ORDER, "partially_received", 4); },
+      async getPurchaseOrder() { return canonical; },
+    },
+  });
+  await subject.receive([{ lineId: LINE, quantity: 1 }]);
+  assert.deepEqual(calls, [{ expectedVersion: 3, locationId: LOCATION, lines: [{ lineId: LINE, quantity: 1 }] }]);
+
+  let invalidCalled = false;
+  const invalid = (module.createPurchasingConsoleController as Function)({
+    initial: purchase(), canManage: true,
+    api: {
+      async receivePurchaseOrder() { invalidCalled = true; return mutation(ORDER, "received", 4); },
+      async getPurchaseOrder() { return canonical; },
+    },
+  });
+  await invalid.receive([{ lineId: LINE, quantity: 0 }]);
+  await invalid.receive([{ lineId: LINE, quantity: 3 }]);
+  assert.equal(invalidCalled, false);
+});
+
+test("count and transfer save preserve durable IDs, versions and exact line inputs", async () => {
+  const module = await controllers();
+  const countCalls: unknown[] = [], transferCalls: unknown[] = [];
+  const countSubject = (module.createInventoryCountConsoleController as Function)({
+    initial: count({ status: "draft" }), canManage: true,
+    api: {
+      async saveCount(value: unknown) { countCalls.push(value); return mutation(COUNT, "draft", 5); },
+      async getCount() { return count({ status: "draft", version: 5 }); },
+    },
+  });
+  const countIntent = { countId: COUNT, expectedVersion: 4, locationId: LOCATION, lines: [{ lineId: LINE, variantId: VARIANT, countedQuantity: 0 }] };
+  await countSubject.save(countIntent);
+  const transferSubject = (module.createInventoryTransferConsoleController as Function)({
+    initial: transfer({ status: "draft" }), canManage: true,
+    api: {
+      async saveTransfer(value: unknown) { transferCalls.push(value); return mutation(TRANSFER, "draft", 3); },
+      async getTransfer() { return transfer({ status: "draft", version: 3 }); },
+    },
+  });
+  const transferIntent = { transferId: TRANSFER, expectedVersion: 2, sourceLocationId: LOCATION, destinationLocationId: DESTINATION, lines: [{ lineId: LINE, variantId: VARIANT, quantity: 2 }] };
+  await transferSubject.save(transferIntent);
+  assert.deepEqual(countCalls, [countIntent]);
+  assert.deepEqual(transferCalls, [transferIntent]);
 });
 
 test("a synchronous double receipt owns one mutation and one canonical reload", async () => {
@@ -160,8 +241,8 @@ test("a synchronous double receipt owns one mutation and one canonical reload", 
     },
   });
 
-  const first = subject.receive();
-  const second = subject.receive();
+  const first = subject.receive([{ lineId: LINE, quantity: 2 }]);
+  const second = subject.receive([{ lineId: LINE, quantity: 2 }]);
   assert.equal(receives, 1);
   assert.equal(subject.getSnapshot().pending, true);
   pending.resolve(mutation(ORDER, "received", 4));
@@ -288,7 +369,7 @@ test("Strict Mode setup cleanup setup creates a fresh controller and aborts the 
   firstLoad.resolve(purchase());
   await tick();
   await tick();
-  await lifecycle.getCurrent()?.receive();
+  await lifecycle.getCurrent()?.receive([{ lineId: LINE, quantity: 2 }]);
 
   assert.deepEqual([gets, receives], [3, 1]);
   assert.equal(lifecycle.getCurrent()?.getSnapshot().phase, "committed");
@@ -316,8 +397,8 @@ test("ambiguous transport, unavailable and abort results stay locked after old, 
     }) as typeof fetch, () => "88888888-8888-4888-8888-888888888888");
     const subject = (module.createPurchasingConsoleController as Function)({ initial: purchase(), canManage: true, api });
 
-    const first = subject.receive();
-    const duplicate = subject.receive();
+    const first = subject.receive([{ lineId: LINE, quantity: 2 }]);
+    const duplicate = subject.receive([{ lineId: LINE, quantity: 2 }]);
     await tick();
     assert.deepEqual([posts.length, gets], [1, 1], scenario.name);
     assert.equal(posts[0]?.operationId, "88888888-8888-4888-8888-888888888888", scenario.name);
@@ -326,7 +407,7 @@ test("ambiguous transport, unavailable and abort results stay locked after old, 
     assert.equal(subject.getSnapshot().phase, "verification_unavailable", scenario.name);
     assert.equal(subject.getSnapshot().locked, true, scenario.name);
     assert.doesNotMatch(subject.getSnapshot().message, /İşlem uygulanmadı|tekrar deneyebilirsiniz/i, scenario.name);
-    await subject.receive();
+    await subject.receive([{ lineId: LINE, quantity: 2 }]);
     assert.deepEqual([posts.length, gets], [1, 1], scenario.name);
   }
 });
@@ -350,12 +431,12 @@ test("an old canonical GET cannot become rejected copy before a delayed commit a
   });
 
   const cleanup = lifecycle.setup();
-  await lifecycle.getCurrent()?.receive();
+  await lifecycle.getCurrent()?.receive([{ lineId: LINE, quantity: 2 }]);
   const locked = lifecycle.getCurrent();
   assert.equal(locked?.getSnapshot().phase, "verification_unavailable");
   assert.equal(locked?.getSnapshot().locked, true);
   serverRecord = purchase({ status: "received", version: 4 });
-  await locked?.receive();
+  await locked?.receive([{ lineId: LINE, quantity: 2 }]);
   assert.equal(posts, 1);
   assert.equal(locked?.getSnapshot().record.status, "ordered");
 
@@ -380,11 +461,11 @@ test("failed canonical verification locks ambiguous mutation until a page reload
   }) as typeof fetch, () => "88888888-8888-4888-8888-888888888888");
   const subject = (module.createPurchasingConsoleController as Function)({ initial: purchase(), canManage: true, api });
 
-  await subject.receive();
+  await subject.receive([{ lineId: LINE, quantity: 2 }]);
   assert.deepEqual([posts, gets], [1, 1]);
   assert.equal(subject.getSnapshot().phase, "verification_unavailable");
   assert.equal(subject.getSnapshot().locked, true);
-  await subject.receive();
+  await subject.receive([{ lineId: LINE, quantity: 2 }]);
   assert.deepEqual([posts, gets], [1, 1]);
 });
 
@@ -413,6 +494,7 @@ async function compilePresentation(path: string, exportName: string) {
       useInventoryCollection: () => ({ phase: "loaded", items: [], error: "", retry() {} }),
     };
     if (specifier === "./InventoryLocationConsole") return { InventoryLocationConsole: () => null };
+    if (specifier === "./InventoryOperationForm") return { InventoryOperationForm: () => null, PurchaseReceiptForm: () => null };
     if (specifier.endsWith("inventory-console.module.css")) return styles;
     throw new Error(`unexpected_inventory_import:${specifier}`);
   }, module, module.exports);
@@ -458,7 +540,7 @@ test("verification unavailable stays an alert with visible locked controls", asy
   }));
   assert.match(html, /role="alert"/);
   assert.match(html, /Kalıcı sonuç doğrulanamadı/);
-  assert.match(html, /<button[^>]+disabled=""[^>]*>Teslim al<\/button>/);
+  assert.match(html, /<button[^>]+disabled=""[^>]*>İptal et<\/button>/);
 });
 
 test("list presentations expose fixed columns and labeled mobile facts", async () => {
@@ -573,6 +655,7 @@ test("detail mode calls only the exact resource loader and never the collection 
     if (specifier === "@/lib/inventory-ui/client") return { inventoryApi: api };
     if (specifier === "@/lib/inventory-ui/console-controller") return controllerModule;
     if (specifier === "./InventoryListState") return listModule;
+    if (specifier === "./InventoryOperationForm") return { InventoryOperationForm: () => null, PurchaseReceiptForm: () => null };
     if (specifier.endsWith("inventory-console.module.css")) return styles;
     throw new Error(`unexpected_console_import:${specifier}`);
   });
