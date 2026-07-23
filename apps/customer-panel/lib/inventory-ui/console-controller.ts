@@ -54,6 +54,10 @@ function isDefinitiveRejection(error: unknown): error is InventoryApiError {
   return error instanceof InventoryApiError && error.code !== "unavailable";
 }
 
+function isDenied(error: unknown): error is InventoryApiError {
+  return error instanceof InventoryApiError && (error.code === "forbidden" || error.code === "unauthenticated");
+}
+
 function createController<RecordType extends Resource>(options: Readonly<{
   initial?: RecordType;
   resourceId?: string;
@@ -126,7 +130,9 @@ function createController<RecordType extends Resource>(options: Readonly<{
       } catch (error) {
         if (!current(selected)) return;
         try {
-          if (!record) {
+          if (isDenied(error)) {
+            publish({ phase: "denied", ...(record ? { record } : {}), pending: false, locked: true, message: "Bu envanter işlemi için yetkiniz yok. Oturum ve mağaza yetkilerinizi yeniden doğrulayın." });
+          } else if (!record) {
             if (!isDefinitiveRejection(error)) {
               publish({ phase: "verification_unavailable", pending: false, locked: true, message: "Yeni kayıt işleminin sonucu doğrulanamadı. Yeni işlem göndermeyin; sayfayı tamamen yenileyin." });
             } else {
@@ -257,7 +263,9 @@ export function createInventoryLocationConsoleController(options: Readonly<{
       try { result = await run(request!.signal); }
       catch (error) {
         if (!current(selected)) return;
-        if (!isDefinitiveRejection(error)) {
+        if (isDenied(error)) {
+          publish({ ...snapshot, phase: "denied", pending: false, locked: true, message: "Bu konum işlemi için yetkiniz yok. Oturum ve mağaza yetkilerinizi yeniden doğrulayın." });
+        } else if (!isDefinitiveRejection(error)) {
           publish({ ...snapshot, phase: "verification_unavailable", pending: false, locked: true, message: "İşlem sonucu belirsiz. Yeni işlem göndermeyin; sayfayı tamamen yenileyin." });
         } else {
           try {

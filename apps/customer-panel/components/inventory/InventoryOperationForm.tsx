@@ -51,11 +51,19 @@ const newLine = (): DraftLine => Object.freeze({
   unitCostCents: "0",
 });
 const statusError = (phase: InventoryConsolePhase, message: string) => {
+  if (phase === "mutation_rejected") return message || "İşlem uygulanmadı. Alanları kontrol edip yeniden deneyebilirsiniz.";
+  if (phase === "denied") return message || "Bu envanter işlemi için yetkiniz yok.";
   if (phase === "verification_unavailable") return message || "İşlem sonucu doğrulanamıyor. Yeni işlem göndermeden sayfayı tamamen yenileyin.";
   if (phase === "conflict") return message || "Kayıt sizden önce başka bir işlem tarafından değiştirildi.";
   if (phase === "error") return message || "İşlem tamamlanamadı.";
   return "";
 };
+
+export function InventoryOperationFeedback(props: Readonly<{ phase: InventoryConsolePhase; message: string }>) {
+  const message = statusError(props.phase, props.message);
+  if (!message) return null;
+  return <p className={props.phase === "conflict" ? styles.conflict : styles.errorNotice} role="alert">{message}</p>;
+}
 function isPurchase(record: RecordValue | undefined): record is PurchaseOrder {
   return record !== undefined && "supplierName" in record;
 }
@@ -148,7 +156,7 @@ export function InventoryOperationForm(props: Props) {
     {choices.phase === "loading" ? <p className={styles.state} role="status">Etkin ürün ve konum seçenekleri yükleniyor…</p> : null}
     {unavailable ? <p className={styles.errorNotice} role="alert">Ürün veya konum seçenekleri güvenli biçimde yüklenemedi. Kısmi seçeneklerle işlem yapılamaz.</p> : null}
     {empty ? <p className={styles.state} role="status">İşlem için en az bir etkin konum ve etkin ürün varyantı gerekir.</p> : null}
-    {statusError(props.phase, props.message) ? <p className={props.phase === "conflict" ? styles.conflict : styles.errorNotice} role="alert">{statusError(props.phase, props.message)}</p> : null}
+    <InventoryOperationFeedback phase={props.phase} message={props.message} />
     {validation ? <p className={styles.errorNotice} role="alert">{validation}</p> : null}
     <p className={styles.srStatus} aria-live="polite">{props.pending ? "İşlem kalıcı kayda gönderiliyor." : props.message}</p>
     <form onSubmit={submit} noValidate>

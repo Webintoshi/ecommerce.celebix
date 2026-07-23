@@ -204,6 +204,51 @@ test("purchase receipt accepts exact positive partial quantities and never auto-
   assert.equal(invalidCalled, false);
 });
 
+test("definitive create rejection is retryable while denied and ambiguous creates stay locked", async () => {
+  const module = await controllers();
+  const intent = {
+    locationId: LOCATION, supplierName: "Kalıcı Tedarikçi",
+    lines: [{ lineId: LINE, variantId: VARIANT, orderedQuantity: 4, unitCostCents: 900 }],
+  };
+  let attempts = 0;
+  const canonical = purchase({ status: "draft", version: 1 });
+  const retryable = (module.createPurchasingConsoleController as Function)({
+    canManage: true,
+    api: {
+      async savePurchaseOrder() {
+        attempts += 1;
+        if (attempts === 1) throw new InventoryApiError("invalid_input", 400);
+        return mutation(ORDER, "draft", 1);
+      },
+      async getPurchaseOrder() { return canonical; },
+    },
+  });
+  await retryable.save(intent);
+  assert.deepEqual({ phase: retryable.getSnapshot().phase, locked: retryable.getSnapshot().locked }, { phase: "mutation_rejected", locked: false });
+  await retryable.save(intent);
+  assert.equal(attempts, 2);
+  assert.equal(retryable.getSnapshot().record, canonical);
+
+  for (const [error, expected] of [
+    [new InventoryApiError("forbidden", 403), "denied"],
+    [new InventoryApiError("unavailable", 503), "verification_unavailable"],
+  ] as const) {
+    let calls = 0;
+    const subject = (module.createPurchasingConsoleController as Function)({
+      canManage: true,
+      api: {
+        async savePurchaseOrder() { calls += 1; throw error; },
+        async getPurchaseOrder() { throw new Error("unexpected"); },
+      },
+    });
+    await subject.save(intent);
+    assert.equal(subject.getSnapshot().phase, expected);
+    assert.equal(subject.getSnapshot().locked, true);
+    await subject.save(intent);
+    assert.equal(calls, 1);
+  }
+});
+
 test("two-line receipt refreshes canonical partial state before a later exact completion", async () => {
   const module = await controllers();
   const originalLines = Object.freeze([
@@ -536,6 +581,8 @@ async function compilePresentation(path: string, exportName: string) {
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier === "@/lib/inventory-ui/client") return { inventoryApi: {} };
     if (specifier === "@/lib/inventory-ui/console-controller") return {};
+    if (specifier === "@/lib/inventory-ui/form-choices") return {};
+    if (specifier === "@/lib/inventory-ui/form-intent") return {};
     if (specifier === "./InventoryListState") return {
       InventoryListState: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       useInventoryCollection: () => ({ phase: "loaded", items: [], error: "", retry() {} }),
@@ -588,6 +635,19 @@ test("verification unavailable stays an alert with visible locked controls", asy
   assert.match(html, /role="alert"/);
   assert.match(html, /Kalıcı sonuç doğrulanamadı/);
   assert.match(html, /<button[^>]+disabled=""[^>]*>İptal et<\/button>/);
+});
+
+test("operation feedback visibly distinguishes retryable rejection, denied authority and ambiguous lock", async () => {
+  const Feedback = await compilePresentation("components/inventory/InventoryOperationForm.tsx", "InventoryOperationFeedback");
+  for (const [phase, message] of [
+    ["mutation_rejected", "İşlem uygulanmadı; yeniden deneyebilirsiniz."],
+    ["denied", "Bu işlem için yetkiniz yok."],
+    ["verification_unavailable", "Kalıcı sonuç doğrulanamadı."],
+  ] as const) {
+    const html = renderToStaticMarkup(createElement(Feedback, { phase, message }));
+    assert.match(html, /role="alert"/);
+    assert.match(html, new RegExp(message.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
 });
 
 test("list presentations expose fixed columns and labeled mobile facts", async () => {
