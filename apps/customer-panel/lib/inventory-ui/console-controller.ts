@@ -5,7 +5,7 @@ import type {
   PurchaseOrder,
 } from "@celebix/saas-contracts";
 
-import type { inventoryApi } from "./client.ts";
+import { InventoryApiError, type inventoryApi } from "./client.ts";
 
 export type InventoryConsolePhase =
   | "loading"
@@ -34,8 +34,8 @@ function isAbort(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-function isConflict(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "conflict";
+function isDefinitiveRejection(error: unknown): error is InventoryApiError {
+  return error instanceof InventoryApiError && error.code !== "unavailable";
 }
 
 function createController<RecordType extends Resource>(options: Readonly<{
@@ -107,17 +107,19 @@ function createController<RecordType extends Resource>(options: Readonly<{
       try {
         result = await execute(record, request!.signal);
       } catch (error) {
-        if (!current(selected) || isAbort(error)) return;
+        if (!current(selected)) return;
         try {
           const canonical = await reload(record.id, request!.signal);
           if (!current(selected)) return;
-          if (canonical.version === record.version && canonical.status === record.status) {
+          if (!isDefinitiveRejection(error)) {
+            publish({ phase: "verification_unavailable", record: canonical, pending: false, locked: true, message: "İşlem sonucu belirsiz. Güncel kalıcı kayıt gösteriliyor ancak bu işlemin uygulanıp uygulanmadığı doğrulanamadı; yeni işlem göndermeyin, sayfayı yeniden yükleyin." });
+          } else if (canonical.version === record.version && canonical.status === record.status) {
             publish({ phase: "mutation_rejected", record: canonical, pending: false, locked: false, message: "İşlem uygulanmadı; kalıcı kayıt değişmedi. Yeni bir işlem kimliğiyle tekrar deneyebilirsiniz." });
           } else {
-            publish({ phase: "conflict", record: canonical, pending: false, locked: true, message: isConflict(error) ? "Kayıt başka bir işlem tarafından değiştirildi. Güncel kalıcı sürüm yüklendi." : "İşlem sonucu belirsizdi; kalıcı kaydın değiştiği doğrulandı ve güncel sürüm yüklendi." });
+            publish({ phase: "conflict", record: canonical, pending: false, locked: true, message: error.code === "conflict" ? "Kayıt başka bir işlem tarafından değiştirildi. Güncel kalıcı sürüm yüklendi." : "İşlem kesin olarak reddedildi ancak kalıcı kayıt değişti. Güncel sürüm yüklendi." });
           }
-        } catch (reloadError) {
-          if (current(selected) && !isAbort(reloadError)) publish({ phase: "verification_unavailable", record, pending: false, locked: true, message: "İşlem sonucu doğrulanamadı. Yeni işlem göndermeyin; sayfayı yeniden yükleyin." });
+        } catch {
+          if (current(selected)) publish({ phase: "verification_unavailable", record, pending: false, locked: true, message: "İşlem sonucu doğrulanamadı. Yeni işlem göndermeyin; sayfayı yeniden yükleyin." });
         } finally {
           if (current(selected)) { busy = false; request = undefined; active = undefined; }
         }
@@ -138,8 +140,8 @@ function createController<RecordType extends Resource>(options: Readonly<{
           locked: false,
           message: result.replayed ? "Daha önce tamamlanan işlem kalıcı kayıttan yeniden gösterildi." : "İşlem tamamlandı ve kalıcı kayıt yeniden yüklendi.",
         });
-      } catch (error) {
-        if (current(selected) && !isAbort(error)) publish({ phase: "verification_unavailable", record, pending: false, locked: true, message: "İşlem yanıtlandı ancak kalıcı sonuç doğrulanamadı. Yeni işlem göndermeyin; sayfayı yeniden yükleyin." });
+      } catch {
+        if (current(selected)) publish({ phase: "verification_unavailable", record, pending: false, locked: true, message: "İşlem yanıtlandı ancak kalıcı sonuç doğrulanamadı. Yeni işlem göndermeyin; sayfayı yeniden yükleyin." });
       } finally {
         if (current(selected)) { busy = false; request = undefined; active = undefined; }
       }

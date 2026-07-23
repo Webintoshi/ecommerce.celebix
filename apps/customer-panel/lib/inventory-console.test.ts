@@ -8,7 +8,7 @@ import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 
 import type { InventoryCount, InventoryMutationResult, InventoryTransfer, PurchaseOrder } from "@celebix/saas-contracts";
-import { createInventoryApi } from "./inventory-ui/client.ts";
+import { createInventoryApi, InventoryApiError } from "./inventory-ui/client.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const ORDER = "11111111-1111-4111-8111-111111111111";
@@ -107,7 +107,7 @@ test("stale conflict reloads canonical state while retaining visible conflict tr
   const subject = (module.createInventoryCountConsoleController as Function)({
     initial: count(), canManage: true,
     api: {
-      async commitCount() { throw Object.assign(new Error("conflict"), { code: "conflict" }); },
+      async commitCount() { throw new InventoryApiError("conflict", 409); },
       async getCount(id: string) { assert.equal(id, COUNT); return canonical; },
     },
   });
@@ -226,57 +226,78 @@ test("Strict Mode setup cleanup setup creates a fresh controller and aborts the 
   secondCleanup();
 });
 
-test("ambiguous mutation waits for canonical unchanged proof before a new operation UUID", async () => {
+test("ambiguous transport, unavailable and abort results stay locked after old, changed and terminal canonical GETs", async () => {
   const module = await controllers();
-  const canonical = deferred<Response>();
-  const posts: Array<Record<string, unknown>> = [];
-  let gets = 0;
-  const operationIds = ["88888888-8888-4888-8888-888888888888", "99999999-9999-4999-8999-999999999999"];
-  const api = createInventoryApi((async (input, init) => {
-    if (init?.method === "POST") {
-      posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
-      if (posts.length === 1) throw new Error("ambiguous transport");
-      return Response.json({ kind: "purchase_order", ...mutation(ORDER, "received", 4) });
-    }
-    gets += 1;
-    if (gets === 1) return canonical.promise;
-    return Response.json(purchase({ status: "received", version: 4 }));
-  }) as typeof fetch, () => operationIds.shift()!);
-  const subject = (module.createPurchasingConsoleController as Function)({ initial: purchase(), canManage: true, api });
+  const scenarios = [
+    { name: "transport/old", canonical: purchase(), fail: () => { throw new Error("ambiguous transport"); } },
+    { name: "unavailable/changed", canonical: purchase({ version: 4 }), fail: () => Response.json({ code: "unavailable" }, { status: 503 }) },
+    { name: "abort/terminal", canonical: purchase({ status: "received", version: 4 }), fail: () => { throw new DOMException("aborted", "AbortError"); } },
+  ] as const;
+  for (const scenario of scenarios) {
+    const canonical = deferred<Response>();
+    const posts: Array<Record<string, unknown>> = [];
+    let gets = 0;
+    const api = createInventoryApi((async (_input, init) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return scenario.fail();
+      }
+      gets += 1;
+      return canonical.promise;
+    }) as typeof fetch, () => "88888888-8888-4888-8888-888888888888");
+    const subject = (module.createPurchasingConsoleController as Function)({ initial: purchase(), canManage: true, api });
 
-  const first = subject.receive();
-  await tick();
-  assert.deepEqual([posts.length, gets], [1, 1]);
-  const duplicate = subject.receive();
-  assert.equal(posts.length, 1);
-  canonical.resolve(Response.json(purchase()));
-  await Promise.all([first, duplicate]);
-  assert.equal(subject.getSnapshot().phase, "mutation_rejected");
-  assert.equal(subject.getSnapshot().locked, false);
-
-  await subject.receive();
-  assert.equal(posts.length, 2);
-  assert.notEqual(posts[0]?.operationId, posts[1]?.operationId);
-  assert.equal(subject.getSnapshot().phase, "committed");
+    const first = subject.receive();
+    const duplicate = subject.receive();
+    await tick();
+    assert.deepEqual([posts.length, gets], [1, 1], scenario.name);
+    assert.equal(posts[0]?.operationId, "88888888-8888-4888-8888-888888888888", scenario.name);
+    canonical.resolve(Response.json(scenario.canonical));
+    await Promise.all([first, duplicate]);
+    assert.equal(subject.getSnapshot().phase, "verification_unavailable", scenario.name);
+    assert.equal(subject.getSnapshot().locked, true, scenario.name);
+    assert.doesNotMatch(subject.getSnapshot().message, /İşlem uygulanmadı|tekrar deneyebilirsiniz/i, scenario.name);
+    await subject.receive();
+    assert.deepEqual([posts.length, gets], [1, 1], scenario.name);
+  }
 });
 
-test("ambiguous mutation with a changed canonical version never submits again", async () => {
+test("an old canonical GET cannot become rejected copy before a delayed commit and only a fresh page lifecycle loads truth", async () => {
   const module = await controllers();
+  let serverRecord = purchase();
   let posts = 0;
-  let gets = 0;
+  let controllersCreated = 0;
   const api = createInventoryApi((async (_input, init) => {
-    if (init?.method === "POST") { posts += 1; throw new Error("ambiguous transport"); }
-    gets += 1;
-    return Response.json(purchase({ version: 4 }));
+    if (init?.method === "POST") { posts += 1; throw new Error("response lost after commit started"); }
+    return Response.json(serverRecord);
   }) as typeof fetch, () => "88888888-8888-4888-8888-888888888888");
-  const subject = (module.createPurchasingConsoleController as Function)({ initial: purchase(), canManage: true, api });
+  const lifecycle = (module.createInventoryConsoleLifecycle as Function)(() => {
+    controllersCreated += 1;
+    return (module.createPurchasingConsoleController as Function)({
+      ...(controllersCreated === 1 ? { initial: purchase() } : { resourceId: ORDER }),
+      canManage: true,
+      api,
+    });
+  });
 
-  await subject.receive();
-  assert.deepEqual([posts, gets], [1, 1]);
-  assert.equal(subject.getSnapshot().phase, "conflict");
-  assert.equal(subject.getSnapshot().locked, true);
-  await subject.receive();
+  const cleanup = lifecycle.setup();
+  await lifecycle.getCurrent()?.receive();
+  const locked = lifecycle.getCurrent();
+  assert.equal(locked?.getSnapshot().phase, "verification_unavailable");
+  assert.equal(locked?.getSnapshot().locked, true);
+  serverRecord = purchase({ status: "received", version: 4 });
+  await locked?.receive();
   assert.equal(posts, 1);
+  assert.equal(locked?.getSnapshot().record.status, "ordered");
+
+  cleanup();
+  const finalCleanup = lifecycle.setup();
+  await tick();
+  assert.equal(controllersCreated, 2);
+  assert.notEqual(lifecycle.getCurrent(), locked);
+  assert.equal(lifecycle.getCurrent()?.getSnapshot().phase, "loaded");
+  assert.equal(lifecycle.getCurrent()?.getSnapshot().record.status, "received");
+  finalCleanup();
 });
 
 test("failed canonical verification locks ambiguous mutation until a page reload", async () => {
@@ -371,11 +392,35 @@ test("list presentations expose fixed columns and labeled mobile facts", async (
   }
 });
 
-test("rendered mobile record links use the exact 48px hit-target selector", async () => {
-  const Presentation = await compilePresentation("components/inventory/PurchasingConsole.tsx", "PurchasingListPresentation");
-  const html = renderToStaticMarkup(createElement(Presentation, { state: "loaded", items: [purchase()], error: "", onRetry() {} }));
+function classSubtree(html: string, className: string) {
+  const start = html.indexOf(`<div class="${className}">`);
+  assert.notEqual(start, -1, `missing ${className} subtree`);
+  const tags = /<div\b[^>]*>|<\/div>/g;
+  tags.lastIndex = start;
+  let depth = 0;
+  for (let match = tags.exec(html); match; match = tags.exec(html)) {
+    depth += match[0] === "</div>" ? -1 : 1;
+    if (depth === 0) return html.slice(start, tags.lastIndex);
+  }
+  assert.fail(`unclosed ${className} subtree`);
+}
+
+test("each rendered mobileCards subtree independently contains its labels, status, full identities and exact hit-target link", async () => {
+  const cases = [
+    ["components/inventory/PurchasingConsole.tsx", "PurchasingListPresentation", purchase(), "Sipariş verildi", `/products/purchasing/${ORDER}`, ["Tedarikçi", "Konum", "Sipariş", "Teslim", "Toplam", "Güncellendi", "Sürüm"], [LOCATION]],
+    ["components/inventory/InventoryCountConsole.tsx", "InventoryCountListPresentation", count(), "Sayılıyor", `/products/inventory-counts/${COUNT}`, ["Konum", "Kalem", "Fark", "Güncellendi", "Sürüm"], [LOCATION]],
+    ["components/inventory/InventoryTransferConsole.tsx", "InventoryTransferListPresentation", transfer(), "Yolda", `/products/transfers/${TRANSFER}`, ["Kaynak", "Hedef", "Kalem", "Miktar", "Güncellendi", "Sürüm"], [LOCATION, DESTINATION]],
+  ] as const;
+  for (const [path, exportName, record, status, href, labels, identities] of cases) {
+    const Presentation = await compilePresentation(path, exportName);
+    const html = renderToStaticMarkup(createElement(Presentation, { state: "loaded", items: [record], error: "", onRetry() {} }));
+    const mobile = classSubtree(html, "mobileCards");
+    for (const label of labels) assert.match(mobile, new RegExp(`(?:<dt>|>)${label}(?:<|</dt>)`), `${path}: ${label}`);
+    assert.match(mobile, new RegExp(status), path);
+    for (const identity of identities) assert.match(mobile, new RegExp(identity), `${path}: ${identity}`);
+    assert.match(mobile, new RegExp(`<a class="mobileRecordLink" href="${href}">`), path);
+  }
   const css = await readFile(new URL("components/inventory/inventory-console.module.css", ROOT), "utf8");
-  assert.match(html, /<a class="mobileRecordLink"[^>]+href="\/products\/purchasing\//);
   const rule = css.match(/\.mobileRecordLink\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.match(rule, /display:\s*inline-flex/);
   assert.match(rule, /min-height:\s*48px/);
