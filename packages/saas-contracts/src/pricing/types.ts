@@ -50,3 +50,22 @@ export interface EffectivePrice {
   readonly sourceKind: PriceSourceKind;
   readonly priceListId?: string;
 }
+
+export interface PricingPreviewRequest {
+  readonly channel: PriceChannel;
+  readonly variantIds: readonly string[];
+}
+
+export interface PricingPreviewEntry {
+  readonly variantId: string;
+  readonly channel: PriceChannel;
+  readonly basePriceCents: number;
+  readonly effectivePriceCents: number;
+  readonly sourceKind: PriceSourceKind;
+  readonly priceListId?: string;
+}
+
+export interface PricingPreviewResult {
+  readonly entries: readonly PricingPreviewEntry[];
+  readonly asOf: string;
+}

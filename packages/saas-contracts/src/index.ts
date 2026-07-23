@@ -118,6 +118,9 @@ export {
   parsePriceList,
   parsePriceListItem,
   parsePriceListRule,
+  parsePricingPreviewEntry,
+  parsePricingPreviewRequest,
+  parsePricingPreviewResult,
 } from "./pricing/index.ts";
 export type {
   EffectivePrice,
@@ -127,6 +130,9 @@ export type {
   PriceListRule,
   PriceListStatus,
   PriceSourceKind,
+  PricingPreviewEntry,
+  PricingPreviewRequest,
+  PricingPreviewResult,
 } from "./pricing/index.ts";
 export {
   ANALYTICS_PERIODS,

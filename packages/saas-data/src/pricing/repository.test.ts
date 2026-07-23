@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { PriceList, TenantContext } from "@celebix/saas-contracts";
+import type { PriceList, PricingPreviewResult, TenantContext } from "@celebix/saas-contracts";
 import type { QueryResult } from "pg";
 
 import { PostgresPricingRepository, pricingRepositoryErrorCode, type PricingRepository } from "./index.ts";
@@ -93,6 +93,72 @@ test("pricing repository executes one exact PostgreSQL function for every public
     assert.deepEqual(query.values?.slice(0, 7), [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW]);
     assert.equal(client.queries.filter(({ text }) => text.startsWith("SELECT outcome,result_payload FROM saas.")).length, 1);
   }
+});
+
+test("pricing preview performs one exact read-only call with server authority and no recovery", async () => {
+  const preview: PricingPreviewResult = {
+    entries: [{
+      variantId: VARIANT,
+      channel: "storefront",
+      basePriceCents: 1500,
+      effectivePriceCents: 1250,
+      sourceKind: "price_list",
+      priceListId: LIST,
+    }],
+    asOf: "2026-07-23T12:00:00.000000Z",
+  };
+  const client = new Client({ outcome: "previewed", result_payload: preview });
+  const result = await repository(new Pool([client])).preview({
+    ...authority(),
+    channel: "storefront",
+    variantIds: [VARIANT],
+  });
+  assert.deepEqual(result, preview);
+  const query = operationQuery(client, "BEGIN READ ONLY", "COMMIT");
+  assert.equal(
+    query.text,
+    "SELECT outcome,result_payload FROM saas.pricing_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text,$9::uuid[])",
+  );
+  assert.deepEqual(query.values, [STORE, PRINCIPAL, MEMBERSHIP, PLAN, "growth", 2, NOW, "storefront", [VARIANT]]);
+  assert.equal(client.queries.some(({ text }) => text.includes("pricing_recover_operation")), false);
+});
+
+test("pricing preview rejects browser authority duplicate variants and hostile projections before COMMIT", async () => {
+  const emptyPool = new Pool([]);
+  for (const input of [
+    { ...authority(), channel: "storefront", variantIds: [VARIANT], storeId: STORE },
+    { ...authority(), channel: "storefront", variantIds: [VARIANT, VARIANT] },
+    { ...authority(), channel: "browser", variantIds: [VARIANT] },
+  ]) {
+    await assert.rejects(
+      () => repository(emptyPool).preview(input as never),
+      (error: unknown) => pricingRepositoryErrorCode(error) === "invalid_input",
+    );
+  }
+  let reads = 0;
+  const hostile = {} as Record<string, unknown>;
+  Object.defineProperty(hostile, "entries", {
+    enumerable: true,
+    get() {
+      reads += 1;
+      return [];
+    },
+  });
+  Object.defineProperty(hostile, "asOf", {
+    enumerable: true,
+    value: "2026-07-23T12:00:00.000000Z",
+  });
+  const client = new Client({ outcome: "previewed", result_payload: hostile });
+  await assert.rejects(
+    () => repository(new Pool([client])).preview({
+      ...authority(),
+      channel: "storefront",
+      variantIds: [VARIANT],
+    }),
+    (error: unknown) => pricingRepositoryErrorCode(error) === "unavailable",
+  );
+  assert.equal(reads, 0);
+  operationQuery(client, "BEGIN READ ONLY", "ROLLBACK");
 });
 
 test("pricing repository canonicalizes item and rule order into deterministic fingerprints", async () => {

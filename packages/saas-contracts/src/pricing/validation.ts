@@ -6,6 +6,9 @@ import {
   type PriceList,
   type PriceListItem,
   type PriceListRule,
+  type PricingPreviewEntry,
+  type PricingPreviewRequest,
+  type PricingPreviewResult,
 } from "./types.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -231,5 +234,66 @@ export function parseEffectivePrice(value: unknown): EffectivePrice {
       sourceKind: parsed.sourceKind as EffectivePrice["sourceKind"],
       ...(hasPriceList ? { priceListId: uuid(parsed.priceListId) } : {}),
     } satisfies EffectivePrice);
+  });
+}
+
+function priceChannel(value: unknown): PricingPreviewEntry["channel"] {
+  if (typeof value !== "string" || !PRICE_CHANNELS.includes(value as never)) invalid();
+  return value as PricingPreviewEntry["channel"];
+}
+
+export function parsePricingPreviewRequest(value: unknown): PricingPreviewRequest {
+  return guarded(() => {
+    const parsed = exact(value, ["channel", "variantIds"]);
+    const variantIds = denseArray(parsed.variantIds, 1, 100, uuid);
+    if (new Set(variantIds).size !== variantIds.length) invalid();
+    return freeze({
+      channel: priceChannel(parsed.channel),
+      variantIds,
+    } satisfies PricingPreviewRequest);
+  });
+}
+
+export function parsePricingPreviewEntry(value: unknown): PricingPreviewEntry {
+  return guarded(() => {
+    const parsed = exact(
+      value,
+      ["variantId", "channel", "basePriceCents", "effectivePriceCents", "sourceKind"],
+      ["priceListId"],
+    );
+    if (
+      typeof parsed.sourceKind !== "string"
+      || !PRICE_SOURCE_KINDS.includes(parsed.sourceKind as never)
+    ) invalid();
+    const sourceKind = parsed.sourceKind as PricingPreviewEntry["sourceKind"];
+    const hasPriceList = Object.hasOwn(parsed, "priceListId");
+    const basePriceCents = integer(parsed.basePriceCents, 0, MAX_PRICE_CENTS);
+    const effectivePriceCents = integer(parsed.effectivePriceCents, 0, MAX_PRICE_CENTS);
+    if (
+      (sourceKind === "price_list" && !hasPriceList)
+      || (sourceKind === "base" && (hasPriceList || effectivePriceCents !== basePriceCents))
+    ) invalid();
+    return freeze({
+      variantId: uuid(parsed.variantId),
+      channel: priceChannel(parsed.channel),
+      basePriceCents,
+      effectivePriceCents,
+      sourceKind,
+      ...(hasPriceList ? { priceListId: uuid(parsed.priceListId) } : {}),
+    } satisfies PricingPreviewEntry);
+  });
+}
+
+export function parsePricingPreviewResult(value: unknown): PricingPreviewResult {
+  return guarded(() => {
+    const parsed = exact(value, ["entries", "asOf"]);
+    const entries = denseArray(parsed.entries, 1, 100, parsePricingPreviewEntry);
+    for (let index = 1; index < entries.length; index += 1) {
+      if (entries[index - 1]!.variantId >= entries[index]!.variantId) invalid();
+    }
+    return freeze({
+      entries,
+      asOf: timestamp(parsed.asOf),
+    } satisfies PricingPreviewResult);
   });
 }

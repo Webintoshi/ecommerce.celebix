@@ -309,7 +309,7 @@ async function main() {
           "utf8",
         ),
       );
-      assert.equal(manifest.artifacts.length, 27);
+      assert.equal(manifest.artifacts.length, 30);
       for (const artifact of manifest.artifacts) {
         assert.equal(
           createHash("sha256")

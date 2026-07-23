@@ -5,7 +5,7 @@ import type { PricingRepository } from "@celebix/saas-data";
 import { registerServerPricingRepository, resolveServerPricingRuntime } from "./runtime.ts";
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 
-const METHODS = ["list", "get", "save", "activate", "archive"] as const;
+const METHODS = ["list", "get", "save", "activate", "archive", "preview"] as const;
 function access(mode: "approved_staging" | "disabled" = "approved_staging"): ServerPanelAccessRuntime { return Object.freeze({ readiness: Object.freeze({ mode }), panelOrigin: mode === "approved_staging" ? "https://panel.test" : null }) as ServerPanelAccessRuntime; }
 function repository(): PricingRepository { return Object.fromEntries(METHODS.map((method) => [method, async () => { throw new Error("unused"); }])) as unknown as PricingRepository; }
 
@@ -30,6 +30,7 @@ test("panel runtime preflights migration 045 and registers pricing only after du
     "pricing_activate(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
     "pricing_archive(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint)",
     "pricing_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text)",
+    "pricing_preview(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,uuid[])",
     "resolve_effective_variant_price(uuid,uuid,text,timestamp with time zone,text)",
   ]) assert.equal(source.includes(`to_regprocedure('saas.${signature}') IS NOT NULL`), true, signature);
   assert.match(source, /new PostgresPricingRepository\(/);

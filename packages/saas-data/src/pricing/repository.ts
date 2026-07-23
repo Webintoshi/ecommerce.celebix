@@ -1,4 +1,10 @@
-import { parsePriceList, type PriceList, type TenantContext } from "@celebix/saas-contracts";
+import {
+  parsePriceList,
+  parsePricingPreviewRequest,
+  parsePricingPreviewResult,
+  type PriceList,
+  type TenantContext,
+} from "@celebix/saas-contracts";
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
 import { canonicalPricingItems, canonicalPricingRules, deterministicPricingCreateId, equalPricingProjection, pricingFingerprint } from "./canonical.ts";
 import { PRICING_ERROR_CODES, pricingFailure, pricingRepositoryErrorCode, type PricingErrorCode } from "./errors.ts";
@@ -13,6 +19,7 @@ const SQL = Object.freeze({
   activate: "SELECT outcome,result_payload FROM saas.pricing_activate($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
   archive: "SELECT outcome,result_payload FROM saas.pricing_archive($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text,$10::uuid,$11::bigint)",
   recover: "SELECT outcome,result_payload FROM saas.pricing_recover_operation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::uuid,$9::text)",
+  preview: "SELECT outcome,result_payload FROM saas.pricing_preview($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text,$9::uuid[])",
 });
 const EXPECTED = new Set<string>([...PRICING_ERROR_CODES, "not_found"]);
 function unavailable(): Error { return pricingFailure("unavailable"); }
@@ -70,4 +77,25 @@ export class PostgresPricingRepository implements PricingRepository {
   private operation(input: PriceListOperationInput, kind: "activate" | "archive") { const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "priceListId", "expectedVersion"]); const operationId = pricingUuid(parsed.operationId), id = pricingUuid(parsed.priceListId), expected = pricingVersion(parsed.expectedVersion), fingerprint = pricingFingerprint(kind, authority.storeId, id, expected, {}), status = kind === "activate" ? "active" : "archived"; return this.mutate(authority, operationId, fingerprint, kind === "activate" ? "activated" : "archived", SQL[kind], [...authorityValues(authority), operationId, fingerprint, id, expected], (value) => this.projection(value, id, status, expected + 1)); }
   activate(input: PriceListOperationInput) { return this.operation(input, "activate"); }
   archive(input: PriceListOperationInput) { return this.operation(input, "archive"); }
+  async preview(input: Parameters<PricingRepository["preview"]>[0]) {
+    const { parsed, authority } = this.validated(
+      input,
+      ["tenantContext", "now", "channel", "variantIds"],
+    );
+    let request: ReturnType<typeof parsePricingPreviewRequest>;
+    try {
+      request = parsePricingPreviewRequest({
+        channel: parsed.channel,
+        variantIds: parsed.variantIds,
+      });
+    } catch {
+      throw pricingFailure("invalid_input");
+    }
+    return this.read(
+      SQL.preview,
+      [...authorityValues(authority), request.channel, [...request.variantIds]],
+      "previewed",
+      parsePricingPreviewResult,
+    );
+  }
 }

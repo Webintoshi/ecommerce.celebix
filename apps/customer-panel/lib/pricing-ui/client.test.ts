@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PriceList } from "@celebix/saas-contracts";
+import type { PriceList, PricingPreviewResult } from "@celebix/saas-contracts";
 import {
   buildPriceListIntent,
   canAddPricingRule,
   createPricingApi,
   createPricingMutationController,
+  createPricingPreviewController,
   createPricingRequestLifecycle,
   formatPricingUtcLocal,
   parsePricingUtcLocal,
@@ -19,6 +20,7 @@ const VARIANT = "30000000-0000-4000-8000-000000000001";
 const OP = "50000000-0000-4000-8000-000000000001";
 const NOW = "2026-07-23T12:00:00.000Z";
 const list = (status: "draft" | "active" | "archived" = "draft", version = 1): PriceList => ({ id: ID, name: "VIP", status, items: [{ variantId: VARIANT, priceCents: 1000 }], rules: [{ channel: "storefront", startsAt: NOW, priority: 1 }], version, createdAt: NOW, updatedAt: NOW, ...(status === "active" ? { activatedAt: NOW } : {}), ...(status === "archived" ? { archivedAt: NOW } : {}) });
+const preview = (): PricingPreviewResult => ({ entries: [{ variantId: VARIANT, channel: "storefront", basePriceCents: 1500, effectivePriceCents: 1000, sourceKind: "price_list", priceListId: ID }], asOf: "2026-07-23T12:00:00.000000Z" });
 
 test("pricing client exposes only five finite same-origin operations with one generated operation ID per mutation", async () => {
   const calls: Array<[string, RequestInit | undefined]> = [];
@@ -34,6 +36,69 @@ test("pricing client rejects hostile inputs and malformed responses before autho
   await assert.rejects(api.save({ name: "VIP", items: list().items, rules: list().rules, currency: "TRY" } as never), /pricing_client_invalid/);
   await assert.rejects(() => api.get(ID), (error: unknown) => error instanceof PricingApiError && error.code === "unavailable");
   assert.equal(calls, 1);
+});
+
+test("pricing client preview is abortable read-only and contains no browser authority", async () => {
+  const calls: Array<[string, RequestInit | undefined]> = [];
+  const controller = new AbortController();
+  const api = createPricingApi(async (input, init) => {
+    calls.push([String(input), init]);
+    return Response.json(preview());
+  }, () => OP);
+  assert.deepEqual(await api.preview({ channel: "storefront", variantIds: [VARIANT] }, controller.signal), preview());
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.[0], "/api/pricing/preview");
+  assert.equal(calls[0]?.[1]?.signal, controller.signal);
+  const body = JSON.parse(String(calls[0]?.[1]?.body));
+  assert.deepEqual(body, { channel: "storefront", variantIds: [VARIANT] });
+  assert.equal(Object.hasOwn(body, "operationId"), false);
+  for (const forbidden of ["storeId", "tenantId", "customerId", "email", "customerTagId", "basePriceCents", "effectivePriceCents"]) {
+    assert.equal(Object.hasOwn(body, forbidden), false);
+  }
+  for (const invalid of [
+    { channel: "browser", variantIds: [VARIANT] },
+    { channel: "storefront", variantIds: [] },
+    { channel: "storefront", variantIds: [VARIANT, VARIANT] },
+    { channel: "storefront", variantIds: [VARIANT], storeId: ID },
+  ]) {
+    await assert.rejects(() => api.preview(invalid as never), /pricing_client_invalid/);
+  }
+  assert.equal(calls.length, 1);
+});
+
+test("pricing preview controller aborts stale generations and never publishes invented truth", async () => {
+  const pending: Array<{
+    signal: AbortSignal;
+    resolve(value: PricingPreviewResult): void;
+    reject(error: unknown): void;
+  }> = [];
+  const states: unknown[] = [];
+  const controller = createPricingPreviewController({
+    preview(_input, signal) {
+      return new Promise((resolve, reject) => pending.push({ signal: signal!, resolve, reject }));
+    },
+  }, (state) => states.push(state));
+  controller.load({ channel: "storefront", variantIds: [VARIANT] });
+  controller.load({ channel: "quick_order", variantIds: [VARIANT] });
+  assert.equal(pending[0]?.signal.aborted, true);
+  pending[0]?.resolve(preview());
+  pending[1]?.resolve({
+    ...preview(),
+    entries: [{ ...preview().entries[0]!, channel: "quick_order" }],
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  const loaded = states.at(-1) as { phase: string; result?: PricingPreviewResult };
+  assert.equal(loaded.phase, "loaded");
+  assert.equal(loaded.result?.entries[0]?.channel, "quick_order");
+
+  controller.load({ channel: "storefront", variantIds: [VARIANT] });
+  pending[2]?.reject(new PricingApiError("unavailable", 503));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(states.at(-1), { phase: "unavailable" });
+  assert.equal(Object.hasOwn(states.at(-1) as object, "result"), false);
+  controller.load({ channel: "storefront", variantIds: [VARIANT] });
+  controller.dispose();
+  assert.equal(pending[3]?.signal.aborted, true);
 });
 
 test("pricing client bounds exact JSON and maps only stable errors", async () => {

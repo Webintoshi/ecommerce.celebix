@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PriceList, TenantContext } from "@celebix/saas-contracts";
+import type { PriceList, PricingPreviewResult, TenantContext } from "@celebix/saas-contracts";
 import type { PricingRepository } from "@celebix/saas-data";
 import { pricingFailure } from "../../../../packages/saas-data/src/pricing/errors.ts";
 import { createPricingHttpHandler } from "./handler.ts";
@@ -16,8 +16,9 @@ const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64ur
 const COOKIE = `__Host-celebix_panel=${CREDENTIAL}`;
 const NOW = new Date("2026-07-23T12:00:00.000Z");
 const list = (status: "draft" | "active" | "archived" = "draft", version = 1): PriceList => ({ id: ID, name: "VIP fiyatı", status, items: [{ variantId: VARIANT, priceCents: 1200 }], rules: [{ channel: "quick_order", customerTagId: TAG, priority: 10 }], version, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), ...(status === "active" ? { activatedAt: NOW.toISOString() } : {}), ...(status === "archived" ? { archivedAt: NOW.toISOString() } : {}) });
+const preview = (): PricingPreviewResult => ({ entries: [{ variantId: VARIANT, channel: "storefront", basePriceCents: 1500, effectivePriceCents: 1200, sourceKind: "price_list", priceListId: ID }], asOf: "2026-07-23T12:00:00.000000Z" });
 function tenant(): TenantContext { return { schemaVersion: 1, requestId: REQUEST, principal: { id: REQUEST, issuer: "https://id.test", subject: "private" }, store: { id: REQUEST, slug: "store", status: "active" }, membership: { id: REQUEST, role: "store_owner", status: "active" }, entitlements: { schemaVersion: 1, planId: REQUEST, planCode: "growth", version: 2, status: "active", features: ["catalog"], limits: { products: 100, staff: 5, storageBytes: 1_000_000 }, validFrom: NOW.toISOString() }, locale: "tr-TR" }; }
-function repo(overrides: Partial<PricingRepository> = {}): PricingRepository { const reject = async () => { throw new Error("unexpected"); }; return { list: reject, get: reject, save: reject, activate: reject, archive: reject, ...overrides } as PricingRepository; }
+function repo(overrides: Partial<PricingRepository> = {}): PricingRepository { const reject = async () => { throw new Error("unexpected"); }; return { list: reject, get: reject, save: reject, activate: reject, archive: reject, preview: reject, ...overrides } as PricingRepository; }
 function handler(pricing: PricingRepository) { const runtime = { pricing, access: { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", tenantContext: tenant(), session: {} } as never; }, async rotateCredential() { return { kind: "unavailable" } as const; }, async revokeCredential() { return { kind: "unavailable" } as const; } } } satisfies ServerPricingRuntime; return createPricingHttpHandler({ async resolveRuntime() { return runtime; }, now: () => new Date(NOW), requestId: () => REQUEST }); }
 function request(path: string, options: { method?: string; body?: unknown; origin?: string | null; cookie?: string | null; headers?: HeadersInit } = {}) { const method = options.method ?? "GET"; const headers = new Headers(options.headers); if (options.cookie !== null) headers.set("cookie", options.cookie ?? COOKIE); if (method === "POST") { headers.set("content-type", "application/json"); if (options.origin !== null) headers.set("origin", options.origin ?? ORIGIN); } return new Request(`http://internal:3400${path}`, { method, headers, body: method === "POST" ? JSON.stringify(options.body ?? {}) : undefined }); }
 
@@ -37,6 +38,43 @@ test("finite pricing routes call one repository method with server-only authorit
   for (const [method, path, body] of cases) { const response = await handle(request(path, { method, body })); assert.equal(response.status, 200, path); }
   assert.deepEqual(calls.map(([name]) => name), ["list", "get", "save", "activate", "archive"]);
   for (const [, input] of calls) { assert.deepEqual((input as { tenantContext: TenantContext }).tenantContext, tenant()); for (const key of ["storeId", "currency", "customerId", "customerTagId"]) assert.equal(key in input, false); }
+});
+
+test("pricing preview POST carries only exact finite browser input into server authority", async () => {
+  const calls: unknown[] = [];
+  const handle = handler(repo({ async preview(input) { calls.push(input); return preview(); } }));
+  const response = await handle(request("/api/pricing/preview", {
+    method: "POST",
+    body: { channel: "storefront", variantIds: [VARIANT] },
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), preview());
+  assert.equal(calls.length, 1);
+  const input = calls[0] as Record<string, unknown>;
+  assert.deepEqual(input.variantIds, [VARIANT]);
+  assert.equal(input.channel, "storefront");
+  assert.deepEqual(input.tenantContext, tenant());
+  for (const key of ["operationId", "storeId", "tenantId", "customerId", "email", "customerTagId", "basePriceCents", "effectivePriceCents"]) {
+    assert.equal(key in input, false);
+  }
+});
+
+test("pricing preview rejects malformed authority-bearing bodies before repository", async () => {
+  let calls = 0;
+  const handle = handler(repo({ async preview() { calls += 1; return preview(); } }));
+  for (const body of [
+    { channel: "browser", variantIds: [VARIANT] },
+    { channel: "storefront", variantIds: [] },
+    { channel: "storefront", variantIds: [VARIANT, VARIANT] },
+    { channel: "storefront", variantIds: [VARIANT], storeId: REQUEST },
+    { channel: "storefront", variantIds: [VARIANT], customerTagId: TAG },
+  ]) {
+    assert.equal((await handle(request("/api/pricing/preview", { method: "POST", body }))).status, 400);
+  }
+  assert.equal(calls, 0);
+  const get = await handle(request("/api/pricing/preview"));
+  assert.equal(get.status, 405);
+  assert.equal(get.headers.get("allow"), "POST");
 });
 
 test("pricing HTTP rejects unknown duplicate query, private headers and wrong mutation origin before repository", async () => {

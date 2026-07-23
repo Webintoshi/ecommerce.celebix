@@ -9,6 +9,8 @@ import {
   parsePriceList,
   parsePriceListItem,
   parsePriceListRule,
+  parsePricingPreviewRequest,
+  parsePricingPreviewResult,
 } from "./index.ts";
 
 const NOW = "2026-07-23T12:00:00.000Z";
@@ -181,6 +183,74 @@ test("effective price is exact frozen cents-only output with coherent source ide
   assert.throws(() => parseEffectivePrice({ ...base, priceListId: LIST_ID }));
   assert.throws(() => parseEffectivePrice({ ...listed, sourceKind: "base" }));
   assert.throws(() => parseEffectivePrice({ ...listed, customerTagId: TAG_ID }));
+});
+
+test("pricing preview request is an exact finite browser channel without authority", () => {
+  const request = parsePricingPreviewRequest({
+    channel: "storefront",
+    variantIds: [VARIANT_ID, OTHER_VARIANT_ID],
+  });
+  assert.deepEqual(request, {
+    channel: "storefront",
+    variantIds: [VARIANT_ID, OTHER_VARIANT_ID],
+  });
+  assert.equal(Object.isFrozen(request), true);
+  assert.equal(Object.isFrozen(request.variantIds), true);
+  for (const value of [
+    { channel: "browser", variantIds: [VARIANT_ID] },
+    { channel: "storefront", variantIds: [] },
+    { channel: "storefront", variantIds: [VARIANT_ID, VARIANT_ID] },
+    { channel: "storefront", variantIds: Array.from({ length: 101 }, (_, index) => `aaaaaaaa-aaaa-4aaa-8aaa-${index.toString(16).padStart(12, "0")}`) },
+    { channel: "storefront", variantIds: [VARIANT_ID], storeId: STORE_ID },
+    { channel: "storefront", variantIds: [VARIANT_ID], customerTagId: TAG_ID },
+    { channel: "storefront", variantIds: [VARIANT_ID], basePriceCents: 1 },
+    { channel: "storefront", variantIds: [VARIANT_ID], effectivePriceCents: 1 },
+  ]) {
+    assert.throws(() => parsePricingPreviewRequest(value));
+  }
+});
+
+test("pricing preview result is exact sorted deeply frozen server truth", () => {
+  const result = parsePricingPreviewResult({
+    entries: [
+      {
+        variantId: VARIANT_ID,
+        channel: "storefront",
+        basePriceCents: 1500,
+        effectivePriceCents: 1250,
+        sourceKind: "price_list",
+        priceListId: LIST_ID,
+      },
+      {
+        variantId: OTHER_VARIANT_ID,
+        channel: "storefront",
+        basePriceCents: 1800,
+        effectivePriceCents: 1800,
+        sourceKind: "base",
+      },
+    ],
+    asOf: MICRO_NOW,
+  });
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.entries), true);
+  assert.equal(Object.isFrozen(result.entries[0]), true);
+  assert.equal(result.asOf, MICRO_NOW);
+  assert.throws(() => parsePricingPreviewResult({
+    ...result,
+    entries: [result.entries[1], result.entries[0]],
+  }));
+  assert.throws(() => parsePricingPreviewResult({
+    ...result,
+    entries: [{ ...result.entries[0], customerTagId: TAG_ID }],
+  }));
+  assert.throws(() => parsePricingPreviewResult({
+    ...result,
+    entries: [{ ...result.entries[0], sourceKind: "base", priceListId: LIST_ID }],
+  }));
+  assert.throws(() => parsePricingPreviewResult({
+    ...result,
+    entries: [{ ...result.entries[1], basePriceCents: 1500 }],
+  }));
 });
 
 test("price list arrays reject hostile sparse accessor and oversized shapes", () => {

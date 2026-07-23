@@ -1,4 +1,4 @@
-import { parsePriceList, parsePriceListItem, parsePriceListRule, type TenantContext } from "@celebix/saas-contracts";
+import { parsePriceList, parsePriceListItem, parsePriceListRule, parsePricingPreviewRequest, parsePricingPreviewResult, type TenantContext } from "@celebix/saas-contracts";
 import { pricingRepositoryErrorCode, type PricingRepository } from "@celebix/saas-data";
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
@@ -8,7 +8,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const PRIVATE_HEADERS = new Set(["authorization", "x-panel-session-credential", "x-store-id", "x-tenant-id", "x-principal-id", "x-membership-id", "x-plan-id", "x-database-role", "x-database-url"]);
 const MAX_BODY = 65_536;
 type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerPricingRuntime | null>; now(): Date; requestId(): string }>;
-type Route = Readonly<{ kind: "list" | "get" | "save" | "activate" | "archive"; id?: string; method: "GET" | "POST" }>;
+type Route = Readonly<{ kind: "list" | "get" | "save" | "activate" | "archive" | "preview"; id?: string; method: "GET" | "POST" }>;
 function response(value: unknown, status = 200, extra?: HeadersInit) { const headers = new Headers(extra); headers.set("cache-control", "no-store"); headers.set("x-content-type-options", "nosniff"); return Response.json(value, { status, headers }); }
 function error(code: string, status: number, extra?: HeadersInit) { return response({ code }, status, extra); }
 function repositoryError(value: unknown) { const code = pricingRepositoryErrorCode(value); if (code === "invalid_input") return error("invalid_input", 400); if (code === "resource_not_found") return error("not_found", 404); if (["version_conflict", "invalid_transition", "operation_mismatch", "pricing_conflict"].includes(code ?? "")) return error("conflict", 409); if (["unauthenticated", "membership_denied", "store_inactive", "feature_not_enabled", "durable_authority_invalid"].includes(code ?? "")) return error("forbidden", 403); return error("unavailable", 503); }
@@ -17,11 +17,13 @@ function classify(request: Request): Route | Response {
     for (const [name] of request.headers) if (PRIVATE_HEADERS.has(name) || name.startsWith("x-celebix-")) return error("invalid_input", 400);
     const url = new URL(request.url); if (url.search !== "" || url.hash !== "") return error("invalid_input", 400);
     const list = url.pathname === "/api/pricing/price-lists";
+    const preview = url.pathname === "/api/pricing/preview";
     const detail = new RegExp(`^/api/pricing/price-lists/(${UUID.source.slice(1, -1)})$`).exec(url.pathname);
     const action = new RegExp(`^/api/pricing/price-lists/(${UUID.source.slice(1, -1)})/(activate|archive)$`).exec(url.pathname);
-    if (!list && !detail && !action) return error("not_found", 404);
+    if (!list && !preview && !detail && !action) return error("not_found", 404);
     if (list && request.method === "GET") return { kind: "list", method: "GET" };
     if (list && request.method === "POST") return { kind: "save", method: "POST" };
+    if (preview && request.method === "POST") return { kind: "preview", method: "POST" };
     if (detail && request.method === "GET") return { kind: "get", id: detail[1], method: "GET" };
     if (action && request.method === "POST") return { kind: action[2] as "activate" | "archive", id: action[1], method: "POST" };
     return error("method_not_allowed", 405, { allow: list ? "GET, POST" : detail ? "GET" : "POST" });
@@ -47,6 +49,13 @@ function parsedMutation(value: unknown, kind: "save" | "activate" | "archive") {
   }
   const parsed = exact(value, ["operationId", "expectedVersion"]); return parsed && UUID.test(String(parsed.operationId)) && Number.isSafeInteger(parsed.expectedVersion) && (parsed.expectedVersion as number) >= 1 && (parsed.expectedVersion as number) < Number.MAX_SAFE_INTEGER ? Object.freeze({ operationId: parsed.operationId as string, expectedVersion: parsed.expectedVersion as number }) : null;
 }
+function parsedPreview(value: unknown) {
+  try {
+    return parsePricingPreviewRequest(value);
+  } catch {
+    return null;
+  }
+}
 async function authorize(dependencies: Dependencies, request: Request, route: Route): Promise<Response | Readonly<{ runtime: ServerPricingRuntime; tenantContext: TenantContext; now: Date }>> {
   const cookie = readOrderPanelSessionCookie(request); if (cookie.kind !== "present") return error("unauthenticated", 401);
   let runtime: ServerPricingRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return error("unavailable", 503); } if (!runtime) return error("unavailable", 503);
@@ -60,15 +69,22 @@ export function createPricingHttpHandler(dependencies: Dependencies) {
   if (!dependencies || Object.keys(dependencies).sort().join(",") !== "now,requestId,resolveRuntime" || typeof dependencies.now !== "function" || typeof dependencies.requestId !== "function" || typeof dependencies.resolveRuntime !== "function") throw new Error("pricing_http_handler_invalid");
   return async (request: Request): Promise<Response> => {
     const route = classify(request); if (route instanceof Response) return route;
-    let mutation: ReturnType<typeof parsedMutation> = null;
+    let mutation: ReturnType<typeof parsedMutation> | ReturnType<typeof parsedPreview> = null;
     if (route.method === "GET") { if (request.body !== null || request.headers.has("content-type") || request.headers.has("content-length") || request.headers.has("transfer-encoding")) return error("invalid_input", 400); }
-    else { mutation = parsedMutation(await body(request), route.kind as "save" | "activate" | "archive"); if (!mutation) return error("invalid_input", 400); }
+    else {
+      const value = await body(request);
+      mutation = route.kind === "preview"
+        ? parsedPreview(value)
+        : parsedMutation(value, route.kind as "save" | "activate" | "archive");
+      if (!mutation) return error("invalid_input", 400);
+    }
     const authorized = await authorize(dependencies, request, route); if (authorized instanceof Response) return authorized;
     const authority = { tenantContext: authorized.tenantContext, now: authorized.now }, repository: PricingRepository = authorized.runtime.pricing;
     try {
       if (route.kind === "list") return response({ items: listValue(await repository.list(authority)) });
       if (route.kind === "get") return response(parsePriceList(await repository.get({ ...authority, priceListId: route.id! })));
       if (route.kind === "save") return response(parsePriceList(await repository.save({ ...authority, ...(mutation as Parameters<PricingRepository["save"]>[0]) })));
+      if (route.kind === "preview") return response(parsePricingPreviewResult(await repository.preview({ ...authority, ...(mutation as Parameters<PricingRepository["preview"]>[0]) })));
       const input = { ...authority, ...(mutation as { operationId: string; expectedVersion: number }), priceListId: route.id! };
       return response(parsePriceList(await repository[route.kind](input)));
     } catch (caught) { return repositoryError(caught); }

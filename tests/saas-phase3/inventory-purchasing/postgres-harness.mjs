@@ -549,7 +549,7 @@ async function main() {
       const manifest = JSON.parse(
         readFileSync(path.join(SQL, "phase3h-merchant-completion-manifest.json"), "utf8"),
       );
-      assert.equal(manifest.artifacts.length, 27);
+      assert.equal(manifest.artifacts.length, 30);
       for (const artifact of manifest.artifacts) {
         assert.equal(
           createHash("sha256")

@@ -21,8 +21,7 @@ test("price-list editor is fixed-price, versioned, finite-channel and persisted-
   const component = await source("components/pricing/PriceListConsole.tsx");
   for (const marker of ["priceCents", "variantId", "customerTagId", "expectedVersion", "storefront", "quick_order", "datetime-local"]) assert.match(component, new RegExp(marker));
   assert.match(component, /customerApi[.]tags\(\)/);
-  assert.match(component, /catalogApi[.]listProducts/);
-  assert.match(component, /catalogApi[.]getProduct/);
+  assert.match(component, /loadCatalogVariantChoices/);
   assert.match(component, /Açıklayıcı önizleme/);
   assert.match(component, /PostgreSQL/);
   assert.match(component, /status === "active"/);
@@ -31,6 +30,20 @@ test("price-list editor is fixed-price, versioned, finite-channel and persisted-
   assert.match(component, /item[.]rules[.]map/);
   assert.doesNotMatch(component, /rules\[0\]/);
   assert.doesNotMatch(component, /percentage|customerSegment|formStoreId|formCurrency|customerId|resolve_effective_variant_price/);
+});
+
+test("price-list editor uses complete shared catalog choices and only server pricing preview truth", async () => {
+  const component = await source("components/pricing/PriceListConsole.tsx");
+  assert.match(component, /loadCatalogVariantChoices/);
+  assert.match(component, /createPricingPreviewController/);
+  assert.match(component, /pricingApi[.]preview|previewController/);
+  assert.match(component, /Taban fiyat/);
+  assert.match(component, /Mevcut efektif fiyat/);
+  assert.match(component, /Taslak fiyat/);
+  assert.match(component, /Önizleme kullanılamıyor/);
+  assert.doesNotMatch(component, /variant[.]priceCents/);
+  assert.doesNotMatch(component, /effectivePriceCents\s*[:=]\s*item[.]priceCents/);
+  assert.doesNotMatch(component, /basePriceCents\s*[:=]\s*item[.]priceCents/);
 });
 
 test("price-list console uses durable API results for conflict permission empty and error truth", async () => {

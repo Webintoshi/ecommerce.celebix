@@ -519,8 +519,8 @@ test("enforces private-authority and truthful projections through exact behavior
     const priceList = Object.freeze({ id: priceListId, name: "Mağaza fiyatı", status: "draft", items: Object.freeze([Object.freeze({ variantId, fixedPriceCents: 12500 })]), rules: Object.freeze([Object.freeze({ channel: "storefront", priority: 0 })]), version: 1, createdAt: timestamp, updatedAt: timestamp });
     const inventoryApi = createInventoryApi(async () => Response.json({ items: [{ ...location, storeId: locationId }] }), () => operationId);
     const pricingApi = createPricingApi(async () => Response.json({ items: [{ ...priceList, storeId: locationId }] }), () => operationId);
-    assert.deepEqual(Object.keys(inventoryApi).sort(), ["cancelCount", "cancelTransfer", "commitCount", "dispatchTransfer", "getCount", "getPurchaseOrder", "getTransfer", "listBalances", "listCounts", "listLocations", "listPurchaseOrders", "listTransfers", "receivePurchaseOrder", "receiveTransfer", "saveCount", "savePurchaseOrder", "saveTransfer", "startCount", "transitionPurchaseOrder"]);
-    assert.deepEqual(Object.keys(pricingApi).sort(), ["activate", "archive", "get", "list", "save"]);
+    assert.deepEqual(Object.keys(inventoryApi).sort(), ["archiveLocation", "cancelCount", "cancelTransfer", "commitCount", "dispatchTransfer", "getCount", "getPurchaseOrder", "getTransfer", "listBalances", "listCounts", "listLocations", "listPurchaseOrders", "listTransfers", "receivePurchaseOrder", "receiveTransfer", "saveCount", "saveLocation", "savePurchaseOrder", "saveTransfer", "startCount", "transitionPurchaseOrder"]);
+    assert.deepEqual(Object.keys(pricingApi).sort(), ["activate", "archive", "get", "list", "preview", "save"]);
     await assert.rejects(inventoryApi.listLocations(), (error) => error?.code === "unavailable" && error?.status === 503);
     await assert.rejects(pricingApi.list(), (error) => error?.code === "unavailable" && error?.status === 503);
   `;

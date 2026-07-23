@@ -2,7 +2,7 @@ import type { PricingRepository } from "@celebix/saas-data";
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 type ApprovedAccess = ServerPanelAccessRuntime & Readonly<{ readiness: Readonly<{ mode: "approved_staging" }>; panelOrigin: string }>;
 export type ServerPricingRuntime = Readonly<{ access: ApprovedAccess; pricing: PricingRepository }>;
-const METHODS = Object.freeze(["list", "get", "save", "activate", "archive"] as const);
+const METHODS = Object.freeze(["list", "get", "save", "activate", "archive", "preview"] as const);
 const repositories = new WeakMap<ServerPanelAccessRuntime, PricingRepository>();
 function invalid(): never { throw new Error("server_pricing_runtime_invalid"); }
 function facade(repository: PricingRepository): PricingRepository {

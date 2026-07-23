@@ -2,10 +2,14 @@ import {
   parsePriceList,
   parsePriceListItem,
   parsePriceListRule,
+  parsePricingPreviewRequest,
+  parsePricingPreviewResult,
   type PriceChannel,
   type PriceList,
   type PriceListItem,
   type PriceListRule,
+  type PricingPreviewRequest,
+  type PricingPreviewResult,
 } from "@celebix/saas-contracts";
 
 type ServerPricingApiErrorCode = "invalid_input" | "conflict" | "forbidden" | "not_found" | "unauthenticated" | "method_not_allowed" | "unavailable";
@@ -220,10 +224,68 @@ export function createPricingApi(fetcher: Fetch = fetch, uuid: () => string = ()
     },
     async activate(priceListId: string, expectedVersion: number, signal?: AbortSignal) { return request(`/api/pricing/price-lists/${id(priceListId)}/activate`, parsePriceList, { operationId: operation(), expectedVersion: version(expectedVersion) }, signal); },
     async archive(priceListId: string, expectedVersion: number, signal?: AbortSignal) { return request(`/api/pricing/price-lists/${id(priceListId)}/archive`, parsePriceList, { operationId: operation(), expectedVersion: version(expectedVersion) }, signal); },
+    async preview(value: PricingPreviewRequest, signal?: AbortSignal) {
+      const parsed = exact(value, ["channel", "variantIds"]);
+      let safe: PricingPreviewRequest;
+      try {
+        safe = parsePricingPreviewRequest({
+          channel: parsed.channel,
+          variantIds: parsed.variantIds,
+        });
+      } catch {
+        return invalid();
+      }
+      return request("/api/pricing/preview", parsePricingPreviewResult, safe, signal);
+    },
   });
 }
 
 export type PricingApi = ReturnType<typeof createPricingApi>;
+
+export type PricingPreviewSnapshot =
+  | Readonly<{ phase: "idle" | "loading" | "unavailable" }>
+  | Readonly<{ phase: "loaded"; result: PricingPreviewResult }>;
+
+export function createPricingPreviewController(
+  api: Pick<PricingApi, "preview">,
+  onChange: (snapshot: PricingPreviewSnapshot) => void,
+) {
+  if (!api || typeof api.preview !== "function" || typeof onChange !== "function") invalid();
+  let generation = 0;
+  let current: AbortController | undefined;
+  const publish = (snapshot: PricingPreviewSnapshot) => onChange(Object.freeze(snapshot));
+  return Object.freeze({
+    load(input: PricingPreviewRequest) {
+      current?.abort();
+      const controller = new AbortController();
+      current = controller;
+      const selected = ++generation;
+      publish({ phase: "loading" });
+      void api.preview(input, controller.signal).then((result) => {
+        if (!controller.signal.aborted && current === controller && generation === selected) {
+          current = undefined;
+          publish({ phase: "loaded", result });
+        }
+      }).catch(() => {
+        if (!controller.signal.aborted && current === controller && generation === selected) {
+          current = undefined;
+          publish({ phase: "unavailable" });
+        }
+      });
+    },
+    clear() {
+      current?.abort();
+      current = undefined;
+      generation += 1;
+      publish({ phase: "idle" });
+    },
+    dispose() {
+      current?.abort();
+      current = undefined;
+      generation += 1;
+    },
+  });
+}
 
 export function createPricingRequestLifecycle() {
   let mounted = false;

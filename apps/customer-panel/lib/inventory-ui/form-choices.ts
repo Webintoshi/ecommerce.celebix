@@ -1,6 +1,11 @@
-import type { InventoryLocation, Product, ProductVariant } from "@celebix/saas-contracts";
+import type { InventoryLocation } from "@celebix/saas-contracts";
 
 import { catalogApi, type ProductDetailResult, type ProductListResult } from "../catalog-ui/client.ts";
+import {
+  loadCatalogVariantChoices,
+  type CatalogProductChoice,
+  type CatalogVariantChoice,
+} from "../catalog-ui/variant-choices.ts";
 import { inventoryApi } from "./client.ts";
 
 const DEFAULT_LIMITS = Object.freeze({
@@ -8,19 +13,11 @@ const DEFAULT_LIMITS = Object.freeze({
   maximumProducts: 500,
   maximumVariants: 2_000,
   maximumLocations: 500,
+  maximumDetailConcurrency: 4,
 });
 
-export type InventoryProductChoice = Readonly<{
-  productId: string;
-  title: string;
-}>;
-export type InventoryVariantChoice = Readonly<{
-  variantId: string;
-  productId: string;
-  productTitle: string;
-  variantTitle: string;
-  sku?: string;
-}>;
+export type InventoryProductChoice = CatalogProductChoice;
+export type InventoryVariantChoice = CatalogVariantChoice;
 export type InventoryLocationChoice = Readonly<{
   locationId: string;
   name: string;
@@ -40,7 +37,13 @@ type InventoryChoicesApi = Readonly<{
   listLocations(signal?: AbortSignal): Promise<readonly InventoryLocation[]>;
 }>;
 type Dependencies = Readonly<{ catalog: CatalogChoicesApi; inventory: InventoryChoicesApi }>;
-type Limits = Partial<typeof DEFAULT_LIMITS>;
+type Limits = Readonly<Partial<{
+  maximumPages: number;
+  maximumProducts: number;
+  maximumVariants: number;
+  maximumLocations: number;
+  maximumDetailConcurrency: number;
+}>>;
 
 const unavailable = (): never => { throw new Error("inventory_choices_unavailable"); };
 function check(signal: AbortSignal) {
@@ -70,30 +73,18 @@ export async function loadInventoryFormChoices(
     maximumProducts: bounded(overrides.maximumProducts, DEFAULT_LIMITS.maximumProducts),
     maximumVariants: bounded(overrides.maximumVariants, DEFAULT_LIMITS.maximumVariants),
     maximumLocations: bounded(overrides.maximumLocations, DEFAULT_LIMITS.maximumLocations),
+    maximumDetailConcurrency: bounded(
+      overrides.maximumDetailConcurrency,
+      DEFAULT_LIMITS.maximumDetailConcurrency,
+    ),
   });
-  const products: Product[] = [];
-  const productIds = new Set<string>();
-  const cursors = new Set<string>();
-  let cursor: string | undefined;
   try {
-    for (let pageNumber = 0; ; pageNumber += 1) {
-      check(signal);
-      if (pageNumber >= limits.maximumPages) unavailable();
-      const page = await dependencies.catalog.listProducts({ status: "active", ...(cursor ? { cursor } : {}) }, signal);
-      check(signal);
-      const pageItems = safeArray(page.items, limits.maximumProducts);
-      if (products.length + pageItems.length > limits.maximumProducts) unavailable();
-      for (const product of pageItems) {
-        if (product.status !== "active" || productIds.has(product.id)) unavailable();
-        productIds.add(product.id);
-        products.push(product);
-      }
-      const nextCursor = page.nextCursor;
-      if (nextCursor === undefined) break;
-      if (typeof nextCursor !== "string" || nextCursor.length < 1 || nextCursor.length > 2_048 || cursors.has(nextCursor) || nextCursor === cursor) unavailable();
-      cursors.add(nextCursor);
-      cursor = nextCursor;
-    }
+    const catalogChoices = await loadCatalogVariantChoices(dependencies.catalog, signal, {
+      maximumPages: limits.maximumPages,
+      maximumProducts: limits.maximumProducts,
+      maximumVariants: limits.maximumVariants,
+      maximumDetailConcurrency: limits.maximumDetailConcurrency,
+    });
 
     const locations = safeArray(await dependencies.inventory.listLocations(signal), limits.maximumLocations);
     check(signal);
@@ -109,31 +100,9 @@ export async function loadInventoryFormChoices(
       }));
     }
 
-    const variants: InventoryVariantChoice[] = [];
-    const variantIds = new Set<string>();
-    for (const product of products) {
-      check(signal);
-      const detail = await dependencies.catalog.getProduct(product.id, signal);
-      check(signal);
-      if (detail.product.id !== product.id || detail.product.status !== "active") unavailable();
-      const detailVariants = safeArray(detail.variants, limits.maximumVariants);
-      for (const variant of detailVariants) {
-        if (variant.productId !== product.id || variantIds.has(variant.id)) unavailable();
-        variantIds.add(variant.id);
-        if (variant.status !== "active") continue;
-        if (variants.length >= limits.maximumVariants) unavailable();
-        variants.push(Object.freeze({
-          variantId: variant.id,
-          productId: product.id,
-          productTitle: product.title,
-          variantTitle: variant.title,
-          ...(variant.sku ? { sku: variant.sku } : {}),
-        }));
-      }
-    }
     return Object.freeze({
-      products: Object.freeze(products.map((product) => Object.freeze({ productId: product.id, title: product.title }))),
-      variants: Object.freeze(variants),
+      products: catalogChoices.products,
+      variants: catalogChoices.variants,
       locations: Object.freeze(activeLocations),
     });
   } catch (error) {

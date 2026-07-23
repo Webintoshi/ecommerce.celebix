@@ -11,10 +11,16 @@ export type {
   PriceListRule,
   PriceListStatus,
   PriceSourceKind,
+  PricingPreviewEntry,
+  PricingPreviewRequest,
+  PricingPreviewResult,
 } from "./types.ts";
 export {
   parseEffectivePrice,
   parsePriceList,
   parsePriceListItem,
   parsePriceListRule,
+  parsePricingPreviewEntry,
+  parsePricingPreviewRequest,
+  parsePricingPreviewResult,
 } from "./validation.ts";
