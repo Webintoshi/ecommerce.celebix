@@ -18,6 +18,9 @@
     { "file": "202607220042_catalog_product_tags_assertions.sql", "sha256": "fe07ff2478e5c0da891c6658aa042e1bc0ac926ba001862b22b45723048c7642" },
     { "file": "202607220043_inventory_purchasing.up.sql", "sha256": "0e32871b29194bd52fa7164d1759a3b8470657188903e05dba3aefa163367124" },
     { "file": "202607220043_inventory_purchasing.down.sql", "sha256": "c27a91dd0a8bff78d7620fb66cf16ed6e3ef1e7a02a5b245bd15b15ea45bdd80" },
-    { "file": "202607220043_inventory_purchasing_assertions.sql", "sha256": "d7275e163413818206fcb1ee9bf423cf41b9cf4a92037d9f38f4d4236d6a8125" }
+    { "file": "202607220043_inventory_purchasing_assertions.sql", "sha256": "d7275e163413818206fcb1ee9bf423cf41b9cf4a92037d9f38f4d4236d6a8125" },
+    { "file": "202607220044_inventory_counts_transfers.up.sql", "sha256": "924d90eba57e337b82fbcc968f32eb4ae4211e138f4d6e0f89849ff8fa344b29" },
+    { "file": "202607220044_inventory_counts_transfers.down.sql", "sha256": "cdee8ca3a7343fa16db1d8ba7ffe486145ec8f0b299e765a06f1ffd8d62d0ed6" },
+    { "file": "202607220044_inventory_counts_transfers_assertions.sql", "sha256": "384ed9c9fd146a3a3edc1b775fbec9dc80c85dc9ff62afd536ab2c5892e127fd" }
   ]
 }

@@ -152,11 +152,11 @@ test("the disposable harness defines exactly 34 named scenarios and full recover
   assert.doesNotMatch(harness, /pg_sleep|127[.]0[.]0[.]1|localhost|PGHOST|DATABASE_URL/);
 });
 
-test("cumulative completion manifest has eighteen current checksums", () => {
+test("cumulative completion manifest has twenty one current checksums", () => {
   const manifest = JSON.parse(
     readFileSync(path.join(SQL, "phase3h-merchant-completion-manifest.json"), "utf8"),
   );
-  assert.equal(manifest.artifacts.length, 18);
+  assert.equal(manifest.artifacts.length, 21);
   for (const artifact of manifest.artifacts) {
     assert.equal(
       createHash("sha256")

@@ -545,11 +545,11 @@ async function main() {
         "8",
       );
     });
-    await scenario("manifest pins eighteen exact checksums", () => {
+    await scenario("manifest pins twenty one exact checksums", () => {
       const manifest = JSON.parse(
         readFileSync(path.join(SQL, "phase3h-merchant-completion-manifest.json"), "utf8"),
       );
-      assert.equal(manifest.artifacts.length, 18);
+      assert.equal(manifest.artifacts.length, 21);
       for (const artifact of manifest.artifacts) {
         assert.equal(
           createHash("sha256")
