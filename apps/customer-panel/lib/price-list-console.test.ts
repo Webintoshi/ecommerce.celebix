@@ -26,7 +26,7 @@ test("price-list editor is fixed-price, versioned, finite-channel and persisted-
   assert.match(component, /Açıklayıcı önizleme/);
   assert.match(component, /PostgreSQL/);
   assert.match(component, /status === "active"/);
-  assert.match(component, /disabled=\{readOnly/);
+  assert.match(component, /disabled=\{controlsDisabled/);
   assert.match(component, /draftRules[.]map/);
   assert.match(component, /item[.]rules[.]map/);
   assert.doesNotMatch(component, /rules\[0\]/);
@@ -47,6 +47,14 @@ test("price-list console uses durable API results for conflict permission empty 
   assert.match(component, /mutations[.]activate/);
   assert.match(component, /mutations[.]archive/);
   assert.match(component, /mutations[.]save/);
+  assert.match(component, /mutationPending/);
+  assert.match(component, /disabled=\{mutationPending\}/);
+  assert.match(component, /createPricingRequestLifecycle/);
+  assert.match(component, /lifecycle[.]setup\(\)/);
+  assert.match(component, /ticket[.]current\(\)/);
+  assert.match(component, /En fazla 100 fiyat kuralı/);
+  assert.match(component, /canAddPricingRule\(draftRules[.]length\)/);
+  assert.match(component, /disabled=\{controlsDisabled \|\| !canAddRule\}/);
 });
 
 test("price-list pages derive pricing capabilities server-side and pass no TenantContext to clients", async () => {

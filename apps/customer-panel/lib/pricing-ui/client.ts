@@ -9,7 +9,7 @@ import {
 } from "@celebix/saas-contracts";
 
 type ServerPricingApiErrorCode = "invalid_input" | "conflict" | "forbidden" | "not_found" | "unauthenticated" | "method_not_allowed" | "unavailable";
-export type PricingApiErrorCode = ServerPricingApiErrorCode | "verification_unavailable";
+export type PricingApiErrorCode = ServerPricingApiErrorCode | "mutation_pending" | "verification_unavailable";
 export type PricingErrorState = "error" | "denied" | "conflict" | "not_found" | "unavailable" | "verification_unavailable";
 export type PricingMutationState = "idle" | "pending" | "verification_unavailable";
 
@@ -45,6 +45,8 @@ export interface PricingRuleDraft {
   readonly startsAt: string;
   readonly endsAt: string;
   readonly priority: string;
+  readonly persistedStartsAt?: string;
+  readonly persistedEndsAt?: string;
 }
 
 export interface PriceListIntentDraft {
@@ -116,7 +118,23 @@ export function pricingRuleDraft(value?: PriceListRule): PricingRuleDraft {
     startsAt: formatPricingUtcLocal(rule.startsAt),
     endsAt: formatPricingUtcLocal(rule.endsAt),
     priority: String(rule.priority),
+    persistedStartsAt: rule.startsAt ?? "",
+    persistedEndsAt: rule.endsAt ?? "",
   });
+}
+
+export function canAddPricingRule(count: number): boolean {
+  if (!Number.isSafeInteger(count) || count < 0 || count > 100) return invalid();
+  return count < 100;
+}
+
+function pricingDraftTime(display: unknown, persisted: unknown): string | undefined {
+  if (typeof display !== "string" || typeof persisted !== "string") return invalid();
+  if (persisted !== "") {
+    if (formatPricingUtcLocal(persisted) !== display) return invalid();
+    return persisted;
+  }
+  return display === "" ? undefined : parsePricingUtcLocal(display);
 }
 
 export function buildPriceListIntent(value: PriceListIntentDraft): SavePriceListIntent {
@@ -124,11 +142,11 @@ export function buildPriceListIntent(value: PriceListIntentDraft): SavePriceList
   if (typeof parsed.name !== "string" || parsed.name.length < 1 || parsed.name.length > 200 || parsed.name !== parsed.name.trim() || ((parsed.priceListId === undefined) !== (parsed.expectedVersion === undefined))) return invalid();
   const items = Object.freeze(dense(parsed.items, 1, 500).map(parsePriceListItem));
   const rules = Object.freeze(dense(parsed.rules, 1, 100).map((entry) => {
-    const draft = exact(entry, ["channel", "customerTagId", "startsAt", "endsAt", "priority"]);
+    const draft = exact(entry, ["channel", "customerTagId", "startsAt", "endsAt", "priority"], ["persistedStartsAt", "persistedEndsAt"]);
     if ((draft.channel !== "storefront" && draft.channel !== "quick_order") || typeof draft.customerTagId !== "string" || typeof draft.startsAt !== "string" || typeof draft.endsAt !== "string" || typeof draft.priority !== "string" || !/^(?:0|[1-9]\d{0,3})$/.test(draft.priority)) return invalid();
     const priority = Number(draft.priority); if (priority > 1000) return invalid();
-    const startsAt = draft.startsAt === "" ? undefined : parsePricingUtcLocal(draft.startsAt);
-    const endsAt = draft.endsAt === "" ? undefined : parsePricingUtcLocal(draft.endsAt);
+    const startsAt = pricingDraftTime(draft.startsAt, draft.persistedStartsAt ?? "");
+    const endsAt = pricingDraftTime(draft.endsAt, draft.persistedEndsAt ?? "");
     if (endsAt !== undefined && (startsAt === undefined || endsAt <= startsAt)) return invalid();
     return parsePriceListRule({
       channel: draft.channel,
@@ -207,6 +225,41 @@ export function createPricingApi(fetcher: Fetch = fetch, uuid: () => string = ()
 
 export type PricingApi = ReturnType<typeof createPricingApi>;
 
+export function createPricingRequestLifecycle() {
+  let mounted = false;
+  let generation = 0;
+  let setupGeneration = 0;
+  return Object.freeze({
+    setup() {
+      const ownedSetup = ++setupGeneration;
+      mounted = true;
+      generation += 1;
+      let cleaned = false;
+      return () => {
+        if (cleaned) return;
+        cleaned = true;
+        if (setupGeneration === ownedSetup) {
+          mounted = false;
+          generation += 1;
+        }
+      };
+    },
+    begin() {
+      if (!mounted) throw new Error("pricing_lifecycle_disposed");
+      const owned = ++generation;
+      let cancelled = false;
+      return Object.freeze({
+        current: () => mounted && !cancelled && generation === owned,
+        cancel() {
+          if (cancelled) return;
+          cancelled = true;
+          if (mounted && generation === owned) generation += 1;
+        },
+      });
+    },
+  });
+}
+
 export function createPricingMutationController(api: Pick<PricingApi, "save" | "activate" | "archive">) {
   if (!api || typeof api.save !== "function" || typeof api.activate !== "function" || typeof api.archive !== "function") return invalid();
   let current: PricingMutationState = "idle";
@@ -215,7 +268,7 @@ export function createPricingMutationController(api: Pick<PricingApi, "save" | "
   function locked(): Promise<PriceList> { return Promise.reject(new PricingApiError("verification_unavailable", 503)); }
   function execute(operation: (signal: AbortSignal) => Promise<PriceList>): Promise<PriceList> {
     if (current === "verification_unavailable") return locked();
-    if (pending) return pending.promise;
+    if (pending) return Promise.reject(new PricingApiError("mutation_pending", 409));
     const controller = new AbortController(); let resolve!: (value: PriceList) => void, reject!: (error: unknown) => void, done = false;
     const promise = new Promise<PriceList>((accept, deny) => { resolve = accept; reject = deny; });
     pending = Object.freeze({ promise, controller, reject, settled: () => done, markSettled: () => { done = true; } });

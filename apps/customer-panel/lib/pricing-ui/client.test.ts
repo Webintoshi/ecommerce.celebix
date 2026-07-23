@@ -3,11 +3,14 @@ import test from "node:test";
 import type { PriceList } from "@celebix/saas-contracts";
 import {
   buildPriceListIntent,
+  canAddPricingRule,
   createPricingApi,
   createPricingMutationController,
+  createPricingRequestLifecycle,
   formatPricingUtcLocal,
   parsePricingUtcLocal,
   pricingErrorState,
+  pricingRuleDraft,
   PricingApiError,
 } from "./client.ts";
 
@@ -41,7 +44,7 @@ test("pricing client bounds exact JSON and maps only stable errors", async () =>
 });
 
 for (const lifecycle of ["save", "activate", "archive"] as const) {
-  test(`pricing ${lifecycle} owns one synchronous pending submission and one operation id`, async () => {
+  test(`pricing ${lifecycle} owns one synchronous pending submission and rejects a duplicate locally`, async () => {
     let requests = 0;
     let complete!: (response: Response) => void;
     const fetcher = async (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -56,7 +59,8 @@ for (const lifecycle of ["save", "activate", "archive"] as const) {
     const second = lifecycle === "save"
       ? controller.save({ name: "VIP", items: list().items, rules: list().rules })
       : lifecycle === "activate" ? controller.activate(ID, 1) : controller.archive(ID, 1);
-    assert.strictEqual(first, second);
+    assert.notStrictEqual(first, second);
+    await assert.rejects(second, (error: unknown) => error instanceof PricingApiError && error.code === "mutation_pending");
     assert.equal(controller.state(), "pending");
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(requests, 1);
@@ -65,6 +69,25 @@ for (const lifecycle of ["save", "activate", "archive"] as const) {
     assert.equal(controller.state(), "idle");
   });
 }
+
+test("a pending pricing action rejects every cross-action submission without awaiting or sending it", async () => {
+  let requests = 0;
+  let complete!: (response: Response) => void;
+  const controller = createPricingMutationController(createPricingApi(async () => {
+    requests += 1;
+    return new Promise<Response>((resolve) => { complete = resolve; });
+  }, () => OP));
+  const first = controller.save({ name: "VIP", items: list().items, rules: list().rules });
+  const activate = controller.activate(ID, 1);
+  const archive = controller.archive(ID, 1);
+  await assert.rejects(activate, (error: unknown) => error instanceof PricingApiError && error.code === "mutation_pending");
+  await assert.rejects(archive, (error: unknown) => error instanceof PricingApiError && error.code === "mutation_pending");
+  assert.equal(controller.state(), "pending");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(requests, 1);
+  complete(Response.json(list()));
+  await first;
+});
 
 test("ambiguous mutation and unmount lock verification until a full reload without a second POST", async () => {
   let requests = 0;
@@ -107,6 +130,59 @@ test("price-list intent preserves every persisted rule and treats datetime-local
       { channel: "quick_order", customerTagId: "40000000-0000-4000-8000-000000000001", priority: 2 },
     ]);
   } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
+});
+
+test("unchanged minute controls preserve each persisted canonical microsecond timestamp while deliberate edits use exact UTC", () => {
+  const first = pricingRuleDraft({ channel: "storefront", startsAt: "2026-07-23T12:30:45.123456Z", endsAt: "2026-07-23T13:30:59.654321Z", priority: 1 });
+  const second = pricingRuleDraft({ channel: "quick_order", startsAt: "2026-07-24T09:05:01.000007Z", priority: 2 });
+  assert.deepEqual([first.startsAt, first.endsAt, second.startsAt], ["2026-07-23T12:30", "2026-07-23T13:30", "2026-07-24T09:05"]);
+  const unchanged = buildPriceListIntent({ name: "VIP", items: list().items, rules: [first, second] });
+  assert.deepEqual(unchanged.rules.map((rule) => [rule.startsAt, rule.endsAt]), [
+    ["2026-07-23T12:30:45.123456Z", "2026-07-23T13:30:59.654321Z"],
+    ["2026-07-24T09:05:01.000007Z", undefined],
+  ]);
+  const edited = buildPriceListIntent({
+    name: "VIP", items: list().items,
+    rules: [first, { ...second, startsAt: "2026-07-24T10:15", persistedStartsAt: "" }],
+  });
+  assert.equal(edited.rules[0]?.startsAt, "2026-07-23T12:30:45.123456Z");
+  assert.equal(edited.rules[1]?.startsAt, "2026-07-24T10:15:00.000000Z");
+});
+
+test("pricing request lifecycle rejects stale list/detail generations and every completion after unmount", () => {
+  const lifecycle = createPricingRequestLifecycle();
+  const cleanup = lifecycle.setup();
+  const listRequest = lifecycle.begin();
+  const detailRequest = lifecycle.begin();
+  assert.equal(listRequest.current(), false);
+  assert.equal(detailRequest.current(), true);
+  detailRequest.cancel();
+  assert.equal(detailRequest.current(), false);
+  const mutation = lifecycle.begin();
+  assert.equal(mutation.current(), true);
+  cleanup();
+  assert.equal(mutation.current(), false);
+  assert.throws(() => lifecycle.begin(), /pricing_lifecycle_disposed/);
+});
+
+test("pricing request lifecycle survives Strict Mode setup cleanup setup with a fresh generation", () => {
+  const lifecycle = createPricingRequestLifecycle();
+  const firstCleanup = lifecycle.setup();
+  const first = lifecycle.begin();
+  firstCleanup();
+  assert.equal(first.current(), false);
+  const secondCleanup = lifecycle.setup();
+  const second = lifecycle.begin();
+  assert.equal(second.current(), true);
+  secondCleanup();
+  assert.equal(second.current(), false);
+});
+
+test("price-list rules have a hard local maximum of one hundred", () => {
+  assert.equal(canAddPricingRule(99), true);
+  assert.equal(canAddPricingRule(100), false);
+  assert.throws(() => canAddPricingRule(-1), /pricing_client_invalid/);
+  assert.throws(() => canAddPricingRule(101), /pricing_client_invalid/);
 });
 
 test("pricing client contains hostile exact-root and dense-item descriptors without invoking them", async () => {
