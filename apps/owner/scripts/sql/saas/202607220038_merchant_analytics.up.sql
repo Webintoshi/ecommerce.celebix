@@ -20,7 +20,7 @@ CREATE FUNCTION saas.merchant_analytics_series(p_store_id uuid,p_start_at timest
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
   WITH buckets AS (
     SELECT bucket_start, LEAST(bucket_start + CASE WHEN p_bucket='hour' THEN interval '1 hour' ELSE interval '1 day' END,p_end_at) AS bucket_end
-    FROM pg_catalog.generate_series(p_start_at,pg_catalog.date_trunc(p_bucket,p_end_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC',CASE WHEN p_bucket='hour' THEN interval '1 hour' ELSE interval '1 day' END) AS bucket_start
+    FROM pg_catalog.generate_series(p_start_at,CASE WHEN (pg_catalog.date_trunc(p_bucket,p_end_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')=p_end_at THEN p_end_at-interval '1 microsecond' ELSE pg_catalog.date_trunc(p_bucket,p_end_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' END,CASE WHEN p_bucket='hour' THEN interval '1 hour' ELSE interval '1 day' END) AS bucket_start
   ), values_by_bucket AS (
     SELECT b.bucket_start,COUNT(o.id)::bigint AS orders,COALESCE(SUM(o.total_cents),0)::bigint AS revenue_cents
     FROM buckets b LEFT JOIN saas.orders o ON o.store_id=p_store_id AND o.payment_status='completed' AND o.created_at>=b.bucket_start AND o.created_at<b.bucket_end
@@ -31,13 +31,13 @@ $f$;
 
 CREATE FUNCTION saas.merchant_analytics_top_products(p_store_id uuid,p_start_at timestamptz,p_end_at timestamptz)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-  SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('productName',product_name,'quantity',quantity,'revenueCents',revenue_cents) ORDER BY revenue_cents DESC,quantity DESC,product_name ASC),'[]'::jsonb)
+  SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('productId',product_id,'title',title,'quantity',quantity,'revenueCents',revenue_cents) ORDER BY revenue_cents DESC,quantity DESC,product_id ASC,title ASC),'[]'::jsonb)
   FROM (
-    SELECT item.product_name,COALESCE(SUM(item.quantity),0)::bigint AS quantity,COALESCE(SUM(item.line_total_cents),0)::bigint AS revenue_cents
+    SELECT item.product_id, item.product_name AS title,COALESCE(SUM(item.quantity),0)::bigint AS quantity,COALESCE(SUM(item.line_total_cents),0)::bigint AS revenue_cents
     FROM saas.order_items item JOIN saas.orders ord ON ord.store_id=item.store_id AND ord.id=item.order_id
-    WHERE item.store_id=p_store_id AND ord.store_id=p_store_id AND ord.payment_status='completed' AND ord.created_at>=p_start_at AND ord.created_at<p_end_at
-    GROUP BY item.product_name
-    ORDER BY revenue_cents DESC,quantity DESC,item.product_name ASC
+    WHERE item.store_id=p_store_id AND item.product_id IS NOT NULL AND ord.store_id=p_store_id AND ord.payment_status='completed' AND ord.created_at>=p_start_at AND ord.created_at<p_end_at
+    GROUP BY item.product_id,item.product_name
+    ORDER BY revenue_cents DESC,quantity DESC,item.product_id ASC,item.product_name ASC
     LIMIT 20
   ) ranked
 $f$;
@@ -46,20 +46,21 @@ CREATE FUNCTION saas.merchant_analytics_dashboard(p_store_id uuid,p_principal_id
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE e text; start_at timestamptz; bucket text;
 BEGIN
-  IF p_period NOT IN ('today','week','month','year') THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
+  IF p_period IS NULL OR p_period NOT IN ('today','week','month','year') THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
   e:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'analytics','analytics.read');
   IF e IS NOT NULL THEN RETURN QUERY SELECT e,NULL::jsonb; RETURN; END IF;
   start_at:=CASE p_period WHEN 'today' THEN pg_catalog.date_trunc('day',p_now AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' WHEN 'week' THEN pg_catalog.date_trunc('week',p_now AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' WHEN 'month' THEN pg_catalog.date_trunc('month',p_now AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' ELSE pg_catalog.date_trunc('year',p_now AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' END;
   bucket:=CASE WHEN p_period IN ('today','week') THEN 'hour' ELSE 'day' END;
+  IF EXISTS(SELECT 1 FROM (SELECT COUNT(*) total,COUNT(*) FILTER(WHERE payment_status='completed') paid,COUNT(*) FILTER(WHERE status='cancelled') cancelled,COUNT(*) FILTER(WHERE status='refunded') refunded,COALESCE(SUM(total_cents) FILTER(WHERE payment_status='completed'),0) revenue FROM saas.orders WHERE store_id=p_store_id AND created_at>=start_at AND created_at<p_now) checked WHERE total>9007199254740991 OR paid>9007199254740991 OR cancelled>9007199254740991 OR refunded>9007199254740991 OR revenue>9007199254740991) OR EXISTS(SELECT 1 FROM (SELECT COUNT(*) FILTER(WHERE status='active') total,COUNT(*) FILTER(WHERE status='active' AND created_at>=start_at AND created_at<p_now) fresh FROM saas.customers WHERE store_id=p_store_id) checked WHERE total>9007199254740991 OR fresh>9007199254740991) OR EXISTS(SELECT 1 FROM (SELECT COUNT(DISTINCT product.id) FILTER(WHERE product.status='active') active,COUNT(variant.id) FILTER(WHERE variant.status='active' AND variant.stock_tracking AND variant.stock_quantity<=5) low FROM saas.products product LEFT JOIN saas.product_variants variant ON variant.store_id=product.store_id AND variant.product_id=product.id WHERE product.store_id=p_store_id) checked WHERE active>9007199254740991 OR low>9007199254740991) OR EXISTS(SELECT 1 FROM saas.order_items item JOIN saas.orders ord ON ord.store_id=item.store_id AND ord.id=item.order_id WHERE item.store_id=p_store_id AND item.product_id IS NOT NULL AND ord.store_id=p_store_id AND ord.payment_status='completed' AND ord.created_at>=start_at AND ord.created_at<p_now GROUP BY item.product_id,item.product_name HAVING SUM(item.quantity)>9007199254740991 OR SUM(item.line_total_cents)>9007199254740991) THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN; END IF;
   RETURN QUERY WITH
     order_stats AS (SELECT COUNT(*)::bigint total,COUNT(*) FILTER(WHERE payment_status='completed')::bigint paid,COUNT(*) FILTER(WHERE status='cancelled')::bigint cancelled,COUNT(*) FILTER(WHERE status='refunded')::bigint refunded,COALESCE(SUM(total_cents) FILTER(WHERE payment_status='completed'),0)::bigint revenue FROM saas.orders WHERE store_id=p_store_id AND created_at>=start_at AND created_at<p_now),
-    customer_stats AS (SELECT COUNT(*) FILTER(WHERE status='active')::bigint total,COUNT(*) FILTER(WHERE created_at>=start_at AND created_at<p_now)::bigint fresh FROM saas.customers WHERE store_id=p_store_id),
+    customer_stats AS (SELECT COUNT(*) FILTER(WHERE status='active')::bigint total,COUNT(*) FILTER(WHERE status='active' AND created_at>=start_at AND created_at<p_now)::bigint fresh FROM saas.customers WHERE store_id=p_store_id),
     catalog_stats AS (SELECT COUNT(DISTINCT product.id) FILTER(WHERE product.status='active')::bigint active,COUNT(variant.id) FILTER(WHERE variant.status='active' AND variant.stock_tracking AND variant.stock_quantity<=5)::bigint low FROM saas.products product LEFT JOIN saas.product_variants variant ON variant.store_id=product.store_id AND variant.product_id=product.id WHERE product.store_id=p_store_id),
     store_currency AS (SELECT currency FROM saas.stores WHERE id=p_store_id)
   SELECT 'resolved',pg_catalog.jsonb_build_object('period',p_period,'rangeStart',saas.merchant_admin_timestamp(start_at),'rangeEnd',saas.merchant_admin_timestamp(p_now),'generatedAt',saas.merchant_admin_timestamp(p_now),'currency',store_currency.currency,'revenueCents',order_stats.revenue,'orders',pg_catalog.jsonb_build_object('total',order_stats.total,'paid',order_stats.paid,'cancelled',order_stats.cancelled,'refunded',order_stats.refunded),'customers',pg_catalog.jsonb_build_object('total',customer_stats.total,'newInPeriod',customer_stats.fresh),'catalog',pg_catalog.jsonb_build_object('activeProducts',catalog_stats.active,'lowStockVariants',catalog_stats.low),'series',saas.merchant_analytics_series(p_store_id,start_at,p_now,bucket),'topProducts',saas.merchant_analytics_top_products(p_store_id,start_at,p_now))
   FROM order_stats,customer_stats,catalog_stats,store_currency;
 END $f$;
 
-REVOKE ALL ON FUNCTION saas.merchant_analytics_series(uuid,timestamptz,timestamptz,text),saas.merchant_analytics_top_products(uuid,timestamptz,timestamptz),saas.merchant_analytics_dashboard(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver;
+REVOKE ALL ON FUNCTION saas.merchant_analytics_series(uuid,timestamptz,timestamptz,text),saas.merchant_analytics_top_products(uuid,timestamptz,timestamptz),saas.merchant_analytics_dashboard(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text) FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 GRANT EXECUTE ON FUNCTION saas.merchant_analytics_dashboard(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text) TO celebix_saas_app;
 COMMIT;

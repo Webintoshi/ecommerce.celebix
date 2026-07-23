@@ -18,7 +18,7 @@ test("merchant analytics manifest pins every migration artifact", () => {
 
 test("analytics has one app-facing read function with exact closed ACL", () => {
   assert.match(up, /CREATE FUNCTION saas\.merchant_analytics_dashboard\(.*?RETURNS TABLE\(outcome text,result_payload jsonb\).*?SECURITY DEFINER SET search_path=pg_catalog,saas/s);
-  assert.match(up, /REVOKE ALL ON FUNCTION saas\.merchant_analytics_series.*?FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver/s);
+  assert.match(up, /REVOKE ALL ON FUNCTION saas\.merchant_analytics_series.*?FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator/s);
   assert.match(up, /GRANT EXECUTE ON FUNCTION saas\.merchant_analytics_dashboard\(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text\) TO celebix_saas_app/);
   assert.doesNotMatch(up, /GRANT EXECUTE ON FUNCTION saas\.merchant_analytics_(?:series|top_products)/);
 });
@@ -26,11 +26,16 @@ test("analytics has one app-facing read function with exact closed ACL", () => {
 test("analytics uses closed authority, fixed periods, and store predicates", () => {
   assert.match(up, /'analytics','analytics\.read'/);
   assert.doesNotMatch(up, /analytics\.write/);
-  assert.match(up, /p_period NOT IN \('today','week','month','year'\)/);
-  assert.ok(up.indexOf("p_period NOT IN ('today','week','month','year')") < up.indexOf("e:=saas.merchant_action_authority_error"));
-  assert.match(up, /item\.store_id=p_store_id AND ord\.store_id=p_store_id/);
+  assert.match(up, /p_period IS NULL OR p_period NOT IN \('today','week','month','year'\)/);
+  assert.ok(up.indexOf("p_period IS NULL OR p_period NOT IN ('today','week','month','year')") < up.indexOf("e:=saas.merchant_action_authority_error"));
+  assert.match(up, /item\.store_id=p_store_id AND item\.product_id IS NOT NULL AND ord\.store_id=p_store_id/);
   assert.match(up, /FROM saas\.orders WHERE store_id=p_store_id/);
-  assert.match(up, /ORDER BY revenue_cents DESC,quantity DESC,item\.product_name ASC/);
+  assert.match(up, /jsonb_build_object\('productId',product_id,'title',title,'quantity',quantity,'revenueCents',revenue_cents\)/);
+  assert.match(up, /GROUP BY item\.product_id,item\.product_name/);
+  assert.match(up, /ORDER BY revenue_cents DESC,quantity DESC,item\.product_id ASC,item\.product_name ASC/);
+  assert.match(up, /9007199254740991/);
+  assert.match(up, /p_end_at-interval '1 microsecond'/);
+  assert.match(up, /COUNT\(\*\) FILTER\(WHERE status='active' AND created_at>=start_at/);
 });
 
 test("rollback removes analytics only and restores the prior finite action policy", () => {

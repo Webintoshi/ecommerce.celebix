@@ -1,8 +1,8 @@
 {
   "phase": "phase3h-merchant-analytics",
   "artifacts": [
-    { "file": "202607220038_merchant_analytics.up.sql", "sha256": "32f600e86c2cdb23391a3c5a0472027b3591e2afc8c51b755582f582ba5c52e6" },
+    { "file": "202607220038_merchant_analytics.up.sql", "sha256": "9e54a148a7df76a9a61019772edf23394ae16cbeab168bb405532c8293d7cf8e" },
     { "file": "202607220038_merchant_analytics.down.sql", "sha256": "a4de26e29ad0dccfb4d8e96c342b8d466df4092d26b62c5b64b1648acb119ffd" },
-    { "file": "202607220038_merchant_analytics_assertions.sql", "sha256": "84ef3937f181b76a97d9e56f1a36a70220f9d197064376236bea55c905b80fe1" }
+    { "file": "202607220038_merchant_analytics_assertions.sql", "sha256": "961e6113cde8a303daf48b4cd246448fd6061bc1d56f04d21b9d70452b4461bf" }
   ]
 }
