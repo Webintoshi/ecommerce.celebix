@@ -11,7 +11,7 @@ const repository=readFileSync(path.join(ROOT,"packages/saas-data/src/catalog-adm
 
 test("migration 041 is pinned by the completion manifest",()=>{
  const manifest=JSON.parse(readFileSync(path.join(SQL,"phase3h-merchant-completion-manifest.json"),"utf8"));
- assert.equal(manifest.artifacts.length,21);
+ assert.equal(manifest.artifacts.length,24);
  for(const file of ["202607220041_catalog_import_previews.up.sql","202607220041_catalog_import_previews.down.sql","202607220041_catalog_import_previews_assertions.sql"]){
   const artifact=manifest.artifacts.find(entry=>entry.file===file);assert.ok(artifact,file);assert.equal(createHash("sha256").update(readFileSync(path.join(SQL,file))).digest("hex"),artifact.sha256,file);
  }
