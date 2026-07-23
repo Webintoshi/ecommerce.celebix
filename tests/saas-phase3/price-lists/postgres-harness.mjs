@@ -526,7 +526,7 @@ async function main() {
       assert.equal(replay.result.version, 2);
     });
 
-    await scenario("operation fingerprint mismatch cannot retarget a persisted proof", () => {
+    await scenario("operation fingerprint or price-list identity cannot retarget a persisted proof", () => {
       const mismatch = result(box, saveCall({
         op: operation(2),
         fp: fingerprint("different"),
@@ -538,6 +538,15 @@ async function main() {
       }));
       assert.equal(mismatch.outcome, "operation_mismatch");
       assert.equal(mismatch.result, null);
+      const listMismatch = result(box, saveCall({
+        op: operation(2),
+        list: listId(90),
+        name: "Retargeted list",
+        items: [item(VARIANT, 1290)],
+        rules: [rule("storefront", 2)],
+      }));
+      assert.equal(listMismatch.outcome, "operation_mismatch");
+      assert.equal(listMismatch.result, null);
     });
 
     await scenario("stale version update fails without changing list state", () => {
@@ -573,6 +582,9 @@ async function main() {
       assert.equal(result(box, transitionCall("activate", {
         op: operation(5), list: global, expected: 1,
       })).outcome, "activated");
+      assert.equal(result(box, transitionCall("activate", {
+        op: operation(5), list: draft, expected: 2,
+      })).outcome, "operation_mismatch");
       assert.deepEqual(resolve(box), {
         outcome: "found",
         priceCents: 1200,
@@ -663,6 +675,9 @@ async function main() {
       assert.equal(result(box, transitionCall("archive", {
         op: operation(14), list: priority, expected: 2,
       })).outcome, "archived");
+      assert.equal(result(box, transitionCall("archive", {
+        op: operation(14), list: global, expected: 2,
+      })).outcome, "operation_mismatch");
       assert.equal(resolve(box).priceCents, 1200);
     });
 

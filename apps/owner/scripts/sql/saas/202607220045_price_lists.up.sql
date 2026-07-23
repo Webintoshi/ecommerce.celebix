@@ -453,6 +453,7 @@ BEGIN
   IF FOUND THEN
     IF operation.store_id=p_store_id
        AND operation.operation_kind='save'
+       AND operation.price_list_id=p_price_list_id
        AND operation.payload_fingerprint=p_fingerprint THEN
       RETURN QUERY SELECT 'operation_replayed',operation.result_payload;
     ELSE
@@ -583,6 +584,7 @@ BEGIN
   IF FOUND THEN
     IF operation.store_id=p_store_id
        AND operation.operation_kind='activate'
+       AND operation.price_list_id=p_price_list_id
        AND operation.payload_fingerprint=p_fingerprint THEN
       RETURN QUERY SELECT 'operation_replayed',operation.result_payload;
     ELSE
@@ -777,6 +779,7 @@ BEGIN
   IF FOUND THEN
     IF operation.store_id=p_store_id
        AND operation.operation_kind='archive'
+       AND operation.price_list_id=p_price_list_id
        AND operation.payload_fingerprint=p_fingerprint THEN
       RETURN QUERY SELECT 'operation_replayed',operation.result_payload;
     ELSE

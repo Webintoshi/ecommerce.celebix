@@ -22,7 +22,7 @@
     { "file": "202607220044_inventory_counts_transfers.up.sql", "sha256": "ab12b1dbc10ac45db393f851e5a3f65f99a5ee7b679ad9a25ba49d4113c18d38" },
     { "file": "202607220044_inventory_counts_transfers.down.sql", "sha256": "18201c76ef621fa69168047ef9d16f12d282e2a04d9dff2197a759778407d608" },
     { "file": "202607220044_inventory_counts_transfers_assertions.sql", "sha256": "e2652a38cc9d955cdedf133983c28a68839438485b74c4bc983665ec43189ea5" },
-    { "file": "202607220045_price_lists.up.sql", "sha256": "74200af87f1bb39cf628e79be9c9cfb92377b30c8996a1638b1bfdb77003fff4" },
+    { "file": "202607220045_price_lists.up.sql", "sha256": "1c3dd8c7628500b0673069035dee8d5c9102a58e4b1322e5f33e2e61ca9a640c" },
     { "file": "202607220045_price_lists.down.sql", "sha256": "6752deda5af699bb7f40aeb2aab4cbae1c57fe9ea492995d8e7427114a7b5c13" },
     { "file": "202607220045_price_lists_assertions.sql", "sha256": "52dace55402b08c94520499ba329703690f7f710583cb44166e563d070a3ff19" }
   ]
