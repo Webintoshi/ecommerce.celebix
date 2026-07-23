@@ -69,6 +69,14 @@ test("typed settings reject hostile descriptors and canonical URL email timestam
  for(const [index,[kind,config]] of hostile.entries()) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:`72000000-0000-4000-8000-${String(300+index).padStart(12,"0")}`,kind:kind as never,name:"Ayar",config:config as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
+test("typed settings reject finite-grammar URL email and Unicode-boundary bypasses before SQL",async()=>{
+ const hostile=[
+  ["hero_banner",{headline:"Hero",imageUrl:"https://999.999.999.999/hero"}], ["hero_banner",{headline:"Hero",imageUrl:"https://cdn.example.test/%A"}], ["hero_banner",{headline:"Hero",imageUrl:"https://cdn.example.test/%00"}], ["hero_banner",{headline:"Hero",imageUrl:"https://cdn.example.test/%7e"}], ["hero_banner",{headline:"Hero",imageUrl:"https://cdn.example.test/a\\b"}], ["hero_banner",{headline:"Hero",destination:"/sale?next=%00"}], ["hero_banner",{headline:"Hero",destination:"/sale?next=%7e"}],
+  ["notification_setting",{replyToEmail:"a@x.1"}], ["notification_setting",{replyToEmail:"a@toolongtld.1"}], ["notification_setting",{replyToEmail:`${"a".repeat(65)}@example.test`}], ["notification_setting",{senderLabel:"<b>Html</b>"}], ["notification_setting",{senderLabel:"\u00a0Ayar"}], ["notification_setting",{senderLabel:"Ayar\ufeff"}], ["notification_setting",{senderLabel:"Ayar\u0085"}],
+ ] as const;
+ for(const [index,[kind,config]] of hostile.entries()) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:`72000000-0000-4000-8000-${String(400+index).padStart(12,"0")}`,kind:kind as never,name:"Ayar",config:config as never,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+});
+
 test("typed settings unknown commit recovers once without repeating the write",async()=>{
  let commits=0;const writer=new Client((text)=>{if(text.includes("merchant_admin_save"))return[{outcome:"saved",result_payload:{...mutation(),kind:"hero_banner"}}];if(text==="COMMIT"&&commits++===0)throw new Error("wire");return[]});
  const recovery=new Client((text)=>text.includes("merchant_admin_recover_operation")?[{outcome:"operation_replayed",result_payload:{...mutation(),kind:"hero_banner"}}]:[]);

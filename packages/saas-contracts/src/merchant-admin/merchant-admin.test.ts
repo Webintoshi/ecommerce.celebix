@@ -39,6 +39,9 @@ test("merchant-admin configuration bounds canonical UTF-8 bytes rather than Java
   assert.doesNotThrow(() => parseMerchantAdminConfig(within));
   assert.throws(() => parseMerchantAdminConfig(over), /merchant_admin_contract_invalid/);
 });
+test("merchant-admin contract rejects Unicode edge whitespace and C1 controls", () => {
+  for (const name of ["\u00a0Ayar", "Ayar\ufeff", "Ayar\u0085"]) assert.throws(() => parseMerchantAdminRecord({ id: ID, kind: "hero_banner", name, config: { headline: "Ayar" }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW }), /merchant_admin_contract_invalid/);
+});
 test("mutation projections remain exact and replay-aware", () => { const result = parseMerchantAdminMutationResult({ id: ID, kind: "policy", status: "draft", version: 2, updatedAt: NOW, replayed: false }); assert.equal(result.kind, "policy"); assert.throws(() => parseMerchantAdminMutationResult({ ...result, operationId: ID })); });
 
 test("provider preparation is explicit, immutable and cannot claim external success", () => {

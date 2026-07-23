@@ -14,17 +14,22 @@ CREATE FUNCTION saas.merchant_admin_setting_text(p_value jsonb,p_min integer,p_m
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
  SELECT pg_catalog.jsonb_typeof(p_value)='string'
    AND pg_catalog.octet_length(p_value#>>'{}') BETWEEN p_min AND p_max
-   AND p_value#>>'{}' !~ '(^ | $)'
+   AND pg_catalog.left(p_value#>>'{}',1) NOT IN (' ',pg_catalog.chr(160),pg_catalog.chr(5760),pg_catalog.chr(8192),pg_catalog.chr(8193),pg_catalog.chr(8194),pg_catalog.chr(8195),pg_catalog.chr(8196),pg_catalog.chr(8197),pg_catalog.chr(8198),pg_catalog.chr(8199),pg_catalog.chr(8200),pg_catalog.chr(8201),pg_catalog.chr(8202),pg_catalog.chr(8232),pg_catalog.chr(8233),pg_catalog.chr(8239),pg_catalog.chr(8287),pg_catalog.chr(12288),pg_catalog.chr(65279))
+   AND pg_catalog.right(p_value#>>'{}',1) NOT IN (' ',pg_catalog.chr(160),pg_catalog.chr(5760),pg_catalog.chr(8192),pg_catalog.chr(8193),pg_catalog.chr(8194),pg_catalog.chr(8195),pg_catalog.chr(8196),pg_catalog.chr(8197),pg_catalog.chr(8198),pg_catalog.chr(8199),pg_catalog.chr(8200),pg_catalog.chr(8201),pg_catalog.chr(8202),pg_catalog.chr(8232),pg_catalog.chr(8233),pg_catalog.chr(8239),pg_catalog.chr(8287),pg_catalog.chr(12288),pg_catalog.chr(65279))
    AND p_value#>>'{}' !~ '[[:cntrl:]]'
-   AND p_value#>>'{}' !~ '<[^>]*>'
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.generate_series(1,pg_catalog.char_length(p_value#>>'{}')) position WHERE pg_catalog.substr(p_value#>>'{}',position,1)=ANY(ARRAY(SELECT pg_catalog.chr(code) FROM pg_catalog.generate_series(127,159) code)))
+   AND p_value#>>'{}' !~ '[<>]'
 $f$;
 
 CREATE FUNCTION saas.merchant_admin_setting_https_media_url(p_value jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
  SELECT saas.merchant_admin_setting_text(p_value,1,2048)
    AND p_value#>>'{}' ~ '^https://[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)+/[A-Za-z0-9._~!$&''()*+,;=:@%/-]*$'
-   AND p_value#>>'{}' !~ '%([^0-9A-F]|$|[0-9A-F][^0-9A-F])'
-   AND p_value#>>'{}' !~ '%2[eEfF]'
+   AND pg_catalog.octet_length(pg_catalog.split_part(pg_catalog.split_part(p_value#>>'{}','/',3),'/',1))<=253
+   AND pg_catalog.split_part(pg_catalog.split_part(p_value#>>'{}','/',3),'/',1) !~ '^[0-9]+([.][0-9]+)+$'
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.regexp_split_to_table(pg_catalog.split_part(pg_catalog.split_part(p_value#>>'{}','/',3),'/',1),'[.]') label WHERE pg_catalog.octet_length(label) NOT BETWEEN 1 AND 63)
+   AND p_value#>>'{}' !~ '%($|[^0-9A-F]|[0-9A-F]$|[0-9A-F][^0-9A-F])'
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.regexp_matches(p_value#>>'{}','%([0-9A-F]{2})','g') encoded(pair) WHERE pg_catalog.get_byte(pg_catalog.decode(encoded.pair[1],'hex'),0) BETWEEN 0 AND 31 OR pg_catalog.get_byte(pg_catalog.decode(encoded.pair[1],'hex'),0) BETWEEN 127 AND 159 OR pg_catalog.get_byte(pg_catalog.decode(encoded.pair[1],'hex'),0) IN(45,46,47,48,49,50,51,52,53,54,55,56,57,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,92,95,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,126))
    AND p_value#>>'{}' !~ '(^|/)[.][.]?(/|$)'
 $f$;
 
@@ -33,15 +38,20 @@ RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS
  SELECT saas.merchant_admin_setting_text(p_value,1,2048)
    AND p_value#>>'{}' ~ '^/[A-Za-z0-9._~!$&''()*+,;=:@%/-]*([?][A-Za-z0-9._~!$&''()*+,;=:@%&/-]+)?$'
    AND p_value#>>'{}' !~ '^//'
-   AND p_value#>>'{}' !~ '%([^0-9A-F]|$|[0-9A-F][^0-9A-F])'
-   AND p_value#>>'{}' !~ '%2[eEfF]'
+   AND p_value#>>'{}' !~ '%($|[^0-9A-F]|[0-9A-F]$|[0-9A-F][^0-9A-F])'
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.regexp_matches(p_value#>>'{}','%([0-9A-F]{2})','g') encoded(pair) WHERE pg_catalog.get_byte(pg_catalog.decode(encoded.pair[1],'hex'),0) BETWEEN 0 AND 31 OR pg_catalog.get_byte(pg_catalog.decode(encoded.pair[1],'hex'),0) BETWEEN 127 AND 159 OR pg_catalog.get_byte(pg_catalog.decode(encoded.pair[1],'hex'),0) IN(45,46,47,48,49,50,51,52,53,54,55,56,57,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,92,95,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,126))
    AND p_value#>>'{}' !~ '(^|/)[.][.]?(/|[?]|$)'
 $f$;
 
 CREATE FUNCTION saas.merchant_admin_setting_email(p_value jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,saas AS $f$
- SELECT saas.merchant_admin_setting_text(p_value,3,254)
+ SELECT saas.merchant_admin_setting_text(p_value,3,320)
    AND p_value#>>'{}' ~ '^[A-Za-z0-9!#$%&''*+/=?^_`{|}~-]+([.][A-Za-z0-9!#$%&''*+/=?^_`{|}~-]+)*@[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+   AND pg_catalog.octet_length(pg_catalog.split_part(p_value#>>'{}','@',1)) BETWEEN 1 AND 64
+   AND pg_catalog.octet_length(pg_catalog.split_part(p_value#>>'{}','@',2))<=253
+   AND pg_catalog.split_part(p_value#>>'{}','@',2) ~ '[.][a-z0-9-][a-z0-9-]+$'
+   AND pg_catalog.split_part(p_value#>>'{}','@',2) !~ '[.][0-9]+$'
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.regexp_split_to_table(pg_catalog.split_part(p_value#>>'{}','@',2),'[.]') label WHERE pg_catalog.octet_length(label) NOT BETWEEN 1 AND 63)
 $f$;
 
 CREATE FUNCTION saas.merchant_admin_setting_timestamp_value(p_value jsonb)
@@ -163,7 +173,12 @@ END $f$;
 CREATE OR REPLACE FUNCTION saas.merchant_admin_archive(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz,p_operation_id uuid,p_fingerprint text,p_record_id uuid,p_expected_version bigint)
 RETURNS TABLE(outcome text,result_payload jsonb) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$ DECLARE e text; op saas.merchant_admin_operations%ROWTYPE; r saas.merchant_admin_records%ROWTYPE; result jsonb; BEGIN
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('saas.merchant.admin.operation:'||p_operation_id::text,0));
- SELECT * INTO op FROM saas.merchant_admin_operations WHERE operation_id=p_operation_id AND store_id=p_store_id; IF FOUND THEN IF op.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',op.result_payload; END IF; RETURN; END IF;
+ SELECT * INTO op FROM saas.merchant_admin_operations WHERE operation_id=p_operation_id AND store_id=p_store_id; IF FOUND THEN
+  SELECT * INTO r FROM saas.merchant_admin_records WHERE store_id=p_store_id AND id=(op.result_payload->>'id')::uuid;
+  IF NOT FOUND OR r.record_kind<>(op.result_payload->>'kind') THEN RETURN QUERY SELECT 'record_not_found',NULL::jsonb; RETURN; END IF;
+  e:=saas.merchant_admin_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,r.record_kind,true); IF e IS NOT NULL THEN RETURN QUERY SELECT e,NULL::jsonb; RETURN; END IF;
+  IF r.id<>p_record_id OR op.payload_fingerprint<>p_fingerprint THEN RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb; ELSE RETURN QUERY SELECT 'operation_replayed',op.result_payload; END IF; RETURN;
+ END IF;
  SELECT * INTO r FROM saas.merchant_admin_records WHERE store_id=p_store_id AND id=p_record_id FOR UPDATE; IF NOT FOUND THEN RETURN QUERY SELECT 'record_not_found',NULL::jsonb; RETURN; END IF;
  e:=saas.merchant_admin_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,r.record_kind,true); IF e IS NOT NULL THEN RETURN QUERY SELECT e,NULL::jsonb; RETURN; END IF;
  IF r.status='archived' OR r.version<>p_expected_version THEN RETURN QUERY SELECT CASE WHEN r.status='archived' THEN 'invalid_transition' ELSE 'version_conflict' END,NULL::jsonb; RETURN; END IF;
@@ -175,7 +190,7 @@ END $f$;
 REVOKE ALL ON FUNCTION
  saas.merchant_admin_setting_text(jsonb,integer,integer),saas.merchant_admin_setting_https_media_url(jsonb),saas.merchant_admin_setting_destination(jsonb),saas.merchant_admin_setting_email(jsonb),saas.merchant_admin_setting_timestamp_value(jsonb),saas.merchant_admin_setting_timestamp(jsonb),
  saas.merchant_admin_required_action(text,boolean),saas.merchant_admin_config_valid(text,jsonb),saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,jsonb,text),saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint),saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text),saas.merchant_admin_record_event(uuid,uuid,uuid,text,jsonb,timestamptz)
- FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+ FROM PUBLIC,celebix_saas_identity,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
 GRANT EXECUTE ON FUNCTION saas.merchant_admin_list(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_list_events(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text),saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint,text,text,jsonb,text),saas.merchant_admin_archive(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text,uuid,bigint),saas.merchant_admin_recover_operation(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.merchant_admin_record_event(uuid,uuid,uuid,text,jsonb,timestamptz) TO celebix_saas_workflow;
 COMMIT;
