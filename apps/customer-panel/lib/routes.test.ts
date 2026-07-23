@@ -332,7 +332,7 @@ test("order print and customer edit pages remain server-authorized route depth",
 test("catalog subresource pages lock resource kinds in server-authorized routes", async () => {
   const cases = [
     ["collections", "collection"], ["brands", "brand"], ["attributes", "attribute"],
-    ["extras", "extra"], ["definitions", "definition"],
+    ["extras", "extra"], ["definitions", "definition"], ["tags", "tag"],
   ] as const;
   for (const [segment, kind] of cases) {
     for (const suffix of ["new/page.tsx", "[resourceId]/edit/page.tsx"]) {
@@ -345,6 +345,18 @@ test("catalog subresource pages lock resource kinds in server-authorized routes"
   const preview = await readFile(new URL("../app/products/extras/[resourceId]/preview/page.tsx", import.meta.url), "utf8");
   assert.match(preview, /requireServerPanelAccess\(\)/);
   assert.match(preview, /<CatalogExtraPreview resourceId=\{resourceId\}/);
+});
+
+test("tag and barcode routes remain panel-session guarded with fixed server authority", async () => {
+  const tags = await readFile(new URL("../app/products/tags/page.tsx", import.meta.url), "utf8");
+  const labels = await readFile(new URL("../app/products/barcode-labels/page.tsx", import.meta.url), "utf8");
+  for (const source of [tags, labels]) {
+    assert.match(source, /requireServerPanelAccess\(\)/);
+    assert.match(source, /tenantContext/);
+    assert.doesNotMatch(source, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+  assert.match(tags, /catalog_admin[.]manage/);
+  assert.match(labels, /catalog_admin[.]read/);
 });
 
 test("merchant record route-depth pages expose only fixed server-authorized editor kinds", async () => {

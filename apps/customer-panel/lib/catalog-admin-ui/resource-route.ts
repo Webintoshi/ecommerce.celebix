@@ -2,7 +2,7 @@ import type { CatalogAdminResource, CatalogAdminResourceKind } from "@celebix/sa
 
 export interface CatalogResourceRouteDefinition {
   readonly kind: CatalogAdminResourceKind;
-  readonly segment: "collections" | "brands" | "attributes" | "extras" | "definitions";
+  readonly segment: "collections" | "brands" | "attributes" | "extras" | "definitions" | "tags";
   readonly title: string;
 }
 
@@ -12,6 +12,7 @@ const ROUTES = Object.freeze({
   attributes: Object.freeze({ kind: "attribute", segment: "attributes", title: "Nitelik" }),
   extras: Object.freeze({ kind: "extra", segment: "extras", title: "Ekstra" }),
   definitions: Object.freeze({ kind: "definition", segment: "definitions", title: "Tanımlama" }),
+  tags: Object.freeze({ kind: "tag", segment: "tags", title: "Etiket" }),
 } satisfies Record<string, CatalogResourceRouteDefinition>);
 
 const ROUTES_BY_KIND = Object.freeze(Object.values(ROUTES).reduce((result, route) => {

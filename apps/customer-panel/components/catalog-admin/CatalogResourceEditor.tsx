@@ -16,6 +16,7 @@ const DESCRIPTIONS: Record<CatalogAdminResourceKind, string> = Object.freeze({
   attribute: "Renk, beden ve benzeri varyant niteliklerini tanımlayın.",
   extra: "Ürünlere eklenebilen seçenek ve fiyat farklarını yönetin.",
   definition: "Katalogda yeniden kullanılan anahtar-değer tanımlarını yönetin.",
+  tag: "Ürünleri tekrar kullanılabilir katalog etiketleriyle gruplandırın.",
 });
 
 function value(data: FormData, name: string) {
@@ -27,6 +28,7 @@ function values(data: FormData, name: string) {
 }
 
 function config(kind: CatalogAdminResourceKind, data: FormData): Readonly<Record<string, CatalogAdminJson>> {
+  if (kind === "tag") return Object.freeze({});
   if (kind === "collection") return Object.freeze({ featured: data.get("featured") === "on" });
   if (kind === "brand") {
     const website = value(data, "website");
@@ -74,7 +76,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     try {
       const [resources, catalog] = await Promise.all([
         catalogAdminApi.resources(kind),
-        kind === "collection" || kind === "brand" ? catalogApi.listProducts() : Promise.resolve({ items: [] as readonly Product[] }),
+        kind === "collection" || kind === "brand" || kind === "tag" ? catalogApi.listProducts() : Promise.resolve({ items: [] as readonly Product[] }),
       ]);
       if (requestSequence.current !== sequence) return;
       if (resourceId !== undefined) {
@@ -141,7 +143,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       {kind === "attribute" ? <label className={styles.wide}>Değerler (virgülle ayırın)<input name="values" required maxLength={1000} defaultValue={configValue(resource, "values")} /></label> : null}
       {kind === "extra" ? <><label>Seçenekler (virgülle ayırın)<input name="options" required maxLength={1000} defaultValue={configValue(resource, "options")} /></label><label>Fiyat farkı (kuruş)<input name="priceAdjustmentCents" type="number" min={0} step={1} defaultValue={configValue(resource, "priceAdjustmentCents") || "0"} /></label></> : null}
       {kind === "definition" ? <><label>Tanım anahtarı<input name="definitionKey" required maxLength={64} defaultValue={configValue(resource, "key")} /></label><label>Tanım değeri<input name="definitionValue" required maxLength={1000} defaultValue={configValue(resource, "value")} /></label></> : null}
-      {kind === "collection" || kind === "brand" ? <fieldset className={`${styles.wide} ${styles.checks}`}><legend>Bağlı ürünler</legend>{products.map((product) => <label className={styles.check} key={product.id}><input name="productId" type="checkbox" value={product.id} defaultChecked={resource?.productIds.includes(product.id)} /><span>{product.title}</span></label>)}</fieldset> : null}
+      {kind === "collection" || kind === "brand" || kind === "tag" ? <fieldset className={`${styles.wide} ${styles.checks}`}><legend>Bağlı ürünler</legend>{products.map((product) => <label className={styles.check} key={product.id}><input name="productId" type="checkbox" value={product.id} defaultChecked={resource?.productIds.includes(product.id)} /><span>{product.title}</span></label>)}</fieldset> : null}
       <div className={`${styles.wide} ${styles.actions}`}><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div>
     </form> : null}
   </section></PanelPageShell>;

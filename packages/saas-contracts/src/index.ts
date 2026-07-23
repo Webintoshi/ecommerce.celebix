@@ -110,6 +110,7 @@ export {
   CATALOG_ADMIN_RESOURCE_KINDS,
   CATALOG_IMPORT_STATUSES,
   PRODUCT_REVIEW_STATUSES,
+  parseBarcodeLabelRows,
   parseCatalogAdminImportJob,
   parseCatalogAdminMutationResult,
   parseCatalogImportPreview,
@@ -144,6 +145,7 @@ export type {
   MerchantAdminRecordStatus,
 } from "./merchant-admin/index.ts";
 export type {
+  BarcodeLabelRow,
   CatalogAdminImportJob,
   CatalogAdminImportRow,
   CatalogAdminJson,

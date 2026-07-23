@@ -4,6 +4,12 @@ export {
   PRODUCT_REVIEW_STATUSES,
 } from "./types.ts";
 export type {
+  BarcodeLabelRow,
+} from "./barcode-labels.ts";
+export {
+  parseBarcodeLabelRows,
+} from "./barcode-labels.ts";
+export type {
   CatalogAdminImportJob,
   CatalogAdminImportRow,
   CatalogAdminJson,

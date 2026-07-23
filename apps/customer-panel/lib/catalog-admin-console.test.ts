@@ -3,6 +3,34 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 async function source(path: string) { return readFile(new URL(path, root), "utf8"); }
+test("tag and barcode consoles are fixed read-only catalog surfaces", async () => {
+  const [resource, labels, tagPage, barcodePage] = await Promise.all([
+    source("components/catalog-admin/CatalogResourceConsole.tsx"),
+    source("components/catalog-admin/BarcodeLabelConsole.tsx"),
+    source("app/products/tags/page.tsx"),
+    source("app/products/barcode-labels/page.tsx"),
+  ]);
+  assert.match(resource, /tag:\s*\{\s*title:\s*"Etiketler"/);
+  assert.match(labels, /parseBarcodeLabelRows/);
+  assert.match(labels, /variant[.]barcode/);
+  assert.match(labels, /type="search"/);
+  assert.match(labels, /window[.]print[(][)]/);
+  assert.match(labels, /body \* \{\s*visibility: hidden/);
+  assert.match(labels, /[.]barcode-print-sheet,\s*[.]barcode-print-sheet \* \{\s*visibility: visible/);
+  assert.match(labels, /aria-label=/);
+  assert.doesNotMatch(labels, /randomUUID|Math[.]random|JsBarcode|fetch[(]|catalogApi[.](?:create|update|archive)/);
+  assert.match(tagPage, /requireServerPanelAccess[(][)]/);
+  assert.match(tagPage, /kind="tag"/);
+  assert.match(tagPage, /catalog_admin[.]manage/);
+  assert.match(barcodePage, /requireServerPanelAccess[(][)]/);
+  assert.match(barcodePage, /catalog_admin[.]read/);
+  assert.match(barcodePage, /tenantContext/);
+  assert.match(barcodePage, /<BarcodeLabelConsole products=\{products\}/);
+  for (const page of [tagPage, barcodePage]) {
+    assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+});
+
 test("every catalog administration route is backed by a real console and action authority", async () => { for (const [path, marker] of [["app/products/collections/page.tsx", "collection"], ["app/products/brands/page.tsx", "brand"], ["app/products/attributes/page.tsx", "attribute"], ["app/products/extras/page.tsx", "extra"], ["app/products/definitions/page.tsx", "definition"], ["app/products/reviews/page.tsx", "catalog_admin.moderate"], ["app/products/auto-import/page.tsx", "catalog_admin.import"], ["app/products/shopify-converter/page.tsx", "catalog_admin.import"], ["app/products/bulk-upload/page.tsx", "catalog_admin.import"]] as const) { const value = await source(path); assert.match(value, new RegExp(marker.replace(".", "\\."))); assert.match(value, /requireServerPanelAccess/); } });
 test("catalog consoles use durable APIs and expose no browser tenant authority", async () => { const value = (await Promise.all(["components/catalog-admin/CatalogResourceConsole.tsx", "components/catalog-admin/ProductReviewConsole.tsx", "components/catalog-admin/CatalogBulkImportConsole.tsx", "components/catalog-admin/CatalogImportPreparationConsole.tsx", "lib/catalog-admin-ui/import-preparation-controller.ts"].map(source))).join("\n"); assert.match(value, /catalogAdminApi/); assert.doesNotMatch(value, /x-store-id|x-tenant-id|localStorage|sessionStorage|supabase|\/api\/admin/); });
 

@@ -4,6 +4,7 @@ export const CATALOG_ADMIN_RESOURCE_KINDS = Object.freeze([
   "attribute",
   "extra",
   "definition",
+  "tag",
 ] as const);
 export type CatalogAdminResourceKind =
   (typeof CATALOG_ADMIN_RESOURCE_KINDS)[number];
