@@ -2,12 +2,14 @@ import {
   parseInventoryBalance,
   parseInventoryCount,
   parseInventoryLocation,
+  parseInventoryLocationMutationResult,
   parseInventoryMutationResult,
   parseInventoryTransfer,
   parsePurchaseOrder,
   type InventoryBalance,
   type InventoryCount,
   type InventoryLocation,
+  type InventoryLocationMutationResult,
   type InventoryMutationResult,
   type InventoryTransfer,
   type PurchaseOrder,
@@ -88,7 +90,7 @@ const SQL = Object.freeze({
 });
 
 type Spec = Readonly<{ text: string; values: unknown[] }>;
-type MutationParser = (value: unknown, replayed: boolean) => InventoryMutationResult;
+type MutationParser<Result extends InventoryMutationResult = InventoryMutationResult> = (value: unknown, replayed: boolean) => Result;
 const ERRORS = new Set<string>(INVENTORY_ERROR_CODES);
 
 function unavailable(): Error { return inventoryFailure("unavailable"); }
@@ -240,14 +242,14 @@ export class PostgresInventoryRepository implements InventoryRepository {
     } catch { /* Audit is observational. */ }
   }
 
-  private async recover(
+  private async recover<Result extends InventoryMutationResult>(
     authority: ValidatedOrderAuthority,
     operationId: string,
     fingerprint: string,
-    parser: MutationParser,
-    observed: InventoryMutationResult,
+    parser: MutationParser<Result>,
+    observed: Result,
     recoverSql: string = SQL.recover,
-  ): Promise<InventoryMutationResult> {
+  ): Promise<Result> {
     return this.read({
       text: recoverSql,
       values: [...authorityValues(authority), operationId, fingerprint],
@@ -258,15 +260,15 @@ export class PostgresInventoryRepository implements InventoryRepository {
     });
   }
 
-  private async mutate(
+  private async mutate<Result extends InventoryMutationResult>(
     authority: ValidatedOrderAuthority,
     operationId: string,
     fingerprint: string,
     successOutcome: string,
     spec: Spec,
-    parser: MutationParser,
+    parser: MutationParser<Result>,
     recoverSql: string = SQL.recover,
-  ): Promise<InventoryMutationResult> {
+  ): Promise<Result> {
     const client = await this.acquire();
     let began = false;
     let terminal = false;
@@ -353,6 +355,30 @@ export class PostgresInventoryRepository implements InventoryRepository {
     };
   }
 
+  private locationMutationParser(
+    targetId: string,
+    expectedVersion: number,
+  ): MutationParser<InventoryLocationMutationResult> {
+    return (value, replayed) => {
+      try {
+        const raw = record(value, ["id", "status", "version", "updatedAt", "replayed"]);
+        if (raw.replayed !== false) throw unavailable();
+        const parsed = parseInventoryLocationMutationResult({
+          id: raw.id,
+          status: raw.status,
+          version: raw.version,
+          updatedAt: raw.updatedAt,
+          replayed,
+        });
+        if (parsed.id !== targetId || parsed.version !== expectedVersion) throw unavailable();
+        return parsed;
+      } catch (error) {
+        if (inventoryRepositoryErrorCode(error) !== undefined) throw error;
+        throw unavailable();
+      }
+    };
+  }
+
   async listLocations(input: InventoryAuthorityInput): Promise<readonly InventoryLocation[]> {
     const { authority } = this.validated(input, ["tenantContext", "now"]);
     return this.read({ text: SQL.listLocations, values: authorityValues(authority) }, "listed", (value) =>
@@ -362,7 +388,7 @@ export class PostgresInventoryRepository implements InventoryRepository {
       }));
   }
 
-  async saveLocation(input: SaveInventoryLocationInput): Promise<InventoryMutationResult> {
+  async saveLocation(input: SaveInventoryLocationInput): Promise<InventoryLocationMutationResult> {
     const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "name"], ["locationId", "expectedVersion"]);
     const operationId = inventoryUuid(parsed.operationId);
     const existingId = parsed.locationId === undefined ? undefined : inventoryUuid(parsed.locationId);
@@ -374,27 +400,29 @@ export class PostgresInventoryRepository implements InventoryRepository {
     return this.mutate(authority, operationId, fingerprint, "saved", {
       text: SQL.saveLocation,
       values: [...authorityValues(authority), operationId, fingerprint, targetId, expectedVersion ?? null, name],
-    }, this.mutationParser(targetId, (expectedVersion ?? 0) + 1, ["active"], false), SQL.recoverLocation);
+    }, this.locationMutationParser(targetId, (expectedVersion ?? 0) + 1), SQL.recoverLocation);
   }
 
-  async archiveLocation(input: ArchiveInventoryLocationInput): Promise<InventoryMutationResult> {
+  async archiveLocation(input: ArchiveInventoryLocationInput): Promise<InventoryLocationMutationResult> {
     const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "locationId", "expectedVersion"]);
     const operationId = inventoryUuid(parsed.operationId), locationId = inventoryUuid(parsed.locationId), expectedVersion = inventoryVersion(parsed.expectedVersion);
     const fingerprint = inventoryFingerprint("location_archive", authority.storeId, locationId, expectedVersion, {});
     return this.mutate(authority, operationId, fingerprint, "archived", {
       text: SQL.archiveLocation,
       values: [...authorityValues(authority), operationId, fingerprint, locationId, expectedVersion],
-    }, this.mutationParser(locationId, expectedVersion + 1, ["archived"], false), SQL.recoverLocation);
+    }, this.locationMutationParser(locationId, expectedVersion + 1), SQL.recoverLocation);
   }
 
-  async recoverLocationOperation(input: RecoverInventoryLocationOperationInput): Promise<InventoryMutationResult> {
+  async recoverLocationOperation(input: RecoverInventoryLocationOperationInput): Promise<InventoryLocationMutationResult> {
     const { parsed, authority } = this.validated(input, ["tenantContext", "now", "operationId", "fingerprint", "locationId", "expectedVersion", "expectedStatus"]);
     const operationId = inventoryUuid(parsed.operationId), locationId = inventoryUuid(parsed.locationId), expectedVersion = inventoryVersion(parsed.expectedVersion);
     if (typeof parsed.fingerprint !== "string" || !/^[a-f0-9]{64}$/.test(parsed.fingerprint)) throw inventoryFailure("invalid_input");
     if (parsed.expectedStatus !== "active" && parsed.expectedStatus !== "archived") throw inventoryFailure("invalid_input");
     const expectedStatus = parsed.expectedStatus;
     return this.read({ text: SQL.recoverLocation, values: [...authorityValues(authority), operationId, parsed.fingerprint] }, "operation_replayed", (value) => {
-      return this.mutationParser(locationId, expectedVersion, [expectedStatus], false)(value, true);
+      const result = this.locationMutationParser(locationId, expectedVersion)(value, true);
+      if (result.status !== expectedStatus) throw unavailable();
+      return result;
     });
   }
 

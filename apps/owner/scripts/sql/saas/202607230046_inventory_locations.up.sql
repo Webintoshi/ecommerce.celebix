@@ -11,6 +11,7 @@ CREATE TABLE saas.inventory_location_operations (
   result_payload jsonb NOT NULL,
   committed_at timestamptz NOT NULL,
   CONSTRAINT inventory_location_operations_pkey PRIMARY KEY (store_id,operation_id),
+  CONSTRAINT inventory_location_operations_operation_id_key UNIQUE (operation_id),
   CONSTRAINT inventory_location_operations_store_fk FOREIGN KEY (store_id)
     REFERENCES saas.stores(id) ON DELETE RESTRICT,
   CONSTRAINT inventory_location_operations_location_fk
@@ -42,6 +43,89 @@ ALTER TABLE saas.inventory_location_operations FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON saas.inventory_location_operations FROM PUBLIC,celebix_saas_app,
   celebix_saas_identity,celebix_saas_workflow,celebix_saas_host_resolver,
   celebix_saas_bootstrap,celebix_saas_observability,celebix_saas_migrator;
+
+CREATE OR REPLACE FUNCTION saas.inventory_list_locations(
+  p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,
+  p_plan_code text,p_plan_version bigint,p_now timestamptz
+)
+RETURNS TABLE(outcome text,result_payload jsonb)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path=pg_catalog,saas
+AS $f$
+DECLARE authority_error text;
+BEGIN
+  IF p_now IS NULL OR NOT pg_catalog.isfinite(p_now) THEN
+    RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
+  END IF;
+  authority_error:=saas.merchant_action_authority_error(
+    p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,
+    p_plan_version,p_now,'catalog','inventory.read'
+  );
+  IF authority_error IS NOT NULL THEN
+    RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN;
+  END IF;
+  RETURN QUERY
+  SELECT 'listed',pg_catalog.jsonb_build_object(
+    'items',COALESCE((
+      SELECT pg_catalog.jsonb_agg(
+        saas.inventory_location_projection(p_store_id,location.id)
+        || pg_catalog.jsonb_build_object(
+          'archiveEligibility',pg_catalog.jsonb_build_object(
+            'canArchive',eligibility.reason IS NULL,
+            'reason',eligibility.reason
+          )
+        )
+        ORDER BY location.is_default DESC,location.id
+      )
+      FROM saas.inventory_locations AS location
+      CROSS JOIN LATERAL (
+        SELECT CASE
+          WHEN location.status<>'active' THEN 'archived'
+          WHEN location.is_default THEN 'default'
+          WHEN EXISTS(
+            SELECT 1 FROM saas.inventory_balances AS balance
+            WHERE balance.store_id=p_store_id
+              AND balance.location_id=location.id
+              AND balance.quantity>0
+          ) THEN 'positive_on_hand'
+          WHEN EXISTS(
+            SELECT 1 FROM saas.inventory_balances AS balance
+            JOIN saas.checkout_inventory_reservations AS reservation
+              ON reservation.store_id=balance.store_id
+             AND reservation.variant_id=balance.variant_id
+             AND reservation.status='held'
+            WHERE balance.store_id=p_store_id
+              AND balance.location_id=location.id
+          ) THEN 'reserved'
+          WHEN EXISTS(
+            SELECT 1 FROM saas.purchase_orders AS purchase
+            WHERE purchase.store_id=p_store_id
+              AND purchase.location_id=location.id
+              AND purchase.status IN('draft','ordered','partially_received')
+          ) THEN 'open_purchase'
+          WHEN EXISTS(
+            SELECT 1 FROM saas.inventory_counts AS inventory_count
+            WHERE inventory_count.store_id=p_store_id
+              AND inventory_count.location_id=location.id
+              AND inventory_count.status IN('draft','counting')
+          ) THEN 'open_count'
+          WHEN EXISTS(
+            SELECT 1 FROM saas.inventory_transfers AS transfer
+            WHERE transfer.store_id=p_store_id
+              AND (transfer.source_location_id=location.id
+                OR transfer.destination_location_id=location.id)
+              AND transfer.status IN('draft','in_transit')
+          ) THEN 'open_transfer'
+          ELSE NULL
+        END AS reason
+      ) AS eligibility
+      WHERE location.store_id=p_store_id
+    ),'[]'::jsonb)
+  );
+END
+$f$;
 
 CREATE FUNCTION saas.inventory_location_mutation_projection(
   p_store_id uuid,p_location_id uuid,p_replayed boolean
@@ -104,9 +188,10 @@ BEGIN
     pg_catalog.hashtextextended('saas.catalog.store:'||p_store_id::text,0)
   );
   SELECT * INTO operation FROM saas.inventory_location_operations
-  WHERE store_id=p_store_id AND operation_id=p_operation_id;
+  WHERE operation_id=p_operation_id;
   IF FOUND THEN
-    IF operation.operation_kind='location_save'
+    IF operation.store_id=p_store_id
+       AND operation.operation_kind='location_save'
        AND operation.payload_fingerprint=p_fingerprint
        AND operation.result_location_id=p_location_id THEN
       RETURN QUERY SELECT 'operation_replayed',operation.result_payload;
@@ -164,6 +249,7 @@ DECLARE
 BEGIN
   IF p_now IS NULL OR NOT pg_catalog.isfinite(p_now)
      OR p_operation_id IS NULL OR p_location_id IS NULL
+     OR p_expected_version IS NULL
      OR p_expected_version NOT BETWEEN 1 AND 9007199254740990
      OR p_fingerprint IS NULL OR p_fingerprint!~'^[a-f0-9]{64}$' THEN
     RETURN QUERY SELECT 'invalid_input',NULL::jsonb; RETURN;
@@ -182,9 +268,10 @@ BEGIN
     pg_catalog.hashtextextended('saas.catalog.store:'||p_store_id::text,0)
   );
   SELECT * INTO operation FROM saas.inventory_location_operations
-  WHERE store_id=p_store_id AND operation_id=p_operation_id;
+  WHERE operation_id=p_operation_id;
   IF FOUND THEN
-    IF operation.operation_kind='location_archive'
+    IF operation.store_id=p_store_id
+       AND operation.operation_kind='location_archive'
        AND operation.payload_fingerprint=p_fingerprint
        AND operation.result_location_id=p_location_id THEN
       RETURN QUERY SELECT 'operation_replayed',operation.result_payload;
@@ -263,9 +350,10 @@ BEGIN
   );
   IF authority_error IS NOT NULL THEN RETURN QUERY SELECT authority_error,NULL::jsonb; RETURN; END IF;
   SELECT * INTO operation FROM saas.inventory_location_operations
-  WHERE store_id=p_store_id AND operation_id=p_operation_id;
+  WHERE operation_id=p_operation_id;
   IF NOT FOUND THEN RETURN QUERY SELECT 'operation_not_found',NULL::jsonb;
-  ELSIF operation.payload_fingerprint<>p_fingerprint THEN
+  ELSIF operation.store_id<>p_store_id
+     OR operation.payload_fingerprint<>p_fingerprint THEN
     RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;
   ELSE RETURN QUERY SELECT 'operation_replayed',operation.result_payload;
   END IF;

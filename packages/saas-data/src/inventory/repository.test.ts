@@ -59,6 +59,7 @@ function tenant(): TenantContext {
 
 const location = () => ({
   id: LOCATION, name: "Ana Depo", isDefault: true, status: "active",
+  archiveEligibility: { canArchive: false, reason: "default" },
   version: 1, createdAt: TIMESTAMP, updatedAt: TIMESTAMP,
 });
 const balance = () => ({ locationId: LOCATION, variantId: VARIANT, quantity: 7, version: 1, updatedAt: TIMESTAMP });

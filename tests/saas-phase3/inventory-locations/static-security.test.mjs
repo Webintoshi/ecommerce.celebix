@@ -15,6 +15,7 @@ test("migration 046 is immutable, FORCE-RLS and execute-only", () => {
   const up = read(upName);
   assert.match(up, /CREATE TABLE saas\.inventory_location_operations/);
   assert.match(up, /PRIMARY KEY \(store_id,operation_id\)/);
+  assert.match(up, /UNIQUE\s*\(operation_id\)/);
   assert.match(up, /ENABLE ROW LEVEL SECURITY/);
   assert.match(up, /FORCE ROW LEVEL SECURITY/);
   assert.match(up, /CREATE FUNCTION saas\.inventory_locations_save/);
@@ -25,6 +26,32 @@ test("migration 046 is immutable, FORCE-RLS and execute-only", () => {
   assert.match(up, /REVOKE ALL ON saas\.inventory_location_operations/);
   assert.match(up, /GRANT EXECUTE ON FUNCTION[\s\S]*inventory_locations_save/);
   assert.doesNotMatch(up, /GRANT (?:INSERT|UPDATE|DELETE|SELECT) ON saas\.inventory_location_operations TO celebix_saas_app/);
+});
+
+test("migration 046 owns global operation identity, null-version denial and eligibility projection", () => {
+  const up = read(upName), down = read(downName), assertions = read(assertionsName);
+  assert.match(up, /p_expected_version IS NULL[\s\S]*invalid_input/);
+  assert.match(up, /WHERE operation_id=p_operation_id/);
+  assert.match(up, /operation\.store_id=p_store_id/);
+  assert.match(up, /CREATE OR REPLACE FUNCTION saas\.inventory_list_locations/);
+  for (const reason of ["default", "positive_on_hand", "reserved", "open_purchase", "open_count", "open_transfer", "archived"]) {
+    assert.match(up, new RegExp(`'${reason}'`));
+  }
+  assert.match(down, /CREATE OR REPLACE FUNCTION saas\.inventory_list_locations/);
+  assert.match(assertions, /inventory_location_operations_operation_id_key/);
+});
+
+test("location mutation contracts are wired exactly through repository HTTP and browser client", () => {
+  const repository = readFileSync(path.join(ROOT, "packages/saas-data/src/inventory/repository.ts"), "utf8");
+  const types = readFileSync(path.join(ROOT, "packages/saas-data/src/inventory/types.ts"), "utf8");
+  const handler = readFileSync(path.join(ROOT, "apps/customer-panel/lib/inventory-http/handler.ts"), "utf8");
+  const client = readFileSync(path.join(ROOT, "apps/customer-panel/lib/inventory-ui/client.ts"), "utf8");
+  assert.match(repository, /parseInventoryLocationMutationResult/);
+  assert.match(types, /saveLocation[\s\S]*Promise<InventoryLocationMutationResult>/);
+  assert.match(types, /archiveLocation[\s\S]*Promise<InventoryLocationMutationResult>/);
+  assert.match(types, /recoverLocationOperation[\s\S]*Promise<InventoryLocationMutationResult>/);
+  assert.match(handler, /parseInventoryLocationMutationResult/);
+  assert.match(client, /parseInventoryLocationMutationResult/);
 });
 
 test("migration 046 archive is fail-closed for default balances and nonterminal work", () => {

@@ -44,7 +44,7 @@ function tenant(): TenantContext {
   } as TenantContext;
 }
 const timestamp = NOW.toISOString();
-const location = () => ({ id: LOCATION, name: "Ana Depo", isDefault: true, status: "active" as const, version: 1, createdAt: timestamp, updatedAt: timestamp });
+const location = () => ({ id: LOCATION, name: "Ana Depo", isDefault: true, status: "active" as const, archiveEligibility: { canArchive: false as const, reason: "default" as const }, version: 1, createdAt: timestamp, updatedAt: timestamp });
 const balance = () => ({ locationId: LOCATION, variantId: VARIANT, quantity: 7, version: 1, updatedAt: timestamp });
 const purchase = () => ({ id: ORDER, locationId: LOCATION, supplierName: "Tedarikçi", status: "draft" as const, lines: [{ id: LINE, variantId: VARIANT, orderedQuantity: 2, receivedQuantity: 0, unitCostCents: 100, lineCostCents: 200 }], totalCostCents: 200, version: 1, createdAt: timestamp, updatedAt: timestamp });
 const count = () => ({ id: COUNT, locationId: LOCATION, status: "draft" as const, lines: [{ id: LINE, variantId: VARIANT, expectedQuantity: 7 }], version: 1, createdAt: timestamp, updatedAt: timestamp });

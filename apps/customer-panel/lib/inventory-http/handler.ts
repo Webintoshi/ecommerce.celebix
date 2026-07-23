@@ -2,6 +2,7 @@ import {
   parseInventoryBalance,
   parseInventoryCount,
   parseInventoryLocation,
+  parseInventoryLocationMutationResult,
   parseInventoryMutationResult,
   parseInventoryTransfer,
   parsePurchaseOrder,
@@ -58,8 +59,11 @@ function denseArray(value: unknown, maximum: number): readonly unknown[] {
 function items(value: unknown, parser: (entry: unknown) => unknown): Readonly<{ items: readonly unknown[] }> {
   return Object.freeze({ items: Object.freeze(denseArray(value, 500).map(parser)) });
 }
-function mutation(kind: "inventory_location" | "purchase_order" | "inventory_count" | "inventory_transfer", value: unknown) {
+function mutation(kind: "purchase_order" | "inventory_count" | "inventory_transfer", value: unknown) {
   return Object.freeze({ kind, ...parseInventoryMutationResult(value) });
+}
+function locationMutation(value: unknown) {
+  return Object.freeze({ kind: "inventory_location" as const, ...parseInventoryLocationMutationResult(value) });
 }
 
 async function authorize(dependencies: Dependencies, request: Request, route: InventoryRoute): Promise<Response | Authorized> {
@@ -112,8 +116,8 @@ export function createInventoryHttpHandler(dependencies: Dependencies): (request
     const repository = authorized.runtime.inventory;
     switch (route.kind) {
       case "locations": return execute(() => repository.listLocations(authority), (value) => items(value, parseInventoryLocation));
-      case "location_save": return execute(() => repository.saveLocation({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "location_save" }>).value }), (value) => mutation("inventory_location", value));
-      case "location_archive": return execute(() => repository.archiveLocation({ ...authority, locationId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "location_archive" }>).value }), (value) => mutation("inventory_location", value));
+      case "location_save": return execute(() => repository.saveLocation({ ...authority, ...(input as Extract<InventoryMutationInput, { kind: "location_save" }>).value }), locationMutation);
+      case "location_archive": return execute(() => repository.archiveLocation({ ...authority, locationId: route.id, ...(input as Extract<InventoryMutationInput, { kind: "location_archive" }>).value }), locationMutation);
       case "balances": return execute(() => repository.listBalances({ ...authority, locationId: (input as { locationId: string }).locationId }), (value) => items(value, parseInventoryBalance));
       case "purchase_list": return execute(() => repository.listPurchaseOrders(authority), (value) => items(value, parsePurchaseOrder));
       case "purchase_get": return execute(() => repository.getPurchaseOrder({ ...authority, orderId: route.id }), parsePurchaseOrder);

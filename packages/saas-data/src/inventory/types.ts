@@ -2,6 +2,7 @@ import type {
   InventoryBalance,
   InventoryCount,
   InventoryLocation,
+  InventoryLocationMutationResult,
   InventoryMutationResult,
   InventoryTransfer,
   PurchaseOrder,
@@ -121,9 +122,9 @@ export type CancelInventoryTransferInput = InventoryTransferOperationInput;
 
 export interface InventoryRepository {
   listLocations(input: InventoryAuthorityInput): Promise<readonly InventoryLocation[]>;
-  saveLocation(input: SaveInventoryLocationInput): Promise<InventoryMutationResult>;
-  archiveLocation(input: ArchiveInventoryLocationInput): Promise<InventoryMutationResult>;
-  recoverLocationOperation(input: RecoverInventoryLocationOperationInput): Promise<InventoryMutationResult>;
+  saveLocation(input: SaveInventoryLocationInput): Promise<InventoryLocationMutationResult>;
+  archiveLocation(input: ArchiveInventoryLocationInput): Promise<InventoryLocationMutationResult>;
+  recoverLocationOperation(input: RecoverInventoryLocationOperationInput): Promise<InventoryLocationMutationResult>;
   listBalances(input: ListInventoryBalancesInput): Promise<readonly InventoryBalance[]>;
   listPurchaseOrders(input: ListPurchaseOrdersInput): Promise<readonly PurchaseOrder[]>;
   getPurchaseOrder(input: GetPurchaseOrderInput): Promise<PurchaseOrder>;

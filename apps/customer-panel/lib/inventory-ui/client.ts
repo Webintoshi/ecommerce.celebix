@@ -2,12 +2,14 @@ import {
   parseInventoryBalance,
   parseInventoryCount,
   parseInventoryLocation,
+  parseInventoryLocationMutationResult,
   parseInventoryMutationResult,
   parseInventoryTransfer,
   parsePurchaseOrder,
   type InventoryBalance,
   type InventoryCount,
   type InventoryLocation,
+  type InventoryLocationMutationResult,
   type InventoryMutationResult,
   type InventoryTransfer,
   type PurchaseOrder,
@@ -192,7 +194,7 @@ function items<T>(value: unknown, parser: (entry: unknown) => T): readonly T[] {
   if (!Array.isArray(parsed.items) || parsed.items.length > 500) throw new InventoryApiError("unavailable", 503);
   try { return Object.freeze(parsed.items.map(parser)); } catch { throw new InventoryApiError("unavailable", 503); }
 }
-type MutationKind = "inventory_location" | "purchase_order" | "inventory_count" | "inventory_transfer";
+type MutationKind = "purchase_order" | "inventory_count" | "inventory_transfer";
 function mutationResult(
   value: unknown,
   expected: Readonly<{
@@ -214,6 +216,25 @@ function mutationResult(
   if (
     (expected.targetId !== undefined && result.id !== expected.targetId) ||
     !expected.statuses.includes(result.status) ||
+    result.version !== (expected.expectedVersion === undefined ? 1 : expected.expectedVersion + 1)
+  ) invalid();
+  return result;
+}
+function locationMutationResult(
+  value: unknown,
+  expected: Readonly<{ targetId?: string; expectedVersion?: number }>,
+): InventoryLocationMutationResult {
+  const parsed = object(value, ["kind", "id", "status", "version", "updatedAt", "replayed"]);
+  if (parsed.kind !== "inventory_location") invalid();
+  const result = parseInventoryLocationMutationResult({
+    id: parsed.id,
+    status: parsed.status,
+    version: parsed.version,
+    updatedAt: parsed.updatedAt,
+    replayed: parsed.replayed,
+  });
+  if (
+    (expected.targetId !== undefined && result.id !== expected.targetId) ||
     result.version !== (expected.expectedVersion === undefined ? 1 : expected.expectedVersion + 1)
   ) invalid();
   return result;
@@ -267,18 +288,14 @@ export function createInventoryApi(fetcher: Fetch = fetch, uuid: () => string = 
     listLocations(signal?: AbortSignal): Promise<readonly InventoryLocation[]> {
       return request("/api/inventory/locations", (value) => items(value, parseInventoryLocation), undefined, signal);
     },
-    saveLocation(value: SaveInventoryLocationIntent, signal?: AbortSignal): Promise<InventoryMutationResult> {
+    saveLocation(value: SaveInventoryLocationIntent, signal?: AbortSignal): Promise<InventoryLocationMutationResult> {
       const parsed = object(value, ["name"], ["locationId", "expectedVersion"]);
       const prior = existing(parsed, "locationId") as { locationId?: string; expectedVersion?: number };
-      return post("/api/inventory/locations", { ...prior, name: text(parsed.name, 1, 200) }, (result) => mutationResult(result, {
-        kind: "inventory_location", ...(prior.locationId ? { targetId: prior.locationId, expectedVersion: prior.expectedVersion } : {}), statuses: ["active"],
-      }), signal);
+      return post("/api/inventory/locations", { ...prior, name: text(parsed.name, 1, 200) }, (result) => locationMutationResult(result, prior), signal);
     },
-    archiveLocation(locationId: string, expectedVersion: number, signal?: AbortSignal): Promise<InventoryMutationResult> {
+    archiveLocation(locationId: string, expectedVersion: number, signal?: AbortSignal): Promise<InventoryLocationMutationResult> {
       const targetId = id(locationId), selectedVersion = version(expectedVersion);
-      return post(`/api/inventory/locations/${targetId}/archive`, { expectedVersion: selectedVersion }, (result) => mutationResult(result, {
-        kind: "inventory_location", targetId, expectedVersion: selectedVersion, statuses: ["archived"],
-      }), signal);
+      return post(`/api/inventory/locations/${targetId}/archive`, { expectedVersion: selectedVersion }, (result) => locationMutationResult(result, { targetId, expectedVersion: selectedVersion }), signal);
     },
     listBalances(locationId: string, signal?: AbortSignal): Promise<readonly InventoryBalance[]> {
       const selected = id(locationId);

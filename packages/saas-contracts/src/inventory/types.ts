@@ -35,11 +35,27 @@ export const INVENTORY_TRANSFER_STATUSES = Object.freeze([
 ] as const);
 export type InventoryTransferStatus = (typeof INVENTORY_TRANSFER_STATUSES)[number];
 
+export const INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS = Object.freeze([
+  "default",
+  "positive_on_hand",
+  "reserved",
+  "open_purchase",
+  "open_count",
+  "open_transfer",
+  "archived",
+] as const);
+export type InventoryLocationArchiveBlockReason = (typeof INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS)[number];
+export type InventoryLocationArchiveEligibility = Readonly<
+  | { canArchive: true; reason: null }
+  | { canArchive: false; reason: InventoryLocationArchiveBlockReason }
+>;
+
 export interface InventoryLocation {
   readonly id: string;
   readonly name: string;
   readonly isDefault: boolean;
   readonly status: "active" | "archived";
+  readonly archiveEligibility: InventoryLocationArchiveEligibility;
   readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;

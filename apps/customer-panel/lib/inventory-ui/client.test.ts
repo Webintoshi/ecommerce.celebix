@@ -12,7 +12,7 @@ const TRANSFER = "60000000-0000-4000-8000-000000000001";
 const LINE = "70000000-0000-4000-8000-000000000001";
 const OPERATION = "80000000-0000-4000-8000-000000000001";
 const NOW = "2026-07-23T11:00:00.000Z";
-const location = () => ({ id: LOCATION, name: "Ana Depo", isDefault: true, status: "active", version: 1, createdAt: NOW, updatedAt: NOW });
+const location = () => ({ id: LOCATION, name: "Ana Depo", isDefault: true, status: "active", archiveEligibility: { canArchive: false, reason: "default" }, version: 1, createdAt: NOW, updatedAt: NOW });
 const balance = () => ({ locationId: LOCATION, variantId: VARIANT, quantity: 7, version: 1, updatedAt: NOW });
 const purchase = () => ({ id: ORDER, locationId: LOCATION, supplierName: "Tedarikçi", status: "draft", lines: [{ id: LINE, variantId: VARIANT, orderedQuantity: 2, receivedQuantity: 0, unitCostCents: 100, lineCostCents: 200 }], totalCostCents: 200, version: 1, createdAt: NOW, updatedAt: NOW });
 const count = () => ({ id: COUNT, locationId: LOCATION, status: "draft", lines: [{ id: LINE, variantId: VARIANT, expectedQuantity: 7 }], version: 1, createdAt: NOW, updatedAt: NOW });

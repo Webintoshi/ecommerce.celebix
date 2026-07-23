@@ -1,5 +1,6 @@
 import {
   INVENTORY_COUNT_STATUSES,
+  INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS,
   INVENTORY_MOVEMENT_KINDS,
   INVENTORY_TRANSFER_STATUSES,
   PURCHASE_ORDER_STATUSES,
@@ -7,6 +8,7 @@ import {
   type InventoryCount,
   type InventoryCountLine,
   type InventoryLocation,
+  type InventoryLocationArchiveBlockReason,
   type InventoryLocationArchiveInput,
   type InventoryLocationMutationResult,
   type InventoryLocationSaveInput,
@@ -89,10 +91,24 @@ function lines<T>(value: unknown, parse: (entry: unknown) => T): readonly T[] {
 function dateOrder(createdAt: string, updatedAt: string): void { if (updatedAt < createdAt) invalid(); }
 
 export function parseInventoryLocation(value: unknown): InventoryLocation { return guarded(() => {
-  const parsed = exact(value, ["id", "name", "isDefault", "status", "version", "createdAt", "updatedAt"]);
+  const parsed = exact(value, ["id", "name", "isDefault", "status", "archiveEligibility", "version", "createdAt", "updatedAt"]);
   if (typeof parsed.isDefault !== "boolean" || (parsed.status !== "active" && parsed.status !== "archived")) invalid();
+  const rawEligibility = exact(parsed.archiveEligibility, ["canArchive", "reason"]);
+  if (typeof rawEligibility.canArchive !== "boolean") invalid();
+  if (rawEligibility.canArchive) {
+    if (rawEligibility.reason !== null || parsed.isDefault || parsed.status !== "active") invalid();
+  } else {
+    if (typeof rawEligibility.reason !== "string" || !INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS.includes(rawEligibility.reason as never)) invalid();
+    if (rawEligibility.reason === "default" && !parsed.isDefault) invalid();
+    if (rawEligibility.reason === "archived" && parsed.status !== "archived") invalid();
+    if (parsed.status === "archived" && rawEligibility.reason !== "archived") invalid();
+    if (parsed.isDefault && rawEligibility.reason !== "default") invalid();
+  }
+  const archiveEligibility: InventoryLocation["archiveEligibility"] = rawEligibility.canArchive
+    ? { canArchive: true, reason: null }
+    : { canArchive: false, reason: rawEligibility.reason as InventoryLocationArchiveBlockReason };
   const createdAt = timestamp(parsed.createdAt), updatedAt = timestamp(parsed.updatedAt); dateOrder(createdAt, updatedAt);
-  return freeze({ id: uuid(parsed.id), name: text(parsed.name, 1, 200), isDefault: parsed.isDefault, status: parsed.status, version: integer(parsed.version, 1), createdAt, updatedAt } satisfies InventoryLocation);
+  return freeze({ id: uuid(parsed.id), name: text(parsed.name, 1, 200), isDefault: parsed.isDefault, status: parsed.status, archiveEligibility, version: integer(parsed.version, 1), createdAt, updatedAt } satisfies InventoryLocation);
 }); }
 export function parseInventoryLocationSaveInput(value: unknown): InventoryLocationSaveInput { return guarded(() => {
   const parsed = exact(value, ["operationId", "name"], ["locationId", "expectedVersion"]);

@@ -264,7 +264,7 @@ export function createInventoryLocationConsoleController(options: Readonly<{
     load,
     save(value: Readonly<{ locationId?: string; expectedVersion?: number; name: string }>) { return mutate((signal) => options.api.saveLocation(value, signal)); },
     archive(location: InventoryLocation) {
-      if (location.isDefault || location.status !== "active") return Promise.resolve();
+      if (!location.archiveEligibility.canArchive) return Promise.resolve();
       return mutate((signal) => options.api.archiveLocation(location.id, location.version, signal));
     },
     dispose() { if (disposed) return; disposed = true; sequence += 1; request?.abort(); request = undefined; busy = false; active = undefined; },

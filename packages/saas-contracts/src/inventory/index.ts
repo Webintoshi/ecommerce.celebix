@@ -1,5 +1,6 @@
 export {
   INVENTORY_COUNT_STATUSES,
+  INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS,
   INVENTORY_MOVEMENT_KINDS,
   INVENTORY_TRANSFER_STATUSES,
   PURCHASE_ORDER_STATUSES,
@@ -10,6 +11,8 @@ export type {
   InventoryCountLine,
   InventoryCountStatus,
   InventoryLocation,
+  InventoryLocationArchiveBlockReason,
+  InventoryLocationArchiveEligibility,
   InventoryLocationArchiveInput,
   InventoryLocationMutationResult,
   InventoryLocationSaveInput,

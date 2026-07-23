@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   INVENTORY_COUNT_STATUSES,
+  INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS,
   INVENTORY_MOVEMENT_KINDS,
   INVENTORY_TRANSFER_STATUSES,
   PURCHASE_ORDER_STATUSES,
@@ -30,7 +31,16 @@ const ID = "44444444-4444-4444-8444-444444444444";
 const LINE_ID = "55555555-5555-4555-8555-555555555555";
 
 function locationFixture() {
-  return { id: LOCATION_ID, name: "Main warehouse", isDefault: true, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
+  return {
+    id: LOCATION_ID,
+    name: "Main warehouse",
+    isDefault: true,
+    status: "active",
+    archiveEligibility: { canArchive: false, reason: "default" },
+    version: 1,
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
 }
 function balanceFixture() {
   return { locationId: LOCATION_ID, variantId: VARIANT_ID, quantity: 10, version: 1, updatedAt: NOW };
@@ -53,7 +63,8 @@ test("inventory contracts export the exact immutable enum registries", () => {
   assert.deepEqual(PURCHASE_ORDER_STATUSES, ["draft", "ordered", "partially_received", "received", "cancelled"]);
   assert.deepEqual(INVENTORY_COUNT_STATUSES, ["draft", "counting", "committed", "cancelled"]);
   assert.deepEqual(INVENTORY_TRANSFER_STATUSES, ["draft", "in_transit", "received", "cancelled"]);
-  for (const registry of [INVENTORY_MOVEMENT_KINDS, PURCHASE_ORDER_STATUSES, INVENTORY_COUNT_STATUSES, INVENTORY_TRANSFER_STATUSES]) assert.equal(Object.isFrozen(registry), true);
+  assert.deepEqual(INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS, ["default", "positive_on_hand", "reserved", "open_purchase", "open_count", "open_transfer", "archived"]);
+  for (const registry of [INVENTORY_MOVEMENT_KINDS, PURCHASE_ORDER_STATUSES, INVENTORY_COUNT_STATUSES, INVENTORY_TRANSFER_STATUSES, INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS]) assert.equal(Object.isFrozen(registry), true);
 });
 
 test("inventory DTOs parse exact canonical frozen projections", () => {
@@ -65,6 +76,31 @@ test("inventory DTOs parse exact canonical frozen projections", () => {
   const transfer = parseInventoryTransfer({ id: ID, sourceLocationId: LOCATION_ID, destinationLocationId: OTHER_LOCATION_ID, status: "draft", lines: [transferLineFixture()], version: 1, createdAt: NOW, updatedAt: NOW });
   const result = parseInventoryMutationResult({ id: ID, status: "received", version: 2, updatedAt: LATER, replayed: false });
   for (const value of [location, balance, movement, purchase, count, transfer, result, purchase.lines, count.lines, transfer.lines]) assert.equal(Object.isFrozen(value), true);
+  assert.equal(Object.isFrozen(location.archiveEligibility), true);
+});
+
+test("inventory location archive eligibility is exact, finite and status-consistent", () => {
+  const eligible = parseInventoryLocation({
+    ...locationFixture(),
+    isDefault: false,
+    archiveEligibility: { canArchive: true, reason: null },
+  });
+  assert.deepEqual(eligible.archiveEligibility, { canArchive: true, reason: null });
+  for (const reason of INVENTORY_LOCATION_ARCHIVE_BLOCK_REASONS) {
+    const status = reason === "archived" ? "archived" : "active";
+    const isDefault = reason === "default";
+    const location = parseInventoryLocation({
+      ...locationFixture(),
+      status,
+      isDefault,
+      archiveEligibility: { canArchive: false, reason },
+    });
+    assert.deepEqual(location.archiveEligibility, { canArchive: false, reason });
+  }
+  assert.throws(() => parseInventoryLocation({ ...locationFixture(), archiveEligibility: { canArchive: true, reason: "default" } }));
+  assert.throws(() => parseInventoryLocation({ ...locationFixture(), isDefault: false, archiveEligibility: { canArchive: false, reason: "unknown" } }));
+  assert.throws(() => parseInventoryLocation({ ...locationFixture(), isDefault: false, archiveEligibility: { canArchive: false, reason: "default" } }));
+  assert.throws(() => parseInventoryLocation({ ...locationFixture(), status: "archived", isDefault: false, archiveEligibility: { canArchive: true, reason: null } }));
 });
 
 test("inventory location commands parse exact frozen create update archive projections", () => {

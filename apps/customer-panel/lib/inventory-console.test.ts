@@ -39,6 +39,7 @@ const mutation = (id: string, status: string, version: number, replayed = false)
   Object.freeze({ id, status, version, updatedAt: NOW, replayed });
 const location = (overrides: Partial<InventoryLocation> = {}): InventoryLocation => Object.freeze({
   id: LOCATION, name: "Ana depo", isDefault: true, status: "active", version: 1,
+  archiveEligibility: Object.freeze({ canArchive: false, reason: "default" }),
   createdAt: NOW, updatedAt: NOW, ...overrides,
 });
 
@@ -50,7 +51,7 @@ test("location controller owns one mutation and reloads exact durable locations"
   const subject = (module.createInventoryLocationConsoleController as Function)({
     canRead: true, canManage: true,
     api: {
-      async listLocations() { loads += 1; return loads === 1 ? [location()] : [location(), location({ id: DESTINATION, name: "Şube depo", isDefault: false })]; },
+      async listLocations() { loads += 1; return loads === 1 ? [location()] : [location(), location({ id: DESTINATION, name: "Şube depo", isDefault: false, archiveEligibility: { canArchive: true, reason: null } })]; },
       saveLocation() { saves += 1; return pending.promise; },
       async archiveLocation() { throw new Error("unexpected"); },
     },
@@ -433,10 +434,15 @@ test("analyst detail presentations show records and no mutation controls", async
 test("location presentation is truthful about default and non-archivable reasons with 48px actions", async () => {
   const Presentation = await compilePresentation("components/inventory/InventoryLocationConsole.tsx", "InventoryLocationPresentation");
   const html = renderToStaticMarkup(createElement(Presentation, {
-    state: { phase: "loaded", items: [location(), location({ id: DESTINATION, name: "Şube", isDefault: false, status: "archived" })], pending: false, locked: false, message: "" },
+    state: { phase: "loaded", items: [
+      location(),
+      location({ id: DESTINATION, name: "Şube", isDefault: false, status: "active", archiveEligibility: { canArchive: false, reason: "positive_on_hand" } }),
+      location({ id: TRANSFER, name: "Arşiv", isDefault: false, status: "archived", archiveEligibility: { canArchive: false, reason: "archived" } }),
+    ], pending: false, locked: false, message: "" },
     canManage: true, name: "", onName() {}, onCreate() {}, onEdit() {}, onArchive() {},
   }));
   assert.match(html, /Varsayılan konum arşivlenemez/);
+  assert.match(html, /Pozitif stok bakiyesi bulunduğu için arşivlenemez/);
   assert.match(html, /Arşivlenmiş konum değiştirilemez/);
   assert.match(html, /Sürüm 1/);
   assert.match(html, /disabled=""/);

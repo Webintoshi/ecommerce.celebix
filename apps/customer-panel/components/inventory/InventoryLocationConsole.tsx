@@ -8,6 +8,16 @@ import { inventoryApi } from "@/lib/inventory-ui/client";
 import { createInventoryLocationConsoleController, type InventoryLocationConsoleSnapshot } from "@/lib/inventory-ui/console-controller";
 import styles from "./inventory-console.module.css";
 
+const ARCHIVE_REASON = Object.freeze({
+  default: "Varsayılan konum arşivlenemez.",
+  positive_on_hand: "Pozitif stok bakiyesi bulunduğu için arşivlenemez.",
+  reserved: "Aktif stok rezervasyonu bulunduğu için arşivlenemez.",
+  open_purchase: "Açık satın alma kaydı bulunduğu için arşivlenemez.",
+  open_count: "Açık stok sayımı bulunduğu için arşivlenemez.",
+  open_transfer: "Açık stok transferi bulunduğu için arşivlenemez.",
+  archived: "Arşivlenmiş konum değiştirilemez.",
+} satisfies Readonly<Record<Exclude<InventoryLocation["archiveEligibility"]["reason"], null>, string>>);
+
 export function InventoryLocationPresentation(props: Readonly<{
   state: InventoryLocationConsoleSnapshot;
   canManage: boolean;
@@ -29,14 +39,17 @@ export function InventoryLocationPresentation(props: Readonly<{
       <button type="submit" disabled={props.state.pending || props.state.locked || !props.name.trim()}>Konum oluştur</button>
     </form> : null}
     {!props.state.items.length ? <p className={styles.state}>Ek konum bulunmuyor. Varsayılan konum kalıcı sistem tarafından oluşturulur.</p> : <div className={styles.locationGrid}>{props.state.items.map((location) => {
-      const reason = location.isDefault ? "Varsayılan konum arşivlenemez." : location.status === "archived" ? "Arşivlenmiş konum değiştirilemez." : "Aktif konum transferlerde kullanılabilir.";
-      const disabled = props.state.pending || props.state.locked || location.status !== "active";
+      const reason = location.archiveEligibility.canArchive
+        ? "Aktif konum transferlerde kullanılabilir."
+        : ARCHIVE_REASON[location.archiveEligibility.reason];
+      const editDisabled = props.state.pending || props.state.locked || location.status !== "active" || location.isDefault;
+      const archiveDisabled = props.state.pending || props.state.locked || !location.archiveEligibility.canArchive;
       return <article className={styles.locationCard} key={location.id}>
         <div><strong>{location.name}</strong><PanelStatusBadge tone={location.status === "active" ? "success" : "neutral"}>{location.status === "active" ? "Aktif" : "Arşivlenmiş"}</PanelStatusBadge></div>
         <code>{location.id}</code><p>Sürüm {location.version}</p><p>{reason}</p>
         {props.canManage ? <div className={styles.locationActions}>
-          <button type="button" disabled={disabled || location.isDefault} onClick={() => props.onEdit(location)}>Adı düzenle</button>
-          <button type="button" disabled={disabled || location.isDefault} onClick={() => props.onArchive(location)}>Arşivle</button>
+          <button type="button" disabled={editDisabled} onClick={() => props.onEdit(location)}>Adı düzenle</button>
+          <button type="button" disabled={archiveDisabled} onClick={() => props.onArchive(location)}>Arşivle</button>
         </div> : null}
       </article>;
     })}</div>}
