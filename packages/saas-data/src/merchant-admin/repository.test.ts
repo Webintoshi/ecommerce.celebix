@@ -42,6 +42,20 @@ test("rejects secret-bearing config before SQL",async()=>{
  await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"discount",name:"Yaz",config:{unexpectedField:"never"},status:"draft"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
 });
 
+test("typed settings accept only finite public configuration before SQL",async()=>{
+ const configurations={
+  notification_setting:{emailEnabled:true,smsEnabled:false,pushEnabled:true,senderLabel:"Celebix",replyToEmail:"support@example.test"},
+  hero_banner:{headline:"Yeni sezon",body:"Göz atın",imageUrl:"https://cdn.example.test/hero.webp",destination:"/collections/new",enabled:true},
+  promotion_banner:{headline:"Yaz indirimi",body:"Sınırlı süre",destination:"/sale",startsAt:NOW.toISOString(),endsAt:"2026-08-22T19:00:00.000Z",enabled:true},
+  marquee_setting:{items:["Ücretsiz kargo"],icon:"truck",speed:"normal",direction:"left",animation:"continuous",enabled:true},
+ } as const;
+ for(const [kind,config] of Object.entries(configurations)){
+  const writer=new Client((text)=>text.includes("merchant_admin_save")?[{outcome:"saved",result_payload:{...mutation(),kind}}]:[]);
+  await assert.doesNotReject(()=>repository(new Pool([writer])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:kind as never,name:"Ayar",config,status:"active"}));
+ }
+ for(const hostile of [{smtpPassword:"x"},{apiKey:"x"},{pushToken:"x"},{html:"<script>x</script>"}]) await assert.rejects(()=>repository(new Pool([])).save({tenantContext:tenant(),now:NOW,operationId:OP,kind:"notification_setting" as never,name:"Ayar",config:hostile as unknown as Record<string,string>,status:"active"}),(error:unknown)=>error instanceof MerchantAdminRepositoryError&&error.code==="invalid_input");
+});
+
 test("unknown commit destroys writer and performs one read-only recovery",async()=>{
  let commits=0;const writer=new Client((text)=>{if(text.includes("merchant_admin_save"))return[{outcome:"saved",result_payload:mutation()}];if(text==="COMMIT"&&commits++===0)throw new Error("wire");return[]});
  const recovery=new Client((text)=>text.includes("merchant_admin_recover_operation")?[{outcome:"operation_replayed",result_payload:mutation()}]:[]),audit:string[]=[];

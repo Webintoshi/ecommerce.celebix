@@ -1,0 +1,15 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DO $f$
+DECLARE allowed text[] := ARRAY['discount','lucky_wheel','email_campaign','phone_campaign','whatsapp_campaign','blog_post','page','policy','marketplace_connection','general_setting','language_setting','payment_setting','shipping_setting','administrator_invite','accounting_profile','invoice_integration','seo_control','sitemap','social_preview','code_integration','indexing_request','notification_setting','hero_banner','promotion_banner','marquee_setting'];
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='saas.merchant_admin_records'::regclass AND conname='merchant_admin_records_record_kind_check' AND pg_catalog.pg_get_constraintdef(oid) LIKE '%notification_setting%hero_banner%promotion_banner%marquee_setting%') THEN RAISE EXCEPTION 'typed storefront setting kinds missing'; END IF;
+  IF saas.merchant_admin_required_action('notification_setting',false)<>'configuration.read' OR saas.merchant_admin_required_action('marquee_setting',true)<>'configuration.manage' OR saas.merchant_admin_required_action('unrecognized',true) IS NOT NULL THEN RAISE EXCEPTION 'typed storefront action mapping invalid'; END IF;
+  IF NOT saas.merchant_admin_config_valid('notification_setting','{"emailEnabled":true,"senderLabel":"Celebix","replyToEmail":"support@example.test"}'::jsonb) THEN RAISE EXCEPTION 'notification setting config rejected'; END IF;
+  IF NOT saas.merchant_admin_config_valid('hero_banner','{"headline":"Hero","body":"Metin","imageUrl":"https://cdn.example.test/hero.webp","destination":"/hero","enabled":true}'::jsonb) THEN RAISE EXCEPTION 'hero banner config rejected'; END IF;
+  IF NOT saas.merchant_admin_config_valid('promotion_banner','{"headline":"Promo","body":"Metin","destination":"/sale","startsAt":"2026-07-22T19:00:00.000Z","endsAt":"2026-08-22T19:00:00.000Z","enabled":true}'::jsonb) THEN RAISE EXCEPTION 'promotion banner config rejected'; END IF;
+  IF NOT saas.merchant_admin_config_valid('marquee_setting','{"items":["Duyuru"],"icon":"truck","speed":"normal","direction":"left","animation":"continuous","enabled":true}'::jsonb) THEN RAISE EXCEPTION 'marquee setting config rejected'; END IF;
+  IF saas.merchant_admin_config_valid('notification_setting','{"smtpPassword":"x"}'::jsonb) OR saas.merchant_admin_config_valid('hero_banner','{"html":"<script>x</script>"}'::jsonb) OR saas.merchant_admin_config_valid('hero_banner','{"imageUrl":"http://cdn.example.test/a"}'::jsonb) OR saas.merchant_admin_config_valid('marquee_setting','{"items":[]}'::jsonb) THEN RAISE EXCEPTION 'hostile typed storefront config accepted'; END IF;
+  IF NOT has_function_privilege('celebix_saas_app','saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)','EXECUTE') OR has_function_privilege('celebix_saas_identity','saas.merchant_admin_save(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text,text,jsonb,text)','EXECUTE') THEN RAISE EXCEPTION 'merchant admin acl invalid'; END IF;
+END $f$;
+COMMIT;
