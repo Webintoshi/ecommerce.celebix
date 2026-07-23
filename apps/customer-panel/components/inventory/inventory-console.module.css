@@ -1,0 +1,132 @@
+.desktopTable,
+.lineTable {
+  overflow-x: auto;
+  border: 1px solid #e7e5e4;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.desktopTable table,
+.lineTable table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.desktopTable th,
+.desktopTable td,
+.lineTable th,
+.lineTable td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0efed;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.desktopTable th,
+.lineTable th {
+  color: #78716c;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  background: #fafaf9;
+}
+
+.desktopTable a,
+.cardHeading a {
+  color: #9a3412;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.desktopTable code,
+.lineTable code,
+.detailSummary code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.mobileCards { display: none; }
+
+.detailSummary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.detailSummary > div {
+  display: flex;
+  min-height: 82px;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  padding: 14px 16px;
+  border: 1px solid #e7e5e4;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.detailSummary span { color: #78716c; font-size: 13px; }
+.detailSummary strong { color: #1c1917; }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.actions button,
+.error button {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid #d6d3d1;
+  border-radius: 12px;
+  background: #fff;
+  color: #292524;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actions .primary {
+  border-color: #ea580c;
+  background: #ea580c;
+  color: #fff;
+}
+
+.actions button:disabled { cursor: wait; opacity: .62; }
+
+.state,
+.denied,
+.error,
+.notice,
+.errorNotice,
+.conflict {
+  min-height: 48px;
+  padding: 14px 16px;
+  border-radius: 14px;
+}
+
+.state { background: #f5f5f4; color: #57534e; }
+.denied { border: 1px solid #d6d3d1; background: #fafaf9; color: #44403c; }
+.error,
+.errorNotice { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
+.notice { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; }
+.conflict { border: 1px solid #fdba74; background: #fff7ed; color: #9a3412; font-weight: 650; }
+
+@media (max-width: 760px) {
+  .desktopTable { display: none; }
+  .mobileCards { display: grid; gap: 12px; }
+  .mobileCard { padding: 16px; border: 1px solid #e7e5e4; border-radius: 16px; background: #fff; }
+  .cardHeading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; }
+  .mobileCard dl { display: grid; gap: 10px; margin: 14px 0 0; }
+  .mobileCard dl > div { display: grid; grid-template-columns: minmax(92px, .7fr) 1fr; gap: 12px; }
+  .mobileCard dt { color: #78716c; }
+  .mobileCard dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+  .actions { display: grid; }
+  .actions button { width: 100%; }
+}

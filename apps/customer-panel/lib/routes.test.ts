@@ -361,6 +361,24 @@ test("tag and barcode routes remain panel-session guarded with fixed server auth
   assert.match(labels, /CATALOG_PAGE_ACTIONS[.]barcodeLabels/);
 });
 
+test("inventory operation pages resolve server access before loading exact resources", async () => {
+  const pages = [
+    ["purchasing/page.tsx", "purchasing.read", "PurchasingConsole"],
+    ["purchasing/[purchaseOrderId]/page.tsx", "purchasing.read", "purchaseOrderId"],
+    ["inventory-counts/page.tsx", "inventory.read", "InventoryCountConsole"],
+    ["inventory-counts/[countId]/page.tsx", "inventory.read", "countId"],
+    ["transfers/page.tsx", "inventory.read", "InventoryTransferConsole"],
+    ["transfers/[transferId]/page.tsx", "inventory.read", "transferId"],
+  ] as const;
+  for (const [path, permission, marker] of pages) {
+    const page = await readFile(new URL(`../app/products/${path}`, import.meta.url), "utf8");
+    assert.match(page, /resolveServerPanelAccess\(\)/);
+    assert.match(page, new RegExp(permission.replace(".", "\\.")));
+    assert.match(page, new RegExp(marker));
+    assert.doesNotMatch(page, /TenantContext|searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
+  }
+});
+
 test("merchant record route-depth pages expose only fixed server-authorized editor kinds", async () => {
   const cases = [
     ["../app/discounts/[recordId]/edit/page.tsx", "discount"],

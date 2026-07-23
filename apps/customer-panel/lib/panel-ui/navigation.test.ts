@@ -44,6 +44,9 @@ test("contains every and only currently working merchant destination", () => {
       "/products/extras",
       "/products/reviews",
       "/products/definitions",
+      "/products/purchasing",
+      "/products/inventory-counts",
+      "/products/transfers",
       "/products/auto-import",
       "/products/shopify-converter",
       "/products/bulk-upload",
@@ -125,7 +128,22 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Satın Alma", "Stok Sayımları", "Stok Transferleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+});
+
+test("inventory operations are exact catalog destinations with safe detail descendants", () => {
+  const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
+  assert.deepEqual(
+    catalog?.children?.filter(({ href }) => href.includes("purchasing") || href.includes("inventory-counts") || href.includes("transfers")).map(({ href }) => href),
+    ["/products/purchasing", "/products/inventory-counts", "/products/transfers"],
+  );
+  for (const href of ["/products/purchasing", "/products/inventory-counts", "/products/transfers"] as const) {
+    assert.equal(isPanelNavigationPathActive(href, href), true);
+    assert.equal(isPanelNavigationPathActive(`${href}/11111111-1111-4111-8111-111111111111`, href), true);
+    for (const unsafe of [`${href}-evil`, `${href}?next=${href}`, `${href}#status`, `${href}//evil`, `${href}%2Fevil`]) {
+      assert.equal(isPanelNavigationPathActive(unsafe, href), false);
+    }
+  }
 });
 
 test("import preparation navigation is exact, near-match-safe, and query-safe", () => {
@@ -286,6 +304,9 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "/products/auto-import",
       "/products/shopify-converter",
       "/products/bulk-upload",
+      "/products/purchasing",
+      "/products/inventory-counts",
+      "/products/transfers",
       "/products/product-123",
       "/setup",
     ].map((pathname) => getPanelRoutePresentation(pathname).title),
@@ -312,6 +333,9 @@ test("maps every supported route to truthful fallback topbar chrome", () => {
       "Otomatik Yükle",
       "Shopify Dönüştürücü",
       "Toplu Yükle",
+      "Satın alma",
+      "Stok sayımları",
+      "Stok transferleri",
       "Ürün ayrıntısı",
       "Kurulum durumu",
     ],
