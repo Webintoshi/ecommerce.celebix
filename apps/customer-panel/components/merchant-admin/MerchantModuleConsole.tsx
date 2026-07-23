@@ -64,7 +64,9 @@ function dateTimeInputValue(record: MerchantAdminRecord | null, key: string) {
   const value = record?.config[key];
   if (typeof value !== "string") return "";
   const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 16) : "";
+  if (!Number.isFinite(date.getTime())) return "";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function parseFormConfig(
@@ -78,7 +80,10 @@ function parseFormConfig(
       continue;
     }
     const raw = String(data.get(field.key) ?? "").trim();
-    if (!raw) continue;
+    if (!raw) {
+      if (field.type === "string-list") throw new TypeError("invalid_string_list");
+      continue;
+    }
     if (field.type === "number") {
       const number = Number(raw);
       if (!Number.isSafeInteger(number) || number < 0) throw new TypeError("invalid_number");
@@ -89,9 +94,9 @@ function parseFormConfig(
       if (!Number.isFinite(timestamp.getTime())) throw new TypeError("invalid_datetime");
       entries[field.key] = timestamp.toISOString();
     } else if (field.type === "string-list") {
-      entries[field.key] = Object.freeze(
-        raw.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean).slice(0, 100),
-      );
+      const values = raw.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
+      if (values.length < 1 || values.length > 12) throw new TypeError("invalid_string_list");
+      entries[field.key] = Object.freeze(values);
     } else if (field.type === "enum") {
       if (!field.allowedValues?.includes(raw)) throw new TypeError("invalid_enum_value");
       entries[field.key] = raw;
@@ -171,6 +176,10 @@ export function MerchantModuleConsole({
   const editorTriggerRef = useRef<HTMLButtonElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const editorRef = useRef<HTMLElement | null>(null);
+  const mountedRef = useRef(true);
+  const loadVersionRef = useRef(0);
+  const activeSubmissionRef = useRef<number | null>(null);
+  const submissionVersionRef = useRef(0);
 
   const summary = useMemo(
     () => buildMerchantModuleSummary(items, query, statusFilter),
@@ -178,6 +187,9 @@ export function MerchantModuleConsole({
   );
 
   const load = useCallback(async () => {
+    const version = loadVersionRef.current + 1;
+    loadVersionRef.current = version;
+    if (!mountedRef.current) return;
     setLoading(true);
     setError("");
     try {
@@ -188,21 +200,31 @@ export function MerchantModuleConsole({
           ? merchantAdminApi.providerJobs(providerRecordKind)
           : Promise.resolve(Object.freeze([]) as readonly MerchantAdminProviderJob[]),
       ]);
+      if (!mountedRef.current || loadVersionRef.current !== version) return;
       setItems(records);
       setEvents(audit);
       setProviderJobs(jobs);
     } catch (caught) {
+      if (!mountedRef.current || loadVersionRef.current !== version) return;
       setError(
         caught instanceof MerchantAdminApiError
           ? caught.message
           : `${definition.title} yüklenemedi.`,
       );
     } finally {
-      setLoading(false);
+      if (mountedRef.current && loadVersionRef.current === version) setLoading(false);
     }
   }, [definition.title, definition.workflow, kind, providerRecordKind]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    mountedRef.current = true;
+    void load();
+    return () => {
+      mountedRef.current = false;
+      loadVersionRef.current += 1;
+      activeSubmissionRef.current = null;
+    };
+  }, [load]);
 
   const closeEditor = useCallback(() => {
     setEditorOpen(false);
@@ -264,6 +286,10 @@ export function MerchantModuleConsole({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (activeSubmissionRef.current !== null) return;
+    const submission = submissionVersionRef.current + 1;
+    submissionVersionRef.current = submission;
+    activeSubmissionRef.current = submission;
     const form = event.currentTarget;
     const data = new FormData(form);
     setBusy(true);
@@ -276,14 +302,20 @@ export function MerchantModuleConsole({
         config: parseFormConfig(definition.fields, data),
         status: data.get("status") === "active" ? "active" : "draft",
       });
+      if (!mountedRef.current || activeSubmissionRef.current !== submission) return;
       setMessage("Kayıt kalıcı olarak kaydedildi.");
       closeEditor();
       form.reset();
       await load();
     } catch (caught) {
-      setError(caught instanceof MerchantAdminApiError ? caught.message : "Kayıt tamamlanamadı.");
+      if (mountedRef.current && activeSubmissionRef.current === submission) {
+        setError(caught instanceof MerchantAdminApiError ? caught.message : "Kayıt tamamlanamadı.");
+      }
     } finally {
-      setBusy(false);
+      if (mountedRef.current && activeSubmissionRef.current === submission) {
+        activeSubmissionRef.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -532,7 +564,7 @@ export function MerchantModuleConsole({
                   ) : field.type === "enum" ? (
                     <select name={field.key} defaultValue={inputValue(editing, field.key)}>
                       <option value="">Seçin</option>
-                      {field.allowedValues?.map((value) => <option key={value} value={value}>{value}</option>)}
+                      {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}
                     </select>
                   ) : field.type === "datetime" ? (
                     <input name={field.key} type="datetime-local" defaultValue={dateTimeInputValue(editing, field.key)} />

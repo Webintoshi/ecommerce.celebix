@@ -31,9 +31,9 @@ type ViewState = "loading" | "ready" | "error";
 
 const PERIOD_LABELS: Readonly<Record<AnalyticsPeriod, string>> = Object.freeze({
   today: "Bugün",
-  week: "7 gün",
-  month: "30 gün",
-  year: "Yıl",
+  week: "Bu hafta",
+  month: "Bu ay",
+  year: "Bu yıl",
 });
 
 const ERROR_MESSAGE: Readonly<Record<AnalyticsApiError["code"], string>> =
@@ -58,7 +58,11 @@ function formatMoney(value: number, currency: string): string {
 function formatSeriesLabel(startsAt: string): string {
   const date = new Date(startsAt);
   return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "short" }).format(date)
+    ? new Intl.DateTimeFormat("tr-TR", {
+      day: "2-digit",
+      month: "short",
+      timeZone: "UTC",
+    }).format(date)
     : startsAt;
 }
 
@@ -75,19 +79,23 @@ export function AnalyticsDashboard() {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
   const requestVersion = useRef(0);
+  const exportVersion = useRef(0);
+  const mountedRef = useRef(true);
+  const activeExportRef = useRef<number | null>(null);
 
   const load = useCallback(async (requestedPeriod: AnalyticsPeriod) => {
     const version = requestVersion.current + 1;
     requestVersion.current = version;
+    if (!mountedRef.current) return;
     setState("loading");
     setError("");
     try {
       const next = await analyticsApi.dashboard(requestedPeriod);
-      if (requestVersion.current !== version) return;
+      if (!mountedRef.current || requestVersion.current !== version) return;
       setDashboard(next);
       setState("ready");
     } catch (caught) {
-      if (requestVersion.current !== version) return;
+      if (!mountedRef.current || requestVersion.current !== version) return;
       setDashboard(undefined);
       setError(stableError(caught));
       setState("error");
@@ -95,7 +103,14 @@ export function AnalyticsDashboard() {
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     void load(period);
+    return () => {
+      mountedRef.current = false;
+      requestVersion.current += 1;
+      exportVersion.current += 1;
+      activeExportRef.current = null;
+    };
   }, [load, period]);
 
   const selectPeriod = useCallback((next: AnalyticsPeriod) => {
@@ -103,34 +118,41 @@ export function AnalyticsDashboard() {
   }, []);
 
   const exportDashboard = useCallback(async (format: "csv" | "json") => {
+    if (activeExportRef.current !== null) return;
+    const version = exportVersion.current + 1;
+    exportVersion.current = version;
+    activeExportRef.current = version;
     setExporting(format);
     setError("");
     try {
       const value = await analyticsApi.export(period, format);
-      if (typeof value === "string") {
-        const url = URL.createObjectURL(new Blob([value], { type: "text/csv;charset=utf-8" }));
+      if (!mountedRef.current || exportVersion.current !== version) return;
+      const blob = typeof value === "string"
+        ? new Blob([value], { type: "text/csv;charset=utf-8" })
+        : new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+      const filename = format === "csv" ? "merchant-analytics.csv" : "merchant-analytics.json";
+      const url = URL.createObjectURL(blob);
+      try {
         const anchor = document.createElement("a");
         anchor.href = url;
-        anchor.download = "merchant-analytics.csv";
+        anchor.download = filename;
         anchor.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "merchant-analytics.json";
-        anchor.click();
+      } finally {
         URL.revokeObjectURL(url);
       }
     } catch (caught) {
-      setError(stableError(caught));
+      if (mountedRef.current && exportVersion.current === version) setError(stableError(caught));
     } finally {
-      setExporting(null);
+      if (mountedRef.current && activeExportRef.current === version) {
+        activeExportRef.current = null;
+        setExporting(null);
+      }
     }
   }, [period]);
 
   return (
     <PanelPageShell>
+      <div className={styles.root}>
       <PanelPageHeader
         title="Analitik"
         description="Yalnız kalıcı sipariş, müşteri ve katalog kayıtlarından türetilen ticari özet."
@@ -191,12 +213,12 @@ export function AnalyticsDashboard() {
           ) : (
             <PanelPanel title="Gelir zaman serisi">
               <div className={styles.chartViewport}>
-                <div className={styles.chart} aria-label="Gelir zaman serisi">
+                <div className={styles.chart} role="img" aria-label="Gelir zaman serisi; seçili dönemde kalıcı sipariş gelirini gösterir">
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={dashboard.series} accessibilityLayer>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="startsAt" tickFormatter={formatSeriesLabel} />
-                      <YAxis tickFormatter={(value) => formatMoney(Number(value) * 100, dashboard.currency)} />
+                      <YAxis tickFormatter={(value) => formatMoney(Number(value), dashboard.currency)} />
                       <Tooltip labelFormatter={(value) => typeof value === "string" ? formatSeriesLabel(value) : ""} formatter={(value) => [formatMoney(Number(value), dashboard.currency), "Gelir"]} />
                       <Line type="monotone" dataKey="revenueCents" stroke="#FF6A00" strokeWidth={3} dot={false} />
                     </LineChart>
@@ -220,6 +242,7 @@ export function AnalyticsDashboard() {
           </PanelPanel>
         </>
       ) : null}
+      </div>
     </PanelPageShell>
   );
 }

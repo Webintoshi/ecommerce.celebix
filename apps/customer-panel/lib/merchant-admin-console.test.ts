@@ -1,4 +1,4 @@
-import assert from"node:assert/strict";import test from"node:test";import{readFile}from"node:fs/promises";const root=new URL("../",import.meta.url);async function source(path:string){return readFile(new URL(path,root),"utf8")}
+import assert from"node:assert/strict";import{spawnSync}from"node:child_process";import test from"node:test";import{readFile}from"node:fs/promises";import ts from"typescript";const root=new URL("../",import.meta.url);async function source(path:string){return readFile(new URL(path,root),"utf8")}
 const routes=Object.freeze([
  ["app/discounts/page.tsx","discount"],["app/discounts/new/page.tsx","discount"],["app/discounts/lucky-wheel/page.tsx","lucky_wheel"],
  ["app/marketing/page.tsx","MerchantMarketingOverview"],["app/marketing/email/page.tsx","email_campaign"],["app/marketing/phone/page.tsx","phone_campaign"],["app/marketing/whatsapp/page.tsx","whatsapp_campaign"],
@@ -18,8 +18,22 @@ test("approved merchant record subpages are server-authorized and keep fixed kin
  ["app/settings/payment/new/page.tsx","payment_setting","configuration.manage"],["app/settings/payment/[recordId]/edit/page.tsx","payment_setting","configuration.manage"],
 ]as const){const value=await source(path);assert.match(value,/requireServerPanelAccess\(\)/);assert.match(value,new RegExp(`kind=\\"${kind}\\"`));assert.match(value,new RegExp(permission.replace(".","\\.")));assert.doesNotMatch(value,/searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/)} });
 
-test("typed storefront settings render closed enum, canonical datetime, and bounded announcement-list controls",async()=>{
+test("typed storefront settings render closed enum, local datetime roundtrip, and bounded announcement-list controls",async()=>{
   const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");
-  for(const evidence of["field.type === \"enum\"","field.type === \"datetime\"","field.type === \"string-list\"","field.allowedValues","datetime-local","toISOString","invalid_enum_value"])assert.match(value,new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+  for(const evidence of["field.type === \"enum\"","field.type === \"datetime\"","field.type === \"string-list\"","field.allowedValues","field.optionLabels","datetime-local","getFullYear","new Date(raw)","timestamp.toISOString","invalid_enum_value","invalid_string_list","activeSubmissionRef","loadVersionRef"])assert.match(value,new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
   assert.doesNotMatch(value,/localStorage|sessionStorage|document[.]cookie|apiSecret|clientSecret|accessToken/);
+});
+
+test("datetime-local and announcement parsing keep local wall time and reject a thirteenth item",async()=>{
+  const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");
+  const dateStart=value.indexOf("function dateTimeInputValue");const dateEnd=value.indexOf("\n}\n\nfunction parseFormConfig",dateStart)+2;
+  const parseStart=value.indexOf("function parseFormConfig");const parseEnd=value.indexOf("\n}\n\nfunction statusPresentation",parseStart)+2;
+  const program=ts.transpileModule(`${value.slice(dateStart,dateEnd)}\n${value.slice(parseStart,parseEnd)}\nconst fields=[{key:"items",type:"string-list"},{key:"startsAt",type:"datetime"}];const data=new FormData();data.set("items",Array.from({length:12},(_,index)=>\` item-${"${"}index+1} \`).join("\\n"));data.set("startsAt","2026-01-02T03:04");console.log(JSON.stringify({local:dateTimeInputValue({config:{startsAt:"2026-01-02T08:04:00.000Z"}},"startsAt"),parsed:parseFormConfig(fields,data)}));const tooMany=new FormData();tooMany.set("items",Array.from({length:13},(_,index)=>\`item-${"${"}index+1}\`).join("\\n"));try{parseFormConfig([{key:"items",type:"string-list"}],tooMany)}catch(error){console.log(error.message)}` ,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+  const result=spawnSync(process.execPath,["-e",program],{encoding:"utf8",env:{...process.env,TZ:"America/New_York"}});
+  assert.equal(result.status,0,result.stderr);
+  const [payload,rejection]=result.stdout.trim().split("\n");
+  assert.equal(JSON.parse(payload!).local,"2026-01-02T03:04");
+  assert.equal(JSON.parse(payload!).parsed.startsAt,"2026-01-02T08:04:00.000Z");
+  assert.equal(JSON.parse(payload!).parsed.items.length,12);
+  assert.equal(rejection,"invalid_string_list");
 });

@@ -54,6 +54,14 @@ function createHookRuntime() {
       }
       throw new Error("analytics_console_hook_flush_exhausted");
     },
+    unmount() {
+      for (const slot of slots) {
+        const cleanup = (slot as { cleanup?: () => void } | undefined)?.cleanup;
+        cleanup?.();
+      }
+      dirty = false;
+    },
+    isDirty() { return dirty; },
   };
 }
 
@@ -123,7 +131,9 @@ test("analytics renders only durable commerce aggregates and finite controls", a
     "analyticsApi.dashboard",
     "analyticsApi.export",
     "LineChart",
-    "aria-label=\"Gelir zaman serisi\"",
+    "role=\"img\"",
+    "timeZone: \"UTC\"",
+    "aria-label=\"Gelir zaman serisi; seçili dönemde kalıcı sipariş gelirini gösterir\"",
     "requestVersion",
   ]) {
     assert.match(value, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -133,6 +143,9 @@ test("analytics renders only durable commerce aggregates and finite controls", a
   }
   assert.match(value, /error instanceof AnalyticsApiError/);
   assert.doesNotMatch(value, /caught[.]message|Error[.]message|console[.](log|error)/);
+  assert.match(value, /formatMoney\(Number\(value\), dashboard[.]currency\)/);
+  assert.doesNotMatch(value, /formatMoney\(Number\(value\) \* 100/);
+  for (const label of ["Bugün", "Bu hafta", "Bu ay", "Bu yıl"]) assert.match(value, new RegExp(label));
 });
 
 test("period changes ignore stale results and export failures surface a stable message", async () => {
@@ -148,7 +161,7 @@ test("period changes ignore stale results and export failures surface a stable m
   });
   let view = await runtime.flush(AnalyticsDashboard);
   let weekButton: React.ReactElement<Record<string, unknown>> | undefined;
-  visit(view, (element) => { if (element.type === "button" && element.props.children === "7 gün") weekButton = element; });
+  visit(view, (element) => { if (element.type === "button" && element.props.children === "Bu hafta") weekButton = element; });
   assert.ok(weekButton);
   (weekButton.props.onClick as () => void)();
   view = await runtime.flush(AnalyticsDashboard);
@@ -170,6 +183,43 @@ test("period changes ignore stale results and export failures surface a stable m
   view = await runtime.flush(AnalyticsDashboard);
   assert.match(text(view), /Analitik verileri şu anda kullanılamıyor/);
   assert.doesNotMatch(text(view), /network secret/);
+});
+
+test("analytics cleanup suppresses stale updates and always revokes an export URL", async () => {
+  let resolveDashboard: ((value: unknown) => void) | undefined;
+  const pending = new Promise<unknown>((resolve) => { resolveDashboard = resolve; });
+  const { AnalyticsDashboard, runtime } = await compileAnalyticsDashboard({
+    dashboard: () => pending,
+    export: async () => "title,revenue\nDurable,25000\n",
+  });
+  await runtime.flush(AnalyticsDashboard);
+  runtime.unmount();
+  resolveDashboard?.(dashboard("month", 25_000));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(runtime.isDirty(), false);
+
+  const ready = await compileAnalyticsDashboard({
+    dashboard: async () => dashboard("month", 25_000),
+    export: async () => "title,revenue\nDurable,25000\n",
+  });
+  let view = await ready.runtime.flush(ready.AnalyticsDashboard);
+  view = await ready.runtime.flush(ready.AnalyticsDashboard);
+  let csvButton: React.ReactElement<Record<string, unknown>> | undefined;
+  visit(view, (element) => { if (element.type === "button" && element.props.children === "CSV dışa aktar") csvButton = element; });
+  assert.ok(csvButton);
+  const originalUrl = globalThis.URL;
+  const originalDocument = globalThis.document;
+  let revoked = 0;
+  Object.defineProperty(globalThis, "URL", { configurable: true, value: { createObjectURL: () => "blob:analytics", revokeObjectURL: () => { revoked += 1; } } });
+  Object.defineProperty(globalThis, "document", { configurable: true, value: { createElement: () => ({ href: "", download: "", click: () => { throw new Error("download_click_failed"); } }) } });
+  try {
+    (csvButton.props.onClick as () => void)();
+    await ready.runtime.flush(ready.AnalyticsDashboard);
+    assert.equal(revoked, 1);
+  } finally {
+    Object.defineProperty(globalThis, "URL", { configurable: true, value: originalUrl });
+    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+  }
 });
 
 test("analytics page is behind server access and analytics capability only", async () => {

@@ -30,6 +30,7 @@ export interface MerchantModuleFieldDefinition {
   readonly key: string;
   readonly label: string;
   readonly allowedValues?: readonly string[];
+  readonly optionLabels?: Readonly<Record<string, string>>;
   readonly placeholder?: string;
   readonly type: MerchantModuleFieldType;
 }
@@ -59,8 +60,9 @@ function field(
   type: MerchantModuleFieldType = "text",
   placeholder?: string,
   allowedValues?: readonly string[],
+  optionLabels?: Readonly<Record<string, string>>,
 ): MerchantModuleFieldDefinition {
-  return Object.freeze({ key, label, type, ...(placeholder ? { placeholder } : {}), ...(allowedValues ? { allowedValues: Object.freeze([...allowedValues]) } : {}) });
+  return Object.freeze({ key, label, type, ...(placeholder ? { placeholder } : {}), ...(allowedValues ? { allowedValues: Object.freeze([...allowedValues]) } : {}), ...(optionLabels ? { optionLabels: Object.freeze({ ...optionLabels }) } : {}) });
 }
 
 function definition(
@@ -99,7 +101,7 @@ export const MERCHANT_MODULE_DEFINITIONS = Object.freeze([
   definition({ kind: "notification_setting", family: "settings", route: "/settings/notifications", title: "Bildirimler", singular: "bildirim profili", description: "Kanal tercihlerini gizli sağlayıcı bilgisi almadan yönetin.", fields: [field("emailEnabled", "E-posta", "boolean"), field("smsEnabled", "SMS", "boolean"), field("pushEnabled", "Push", "boolean"), field("senderLabel", "Gönderici etiketi"), field("replyToEmail", "Yanıt adresi", "email")] }),
   definition({ kind: "hero_banner", family: "settings", route: "/settings/hero-banner", title: "Hero Banner", singular: "hero banner", description: "Vitrin kahraman alanını kalıcı olarak yönetin.", fields: [field("headline", "Başlık"), field("body", "Açıklama", "textarea"), field("imageUrl", "Görsel", "url"), field("destination", "Hedef"), field("enabled", "Etkin", "boolean")] }),
   definition({ kind: "promotion_banner", family: "settings", route: "/settings/promotion-banner", title: "Promosyon Banner", singular: "promosyon banner", description: "Zaman aralıklı promosyon mesajını yönetin.", fields: [field("headline", "Başlık"), field("body", "Açıklama", "textarea"), field("destination", "Hedef"), field("startsAt", "Başlangıç", "datetime"), field("endsAt", "Bitiş", "datetime"), field("enabled", "Etkin", "boolean")] }),
-  definition({ kind: "marquee_setting", family: "settings", route: "/settings/marquee", title: "Kayan Duyuru", singular: "kayan duyuru", description: "Vitrin duyuru şeridini sınırlı seçeneklerle yönetin.", fields: [field("items", "Duyurular", "string-list", "Her satıra bir duyuru"), field("icon", "Simge", "enum", undefined, ["none", "sparkle", "truck", "shield"]), field("speed", "Hız", "enum", undefined, ["slow", "normal", "fast"]), field("direction", "Yön", "enum", undefined, ["left", "right"]), field("animation", "Animasyon", "enum", undefined, ["continuous", "step"]), field("enabled", "Etkin", "boolean")] }),
+  definition({ kind: "marquee_setting", family: "settings", route: "/settings/marquee", title: "Kayan Duyuru", singular: "kayan duyuru", description: "Vitrin duyuru şeridini sınırlı seçeneklerle yönetin.", fields: [field("items", "Duyurular", "string-list", "Her satıra bir duyuru"), field("icon", "Simge", "enum", undefined, ["none", "sparkle", "truck", "shield"], { none: "Yok", sparkle: "Parıltı", truck: "Kamyon", shield: "Kalkan" }), field("speed", "Hız", "enum", undefined, ["slow", "normal", "fast"], { slow: "Yavaş", normal: "Normal", fast: "Hızlı" }), field("direction", "Yön", "enum", undefined, ["left", "right"], { left: "Sola", right: "Sağa" }), field("animation", "Animasyon", "enum", undefined, ["continuous", "step"], { continuous: "Sürekli", step: "Adımlı" }), field("enabled", "Etkin", "boolean")] }),
   definition({ kind: "accounting_profile", family: "accounting", route: "/accounting", title: "Muhasebe", singular: "muhasebe profili", description: "Fatura kimliği ve mali işletme bilgilerini yönetin.", fields: [field("legalName", "Ticari unvan"), field("taxOffice", "Vergi dairesi"), field("taxNumber", "Vergi numarası"), field("invoiceEmail", "Fatura e-postası", "email")] }),
   definition({ kind: "invoice_integration", family: "accounting", route: "/accounting/invoicing-integration", title: "Fatura Entegrasyonu", singular: "fatura entegrasyonu", description: "Fatura sağlayıcısı hesap eşlemesini ve durumunu yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "reconciliation", actionLabel: "Uzlaştırma hazırlığı", requiredFields: ["provider", "accountReference", "enabled"] }, fields: [field("provider", "Sağlayıcı"), field("accountReference", "Hesap referansı"), field("enabled", "Etkinleştirme isteği", "boolean")] }),
   definition({ kind: "seo_control", family: "seo", route: "/seo", title: "SEO Kontrol", singular: "SEO profili", description: "Mağaza arama görünürlüğü ve varsayılan meta alanlarını yönetin.", fields: [field("metaTitle", "Meta başlık"), field("metaDescription", "Meta açıklama", "textarea"), field("allowIndex", "İndekslemeye izin ver", "boolean")] }),
@@ -179,7 +181,10 @@ export function formatMerchantAdminConfig(
 ) {
   return Object.freeze(definition.fields.flatMap((entry) => {
     if (!Object.hasOwn(config, entry.key)) return [];
-    const value = displayValue(config[entry.key]!);
+    const rawValue = config[entry.key]!;
+    const value = entry.type === "enum" && typeof rawValue === "string"
+      ? entry.optionLabels?.[rawValue] ?? rawValue
+      : displayValue(rawValue);
     return value === null ? [] : [Object.freeze({ label: entry.label, value })];
   }));
 }
