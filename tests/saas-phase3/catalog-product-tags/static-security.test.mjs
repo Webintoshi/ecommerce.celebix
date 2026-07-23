@@ -26,11 +26,20 @@ test("barcode UI is read-only and projects only persisted variant barcodes", () 
   const component = read(
     "apps/customer-panel/components/catalog-admin/BarcodeLabelConsole.tsx",
   );
-  assert.match(component, /variant[.]barcode === undefined/);
+  const page = read(
+    "apps/customer-panel/app/products/barcode-labels/page.tsx",
+  );
+  const projection = read(
+    "apps/customer-panel/lib/catalog-admin-ui/barcode-label-projection.ts",
+  );
+  assert.match(projection, /ownValue\(variant, "barcode"\)/);
+  assert.match(projection, /parseBarcodeLabelRows\(\[candidate\]\)/);
+  assert.match(page, /projectBarcodeLabelProducts/);
+  assert.doesNotMatch(page, /ProductDetailsResult/);
   assert.match(component, /parseBarcodeLabelRows/);
   assert.match(component, /window[.]print/);
   assert.doesNotMatch(
-    component,
+    `${component}\n${page}\n${projection}`,
     /randomUUID|Math[.]random|generatedBarcode|fetch[(]|POST|PATCH|DELETE|JsBarcode/,
   );
 });

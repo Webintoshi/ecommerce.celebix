@@ -1,6 +1,9 @@
-import { isMerchantActionAllowed } from "@celebix/saas-contracts";
-import type { ProductDetailsResult } from "@celebix/saas-data";
+import {
+  isMerchantActionAllowed,
+  type BarcodeLabelRow,
+} from "@celebix/saas-contracts";
 import { BarcodeLabelConsole } from "@/components/catalog-admin/BarcodeLabelConsole";
+import { projectBarcodeLabelProducts } from "@/lib/catalog-admin-ui/barcode-label-projection";
 import { requireServerPanelAccess } from "@/lib/server-access";
 import { resolveDefaultServerCatalogRuntime } from "@/lib/server-catalog/default";
 
@@ -10,7 +13,7 @@ export default async function BarcodeLabelsPage() {
     tenantContext.membership.role,
     "catalog_admin.read",
   );
-  const products: ProductDetailsResult[] = [];
+  const products: BarcodeLabelRow[] = [];
   const runtime = canRead ? await resolveDefaultServerCatalogRuntime() : null;
   if (runtime !== null) {
     const now = new Date();
@@ -22,19 +25,20 @@ export default async function BarcodeLabelsPage() {
         pageSize: 100,
         ...(cursor === undefined ? {} : { cursor }),
       });
+      const details = await Promise.all(
+        page.items.map((product) =>
+          runtime.catalog.getProductDetails({
+            tenantContext,
+            now,
+            productId: product.id,
+          }),
+        ),
+      );
       products.push(
-        ...(await Promise.all(
-          page.items.map((product) =>
-            runtime.catalog.getProductDetails({
-              tenantContext,
-              now,
-              productId: product.id,
-            }),
-          ),
-        )),
+        ...projectBarcodeLabelProducts(details).slice(0, 500 - products.length),
       );
       cursor = page.nextCursor;
     } while (cursor !== undefined && products.length < 500);
   }
-  return <BarcodeLabelConsole products={products} />;
+  return <BarcodeLabelConsole products={Object.freeze(products)} />;
 }

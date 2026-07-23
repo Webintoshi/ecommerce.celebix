@@ -6,41 +6,13 @@ import {
   type BarcodeLabelRow,
 } from "@celebix/saas-contracts";
 
-type BarcodeProduct = Readonly<{
-  product: Readonly<{ id: string; title: string }>;
-  variants: readonly Readonly<{
-    id: string;
-    title: string;
-    sku?: string;
-    barcode?: string;
-  }>[];
-}>;
-
-function projectRows(products: readonly BarcodeProduct[]): readonly BarcodeLabelRow[] {
-  const persisted = products.flatMap(({ product, variants }) =>
-    variants.flatMap((variant) =>
-      variant.barcode === undefined
-        ? []
-        : [{
-            productId: product.id,
-            variantId: variant.id,
-            productTitle: product.title,
-            variantTitle: variant.title,
-            ...(variant.sku === undefined ? {} : { sku: variant.sku }),
-            barcode: variant.barcode,
-          }],
-    ),
-  );
-  return parseBarcodeLabelRows(persisted.slice(0, 500));
-}
-
 export function BarcodeLabelConsole({
   products,
 }: {
-  products: readonly BarcodeProduct[];
+  products: readonly BarcodeLabelRow[];
 }) {
   const [query, setQuery] = useState("");
-  const rows = useMemo(() => projectRows(products), [products]);
+  const rows = useMemo(() => parseBarcodeLabelRows(products), [products]);
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("tr-TR");
     if (needle === "") return rows;

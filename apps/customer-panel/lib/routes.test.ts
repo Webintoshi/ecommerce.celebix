@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import {
+  renderPanelRoute,
+  signedInRequest,
+  signedOutRequest,
+} from "./panel-route-test-harness.ts";
+
 async function load(relativePath: string) {
   return import(new URL(relativePath, import.meta.url).href).catch(() => ({} as Record<string, unknown>));
 }
@@ -357,6 +363,59 @@ test("tag and barcode routes remain panel-session guarded with fixed server auth
   }
   assert.match(tags, /catalog_admin[.]manage/);
   assert.match(labels, /catalog_admin[.]read/);
+});
+
+test("tag and barcode routes execute signed-out redirects and signed-in capabilities", async () => {
+  for (const path of ["/products/tags", "/products/barcode-labels"] as const) {
+    const response = await renderPanelRoute(path, signedOutRequest(path));
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("location"), "/login");
+  }
+
+  const ownerTags = await renderPanelRoute(
+    "/products/tags",
+    signedInRequest("/products/tags", "store_owner"),
+  );
+  assert.equal(ownerTags.status, 200);
+  assert.deepEqual(await ownerTags.json(), {
+    action: "catalog_admin.manage",
+    allowed: true,
+  });
+
+  const analystTags = await renderPanelRoute(
+    "/products/tags",
+    signedInRequest("/products/tags", "analyst"),
+  );
+  assert.equal(analystTags.status, 200);
+  assert.deepEqual(await analystTags.json(), {
+    action: "catalog_admin.manage",
+    allowed: false,
+  });
+
+  const analystLabels = await renderPanelRoute(
+    "/products/barcode-labels",
+    signedInRequest("/products/barcode-labels", "analyst"),
+  );
+  assert.equal(analystLabels.status, 200);
+  assert.deepEqual(await analystLabels.json(), {
+    action: "catalog_admin.read",
+    allowed: true,
+  });
+});
+
+test("panel route execution rejects query and near-match paths before session authority", async () => {
+  for (const [target, requestPath] of [
+    ["/products/tags", "/products/tags/"],
+    ["/products/tags", "/products/tags?store=attacker"],
+    ["/products/tags", "/products/tags-new"],
+    ["/products/barcode-labels", "/products/barcode-labels/"],
+    ["/products/barcode-labels", "/products/barcode-labels?print=1"],
+    ["/products/barcode-labels", "/products/barcode-labels-extra"],
+  ] as const) {
+    const response = await renderPanelRoute(target, signedOutRequest(requestPath));
+    assert.equal(response.status, 404, `${target} must reject ${requestPath}`);
+    assert.equal(response.headers.has("location"), false);
+  }
 });
 
 test("merchant record route-depth pages expose only fixed server-authorized editor kinds", async () => {

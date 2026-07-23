@@ -12,7 +12,7 @@ test("tag and barcode consoles are fixed read-only catalog surfaces", async () =
   ]);
   assert.match(resource, /tag:\s*\{\s*title:\s*"Etiketler"/);
   assert.match(labels, /parseBarcodeLabelRows/);
-  assert.match(labels, /variant[.]barcode/);
+  assert.match(labels, /parseBarcodeLabelRows\(products\)/);
   assert.match(labels, /type="search"/);
   assert.match(labels, /window[.]print[(][)]/);
   assert.match(labels, /body \* \{\s*visibility: hidden/);
@@ -25,7 +25,10 @@ test("tag and barcode consoles are fixed read-only catalog surfaces", async () =
   assert.match(barcodePage, /requireServerPanelAccess[(][)]/);
   assert.match(barcodePage, /catalog_admin[.]read/);
   assert.match(barcodePage, /tenantContext/);
-  assert.match(barcodePage, /<BarcodeLabelConsole products=\{products\}/);
+  assert.match(barcodePage, /projectBarcodeLabelProducts/);
+  assert.match(barcodePage, /<BarcodeLabelConsole products=\{Object[.]freeze\(products\)\}/);
+  assert.doesNotMatch(barcodePage, /ProductDetailsResult/);
+  assert.doesNotMatch(labels, /storeId|description|priceCents|costCents|stockQuantity|attributes|createdAt|updatedAt|version/);
   for (const page of [tagPage, barcodePage]) {
     assert.doesNotMatch(page, /searchParams|x-store-id|x-tenant-id|localStorage|sessionStorage/);
   }
