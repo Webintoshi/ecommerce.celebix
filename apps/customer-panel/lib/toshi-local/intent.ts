@@ -5,7 +5,7 @@ const UNSUPPORTED: ToshiLocalIntent = Object.freeze({ kind: "unsupported" });
 type Matcher = (normalized: string, input: string) => readonly ToshiLocalIntent[] | null;
 
 const SEARCH_PREFIX = /^(?:müşteri\s+bul|ürün\s+ara|sipariş\s+bul)\s+/u;
-const UNSAFE_OR_AMBIGUOUS_QUERY = /(?:^|\s)(?:mağaza\s+özeti|bekleyen\s+siparişler|düşük\s+stok|müşteri\s+bul|ürün\s+ara|sipariş\s+bul|ürünlere\s+git|siparişlere\s+git|müşterilere\s+git|ana\s+sayfaya\s+git|sil|silme|silmek|iptal|güncelle|değiştir|ekle|oluştur|kaldır|gönder|iade|ap[iı]\s*(?:anahtar\S*|key)|secret|token|şifre)(?:\s|$)/u;
+const UNSAFE_OR_AMBIGUOUS_QUERY = /(?:^|\s)(?:mağaza\s+özeti|bekleyen\s+siparişler|düşük\s+stok|müşteri\s+bul|ürün\s+ara|sipariş\s+bul|ürünlere\s+git|siparişlere\s+git|müşterilere\s+git|ana\s+sayfaya\s+git|sil|silme|silmek|iptal|güncelle|değiştir|ekle|oluştur|kaldır|gönder|iade|ap[iı][\s._-]*(?:anahtar\S*|key\S*)|secret|token|şifre)(?:\s|\p{P}|$)/u;
 
 function record(intent: ToshiLocalIntent): readonly ToshiLocalIntent[] {
   return Object.freeze([Object.freeze(intent)]);
