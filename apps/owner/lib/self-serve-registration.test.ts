@@ -1,12 +1,26 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
-import {
+import type { SelfServeRegistrationInput } from "./self-serve-registration.ts";
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith("@/lib/")) {
+      return {
+        shortCircuit: true,
+        url: new URL(`${specifier.slice("@/lib/".length)}.ts`, import.meta.url).href,
+      };
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
+const {
   buildSelfServeRegistrationRecord,
   normalizeSelfServeRegistrationInput,
   validateSelfServeRegistrationInput,
-  type SelfServeRegistrationInput,
-} from "./self-serve-registration";
+} = await import("./self-serve-registration.ts");
 
 const validRegistration: SelfServeRegistrationInput = {
   firstName: "Ada",

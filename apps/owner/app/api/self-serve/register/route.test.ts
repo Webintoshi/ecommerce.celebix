@@ -80,9 +80,10 @@ async function readJson(response: Response) {
 }
 
 test("production route composes only the explicit disabled runtime and exposes controlled GET", async () => {
-  assert.match(routeSource, /createSelfServeRegistrationStartHandler/);
-  assert.match(routeSource, /createDisabledSelfServeRuntime/);
-  assert.doesNotMatch(routeSource, /createPersistentSelfServeRuntime|createSelfServeHttpActivationApproval|process\.env|\bpg\b|Pool/);
+  assert.match(routeSource, /import \{ getDefaultOwnerSelfServeAuthRouteSet \} from "\.\.\/\.\.\/\.\.\/\.\.\/lib\/self-serve-auth-route-mount\/route-set\.ts"/);
+  assert.match(routeSource, /const routeSet = getDefaultOwnerSelfServeAuthRouteSet\(\)/);
+  assert.equal(routeSource.match(/return routeSet\.publicRegistration\(request\)/g)?.length, 2);
+  assert.doesNotMatch(routeSource, /createSelfServeRegistrationStartHandler|createDisabledSelfServeRuntime|createPersistentSelfServeRuntime|createSelfServeHttpActivationApproval|process\.env|\bpg\b|Pool|secret|keyMap|keys/);
   const response = await GET(new Request("https://ecommerce.celebix.co/api/self-serve/register"));
   assert.equal(response.status, 405);
   assert.equal((await readJson(response)).code, "self_serve_register_read_disabled");
