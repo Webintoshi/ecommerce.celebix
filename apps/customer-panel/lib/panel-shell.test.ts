@@ -1572,6 +1572,7 @@ function shellElements() {
     } satisfies CssTestElement,
     root,
     shell,
+    sidebar,
     topbarSubtitle: { tagName: "span", parent: topbar } satisfies CssTestElement,
   };
 }
@@ -1632,6 +1633,33 @@ function assertMinimumShellTargets(css: string): void {
         `${label} effective ${property} is ${declaration.value} from ${declaration.selector}`,
       );
     }
+  }
+}
+
+function assertDesktopMinimumShellTargets(css: string): void {
+  const declarations = parseApplicableCss(css, 1440);
+  const elements = shellElements();
+  const navigationChildren: CssTestElement = {
+    tagName: "div",
+    classNames: ["navigationChildren"],
+    parent: { tagName: "section", classNames: ["navigationGroup"], parent: elements.sidebar },
+  };
+  const sidebarFooter: CssTestElement = {
+    tagName: "div",
+    classNames: ["sidebarFooter"],
+    parent: elements.sidebar,
+  };
+  const targets: readonly [string, CssTestElement][] = [
+    ["desktop child navigation", { tagName: "a", classNames: ["navigationLink"], parent: navigationChildren }],
+    ["desktop logout", { tagName: "button", classNames: ["logout-button"], parent: sidebarFooter }],
+  ];
+  for (const [label, element] of targets) {
+    const declaration = winningDeclaration(declarations, element, ["min-height"]);
+    assert.ok(declaration, `${label} has no applicable min-height`);
+    assert.ok(
+      lengthInPixels(declaration.value) >= 48,
+      `${label} effective min-height is ${declaration.value} from ${declaration.selector}`,
+    );
   }
 }
 
@@ -1799,6 +1827,17 @@ test("drawer and dock controls keep an effective 48px minimum target", async () 
     assert.throws(() => assertMinimumShellTargets(`${css}\n${override}`), expectedFailure);
   }
   assertMinimumShellTargets(css);
+});
+
+test("desktop child navigation and logout keep an effective 48px minimum target", async () => {
+  const css = await source("components/panel/panel-shell.module.css");
+  for (const [override, expectedFailure] of [
+    [`.navigationChildren .navigationLink { min-height: 32px; }`, /desktop child navigation effective min-height is 32px/],
+    [`.sidebarFooter .logout-button { min-height: 42px; }`, /desktop logout effective min-height is 42px/],
+  ] as const) {
+    assert.throws(() => assertDesktopMinimumShellTargets(`${css}\n${override}`), expectedFailure);
+  }
+  assertDesktopMinimumShellTargets(css);
 });
 
 test("effective small shell text colors meet AA without weakening orange brand or focus tokens", async () => {
