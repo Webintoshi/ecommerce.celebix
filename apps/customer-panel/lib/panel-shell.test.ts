@@ -630,6 +630,56 @@ test("topbar launches the real Toshi identity without a remote or generated avat
   assert.doesNotMatch(utilities, /<Bot\b|https?:\/\//);
 });
 
+test("Toshi drawer is an accessible modal with complete close and focus-return behavior", async () => {
+  const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
+  const drawer = await source("components/toshi/ToshiDrawer.tsx");
+  const styles = await source("components/toshi/toshi.module.css");
+
+  assert.match(utilities, /<ToshiDrawer[\s\S]*?open=\{helpOpen\}[\s\S]*?launcherRef=\{helpButtonRef\}[\s\S]*?onClose=/);
+  assert.match(utilities, /aria-controls="toshi-assistant-drawer"/);
+  assert.match(drawer, /id="toshi-assistant-drawer"/);
+  assert.match(drawer, /role="dialog"/);
+  assert.match(drawer, /aria-modal="true"/);
+  assert.match(drawer, /aria-labelledby="toshi-assistant-title"/);
+  assert.match(drawer, /event[.]key === "Escape"[\s\S]*?onClose\(\)/);
+  assert.match(drawer, /className=\{styles[.]backdrop\}[\s\S]*?onClick=\{onClose\}/);
+  assert.match(drawer, /aria-label="Toshi asistanını kapat"[\s\S]*?onClick=\{onClose\}/);
+  assert.match(drawer, /launcherRef[.]current[?][.]focus\(\)/);
+  assert.match(drawer, /document[.]body[.]style[.]overflow = "hidden"/);
+  assert.match(drawer, /href="\/toshi"/);
+
+  assert.match(styles, /[.]drawer\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?width:\s*min\(27rem,\s*calc\(100vw - 1rem\)\)/);
+  assert.match(styles, /@media\s*\(max-width:\s*1024px\)[\s\S]*?[.]drawer\s*\{[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100dvh;/);
+  assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?[.]drawer\s*\{[\s\S]*?transition-duration:\s*0[.]01ms;/);
+  assert.match(styles, /min-height:\s*48px/);
+  assert.match(styles, /min-width:\s*48px/);
+});
+
+test("Toshi conversation executes one abortable local command without seeded or mutation data", async () => {
+  const assistant = await source("components/toshi/ToshiAssistant.tsx");
+  const workspace = await source("components/toshi/ToshiWorkspace.tsx");
+
+  assert.match(assistant, /createToshiLocalClient/);
+  assert.match(assistant, /parseToshiLocalIntent/);
+  assert.match(assistant, /useState<readonly ConversationEntry\[]>\(\[\]\)/);
+  assert.match(assistant, /if \(pendingRef[.]current \|\| command[.]trim\(\)[.]length === 0\) return;/);
+  assert.match(assistant, /pendingRef[.]current = true/);
+  assert.match(assistant, /new AbortController\(\)/);
+  assert.match(assistant, /client[.]execute\(intent, controller[.]signal\)/);
+  assert.match(assistant, /abortRef[.]current[?][.]abort\(\)/);
+  assert.match(assistant, /aria-live="polite"/);
+  assert.match(assistant, /disabled=\{pending\}/);
+  assert.match(assistant, />Mağaza özeti</);
+  assert.match(assistant, />Bekleyen siparişler</);
+  assert.match(assistant, />Düşük stok</);
+  assert.match(assistant, />Müşteri bul &lt;ad&gt;</);
+  assert.match(assistant, />Ürün ara &lt;ad veya SKU&gt;</);
+  assert.match(assistant, />Sipariş bul &lt;numara&gt;</);
+  assert.match(assistant, />Ürünlere git</);
+  assert.doesNotMatch(assistant, /storeId|tenantId|principalId|membershipId|planId|authorization|x-celebix|\/api\/admin/i);
+  assert.match(workspace, /<ToshiAssistant mode="page"/);
+});
+
 test("desktop sidebar matches the approved compact Celebix navigation anatomy", async () => {
   const navigation = await renderPanelNavigation("/");
   const sidebar = await source("components/panel/PanelSidebar.tsx");
