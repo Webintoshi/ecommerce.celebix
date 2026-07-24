@@ -110,15 +110,59 @@ test("static merchant hubs claim navigation only while marketing retains durable
   );
 });
 
-test("grouped merchant and customer taxonomy evidence executes route component client and handler behavior", () => {
-  const grouped = HEMENAKU_DONOR_PARITY.filter(({ authority, donorPath, actionSet }) =>
-    (authority === "merchant_admin" && actionSet.includes("list_records")) ||
-    donorPath === "/musteriler/etiketler" ||
-    donorPath === "/musteriler/segmentler",
-  );
-  assert.ok(grouped.length > 30);
-  for (const entry of grouped) {
-    assert.match(entry.evidenceTest, /route-behavior[.]test[.]ts#/u, entry.donorPath);
-    assert.doesNotMatch(entry.evidenceTest, /client[.]test[.]ts|route files expose only/u, entry.donorPath);
+test("every merchant row uses route-specific behavioral evidence for its exact action family", () => {
+  const merchantRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states";
+  const merchantRecordRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay";
+  const merchantHubEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#static merchant hubs invoke actual pages and expose only canonical destination links";
+  const recordRoutes = new Set([
+    "/settings/payment/new",
+    "/settings/payment/[recordId]/edit",
+    "/content/blog/new",
+    "/content/blog/[recordId]/edit",
+    "/content/pages/new",
+    "/content/pages/[recordId]/edit",
+    "/content/policies/[recordId]/edit",
+    "/discounts/new",
+    "/discounts/[recordId]/edit",
+  ]);
+  const staticHubs = new Set(["/settings", "/settings/design", "/content"]);
+  const merchantRows = HEMENAKU_DONOR_PARITY.filter(({ authority }) => authority === "merchant_admin");
+  assert.equal(merchantRows.length, 48);
+  for (const entry of merchantRows) {
+    if (entry.status === "legacy_rejected") continue;
+    if (entry.targetPath === "/login") continue;
+    const expectedEvidence = recordRoutes.has(entry.targetPath)
+      ? merchantRecordRouteEvidence
+      : staticHubs.has(entry.targetPath)
+        ? merchantHubEvidence
+        : merchantRouteEvidence;
+    assert.equal(entry.evidenceTest, expectedEvidence, entry.donorPath);
+    assert.doesNotMatch(entry.evidenceTest, /client[.]test[.]ts|presentation[.]test[.]ts|route files expose only/u, entry.donorPath);
+    if (entry.targetPath.endsWith("/new")) assert.deepEqual(entry.actionSet, ["create_record"], entry.donorPath);
+    if (entry.targetPath.includes("/[recordId]/edit")) assert.deepEqual(entry.actionSet, ["read_exact_record", "update_record"], entry.donorPath);
   }
+  assert.equal([...recordRoutes].every((targetPath) => merchantRows.some((entry) => entry.targetPath === targetPath)), true);
+});
+
+test("every customer row uses the behavioral evidence family that executes its exact route actions", () => {
+  const customerRouteEvidence = "apps/customer-panel/lib/customer-ui/route-behavior.test.ts#customer route matrix invokes actual list detail edit and new pages through real clients and handlers";
+  const taxonomyEvidence = "apps/customer-panel/lib/customer-ui/taxonomy-route-behavior.test.ts#customer taxonomy routes invoke actual pages, production consoles, clients, and handlers across truth and mutation states";
+  const rows = HEMENAKU_DONOR_PARITY.filter(({ authority }) => authority === "customers");
+  assert.equal(rows.length, 6);
+  for (const entry of rows) {
+    const expected = entry.targetPath === "/customers/tags" || entry.targetPath === "/customers/segments"
+      ? taxonomyEvidence
+      : customerRouteEvidence;
+    assert.equal(entry.evidenceTest, expected, entry.donorPath);
+    assert.match(entry.evidenceTest, /route-behavior[.]test[.]ts#/u, entry.donorPath);
+    assert.doesNotMatch(entry.evidenceTest, /client[.]test[.]ts|customer-console[.]test[.]ts|route files expose only/u, entry.donorPath);
+  }
+  assert.deepEqual(rows.map(({ targetPath, actionSet }) => [targetPath, actionSet]), [
+    ["/customers", ["list_records", "read_exact_record", "create_record", "export_records"]],
+    ["/customers/[customerId]", ["read_exact_record", "update_record", "archive_record", "add_customer_note", "set_customer_tags", "set_customer_segments"]],
+    ["/customers/[customerId]/edit", ["read_exact_record", "update_record"]],
+    ["/customers/tags", ["list_records", "create_record"]],
+    ["/customers/segments", ["list_records", "create_record"]],
+    ["/customers/new", ["create_record"]],
+  ]);
 });

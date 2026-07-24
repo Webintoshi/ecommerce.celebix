@@ -35,8 +35,10 @@ type Scenario = {
   records: "loaded" | "empty";
   failure: "none" | "unavailable" | "membership_denied";
   archive: "success" | "version_conflict" | "replayed";
+  save: "success" | "version_conflict" | "replayed";
   role: Role;
-  recordStatus: "active" | "archived";
+  recordName: string;
+  recordStatus: "active" | "draft" | "archived";
   recordVersion: number;
   jobs: contracts.MerchantAdminProviderJob[];
 };
@@ -86,7 +88,7 @@ function recordFor(scenario: Scenario): contracts.MerchantAdminRecord {
   return {
     id: RECORD_ID,
     kind: scenario.kind,
-    name: `${scenario.kind} durable record`,
+    name: scenario.recordName,
     config: configFor(definition),
     status: scenario.recordStatus,
     version: scenario.recordVersion,
@@ -169,6 +171,8 @@ function visitElements(node: ReactNode, visitor: (element: React.ReactElement<Re
     if (!React.isValidElement<Record<string, unknown>>(child)) return;
     visitor(child);
     visitElements(child.props.children as ReactNode, visitor);
+    visitElements(child.props.actions as ReactNode, visitor);
+    visitElements(child.props.action as ReactNode, visitor);
   });
 }
 
@@ -184,6 +188,8 @@ function textOf(node: ReactNode) {
       if (typeof child.props[key] === "string") values.push(child.props[key]);
     }
     values.push(textOf(child.props.children as ReactNode));
+    values.push(textOf(child.props.actions as ReactNode));
+    values.push(textOf(child.props.action as ReactNode));
   });
   return values.join(" ");
 }
@@ -336,7 +342,7 @@ async function compileBoundPage(
     throw new Error(`unexpected_bound_page_import:${route}:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
-  return compiled.exports.default as () => Promise<ReactNode>;
+  return compiled.exports.default as (props?: Record<string, unknown>) => Promise<ReactNode>;
 }
 
 function request(path: string, init?: RequestInit) {
@@ -352,7 +358,9 @@ test("merchant route matrix invokes every actual page, production console, clien
     records: "loaded",
     failure: "none",
     archive: "success",
+    save: "success",
     role: "store_owner",
+    recordName: "discount durable record",
     recordStatus: "active",
     recordVersion: 1,
     jobs: [],
@@ -364,10 +372,37 @@ test("merchant route matrix invokes every actual page, production console, clien
       if (scenario.failure !== "none") throw new MerchantAdminRepositoryError(scenario.failure);
       return scenario.records === "empty" ? [] : [recordFor({ ...scenario, kind: input.kind })];
     },
-    async get() { return recordFor(scenario); },
+    async get(input) {
+      assert.equal(input.kind, scenario.kind);
+      assert.equal(input.recordId, RECORD_ID);
+      mutations.push(`read:${scenario.kind}:${input.recordId}`);
+      return recordFor(scenario);
+    },
     async listEvents() { return []; },
     async listProviderJobs() { return scenario.jobs; },
-    async save() { throw new Error("unexpected_save"); },
+    async save(input) {
+      mutations.push(`save:${scenario.kind}:${input.recordId ? "update" : "create"}`);
+      if (scenario.save === "version_conflict") throw new MerchantAdminRepositoryError("version_conflict");
+      assert.equal(input.kind, scenario.kind);
+      if (input.recordId) {
+        assert.equal(input.recordId, RECORD_ID);
+        assert.equal(input.expectedVersion, scenario.recordVersion);
+      } else {
+        assert.equal(input.expectedVersion, undefined);
+      }
+      scenario.records = "loaded";
+      scenario.recordName = input.name;
+      scenario.recordStatus = input.status;
+      scenario.recordVersion = (input.expectedVersion ?? 0) + 1;
+      return {
+        id: RECORD_ID,
+        kind: scenario.kind,
+        status: scenario.recordStatus,
+        version: scenario.recordVersion,
+        updatedAt: NOW,
+        replayed: scenario.save === "replayed",
+      };
+    },
     async archive() {
       mutations.push(`archive:${scenario.kind}`);
       if (scenario.archive === "version_conflict") throw new MerchantAdminRepositoryError("version_conflict");
@@ -453,7 +488,9 @@ test("merchant route matrix invokes every actual page, production console, clien
       records: "loaded",
       failure: "none",
       archive: "success",
+      save: "success",
       role: "store_owner",
+      recordName: `${definition.kind} durable record`,
       recordStatus: "active",
       recordVersion: 1,
       jobs: [],
@@ -476,6 +513,10 @@ test("merchant route matrix invokes every actual page, production console, clien
     assert.match(textOf(mounted.view), new RegExp(`${definition.kind} durable record`), `${definition.kind}:loaded`);
     assert.ok(paths.includes(`/api/merchant-admin/records/${definition.kind}`), `${definition.kind}:handler-list`);
     assert.ok(paths.includes(`/api/merchant-admin/events/${definition.kind}`), `${definition.kind}:handler-events`);
+    const exact = await api.record(definition.kind, RECORD_ID);
+    assert.equal(exact.id, RECORD_ID, `${definition.kind}:exact-record`);
+    assert.ok(paths.includes(`/api/merchant-admin/records/${definition.kind}/${RECORD_ID}`), `${definition.kind}:handler-exact-record`);
+    assert.ok(mutations.includes(`read:${definition.kind}:${RECORD_ID}`), `${definition.kind}:repository-exact-record`);
 
     mounted = await mount(definition, { records: "empty" });
     assert.match(textOf(mounted.view), new RegExp(`Henüz ${definition.singular} yok`, "u"), `${definition.kind}:empty`);
@@ -507,6 +548,91 @@ test("merchant route matrix invokes every actual page, production console, clien
     mounted.view = await mounted.hooks.flush(mounted.render);
     assert.match(textOf(mounted.view), /Kayıt arşivlendi/u, `${definition.kind}:replay`);
     assert.ok(mutations.includes(`archive:${definition.kind}`), `${definition.kind}:archive-handler`);
+  }
+
+  async function submitInlineRecord(
+    definition: MerchantModuleDefinition,
+    action: "create" | "update",
+    save: Scenario["save"],
+  ) {
+    const mounted = await mount(definition, { records: action === "create" ? "empty" : "loaded", save });
+    const trigger = findElement(mounted.view, (element) => element.type === "button" && (
+      action === "create"
+        ? textOf(element).includes("Yeni kayıt") || (textOf(element).includes(definition.singular) && textOf(element).includes("oluştur"))
+        : typeof element.props["aria-label"] === "string" && String(element.props["aria-label"]).endsWith("kaydını düzenle")
+    ));
+    const originalDocument = globalThis.document;
+    const originalWindow = globalThis.window;
+    const originalFormData = globalThis.FormData;
+    class TestFormData {
+      constructor(private readonly target: { values: Readonly<Record<string, string | readonly string[]>> }) {}
+      get(name: string) {
+        const value = this.target.values[name];
+        return Array.isArray(value) ? value[0] ?? null : value ?? null;
+      }
+      getAll(name: string) {
+        const value = this.target.values[name];
+        return value === undefined ? [] : Array.isArray(value) ? [...value] : [value];
+      }
+    }
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: { activeElement: null, body: { style: { overflow: "" } } },
+    });
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { addEventListener() {}, removeEventListener() {} },
+    });
+    Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
+    try {
+      (trigger.props.onClick as (event: { currentTarget: { focus(): void } }) => void)({ currentTarget: { focus() {} } });
+      mounted.view = await mounted.hooks.flush(mounted.render);
+      const form = findElement(mounted.view, (element) => element.type === "form");
+      const values: Record<string, string | readonly string[]> = {
+        name: `${definition.kind} ${action} persisted`,
+        status: "active",
+      };
+      for (const field of definition.fields) {
+        values[field.key] = field.type === "boolean"
+          ? "on"
+          : field.type === "number"
+            ? "5"
+            : field.type === "datetime"
+              ? "2026-07-22T15:00:00.000"
+              : field.type === "enum-list"
+                ? [field.allowedValues?.[0] ?? "configured"]
+                : field.type === "enum"
+                  ? field.allowedValues?.[0] ?? "configured"
+                  : field.type === "string-list"
+                    ? "configured"
+                    : `${field.key} configured`;
+      }
+      await (form.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string | readonly string[]>>; reset(): void } }) => Promise<void>)({
+        preventDefault() {},
+        currentTarget: { values, reset() {} },
+      });
+      mounted.view = await mounted.hooks.flush(mounted.render);
+      assert.ok(mutations.includes(`save:${definition.kind}:${action}`), `${definition.kind}:${action}:${save}:handler`);
+      assert.ok(paths.includes(`/api/merchant-admin/records/${definition.kind}`), `${definition.kind}:${action}:${save}:path`);
+      if (save === "version_conflict") {
+        assert.match(textOf(mounted.view), /sizden önce güncellendi/u, `${definition.kind}:${action}:conflict`);
+      } else {
+        assert.match(textOf(mounted.view), /Kayıt kalıcı olarak kaydedildi/u, `${definition.kind}:${action}:${save}:saved`);
+        assert.equal(scenario.recordName, `${definition.kind} ${action} persisted`);
+      }
+    } finally {
+      Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+      Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+      Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
+    }
+  }
+
+  const inlineDefinitions = MERCHANT_MODULE_DEFINITIONS.filter(({ kind }) => recordRoute.createRouteFor(kind) === undefined);
+  for (const definition of inlineDefinitions) {
+    await submitInlineRecord(definition, "create", "success");
+    await submitInlineRecord(definition, "update", "success");
+    await submitInlineRecord(definition, "update", "version_conflict");
+    await submitInlineRecord(definition, "update", "replayed");
   }
 
   for (const definition of MERCHANT_MODULE_DEFINITIONS.filter(({ workflow }) => workflow !== undefined)) {
@@ -559,6 +685,258 @@ test("merchant route matrix invokes every actual page, production console, clien
     assert.ok(paths.includes(`/api/merchant-admin/records/${kind}`), `/marketing:${kind}`);
   }
   assert.match(textOf(marketingView).replace(/\s+/gu, " "), /E-posta 1 Kalıcı kampanya kaydı Yönet/u);
+});
+
+test("merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay", async () => {
+  type SaveMode = "success" | "version_conflict" | "replayed";
+  type RouteCase = Readonly<{
+    route: string;
+    kind: contracts.MerchantAdminRecordKind;
+    returnTo: string;
+    mode: "create" | "edit";
+    component: "console" | "editor";
+  }>;
+  const cases: readonly RouteCase[] = Object.freeze([
+    { route: "/settings/payment/new", kind: "payment_setting", returnTo: "/settings/payment", mode: "create", component: "editor" },
+    { route: "/settings/payment/[recordId]/edit", kind: "payment_setting", returnTo: "/settings/payment", mode: "edit", component: "editor" },
+    { route: "/content/blog/new", kind: "blog_post", returnTo: "/content/blog", mode: "create", component: "editor" },
+    { route: "/content/blog/[recordId]/edit", kind: "blog_post", returnTo: "/content/blog", mode: "edit", component: "editor" },
+    { route: "/content/pages/new", kind: "page", returnTo: "/content/pages", mode: "create", component: "editor" },
+    { route: "/content/pages/[recordId]/edit", kind: "page", returnTo: "/content/pages", mode: "edit", component: "editor" },
+    { route: "/content/policies/[recordId]/edit", kind: "policy", returnTo: "/content/policies", mode: "edit", component: "editor" },
+    { route: "/discounts/new", kind: "discount", returnTo: "/discounts", mode: "create", component: "console" },
+    { route: "/discounts/[recordId]/edit", kind: "discount", returnTo: "/discounts", mode: "edit", component: "editor" },
+  ]);
+  let activeCase = cases[0]!;
+  let saveMode: SaveMode = "success";
+  let stored: contracts.MerchantAdminRecord | undefined;
+  const reads: Array<Readonly<{ kind: contracts.MerchantAdminRecordKind; recordId: string }>> = [];
+  const writes: Array<Readonly<{
+    kind: contracts.MerchantAdminRecordKind;
+    recordId?: string;
+    expectedVersion?: number;
+    operationId: string;
+    replayed: boolean;
+  }>> = [];
+  const paths: string[] = [];
+  const repository: MerchantAdminRepository = {
+    async list(input) {
+      assert.equal(input.kind, activeCase.kind);
+      return stored ? [stored] : [];
+    },
+    async get(input) {
+      reads.push({ kind: input.kind, recordId: input.recordId });
+      assert.equal(input.kind, activeCase.kind);
+      assert.equal(input.recordId, RECORD_ID);
+      if (!stored) throw new MerchantAdminRepositoryError("record_not_found");
+      return stored;
+    },
+    async listEvents() { return []; },
+    async listProviderJobs() { return []; },
+    async save(input) {
+      if (saveMode === "version_conflict") throw new MerchantAdminRepositoryError("version_conflict");
+      assert.equal(input.kind, activeCase.kind);
+      assert.equal(input.recordId, activeCase.mode === "edit" ? RECORD_ID : undefined);
+      assert.equal(input.expectedVersion, activeCase.mode === "edit" ? 7 : undefined);
+      const next: contracts.MerchantAdminRecord = {
+        id: input.recordId ?? RECORD_ID,
+        kind: input.kind,
+        name: input.name,
+        config: input.config,
+        status: input.status,
+        version: (input.expectedVersion ?? 0) + 1,
+        createdAt: stored?.createdAt ?? NOW,
+        updatedAt: NOW,
+      };
+      stored = next;
+      const replayed = saveMode === "replayed";
+      writes.push({
+        kind: input.kind,
+        ...(input.recordId ? { recordId: input.recordId, expectedVersion: input.expectedVersion } : {}),
+        operationId: input.operationId,
+        replayed,
+      });
+      return {
+        id: next.id,
+        kind: next.kind,
+        status: next.status,
+        version: next.version,
+        updatedAt: next.updatedAt,
+        replayed,
+      };
+    },
+    async archive() { throw new Error("unexpected_non_default_archive"); },
+    async prepareProviderJob() { throw new Error("unexpected_non_default_prepare"); },
+    async cancelProviderJob() { throw new Error("unexpected_non_default_cancel"); },
+  };
+  const handlers = createMerchantAdminHttpHandlers({
+    async resolveRuntime() {
+      return {
+        merchantAdmin: repository,
+        access: {
+          readiness: { mode: "approved_staging" },
+          panelOrigin: ORIGIN,
+          async resolveCredential() { return { kind: "authenticated", session: {}, tenantContext: tenant("store_owner") }; },
+          async rotateCredential() { return { kind: "unavailable" }; },
+          async revokeCredential() { return { kind: "unavailable" }; },
+        },
+      } as never;
+    },
+    now: () => new Date(NOW),
+    requestId: () => REQUEST_ID,
+  });
+  const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    paths.push(path);
+    let match = /^\/api\/merchant-admin\/records\/([^/]+)\/([^/]+)$/u.exec(path);
+    if (match) return handlers.record(request(path, init), match[1]!, match[2]!);
+    match = /^\/api\/merchant-admin\/records\/([^/]+)$/u.exec(path);
+    if (match) return init?.method === "POST"
+      ? handlers.save(request(path, init), match[1]!)
+      : handlers.records(request(path, init), match[1]!);
+    match = /^\/api\/merchant-admin\/events\/([^/]+)$/u.exec(path);
+    if (match) return handlers.events(request(path, init), match[1]!);
+    throw new Error(`unexpected_non_default_route_path:${path}`);
+  }) as typeof fetch;
+  const api = createMerchantAdminApi(fetcher, () => OPERATION_ID);
+  const pushes: string[] = [];
+  let refreshes = 0;
+
+  const originalFormData = globalThis.FormData;
+  const originalDocument = globalThis.document;
+  const originalWindow = globalThis.window;
+  class TestFormData {
+    readonly values: Readonly<Record<string, string | readonly string[]>>;
+    constructor(target: { values: Readonly<Record<string, string | readonly string[]>> }) {
+      this.values = target.values;
+    }
+    get(name: string) {
+      const value = this.values[name];
+      return Array.isArray(value) ? value[0] ?? null : value ?? null;
+    }
+    getAll(name: string) {
+      const value = this.values[name];
+      return value === undefined ? [] : Array.isArray(value) ? [...value] : [value];
+    }
+  }
+  Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: { activeElement: null, body: { style: { overflow: "" } } },
+  });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { addEventListener() {}, removeEventListener() {} },
+  });
+  try {
+    for (const routeCase of cases) {
+      for (const mode of ["success", "version_conflict", "replayed"] as const) {
+        activeCase = routeCase;
+        saveMode = mode;
+        stored = routeCase.mode === "edit"
+          ? { ...recordFor({ kind: routeCase.kind, records: "loaded", failure: "none", archive: "success", save: "success", role: "store_owner", recordName: `${routeCase.kind} durable record`, recordStatus: "active", recordVersion: 7, jobs: [] }), version: 7 }
+          : undefined;
+        reads.length = 0;
+        writes.length = 0;
+        paths.length = 0;
+        pushes.length = 0;
+        refreshes = 0;
+        const hooks = createHookRuntime();
+        let component: (props: Record<string, unknown>) => ReactNode;
+        let routeElement: React.ReactElement<Record<string, unknown>>;
+        if (routeCase.component === "console") {
+          const Console = await compileConsole(hooks.runtime, api);
+          const Page = await compilePage(routeCase.route, Console, "store_owner");
+          const pageTree = await Page();
+          routeElement = findElement(pageTree, (element) => element.type === Console);
+          assert.deepEqual(
+            { kind: routeElement.props.kind, canManage: routeElement.props.canManage, createFirst: routeElement.props.createFirst },
+            { kind: routeCase.kind, canManage: true, createFirst: true },
+            `${routeCase.route}:${mode}:page-binding`,
+          );
+          component = Console as (props: Record<string, unknown>) => ReactNode;
+        } else {
+          const Editor = await compileComponent(
+            "../../components/merchant-admin/MerchantRecordEditor.tsx",
+            "MerchantRecordEditor",
+            hooks.runtime,
+            {
+              "@celebix/saas-contracts": contracts,
+              "next/navigation": { useRouter: () => ({ push: (path: string) => { pushes.push(path); }, refresh: () => { refreshes += 1; } }) },
+              "@/components/panel/PanelPageShell": panelComponents(),
+              "@/lib/merchant-admin-ui/client": { MerchantAdminApiError, merchantAdminApi: api },
+              "@/lib/merchant-admin-ui/presentation": presentation,
+            },
+          );
+          const Page = await compileBoundPage(
+            routeCase.route,
+            "@/components/merchant-admin/MerchantRecordEditor",
+            "MerchantRecordEditor",
+            Editor,
+            "store_owner",
+          );
+          const pageTree = await Page(routeCase.mode === "edit" ? { params: Promise.resolve({ recordId: RECORD_ID }) } : undefined);
+          routeElement = findElement(pageTree, (element) => element.type === Editor);
+          assert.deepEqual(
+            {
+              kind: routeElement.props.kind,
+              recordId: routeElement.props.recordId,
+              returnTo: routeElement.props.returnTo,
+              canManage: routeElement.props.canManage,
+            },
+            {
+              kind: routeCase.kind,
+              recordId: routeCase.mode === "edit" ? RECORD_ID : undefined,
+              returnTo: routeCase.returnTo,
+              canManage: true,
+            },
+            `${routeCase.route}:${mode}:page-binding`,
+          );
+          component = Editor;
+        }
+        const render = () => component(routeElement.props);
+        let view = await hooks.flush(render);
+        const form = findElement(view, (element) => element.type === "form");
+        const values: Record<string, string> = { name: `${routeCase.kind} persisted`, status: "active" };
+        const definition = MERCHANT_MODULE_DEFINITIONS.find(({ kind }) => kind === routeCase.kind);
+        assert.ok(definition);
+        for (const field of definition.fields) {
+          values[field.key] = field.type === "number" ? "5" : field.type === "boolean" ? "on" : `${field.key} configured`;
+        }
+        await (form.props.onSubmit as (event: { preventDefault(): void; currentTarget: { values: Readonly<Record<string, string>>; reset(): void } }) => Promise<void>)({
+          preventDefault() {},
+          currentTarget: { values, reset() {} },
+        });
+        view = await hooks.flush(render);
+        assert.ok(paths.includes(`/api/merchant-admin/records/${routeCase.kind}`), `${routeCase.route}:${mode}:save-handler`);
+        if (routeCase.mode === "edit") {
+          assert.deepEqual(reads, [{ kind: routeCase.kind, recordId: RECORD_ID }], `${routeCase.route}:${mode}:exact-read`);
+          assert.ok(paths.includes(`/api/merchant-admin/records/${routeCase.kind}/${RECORD_ID}`), `${routeCase.route}:${mode}:record-handler`);
+        } else {
+          assert.deepEqual(reads, [], `${routeCase.route}:${mode}:no-create-read`);
+        }
+        if (mode === "version_conflict") {
+          assert.deepEqual(writes, [], `${routeCase.route}:${mode}:no-commit`);
+          assert.match(textOf(view), /sizden önce güncellendi/u, `${routeCase.route}:${mode}:visible-conflict`);
+          assert.deepEqual(pushes, [], `${routeCase.route}:${mode}:no-redirect`);
+        } else {
+          assert.equal(writes.length, 1, `${routeCase.route}:${mode}:one-commit`);
+          assert.equal(writes[0]?.replayed, mode === "replayed", `${routeCase.route}:${mode}:replay-truth`);
+          assert.equal(stored?.name, `${routeCase.kind} persisted`, `${routeCase.route}:${mode}:stateful-save`);
+          if (routeCase.component === "editor") {
+            assert.deepEqual(pushes, [routeCase.returnTo], `${routeCase.route}:${mode}:redirect`);
+            assert.equal(refreshes, 1, `${routeCase.route}:${mode}:refresh`);
+          } else {
+            assert.match(textOf(view), /Kayıt kalıcı olarak kaydedildi/u, `${routeCase.route}:${mode}:visible-save`);
+          }
+        }
+      }
+    }
+  } finally {
+    Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
+    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+  }
 });
 
 test("static merchant hubs invoke actual pages and expose only canonical destination links", async () => {
