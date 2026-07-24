@@ -110,38 +110,75 @@ test("static merchant hubs claim navigation only while marketing retains durable
   );
 });
 
-test("every merchant row uses route-specific behavioral evidence for its exact action family", () => {
+test("all 48 merchant rows retain their exact route status evidence and action contract", () => {
   const merchantRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant route matrix invokes every actual page, production console, client, and handler across truth and mutation states";
   const merchantRecordRouteEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#merchant non-default route matrix invokes nine actual pages and exact create update handlers across success conflict and replay";
   const merchantHubEvidence = "apps/customer-panel/lib/merchant-admin-ui/route-behavior.test.ts#static merchant hubs invoke actual pages and expose only canonical destination links";
-  const recordRoutes = new Set([
-    "/settings/payment/new",
-    "/settings/payment/[recordId]/edit",
-    "/content/blog/new",
-    "/content/blog/[recordId]/edit",
-    "/content/pages/new",
-    "/content/pages/[recordId]/edit",
-    "/content/policies/[recordId]/edit",
-    "/discounts/new",
-    "/discounts/[recordId]/edit",
-  ]);
-  const staticHubs = new Set(["/settings", "/settings/design", "/content"]);
+  const loginEvidence = "apps/customer-panel/lib/routes.test.ts#login and logout remain disabled without a persistent session adapter";
+  const legacyEvidence = "apps/customer-panel/lib/panel-ui/navigation.test.ts#legacy donor spellings stay inert while canonical safe targets remain navigable";
+  const crud = ["list_records", "read_exact_record", "create_record", "update_record", "archive_record"] as const;
+  const provider = [...crud, "prepare_provider_action", "cancel_provider_preparation"] as const;
+  const edit = ["read_exact_record", "update_record"] as const;
+  const create = ["create_record"] as const;
+  const hub = ["open_supported_destination"] as const;
+  const expected = [
+    ["/ayarlar", "/settings", "complete", merchantHubEvidence, hub],
+    ["/ayarlar/bildirimler", "/settings/notifications", "complete", merchantRouteEvidence, crud],
+    ["/ayarlar/dil", "/settings/language", "complete", merchantRouteEvidence, crud],
+    ["/ayarlar/genel", "/settings/general", "complete", merchantRouteEvidence, crud],
+    ["/ayarlar/hero-banner", "/settings/hero-banner", "complete", merchantRouteEvidence, crud],
+    ["/ayarlar/kargo", "/settings/shipping", "complete", merchantRouteEvidence, crud],
+    ["/ayarlar/marquee", "/settings/marquee", "complete", merchantRouteEvidence, crud],
+    ["/ayarlar/odeme", "/settings/payment", "complete", merchantRouteEvidence, crud],
+    ["/ayarlar/odeme/[id]/duzenle", "/settings/payment/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
+    ["/ayarlar/odeme/yeni", "/settings/payment/new", "complete", merchantRecordRouteEvidence, create],
+    ["/ayarlar/promosyon-banner", "/settings/promotion-banner", "complete", merchantRouteEvidence, crud],
+    ["/ayarlar/tasarim", "/settings/design", "complete", merchantHubEvidence, hub],
+    ["/ayarlar/yapay-zeka", "/settings/artificial-intelligence", "complete", merchantRouteEvidence, crud],
+    ["/cms", "/content", "complete", merchantHubEvidence, hub],
+    ["/cms/blog", "/content/blog", "complete", merchantRouteEvidence, crud],
+    ["/cms/blog/[id]", "/content/blog/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
+    ["/cms/blog/yeni", "/content/blog/new", "complete", merchantRecordRouteEvidence, create],
+    ["/cms/politikalar", "/content/policies", "complete", merchantRouteEvidence, crud],
+    ["/cms/politikalar/[slug]", "/content/policies/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
+    ["/cms/sayfalar", "/content/pages", "complete", merchantRouteEvidence, crud],
+    ["/cms/sayfalar/[id]", "/content/pages/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
+    ["/cms/sayfalar/yeni", "/content/pages/new", "complete", merchantRecordRouteEvidence, create],
+    ["/indirimler", "/discounts", "complete", merchantRouteEvidence, crud],
+    ["/indirimler/[id]/duzenle", "/discounts/[recordId]/edit", "complete", merchantRecordRouteEvidence, edit],
+    ["/indirimler/sans-carki", "/discounts/lucky-wheel", "complete", merchantRouteEvidence, crud],
+    ["/indirimler/yeni", "/discounts/new", "complete", merchantRecordRouteEvidence, create],
+    ["/login", "/login", "complete", loginEvidence, ["view_disabled_auth"]],
+    ["/markets", "/marketplaces", "provider_gated", merchantRouteEvidence, provider],
+    ["/muhasabe", "/accounting", "legacy_rejected", legacyEvidence, ["legacy_rejected"]],
+    ["/muhasebe", "/accounting", "complete", merchantRouteEvidence, crud],
+    ["/muhasebe/fatura-entegrasyonu", "/accounting/invoicing-integration", "provider_gated", merchantRouteEvidence, provider],
+    ["/pazarlama", "/marketing", "complete", merchantRouteEvidence, ["list_records", "open_supported_destination"]],
+    ["/pazarlama/email", "/marketing/email", "provider_gated", merchantRouteEvidence, provider],
+    ["/pazarlama/lucky-wheel", "/discounts/lucky-wheel", "legacy_rejected", legacyEvidence, ["legacy_rejected"]],
+    ["/pazarlama/phone", "/marketing/phone", "provider_gated", merchantRouteEvidence, provider],
+    ["/pazarlama/whatsapp", "/marketing/whatsapp", "provider_gated", merchantRouteEvidence, provider],
+    ["/seo-killer", "/seo", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/geo-optimizasyon", "/seo/geo-optimization", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/hizli-index", "/seo/fast-indexing", "provider_gated", merchantRouteEvidence, provider],
+    ["/seo-killer/ic-linkleme", "/seo/internal-linking", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/icerikler", "/seo/content", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/kategoriler", "/seo/categories", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/kod-entegrasyonlari", "/seo/code-integrations", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/sayfalar", "/seo/pages", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/sitemap", "/seo/sitemap", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/sosyal-onizleme", "/seo/social-preview", "complete", merchantRouteEvidence, crud],
+    ["/seo-killer/urunler", "/seo/products", "complete", merchantRouteEvidence, crud],
+    ["/yoneticiler", "/settings/administrators", "complete", merchantRouteEvidence, crud],
+  ] as const;
   const merchantRows = HEMENAKU_DONOR_PARITY.filter(({ authority }) => authority === "merchant_admin");
-  assert.equal(merchantRows.length, 48);
-  for (const entry of merchantRows) {
-    if (entry.status === "legacy_rejected") continue;
-    if (entry.targetPath === "/login") continue;
-    const expectedEvidence = recordRoutes.has(entry.targetPath)
-      ? merchantRecordRouteEvidence
-      : staticHubs.has(entry.targetPath)
-        ? merchantHubEvidence
-        : merchantRouteEvidence;
-    assert.equal(entry.evidenceTest, expectedEvidence, entry.donorPath);
-    assert.doesNotMatch(entry.evidenceTest, /client[.]test[.]ts|presentation[.]test[.]ts|route files expose only/u, entry.donorPath);
-    if (entry.targetPath.endsWith("/new")) assert.deepEqual(entry.actionSet, ["create_record"], entry.donorPath);
-    if (entry.targetPath.includes("/[recordId]/edit")) assert.deepEqual(entry.actionSet, ["read_exact_record", "update_record"], entry.donorPath);
-  }
-  assert.equal([...recordRoutes].every((targetPath) => merchantRows.some((entry) => entry.targetPath === targetPath)), true);
+  assert.deepEqual(
+    merchantRows.map(({ donorPath, targetPath, status, evidenceTest, actionSet }) => [donorPath, targetPath, status, evidenceTest, actionSet]),
+    expected,
+  );
+  assert.equal(new Set(merchantRows.map(({ donorPath }) => donorPath)).size, 48);
+  assert.equal(merchantRows.every(({ evidenceTest }) => [merchantRouteEvidence, merchantRecordRouteEvidence, merchantHubEvidence, loginEvidence, legacyEvidence].includes(evidenceTest)), true);
+  assert.equal(merchantRows.some(({ evidenceTest }) => /client[.]test[.]ts|presentation[.]test[.]ts|route files expose only/u.test(evidenceTest)), false);
 });
 
 test("every customer row uses the behavioral evidence family that executes its exact route actions", () => {
