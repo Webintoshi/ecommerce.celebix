@@ -219,6 +219,51 @@
 .locationActions button { background: #fff; font-weight: 700; }
 .locationActions button:disabled,
 .locationCreate button:disabled { cursor: not-allowed; opacity: .6; }
+.locationRenameBackdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(28 25 23 / 58%);
+}
+.locationRenameDialog {
+  width: min(100%, 520px);
+  padding: 22px;
+  border: 1px solid #d6d3d1;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgb(28 25 23 / 22%);
+}
+.locationRenameDialog h3,
+.locationRenameDialog > p { margin: 0; }
+.locationRenameDialog > p { margin-top: 8px; color: #57534e; }
+.locationRenameDialog code { overflow-wrap: anywhere; }
+.locationRenameDialog form { display: grid; gap: 12px; margin-top: 18px; }
+.locationRenameDialog label { font-weight: 750; }
+.locationRenameDialog input {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid #d6d3d1;
+  border-radius: 12px;
+  color: #1c1917;
+  font: inherit;
+}
+.locationRenameActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.locationRenameActions button {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid #d6d3d1;
+  border-radius: 12px;
+  background: #fff;
+  color: #292524;
+  font: inherit;
+  font-weight: 750;
+}
+.locationRenameActions button[type="submit"] { border-color: #ea580c; background: #ea580c; color: #fff; }
+.locationRenameActions button:disabled { cursor: wait; opacity: .62; }
 
 .state,
 .denied,
@@ -252,6 +297,7 @@
   .locationCreate { grid-template-columns: 1fr; }
   .locationCreate label { grid-column: auto; }
   .locationActions { grid-template-columns: 1fr; }
+  .locationRenameActions { grid-template-columns: 1fr; }
   .desktopFormTable { display: none; }
   .mobileFormCards { display: grid; gap: 12px; }
   .mobileFormCards article { display: grid; gap: 12px; padding: 14px; border: 1px solid #e7e5e4; border-radius: 14px; background: #fafaf9; }

@@ -36,7 +36,7 @@ function InventoryTransferDetail(props: Readonly<{ initial?: InventoryTransfer; 
   if (!lifecycle.current) lifecycle.current = createInventoryConsoleLifecycle(() => createInventoryTransferConsoleController({ initial: props.initial, resourceId: props.resourceId, canRead: props.canRead, canManage: props.canManage, api: inventoryApi, onChange: setState }));
   useEffect(() => lifecycle.current!.setup(), []);
   const item = state.record;
-  return <>{item ? <InventoryTransferPresentation state={state} canManage={props.canManage} onDispatch={() => { void lifecycle.current?.getCurrent()?.dispatch(); }} onReceive={() => { void lifecycle.current?.getCurrent()?.receive(); }} onCancel={() => { void lifecycle.current?.getCurrent()?.cancel(); }} /> : null}
+  return <>{!props.create ? <InventoryTransferPresentation state={state} canManage={props.canManage} onDispatch={() => { void lifecycle.current?.getCurrent()?.dispatch(); }} onReceive={() => { void lifecycle.current?.getCurrent()?.receive(); }} onCancel={() => { void lifecycle.current?.getCurrent()?.cancel(); }} /> : null}
     {(props.create || item?.status === "draft") ? <InventoryOperationForm mode="transfer" record={item} canManage={props.canManage} phase={state.phase} pending={state.pending} locked={state.locked} message={state.message} onSave={(value) => { void lifecycle.current?.getCurrent()?.save(value as Parameters<ReturnType<typeof createInventoryTransferConsoleController>["save"]>[0]); }} /> : null}
   </>;
 }

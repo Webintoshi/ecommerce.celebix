@@ -35,7 +35,7 @@ function InventoryCountDetail(props: Readonly<{ initial?: InventoryCount; resour
   if (!lifecycle.current) lifecycle.current = createInventoryConsoleLifecycle(() => createInventoryCountConsoleController({ initial: props.initial, resourceId: props.resourceId, canRead: props.canRead, canManage: props.canManage, api: inventoryApi, onChange: setState }));
   useEffect(() => lifecycle.current!.setup(), []);
   const item = state.record;
-  return <>{item ? <InventoryCountPresentation state={state} canManage={props.canManage} onStart={() => { void lifecycle.current?.getCurrent()?.start(); }} onCommit={() => { void lifecycle.current?.getCurrent()?.commit(); }} onCancel={() => { void lifecycle.current?.getCurrent()?.cancel(); }} /> : null}
+  return <>{!props.create ? <InventoryCountPresentation state={state} canManage={props.canManage} onStart={() => { void lifecycle.current?.getCurrent()?.start(); }} onCommit={() => { void lifecycle.current?.getCurrent()?.commit(); }} onCancel={() => { void lifecycle.current?.getCurrent()?.cancel(); }} /> : null}
     {(props.create || item?.status === "draft") ? <InventoryOperationForm mode="count" record={item} canManage={props.canManage} phase={state.phase} pending={state.pending} locked={state.locked} message={state.message} onSave={(value) => { void lifecycle.current?.getCurrent()?.save(value as Parameters<ReturnType<typeof createInventoryCountConsoleController>["save"]>[0]); }} /> : null}
   </>;
 }

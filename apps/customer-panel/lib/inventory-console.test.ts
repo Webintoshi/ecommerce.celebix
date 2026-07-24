@@ -888,6 +888,153 @@ function executeComponents(node: ReactNode): ReactNode {
   return node;
 }
 
+function resolveComponents(node: ReactNode): ReactNode {
+  if (!React.isValidElement<Record<string, unknown>>(node)) return node;
+  if (typeof node.type === "function") return resolveComponents((node.type as Function)(node.props));
+  return React.cloneElement(
+    node,
+    node.props,
+    React.Children.map(node.props.children as ReactNode, resolveComponents),
+  );
+}
+
+test("inventory detail route wrappers render loading, denied, not-found, unavailable and loaded truth states", async () => {
+  const cases = [
+    {
+      path: "components/inventory/PurchasingConsole.tsx",
+      exportName: "PurchasingConsole",
+      factoryName: "createPurchasingConsoleController",
+      id: ORDER,
+      record: purchase(),
+      loadedText: "Kalıcı Tedarikçi",
+      loadingText: "Satın alma kaydı yükleniyor",
+      deniedText: "Bu satın alma kaydını görüntüleme yetkiniz yok",
+    },
+    {
+      path: "components/inventory/InventoryCountConsole.tsx",
+      exportName: "InventoryCountConsole",
+      factoryName: "createInventoryCountConsoleController",
+      id: COUNT,
+      record: count(),
+      loadedText: "Sayım 22222222",
+      loadingText: "Stok sayımı yükleniyor",
+      deniedText: "Bu stok sayımını görüntüleme yetkiniz yok",
+    },
+    {
+      path: "components/inventory/InventoryTransferConsole.tsx",
+      exportName: "InventoryTransferConsole",
+      factoryName: "createInventoryTransferConsoleController",
+      id: TRANSFER,
+      record: transfer(),
+      loadedText: "TR-33333333",
+      loadingText: "Stok transferi yükleniyor",
+      deniedText: "Bu stok transferini görüntüleme yetkiniz yok",
+    },
+  ] as const;
+  const truthStates = [
+    { key: "loading", snapshot: undefined, canRead: true, expected: undefined },
+    { key: "denied", snapshot: undefined, canRead: false, expected: undefined },
+    { key: "not-found", snapshot: { phase: "error", pending: false, locked: false, message: "Envanter kaydı bulunamadı." }, canRead: true, expected: "Envanter kaydı bulunamadı" },
+    { key: "unavailable", snapshot: { phase: "error", pending: false, locked: false, message: "Envanter kaydı yüklenemedi. Tekrar deneyin." }, canRead: true, expected: "Envanter kaydı yüklenemedi" },
+    { key: "loaded", snapshot: { phase: "loaded", pending: false, locked: false, message: "" }, canRead: true, expected: undefined },
+  ] as const;
+
+  for (const route of cases) {
+    for (const truth of truthStates) {
+      const hooks = createHookRuntime();
+      const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
+      const shell = {
+        PanelEmptyState: () => null,
+        PanelPageHeader: ({ title }: { title: string }) => createElement("header", null, title),
+        PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
+        PanelStatusBadge: ({ children }: { children?: ReactNode }) => createElement("span", null, children),
+      };
+      const controllerModule = {
+        createInventoryConsoleLifecycle(factory: () => Readonly<{ load(): Promise<void>; dispose(): void }>) {
+          let current: ReturnType<typeof factory> | undefined;
+          return {
+            setup() { current = factory(); void current.load(); return () => current?.dispose(); },
+            getCurrent() { return current; },
+          };
+        },
+        [route.factoryName](options: Readonly<{ onChange?(snapshot: Record<string, unknown>): void }>) {
+          return {
+            async load() {
+              if (truth.snapshot) options.onChange?.({
+                ...truth.snapshot,
+                ...(truth.key === "loaded" ? { record: route.record } : {}),
+              });
+            },
+            dispose() {},
+          };
+        },
+      };
+      const listModule = {
+        InventoryListState: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
+        useInventoryCollection: () => ({ phase: "loaded", items: [], error: "", retry() {} }),
+      };
+      const module = await compileWith(hooks.runtime, route.path, (specifier) => {
+        if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
+        if (specifier === "@/components/panel/PanelPageShell") return shell;
+        if (specifier === "@/lib/inventory-ui/client") return { inventoryApi: {} };
+        if (specifier === "@/lib/inventory-ui/console-controller") return controllerModule;
+        if (specifier === "./InventoryListState") return listModule;
+        if (specifier === "./InventoryLocationConsole") return { InventoryLocationConsole: () => null };
+        if (specifier === "./InventoryOperationForm") return { InventoryOperationForm: () => null, PurchaseReceiptForm: () => null };
+        if (specifier.endsWith("inventory-console.module.css")) return styles;
+        throw new Error(`unexpected_truth_state_import:${specifier}`);
+      });
+      const Console = module[route.exportName] as (props: Record<string, unknown>) => ReactNode;
+      const resolved = await hooks.flush(() => resolveComponents(Console({
+        resourceId: route.id,
+        canRead: truth.canRead,
+        canManage: true,
+      })));
+      const html = renderToStaticMarkup(resolved);
+      const expected = truth.expected
+        ?? (truth.key === "loading" ? route.loadingText : truth.key === "denied" ? route.deniedText : route.loadedText);
+      assert.match(html, new RegExp(expected), `${route.exportName}:${truth.key}`);
+      if (truth.key === "not-found" || truth.key === "unavailable") assert.match(html, /role="alert"/);
+      if (truth.key === "denied" || truth.key === "loading") assert.match(html, /role="status"/);
+    }
+  }
+});
+
+test("inventory location rename dialog is labeled, validated, pending-aware and exposes accessible focus behavior", async () => {
+  const Dialog = await compilePresentation("components/inventory/InventoryLocationConsole.tsx", "InventoryLocationRenameDialog");
+  const selected = location({
+    id: DESTINATION,
+    name: "Şube",
+    isDefault: false,
+    archiveEligibility: { canArchive: true, reason: null },
+  });
+  const html = renderToStaticMarkup(createElement(Dialog, {
+    location: selected,
+    name: "",
+    pending: true,
+    error: "Konum adı zorunludur.",
+    onName() {},
+    onCancel() {},
+    onSubmit() {},
+  }));
+  assert.match(html, /role="dialog"/);
+  assert.match(html, /aria-modal="true"/);
+  assert.match(html, /aria-labelledby="inventory-location-rename-title"/);
+  assert.match(html, /<label[^>]+for="inventory-location-rename-name"/);
+  assert.match(html, /id="inventory-location-rename-name"/);
+  assert.match(html, /aria-describedby="inventory-location-rename-feedback"/);
+  assert.match(html, /Konum adı zorunludur/);
+  assert.match(html, /role="alert"/);
+  assert.match(html, /disabled=""/);
+  const sourceText = await readFile(new URL("components/inventory/InventoryLocationConsole.tsx", ROOT), "utf8");
+  assert.doesNotMatch(sourceText, /window\.prompt/);
+  assert.match(sourceText, /event\.key !== "Tab"/);
+  assert.match(sourceText, /event\.key === "Escape"/);
+  assert.match(sourceText, /\.focus\(\)/);
+  const css = await readFile(new URL("components/inventory/inventory-console.module.css", ROOT), "utf8");
+  assert.match(css, /\.locationRenameActions[\s\S]*min-height:\s*48px/);
+});
+
 test("detail mode calls only the exact resource loader and never the collection loader", async () => {
   const hooks = createHookRuntime();
   const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
