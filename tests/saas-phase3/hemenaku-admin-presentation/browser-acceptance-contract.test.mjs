@@ -37,3 +37,18 @@ test("browser acceptance is opt-in, local-only and dependency-free", async () =>
   assert.match(runner, /127\.0\.0\.1/);
   assert.doesNotMatch(runner, /https:\/\/|production|staging|playwright|puppeteer|shell\s*:\s*true/i);
 });
+
+test("captures the exact full-parity viewport matrix and representative routes", async () => {
+  const runner = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs");
+  for (const value of ["1440x900", "1280x800", "1025x768", "1024x768", "390x844", "320x720"]) {
+    assert.match(runner, new RegExp(value));
+  }
+  for (const route of [
+    "/", "/analytics", "/orders/ORDER_ID/print", "/customers/CUSTOMER_ID/edit",
+    "/products/extras/RESOURCE_ID/preview", "/products/purchasing",
+    "/products/inventory-counts", "/products/transfers", "/products/price-lists",
+    "/seo/products", "/products/shopify-converter",
+  ]) {
+    assert.ok(runner.includes(route), `missing representative route ${route}`);
+  }
+});

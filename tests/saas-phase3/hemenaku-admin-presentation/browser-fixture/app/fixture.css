@@ -1,0 +1,77 @@
+.fixture-surface {
+  display: grid;
+  min-width: 0;
+  gap: 1.5rem;
+}
+
+.fixture-surface button,
+.fixture-surface a,
+.fixture-surface input {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+[data-primary-action] {
+  min-width: 48px;
+  min-height: 48px;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #FF6A00;
+  padding: 0.75rem 1rem;
+  color: #1C1917;
+  cursor: pointer;
+  font-weight: 800;
+  transition: transform 180ms ease;
+}
+
+.fixture-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.fixture-filter {
+  display: grid;
+  max-width: 30rem;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: #4B5563;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.fixture-filter input {
+  width: 100%;
+  border: 1px solid #C9CED8;
+  border-radius: 0.75rem;
+  background: #FFFFFF;
+  padding: 0.75rem;
+  color: #1C1917;
+}
+
+.fixture-loading,
+.fixture-error,
+.fixture-empty {
+  margin: 0;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.fixture-loading,
+.fixture-empty { background: #F3F4F6; color: #4B5563; }
+.fixture-error { background: #FFF1F0; color: #8C1D18; }
+
+@media (max-width: 720px) {
+  .fixture-metrics { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.00001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.00001s !important;
+  }
+}

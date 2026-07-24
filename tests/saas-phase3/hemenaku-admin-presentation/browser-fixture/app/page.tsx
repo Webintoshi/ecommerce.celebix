@@ -1,2 +1,5 @@
-import { redirect } from "next/navigation";
-export default function BrowserFixtureIndex() { redirect("/marketplaces"); }
+import { FullParityFixture } from "./full-parity-fixture";
+
+export default function BrowserFixtureIndex() {
+  return <FullParityFixture pathname="/" />;
+}
