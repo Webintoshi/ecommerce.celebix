@@ -344,6 +344,8 @@ test("product list follows the approved dense donor toolbar and table contract",
   assert.match(list, /aria-label="Görüntülenen tüm ürünleri seç"/);
   assert.match(styles, /[.]hemenaku-product-commandbar\s*\{/);
   assert.match(styles, /[.]hemenaku-product-filters\s*\{/);
+  assert.match(styles, /[.]command-select select\s*\{[^}]*min-height:\s*48px/s);
+  assert.match(styles, /[.]product-search input\s*\{[^}]*min-height:\s*48px/s);
   assert.match(styles, /[.]catalog-table th\s*\{[^}]*background:\s*#EEF2F6/s);
   assert.doesNotMatch(list, /Ürün kataloğu|KATALOG GÖRÜNÜMÜ|Ürünlerinizi yönetin/);
   assert.doesNotMatch(list, /\/api\/admin|\/admin\/urunler|document[.]cookie|localStorage|sessionStorage|supabase/i);
