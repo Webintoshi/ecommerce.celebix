@@ -323,7 +323,7 @@ test("quick-order console is directly routable behind panel access and linked by
   assert.match(page, /createPanelChromeModel\(access\.tenantContext\)/);
   assert.match(page, /<QuickOrderLinksConsole\s*\/>/);
   assert.doesNotMatch(page, /<QuickOrderLinksConsole[^>]+(?:tenant|store|membership|provider|token)/i);
-  assert.match(navigation, /label:\s*"Hızlı Siparişler"[\s\S]{0,120}href:\s*"\/orders\/quick-links"/);
+  assert.match(navigation, /item\("quick-orders",\s*"Hızlı Siparişler",\s*"\/orders\/quick-links"/);
 });
 
 test("order print and customer edit pages remain server-authorized route depth", async () => {
@@ -366,6 +366,27 @@ test("tag and barcode routes remain panel-session guarded with fixed server auth
   assert.match(tags, /CATALOG_PAGE_ACTIONS[.]tags/);
   assert.match(labels, /isCatalogPageActionAllowed/);
   assert.match(labels, /CATALOG_PAGE_ACTIONS[.]barcodeLabels/);
+});
+
+test("completed index and configuration routes have literal navigation destinations", async () => {
+  const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
+  for (const href of [
+    "/analytics",
+    "/products/tags",
+    "/products/barcode-labels",
+    "/products/purchasing",
+    "/products/inventory-counts",
+    "/products/transfers",
+    "/products/price-lists",
+    "/settings/design",
+    "/marketing/email",
+    "/marketplaces",
+    "/accounting/invoicing-integration",
+    "/seo/products",
+  ]) assert.match(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
+  for (const href of ["/customers/new", "/products/new", "/discounts/new"]) {
+    assert.doesNotMatch(navigation, new RegExp(`item\\([^\\n]+["']${href.replaceAll("/", "\\/")}["']`), href);
+  }
 });
 
 test("merchant record route-depth pages expose only fixed server-authorized editor kinds", async () => {
@@ -414,6 +435,6 @@ test("quick-order routes expose only the reviewed merchant methods and activate 
     }
   }
   const navigation = await readFile(new URL("./panel-ui/navigation.ts", import.meta.url), "utf8");
-  assert.match(navigation, /label:\s*"Hızlı Siparişler"[\s\S]{0,120}href:\s*"\/orders\/quick-links"/);
+  assert.match(navigation, /item\("quick-orders",\s*"Hızlı Siparişler",\s*"\/orders\/quick-links"/);
   assert.doesNotMatch(navigation, /ödeme linki/i);
 });

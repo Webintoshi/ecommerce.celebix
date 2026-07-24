@@ -330,7 +330,7 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "lucide-react") {
-      return { BadgeCheck: Icon, BadgePercent: Icon, Calculator: Icon, CirclePlus: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Phone: Icon, PieChart: Icon, Plus: Icon, Puzzle: Icon, ReceiptText: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, UserPlus: Icon, Users: Icon };
+      return { BadgeCheck: Icon, BadgeDollarSign: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Palette: Icon, Phone: Icon, PieChart: Icon, Puzzle: Icon, ReceiptText: Icon, ScanBarcode: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, Users: Icon, Warehouse: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
@@ -665,7 +665,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
   }
 });
 
-test("products/new marks only the Yeni ürün link as the current page", async () => {
+test("create routes keep their index family current without exposing a create navigation child", async () => {
   const html = await renderPanelNavigation("/products/new");
   const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
     .map(([link]) => ({
@@ -673,7 +673,20 @@ test("products/new marks only the Yeni ürün link as the current page", async (
       label: link.replace(/<[^>]*>/g, ""),
     }));
 
-  assert.deepEqual(currentLinks, [{ href: "/products/new", label: "Yeni ürün" }]);
+  assert.deepEqual(currentLinks, [{ href: "/products", label: "Tüm ürünler" }]);
+  assert.doesNotMatch(html, /href="\/products\/new"/);
+});
+
+test("content and settings hubs remain directly navigable", async () => {
+  for (const [pathname, label] of [["/content", "İçerik"], ["/settings", "Ayarlar"]] as const) {
+    const html = await renderPanelNavigation(pathname);
+    const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>[\s\S]*?<\/a>/g)]
+      .map(([link]) => ({
+        href: link.match(/href="([^"]+)"/)?.[1],
+        label: link.replace(/<[^>]*>/g, ""),
+      }));
+    assert.deepEqual(currentLinks, [{ href: pathname, label }]);
+  }
 });
 
 test("orders/quick-links marks only Hızlı Siparişler as the current page", async () => {

@@ -186,7 +186,7 @@
 .navigationGroupLabel {
   position: relative;
   display: flex;
-  min-height: 42px;
+  min-height: 48px;
   width: 100%;
   align-items: center;
   gap: 0.625rem;
@@ -204,7 +204,8 @@
   color: #FFFFFF;
 }
 
-.navigationLink:focus-visible {
+.navigationLink:focus-visible,
+.navigationGroupLabel:focus-visible {
   outline: 0;
   box-shadow: 0 0 0 2px rgb(254 97 0 / 32%);
 }
@@ -707,6 +708,7 @@
   .drawerSurface,
   .drawerBackdrop,
   .navigationLink,
+  .navigationGroupLabel,
   .mobileDock,
   .mobileDock *,
   .skeletonBlock {

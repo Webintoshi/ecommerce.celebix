@@ -12,6 +12,12 @@ function findNavigationItem(key: string) {
   return PANEL_NAVIGATION.find((item) => item.key === key);
 }
 
+function activeLabels(pathname: string): string[] {
+  return PANEL_NAVIGATION.flatMap((item) => [item, ...(item.children ?? [])])
+    .filter((item) => isPanelNavigationPathActive(pathname, item.href))
+    .map(({ label }) => label);
+}
+
 test("content and settings parents use truthful family hubs", () => {
   assert.equal(findNavigationItem("content")?.href, "/content");
   assert.equal(findNavigationItem("settings")?.href, "/settings");
@@ -35,23 +41,23 @@ test("contains every and only currently working merchant destination", () => {
       "/customers",
       "/customers/segments",
       "/customers/tags",
-      "/customers/new",
       "/products",
-      "/products/new",
       "/products/collections",
       "/products/brands",
       "/products/attributes",
       "/products/extras",
       "/products/reviews",
       "/products/definitions",
+      "/products/tags",
+      "/products/barcode-labels",
       "/products/purchasing",
       "/products/inventory-counts",
       "/products/transfers",
+      "/products/price-lists",
       "/products/auto-import",
       "/products/shopify-converter",
       "/products/bulk-upload",
       "/discounts",
-      "/discounts/new",
       "/discounts/lucky-wheel",
       "/marketing",
       "/marketing/email",
@@ -64,6 +70,7 @@ test("contains every and only currently working merchant destination", () => {
       "/marketplaces",
       "/settings",
       "/settings/general",
+      "/settings/design",
       "/settings/language",
       "/settings/payment",
       "/settings/shipping",
@@ -91,9 +98,73 @@ test("contains every and only currently working merchant destination", () => {
   );
   assert.deepEqual(
     PANEL_NAVIGATION.map(({ label }) => label),
-    ["Özet", "Analitik", "Siparişler", "Müşteriler", "Ürünler", "İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO", "Kurulum"],
+    ["Özet", "Analizler", "Siparişler", "Müşteriler", "Ürünler", "İndirimler", "Pazarlama", "İçerik", "Pazar Yerleri", "Ayarlar", "Muhasebe", "SEO", "Kurulum"],
   );
 });
+
+test("navigation contains index and configuration surfaces but never create, edit, detail, preview, or print routes", () => {
+  const hrefs = PANEL_NAVIGATION.flatMap((item) => [
+    item.href,
+    ...(item.children ?? []).map((child) => child.href),
+  ]);
+  for (const href of [
+    "/analytics",
+    "/products/tags",
+    "/products/barcode-labels",
+    "/products/purchasing",
+    "/products/inventory-counts",
+    "/products/transfers",
+    "/products/price-lists",
+    "/settings/design",
+    "/marketing/email",
+    "/marketplaces",
+    "/accounting/invoicing-integration",
+    "/seo/products",
+  ] as const) assert.equal(hrefs.includes(href), true, href);
+  for (const forbidden of [
+    "/customers/new",
+    "/products/new",
+    "/discounts/new",
+    "/products/price-lists/new",
+    "/products/extras/resource/edit",
+    "/products/extras/resource/preview",
+    "/orders/order/print",
+  ]) assert.equal(hrefs.includes(forbidden as never), false, forbidden);
+  assert.equal(hrefs.some((href) => /(?:^|\/)new(?:\/|$)|\/edit(?:\/|$)|\/preview(?:\/|$)|\/print(?:\/|$)|\[[^/]+\]/.test(href)), false);
+});
+
+test("matches decoded-safe exact segments and rejects malformed or separator encodings", () => {
+  assert.equal(isPanelNavigationPathActive("/%70roducts", "/products"), true);
+  assert.equal(isPanelNavigationPathActive("/products/%70rice-lists", "/products/price-lists"), true);
+  for (const pathname of [
+    "/%",
+    "/%GGproducts",
+    "/%2fproducts",
+    "/%2Fproducts",
+    "/%5cproducts",
+    "/%5Cproducts",
+    "/products%2fprice-lists",
+    "/products%5cprice-lists",
+    "/products/%2e%2e/settings",
+    "/products/./price-lists",
+    "/products//price-lists",
+    "/products\\price-lists",
+  ]) {
+    assert.equal(activeLabels(pathname).length, 0, pathname);
+  }
+});
+
+for (const [path, forbidden] of [
+  ["/products-evil", "Ürünler"],
+  ["/seo/products-evil", "Ürün SEO"],
+  ["/settings.evil", "Ayarlar"],
+  ["/%2fproducts", "Ürünler"],
+  ["/products/price-lists.evil", "Fiyat Listeleri"],
+] as const) {
+  test(`${path} does not activate ${forbidden}`, () => {
+    assert.equal(activeLabels(path).includes(forbidden), false);
+  });
+}
 
 test("keeps the catalog parent active on exact descendants", () => {
   assert.equal(isPanelNavigationPathActive("/products", "/products"), true);
@@ -128,7 +199,7 @@ test("navigation never activates a query fragment or encoded near match", () => 
 
 test("navigation exposes every genuine catalog administration destination", () => {
   const catalog = PANEL_NAVIGATION.find(({ key }) => key === "catalog");
-  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Yeni ürün", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Satın Alma", "Stok Sayımları", "Stok Transferleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
+  assert.deepEqual(catalog?.children?.map(({ label }) => label), ["Tüm ürünler", "Koleksiyonlar", "Markalar", "Nitelikler", "Ekstralar", "Yorumlar", "Tanımlamalar", "Etiketler", "Barkod Etiketleri", "Satın Alma", "Stok Sayımları", "Stok Konumları ve Transferler", "Fiyat Listeleri", "Otomatik Yükle", "Shopify Dönüştürücü", "Toplu Yükle"]);
 });
 
 test("inventory operations are exact catalog destinations with safe detail descendants", () => {
@@ -230,7 +301,6 @@ test("selects only exact customer children and safe detail descendants", () => {
   for (const href of [
     "/customers/segments",
     "/customers/tags",
-    "/customers/new",
   ] as const) {
     assert.equal(isPanelNavigationPathActive(href, href), true);
     assert.equal(isPanelNavigationPathActive(`${href}/child`, href), false);

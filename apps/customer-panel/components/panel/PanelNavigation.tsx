@@ -2,12 +2,16 @@
 
 import {
   Home,
+  BarChart3,
+  BadgeDollarSign,
+  ScanBarcode,
+  Warehouse,
+  Palette,
   Layers3,
   Link2,
   ListTree,
   Package,
   PieChart,
-  Plus,
   Puzzle,
   BadgeCheck,
   Settings,
@@ -17,10 +21,8 @@ import {
   Star,
   Tags,
   Upload,
-  UserPlus,
   Users,
   BadgePercent,
-  CirclePlus,
   Gift,
   Megaphone,
   Mail,
@@ -57,24 +59,26 @@ import styles from "./panel-shell.module.css";
 
 const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   home: Home,
+  analytics: BarChart3,
   orders: ShoppingBag,
   "quick-orders": Link2,
   "abandoned-carts": ShoppingCart,
   customers: Users,
   segments: PieChart,
   tags: Tags,
-  "add-customer": UserPlus,
   products: Package,
-  "add-product": Plus,
   collections: Layers3,
   brands: BadgeCheck,
   attributes: SlidersHorizontal,
   extras: Puzzle,
   reviews: Star,
   definitions: ListTree,
+  barcode: ScanBarcode,
+  purchasing: ReceiptText,
+  inventory: Warehouse,
+  "price-lists": BadgeDollarSign,
   "bulk-upload": Upload,
   discounts: BadgePercent,
-  "add-discount": CirclePlus,
   "lucky-wheel": Gift,
   marketing: Megaphone,
   email: Mail,
@@ -86,6 +90,7 @@ const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   policies: ScrollText,
   marketplaces: Store,
   settings: Settings2,
+  design: Palette,
   language: Languages,
   payment: CreditCard,
   shipping: Truck,
@@ -107,7 +112,7 @@ function getCurrentNavigationHref(
 ): PanelNavigationHref | undefined {
   let currentHref: PanelNavigationHref | undefined;
   for (const item of NAVIGATION) {
-    const links = item.children?.length ? item.children : [item];
+    const links = [item, ...(item.children ?? [])];
     for (const link of links) {
       if (
         isPanelNavigationPathActive(pathname, link.href) &&
@@ -155,8 +160,10 @@ export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
       {NAVIGATION.map((item) =>
         item.children?.length ? (
           <section className={styles.navigationGroup} key={item.key}>
-            <div
+            <Link
+              href={item.href}
               className={`${styles.navigationGroupLabel} ${isPanelNavigationPathActive(pathname, item.href) ? styles.navigationGroupActive : ""}`}
+              aria-current={currentHref === item.href && !item.children.some((child) => child.href === item.href) ? "page" : undefined}
             >
               <span className={styles.activeRail} aria-hidden="true" />
               <span className={styles.iconBox}>
@@ -166,7 +173,7 @@ export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
                 })()}
               </span>
               <span className={styles.navigationLabel}>{item.label}</span>
-            </div>
+            </Link>
             <div className={styles.navigationChildren}>
               {item.children.map((child) => (
                 <NavigationLink
