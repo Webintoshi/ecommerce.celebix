@@ -26,6 +26,11 @@ type ProductSearch = Readonly<{
   truncated: boolean;
 }>;
 
+type BoundedSearch<T> = Readonly<{
+  items: readonly T[];
+  hasMore: boolean;
+}>;
+
 function source(label: string, href: ToshiLocalSource["href"]): ToshiLocalSource {
   return Object.freeze({ label, href });
 }
@@ -52,12 +57,12 @@ export function projectToshiLocalReply(intent: ToshiLocalIntent, payload: unknow
       return reply(`Stokta olmayan ${summary.outOfStockVariants} varyant var.`, [source("Ürünler", "/products")]);
     }
     case "find_order": {
-      const orders = payload as readonly OrderListItem[];
-      return searchReply(intent.query, "sipariş", orders.map((order) => `${order.orderNumber} (${order.customerName})`), "Siparişler", "/orders");
+      const search = payload as BoundedSearch<OrderListItem>;
+      return searchReply(intent.query, "sipariş", search.items.map((order) => `${order.orderNumber} (${order.customerName})`), search.hasMore, "Siparişler", "/orders");
     }
     case "find_customer": {
-      const customers = payload as readonly CustomerListItem[];
-      return searchReply(intent.query, "müşteri", customers.map((customer) => customer.displayName), "Müşteriler", "/customers");
+      const search = payload as BoundedSearch<CustomerListItem>;
+      return searchReply(intent.query, "müşteri", search.items.map((customer) => customer.displayName), search.hasMore, "Müşteriler", "/customers");
     }
     case "find_product": {
       const search = payload as ProductSearch;
@@ -88,12 +93,15 @@ function searchReply(
   query: string,
   label: string,
   values: readonly string[],
+  hasMore: boolean,
   sourceLabel: string,
   href: ToshiLocalSource["href"],
 ): ToshiLocalReply {
   const count = values.length;
   const text = count === 0
-    ? `“${query}” için ${label} bulunamadı.`
-    : `“${query}” için ${count} ${label} bulundu: ${values.join(", ")}.`;
+    ? `“${query}” için ${label} bulunamadı${hasMore ? "; daha fazla sonuç olabilir" : ""}.`
+    : hasMore
+      ? `“${query}” için ilk ${count} ${label} eşleşmesi: ${values.join(", ")}. Daha fazla sonuç var.`
+      : `“${query}” için ${count} ${label} bulundu: ${values.join(", ")}.`;
   return reply(text, [source(sourceLabel, href)]);
 }

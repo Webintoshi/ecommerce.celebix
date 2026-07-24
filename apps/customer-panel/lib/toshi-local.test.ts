@@ -100,13 +100,40 @@ test("projects parsed local data into truthful deterministic Turkish replies", (
     "“KG-M-KREM” için ilk 1 eşleşme: Krem Gömlek.",
   );
   assert.equal(
-    projectToshiLocalReply({ kind: "find_customer", query: "Ada" }, [customer]).text,
+    projectToshiLocalReply({ kind: "find_customer", query: "Ada" }, { items: [customer], hasMore: false }).text,
     "“Ada” için 1 müşteri bulundu: Ada Lovelace.",
   );
   assert.equal(
-    projectToshiLocalReply({ kind: "find_order", query: "CBX-1042" }, [order]).text,
+    projectToshiLocalReply({ kind: "find_order", query: "CBX-1042" }, { items: [order], hasMore: false }).text,
     "“CBX-1042” için 1 sipariş bulundu: CBX-1042 (Ada Lovelace).",
   );
+});
+
+test("labels customer and order cursor results as partial instead of claiming an exact total", async () => {
+  const tenCustomers = Array.from({ length: 10 }, (_, index) => ({
+    ...customer,
+    id: `${String(index + 30).padStart(8, "0")}-2222-4222-8222-222222222222`,
+    displayName: `Müşteri ${index + 1}`,
+  }));
+  const tenOrders = Array.from({ length: 10 }, (_, index) => ({
+    ...order,
+    id: `${String(index + 50).padStart(8, "0")}-3333-4333-8333-333333333333`,
+    orderNumber: `CBX-${1042 + index}`,
+  }));
+  const client = createToshiLocalClient(async (path) => {
+    if (String(path).startsWith("/api/customers?")) return Response.json({ items: tenCustomers, nextCursor: "more_customers" });
+    if (String(path).startsWith("/api/orders?")) return Response.json({ items: tenOrders, nextCursor: "more_orders" });
+    throw new Error(`unexpected_path:${path}`);
+  });
+
+  const customerReply = await client.execute({ kind: "find_customer", query: "Müşteri" });
+  const orderReply = await client.execute({ kind: "find_order", query: "CBX" });
+  assert.match(customerReply.text, /^“Müşteri” için ilk 10 müşteri eşleşmesi:/u);
+  assert.match(customerReply.text, /Daha fazla sonuç var[.]$/u);
+  assert.doesNotMatch(customerReply.text, /10 müşteri bulundu/u);
+  assert.match(orderReply.text, /^“CBX” için ilk 10 sipariş eşleşmesi:/u);
+  assert.match(orderReply.text, /Daha fazla sonuç var[.]$/u);
+  assert.doesNotMatch(orderReply.text, /10 sipariş bulundu/u);
 });
 
 test("routes supported local reads through bounded same-origin JSON GET requests", async () => {

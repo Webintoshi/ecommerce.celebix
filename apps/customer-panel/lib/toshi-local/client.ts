@@ -222,9 +222,21 @@ export function createToshiLocalClient(fetcher: typeof fetch = fetch): ToshiLoca
           return projectToshiLocalReply(intent, await findProducts(intent.query, signal));
         }
         case "find_customer":
-          return projectToshiLocalReply(intent, parseSearchEnvelope(await read(`/api/customers?${new URLSearchParams({ search: intent.query, pageSize: "10" })}`, signal), 10, 1024, parseCustomerListItem).items);
+          {
+            const result = parseSearchEnvelope(await read(`/api/customers?${new URLSearchParams({ search: intent.query, pageSize: "10" })}`, signal), 10, 1024, parseCustomerListItem);
+            return projectToshiLocalReply(intent, Object.freeze({
+              items: result.items,
+              hasMore: result.nextCursor !== undefined,
+            }));
+          }
         case "find_order":
-          return projectToshiLocalReply(intent, parseSearchEnvelope(await read(`/api/orders?${new URLSearchParams({ search: intent.query, pageSize: "10", sort: "newest" })}`, signal), 10, 1024, parseOrderListItem).items);
+          {
+            const result = parseSearchEnvelope(await read(`/api/orders?${new URLSearchParams({ search: intent.query, pageSize: "10", sort: "newest" })}`, signal), 10, 1024, parseOrderListItem);
+            return projectToshiLocalReply(intent, Object.freeze({
+              items: result.items,
+              hasMore: result.nextCursor !== undefined,
+            }));
+          }
         case "navigate":
         case "unsupported":
           return projectToshiLocalReply(intent, null);
