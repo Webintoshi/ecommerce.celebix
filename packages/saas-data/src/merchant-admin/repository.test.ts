@@ -21,6 +21,16 @@ function providerKindTypeBoundary(api:MerchantAdminRepository){if(false){
 }}
 void providerKindTypeBoundary;
 
+test("gets one exact fixed-kind record with durable authority",async()=>{
+ const projected={id:RECORD,kind:"discount",name:"Yaz Indirimi",config:{discountType:"percent",value:15},status:"active",version:1,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString()};
+ const reader=new Client((text)=>text.includes("merchant_admin_get_record")?[{outcome:"found",result_payload:projected}]:[]);
+ const result=await repository(new Pool([reader])).get({tenantContext:tenant(),now:NOW,kind:"discount",recordId:RECORD});
+ assert.deepEqual(result,projected);
+ assert.deepEqual(call(reader,"merchant_admin_get_record").values.slice(-2),["discount",RECORD]);
+ const mismatch=new Client((text)=>text.includes("merchant_admin_get_record")?[{outcome:"found",result_payload:{...projected,kind:"page"}}]:[]);
+ await assert.rejects(()=>repository(new Pool([mismatch])).get({tenantContext:tenant(),now:NOW,kind:"discount",recordId:RECORD}),error=>error instanceof MerchantAdminRepositoryError&&error.code==="unavailable");
+});
+
 test("lists durable tenant records and immutable audit events",async()=>{
  const reader=new Client((text)=>text.includes("merchant_admin_list_events")?[{outcome:"listed",result_payload:{items:[{id:OP,recordId:RECORD,recordKind:"discount",eventKind:"coupon_used",summary:{orderReference:"safe"},occurredAt:NOW.toISOString()}]}}]:text.includes("merchant_admin_list")?[{outcome:"listed",result_payload:{items:[{id:RECORD,kind:"discount",name:"Yaz Indirimi",config:{discountType:"percent",value:15},status:"active",version:1,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString()}]}}]:[]);
  const repo=repository(new Pool([reader,new Client(reader.responder)]));

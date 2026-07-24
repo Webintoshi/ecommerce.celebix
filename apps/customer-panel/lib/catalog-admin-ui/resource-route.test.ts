@@ -78,7 +78,8 @@ function firstElement(node: ReactNode, type: string) {
 
 async function compileCatalogResourceEditor(overrides: Readonly<{
   react: typeof React;
-  resources: () => Promise<readonly Record<string, unknown>[]>;
+  resource: (kind: string, resourceId: string) => Promise<Record<string, unknown>>;
+  products?: (input?: Readonly<{ cursor?: string }>) => Promise<Readonly<{ items: readonly Record<string, unknown>[]; nextCursor?: string }>>;
   save: (kind: string, input: unknown) => Promise<unknown>;
   push: (path: string) => void;
 }>) {
@@ -97,8 +98,8 @@ async function compileCatalogResourceEditor(overrides: Readonly<{
       PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       PanelPageHeader: ({ title, description }: { title: string; description: string }) => createElement("header", null, createElement("h1", null, title), createElement("p", null, description)),
     };
-    if (specifier === "@/lib/catalog-admin-ui/client") return { CatalogAdminApiError: CompiledCatalogAdminApiError, catalogAdminApi: Object.freeze({ resources: overrides.resources, saveResource: overrides.save }) };
-    if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({ listProducts: async () => ({ items: [] }) }) };
+    if (specifier === "@/lib/catalog-admin-ui/client") return { CatalogAdminApiError: CompiledCatalogAdminApiError, catalogAdminApi: Object.freeze({ resource: overrides.resource, saveResource: overrides.save }) };
+    if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({ listProducts: overrides.products ?? (async () => ({ items: [] })) }) };
     if (specifier === "@/lib/catalog-admin-ui/resource-route") return route;
     if (specifier === "./catalog-admin-console.module.css") return styles;
     if (specifier === "@celebix/saas-contracts") return {};
@@ -134,16 +135,16 @@ test("selects an editor resource only when its opaque ID and fixed kind match th
 test("catalog editor ignores a late A read after route B is loaded and submits only B's version", async () => {
   const hookRuntime = createHookRuntime();
   const saves: unknown[] = [];
-  let resolveA: ((value: readonly Record<string, unknown>[]) => void) | undefined;
+  let resolveA: ((value: Record<string, unknown>) => void) | undefined;
   let calls = 0;
   const resourceA = Object.freeze({ id: "resource-a", kind: "collection", version: 7, name: "A", slug: "a", config: {}, productIds: [] });
   const resourceB = Object.freeze({ id: "resource-b", kind: "collection", version: 11, name: "B", slug: "b", config: {}, productIds: [] });
   const Editor = await compileCatalogResourceEditor({
     react: hookRuntime.runtime,
-    resources: async () => {
+    resource: async () => {
       calls += 1;
-      if (calls === 1) return new Promise<readonly Record<string, unknown>[]>((resolve) => { resolveA = resolve; });
-      return [resourceB];
+      if (calls === 1) return new Promise<Record<string, unknown>>((resolve) => { resolveA = resolve; });
+      return resourceB;
     },
     save: async (_kind, input) => { saves.push(input); return {}; },
     push() {},
@@ -155,7 +156,7 @@ test("catalog editor ignores a late A read after route B is loaded and submits o
   selectedId = "resource-b";
   let view = await hookRuntime.flush(Console, true);
   assert.equal(firstElement(view, "form").props.children !== undefined, true);
-  resolveA?.([resourceA]);
+  resolveA?.(resourceA);
   view = await hookRuntime.flush(Console);
 
   let name = "";
@@ -176,6 +177,43 @@ test("catalog editor ignores a late A read after route B is loaded and submits o
   assert.deepEqual(saves, [{ resourceId: "resource-b", expectedVersion: 11, name: "B", slug: "b", config: { featured: false }, productIds: [] }]);
 });
 
+test("catalog editor preserves an existing product relation outside the first page until explicitly removed", async () => {
+  const hookRuntime = createHookRuntime();
+  const saves: unknown[] = [];
+  const unseen = "72000000-0000-4000-8000-000000000099";
+  const firstPage = Array.from({ length: 20 }, (_, index) => ({
+    id: `72000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    title: `Ürün ${index + 1}`,
+  }));
+  const Editor = await compileCatalogResourceEditor({
+    react: hookRuntime.runtime,
+    resource: async () => ({ id: "resource-a", kind: "collection", version: 7, name: "A", slug: "a", config: {}, productIds: [unseen] }),
+    products: async () => ({ items: firstPage, nextCursor: "next-page" }),
+    save: async (_kind, input) => { saves.push(input); return {}; },
+    push() {},
+  });
+  const Console = () => Editor({ kind: "collection", resourceId: "resource-a", canManage: true });
+  const view = await hookRuntime.flush(Console);
+  let unseenCheckbox: React.ReactElement<Record<string, unknown>> | undefined;
+  visitElements(view, (element) => {
+    if (element.type === "input" && element.props.value === unseen) unseenCheckbox = element;
+  });
+  assert.ok(unseenCheckbox);
+  assert.equal(unseenCheckbox.props.checked, true);
+  const originalFormData = globalThis.FormData;
+  class TestFormData {
+    get(name: string) { return ({ name: "A", slug: "a", description: "" } as Record<string, string>)[name] ?? null; }
+  }
+  Object.defineProperty(globalThis, "FormData", { configurable: true, value: TestFormData });
+  try {
+    const form = firstElement(view, "form");
+    await (form.props.onSubmit as (event: { preventDefault(): void; currentTarget: unknown }) => Promise<void>)({ preventDefault() {}, currentTarget: {} });
+  } finally {
+    Object.defineProperty(globalThis, "FormData", { configurable: true, value: originalFormData });
+  }
+  assert.deepEqual(saves, [{ resourceId: "resource-a", expectedVersion: 7, name: "A", slug: "a", config: { featured: false }, productIds: [unseen] }]);
+});
+
 test("every catalog kind has fixed create and edit pages, with a preview only for extras", async () => {
   for (const segment of ["collections", "brands", "attributes", "extras", "definitions"]) {
     await access(new URL(`app/products/${segment}/new/page.tsx`, root));
@@ -190,16 +228,17 @@ test("every catalog kind has fixed create and edit pages, with a preview only fo
 
 test("editor only writes an exact resource selected from the fixed-kind API result", async () => {
   const editor = await source("components/catalog-admin/CatalogResourceEditor.tsx");
-  assert.match(editor, /catalogAdminApi\.resources\(kind\)/);
-  assert.match(editor, /selectCatalogResourceForEdit\(resources, kind, resourceId\)/);
-  assert.match(editor, /Kayıt bulunamadı veya artık erişilemiyor/);
+  assert.match(editor, /catalogAdminApi\.resource\(kind, resourceId\)/);
+  assert.match(editor, /productIds:\s*selectedProductIds/);
+  assert.match(editor, /Daha fazla ürün yükle/);
+  assert.match(editor, /Yüklenen ürünlerde ara/);
   assert.match(editor, /resourceId: resource\.id, expectedVersion: resource\.version/);
   assert.doesNotMatch(editor, /searchParams|localStorage|sessionStorage|x-store-id|x-tenant-id|supabase|\/api\/admin/);
 });
 
 test("extra preview renders untrusted option text and minor-unit prices without unsafe HTML", async () => {
   const preview = await source("components/catalog-admin/CatalogExtraPreview.tsx");
-  assert.match(preview, /catalogAdminApi\.resources\("extra"\)/);
+  assert.match(preview, /catalogAdminApi\.resource\("extra", resourceId\)/);
   assert.match(preview, /options\.map/);
   assert.match(preview, /formatTry\(priceAdjustmentCents\)/);
   assert.doesNotMatch(preview, /dangerouslySetInnerHTML|<iframe|eval\(|new Function|import\(/);

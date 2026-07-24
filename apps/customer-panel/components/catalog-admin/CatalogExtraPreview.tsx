@@ -30,13 +30,7 @@ export function CatalogExtraPreview({ resourceId }: { resourceId: string }) {
     setLoading(true);
     setError("");
     try {
-      const resources = await catalogAdminApi.resources("extra");
-      const selected = resources.find((candidate) => candidate.id === resourceId);
-      if (selected === undefined) {
-        setError("Ekstra bulunamadı veya artık erişilemiyor.");
-        return;
-      }
-      setResource(selected);
+      setResource(await catalogAdminApi.resource("extra", resourceId));
     } catch (caught) {
       setError(caught instanceof CatalogAdminApiError ? caught.message : "Ekstra önizlemesi yüklenemedi.");
     } finally {

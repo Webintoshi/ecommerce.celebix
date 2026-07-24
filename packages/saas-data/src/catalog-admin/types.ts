@@ -16,6 +16,7 @@ import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.
 
 export interface CatalogAdminAuthorityInput { readonly tenantContext: TenantContext; readonly now: Date }
 export interface ListCatalogAdminResourcesInput extends CatalogAdminAuthorityInput { readonly kind: CatalogAdminResourceKind }
+export interface GetCatalogAdminResourceInput extends ListCatalogAdminResourcesInput { readonly resourceId: string }
 export interface SaveCatalogAdminResourceInput extends ListCatalogAdminResourcesInput {
   readonly operationId: string;
   readonly resourceId?: string;
@@ -46,6 +47,7 @@ export interface CommitCatalogImportPreviewInput extends CatalogAdminAuthorityIn
 }
 export interface CatalogAdminRepository {
   listResources(input: ListCatalogAdminResourcesInput): Promise<readonly CatalogAdminResource[]>;
+  getResource(input: GetCatalogAdminResourceInput): Promise<CatalogAdminResource>;
   saveResource(input: SaveCatalogAdminResourceInput): Promise<CatalogAdminMutationResult>;
   archiveResource(input: ArchiveCatalogAdminResourceInput): Promise<CatalogAdminMutationResult>;
   listReviews(input: ListProductReviewsInput): Promise<readonly ProductReview[]>;

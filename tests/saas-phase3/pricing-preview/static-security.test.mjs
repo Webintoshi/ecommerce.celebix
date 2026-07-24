@@ -60,9 +60,9 @@ test("047 assertions and guarded down pin exact immutable authority", () => {
   assert.match(assertions, /resolve_effective_variant_price/);
 });
 
-test("phase3h manifest pins all thirty artifacts including migration 047", () => {
+test("phase3h manifest pins all thirty-three artifacts including migration 048", () => {
   const manifest = JSON.parse(read("phase3h-merchant-completion-manifest.json"));
-  assert.equal(manifest.artifacts.length, 30);
+  assert.equal(manifest.artifacts.length, 33);
   for (const name of [upName, downName, assertionsName]) {
     const entry = manifest.artifacts.find((item) => item.file === name);
     assert.ok(entry, name);

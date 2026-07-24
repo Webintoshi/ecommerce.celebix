@@ -51,7 +51,7 @@ test("cumulative manifest has thirty current checksums", () => {
       "utf8",
     ),
   );
-  assert.equal(manifest.artifacts.length, 30);
+  assert.equal(manifest.artifacts.length, 33);
   for (const artifact of manifest.artifacts) {
     assert.equal(
       createHash("sha256")

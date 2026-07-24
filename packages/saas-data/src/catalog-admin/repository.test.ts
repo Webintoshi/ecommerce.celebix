@@ -91,6 +91,28 @@ function preview(status = "prepared") {
   };
 }
 
+test("gets one exact fixed-kind resource with durable authority", async () => {
+  const projected = {
+    id: RESOURCE, kind: "collection", name: "Yeni Gelenler", slug: "yeni-gelenler",
+    config: {}, status: "active", productIds: [PRODUCT], productCount: 1,
+    version: 1, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+  };
+  const reader = new Client((text) => text.includes("catalog_admin_get_resource")
+    ? [{ outcome: "found", result_payload: projected }]
+    : []);
+  const result = await repository(new Pool([reader])).getResource({
+    tenantContext: tenant(), now: NOW, kind: "collection", resourceId: RESOURCE,
+  });
+  assert.deepEqual(result, projected);
+  assert.deepEqual(call(reader, "catalog_admin_get_resource").values.slice(-2), ["collection", RESOURCE]);
+  const mismatch = new Client((text) => text.includes("catalog_admin_get_resource")
+    ? [{ outcome: "found", result_payload: { ...projected, kind: "brand" } }]
+    : []);
+  await assert.rejects(() => repository(new Pool([mismatch])).getResource({
+    tenantContext: tenant(), now: NOW, kind: "collection", resourceId: RESOURCE,
+  }), (error: unknown) => error instanceof CatalogAdminRepositoryError && error.code === "unavailable");
+});
+
 test("import preview prepare read and commit use only canonical rows and durable authority", async () => {
   const prepare = new Client((text) => text.includes("catalog_admin_prepare_import_preview") ? [{ outcome: "prepared", result_payload: preview() }] : []);
   const prepared = await repository(new Pool([prepare])).prepareImport({

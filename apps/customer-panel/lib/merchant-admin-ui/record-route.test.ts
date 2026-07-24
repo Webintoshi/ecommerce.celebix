@@ -90,7 +90,7 @@ function firstElement(node: ReactNode, type: string) {
 
 async function compileMerchantRecordEditor(overrides: Readonly<{
   react: typeof React;
-  records: () => Promise<readonly Record<string, unknown>[]>;
+  record: (kind: string, recordId: string) => Promise<Record<string, unknown>>;
   save: (kind: string, input: unknown) => Promise<unknown>;
   push: (path: string) => void;
 }>) {
@@ -112,7 +112,7 @@ async function compileMerchantRecordEditor(overrides: Readonly<{
       PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       PanelPageHeader: ({ title, description }: { title: string; description: string }) => createElement("header", null, createElement("h1", null, title), createElement("p", null, description)),
     };
-    if (specifier === "@/lib/merchant-admin-ui/client") return { MerchantAdminApiError: CompiledMerchantAdminApiError, merchantAdminApi: Object.freeze({ records: overrides.records, save: overrides.save }) };
+    if (specifier === "@/lib/merchant-admin-ui/client") return { MerchantAdminApiError: CompiledMerchantAdminApiError, merchantAdminApi: Object.freeze({ record: overrides.record, save: overrides.save }) };
     if (specifier === "@/lib/merchant-admin-ui/presentation") return presentation;
     if (specifier === "./merchant-module-console.module.css") return styles;
     throw new Error(`unexpected_merchant_record_editor_import:${specifier}`);
@@ -131,7 +131,7 @@ test("record editor sends one rapid save and keeps a newer request locked after 
   let selectedId = "record-a";
   const Editor = await compileMerchantRecordEditor({
     react: hookRuntime.runtime,
-    records: async () => [selectedId === "record-a" ? recordA : recordB],
+    record: async () => selectedId === "record-a" ? recordA : recordB,
     save: async (_kind, input) => {
       saves.push(input);
       return new Promise((resolve) => { completions.push(() => resolve({})); });
@@ -188,7 +188,7 @@ test("record editor selects an exact persisted kind and uses its returned versio
     new URL("../../components/merchant-admin/MerchantRecordEditor.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(source, /record[.]kind\s*!==\s*kind/);
+  assert.match(source, /merchantAdminApi[.]record[(]kind,\s*recordId[)]/);
   assert.match(source, /expectedVersion:\s*record[.]version/);
   assert.match(source, /requestSequence[.]current\s*!==\s*sequence/);
 });

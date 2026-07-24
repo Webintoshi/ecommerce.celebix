@@ -30,6 +30,9 @@
     { "file": "202607230046_inventory_locations_assertions.sql", "sha256": "99035aa7b1a16baaaf33a8a0cdebf54c4a84164e7dc0b421092cf3cbb4a0f38a" },
     { "file": "202607230047_pricing_preview.up.sql", "sha256": "b00971a3e20684d4a8a124d74978ea42ca54fe13b0bd80e5d21deb2e377b5643" },
     { "file": "202607230047_pricing_preview.down.sql", "sha256": "0bcdbcb8b7932733833e6f359a275ac3d1dfc0f302752525835b5c8300d32a93" },
-    { "file": "202607230047_pricing_preview_assertions.sql", "sha256": "d29e811e13c3617ff165a7d92c25b46611f209ce2ced295acc26da75d1409038" }
+    { "file": "202607230047_pricing_preview_assertions.sql", "sha256": "d29e811e13c3617ff165a7d92c25b46611f209ce2ced295acc26da75d1409038" },
+    { "file": "202607240048_exact_record_lookups_analytics.up.sql", "sha256": "7d78a9fde6d6f42238aaacdfab46d418b43a6bb2d86875e6dd9696e0c8bdb253" },
+    { "file": "202607240048_exact_record_lookups_analytics.down.sql", "sha256": "5b86e51d71121a531c361ee6c8169b2c432ced50fcf34cdab2f500af12866035" },
+    { "file": "202607240048_exact_record_lookups_analytics_assertions.sql", "sha256": "7c05192c0f5cd48e1bc723adb46643156284a8c06ecd3165a28fddf5d20e4090" }
   ]
 }

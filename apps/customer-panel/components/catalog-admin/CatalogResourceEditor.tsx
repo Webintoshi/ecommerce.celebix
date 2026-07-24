@@ -7,7 +7,7 @@ import type { CatalogAdminJson, CatalogAdminResource, CatalogAdminResourceKind, 
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/client";
 import { catalogApi } from "@/lib/catalog-ui/client";
-import { getCatalogResourceRouteDefinitionForKind, selectCatalogResourceForEdit } from "@/lib/catalog-admin-ui/resource-route";
+import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
 import styles from "./catalog-admin-console.module.css";
 
 const DESCRIPTIONS: Record<CatalogAdminResourceKind, string> = Object.freeze({
@@ -54,12 +54,20 @@ function safeError(caught: unknown) {
   return caught instanceof CatalogAdminApiError ? caught.message : "Kayıt tamamlanamadı.";
 }
 
+function hasProductRelations(kind: CatalogAdminResourceKind) {
+  return kind === "collection" || kind === "brand" || kind === "tag";
+}
+
 export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; resourceId?: string; canManage: boolean }) {
   const { kind, resourceId, canManage } = props;
   const router = useRouter();
   const route = getCatalogResourceRouteDefinitionForKind(kind);
   const [resource, setResource] = useState<CatalogAdminResource>();
   const [products, setProducts] = useState<readonly Product[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<readonly string[]>([]);
+  const [productCursor, setProductCursor] = useState<string>();
+  const [productSearch, setProductSearch] = useState("");
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -72,22 +80,21 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     setError("");
     setResource(undefined);
     setProducts([]);
+    setSelectedProductIds([]);
+    setProductCursor(undefined);
+    setProductSearch("");
+    setLoadingProducts(false);
     setBusy(false);
     try {
-      const [resources, catalog] = await Promise.all([
-        catalogAdminApi.resources(kind),
-        kind === "collection" || kind === "brand" || kind === "tag" ? catalogApi.listProducts() : Promise.resolve({ items: [] as readonly Product[] }),
+      const [selected, catalog] = await Promise.all([
+        resourceId === undefined ? Promise.resolve(undefined) : catalogAdminApi.resource(kind, resourceId),
+        hasProductRelations(kind) ? catalogApi.listProducts() : Promise.resolve({ items: [] as readonly Product[], nextCursor: undefined }),
       ]);
       if (requestSequence.current !== sequence) return;
-      if (resourceId !== undefined) {
-        const selected = selectCatalogResourceForEdit(resources, kind, resourceId);
-        if (selected === undefined) {
-          setError("Kayıt bulunamadı veya artık erişilemiyor.");
-          return;
-        }
-        setResource(selected);
-      }
+      if (selected) setResource(selected);
       setProducts(catalog.items);
+      setSelectedProductIds(selected?.productIds ?? []);
+      setProductCursor(catalog.nextCursor);
     } catch (caught) {
       if (requestSequence.current === sequence) setError(safeError(caught));
     } finally {
@@ -115,7 +122,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
         slug: value(data, "slug"),
         ...(value(data, "description") ? { description: value(data, "description") } : {}),
         config: config(kind, data),
-        productIds: data.getAll("productId").map(String),
+        productIds: selectedProductIds,
       });
       if (requestSequence.current === sequence) {
         router.push(`/products/${route.segment}`);
@@ -128,7 +135,37 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
     }
   }
 
+  async function loadMoreProducts() {
+    if (!productCursor || loadingProducts) return;
+    const sequence = requestSequence.current;
+    const cursor = productCursor;
+    setLoadingProducts(true);
+    setError("");
+    try {
+      const next = await catalogApi.listProducts({ cursor });
+      if (requestSequence.current !== sequence) return;
+      setProducts((current) => Object.freeze([...new Map([...current, ...next.items].map((product) => [product.id, product])).values()]));
+      setProductCursor(next.nextCursor);
+    } catch (caught) {
+      if (requestSequence.current === sequence) setError(safeError(caught));
+    } finally {
+      if (requestSequence.current === sequence) setLoadingProducts(false);
+    }
+  }
+
+  function toggleProduct(productId: string, checked: boolean) {
+    setSelectedProductIds((current) => checked
+      ? current.includes(productId) ? current : Object.freeze([...current, productId])
+      : Object.freeze(current.filter((id) => id !== productId)));
+  }
+
   const title = resourceId === undefined ? `Yeni ${route.title}` : `${route.title} düzenle`;
+  const normalizedSearch = productSearch.trim().toLocaleLowerCase("tr-TR");
+  const visibleProducts = normalizedSearch
+    ? products.filter((product) => product.title.toLocaleLowerCase("tr-TR").includes(normalizedSearch) || product.id.includes(normalizedSearch))
+    : products;
+  const loadedProductIds = new Set(products.map(({ id }) => id));
+  const unseenSelectedProductIds = selectedProductIds.filter((id) => !loadedProductIds.has(id));
   if (!canManage) return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p></PanelPageShell>;
 
   return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><section className={styles.surface}>
@@ -143,7 +180,19 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       {kind === "attribute" ? <label className={styles.wide}>Değerler (virgülle ayırın)<input name="values" required maxLength={1000} defaultValue={configValue(resource, "values")} /></label> : null}
       {kind === "extra" ? <><label>Seçenekler (virgülle ayırın)<input name="options" required maxLength={1000} defaultValue={configValue(resource, "options")} /></label><label>Fiyat farkı (kuruş)<input name="priceAdjustmentCents" type="number" min={0} step={1} defaultValue={configValue(resource, "priceAdjustmentCents") || "0"} /></label></> : null}
       {kind === "definition" ? <><label>Tanım anahtarı<input name="definitionKey" required maxLength={64} defaultValue={configValue(resource, "key")} /></label><label>Tanım değeri<input name="definitionValue" required maxLength={1000} defaultValue={configValue(resource, "value")} /></label></> : null}
-      {kind === "collection" || kind === "brand" || kind === "tag" ? <fieldset className={`${styles.wide} ${styles.checks}`}><legend>Bağlı ürünler</legend>{products.map((product) => <label className={styles.check} key={product.id}><input name="productId" type="checkbox" value={product.id} defaultChecked={resource?.productIds.includes(product.id)} /><span>{product.title}</span></label>)}</fieldset> : null}
+      {hasProductRelations(kind) ? <fieldset className={`${styles.wide} ${styles.checks}`}>
+        <legend>Bağlı ürünler</legend>
+        <label className={styles.wide}>Yüklenen ürünlerde ara<input type="search" value={productSearch} onChange={(event) => setProductSearch(event.currentTarget.value)} /></label>
+        {unseenSelectedProductIds.map((productId) => <label className={styles.check} key={productId}>
+          <input name="productId" type="checkbox" value={productId} checked onChange={(event) => toggleProduct(productId, event.currentTarget.checked)} />
+          <span>Mevcut bağlı ürün · <code>{productId}</code></span>
+        </label>)}
+        {visibleProducts.map((product) => <label className={styles.check} key={product.id}>
+          <input name="productId" type="checkbox" value={product.id} checked={selectedProductIds.includes(product.id)} onChange={(event) => toggleProduct(product.id, event.currentTarget.checked)} />
+          <span>{product.title}</span>
+        </label>)}
+        {productCursor ? <button className={styles.button} type="button" disabled={loadingProducts} onClick={() => { void loadMoreProducts(); }}>{loadingProducts ? "Ürünler yükleniyor…" : "Daha fazla ürün yükle"}</button> : null}
+      </fieldset> : null}
       <div className={`${styles.wide} ${styles.actions}`}><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div>
     </form> : null}
   </section></PanelPageShell>;

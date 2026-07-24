@@ -87,9 +87,9 @@ test("migration 046 guarded rollback and catalog assertions are complete", () =>
   assert.match(assertions, /relforcerowsecurity/);
 });
 
-test("phase3h manifest pins all 30 artifacts including migration 047", () => {
+test("phase3h manifest pins all 33 artifacts including migration 048", () => {
   const manifest = JSON.parse(read("phase3h-merchant-completion-manifest.json"));
-  assert.equal(manifest.artifacts.length, 30);
+  assert.equal(manifest.artifacts.length, 33);
   for (const name of [upName, downName, assertionsName]) {
     const entry = manifest.artifacts.find((item) => item.file === name);
     assert.ok(entry, name);

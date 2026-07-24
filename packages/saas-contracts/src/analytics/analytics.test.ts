@@ -61,6 +61,15 @@ test("rejects invalid nested analytics values and bounded arrays", () => {
   assert.throws(() => parseAnalyticsDashboard(fixture({ topProducts: Array.from({ length: 21 }, () => ({ productId: PRODUCT_ID, title: "Atlas Mug", quantity: 0, revenueCents: 0 })) })), /analytics_contract_invalid/);
 });
 
+test("rejects duplicate top-product IDs after a product rename", () => {
+  assert.throws(() => parseAnalyticsDashboard(fixture({
+    topProducts: [
+      { productId: PRODUCT_ID, title: "Atlas Mug", quantity: 2, revenueCents: 20_000 },
+      { productId: PRODUCT_ID, title: "Atlas Mug New", quantity: 3, revenueCents: 30_000 },
+    ],
+  })), /analytics_contract_invalid/);
+});
+
 test("rejects hidden symbol and accessor dashboard properties without invoking getters", () => {
   const hidden = fixture();
   Object.defineProperty(hidden, "hidden", { value: true, enumerable: false });

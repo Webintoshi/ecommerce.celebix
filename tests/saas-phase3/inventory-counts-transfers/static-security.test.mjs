@@ -194,7 +194,7 @@ test("cumulative completion manifest has thirty current checksums", () => {
   const manifest = JSON.parse(
     readFileSync(path.join(SQL, "phase3h-merchant-completion-manifest.json"), "utf8"),
   );
-  assert.equal(manifest.artifacts.length, 30);
+  assert.equal(manifest.artifacts.length, 33);
   for (const artifact of manifest.artifacts) {
     assert.equal(
       createHash("sha256")

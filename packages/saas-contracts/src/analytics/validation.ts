@@ -147,6 +147,7 @@ export function parseAnalyticsDashboard(value: unknown): Readonly<AnalyticsDashb
   const catalogValue = exact(parsed.catalog, ["activeProducts", "lowStockVariants"]);
   const series = parseArray(parsed.series, 366, parseSeriesPoint);
   const topProducts = parseArray(parsed.topProducts, 20, parseTopProduct);
+  if (new Set(topProducts.map(({ productId }) => productId)).size !== topProducts.length) invalid();
   return freeze({
     period: period(parsed.period),
     rangeStart,

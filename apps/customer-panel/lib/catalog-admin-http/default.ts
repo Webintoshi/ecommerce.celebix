@@ -9,6 +9,7 @@ type ResourceContext = Readonly<{ params: Promise<Readonly<{ kind: string; resou
 type ReviewContext = Readonly<{ params: Promise<Readonly<{ reviewId: string }>> }>;
 type PreviewContext = Readonly<{ params: Promise<Readonly<{ previewId: string }>> }>;
 export async function handleCatalogAdminResources(request: Request, context: ResourceContext) { return handlers.resources(request, (await context.params).kind); }
+export async function handleCatalogAdminResource(request: Request, context: ResourceContext) { const params = await context.params; return handlers.resource(request, params.kind, params.resourceId); }
 export async function handleCatalogAdminResourceSave(request: Request, context: ResourceContext) { return handlers.saveResource(request, (await context.params).kind); }
 export async function handleCatalogAdminResourceArchive(request: Request, context: ResourceContext) { const params = await context.params; return handlers.archiveResource(request, params.kind, params.resourceId); }
 export const handleCatalogAdminReviews = handlers.reviews;

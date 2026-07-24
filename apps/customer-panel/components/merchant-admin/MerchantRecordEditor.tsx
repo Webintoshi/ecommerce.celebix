@@ -90,16 +90,9 @@ export function MerchantRecordEditor({
     setError("");
     setRecord(undefined);
     try {
-      const records = await merchantAdminApi.records(kind);
+      const selected = recordId === undefined ? undefined : await merchantAdminApi.record(kind, recordId);
       if (requestSequence.current !== sequence) return;
-      if (recordId !== undefined) {
-        const selected = records.find((candidate) => candidate.id === recordId);
-        if (!selected || selected.kind !== kind) {
-          setError("Kayıt bulunamadı veya artık erişilemiyor.");
-          return;
-        }
-        setRecord(selected);
-      }
+      if (selected) setRecord(selected);
     } catch (caught) {
       if (requestSequence.current === sequence) setError(safeError(caught));
     } finally {

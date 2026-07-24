@@ -38,6 +38,7 @@ const POSTGRES_HARNESSES = Object.freeze([
   ["tests/saas-phase3/catalog-import-previews/postgres-harness.mjs", 25],
   ["tests/saas-phase3/catalog-product-tags/postgres-harness.mjs", 20],
   ["tests/saas-phase3/customer-management/postgres-harness.mjs", 21],
+  ["tests/saas-phase3/exact-record-lookups-analytics/postgres-harness.mjs", 18],
   ["tests/saas-phase3/inventory-counts-transfers/postgres-harness.mjs", 30],
   ["tests/saas-phase3/inventory-locations/postgres-harness.mjs", 44],
   ["tests/saas-phase3/inventory-purchasing/postgres-harness.mjs", 34],
@@ -66,6 +67,7 @@ const COMPLETION_MIGRATIONS = Object.freeze([
   ["202607220045", "price_lists"],
   ["202607230046", "inventory_locations"],
   ["202607230047", "pricing_preview"],
+  ["202607240048", "exact_record_lookups_analytics"],
 ]);
 const COMPLETION_ARTIFACTS = Object.freeze(COMPLETION_MIGRATIONS.flatMap(
   ([version, name]) => [
@@ -302,16 +304,16 @@ test("added lines in added and modified production files contain no raw secret o
   for (const addition of additions) assertProductionAddedLineSafe(addition);
 });
 
-test("completion manifest exactly pins migrations 038 through 047 including 042 through 047", async () => {
+test("completion manifest exactly pins migrations 038 through 048 including 042 through 048", async () => {
   const manifestPath = `${SQL}/phase3h-merchant-completion-manifest.json`;
   const manifest = JSON.parse(await read(manifestPath));
   assert.deepEqual(Object.keys(manifest), ["phase", "artifacts"]);
   assert.equal(manifest.phase, "phase3h-merchant-analytics");
   assert.deepEqual(manifest.artifacts.map(({ file }) => file), COMPLETION_ARTIFACTS);
-  assert.equal(manifest.artifacts.length, 30);
+  assert.equal(manifest.artifacts.length, 33);
   const lateArtifacts = manifest.artifacts
     .map(({ file }) => file)
-    .filter((file) => /2026072[23]00(?:42|43|44|45|46|47)_/.test(file));
+    .filter((file) => /2026072[234]00(?:42|43|44|45|46|47|48)_/.test(file));
   assert.deepEqual(lateArtifacts, COMPLETION_ARTIFACTS.slice(12));
   for (const artifact of manifest.artifacts) {
     assert.deepEqual(Object.keys(artifact), ["file", "sha256"]);
@@ -325,10 +327,10 @@ test("completion manifest exactly pins migrations 038 through 047 including 042 
   );
 });
 
-test("current Phase 3 PostgreSQL inventory is exactly 21 executable harnesses and 641 scenarios", async () => {
+test("current Phase 3 PostgreSQL inventory is exactly 22 executable harnesses and 659 scenarios", async () => {
   const expectedPaths = POSTGRES_HARNESSES.map(([harness]) => harness);
-  assert.equal(POSTGRES_HARNESSES.length, 21);
-  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 641);
+  assert.equal(POSTGRES_HARNESSES.length, 22);
+  assert.equal(POSTGRES_HARNESSES.reduce((total, [, scenarios]) => total + scenarios, 0), 659);
   assert.deepEqual(
     await findPostgresHarnesses(path.join(ROOT, "tests/saas-phase3")),
     [...expectedPaths].sort(),

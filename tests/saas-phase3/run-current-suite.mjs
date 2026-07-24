@@ -21,6 +21,12 @@ const requiredHarnesses = Object.freeze([
     line: /^PASS \d+\/34 .+$/gm,
     completion: /^PASS 34\/34 .+$/m,
   }),
+  Object.freeze({
+    file: "tests/saas-phase3/exact-record-lookups-analytics/postgres-harness.mjs",
+    total: 18,
+    line: /^PASS \d+\/18 .+$/gm,
+    completion: /^18\/18 PASS$/m,
+  }),
 ]);
 
 function runRequiredHarness({ file, total, line, completion }) {
