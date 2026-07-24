@@ -99,8 +99,8 @@ export function FullParityFixture({ pathname }: Readonly<{ pathname: string }>) 
               <PanelPanel title={dto.badge}>
                 <label className="fixture-filter">Kayıtlarda ara<input aria-label="Kayıtlarda ara" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
                 <PanelDataTable label={`${route.title} kayıtları`}>
-                  <thead><tr><th scope="col">Kayıt</th><th scope="col">Durum</th><th scope="col">Açıklama</th></tr></thead>
-                  <tbody>{records.map((record) => <tr key={`${record.name}:${record.state}`}><td>{record.name}</td><td>{record.state}</td><td>{record.detail}</td></tr>)}</tbody>
+                  <thead><tr><th scope="col">Kayıt</th><th scope="col">Durum</th><th scope="col">Yapılandırma</th><th scope="col">Güncelleme</th><th scope="col">İşlemler</th></tr></thead>
+                  <tbody>{records.map((record) => <tr key={`${record.name}:${record.state}`}><td>{record.name}</td><td>{record.state}</td><td>{record.detail}</td><td>Yerel kayıt</td><td>Salt okunur</td></tr>)}</tbody>
                 </PanelDataTable>
                 {records.length === 0 ? <p className="fixture-empty">Filtreyle eşleşen kalıcı kayıt yok.</p> : null}
               </PanelPanel>

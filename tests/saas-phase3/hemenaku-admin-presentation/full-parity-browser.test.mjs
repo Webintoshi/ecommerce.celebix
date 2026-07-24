@@ -93,3 +93,17 @@ test("runner validates exact decoded PNG and parsed JSON outputs", async () => {
     assert.match(runner, new RegExp(marker));
   }
 });
+
+test("browser fixture measures a production-shaped five-column table", async () => {
+  const [fixture, runner] = await Promise.all([
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/full-parity-fixture.tsx"),
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs"),
+  ]);
+  for (const header of ["Kayıt", "Durum", "Yapılandırma", "Güncelleme", "İşlemler"]) {
+    assert.match(fixture, new RegExp(`<th scope="col">${header}</th>`));
+  }
+  assert.equal(fixture.match(/<th scope="col">/g)?.length, 5);
+  for (const marker of ["fiveColumnTableMeasurements", "headerCells", "bodyCells", "contentWidth", "MIN_TABLE_CELL_CONTENT_WIDTH"]) {
+    assert.match(runner, new RegExp(marker));
+  }
+});

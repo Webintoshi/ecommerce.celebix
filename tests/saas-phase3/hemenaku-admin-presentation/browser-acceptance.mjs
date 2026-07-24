@@ -11,6 +11,7 @@ const FIXTURE = path.join(ROOT, "tests/saas-phase3/hemenaku-admin-presentation/b
 const ARTIFACTS = path.join(ROOT, ".codex-artifacts/hemenaku-admin-full-parity");
 const CDP_COMMAND_TIMEOUT = 15_000;
 const MAX_NEXT_LOG_BYTES = 16_000;
+const MIN_TABLE_CELL_CONTENT_WIDTH = 40;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const VIEWPORTS = Object.freeze([
   Object.freeze([1440, 900, "desktop-1440x900"]),
@@ -320,6 +321,33 @@ async function measurePage(cdp, label) {
   return Object.freeze({ label, ...value });
 }
 
+async function measureFiveColumnTable(cdp, label) {
+  const value = await cdp.evaluate(`(() => {
+    const table=document.querySelector('.fixture-surface table[aria-label$="kayıtları"]');
+    if(!table)return null;
+    const inspect=(entry)=>{
+      const rect=entry.getBoundingClientRect(),style=getComputedStyle(entry);
+      const contentWidth=rect.width-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+      return {text:entry.textContent?.trim()??'',width:rect.width,height:rect.height,contentWidth};
+    };
+    return {
+      width:innerWidth,
+      documentOverflow:document.documentElement.scrollWidth-innerWidth,
+      headerCells:[...table.querySelectorAll('thead th')].map(inspect),
+      bodyCells:[...table.querySelectorAll('tbody tr:first-child td')].map(inspect),
+    };
+  })()`);
+  assert.ok(value, `${label} missing five-column table`);
+  assert.equal(value.documentOverflow, 0, `${label} document overflow`);
+  assert.equal(value.headerCells.length, 5, `${label} header count`);
+  assert.equal(value.bodyCells.length, 5, `${label} body cell count`);
+  for (const cell of [...value.headerCells, ...value.bodyCells]) {
+    assert.ok(cell.width > 0 && cell.height > 0, `${label} collapsed cell: ${JSON.stringify(cell)}`);
+    assert.ok(cell.contentWidth >= MIN_TABLE_CELL_CONTENT_WIDTH, `${label} unreadable cell: ${JSON.stringify(cell)}`);
+  }
+  return Object.freeze({ label, ...value });
+}
+
 async function touchTargetDiagnostics(cdp) {
   return cdp.evaluate(`(() => {
     const sidebar=document.querySelector('aside:not(#panel-mobile-drawer)');
@@ -530,6 +558,13 @@ function validateArtifacts() {
   assert.ok(parsedResult.measurements.primaryContrast >= 4.5);
   assert.equal(parsedResult.measurements.horizontalOverflow, 0);
   assert.ok(parsedResult.measurements.viewportMeasurements.every(({ targetPrimaryAction }) => targetPrimaryAction?.tagName === "A"));
+  assert.equal(parsedResult.measurements.fiveColumnTableMeasurements.length, 2);
+  assert.ok(parsedResult.measurements.fiveColumnTableMeasurements.every((entry) => (
+    entry.documentOverflow === 0
+    && entry.headerCells.length === 5
+    && entry.bodyCells.length === 5
+    && [...entry.headerCells, ...entry.bodyCells].every(({ contentWidth }) => contentWidth >= MIN_TABLE_CELL_CONTENT_WIDTH)
+  )));
   return parsedResult;
 }
 
@@ -605,6 +640,7 @@ async function main() {
 
     const matrixSeen = new Set();
     const viewportMeasurements = [];
+    const fiveColumnTableMeasurements = [];
     const screenshots = [];
 
     await setViewport(cdp, VIEWPORTS[1], matrixSeen);
@@ -679,6 +715,7 @@ async function main() {
 
     await navigate(cdp, origin, "/products");
     viewportMeasurements.push(await measurePage(cdp, "products mobile-390x844"));
+    fiveColumnTableMeasurements.push(await measureFiveColumnTable(cdp, "products five-column table mobile-390x844"));
     screenshots.push(await screenshot(cdp, 10));
     await navigate(cdp, origin, REPRESENTATIVE_ROUTES[6]);
     viewportMeasurements.push(await measurePage(cdp, "inventory count mobile-390x844"));
@@ -690,6 +727,7 @@ async function main() {
     await setViewport(cdp, VIEWPORTS[5], matrixSeen);
     await navigate(cdp, origin, "/");
     viewportMeasurements.push(await measurePage(cdp, "dashboard mobile-320x720"));
+    fiveColumnTableMeasurements.push(await measureFiveColumnTable(cdp, "dashboard five-column table mobile-320x720"));
     const dockMeasurements = await cdp.evaluate(`(() => {
       const dock=document.querySelector('nav[aria-label="Mobil panel menüsü"]');
       const workspace=document.querySelector('main')?.parentElement;
@@ -764,6 +802,7 @@ async function main() {
           swipe: { focusRestored: swipeFocus },
         },
         viewportMeasurements,
+        fiveColumnTableMeasurements,
       },
       mutationReplay: replay,
       consoleErrors: consoleErrors.length,

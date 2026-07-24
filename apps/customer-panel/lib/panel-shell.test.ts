@@ -1674,11 +1674,17 @@ function assertPanelDataTableReadability(css: string): void {
     ["cell", { tagName: "td", parent: row }],
   ];
   const layout = winningDeclaration(declarations, table, ["table-layout"]);
-  assert.equal(layout?.value, "fixed", "320px table layout");
+  assert.notEqual(layout?.value, "fixed", "shared table must not fix a three-column layout at 320px");
+  const tableMinWidth = winningDeclaration(declarations, table, ["min-width"]);
+  assert.ok(tableMinWidth, "shared table has no readable auto-layout floor");
+  assert.ok(lengthInPixels(tableMinWidth.value) >= 512, `shared table readable floor is ${tableMinWidth.value}`);
   for (const [label, cell] of cells) {
     assert.equal(winningDeclaration(declarations, cell, ["text-align"])?.value, "left", `${label} alignment`);
     assert.equal(winningDeclaration(declarations, cell, ["vertical-align"])?.value, "top", `${label} vertical alignment`);
     assert.equal(winningDeclaration(declarations, cell, ["overflow-wrap"])?.value, "anywhere", `${label} wrapping`);
+    const minWidth = winningDeclaration(declarations, cell, ["min-width"]);
+    assert.ok(minWidth, `${label} has no minimum readable width`);
+    assert.ok(lengthInPixels(minWidth.value) >= 48, `${label} minimum readable width is ${minWidth.value}`);
     const padding = winningDeclaration(declarations, cell, ["padding"]);
     assert.ok(padding, `${label} has no padding`);
     assert.ok(lengthInPixels(padding.value) >= 8, `${label} padding is ${padding.value}`);
@@ -1862,13 +1868,15 @@ test("desktop child navigation and logout keep an effective 48px minimum target"
   assertDesktopMinimumShellTargets(css);
 });
 
-test("panel data table keeps aligned padded readable cells at 320px", async () => {
+test("shared panel data table keeps aligned padded readable cells without fixing column count", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   assertPanelDataTableReadability(css);
   for (const [override, expectedFailure] of [
     [`.tableScroll th { text-align: center; }`, /header alignment/],
     [`.tableScroll td { padding: 0.25rem; }`, /cell padding is 0\.25rem/],
-    [`.tableScroll table { table-layout: auto; }`, /320px table layout/],
+    [`.tableScroll td { min-width: 1rem; }`, /cell minimum readable width is 1rem/],
+    [`.tableScroll table { min-width: 20rem; }`, /shared table readable floor is 20rem/],
+    [`.tableScroll table { table-layout: fixed; }`, /must not fix a three-column layout/],
   ] as const) {
     assert.throws(() => assertPanelDataTableReadability(`${css}\n${override}`), expectedFailure);
   }

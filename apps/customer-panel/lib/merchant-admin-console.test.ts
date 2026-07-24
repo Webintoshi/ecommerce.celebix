@@ -9,6 +9,16 @@ const routes=Object.freeze([
 test("every donor merchant module route is real and server-authorized",async()=>{for(const[path,kind]of routes){const value=await source(path);assert.match(value,/requireServerPanelAccess/);assert.match(value,new RegExp(kind));assert.match(value,/isMerchantActionAllowed/)}});
 test("shared console has truthful durable states, audit, archive and no fake provider send",async()=>{const value=await source("components/merchant-admin/MerchantModuleConsole.tsx");assert.match(value,/merchantAdminApi\.records/);assert.match(value,/merchantAdminApi\.events/);assert.match(value,/merchantAdminApi\.save/);assert.match(value,/merchantAdminApi\.archive/);assert.match(value,/Yükleniyor|yükleniyor/);assert.match(value,/Henüz/);assert.match(value,/role="alert"/);assert.doesNotMatch(value,/sendEmail|sendWhatsapp|sendSms|Math\.random|fake|mock/i)});
 test("merchant console never accepts browser tenant or provider secret authority",async()=>{const value=(await Promise.all(["components/merchant-admin/MerchantModuleConsole.tsx","lib/merchant-admin-ui/client.ts"].map(source))).join("\n");assert.doesNotMatch(value,/x-store-id|x-tenant-id|localStorage|sessionStorage|supabase|\/api\/admin|apiSecret|clientSecret|accessToken/)});
+test("production merchant records retain all five headers without shared three-column sizing",async()=>{
+  const [consoleSource,shellCss]=await Promise.all([
+    source("components/merchant-admin/MerchantModuleConsole.tsx"),
+    source("components/panel/panel-shell.module.css"),
+  ]);
+  assert.match(consoleSource,/<thead><tr><th>Ad<\/th><th>Durum<\/th><th>Yapılandırma<\/th><th>Güncelleme<\/th><th><span[^>]*>İşlemler<\/span><\/th><\/tr><\/thead>/);
+  assert.doesNotMatch(shellCss,/table-layout:\s*fixed/);
+  assert.doesNotMatch(shellCss,/\.tableScroll\s+(?:th|td):nth-child\(/);
+  for(const declaration of[/text-align:\s*left/,/vertical-align:\s*top/,/overflow-wrap:\s*anywhere/,/padding:\s*0\.5rem/])assert.match(shellCss,declaration);
+});
 test("marketing overview derives all channel counts from durable APIs",async()=>{const value=await source("components/merchant-admin/MerchantMarketingOverview.tsx");for(const kind of["email_campaign","phone_campaign","whatsapp_campaign"])assert.match(value,new RegExp(`merchantAdminApi\\.records\\(\\"${kind}\\"\\)`));assert.doesNotMatch(value,/Math\.random|mock|fake/i)});
 test("approved merchant record subpages are server-authorized and keep fixed kinds",async()=>{for(const[path,kind,permission]of[
  ["app/discounts/[recordId]/edit/page.tsx","discount","promotions.manage"],

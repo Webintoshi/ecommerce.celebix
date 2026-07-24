@@ -614,12 +614,13 @@
 
 .tableScroll table {
   width: 100%;
+  min-width: 32rem;
   border-collapse: collapse;
-  table-layout: fixed;
 }
 
 .tableScroll th,
 .tableScroll td {
+  min-width: 3rem;
   padding: 0.5rem;
   text-align: left;
   vertical-align: top;
@@ -636,15 +637,6 @@
   font-size: 0.875rem;
   line-height: 1.5;
 }
-
-.tableScroll th:nth-child(1),
-.tableScroll td:nth-child(1) { width: 30%; }
-
-.tableScroll th:nth-child(2),
-.tableScroll td:nth-child(2) { width: 25%; }
-
-.tableScroll th:nth-child(3),
-.tableScroll td:nth-child(3) { width: 45%; }
 
 .state {
   margin: 0;
