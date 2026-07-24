@@ -420,6 +420,13 @@ async function renderPanelDashboard(
   });
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "lucide-react") {
+      const Icon = (props: Record<string, unknown>) => createElement("svg", props);
+      return { CalendarDays: Icon, Globe2: Icon, PackageCheck: Icon, Store: Icon };
+    }
+    if (specifier === "@celebix/saas-contracts") {
+      return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
+    }
     if (specifier === "react") {
       return {
         useCallback: (callback: unknown) => callback,
@@ -447,6 +454,8 @@ async function renderPanelDashboard(
         Bar: ChartPrimitive,
         BarChart: ChartContainer,
         CartesianGrid: ChartPrimitive,
+        Line: ChartPrimitive,
+        LineChart: ChartContainer,
         ResponsiveContainer: ChartContainer,
         Tooltip: ChartPrimitive,
         XAxis: ChartPrimitive,
@@ -458,6 +467,9 @@ async function renderPanelDashboard(
     }
     if (specifier === "@/components/panel/PanelLayoutClient") {
       return { usePanelChromeModel: () => model };
+    }
+    if (specifier === "@/components/panel/PanelTopbarChrome") {
+      return { PanelTopbarBridge: () => null };
     }
     if (specifier === "@/lib/catalog-ui/client") {
       return { catalogApi: { getDashboardSummary: async () => undefined } };
@@ -1059,13 +1071,14 @@ test("dashboard renders safe chrome, catalog, and durable order facts with truth
     combined,
     /conversion(?:Rate|Total)|dönüşüm oranı|customerTotal|previousRevenue|currentRevenue|Toshi/i,
   );
-  assert.match(view, /analyticsApi[.]dashboard\("month"\)/);
+  assert.match(view, /analyticsApi[.]dashboard\(analyticsPeriod[.]current\)/);
+  assert.match(view, /loader[.]current[?][.]reload\("analytics"\)/);
   assert.match(model, /orders[.]getDashboardSummary\(\)/);
   assert.match(combined, /"\/analytics"/);
   assert.doesNotMatch(view, /provider(?:Data|Payload)|TenantContext/i);
 });
 
-test("dashboard loads real catalog summary without tenant authority in the browser request", async () => {
+test("dashboard loads real durable summaries without tenant authority in the browser request", async () => {
   const view = await source("components/dashboard/PanelDashboardHomeView.tsx");
   const model = await source("lib/panel-ui/dashboard-model.ts");
   const styles = await source("components/dashboard/panel-dashboard.module.css");
@@ -1074,13 +1087,13 @@ test("dashboard loads real catalog summary without tenant authority in the brows
   assert.match(view, /role="status"/);
   assert.match(view, /role="alert"/);
   assert.match(view, /Tekrar dene/);
-  assert.match(view, /Array[.]from\(\{ length: 4 \}/);
-  assert.match(view, /disabled=\{state === "loading"\}/);
+  assert.match(view, /analyticsApi[.]dashboard\(analyticsPeriod[.]current\)/);
+  assert.match(view, /ANALYTICS_PERIODS[.]includes\(nextPeriod\)/);
   assert.doesNotMatch(view, /console[.](?:log|warn|error)/);
   assert.doesNotMatch(view, /storeId|tenantId|principalId|membershipId|x-store|x-tenant/i);
-  assert.match(styles, /[.]refreshButton,[\s\S]*?[.]errorState button\s*\{[\s\S]*?min-width:\s*48px;[\s\S]*?min-height:\s*48px;/);
-  assert.match(styles, /[.]actionRail a\s*\{[^}]*min-width:\s*48px;[^}]*min-height:\s*48px;/);
-  assert.match(styles, /@media \(max-width: 1280px\)[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /[.]channelFilter,[\s\S]*?[.]retryButton\s*\{[\s\S]*?min-width:\s*48px;[\s\S]*?min-height:\s*48px;/);
+  assert.match(styles, /[.]kpiRail\s*\{[\s\S]*?repeat\(5, minmax\(180px, 1fr\)\)/);
+  assert.match(styles, /@media \(max-width: 1024px\)[\s\S]*?[.]insightGrid\s*\{\s*grid-template-columns:\s*1fr/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?grid-template-columns:\s*1fr/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\s*[.]01ms !important/);
 });
@@ -1104,22 +1117,17 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
     storefrontHostname,
     locale: "tr-TR",
   }));
-  const renderedValues = [...html.matchAll(/<strong>([^<]*)<\/strong>/g)]
-    .map(([, value]) => value);
-  assert.deepEqual(renderedValues, [
-    storeSlug,
-    "Mağaza sahibi",
-    `${planCode} · v9`,
-    storefrontHostname,
-  ]);
+  assert.match(html, new RegExp(storefrontHostname.replaceAll(".", "[.]")));
+  assert.doesNotMatch(html, new RegExp(storeSlug));
+  assert.doesNotMatch(html, new RegExp(planCode));
 
   const styles = await source("components/dashboard/panel-dashboard.module.css");
-  assert.match(styles, /\.cardGrid\s*\{[^}]*min-width:\s*0;/);
-  assert.match(styles, /\.cardGrid\s*>\s*\*\s*\{[^}]*min-width:\s*0;/);
-  assert.match(styles, /\.cardGrid\s+strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  assert.match(styles, /\.channelSummary strong\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  assert.match(styles, /\.readinessBanner p\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  assert.match(styles, /\.kpiViewport\s*\{[^}]*overflow-x:\s*auto;/);
 });
 
-test("dashboard presentation renders exact ready catalog data and only real merchant actions", async () => {
+test("dashboard presentation keeps the store-summary anatomy when analytics is unavailable", async () => {
   const chrome = Object.freeze({
     storeSlug: "pilot-store",
     membershipLabel: "Mağaza sahibi",
@@ -1146,15 +1154,14 @@ test("dashboard presentation renders exact ready catalog data and only real merc
   const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded" });
 
   assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
-  assert.match(html, /<h1>Özet<\/h1>/);
-  assert.match(html, /data-chart-labels="Toplam ürün\|Aktif ürün\|Taslak ürün\|Stokta olmayan\|Etkin medya"/);
-  assert.match(html, /data-chart-values="4,3,1,2,7"/);
-  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 2);
-  assert.equal((html.match(/<button[^>]*disabled=""[^>]*aria-disabled="true"/g) ?? []).length, 2);
-  for (const href of ["/orders", "/orders/quick-links", "/orders/abandoned-carts", "/products", "/products/new", "/setup"]) {
+  assert.match(html, /<h1 class="visuallyHidden">Mağaza özeti<\/h1>/);
+  assert.match(html, /Satış özeti yüklenemedi/);
+  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 1);
+  assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
+  for (const href of ["/analytics", "/products"]) {
     assert.match(html, new RegExp(`href="${href.replaceAll("/", "\\/")}"`));
   }
-  assert.doesNotMatch(html, /unsupported-dashboard-title|Desteklenmiyor|Kullanılamıyor|\/api\/admin/);
+  assert.doesNotMatch(html, /Katalog dağılımı|Toplam ürün|Taslak ürün|\/api\/admin/);
 });
 
 test("dashboard presentation renders one retry control without stale ready data", async () => {
@@ -1172,8 +1179,9 @@ test("dashboard presentation renders one retry control without stale ready data"
 
   assert.equal((html.match(/>Tekrar dene<\/button>/g) ?? []).length, 1);
   assert.equal((html.match(/<button(?![^>]*disabled)[^>]*>/g) ?? []).length, 1);
-  assert.doesNotMatch(html, /role="listitem"|data-chart-(?:labels|values)|Katalog dağılımı/);
-  assert.doesNotMatch(html, /Toplam ürün|Aktif ürün|Taslak ürün|Stokta olmayan|Etkin medya/);
+  assert.equal((html.match(/role="listitem"/g) ?? []).length, 5);
+  assert.match(html, /Satış özeti yüklenemedi/);
+  assert.doesNotMatch(html, /Katalog dağılımı|Toplam ürün|Taslak ürün|Etkin medya/);
 });
 
 test("dashboard presentation renders analytics loading ready and retry states without hiding ready slices", async () => {
@@ -1189,16 +1197,69 @@ test("dashboard presentation renders analytics loading ready and retry states wi
   const rendered = await renderPanelDashboard(chrome, { dashboard: ready, state: "loaded", analyticsState: "loaded" });
   const failed = await renderPanelDashboard(chrome, { dashboard: base, state: "loaded", analyticsState: "error" });
   for (const html of [loading, rendered, failed]) {
-    assert.match(html, /Toplam ürün/);
-    assert.match(html, /Sipariş özeti/);
-    assert.match(html, /Terk edilen sepet özeti/);
-    assert.match(html, /Müşteri özeti/);
+    assert.match(html, /Toplam satış/);
+    assert.match(html, /1 sipariş işlem bekliyor/);
+    assert.match(html, /pilot-store[.]celebix[.]site/);
+    assert.match(html, /En çok satanlar/);
   }
-  assert.match(loading, /Ticari analitik özeti yükleniyor/);
-  assert.match(rendered, /Bu ayın ticari özeti/);
+  assert.match(loading, /Satış özeti yükleniyor/);
+  assert.match(rendered, /Bu ay/);
   assert.match(rendered, /1[,.]250/);
-  assert.match(failed, /Ticari analitik özeti yüklenemedi/);
+  assert.match(failed, /Satış özeti yüklenemedi/);
   assert.match(failed, />Tekrar dene<\/button>/);
+});
+
+test("dashboard presentation follows the ikas store-summary anatomy using only durable facts", async () => {
+  const chrome = Object.freeze({ storeSlug: "pilot-store", membershipLabel: "Mağaza sahibi", planCode: "growth", planVersion: 3, entitlementStatus: "active", storefrontHostname: "pilot-store.celebix.site", locale: "tr-TR" });
+  const catalog = Object.freeze({ totalProducts: 14, activeProducts: 11, draftProducts: 3, productLimit: 100, activeVariants: 24, outOfStockVariants: 2, productsWithoutMedia: 1, activeMedia: 20 });
+  const orders = Object.freeze({ totalOrders: 12, pendingOrders: 3, fulfilledOrders: 8, revenueCents: 125_000, currency: "TRY", asOf: "2026-07-22T12:00:00.000Z" });
+  const analytics = Object.freeze({
+    period: "month" as const,
+    rangeStart: "2026-07-01T00:00:00.000Z",
+    rangeEnd: "2026-07-22T12:00:00.000Z",
+    generatedAt: "2026-07-22T12:00:00.000Z",
+    currency: "TRY",
+    revenueCents: 125_000,
+    orders: { total: 12, paid: 10, cancelled: 1, refunded: 1 },
+    customers: { total: 30, newInPeriod: 4 },
+    catalog: { activeProducts: 11, lowStockVariants: 2 },
+    series: [{ startsAt: "2026-07-01T00:00:00.000Z", orders: 2, revenueCents: 20_000 }],
+    topProducts: [{ productId: "11111111-1111-4111-8111-111111111111", title: "Atlas Kupa", quantity: 5, revenueCents: 50_000 }],
+  });
+  const dashboard = createMerchantDashboardViewModel(
+    chrome,
+    readyAuthority(catalog, analytics.generatedAt),
+    readyAuthority(orders, orders.asOf),
+    undefined,
+    undefined,
+    readyAuthority(analytics, analytics.generatedAt),
+  );
+  const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded", analyticsState: "loaded" });
+
+  for (const copy of [
+    "Tüm satış kanalları",
+    "Bu ay",
+    "Toplam satış",
+    "Sipariş sayısı",
+    "Yeni müşteri",
+    "Aktif ürün",
+    "İadeler",
+    "Satış kanalları",
+    "En çok satanlar",
+    "Büyüme metrikleri",
+    "İade edilen sipariş",
+    "Ortalama sipariş tutarı",
+    "Düşük stok",
+    "Toplam müşteri",
+    "Atlas Kupa",
+    "pilot-store.celebix.site",
+    "3 sipariş işlem bekliyor",
+  ]) assert.match(html, new RegExp(copy, "i"));
+  assert.match(html, /aria-label="Mağaza performans metrikleri"/);
+  assert.match(html, /aria-label="Kalıcı satış grafiği"/);
+  assert.match(html, /href="\/orders"/);
+  assert.doesNotMatch(html, /Oturum sayısı|Dönüşüm oranı|Ziyaretçi|Katalog dağılımı|Hızlı işlemler/);
+  assert.doesNotMatch(html, /Etkin mağaza|Mağaza sahibi|free_starter|\/api\/admin/);
 });
 
 interface CssTestElement {

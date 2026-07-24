@@ -42,7 +42,12 @@ const analyticsReady = () => readyAuthority<AnalyticsDashboard>(Object.freeze({
   series: Object.freeze([Object.freeze({
     startsAt: "2026-07-01T00:00:00.000Z", orders: 2, revenueCents: 20_000,
   })]),
-  topProducts: Object.freeze([]),
+  topProducts: Object.freeze([Object.freeze({
+    productId: "11111111-1111-4111-8111-111111111111",
+    title: "Atlas Kupa",
+    quantity: 5,
+    revenueCents: 50_000,
+  })]),
 }), "2026-07-22T12:00:00.000Z");
 
 function deferred<T>() {
@@ -215,10 +220,45 @@ test("dashboard uses persisted analytics without unsupported claims", () => {
   assert.equal(model.analytics.state, "ready");
   if (model.analytics.state !== "ready") assert.fail("analytics must be ready");
   assert.equal(model.analytics.value.revenueCents, 125_000);
+  assert.deepEqual(model.analytics.value.topProducts, [{
+    productId: "11111111-1111-4111-8111-111111111111",
+    title: "Atlas Kupa",
+    quantity: 5,
+    revenueCents: 50_000,
+  }]);
+  assert.deepEqual(model.analytics.value.growth, {
+    refundedOrders: 1,
+    averageOrderValueCents: 12_500,
+    lowStockVariants: 2,
+    totalCustomers: 30,
+  });
+  assert.equal(Object.isFrozen(model.analytics.value.topProducts), true);
+  assert.equal(model.analytics.value.topProducts.every(Object.isFrozen), true);
+  assert.equal(Object.isFrozen(model.analytics.value.growth), true);
   const text = JSON.stringify(model);
   for (const forbidden of ["liveVisitors", "conversionRate", "devices", "trafficSources"]) {
     assert.doesNotMatch(text, new RegExp(forbidden));
   }
+});
+
+test("dashboard never invents an average order value without a paid-order denominator", () => {
+  const source = analyticsReady();
+  if (source.state !== "ready") assert.fail("analytics must be ready");
+  const dashboard = Object.freeze({
+    ...source.value,
+    revenueCents: 0,
+    orders: Object.freeze({ ...source.value.orders, paid: 0 }),
+  });
+  const model = createMerchantDashboardViewModel(
+    chrome,
+    readyAuthority(summary, "2026-07-20T12:00:00.000Z"),
+    unavailableAuthority(true),
+    unavailableAuthority(true),
+    unavailableAuthority(true),
+    readyAuthority(dashboard, dashboard.generatedAt),
+  );
+  if (model.analytics.state !== "ready") assert.fail("analytics must be ready");
+  assert.equal(model.analytics.value.growth.averageOrderValueCents, null);
 });
 
 test("keeps dashboard slices deeply frozen", () => {

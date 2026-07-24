@@ -54,6 +54,7 @@ const MODEL = Object.freeze({
   planCode: "growth",
   planVersion: 3,
   entitlementStatus: "active" as const,
+  storefrontHostname: "browser-kabul-magazasi.celebix.site",
   locale: "tr-TR",
 });
 
@@ -76,6 +77,30 @@ const DASHBOARD = createMerchantDashboardViewModel(
     revenueCents: 1_250_000,
     currency: "TRY",
     asOf: NOW,
+  }), NOW),
+  undefined,
+  undefined,
+  readyAuthority(Object.freeze({
+    period: "month" as const,
+    rangeStart: "2026-07-01T00:00:00.000Z",
+    rangeEnd: NOW,
+    generatedAt: NOW,
+    currency: "TRY",
+    revenueCents: 1_250_000,
+    orders: Object.freeze({ total: 24, paid: 18, cancelled: 2, refunded: 1 }),
+    customers: Object.freeze({ total: 42, newInPeriod: 7 }),
+    catalog: Object.freeze({ activeProducts: 9, lowStockVariants: 2 }),
+    series: Object.freeze([
+      Object.freeze({ startsAt: "2026-07-01T00:00:00.000Z", orders: 3, revenueCents: 125_000 }),
+      Object.freeze({ startsAt: "2026-07-08T00:00:00.000Z", orders: 5, revenueCents: 310_000 }),
+      Object.freeze({ startsAt: "2026-07-15T00:00:00.000Z", orders: 6, revenueCents: 420_000 }),
+      Object.freeze({ startsAt: "2026-07-22T00:00:00.000Z", orders: 4, revenueCents: 395_000 }),
+    ]),
+    topProducts: Object.freeze([
+      Object.freeze({ productId: RESOURCE_ID, title: "Atlas Seramik Kupa", quantity: 12, revenueCents: 420_000 }),
+      Object.freeze({ productId: VARIANT_ID, title: "Keten Günlük Çanta", quantity: 8, revenueCents: 280_000 }),
+      Object.freeze({ productId: LINE_ID, title: "Minimal Masa Lambası", quantity: 6, revenueCents: 210_000 }),
+    ]),
   }), NOW),
 );
 
@@ -283,7 +308,7 @@ function PricingTruthFixture({ state }: Readonly<{ state: AcceptanceState }>) {
 function TargetRouteSurface({ pathname, state }: Readonly<{ pathname: string; state: AcceptanceState }>) {
   switch (pathname) {
     case "/":
-      return <PanelDashboardPresentation dashboard={DASHBOARD} state="loaded" ordersState="loaded" onRefresh={() => undefined} />;
+      return <PanelDashboardPresentation dashboard={DASHBOARD} state="loaded" ordersState="loaded" analyticsState="loaded" onRefresh={() => undefined} />;
     case "/analytics":
       return <AnalyticsDashboard />;
     case "/orders/ORDER_ID/print":

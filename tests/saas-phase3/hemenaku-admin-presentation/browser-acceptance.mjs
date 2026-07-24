@@ -35,7 +35,7 @@ const REPRESENTATIVE_ROUTES = Object.freeze([
   "/products/shopify-converter",
 ]);
 const TARGET_ROUTE_ASSERTIONS = Object.freeze({
-  "/": "Sipariş özeti",
+  "/": "Toplam satış",
   "/analytics": "Gelir zaman serisi",
   "/orders/ORDER_ID/print": "Sipariş #HMK-1042",
   "/customers/CUSTOMER_ID/edit": "Müşteriyi Düzenle",

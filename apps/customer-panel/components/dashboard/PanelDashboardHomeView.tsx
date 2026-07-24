@@ -1,30 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CalendarDays, Globe2, PackageCheck, Store } from "lucide-react";
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import type {
-  AbandonedCartSummary,
-  AnalyticsDashboard,
-  CustomerSummary,
-  OrderDashboardSummary,
+import {
+  ANALYTICS_PERIODS,
+  type AbandonedCartSummary,
+  type AnalyticsDashboard,
+  type AnalyticsPeriod,
+  type CustomerSummary,
+  type OrderDashboardSummary,
 } from "@celebix/saas-contracts";
 
 import {
   PanelActionButton,
-  PanelMetricCard,
-  PanelPageHeader,
   PanelPageShell,
-  PanelPanel,
 } from "@/components/panel/PanelPageShell";
 import { usePanelChromeModel } from "@/components/panel/PanelLayoutClient";
+import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
 import {
   catalogApi,
   type CatalogDashboardSummary,
@@ -36,11 +37,20 @@ import type { AuthoritySlice } from "@/lib/panel-ui/authority-slice";
 import {
   createMerchantDashboardSliceLoader,
   createMerchantDashboardViewModel,
-  loadMerchantDashboardSummaries,
   type MerchantDashboardSlice,
   type MerchantDashboardViewModel,
 } from "@/lib/panel-ui/dashboard-model";
 import styles from "./panel-dashboard.module.css";
+
+const PERIOD_LABELS: Readonly<Record<AnalyticsPeriod, string>> = Object.freeze({
+  today: "Bugün",
+  week: "Bu hafta",
+  month: "Bu ay",
+  year: "Bu yıl",
+});
+
+type LoadState = "loading" | "loaded" | "error";
+type OptionalLoadState = LoadState | "unsupported";
 
 const unavailableCatalog = (
   retryable: boolean,
@@ -92,703 +102,474 @@ const readyAnalytics = (
 ): AuthoritySlice<AnalyticsDashboard> =>
   Object.freeze({ state: "ready", value, asOf: value.generatedAt });
 
-function orderMoney(cents: number, currency: string) {
-  return new Intl.NumberFormat("tr-TR", { style: "currency", currency }).format(
-    cents / 100,
-  );
+function formatMoney(cents: number, currency: string) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
 }
 
-function DashboardRefreshButton({
-  label,
-  onRefresh,
-  state,
-}: {
-  label: "Tekrar dene" | "Yenile";
-  onRefresh: () => void;
-  state: "loading" | "loaded" | "error";
-}) {
+function formatSeriesLabel(startsAt: string): string {
+  const date = new Date(startsAt);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("tr-TR", {
+        day: "2-digit",
+        month: "short",
+        timeZone: "UTC",
+      }).format(date)
+    : startsAt;
+}
+
+function formatGeneratedAt(value: string): string {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("tr-TR", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date)
+    : value;
+}
+
+function stateDetail(state: OptionalLoadState): string {
+  if (state === "loading") return "Yükleniyor";
+  if (state === "loaded") return "Kalıcı veriden";
+  return "Kullanılamıyor";
+}
+
+function SummaryRetryButton({
+  onRetry,
+}: Readonly<{ onRetry: () => void }>) {
   return (
-    <button
-      type="button"
-      className={styles.refreshButton}
-      onClick={onRefresh}
-      disabled={state === "loading"}
-      aria-label={label === "Yenile" ? "Katalog özetini yenile" : undefined}
-    >
-      {label}
+    <button type="button" className={styles.retryButton} onClick={onRetry}>
+      Tekrar dene
     </button>
   );
 }
 
-export function PanelDashboardPresentation({
-  dashboard,
-  onRefresh,
-  state,
-  ordersState,
-  cartsState,
-  customersState,
-  analyticsState,
-  onRefreshCatalog,
-  onRefreshOrders,
-  onRefreshCarts,
-  onRefreshCustomers,
-  onRefreshAnalytics,
-}: {
-  dashboard: MerchantDashboardViewModel;
-  onRefresh: () => void;
-  state: "loading" | "loaded" | "error";
-  ordersState?: "loading" | "loaded" | "error" | "unsupported";
-  cartsState?: "loading" | "loaded" | "error" | "unsupported";
-  customersState?: "loading" | "loaded" | "error" | "unsupported";
-  analyticsState?: "loading" | "loaded" | "error" | "unsupported";
-  onRefreshCatalog?: () => void;
-  onRefreshOrders?: () => void;
-  onRefreshCarts?: () => void;
-  onRefreshCustomers?: () => void;
-  onRefreshAnalytics?: () => void;
-}) {
-  const activeOrdersState =
-    ordersState ??
-    (dashboard.orders.state === "ready" ? "loaded" : "unsupported");
-  const activeCartsState =
-    cartsState ??
-    (dashboard.carts.state === "ready" ? "loaded" : "unsupported");
-  const activeCustomersState =
-    customersState ??
-    (dashboard.customers.state === "ready" ? "loaded" : "unsupported");
-  const activeAnalyticsState =
-    analyticsState ??
-    (dashboard.analytics.state === "ready" ? "loaded" : "unsupported");
-  const analyticsValue = dashboard.analytics.state === "ready"
-    ? dashboard.analytics.value
-    : undefined;
+interface DashboardPresentationProps {
+  readonly dashboard: MerchantDashboardViewModel;
+  readonly onRefresh: () => void;
+  readonly state: LoadState;
+  readonly ordersState?: OptionalLoadState;
+  readonly cartsState?: OptionalLoadState;
+  readonly customersState?: OptionalLoadState;
+  readonly analyticsState?: OptionalLoadState;
+  readonly onRefreshCatalog?: () => void;
+  readonly onRefreshOrders?: () => void;
+  readonly onRefreshCarts?: () => void;
+  readonly onRefreshCustomers?: () => void;
+  readonly onRefreshAnalytics?: () => void;
+  readonly period?: AnalyticsPeriod;
+  readonly onPeriodChange?: (period: AnalyticsPeriod) => void;
+}
+
+export function PanelDashboardPresentation(props: DashboardPresentationProps) {
+  const analyticsState =
+    props.analyticsState ??
+    (props.dashboard.analytics.state === "ready" ? "loaded" : "unsupported");
+  const analytics =
+    props.dashboard.analytics.state === "ready"
+      ? props.dashboard.analytics.value
+      : undefined;
+  const storefront = props.dashboard.chromeCards.find(
+    ({ key }) => key === "storefront",
+  );
+  const hasStorefront = storefront?.status === "Doğrulandı";
+  const period = props.period ?? analytics?.period ?? "month";
+  const pendingOrders =
+    props.dashboard.orders.state === "ready"
+      ? props.dashboard.orders.value.pendingOrders
+      : 0;
+  const emptyValue = "—";
+  const kpis = [
+    {
+      key: "sales",
+      label: "Toplam satış",
+      value: analytics
+        ? formatMoney(analytics.revenueCents, analytics.currency)
+        : emptyValue,
+      detail: analytics ? "Ödenmiş siparişlerden" : stateDetail(analyticsState),
+    },
+    {
+      key: "orders",
+      label: "Sipariş sayısı",
+      value: analytics
+        ? analytics.orders.total.toLocaleString("tr-TR")
+        : emptyValue,
+      detail: analytics
+        ? `${analytics.orders.paid.toLocaleString("tr-TR")} ödenmiş`
+        : stateDetail(analyticsState),
+    },
+    {
+      key: "customers",
+      label: "Yeni müşteri",
+      value: analytics
+        ? analytics.customers.newInPeriod.toLocaleString("tr-TR")
+        : emptyValue,
+      detail: analytics ? "Seçili dönemde" : stateDetail(analyticsState),
+    },
+    {
+      key: "products",
+      label: "Aktif ürün",
+      value: analytics
+        ? analytics.catalog.activeProducts.toLocaleString("tr-TR")
+        : emptyValue,
+      detail: analytics ? "Kalıcı katalogda" : stateDetail(analyticsState),
+    },
+    {
+      key: "refunds",
+      label: "İadeler",
+      value: analytics
+        ? analytics.orders.refunded.toLocaleString("tr-TR")
+        : emptyValue,
+      detail: analytics ? "İade edilen sipariş" : stateDetail(analyticsState),
+    },
+  ] as const;
+
   return (
     <PanelPageShell>
-      <PanelPageHeader
-        title={dashboard.title}
-        description={dashboard.description}
-        actions={
-          <>
-            <PanelActionButton href="/analytics">Ticari analitik</PanelActionButton>
-            <PanelActionButton href="/products/new" primary>
-              Yeni ürün
-            </PanelActionButton>
-          </>
-        }
+      <PanelTopbarBridge
+        title={props.dashboard.title}
+        subtitle={props.dashboard.description}
       />
+      <h1 className={styles.visuallyHidden}>Mağaza özeti</h1>
 
-      <div className={styles.cardGrid}>
-        {dashboard.chromeCards.map((card) => (
-          <PanelMetricCard
-            key={card.key}
-            label={card.label}
-            value={card.value}
-            detail={card.detail ?? card.status}
-          />
-        ))}
-      </div>
-
-      <div
-        className={styles.controlBar}
-        aria-label="Gösterge paneli filtreleri"
-      >
-        <div>
-          <p className={styles.controlLabel}>Dönem</p>
-          <button
-            type="button"
-            className={styles.filterButton}
-            disabled
-            aria-disabled="true"
-          >
-            Güncel katalog
-          </button>
-        </div>
-        <div>
-          <p className={styles.controlLabel}>Kanal</p>
-          <button
-            type="button"
-            className={styles.filterButton}
-            disabled
-            aria-disabled="true"
-          >
-            Paylaşılan katalog
-          </button>
-        </div>
-      </div>
-
-      {state === "loading" ? (
-        <section
-          className={styles.catalogSurface}
-          role="status"
-          aria-label="Katalog özeti yükleniyor"
+      <div className={styles.summaryToolbar} aria-label="Mağaza özeti filtreleri">
+        <button
+          type="button"
+          className={styles.channelFilter}
+          disabled
+          aria-disabled="true"
         >
-          <div className={styles.metricTabs}>
-            {Array.from({ length: 4 }, (_, index) => (
-              <article
-                className={styles.skeletonCard}
-                aria-hidden="true"
-                key={index}
-              >
-                <span className={styles.skeletonLine} />
-                <span className={styles.skeletonLine} />
-                <span className={styles.skeletonLine} />
-              </article>
+          <Globe2 aria-hidden="true" />
+          Tüm satış kanalları
+        </button>
+        <label className={styles.periodFilter}>
+          <CalendarDays aria-hidden="true" />
+          <span className={styles.visuallyHidden}>Dönem</span>
+          <select
+            aria-label="Dönem"
+            value={period}
+            onChange={(event) => {
+              const nextPeriod = event.target.value as AnalyticsPeriod;
+              if (ANALYTICS_PERIODS.includes(nextPeriod)) {
+                props.onPeriodChange?.(nextPeriod);
+              }
+            }}
+          >
+            {ANALYTICS_PERIODS.map((value) => (
+              <option key={value} value={value}>
+                {PERIOD_LABELS[value]}
+              </option>
             ))}
-            <article className={styles.skeletonCard} aria-hidden="true">
-              <span className={styles.skeletonLine} />
-              <span className={styles.skeletonLine} />
-              <span className={styles.skeletonLine} />
-            </article>
-          </div>
-          <div className={styles.chartSkeleton} aria-hidden="true">
-            <span className={styles.skeletonLine} />
-          </div>
-        </section>
-      ) : null}
+          </select>
+        </label>
+        <span className={styles.authorityNote}>Kalıcı verilere göre</span>
+        {analytics ? (
+          <time className={styles.updatedAt} dateTime={analytics.generatedAt}>
+            Son güncelleme {formatGeneratedAt(analytics.generatedAt)}
+          </time>
+        ) : null}
+      </div>
 
-      {state === "error" && dashboard.catalog.state === "unavailable" ? (
-        <div className={styles.errorState} role="alert">
-          <div>
-            <h2>Katalog özeti yüklenemedi</h2>
-            <p>Doğrulanmış katalog verileri şu anda kullanılamıyor.</p>
-          </div>
-          <DashboardRefreshButton
-            label="Tekrar dene"
-            onRefresh={onRefreshCatalog ?? onRefresh}
-            state={state}
-          />
+      <section className={styles.readinessBanner} aria-label="Mağaza durumu">
+        <span className={styles.readinessIcon} aria-hidden="true">
+          <Store />
+        </span>
+        <div>
+          <h2>{hasStorefront ? "Mağaza adresiniz doğrulandı" : "Mağaza kurulumunu tamamlayın"}</h2>
+          <p>
+            {hasStorefront
+              ? `${storefront?.value} adresi etkin mağazanıza bağlı.`
+              : "Satışa başlamadan önce mağaza adresi ve kurulum durumunu gözden geçirin."}
+          </p>
         </div>
-      ) : null}
+        <PanelActionButton href={hasStorefront ? "/analytics" : "/setup"} primary>
+          {hasStorefront ? "Analitiği görüntüle" : "Kurulumu tamamla"}
+        </PanelActionButton>
+      </section>
 
-      {state === "loaded" && dashboard.catalog.state === "ready" ? (
-        <section className={styles.catalogSurface}>
-          <div className={styles.metricTabsViewport}>
-            <div
-              className={styles.metricTabs}
-              role="list"
-              aria-label="Katalog metrikleri"
-            >
-              {dashboard.catalog.value.metrics.map((metric) => (
-                <article
-                  className={styles.metricTab}
-                  role="listitem"
-                  key={metric.key}
-                >
-                  <p>{metric.label}</p>
-                  <strong>{metric.value.toLocaleString("tr-TR")}</strong>
-                  <span>{metric.detail}</span>
-                </article>
-              ))}
-            </div>
-          </div>
-          <div className={styles.chartPanel}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <h2>Katalog dağılımı</h2>
-                <p>Kaynak: doğrulanmış paylaşılan katalog özeti.</p>
-              </div>
-              <DashboardRefreshButton
-                label="Yenile"
-                onRefresh={onRefreshCatalog ?? onRefresh}
-                state={state}
-              />
-            </div>
-            <div className={styles.chartViewport}>
-              <div className={styles.chartInner}>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart
-                    data={dashboard.catalog.value.chart}
-                    accessibilityLayer
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value) => [String(value), "Katalog"]}
-                    />
-                    <Bar dataKey="value" fill="#FF6A00" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <p className={styles.readinessLine}>
-              {dashboard.catalog.value.productsWithoutMedia.toLocaleString(
-                "tr-TR",
-              )}{" "}
-              üründe medya eksik · ürün limiti{" "}
-              {dashboard.catalog.value.productLimit.toLocaleString("tr-TR")}
-            </p>
-          </div>
-        </section>
-      ) : null}
-
-      {activeAnalyticsState === "loading" ? (
-        <section
-          className={styles.catalogSurface}
-          role="status"
-          aria-label="Ticari analitik özeti yükleniyor"
-        >
-          <div className={styles.metricTabs}>
-            {Array.from({ length: 4 }, (_, index) => (
-              <article className={styles.skeletonCard} aria-hidden="true" key={index}>
-                <span className={styles.skeletonLine} />
-                <span className={styles.skeletonLine} />
+      <section className={styles.performancePanel} aria-label="Mağaza performansı">
+        <div className={styles.kpiViewport}>
+          <div className={styles.kpiRail} role="list" aria-label="Mağaza performans metrikleri">
+            {kpis.map((metric) => (
+              <article key={metric.key} className={styles.kpi} role="listitem">
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+                <small>{metric.detail}</small>
               </article>
             ))}
           </div>
-        </section>
-      ) : null}
-
-      {activeAnalyticsState === "error" &&
-      dashboard.analytics.state === "unavailable" ? (
-        <div className={styles.errorState} role="alert">
-          <div>
-            <h2>Ticari analitik özeti yüklenemedi</h2>
-            <p>Kalıcı ticari özet şu anda kullanılamıyor.</p>
-          </div>
-          <DashboardRefreshButton
-            label="Tekrar dene"
-            onRefresh={onRefreshAnalytics ?? onRefresh}
-            state="error"
-          />
         </div>
-      ) : null}
 
-      {activeAnalyticsState === "loaded" && analyticsValue ? (
-        <section className={styles.catalogSurface} aria-labelledby="analytics-summary-title">
-          <div className={styles.chartPanel}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <h2 id="analytics-summary-title">Bu ayın ticari özeti</h2>
-                <p>Kalıcı sipariş, müşteri ve katalog kayıtlarından hesaplanır.</p>
-              </div>
-              <PanelActionButton href="/analytics">Analitiği incele</PanelActionButton>
-            </div>
-          </div>
-          <div className={styles.metricTabs} role="list" aria-label="Ticari analitik metrikleri">
-            <article className={styles.metricTab} role="listitem">
-              <p>Gelir</p>
-              <strong>{orderMoney(analyticsValue.revenueCents, analyticsValue.currency)}</strong>
-              <span>Ödenmiş siparişlerden</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Sipariş</p>
-              <strong>{analyticsValue.orders.total.toLocaleString("tr-TR")}</strong>
-              <span>{analyticsValue.orders.paid.toLocaleString("tr-TR")} ödenmiş kayıt</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Yeni müşteri</p>
-              <strong>{analyticsValue.customers.newInPeriod.toLocaleString("tr-TR")}</strong>
-              <span>{analyticsValue.customers.total.toLocaleString("tr-TR")} kalıcı müşteri</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Düşük stok</p>
-              <strong>{analyticsValue.catalog.lowStockVariants.toLocaleString("tr-TR")}</strong>
-              <span>{analyticsValue.catalog.activeProducts.toLocaleString("tr-TR")} aktif ürün</span>
-            </article>
-          </div>
-          {analyticsValue.series.length > 0 ? (
-            <div className={styles.chartPanel}>
-              <div className={styles.chartViewport}>
-                <div className={styles.chartInner} role="img" aria-label="Aylık gelir zaman serisi">
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={analyticsValue.series} accessibilityLayer>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="startsAt" />
-                      <YAxis tickFormatter={(value) => orderMoney(Number(value), analyticsValue.currency)} />
-                      <Tooltip formatter={(value) => [orderMoney(Number(value), analyticsValue.currency), "Gelir"]} />
-                      <Bar dataKey="revenueCents" fill="#FF6A00" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+        <div className={styles.salesChart} role="img" aria-label="Kalıcı satış grafiği">
+          {analyticsState === "loading" ? (
+            <div className={styles.chartLoading} role="status">
+              Satış özeti yükleniyor…
             </div>
           ) : null}
-        </section>
-      ) : null}
-
-      {activeOrdersState === "loading" ? (
-        <section
-          className={styles.catalogSurface}
-          role="status"
-          aria-label="Sipariş özeti yükleniyor"
-        >
-          <div className={styles.metricTabs}>
-            {Array.from({ length: 4 }, (_, index) => (
-              <article
-                className={styles.skeletonCard}
-                aria-hidden="true"
-                key={index}
-              >
-                <span className={styles.skeletonLine} />
-                <span className={styles.skeletonLine} />
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {activeOrdersState === "error" &&
-      dashboard.orders.state === "unavailable" ? (
-        <div className={styles.errorState} role="alert">
-          <div>
-            <h2>Sipariş özeti yüklenemedi</h2>
-            <p>Doğrulanmış sipariş verileri şu anda kullanılamıyor.</p>
-          </div>
-          <DashboardRefreshButton
-            label="Tekrar dene"
-            onRefresh={onRefreshOrders ?? onRefresh}
-            state="error"
-          />
-        </div>
-      ) : null}
-
-      {activeOrdersState === "loaded" && dashboard.orders.state === "ready" ? (
-        <section
-          className={styles.catalogSurface}
-          aria-labelledby="order-summary-title"
-        >
-          <div className={styles.chartPanel}>
-            <div className={styles.sectionHeader}>
+          {analyticsState === "error" || analyticsState === "unsupported" ? (
+            <div className={styles.chartError} role="alert">
               <div>
-                <h2 id="order-summary-title">Sipariş özeti</h2>
-                <p>
-                  Son doğrulama:{" "}
-                  {new Intl.DateTimeFormat("tr-TR", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(new Date(dashboard.orders.value.asOf))}
-                </p>
+                <strong>Satış özeti yüklenemedi</strong>
+                <span>Kalıcı ticari veriler şu anda kullanılamıyor.</span>
               </div>
+              <SummaryRetryButton
+                onRetry={props.onRefreshAnalytics ?? props.onRefresh}
+              />
             </div>
-          </div>
-          <div
-            className={styles.metricTabs}
-            role="list"
-            aria-label="Sipariş metrikleri"
-          >
-            <article className={styles.metricTab} role="listitem">
-              <p>Toplam sipariş</p>
-              <strong>
-                {dashboard.orders.value.totalOrders.toLocaleString("tr-TR")}
-              </strong>
-              <span>Kalıcı sipariş kayıtları</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Bekleyen sipariş</p>
-              <strong>
-                {dashboard.orders.value.pendingOrders.toLocaleString("tr-TR")}
-              </strong>
-              <span>Operasyon bekliyor</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Tamamlanan sipariş</p>
-              <strong>
-                {dashboard.orders.value.fulfilledOrders.toLocaleString("tr-TR")}
-              </strong>
-              <span>Teslim edilen kayıtlar</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Doğrulanmış gelir</p>
-              <strong>
-                {orderMoney(
-                  dashboard.orders.value.revenueCents,
-                  dashboard.orders.value.currency,
-                )}
-              </strong>
-              <span>Teslim edilmiş ve ödenmiş</span>
-            </article>
-          </div>
-        </section>
-      ) : null}
-
-      {activeCartsState === "loading" ? (
-        <section
-          className={styles.catalogSurface}
-          role="status"
-          aria-label="Terk edilen sepet özeti yükleniyor"
-        >
-          <div className={styles.metricTabs}>
-            {Array.from({ length: 4 }, (_, index) => (
-              <article
-                className={styles.skeletonCard}
-                aria-hidden="true"
-                key={index}
-              >
-                <span className={styles.skeletonLine} />
-                <span className={styles.skeletonLine} />
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {activeCartsState === "error" &&
-      dashboard.carts.state === "unavailable" ? (
-        <div className={styles.errorState} role="alert">
-          <div>
-            <h2>Terk edilen sepet özeti yüklenemedi</h2>
-            <p>Doğrulanmış sepet verileri şu anda kullanılamıyor.</p>
-          </div>
-          <DashboardRefreshButton
-            label="Tekrar dene"
-            onRefresh={onRefreshCarts ?? onRefresh}
-            state="error"
-          />
+          ) : null}
+          {analyticsState === "loaded" && analytics ? (
+            analytics.series.length > 0 ? (
+              <ResponsiveContainer width="100%" height={330}>
+                <LineChart data={analytics.series} accessibilityLayer>
+                  <CartesianGrid stroke="#E8EDF3" vertical={false} />
+                  <XAxis
+                    dataKey="startsAt"
+                    tickFormatter={formatSeriesLabel}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(value) =>
+                      formatMoney(Number(value), analytics.currency)
+                    }
+                    axisLine={false}
+                    tickLine={false}
+                    width={82}
+                  />
+                  <Tooltip
+                    labelFormatter={(value) =>
+                      typeof value === "string" ? formatSeriesLabel(value) : ""
+                    }
+                    formatter={(value) => [
+                      formatMoney(Number(value), analytics.currency),
+                      "Satış",
+                    ]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenueCents"
+                    stroke="#FE6100"
+                    strokeWidth={3}
+                    dot={false}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className={styles.emptyChart}>
+                <strong>Bu dönemde satış hareketi yok</strong>
+                <span>Kalıcı ödenmiş sipariş oluştuğunda grafik burada görünür.</span>
+              </div>
+            )
+          ) : null}
         </div>
-      ) : null}
 
-      {activeCartsState === "loaded" && dashboard.carts.state === "ready" ? (
-        <section
-          className={styles.catalogSurface}
-          aria-labelledby="cart-summary-title"
-        >
-          <div className={styles.chartPanel}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <h2 id="cart-summary-title">Terk edilen sepet özeti</h2>
-                <p>
-                  Son doğrulama:{" "}
-                  {new Intl.DateTimeFormat("tr-TR", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(new Date(dashboard.carts.value.asOf))}
-                </p>
-              </div>
-              <PanelActionButton href="/orders/abandoned-carts">
-                Sepetleri incele
-              </PanelActionButton>
-            </div>
-          </div>
-          <div
-            className={styles.metricTabs}
-            role="list"
-            aria-label="Terk edilen sepet metrikleri"
-          >
-            <article className={styles.metricTab} role="listitem">
-              <p>Terk edilen</p>
-              <strong>
-                {dashboard.carts.value.abandoned.toLocaleString("tr-TR")}
-              </strong>
-              <span>Takip bekleyen sepet</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Kurtarılan</p>
-              <strong>
-                {dashboard.carts.value.recovered.toLocaleString("tr-TR")}
-              </strong>
-              <span>Kalıcı kurtarma kaydı</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Kayıp değer</p>
-              <strong>
-                {orderMoney(
-                  dashboard.carts.value.lostValueCents,
-                  dashboard.carts.value.currency,
-                )}
-              </strong>
-              <span>Terk edilmiş sepet toplamı</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Kurtarılan değer</p>
-              <strong>
-                {orderMoney(
-                  dashboard.carts.value.recoveredValueCents,
-                  dashboard.carts.value.currency,
-                )}
-              </strong>
-              <span>Kanıtlanmış kurtarma toplamı</span>
-            </article>
-          </div>
-        </section>
-      ) : null}
-
-      {activeCustomersState === "loading" ? (
-        <section
-          className={styles.catalogSurface}
-          role="status"
-          aria-label="Müşteri özeti yükleniyor"
-        >
-          <div className={styles.metricTabs}>
-            {Array.from({ length: 4 }, (_, index) => (
-              <article
-                className={styles.skeletonCard}
-                aria-hidden="true"
-                key={index}
-              >
-                <span className={styles.skeletonLine} />
-                <span className={styles.skeletonLine} />
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {activeCustomersState === "error" &&
-      dashboard.customers.state === "unavailable" ? (
-        <div className={styles.errorState} role="alert">
-          <div>
-            <h2>Müşteri özeti yüklenemedi</h2>
-            <p>Doğrulanmış müşteri verileri şu anda kullanılamıyor.</p>
-          </div>
-          <DashboardRefreshButton
-            label="Tekrar dene"
-            onRefresh={onRefreshCustomers ?? onRefresh}
-            state="error"
-          />
-        </div>
-      ) : null}
-
-      {activeCustomersState === "loaded" &&
-      dashboard.customers.state === "ready" ? (
-        <section
-          className={styles.catalogSurface}
-          aria-labelledby="customer-summary-title"
-        >
-          <div className={styles.chartPanel}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <h2 id="customer-summary-title">Müşteri özeti</h2>
-                <p>
-                  Son doğrulama:{" "}
-                  {new Intl.DateTimeFormat("tr-TR", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(new Date(dashboard.customers.value.asOf))}
-                </p>
-              </div>
-              <PanelActionButton href="/customers">
-                Müşterileri incele
-              </PanelActionButton>
-            </div>
-          </div>
-          <div
-            className={styles.metricTabs}
-            role="list"
-            aria-label="Müşteri metrikleri"
-          >
-            <article className={styles.metricTab} role="listitem">
-              <p>Aktif müşteri</p>
-              <strong>
-                {dashboard.customers.value.active.toLocaleString("tr-TR")}
-              </strong>
-              <span>Kalıcı aktif kayıtlar</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Arşiv</p>
-              <strong>
-                {dashboard.customers.value.archived.toLocaleString("tr-TR")}
-              </strong>
-              <span>Arşivlenmiş kayıtlar</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>E-posta izinli</p>
-              <strong>
-                {dashboard.customers.value.consentedEmail.toLocaleString(
-                  "tr-TR",
-                )}
-              </strong>
-              <span>Doğrulanmış kanal izni</span>
-            </article>
-            <article className={styles.metricTab} role="listitem">
-              <p>Toplam harcama</p>
-              <strong>
-                {orderMoney(
-                  dashboard.customers.value.totalSpentCents,
-                  dashboard.customers.value.currency,
-                )}
-              </strong>
-              <span>Kalıcı sipariş toplamı</span>
-            </article>
-          </div>
-        </section>
-      ) : null}
-
-      <PanelPanel title="Hızlı işlemler">
-        <div className={styles.actionRail}>
-          {dashboard.actions.map((action) => (
-            <PanelActionButton key={action.href} href={action.href}>
-              {action.label}
+        {pendingOrders > 0 ? (
+          <div className={styles.pendingAction}>
+            <PackageCheck aria-hidden="true" />
+            <PanelActionButton href="/orders">
+              {pendingOrders.toLocaleString("tr-TR")} sipariş işlem bekliyor · Siparişleri aç
             </PanelActionButton>
-          ))}
+          </div>
+        ) : null}
+
+        <div className={styles.channelSummary} aria-label="Satış kanalları">
+          <article>
+            <span className={styles.channelIcon} aria-hidden="true">
+              <Globe2 />
+            </span>
+            <div>
+              <strong>{hasStorefront ? storefront?.value : "Storefront bağlı değil"}</strong>
+              <small>{hasStorefront ? "Doğrulanmış mağaza adresi" : "Kurulum bekliyor"}</small>
+            </div>
+            <span className={hasStorefront ? styles.channelReady : styles.channelPending}>
+              {hasStorefront ? "Etkin" : "Bekliyor"}
+            </span>
+          </article>
+          <PanelActionButton href="/analytics">Tümünü görüntüle</PanelActionButton>
         </div>
-      </PanelPanel>
+      </section>
+
+      <div className={styles.insightGrid}>
+        <section className={styles.bestSellers} aria-labelledby="best-sellers-title">
+          <header>
+            <h2 id="best-sellers-title">En çok satanlar</h2>
+            <PanelActionButton href="/products">Ürünler</PanelActionButton>
+          </header>
+          {analyticsState === "loading" ? (
+            <p className={styles.insightState} role="status">Ürünler yükleniyor…</p>
+          ) : null}
+          {(analyticsState === "error" || analyticsState === "unsupported") ? (
+            <p className={styles.insightState}>En çok satan ürünler şu anda kullanılamıyor.</p>
+          ) : null}
+          {analyticsState === "loaded" && analytics ? (
+            analytics.topProducts.length > 0 ? (
+              <ol className={styles.productList}>
+                {analytics.topProducts.map((product, index) => (
+                  <li key={product.productId}>
+                    <span className={styles.productRank}>{index + 1}</span>
+                    <div>
+                      <strong>{product.title}</strong>
+                      <small>{product.quantity.toLocaleString("tr-TR")} adet</small>
+                    </div>
+                    <span>{formatMoney(product.revenueCents, analytics.currency)}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className={styles.emptyProducts}>
+                <PackageCheck aria-hidden="true" />
+                <strong>Seçilen dönemde satış bulunmuyor</strong>
+                <span>Kalıcı ürün satışı oluştuğunda liste burada görünür.</span>
+              </div>
+            )
+          ) : null}
+        </section>
+
+        <section className={styles.growthPanel} aria-labelledby="growth-title">
+          <header>
+            <h2 id="growth-title">Büyüme metrikleri</h2>
+          </header>
+          <dl>
+            <div>
+              <dt>İade edilen sipariş</dt>
+              <dd>{analytics ? analytics.growth.refundedOrders.toLocaleString("tr-TR") : emptyValue}</dd>
+            </div>
+            <div>
+              <dt>Ortalama sipariş tutarı</dt>
+              <dd>
+                {analytics?.growth.averageOrderValueCents === null || !analytics
+                  ? emptyValue
+                  : formatMoney(analytics.growth.averageOrderValueCents, analytics.currency)}
+              </dd>
+            </div>
+            <div>
+              <dt>Düşük stok</dt>
+              <dd>{analytics ? analytics.growth.lowStockVariants.toLocaleString("tr-TR") : emptyValue}</dd>
+            </div>
+            <div>
+              <dt>Toplam müşteri</dt>
+              <dd>{analytics ? analytics.growth.totalCustomers.toLocaleString("tr-TR") : emptyValue}</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
     </PanelPageShell>
   );
 }
 
 export function PanelDashboardHomeView() {
   const chrome = usePanelChromeModel();
-  const [catalog, setCatalog] = useState<
-    AuthoritySlice<CatalogDashboardSummary>
-  >(() => unavailableCatalog(false));
-  const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
+  const [catalog, setCatalog] = useState<AuthoritySlice<CatalogDashboardSummary>>(
+    () => unavailableCatalog(false),
+  );
+  const [state, setState] = useState<LoadState>("loading");
   const [orders, setOrders] = useState<AuthoritySlice<OrderDashboardSummary>>(
     () => unavailableOrders(false),
   );
-  const [ordersState, setOrdersState] = useState<
-    "loading" | "loaded" | "error"
-  >("loading");
-  const [carts, setCarts] = useState<AuthoritySlice<AbandonedCartSummary>>(() =>
-    unavailableCarts(false),
+  const [ordersState, setOrdersState] = useState<LoadState>("loading");
+  const [carts, setCarts] = useState<AuthoritySlice<AbandonedCartSummary>>(
+    () => unavailableCarts(false),
   );
-  const [cartsState, setCartsState] = useState<"loading" | "loaded" | "error">(
-    "loading",
-  );
+  const [cartsState, setCartsState] = useState<LoadState>("loading");
   const [customers, setCustomers] = useState<AuthoritySlice<CustomerSummary>>(
     () => unavailableCustomers(false),
   );
-  const [customersState, setCustomersState] = useState<
-    "loading" | "loaded" | "error"
-  >("loading");
+  const [customersState, setCustomersState] = useState<LoadState>("loading");
   const [analytics, setAnalytics] = useState<AuthoritySlice<AnalyticsDashboard>>(
     () => unavailableAnalytics(false),
   );
-  const [analyticsState, setAnalyticsState] = useState<
-    "loading" | "loaded" | "error"
-  >("loading");
+  const [analyticsState, setAnalyticsState] = useState<LoadState>("loading");
+  const [period, setPeriod] = useState<AnalyticsPeriod>("month");
+  const analyticsPeriod = useRef<AnalyticsPeriod>("month");
   const loader = useRef<ReturnType<typeof createMerchantDashboardSliceLoader> | null>(null);
-  const reload = useCallback((slice: MerchantDashboardSlice) => loader.current?.reload(slice), []);
+  const reload = useCallback(
+    (slice: MerchantDashboardSlice) => loader.current?.reload(slice),
+    [],
+  );
 
   useEffect(() => {
-    const next = createMerchantDashboardSliceLoader({
-      catalog: () => catalogApi.getDashboardSummary(),
-      orders: () => orderApi.getDashboardSummary(),
-      carts: () => abandonedCartApi.getSummary(),
-      customers: () => customerApi.summary(),
-      analytics: async () => {
-        const { analyticsApi } = await import("@/lib/analytics-ui/client");
-        return analyticsApi.dashboard("month");
+    const next = createMerchantDashboardSliceLoader(
+      {
+        catalog: () => catalogApi.getDashboardSummary(),
+        orders: () => orderApi.getDashboardSummary(),
+        carts: () => abandonedCartApi.getSummary(),
+        customers: () => customerApi.summary(),
+        analytics: async () => {
+          const { analyticsApi } = await import("@/lib/analytics-ui/client");
+          return analyticsApi.dashboard(analyticsPeriod.current);
+        },
       },
-    }, {
-      loading(slice) {
-        if (slice === "catalog") setState("loading");
-        if (slice === "orders") setOrdersState("loading");
-        if (slice === "carts") setCartsState("loading");
-        if (slice === "customers") setCustomersState("loading");
-        if (slice === "analytics") setAnalyticsState("loading");
+      {
+        loading(slice) {
+          if (slice === "catalog") setState("loading");
+          if (slice === "orders") setOrdersState("loading");
+          if (slice === "carts") setCartsState("loading");
+          if (slice === "customers") setCustomersState("loading");
+          if (slice === "analytics") setAnalyticsState("loading");
+        },
+        ready(slice, value) {
+          if (slice === "catalog") {
+            setCatalog(readyCatalog(value as CatalogDashboardSummary));
+            setState("loaded");
+          }
+          if (slice === "orders") {
+            setOrders(readyOrders(value as OrderDashboardSummary));
+            setOrdersState("loaded");
+          }
+          if (slice === "carts") {
+            setCarts(readyCarts(value as AbandonedCartSummary));
+            setCartsState("loaded");
+          }
+          if (slice === "customers") {
+            setCustomers(readyCustomers(value as CustomerSummary));
+            setCustomersState("loaded");
+          }
+          if (slice === "analytics") {
+            setAnalytics(readyAnalytics(value as AnalyticsDashboard));
+            setAnalyticsState("loaded");
+          }
+        },
+        unavailable(slice) {
+          if (slice === "catalog") {
+            setCatalog(unavailableCatalog(true));
+            setState("error");
+          }
+          if (slice === "orders") {
+            setOrders(unavailableOrders(true));
+            setOrdersState("error");
+          }
+          if (slice === "carts") {
+            setCarts(unavailableCarts(true));
+            setCartsState("error");
+          }
+          if (slice === "customers") {
+            setCustomers(unavailableCustomers(true));
+            setCustomersState("error");
+          }
+          if (slice === "analytics") {
+            setAnalytics(unavailableAnalytics(true));
+            setAnalyticsState("error");
+          }
+        },
       },
-      ready(slice, value) {
-        if (slice === "catalog") { setCatalog(readyCatalog(value as CatalogDashboardSummary)); setState("loaded"); }
-        if (slice === "orders") { setOrders(readyOrders(value as OrderDashboardSummary)); setOrdersState("loaded"); }
-        if (slice === "carts") { setCarts(readyCarts(value as AbandonedCartSummary)); setCartsState("loaded"); }
-        if (slice === "customers") { setCustomers(readyCustomers(value as CustomerSummary)); setCustomersState("loaded"); }
-        if (slice === "analytics") { setAnalytics(readyAnalytics(value as AnalyticsDashboard)); setAnalyticsState("loaded"); }
-      },
-      unavailable(slice) {
-        if (slice === "catalog") { setCatalog(unavailableCatalog(true)); setState("error"); }
-        if (slice === "orders") { setOrders(unavailableOrders(true)); setOrdersState("error"); }
-        if (slice === "carts") { setCarts(unavailableCarts(true)); setCartsState("error"); }
-        if (slice === "customers") { setCustomers(unavailableCustomers(true)); setCustomersState("error"); }
-        if (slice === "analytics") { setAnalytics(unavailableAnalytics(true)); setAnalyticsState("error"); }
-      },
-    });
+    );
     loader.current = next;
     next.reloadAll();
     return () => {
       next.dispose();
       if (loader.current === next) loader.current = null;
     };
+  }, []);
+
+  const changePeriod = useCallback((nextPeriod: AnalyticsPeriod) => {
+    if (analyticsPeriod.current === nextPeriod) return;
+    analyticsPeriod.current = nextPeriod;
+    setPeriod(nextPeriod);
+    loader.current?.reload("analytics");
   }, []);
 
   const dashboard = createMerchantDashboardViewModel(
@@ -799,15 +580,18 @@ export function PanelDashboardHomeView() {
     customers,
     analytics,
   );
+
   return (
     <PanelDashboardPresentation
       dashboard={dashboard}
-      onRefresh={() => reload("catalog")}
+      onRefresh={() => reload("analytics")}
       onRefreshCatalog={() => reload("catalog")}
       onRefreshOrders={() => reload("orders")}
       onRefreshCarts={() => reload("carts")}
       onRefreshCustomers={() => reload("customers")}
       onRefreshAnalytics={() => reload("analytics")}
+      onPeriodChange={changePeriod}
+      period={period}
       state={state}
       ordersState={ordersState}
       cartsState={cartsState}

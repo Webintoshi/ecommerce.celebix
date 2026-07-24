@@ -99,6 +99,9 @@ export interface MerchantDashboardViewModel {
 
 export interface AnalyticsDashboardViewModel {
   readonly period: AnalyticsDashboard["period"];
+  readonly rangeStart: string;
+  readonly rangeEnd: string;
+  readonly generatedAt: string;
   readonly currency: string;
   readonly revenueCents: number;
   readonly orders: Readonly<{
@@ -117,6 +120,18 @@ export interface AnalyticsDashboardViewModel {
     orders: number;
     revenueCents: number;
   }>[];
+  readonly topProducts: readonly Readonly<{
+    productId: string;
+    title: string;
+    quantity: number;
+    revenueCents: number;
+  }>[];
+  readonly growth: Readonly<{
+    refundedOrders: number;
+    averageOrderValueCents: number | null;
+    lowStockVariants: number;
+    totalCustomers: number;
+  }>;
 }
 
 export interface OrderDashboardViewModel {
@@ -352,6 +367,9 @@ function createAnalyticsDashboardViewModel(
 ): AnalyticsDashboardViewModel {
   return Object.freeze({
     period: dashboard.period,
+    rangeStart: dashboard.rangeStart,
+    rangeEnd: dashboard.rangeEnd,
+    generatedAt: dashboard.generatedAt,
     currency: dashboard.currency,
     revenueCents: dashboard.revenueCents,
     orders: Object.freeze({ ...dashboard.orders }),
@@ -360,6 +378,17 @@ function createAnalyticsDashboardViewModel(
     series: Object.freeze(
       dashboard.series.map((point) => Object.freeze({ ...point })),
     ),
+    topProducts: Object.freeze(
+      dashboard.topProducts.map((product) => Object.freeze({ ...product })),
+    ),
+    growth: Object.freeze({
+      refundedOrders: dashboard.orders.refunded,
+      averageOrderValueCents: dashboard.orders.paid === 0
+        ? null
+        : Math.round(dashboard.revenueCents / dashboard.orders.paid),
+      lowStockVariants: dashboard.catalog.lowStockVariants,
+      totalCustomers: dashboard.customers.total,
+    }),
   });
 }
 

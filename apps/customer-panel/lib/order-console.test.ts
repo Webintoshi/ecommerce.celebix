@@ -235,9 +235,12 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return React;
+    if (specifier === "lucide-react") return new Proxy({}, { get: () => Wrapper });
+    if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
     if (specifier === "recharts") return new Proxy({}, { get: () => Chart });
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel() { return {}; } };
+    if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
     if (specifier === "@/lib/catalog-ui/client") return { catalogApi: Object.freeze({}) };
     if (specifier === "@/lib/order-ui/client") return { orderApi: Object.freeze({}) };
     if (specifier === "@/lib/abandoned-cart-ui/client") return { abandonedCartApi: Object.freeze({}) };
@@ -802,11 +805,10 @@ test("dashboard and order pages expose only durable order facts without private 
   );
   const Presentation = await compileDashboardPresentation(dashboardModel);
   const html = renderToStaticMarkup(createElement(Presentation, { dashboard: view, onRefresh() {}, state: "loaded", ordersState: "loaded" }));
-  assert.match(html, /Sipariş özeti/);
-  assert.match(html, /Toplam sipariş/);
-  assert.match(html, />9<\/strong>/);
-  assert.match(html, /Doğrulanmış gelir/);
-  assert.match(dashboard, /loadMerchantDashboardSummaries/);
+  assert.match(html, /2 sipariş işlem bekliyor/);
+  assert.match(html, /href="\/orders"/);
+  assert.doesNotMatch(html, /48[,.]500|Doğrulanmış gelir/);
+  assert.match(model, /loadMerchantDashboardSummaries/);
   assert.match(model, /totalOrders/);
   assert.match(model, /pendingOrders/);
   assert.match(model, /fulfilledOrders/);
