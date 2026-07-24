@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  PanelActionButton,
   PanelDataTable,
   PanelMetricCard,
   PanelPageHeader,
@@ -87,7 +88,7 @@ export function FullParityFixture({ pathname }: Readonly<{ pathname: string }>) 
           <PanelPageHeader
             title={route.title}
             description={route.description}
-            actions={<button data-primary-action type="button" onClick={() => void load()}>Yerel görünümü yenile</button>}
+            actions={<PanelActionButton href={pathname} primary>Yerel görünümü yenile</PanelActionButton>}
           />
           {error ? <p className="fixture-error" role="alert">{error}</p> : null}
           {!dto ? <p className="fixture-loading" role="status">Kalıcı görünüm hazırlanıyor…</p> : (

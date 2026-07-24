@@ -54,3 +54,42 @@ test("fixture exposes deterministic safe completed-route DTOs without external s
   assert.doesNotMatch(fixture, /service_role|client_secret|access.?token|api.?key|synchronized|delivered|indexed/i);
   assert.doesNotMatch(fixture, /https?:\/\//i);
 });
+
+test("fixture delegates primary action geometry contrast and reduced motion to target components", async () => {
+  const [component, css, config, runner] = await Promise.all([
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/full-parity-fixture.tsx"),
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/fixture.css"),
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/next.config.mjs"),
+    read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs"),
+  ]);
+  assert.match(component, /PanelActionButton/);
+  assert.doesNotMatch(component, /data-primary-action|<button/);
+  assert.doesNotMatch(css, /data-primary-action|prefers-reduced-motion|transition-duration|animation-duration/);
+  assert.match(runner, /targetPrimaryAction/);
+  assert.match(runner, /targetReducedMotion/);
+  assert.match(config, /devIndicators:\s*false/);
+});
+
+test("runner blocks external requests before dispatch and accounts for web sockets", async () => {
+  const runner = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs");
+  for (const marker of ["Fetch.enable", "Fetch.requestPaused", "Fetch.failRequest", "Network.webSocketCreated", "externalWebSocketAttempts", "blockedExternalRequests"]) {
+    assert.match(runner, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.match(runner, /--proxy-server=http:\/\/127\.0\.0\.1:9/);
+  assert.match(runner, /--proxy-bypass-list=127\.0\.0\.1;localhost;\[::1\]/);
+});
+
+test("runner uses delivered pointer input and bounded resilient CDP commands", async () => {
+  const runner = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs");
+  for (const marker of ["Input.dispatchMouseEvent", "Input.dispatchTouchEvent", "CDP_COMMAND_TIMEOUT", "rejectPending", "MAX_NEXT_LOG_BYTES"]) {
+    assert.match(runner, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.doesNotMatch(runner, /new Event\(['"]touch|dispatchEvent\(event\)/);
+});
+
+test("runner validates exact decoded PNG and parsed JSON outputs", async () => {
+  const runner = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-acceptance.mjs");
+  for (const marker of ["PNG_SIGNATURE", "IHDR", "readUInt32BE", "artifactFiles", "parsedResult", "expectedArtifactFiles", "15"]) {
+    assert.match(runner, new RegExp(marker));
+  }
+});

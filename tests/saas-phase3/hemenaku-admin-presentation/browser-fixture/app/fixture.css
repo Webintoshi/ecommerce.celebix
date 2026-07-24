@@ -4,24 +4,9 @@
   gap: 1.5rem;
 }
 
-.fixture-surface button,
-.fixture-surface a,
 .fixture-surface input {
   min-width: 48px;
   min-height: 48px;
-}
-
-[data-primary-action] {
-  min-width: 48px;
-  min-height: 48px;
-  border: 0;
-  border-radius: 0.75rem;
-  background: #FF6A00;
-  padding: 0.75rem 1rem;
-  color: #1C1917;
-  cursor: pointer;
-  font-weight: 800;
-  transition: transform 180ms ease;
 }
 
 .fixture-metrics {
@@ -63,15 +48,4 @@
 
 @media (max-width: 720px) {
   .fixture-metrics { grid-template-columns: 1fr; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.00001s !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.00001s !important;
-  }
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -9,6 +9,9 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../");
 const FIXTURE = path.join(ROOT, "tests/saas-phase3/hemenaku-admin-presentation/browser-fixture");
 const ARTIFACTS = path.join(ROOT, ".codex-artifacts/hemenaku-admin-full-parity");
+const CDP_COMMAND_TIMEOUT = 15_000;
+const MAX_NEXT_LOG_BYTES = 16_000;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const VIEWPORTS = Object.freeze([
   Object.freeze([1440, 900, "desktop-1440x900"]),
   Object.freeze([1280, 800, "desktop-1280x800"]),
@@ -31,20 +34,20 @@ const REPRESENTATIVE_ROUTES = Object.freeze([
   "/products/shopify-converter",
 ]);
 const SCREENSHOTS = Object.freeze([
-  "dashboard-desktop-1440x900.png",
-  "analytics-desktop-1280x800.png",
-  "orders-print-desktop-1280x800.png",
-  "catalog-editor-desktop-1280x800.png",
-  "settings-desktop-1280x800.png",
-  "seo-desktop-1280x800.png",
-  "boundary-desktop-1025x768.png",
-  "boundary-mobile-1024x768.png",
-  "dashboard-mobile-390x844.png",
-  "drawer-mobile-390x844.png",
-  "products-mobile-390x844.png",
-  "inventory-count-mobile-390x844.png",
-  "price-lists-mobile-390x844.png",
-  "dashboard-mobile-320x720.png",
+  Object.freeze({ name: "dashboard-desktop-1440x900.png", width: 1440, height: 900 }),
+  Object.freeze({ name: "analytics-desktop-1280x800.png", width: 1280, height: 800 }),
+  Object.freeze({ name: "orders-print-desktop-1280x800.png", width: 1280, height: 800 }),
+  Object.freeze({ name: "catalog-editor-desktop-1280x800.png", width: 1280, height: 800 }),
+  Object.freeze({ name: "settings-desktop-1280x800.png", width: 1280, height: 800 }),
+  Object.freeze({ name: "seo-desktop-1280x800.png", width: 1280, height: 800 }),
+  Object.freeze({ name: "boundary-desktop-1025x768.png", width: 1025, height: 768 }),
+  Object.freeze({ name: "boundary-mobile-1024x768.png", width: 1024, height: 768 }),
+  Object.freeze({ name: "dashboard-mobile-390x844.png", width: 390, height: 844 }),
+  Object.freeze({ name: "drawer-mobile-390x844.png", width: 390, height: 844 }),
+  Object.freeze({ name: "products-mobile-390x844.png", width: 390, height: 844 }),
+  Object.freeze({ name: "inventory-count-mobile-390x844.png", width: 390, height: 844 }),
+  Object.freeze({ name: "price-lists-mobile-390x844.png", width: 390, height: 844 }),
+  Object.freeze({ name: "dashboard-mobile-320x720.png", width: 320, height: 720 }),
 ]);
 const CHROME_CANDIDATES = [
   process.env.CHROME_BIN,
@@ -88,8 +91,15 @@ class Cdp {
     this.pending = new Map();
     this.listeners = new Map();
     this.ready = new Promise((resolve, reject) => {
-      this.socket.addEventListener("open", resolve, { once: true });
-      this.socket.addEventListener("error", reject, { once: true });
+      this.readyTimer = setTimeout(() => reject(new Error("cdp_socket_open_timeout")), CDP_COMMAND_TIMEOUT);
+      this.socket.addEventListener("open", () => {
+        clearTimeout(this.readyTimer);
+        resolve();
+      }, { once: true });
+      this.socket.addEventListener("error", () => {
+        clearTimeout(this.readyTimer);
+        reject(new Error("cdp_socket_open_error"));
+      }, { once: true });
     });
     this.socket.addEventListener("message", ({ data }) => {
       const message = JSON.parse(String(data));
@@ -97,12 +107,15 @@ class Cdp {
         const pending = this.pending.get(message.id);
         if (!pending) return;
         this.pending.delete(message.id);
+        clearTimeout(pending.timer);
         if (message.error) pending.reject(new Error(`${message.error.code}:${message.error.message}`));
         else pending.resolve(message.result ?? {});
         return;
       }
       for (const listener of this.listeners.get(message.method) ?? []) listener(message.params ?? {});
     });
+    this.socket.addEventListener("error", () => this.rejectPending(new Error("cdp_socket_error")));
+    this.socket.addEventListener("close", () => this.rejectPending(new Error("cdp_socket_closed")));
   }
   on(method, listener) {
     const listeners = this.listeners.get(method) ?? new Set();
@@ -110,11 +123,32 @@ class Cdp {
     this.listeners.set(method, listeners);
     return () => listeners.delete(listener);
   }
-  async send(method, params = {}) {
+  rejectPending(error) {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
+  }
+  async send(method, params = {}, timeout = CDP_COMMAND_TIMEOUT) {
     await this.ready;
+    if (this.socket.readyState !== WebSocket.OPEN) throw new Error(`cdp_socket_not_open:${method}`);
     const id = ++this.nextId;
-    const response = new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
-    this.socket.send(JSON.stringify({ id, method, params }));
+    const response = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`${method}_timeout`));
+      }, timeout);
+      this.pending.set(id, { resolve, reject, timer });
+    });
+    try {
+      this.socket.send(JSON.stringify({ id, method, params }));
+    } catch (error) {
+      const pending = this.pending.get(id);
+      if (pending) clearTimeout(pending.timer);
+      this.pending.delete(id);
+      throw error;
+    }
     return response;
   }
   once(method, timeout = 30_000) {
@@ -137,7 +171,29 @@ class Cdp {
     }
     return result.result?.value;
   }
-  close() { this.socket.close(); }
+  async close() {
+    clearTimeout(this.readyTimer);
+    this.listeners.clear();
+    this.rejectPending(new Error("cdp_closed"));
+    if (this.socket.readyState === WebSocket.CLOSED) return;
+    await new Promise((resolve) => {
+      const finish = () => {
+        clearTimeout(timer);
+        this.socket.removeEventListener("open", closeSocket);
+        this.socket.removeEventListener("close", finish);
+        this.socket.removeEventListener("error", finish);
+        resolve();
+      };
+      const closeSocket = () => {
+        if (this.socket.readyState === WebSocket.OPEN) this.socket.close(1000, "acceptance_complete");
+      };
+      const timer = setTimeout(finish, 1_000);
+      this.socket.addEventListener("close", finish, { once: true });
+      this.socket.addEventListener("error", finish, { once: true });
+      if (this.socket.readyState === WebSocket.CONNECTING) this.socket.addEventListener("open", closeSocket, { once: true });
+      else closeSocket();
+    });
+  }
 }
 
 async function waitFor(cdp, expression, label, timeout = 30_000) {
@@ -178,20 +234,40 @@ async function screenshot(cdp, index) {
     captureBeyondViewport: false,
     fromSurface: true,
   });
-  const target = path.join(ARTIFACTS, SCREENSHOTS[index]);
+  const target = path.join(ARTIFACTS, SCREENSHOTS[index].name);
   writeFileSync(target, Buffer.from(data, "base64"));
   return target;
 }
 
-async function clickByText(cdp, text) {
-  const clicked = await cdp.evaluate(`(() => {
-    const label=${JSON.stringify(text)};
-    const target=[...document.querySelectorAll('button,a')].find((entry)=>(entry.textContent?.includes(label)||entry.getAttribute('aria-label')===label)&&entry.getClientRects().length);
-    if(!target)return false;
-    target.click();
-    return true;
+async function elementPoint(cdp, expression, label) {
+  const point = await cdp.evaluate(`(() => {
+    const target=(${expression});
+    if(!target||!target.getClientRects().length)return null;
+    target.scrollIntoView({block:'center',inline:'center'});
+    const rect=target.getBoundingClientRect();
+    return {x:rect.left+(rect.width/2),y:rect.top+(rect.height/2)};
   })()`);
-  assert.equal(clicked, true, `missing interactive target: ${text}`);
+  assert.ok(point, `missing interactive target: ${label}`);
+  return point;
+}
+
+async function dispatchPointerClick(cdp, expression, label) {
+  const point = await elementPoint(cdp, expression, label);
+  await dispatchPointerAt(cdp, point);
+}
+
+async function dispatchPointerAt(cdp, point) {
+  await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point });
+  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", clickCount: 1 });
+  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", clickCount: 1 });
+}
+
+async function clickByText(cdp, targetText) {
+  const text = JSON.stringify(targetText);
+  await dispatchPointerClick(cdp, `(() => {
+    const label=${text};
+    return [...document.querySelectorAll('button,a')].find((entry)=>(entry.textContent?.includes(label)||entry.getAttribute('aria-label')===label)&&entry.getClientRects().length)??null;
+  })()`, targetText);
 }
 
 async function pressEscape(cdp) {
@@ -209,19 +285,37 @@ async function measurePage(cdp, label) {
     const dimensions=targets.map((entry)=>{const rect=entry.getBoundingClientRect();return {label:entry.getAttribute('aria-label')||entry.textContent?.trim().slice(0,60)||entry.tagName,width:rect.width,height:rect.height};});
     const parse=(color)=>{const values=color.match(/[\\d.]+/g)?.slice(0,3).map(Number);return values?.length===3?values:[0,0,0];};
     const luminance=(color)=>parse(color).map((part)=>part/255).map((part)=>part<=.03928?part/12.92:Math.pow((part+.055)/1.055,2.4)).reduce((sum,part,index)=>sum+part*[.2126,.7152,.0722][index],0);
-    const primary=[...document.querySelectorAll('[data-primary-action]')].filter(visible).map((entry)=>{const style=getComputedStyle(entry),foreground=luminance(style.color),background=luminance(style.backgroundColor);return (Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05);});
+    const targetPrimaryActions=[...document.querySelectorAll('[class*="primaryAction"]')].filter(visible).map((entry)=>{
+      const style=getComputedStyle(entry),rect=entry.getBoundingClientRect(),foreground=luminance(style.color),background=luminance(style.backgroundColor);
+      return {
+        tagName:entry.tagName,
+        className:entry.className,
+        width:rect.width,
+        height:rect.height,
+        minHeight:style.minHeight,
+        color:style.color,
+        backgroundColor:style.backgroundColor,
+        contrast:(Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05),
+      };
+    });
+    const targetPrimaryAction=targetPrimaryActions[0]??null;
     return {
       width:innerWidth,
       height:innerHeight,
       horizontalOverflow:document.documentElement.scrollWidth-innerWidth,
       minimumTarget:dimensions.length?Math.min(...dimensions.map(({width,height})=>Math.min(width,height))):0,
       undersized:dimensions.filter(({width,height})=>width<48||height<48),
-      primaryContrast:primary.length?Math.min(...primary):0,
+      primaryContrast:targetPrimaryActions.length?Math.min(...targetPrimaryActions.map(({contrast})=>contrast)):0,
+      targetPrimaryAction,
     };
   })()`);
   assert.equal(value.horizontalOverflow, 0, `${label} horizontal overflow`);
   assert.deepEqual(value.undersized, [], `${label} has targets smaller than 48px`);
   assert.ok(value.minimumTarget >= 48, `${label} minimum target ${value.minimumTarget}`);
+  assert.ok(value.targetPrimaryAction, `${label} missing target PanelActionButton`);
+  assert.equal(value.targetPrimaryAction.tagName, "A", `${label} target action semantic`);
+  assert.equal(value.targetPrimaryAction.backgroundColor, "rgb(255, 106, 0)", `${label} target action background`);
+  assert.ok(value.targetPrimaryAction.width >= 48 && value.targetPrimaryAction.height >= 48, `${label} target action dimensions`);
   assert.ok(value.primaryContrast >= 4.5, `${label} primary orange contrast ${value.primaryContrast}`);
   return Object.freeze({ label, ...value });
 }
@@ -287,13 +381,75 @@ async function shellMode(cdp) {
 }
 
 async function openDrawer(cdp) {
-  const opened = await cdp.evaluate(`(() => {const button=document.querySelector('button[aria-label="Panel menüsünü aç"]');if(!button)return false;button.click();return true;})()`);
-  assert.equal(opened, true);
+  await dispatchPointerClick(cdp, `document.querySelector('button[aria-label="Panel menüsünü aç"]')`, "Panel menüsünü aç");
   await waitFor(cdp, `document.querySelector('#panel-mobile-drawer')!==null`, "drawer_open");
+  await waitFor(cdp, `(() => {const drawer=document.querySelector('#panel-mobile-drawer');if(!drawer)return false;const rect=drawer.getBoundingClientRect();return rect.right<=innerWidth+1&&rect.left<innerWidth-48;})()`, "drawer_settled");
+}
+
+async function dismissDrawerWithBackdrop(cdp) {
+  const point = await cdp.evaluate(`(() => {
+    const backdrop=document.querySelector('button[aria-label="Panel menüsünü kapat"]:not(#panel-mobile-drawer button)');
+    const drawer=document.querySelector('#panel-mobile-drawer');
+    if(!backdrop||!drawer)return null;
+    const backdropRect=backdrop.getBoundingClientRect(),drawerRect=drawer.getBoundingClientRect();
+    const x=Math.max(backdropRect.left+1,drawerRect.left/2),y=backdropRect.top+(backdropRect.height/2);
+    return {x,y,hitAriaLabel:document.elementFromPoint(x,y)?.closest('button')?.getAttribute('aria-label')??null};
+  })()`);
+  assert.ok(point, "missing drawer backdrop point");
+  assert.equal(point.hitAriaLabel, "Panel menüsünü kapat", JSON.stringify(point));
+  await dispatchPointerAt(cdp, { x: point.x, y: point.y });
+}
+
+async function dismissDrawerWithSwipe(cdp) {
+  const point = await elementPoint(cdp, `document.querySelector('#panel-mobile-drawer')`, "drawer swipe surface");
+  const start = { x: point.x - 80, y: point.y };
+  const end = { x: start.x + 100, y: start.y };
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ ...start, radiusX: 1, radiusY: 1, force: 1, id: 1 }],
+  });
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ ...end, radiusX: 1, radiusY: 1, force: 1, id: 1 }],
+  });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+
+async function measureTargetReducedMotion(cdp) {
+  const targetReducedMotion = await cdp.evaluate(`(() => {
+    const selectors={
+      drawer:'#panel-mobile-drawer',
+      backdrop:'[class*="drawerBackdrop"]',
+      navigationLink:'#panel-mobile-drawer [class*="navigationLink"]',
+      mobileDock:'nav[aria-label="Mobil panel menüsü"]',
+      mobileDockLink:'nav[aria-label="Mobil panel menüsü"] a',
+    };
+    const targets=Object.fromEntries(Object.entries(selectors).map(([name,selector])=>{
+      const element=document.querySelector(selector);
+      if(!element)return [name,null];
+      const style=getComputedStyle(element);
+      return [name,{selector,transitionDuration:style.transitionDuration,animationDuration:style.animationDuration}];
+    }));
+    return {matches:matchMedia('(prefers-reduced-motion: reduce)').matches,targets};
+  })()`);
+  assert.equal(targetReducedMotion.matches, true);
+  const allowed = new Set(["0s", "0.00001s", "1e-05s"]);
+  for (const [name, target] of Object.entries(targetReducedMotion.targets)) {
+    assert.ok(target, `missing reduced-motion target ${name}`);
+    const durations = [target.transitionDuration, target.animationDuration]
+      .flatMap((entry) => entry.split(",").map((value) => value.trim()));
+    assert.ok(durations.every((value) => allowed.has(value)), `${name}:${JSON.stringify(target)}`);
+  }
+  return targetReducedMotion;
 }
 
 async function assertDrawerClosedAndFocused(cdp, label) {
-  await waitFor(cdp, `document.querySelector('#panel-mobile-drawer')===null&&document.activeElement?.getAttribute('aria-label')==='Panel menüsünü aç'`, `drawer_${label}_focusRestored`);
+  try {
+    await waitFor(cdp, `document.querySelector('#panel-mobile-drawer')===null&&document.activeElement?.getAttribute('aria-label')==='Panel menüsünü aç'`, `drawer_${label}_focusRestored`, 5_000);
+  } catch (error) {
+    const active = await cdp.evaluate(`(() => {const entry=document.activeElement;return {tagName:entry?.tagName,ariaLabel:entry?.getAttribute('aria-label'),text:entry?.textContent?.trim().slice(0,80),drawerPresent:document.querySelector('#panel-mobile-drawer')!==null};})()`);
+    throw new Error(`${error instanceof Error ? error.message : String(error)}:${JSON.stringify(active)}`);
+  }
   return true;
 }
 
@@ -314,10 +470,24 @@ function isPermittedNetworkUrl(value) {
   if (value.startsWith("data:") || value.startsWith("blob:")) return true;
   try {
     const url = new URL(value);
+    if (!["http:", "https:", "ws:", "wss:"].includes(url.protocol)) return true;
     return ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
   } catch {
     return false;
   }
+}
+
+function isBlockableExternalRequest(value) {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) && !isPermittedNetworkUrl(value);
+  } catch {
+    return false;
+  }
+}
+
+function appendBoundedLog(current, value) {
+  return `${current}${String(value)}`.slice(-MAX_NEXT_LOG_BYTES);
 }
 
 async function stopProcess(child) {
@@ -329,6 +499,38 @@ async function stopProcess(child) {
     child.kill("SIGKILL");
     await exited;
   }
+}
+
+function validateArtifacts() {
+  const expectedArtifactFiles = [...SCREENSHOTS.map(({ name }) => name), "browser-acceptance.json"].sort();
+  const artifactFiles = readdirSync(ARTIFACTS).sort();
+  assert.equal(artifactFiles.length, 15, `expected exactly 15 acceptance artifacts: ${artifactFiles.join(",")}`);
+  assert.deepEqual(artifactFiles, expectedArtifactFiles);
+
+  for (const screenshotSpec of SCREENSHOTS) {
+    const png = readFileSync(path.join(ARTIFACTS, screenshotSpec.name));
+    assert.ok(png.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE), `${screenshotSpec.name} PNG signature`);
+    assert.equal(png.toString("ascii", 12, 16), "IHDR", `${screenshotSpec.name} first chunk`);
+    assert.equal(png.readUInt32BE(16), screenshotSpec.width, `${screenshotSpec.name} width`);
+    assert.equal(png.readUInt32BE(20), screenshotSpec.height, `${screenshotSpec.name} height`);
+  }
+
+  const parsedResult = JSON.parse(readFileSync(path.join(ARTIFACTS, "browser-acceptance.json"), "utf8"));
+  assert.equal(parsedResult.screenshotCount, SCREENSHOTS.length);
+  assert.equal(parsedResult.routeCount, REPRESENTATIVE_ROUTES.length);
+  assert.equal(parsedResult.viewportCount, VIEWPORTS.length);
+  assert.deepEqual(parsedResult.screenshots.map((entry) => path.basename(entry)).sort(), SCREENSHOTS.map(({ name }) => name).sort());
+  assert.equal(parsedResult.consoleErrors, 0);
+  assert.equal(parsedResult.runtimeExceptions, 0);
+  assert.equal(parsedResult.externalRequests, 0);
+  assert.equal(parsedResult.externalWebSocketAttempts, 0);
+  assert.equal(parsedResult.blockedExternalRequests, 0);
+  assert.equal(parsedResult.interceptionErrors, 0);
+  assert.ok(parsedResult.measurements.minimumTarget >= 48);
+  assert.ok(parsedResult.measurements.primaryContrast >= 4.5);
+  assert.equal(parsedResult.measurements.horizontalOverflow, 0);
+  assert.ok(parsedResult.measurements.viewportMeasurements.every(({ targetPrimaryAction }) => targetPrimaryAction?.tagName === "A"));
+  return parsedResult;
 }
 
 async function main() {
@@ -347,8 +549,8 @@ async function main() {
     stdio: ["ignore", "pipe", "pipe"],
   });
   let nextLog = "";
-  next.stdout.on("data", (value) => { nextLog += value; });
-  next.stderr.on("data", (value) => { nextLog += value; });
+  next.stdout.on("data", (value) => { nextLog = appendBoundedLog(nextLog, value); });
+  next.stderr.on("data", (value) => { nextLog = appendBoundedLog(nextLog, value); });
   const browser = spawn(chrome, [
     "--headless=new",
     "--disable-extensions",
@@ -356,6 +558,8 @@ async function main() {
     "--disable-component-update",
     "--no-first-run",
     "--no-default-browser-check",
+    "--proxy-server=http://127.0.0.1:9",
+    "--proxy-bypass-list=127.0.0.1;localhost;[::1]",
     `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${profile}`,
     "about:blank",
@@ -371,12 +575,33 @@ async function main() {
     const consoleErrors = [];
     const exceptions = [];
     const networkUrls = [];
+    const webSocketUrls = [];
+    const blockedExternalRequests = [];
+    const interceptionErrors = [];
+    const interceptionTasks = new Set();
     cdp.on("Runtime.consoleAPICalled", ({ type, args }) => {
       if (["error", "assert"].includes(type)) consoleErrors.push(args.map(({ value, description }) => value ?? description).join(" "));
     });
     cdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => exceptions.push(exceptionDetails.exception?.description ?? exceptionDetails.text));
     cdp.on("Network.requestWillBeSent", ({ request }) => networkUrls.push(request.url));
-    await Promise.all([cdp.send("Page.enable"), cdp.send("Runtime.enable"), cdp.send("Network.enable")]);
+    cdp.on("Network.webSocketCreated", ({ url }) => webSocketUrls.push(url));
+    cdp.on("Fetch.requestPaused", ({ requestId, request }) => {
+      const task = (async () => {
+        if (isBlockableExternalRequest(request.url)) {
+          blockedExternalRequests.push(request.url);
+          await cdp.send("Fetch.failRequest", { requestId, errorReason: "BlockedByClient" });
+          return;
+        }
+        await cdp.send("Fetch.continueRequest", { requestId });
+      })().catch((error) => interceptionErrors.push(String(error))).finally(() => interceptionTasks.delete(task));
+      interceptionTasks.add(task);
+    });
+    await Promise.all([
+      cdp.send("Page.enable"),
+      cdp.send("Runtime.enable"),
+      cdp.send("Network.enable"),
+      cdp.send("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] }),
+    ]);
 
     const matrixSeen = new Set();
     const viewportMeasurements = [];
@@ -431,42 +656,25 @@ async function main() {
     await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
     await setViewport(cdp, VIEWPORTS[4], matrixSeen);
     await navigate(cdp, origin, "/");
-    viewportMeasurements.push(await measurePage(cdp, "dashboard mobile-390x844"));
     screenshots.push(await screenshot(cdp, 8));
 
     await openDrawer(cdp);
-    const reducedMotion = await cdp.evaluate(`(() => {
-      const drawer=document.querySelector('#panel-mobile-drawer'),style=getComputedStyle(drawer);
-      const durations=[style.transitionDuration,style.animationDuration].flatMap((entry)=>entry.split(',').map((value)=>value.trim()));
-      return {matches:matchMedia('(prefers-reduced-motion: reduce)').matches,reducedMotionDuration:durations};
-    })()`);
-    assert.equal(reducedMotion.matches, true);
-    assert.ok(reducedMotion.reducedMotionDuration.every((value) => ["0s", "0.00001s", "1e-05s"].includes(value)), JSON.stringify(reducedMotion));
+    viewportMeasurements.push(await measurePage(cdp, "dashboard drawer-open mobile-390x844"));
+    const targetReducedMotion = await measureTargetReducedMotion(cdp);
     screenshots.push(await screenshot(cdp, 9));
     await pressEscape(cdp);
     const escapeFocus = await assertDrawerClosedAndFocused(cdp, "Escape");
 
     await openDrawer(cdp);
-    const backdropClicked = await cdp.evaluate(`(() => {const button=document.querySelector('button[aria-label="Panel menüsünü kapat"]');if(!button)return false;button.click();return true;})()`);
-    assert.equal(backdropClicked, true);
+    await dismissDrawerWithBackdrop(cdp);
     const backdropFocus = await assertDrawerClosedAndFocused(cdp, "backdrop");
 
     await openDrawer(cdp);
-    const closeButtonClicked = await cdp.evaluate(`(() => {const button=document.querySelector('#panel-mobile-drawer button[aria-label="Panel menüsünü kapat"]');if(!button)return false;button.click();return true;})()`);
-    assert.equal(closeButtonClicked, true);
+    await dispatchPointerClick(cdp, `document.querySelector('#panel-mobile-drawer button[aria-label="Panel menüsünü kapat"]')`, "drawer close button");
     const closeButtonFocus = await assertDrawerClosedAndFocused(cdp, "close-button");
 
     await openDrawer(cdp);
-    const swiped = await cdp.evaluate(`(() => {
-      const drawer=document.querySelector('#panel-mobile-drawer');
-      if(!drawer)return false;
-      const dispatch=(type,touches)=>{const event=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(event,'touches',{value:touches});drawer.dispatchEvent(event);};
-      dispatch('touchstart',[{clientX:100}]);
-      dispatch('touchmove',[{clientX:180}]);
-      dispatch('touchend',[]);
-      return true;
-    })()`);
-    assert.equal(swiped, true);
+    await dismissDrawerWithSwipe(cdp);
     const swipeFocus = await assertDrawerClosedAndFocused(cdp, "swipe");
 
     await navigate(cdp, origin, "/products");
@@ -514,15 +722,23 @@ async function main() {
 
     assert.deepEqual([...matrixSeen].sort(), VIEWPORTS.map((entry) => entry[2]).sort());
     assert.equal(screenshots.length, 14);
-    assert.deepEqual(readdirSync(ARTIFACTS).filter((entry) => entry.endsWith(".png")).sort(), [...SCREENSHOTS].sort());
+    await Promise.all([...interceptionTasks]);
     const externalUrls = networkUrls.filter((url) => !isPermittedNetworkUrl(url));
+    const externalWebSocketAttempts = webSocketUrls.filter((url) => !isPermittedNetworkUrl(url));
     assert.deepEqual(consoleErrors, []);
     assert.deepEqual(exceptions, []);
     assert.deepEqual(externalUrls, []);
+    assert.deepEqual(externalWebSocketAttempts, []);
+    assert.deepEqual(blockedExternalRequests, []);
+    assert.deepEqual(interceptionErrors, []);
 
     const minimumTarget = Math.min(...viewportMeasurements.map((entry) => entry.minimumTarget));
     const primaryContrast = Math.min(...viewportMeasurements.map((entry) => entry.primaryContrast));
     const horizontalOverflow = Math.max(...viewportMeasurements.map((entry) => entry.horizontalOverflow));
+    const reducedMotionDuration = Object.values(targetReducedMotion.targets).flatMap((target) => [
+      target.transitionDuration,
+      target.animationDuration,
+    ]);
     const result = Object.freeze({
       screenshots,
       screenshotCount: screenshots.length,
@@ -534,7 +750,8 @@ async function main() {
         minimumTarget,
         primaryContrast,
         horizontalOverflow,
-        reducedMotionDuration: reducedMotion.reducedMotionDuration,
+        reducedMotionDuration,
+        targetReducedMotion,
         workspaceBottomPadding: dockMeasurements.workspaceBottomPadding,
         dockHeight: dockMeasurements.dockHeight,
         focusedInputDockClearance: dockMeasurements.focusedInputDockClearance,
@@ -552,15 +769,20 @@ async function main() {
       consoleErrors: consoleErrors.length,
       runtimeExceptions: exceptions.length,
       externalRequests: externalUrls.length,
+      externalWebSocketAttempts: externalWebSocketAttempts.length,
+      blockedExternalRequests: blockedExternalRequests.length,
+      interceptionErrors: interceptionErrors.length,
       networkRequests: networkUrls.length,
+      webSocketRequests: webSocketUrls.length,
     });
     writeFileSync(path.join(ARTIFACTS, "browser-acceptance.json"), `${JSON.stringify(result, null, 2)}\n`);
-    process.stdout.write(`PASS — full merchant local browser acceptance\n${JSON.stringify(result, null, 2)}\n`);
+    const parsedResult = validateArtifacts();
+    process.stdout.write(`PASS — full merchant local browser acceptance\n${JSON.stringify(parsedResult, null, 2)}\n`);
   } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\nNEXT_LOG\n${nextLog.slice(-12_000)}\n`);
+    process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\nNEXT_LOG\n${nextLog}\n`);
     process.exitCode = 1;
   } finally {
-    cdp?.close();
+    await cdp?.close();
     await Promise.all([stopProcess(browser), stopProcess(next)]);
     rmSync(profile, { recursive: true, force: true });
   }
