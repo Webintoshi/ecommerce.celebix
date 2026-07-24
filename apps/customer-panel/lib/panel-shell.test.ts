@@ -623,6 +623,13 @@ test("desktop topbar matches the shared Hemenaku management-header anatomy on ev
   assert.doesNotMatch(`${layout}\n${utilities}`, /TenantContext|principal|issuer|subject|storeId|membershipId|\/api\/admin|supabase/i);
 });
 
+test("topbar launches the real Toshi identity without a remote or generated avatar", async () => {
+  const utilities = await source("components/panel/PanelTopbarUtilities.tsx");
+  assert.match(utilities, /src="\/toshi\/toshi-profile[.]webp"/);
+  assert.match(utilities, /alt="Toshi yapay zekâ mağaza asistanı"/);
+  assert.doesNotMatch(utilities, /<Bot\b|https?:\/\//);
+});
+
 test("desktop sidebar matches the approved compact Celebix navigation anatomy", async () => {
   const navigation = await renderPanelNavigation("/");
   const sidebar = await source("components/panel/PanelSidebar.tsx");
