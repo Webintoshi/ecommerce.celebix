@@ -624,8 +624,9 @@ test("mounted canonical reload failure preserves partial counts and never claims
   const mounted = await createMountedProductConsole({
     async listProducts() {
       reads += 1;
-      if (reads > 1) throw new Error("canonical unavailable");
-      return { items: [first, second] };
+      if (reads === 2) throw new Error("canonical unavailable");
+      if (reads > 2) return { items: [productFixture("33333333-3333-4333-8333-333333333333", "draft", 1, "Eski cursor sayfası")] };
+      return { items: [first, second], nextCursor: "cursor_2" };
     },
     async getDashboardSummary() { return catalogSummary; },
     async getProduct(id: string) { return { product: id === first.id ? first : second, variants: [] }; },
@@ -653,6 +654,14 @@ test("mounted canonical reload failure preserves partial counts and never claims
   assert.match(text, /yeniden dene/i);
   assert.doesNotMatch(text, /kalıcı mağaza durumuyla uzlaştırıldı/i);
   assert.ok(mountedNodes(tree).some((node) => node.type === "button" && /yeniden dene/i.test(mountedText(node))));
+  const loadMore = mountedNodes(tree).find((node) => node.type === "button" && mountedText(node) === "Daha fazla yükle");
+  assert.ok(loadMore);
+  assert.equal(loadMore.props.disabled, true, "stale first page must lock cursor pagination");
+  (loadMore.props.onClick as () => void)();
+  tree = await mounted.render();
+  assert.equal(reads, 2, "stale cursor must not start another list request");
+  assert.match(tree.map(mountedText).join(" "), /Ürün satırları doğrulanamadı/);
+  assert.doesNotMatch(tree.map(mountedText).join(" "), /Eski cursor sayfası/);
 });
 
 test("detail and media surfaces retain versioned target commands", async () => {

@@ -193,6 +193,8 @@ export function ProductListConsole() {
   const [error, setError] = useState("");
   const [bulkOutcome, setBulkOutcome] = useState<BulkOutcome>();
   const [rowsStale, setRowsStale] = useState(false);
+  const rowsStaleRef = useRef(rowsStale);
+  rowsStaleRef.current = rowsStale;
   const [archiveCandidate, setArchiveCandidate] = useState<Product>();
   const [bulkArchiveConfirmation, setBulkArchiveConfirmation] = useState(false);
   const filterRef = useRef(filter);
@@ -205,6 +207,7 @@ export function ProductListConsole() {
   const wasArchiveDialogOpen = useRef(false);
 
   const load = useCallback(async (options: LoadOptions = {}): Promise<LoadResult> => {
+    if (options.cursor !== undefined && rowsStaleRef.current) return "blocked";
     const sequence = options.mutationToken === undefined
       ? operationCoordinator.current.beginRead()
       : operationCoordinator.current.beginCanonicalRead(options.mutationToken);
@@ -239,7 +242,7 @@ export function ProductListConsole() {
       setRows((current) => cursor === undefined ? hydrated : Object.freeze([...current, ...hydrated]));
       setNextCursor(result.nextCursor);
       if (cursor === undefined) setSelected(Object.freeze([]));
-      setRowsStale(false);
+      if (cursor === undefined) setRowsStale(false);
       return "applied";
     } catch (failure) {
       if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
@@ -496,7 +499,7 @@ export function ProductListConsole() {
         </div>
       )}
 
-      {nextCursor ? <button className="button button-secondary load-more" type="button" onClick={() => void load({ cursor: nextCursor })} disabled={loadingMore || loading || busy}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
+      {nextCursor ? <button className="button button-secondary load-more" type="button" onClick={() => void load({ cursor: nextCursor })} disabled={loadingMore || loading || busy || rowsStale}>{loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}</button> : null}
 
       {archiveCandidate ? (
         <div className="archive-dialog-layer">
