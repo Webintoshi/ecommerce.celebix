@@ -1,5 +1,6 @@
 "use client";
 
+import { LogOut } from "lucide-react";
 import { useState } from "react";
 
 export function LogoutButton() {
@@ -27,8 +28,8 @@ export function LogoutButton() {
   return (
     <div className="logout-control">
       <button className="logout-button" type="button" onClick={logout} disabled={submitting} aria-label={submitting ? "Çıkış yapılıyor" : "Güvenli çıkış yap"}>
-        <span aria-hidden="true">↗</span>
-        <span className="logout-label">{submitting ? "Çıkış yapılıyor…" : "Güvenli çıkış"}</span>
+        <LogOut aria-hidden="true" />
+        <span className="logout-label">{submitting ? "Çıkış yapılıyor…" : "Çıkış"}</span>
       </button>
       {error ? <p className="inline-error" role="alert">{error}</p> : null}
     </div>

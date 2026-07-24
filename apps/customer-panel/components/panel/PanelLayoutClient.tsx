@@ -18,6 +18,7 @@ import {
   PanelTopbarChromeProvider,
   type PanelTopbarChromeState,
 } from "./PanelTopbarChrome";
+import { PanelTopbarUtilities } from "./PanelTopbarUtilities";
 import styles from "./panel-shell.module.css";
 
 const ModelContext = createContext<PanelChromeModel | null>(null);
@@ -131,11 +132,14 @@ export function PanelLayoutClient({ model, children }: { model: PanelChromeModel
         />
         <div className={styles.workspace}>
           <header className={styles.desktopTopbar}>
-            <div>
-              <strong>{activeChrome?.title ?? routePresentation.title}</strong>
-              <span>{activeChrome?.subtitle}</span>
+            <div className={styles.desktopTopbarHeading}>
+              <span className={styles.desktopTopbarEyebrow}>ORTAK ADMİN</span>
+              <strong className={styles.desktopTopbarTitle}>{activeChrome?.title ?? routePresentation.title}</strong>
             </div>
-            <div id="panel-topbar-actions" />
+            <div className={styles.desktopTopbarCommands}>
+              <div id="panel-topbar-actions" />
+              <PanelTopbarUtilities />
+            </div>
           </header>
           <PanelTopbarChromeProvider onChange={handleChromeChange}>
             <main ref={desktopFocusRef} className={styles.content} tabIndex={-1}>{children}</main>

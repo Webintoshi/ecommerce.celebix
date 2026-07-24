@@ -190,13 +190,15 @@ test("ports the exact donor brand asset and core visual tokens", async () => {
   assert.match(css, /--panel-touch-target:\s*48px/i);
 });
 
-test("browser acceptance serves the requested dark Celebix logo from the local target asset", async () => {
-  const route = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/Logo/celebix-koyu-logo.svg/route.ts");
-  assert.match(route, /apps\/customer-panel\/public\/Logo\/celebix-koyu-logo[.]svg/);
-  assert.match(route, /readFile/);
-  assert.match(route, /resolve\(\s*process[.]cwd\(\)/);
-  assert.doesNotMatch(route, /new URL|fileURLToPath/);
-  assert.doesNotMatch(route, /https?:\/\//);
+test("browser acceptance serves both Celebix logos from immutable local target assets", async () => {
+  for (const name of ["celebix-koyu-logo", "celebix-beyaz-logo"]) {
+    const route = await read(`tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/Logo/${name}.svg/route.ts`);
+    assert.match(route, new RegExp(`apps/customer-panel/public/Logo/${name}[.]svg`));
+    assert.match(route, /readFile/);
+    assert.match(route, /resolve\(\s*process[.]cwd\(\)/);
+    assert.doesNotMatch(route, /new URL|fileURLToPath/);
+    assert.doesNotMatch(route, /https?:\/\//);
+  }
 });
 
 test("browser acceptance mounts the real Toshi workspace behind the fixture panel shell", async () => {
@@ -239,7 +241,7 @@ test("exports donor-compatible page primitives and truthful dashboard geometry",
   assert.match(dashboard, /<ResponsiveContainer width="100%" height=\{330\}>/);
   assert.match(dashboard, /<LineChart data=\{analytics[.]series\} accessibilityLayer>/);
   assert.match(dashboard, /<Line[\s\S]*?dataKey="revenueCents"[\s\S]*?stroke="#FE6100"/);
-  assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length, 1);
+  assert.equal((dashboard.match(/aria-disabled="true"/g) ?? []).length, 0);
   assert.match(model, /function createAnalyticsDashboardViewModel/);
   assert.match(model, /dashboard[.]topProducts[.]map/);
   assert.match(model, /averageOrderValueCents:\s*dashboard[.]orders[.]paid === 0/);
@@ -253,7 +255,7 @@ test("exports donor-compatible page primitives and truthful dashboard geometry",
   assert.match(dashboard, /analytics[.]topProducts[.]map/);
   assert.match(dashboard, /analytics[.]growth[.]lowStockVariants/);
   assert.doesNotMatch(dashboard, /conversion|sessions?|visitors?/i);
-  assert.match(dashboard, /<PanelActionButton href="\/analytics">Tümünü görüntüle<\/PanelActionButton>/);
+  assert.match(dashboard, /<PanelActionButton href="\/analytics">Analitiği görüntüle<\/PanelActionButton>/);
   assert.doesNotMatch(dashboard, /TenantContext|storeId|tenantId|principal|membershipId|planId|requestId/);
   assert.match(styles, /[.]kpiRail\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(180px, 1fr\)\)/);
   assert.match(styles, /[.]insightGrid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 2fr\) minmax\(280px, 1fr\)/);

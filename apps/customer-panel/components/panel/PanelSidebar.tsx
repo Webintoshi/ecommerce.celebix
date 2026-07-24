@@ -21,9 +21,26 @@ function PanelBrand({ onClick }: { onClick?: () => void }) {
   return (
     <Link className={styles.brand} href="/" aria-label="Celebix Panel ana sayfa" onClick={onClick}>
       <span className={styles.brandMark}>
-        <Image src="/Logo/celebix-koyu-logo.svg" width={2000} height={878} alt="Celebix" priority />
+        <Image src="/Logo/celebix-beyaz-logo.svg" width={1540} height={390} alt="Celebix" priority />
       </span>
     </Link>
+  );
+}
+
+function SidebarFooter({ model }: { model: PanelChromeModel }) {
+  const initial = model.storeSlug.charAt(0).toLocaleUpperCase("tr-TR");
+
+  return (
+    <div className={styles.sidebarFooter}>
+      <div className={styles.sidebarAccount} aria-label="Etkin mağaza">
+        <span className={styles.sidebarAvatar} aria-hidden="true">{initial}</span>
+        <span className={styles.sidebarAccountCopy}>
+          <strong>{model.storeSlug}</strong>
+          <small>{model.membershipLabel}</small>
+        </span>
+      </div>
+      <LogoutButton />
+    </div>
   );
 }
 
@@ -153,13 +170,10 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
                   <X aria-hidden="true" />
                 </button>
               </div>
-              <div className={styles.merchantIdentity} aria-label="Etkin mağaza">
-                <strong>{model.storeSlug}</strong><small>{model.membershipLabel}</small>
-              </div>
               <div className={styles.drawerNavigation} onClick={handleNavigationClick}>
                 <PanelNavigation mode="drawer" />
               </div>
-              <div className={styles.sidebarFooter}><LogoutButton /></div>
+              <SidebarFooter model={model} />
             </motion.aside>
           </>
         ) : null}
@@ -170,11 +184,8 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
   return (
     <aside className={styles.desktopSidebar}>
       <PanelBrand />
-      <div className={styles.merchantIdentity} aria-label="Etkin mağaza">
-        <strong>{model.storeSlug}</strong><small>{model.membershipLabel}</small>
-      </div>
       <PanelNavigation mode={mode} />
-      <div className={styles.sidebarFooter}><LogoutButton /></div>
+      <SidebarFooter model={model} />
     </aside>
   );
 }

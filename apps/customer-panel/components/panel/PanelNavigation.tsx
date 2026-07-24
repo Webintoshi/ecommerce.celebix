@@ -22,7 +22,7 @@ import {
   Tags,
   Upload,
   Users,
-  BadgePercent,
+  Percent,
   Gift,
   Megaphone,
   Mail,
@@ -32,14 +32,13 @@ import {
   FileText,
   ScrollText,
   Store,
-  Settings2,
   Languages,
   CreditCard,
   Truck,
   ShieldCheck,
   Calculator,
   ReceiptText,
-  SearchCheck,
+  Search,
   Map,
   Share2,
   Code2,
@@ -81,18 +80,18 @@ const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   inventory: Warehouse,
   "price-lists": BadgeDollarSign,
   "bulk-upload": Upload,
-  discounts: BadgePercent,
+  discounts: Percent,
   "lucky-wheel": Gift,
   marketing: Megaphone,
   email: Mail,
   phone: Phone,
   whatsapp: MessageCircle,
-  content: Newspaper,
+  content: FileText,
   blog: Newspaper,
   pages: FileText,
   policies: ScrollText,
   marketplaces: Store,
-  settings: Settings2,
+  settings: Settings,
   design: Palette,
   language: Languages,
   payment: CreditCard,
@@ -100,7 +99,7 @@ const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   administrators: ShieldCheck,
   accounting: Calculator,
   invoice: ReceiptText,
-  seo: SearchCheck,
+  seo: Search,
   sitemap: Map,
   "social-preview": Share2,
   code: Code2,
@@ -108,7 +107,15 @@ const ICONS: Readonly<Record<PanelNavigationIcon, LucideIcon>> = Object.freeze({
   setup: Settings,
 });
 
-const NAVIGATION: readonly PanelNavigationItem[] = PANEL_NAVIGATION;
+const NAVIGATION: readonly PanelNavigationItem[] = PANEL_NAVIGATION.filter(
+  ({ key }) => key !== "analytics" && key !== "setup",
+);
+
+function getSidebarLabel(item: PanelNavigationItem): string {
+  if (item.key === "summary") return "Giriş";
+  if (item.key === "seo") return "SEO Araçları";
+  return item.label;
+}
 
 function getCurrentNavigationHref(
   pathname: string,
@@ -143,6 +150,7 @@ function NavigationLink({
 }) {
   const active = item.href === currentHref;
   const Icon = ICONS[item.icon];
+  const label = getSidebarLabel(item);
   return (
     <Link
       href={item.href}
@@ -153,7 +161,7 @@ function NavigationLink({
       <span className={styles.iconBox}>
         <Icon aria-hidden="true" />
       </span>
-      <span className={styles.navigationLabel}>{item.label}</span>
+      <span className={styles.navigationLabel}>{label}</span>
     </Link>
   );
 }
@@ -207,6 +215,7 @@ export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
         const childrenId = `panel-nav-${item.key}-${mode}`;
         const groupActive = isPanelNavigationPathActive(pathname, item.href);
         const Icon = ICONS[item.icon];
+        const label = getSidebarLabel(item);
         return (
           <section className={styles.navigationGroup} key={item.key}>
             <div className={styles.navigationGroupHeader}>
@@ -219,12 +228,12 @@ export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
                 <span className={styles.iconBox}>
                   <Icon aria-hidden="true" />
                 </span>
-                <span className={styles.navigationLabel}>{item.label}</span>
+                <span className={styles.navigationLabel}>{label}</span>
               </Link>
               <button
                 type="button"
                 className={`${styles.navigationGroupToggle} ${groupActive ? styles.navigationGroupToggleActive : ""}`}
-                aria-label={`${item.label} alt menüsünü ${expanded ? "kapat" : "aç"}`}
+                aria-label={`${label} alt menüsünü ${expanded ? "kapat" : "aç"}`}
                 aria-expanded={expanded}
                 aria-controls={childrenId}
                 onClick={() => toggleGroup(item.key)}
