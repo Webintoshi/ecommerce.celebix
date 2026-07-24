@@ -56,7 +56,7 @@
 
 **Interfaces:**
 - Consumes: supplied `/Users/Celebix/Desktop/toshi-profile.webp`.
-- Produces: `PanelTopbarUtilities` launcher with `aria-controls="toshi-assistant-drawer"` and the exact local image `/toshi/toshi-profile.webp`.
+- Produces: the existing `PanelTopbarUtilities` launcher with the exact local image `/toshi/toshi-profile.webp`; Task 4 replaces the temporary help popover with the drawer.
 
 - [ ] **Step 1: Write the failing launcher test**
 
@@ -67,8 +67,6 @@ test("topbar launches the real Toshi identity without a remote or generated avat
   const source = await read("components/panel/PanelTopbarUtilities.tsx");
   assert.match(source, /src="\/toshi\/toshi-profile[.]webp"/);
   assert.match(source, /alt="Toshi yapay zekâ mağaza asistanı"/);
-  assert.match(source, /aria-controls="toshi-assistant-drawer"/);
-  assert.match(source, /<ToshiDrawer/);
   assert.doesNotMatch(source, /<Bot\b|https?:\/\//);
 });
 ```
@@ -81,7 +79,7 @@ Run:
 node --experimental-transform-types --test --test-name-pattern="real Toshi identity" apps/customer-panel/lib/panel-shell.test.ts
 ```
 
-Expected: FAIL because `toshi-profile.webp` and `ToshiDrawer` are not referenced.
+Expected: FAIL because `toshi-profile.webp` is not referenced.
 
 - [ ] **Step 3: Copy the exact image and implement the minimal launcher**
 
@@ -93,7 +91,7 @@ cp /Users/Celebix/Desktop/toshi-profile.webp apps/customer-panel/public/toshi/to
 cmp /Users/Celebix/Desktop/toshi-profile.webp apps/customer-panel/public/toshi/toshi-profile.webp
 ```
 
-Replace the bot glyph inside `PanelTopbarUtilities` with:
+Replace only the bot glyph inside the existing `PanelTopbarUtilities` launcher with:
 
 ```tsx
 <button
@@ -101,7 +99,7 @@ Replace the bot glyph inside `PanelTopbarUtilities` with:
   className={styles.topbarAssistantButton}
   type="button"
   aria-expanded={helpOpen}
-  aria-controls="toshi-assistant-drawer"
+  aria-controls="panel-management-help"
   onClick={() => setHelpOpen((current) => !current)}
 >
   <span>Bana Sorun</span>
@@ -115,14 +113,10 @@ Replace the bot glyph inside `PanelTopbarUtilities` with:
     />
   </span>
 </button>
-<ToshiDrawer
-  open={helpOpen}
-  launcherRef={helpButtonRef}
-  onClose={() => setHelpOpen(false)}
-/>
 ```
 
-Use `next/image`, remove `Bot`, and let `ToshiDrawer` own close/focus behavior.
+Use `next/image` and remove `Bot`. Preserve the existing temporary help popover until
+Task 4 replaces it atomically with `ToshiDrawer`.
 
 - [ ] **Step 4: Run focused test and verify GREEN**
 
@@ -563,4 +557,3 @@ design remains decomposed into independently testable follow-on plans:
    history/audit surfaces, full PostgreSQL/browser/regression acceptance.
 
 No follow-on navigation is exposed until its API and durable authority are complete.
-
