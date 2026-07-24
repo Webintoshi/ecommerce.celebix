@@ -44,6 +44,17 @@ test("analytics and typed storefront setting pages are server-authorized routes"
   }
 });
 
+test("Toshi workspace is mounted behind server panel access without client authority props", async () => {
+  const page = await readFile(new URL("../app/toshi/page.tsx", import.meta.url), "utf8");
+  const accessIndex = page.indexOf("await requireServerPanelAccess()");
+  const workspaceIndex = page.indexOf("<ToshiWorkspace />");
+
+  assert.notEqual(accessIndex, -1);
+  assert.notEqual(workspaceIndex, -1);
+  assert.ok(accessIndex < workspaceIndex);
+  assert.doesNotMatch(page, /tenantContext|storeId|tenantId|principalId|membershipId|planId/);
+});
+
 test("analytics mounts one shared shell while orders keep their existing page-owned and print-safe boundaries", async () => {
   const analyticsLayout = await readFile(new URL("../app/analytics/layout.tsx", import.meta.url), "utf8");
   assert.match(analyticsLayout, /requireServerPanelAccess\(\)/);

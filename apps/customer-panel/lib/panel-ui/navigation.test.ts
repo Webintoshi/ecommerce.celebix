@@ -500,3 +500,17 @@ test("returns shared immutable route presentation records", () => {
     PANEL_ROUTE_PRESENTATIONS.summary,
   );
 });
+
+test("resolves only the exact Toshi workspace route without adding sidebar navigation", () => {
+  assert.equal(getPanelRoutePresentation("/toshi").title, "Toshi");
+  assert.equal(
+    getPanelRoutePresentation("/toshi-evil"),
+    PANEL_ROUTE_PRESENTATIONS.summary,
+  );
+
+  const hrefs = PANEL_NAVIGATION.flatMap((item) => [
+    item.href,
+    ...(item.children ?? []).map((child) => child.href),
+  ]);
+  assert.equal(hrefs.includes("/toshi" as never), false);
+});

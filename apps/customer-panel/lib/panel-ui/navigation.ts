@@ -62,6 +62,7 @@ export type PanelNavigationHref =
   | "/seo/categories"
   | "/seo/pages"
   | "/seo/products"
+  | "/toshi"
   | "/setup";
 
 export type PanelNavigationIcon =
@@ -300,6 +301,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/seo/categories": presentation("Kategori SEO"),
   "/seo/pages": presentation("Sayfa SEO"),
   "/seo/products": presentation("Ürün SEO"),
+  "/toshi": presentation("Toshi"),
   "/setup": presentation("Kurulum durumu"),
 });
 
