@@ -43,11 +43,13 @@ import {
   Map,
   Share2,
   Code2,
+  ChevronDown,
   Gauge,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   isPanelNavigationPathActive,
   PANEL_NAVIGATION,
@@ -152,29 +154,82 @@ function NavigationLink({
 export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
   const pathname = usePathname() ?? "";
   const currentHref = getCurrentNavigationHref(pathname);
+  const activeGroupKeys = NAVIGATION.filter((item) => (
+    item.children?.length && isPanelNavigationPathActive(pathname, item.href)
+  )).map(({ key }) => key);
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
+    () => new Set(activeGroupKeys),
+  );
+
+  useEffect(() => {
+    if (!activeGroupKeys.length) return;
+    setExpandedGroups((current) => {
+      if (activeGroupKeys.every((key) => current.has(key))) return current;
+      const next = new Set(current);
+      for (const key of activeGroupKeys) next.add(key);
+      return next;
+    });
+  }, [pathname]);
+
+  function toggleGroup(key: string) {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   return (
     <nav
       className={styles.navigation}
       aria-label={mode === "drawer" ? "Mobil panel menüsü" : "Panel menüsü"}
     >
-      {NAVIGATION.map((item) =>
-        item.children?.length ? (
+      {NAVIGATION.map((item) => {
+        if (!item.children?.length) {
+          return (
+          <NavigationLink
+            key={item.key}
+            item={item}
+            currentHref={currentHref}
+          />
+          );
+        }
+
+        const expanded = expandedGroups.has(item.key);
+        const childrenId = `panel-nav-${item.key}-${mode}`;
+        const groupActive = isPanelNavigationPathActive(pathname, item.href);
+        const Icon = ICONS[item.icon];
+        return (
           <section className={styles.navigationGroup} key={item.key}>
-            <Link
-              href={item.href}
-              className={`${styles.navigationGroupLabel} ${isPanelNavigationPathActive(pathname, item.href) ? styles.navigationGroupActive : ""}`}
-              aria-current={currentHref === item.href && !item.children.some((child) => child.href === item.href) ? "page" : undefined}
+            <div className={styles.navigationGroupHeader}>
+              <Link
+                href={item.href}
+                className={`${styles.navigationGroupLabel} ${groupActive ? styles.navigationGroupActive : ""}`}
+                aria-current={currentHref === item.href && !item.children.some((child) => child.href === item.href) ? "page" : undefined}
+              >
+                <span className={styles.activeRail} aria-hidden="true" />
+                <span className={styles.iconBox}>
+                  <Icon aria-hidden="true" />
+                </span>
+                <span className={styles.navigationLabel}>{item.label}</span>
+              </Link>
+              <button
+                type="button"
+                className={`${styles.navigationGroupToggle} ${groupActive ? styles.navigationGroupToggleActive : ""}`}
+                aria-label={`${item.label} alt menüsünü ${expanded ? "kapat" : "aç"}`}
+                aria-expanded={expanded}
+                aria-controls={childrenId}
+                onClick={() => toggleGroup(item.key)}
+              >
+                <ChevronDown aria-hidden="true" />
+              </button>
+            </div>
+            <div
+              id={childrenId}
+              className={styles.navigationChildren}
+              hidden={!expanded}
             >
-              <span className={styles.activeRail} aria-hidden="true" />
-              <span className={styles.iconBox}>
-                {(() => {
-                  const Icon = ICONS[item.icon];
-                  return <Icon aria-hidden="true" />;
-                })()}
-              </span>
-              <span className={styles.navigationLabel}>{item.label}</span>
-            </Link>
-            <div className={styles.navigationChildren}>
               {item.children.map((child) => (
                 <NavigationLink
                   key={child.key}
@@ -184,14 +239,8 @@ export function PanelNavigation({ mode }: { mode: "desktop" | "drawer" }) {
               ))}
             </div>
           </section>
-        ) : (
-          <NavigationLink
-            key={item.key}
-            item={item}
-            currentHref={currentHref}
-          />
-        ),
-      )}
+        );
+      })}
     </nav>
   );
 }

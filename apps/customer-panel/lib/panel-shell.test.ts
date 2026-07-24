@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import * as ReactModule from "react";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
@@ -329,8 +330,9 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "react") return ReactModule;
     if (specifier === "lucide-react") {
-      return { BadgeCheck: Icon, BadgeDollarSign: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Palette: Icon, Phone: Icon, PieChart: Icon, Puzzle: Icon, ReceiptText: Icon, ScanBarcode: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, Users: Icon, Warehouse: Icon };
+      return { BadgeCheck: Icon, BadgeDollarSign: Icon, BadgePercent: Icon, BarChart3: Icon, Calculator: Icon, ChevronDown: Icon, Code2: Icon, CreditCard: Icon, FileText: Icon, Gauge: Icon, Gift: Icon, Home: Icon, Languages: Icon, Layers3: Icon, Link2: Icon, ListTree: Icon, Mail: Icon, Map: Icon, Megaphone: Icon, MessageCircle: Icon, Newspaper: Icon, Package: Icon, Palette: Icon, Phone: Icon, PieChart: Icon, Puzzle: Icon, ReceiptText: Icon, ScanBarcode: Icon, ScrollText: Icon, SearchCheck: Icon, Settings: Icon, Settings2: Icon, Share2: Icon, ShieldCheck: Icon, ShoppingBag: Icon, ShoppingCart: Icon, SlidersHorizontal: Icon, Star: Icon, Store: Icon, Tags: Icon, Truck: Icon, Upload: Icon, Users: Icon, Warehouse: Icon };
     }
     if (specifier === "next/link") return Link;
     if (specifier === "next/navigation") return { usePathname: () => pathname };
@@ -356,6 +358,41 @@ async function renderPanelNavigation(pathname: string): Promise<string> {
   );
   assert.ok(compiledModule.exports.PanelNavigation);
   return renderToStaticMarkup(createElement(compiledModule.exports.PanelNavigation, { mode: "desktop" }));
+}
+
+async function createInteractivePanelNavigation(pathname: string) {
+  const documentState: HookTestDocumentState = { activeElement: null };
+  const EmptyRoot: HookTestComponent = () => null;
+  const harness = createPanelInteractionHarness(EmptyRoot, { mode: "desktop" }, documentState);
+  const Icon = (props: HookTestProps) => harness.jsxRuntime.jsx("svg", props);
+  const Link: HookTestComponent = ({ children, ...props }) => harness.jsxRuntime.jsx("a", { ...props, children });
+  const styles = new Proxy({}, {
+    get: (_target, property) => property === "__esModule"
+      ? true
+      : property === "default"
+        ? styles
+        : String(property),
+  });
+  const PanelNavigation = await compileHookTestComponent(
+    "components/panel/PanelNavigation.tsx",
+    (specifier) => {
+      if (specifier === "react/jsx-runtime") return harness.jsxRuntime;
+      if (specifier === "react") return harness.react;
+      if (specifier === "lucide-react") {
+        return new Proxy({ __esModule: true }, { get: (_target, property) => property === "__esModule" ? true : Icon });
+      }
+      if (specifier === "next/link") return Link;
+      if (specifier === "next/navigation") return { usePathname: () => pathname };
+      if (specifier === "@/lib/panel-ui/navigation") {
+        return { isPanelNavigationPathActive, PANEL_NAVIGATION };
+      }
+      if (specifier === "./panel-shell.module.css") return styles;
+      throw new Error(`unexpected_interactive_panel_navigation_import:${specifier}`);
+    },
+  );
+  harness.setRoot(PanelNavigation);
+  harness.flush();
+  return harness;
 }
 
 type DashboardPresentationInput = Readonly<{
@@ -562,6 +599,51 @@ test("desktop shell carries exact donor tokens, fixed width, topbar, and support
   assert.doesNotMatch(css, /width:\s*(?:15\.5|16)rem/);
   assert.match(css, /min-width:\s*1025px/);
   assert.match(layout, /panel-topbar-actions/);
+});
+
+test("desktop navigation exposes accessible dropdown groups and opens only the active family initially", async () => {
+  const harness = await createInteractivePanelNavigation("/products/collections");
+  try {
+    const toggles = () => harness.hosts().filter((host) => (
+      host.type === "button" && typeof host.props["aria-controls"] === "string"
+    ));
+    const toggle = (label: string) => toggles().find((host) => host.props["aria-label"] === label);
+    const children = (id: string) => harness.hosts().find((host) => host.props.id === id);
+
+    assert.equal(toggles().length, 9);
+    assert.equal(toggle("Ürünler alt menüsünü kapat")?.props["aria-expanded"], true);
+    assert.equal(children("panel-nav-catalog-desktop")?.props.hidden, false);
+    assert.equal(toggle("Siparişler alt menüsünü aç")?.props["aria-expanded"], false);
+    assert.equal(children("panel-nav-orders-desktop")?.props.hidden, true);
+
+    const ordersToggle = toggle("Siparişler alt menüsünü aç");
+    assert.ok(ordersToggle);
+    (ordersToggle.props.onClick as () => void)();
+    harness.flush();
+    assert.equal(toggle("Siparişler alt menüsünü kapat")?.props["aria-expanded"], true);
+    assert.equal(children("panel-nav-orders-desktop")?.props.hidden, false);
+
+    const catalogToggle = toggle("Ürünler alt menüsünü kapat");
+    assert.ok(catalogToggle);
+    (catalogToggle.props.onClick as () => void)();
+    harness.flush();
+    assert.equal(toggle("Ürünler alt menüsünü aç")?.props["aria-expanded"], false);
+    assert.equal(children("panel-nav-catalog-desktop")?.props.hidden, true);
+  } finally {
+    harness.unmount();
+  }
+});
+
+test("sidebar uses the requested dark Celebix logo from a local immutable asset", async () => {
+  const sidebar = await source("components/panel/PanelSidebar.tsx");
+  assert.match(sidebar, /\/Logo\/celebix-koyu-logo[.]svg/);
+  assert.match(sidebar, /styles[.]brandMark/);
+  assert.doesNotMatch(sidebar, /https?:\/\//);
+
+  const logo = await source("public/Logo/celebix-koyu-logo.svg");
+  assert.match(logo, /viewBox="0 0 2000 878"/);
+  assert.match(logo, /fill="#2B2B2B"/);
+  assert.match(logo, /fill="#FE6100"/);
 });
 
 test("desktop topbar follows route transitions while the active bridge keeps precedence", async () => {
@@ -1946,8 +2028,8 @@ test("shared panel data table keeps aligned padded readable cells without fixing
 test("effective small shell text colors meet AA without weakening orange brand or focus tokens", async () => {
   const css = await source("components/panel/panel-shell.module.css");
   const sidebar = await source("components/panel/PanelSidebar.tsx");
-  const logo = await source("public/Logo/celebix-beyaz-logo.svg");
-  assert.match(sidebar, /<Image src="\/Logo\/celebix-beyaz-logo\.svg"/);
+  const logo = await source("public/Logo/celebix-koyu-logo.svg");
+  assert.match(sidebar, /<Image src="\/Logo\/celebix-koyu-logo\.svg"/);
   assert.match(logo, /fill="#FE6100"/i);
   for (const [override, expectedFailure] of [
     [

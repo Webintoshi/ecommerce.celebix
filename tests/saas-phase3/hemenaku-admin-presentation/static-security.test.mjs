@@ -190,6 +190,15 @@ test("ports the exact donor brand asset and core visual tokens", async () => {
   assert.match(css, /--panel-touch-target:\s*48px/i);
 });
 
+test("browser acceptance serves the requested dark Celebix logo from the local target asset", async () => {
+  const route = await read("tests/saas-phase3/hemenaku-admin-presentation/browser-fixture/app/Logo/celebix-koyu-logo.svg/route.ts");
+  assert.match(route, /apps\/customer-panel\/public\/Logo\/celebix-koyu-logo[.]svg/);
+  assert.match(route, /readFile/);
+  assert.match(route, /resolve\(\s*process[.]cwd\(\)/);
+  assert.doesNotMatch(route, /new URL|fileURLToPath/);
+  assert.doesNotMatch(route, /https?:\/\//);
+});
+
 test("exports donor-compatible page primitives and truthful dashboard geometry", async () => {
   const source = await read("apps/customer-panel/components/panel/PanelPageShell.tsx");
   for (const name of ["PanelPageShell", "PanelPageHeader", "PanelPanel", "PanelToolbar", "PanelBadge", "PanelStatusBadge", "PanelMetricCard", "PanelDataTable", "PanelLoadingState", "PanelActionButton", "PanelEmptyState", "PanelSkeletonBlock"]) {

@@ -20,7 +20,9 @@ import styles from "./panel-shell.module.css";
 function PanelBrand({ onClick }: { onClick?: () => void }) {
   return (
     <Link className={styles.brand} href="/" aria-label="Celebix Panel ana sayfa" onClick={onClick}>
-      <Image src="/Logo/celebix-beyaz-logo.svg" width={126} height={34} alt="Celebix" priority />
+      <span className={styles.brandMark}>
+        <Image src="/Logo/celebix-koyu-logo.svg" width={2000} height={878} alt="Celebix" priority />
+      </span>
     </Link>
   );
 }
